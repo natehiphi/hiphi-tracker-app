@@ -18,8 +18,8 @@
 // today 9:30 AM", "2 bills alive · House and Senate", "No bills this session". At most four facts a card (spec 8).
 // The find box is R-272's (issuestand.js searcher: words in any order, bill numbers with or without the space).
 import { S, SESSION_OVER, esc } from './data.js';
-import { stopOf, whenAt, lateLine } from './model.js';
-import { icon, iconBtn, btn, pickerSheet, andWords } from './ui.js';
+import { whenAt, lateLine } from './model.js';
+import { icon, iconBtn, btn, pickerSheet } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb } from './issuestand.js';
@@ -27,27 +27,34 @@ import { nw } from './steps.js';
 
 // ---- the picture: an icon on a soft tint ----
 // Six tints, in the topics' order (tokens in issues.css .ig6-tint1..6, each a wash of one hue with a darker ink of the same
-// hue for the icon). A topic or coalition takes its tint by its place in its list, so a seventh wraps round.
+// hue for the icon). A topic takes its tint by its place in its list, so a seventh wraps round. Coalitions take the neutral
+// wash (tint null): a topic's tint means that topic, never a coalition (the critic).
 export const TINTS = 6;
-export const tintOf = n => `ig6-tint${(((n % TINTS) + TINTS) % TINTS) + 1}`;
+export const tintOf = n => n == null ? 'ig6-tint0' : `ig6-tint${(((n % TINTS) + TINTS) % TINTS) + 1}`;   // null: the neutral wash
 // The apple stays a salad on Staff until Nate picks Food's new icon on R-339's round-2 sheet (bills.js STAFF_TOPIC_IC).
 const STAFF_IC = { apple: 'salad' };
 export const staffIcon = name => { const n = STAFF_IC[name] || name; return ICONS[n] ? n : ''; };
+// The icons the topics wear, as Staff shows them: a coalition whose icon is one of these takes a monogram instead, so a
+// picture keeps one meaning (HEAL's salad is Food's on Staff, CTFH's crossed-out cigarette is Tobacco's).
+export const topicIcons = () => new Set((S.categories || []).flatMap(c => [c.icon, staffIcon(c.icon)]).filter(Boolean));
 const catOf = k => (S.categories || []).find(c => c.key === k) || null;
 const catIndex = k => (S.categories || []).findIndex(c => c.key === k);
-// The picture: the icon, or a monogram ("FS" for Farm to School) when there is none. Decorative: the card's name says it.
+// The picture: the icon, or a monogram ("FS" for Farm to School) when there is none. Decorative: the card's name says it,
+// so the monogram is drawn by CSS (issues.css .ig6-mono::before), as Everyone draws a missing photo's initial, and is not
+// read as one more fact of the card.
 export const picHTML = ({ ic = '', mono = '', tint = 0, small = false } = {}) =>
-  `<span class="ig6-pic ${tintOf(tint)}${small ? ' ig6-pic-sm' : ''}" aria-hidden="true">${ic ? icon(ic) : `<span class="ig6-mono">${esc(mono)}</span>`}</span>`;
+  `<span class="ig6-pic ${tintOf(tint)}${small ? ' ig6-pic-sm' : ''}" aria-hidden="true">${ic ? icon(ic) : `<span class="ig6-mono" data-m="${esc(mono)}"></span>`}</span>`;
 export const monogram = name => { const w = String(name || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
   return (w.length > 1 && !/^[A-Z]{2,}$/.test(w[0]) ? w.slice(0, 2).map(x => x[0]) : [w[0]?.slice(0, 2) || '?']).join('').toUpperCase(); };
 
 // ---- a card ----
 // The whole card is one link (rule 10: focus ring on it, Back puts the focus on it again). `foot`: a control that sits on the
-// card outside the link (the Coalitions tab's I help); `letter`: A to Z's corner badge; `lines`: [html, cls, fit] (fit: the
+// card outside the link (the Coalitions tab's I help); `after`: a short name after the name, small and muted (a coalition's
+// "· CHW"); `letter`: A to Z's corner badge; `lines`: [html, cls, fit] (fit: the
 // words fitLines fits to the line's box).
-export function cardHTML({ key, href, name, title = '', pic, lines = [], foot = '', letter = '', anchor = '' }) {
-  return `<div class="ig6-cell" role="listitem" data-igcard="${esc(key)}"${anchor ? ` id="${esc(anchor)}"` : ''}><div class="ig6-card${foot ? ' has-foot' : ''}">
-    <a class="ig6-link" href="${esc(href)}"${title ? ` title="${esc(title)}"` : ''}>${pic}${letter ? `<span class="ig6-badge" aria-hidden="true">${esc(letter)}</span>` : ''}<span class="ig6-body"><span class="ig6-name">${esc(name)}</span>${lines.filter(l => l && l[0]).map(([h, c, fit]) => `<span class="${c}"${fit ? ` data-fit="${esc(fit)}"` : ''}>${h}</span>`).join('')}</span></a>
+export function cardHTML({ key, href, name, after = '', title = '', pic, lines = [], foot = '', letter = '', anchor = '', cls = '' }) {
+  return `<div class="ig6-cell${cls ? ' ' + cls : ''}" role="listitem" data-igcard="${esc(key)}"${anchor ? ` id="${esc(anchor)}"` : ''}><div class="ig6-card${foot ? ' has-foot' : ''}">
+    <a class="ig6-link" href="${esc(href)}"${title ? ` title="${esc(title)}"` : ''}>${pic}${letter ? `<span class="ig6-badge" aria-hidden="true">${esc(letter)}</span>` : ''}<span class="ig6-body"><span class="ig6-name">${esc(name)}${after ? `<span class="ig6-after"> · ${esc(after)}</span>` : ''}</span>${lines.filter(l => l && l[0]).map(([h, c, fit]) => `<span class="${c}"${fit ? ` data-fit="${esc(fit)}"` : ''}>${h}</span>`).join('')}</span></a>
     ${foot ? `<div class="ig6-foot">${foot}</div>` : ''}</div></div>`;
 }
 export const gridHTML = (inner, label) => `<div class="ig6-grid" role="list" aria-label="${esc(label)}">${inner}</div>`;
@@ -71,6 +78,7 @@ export function wireJump(root) {
   root.querySelectorAll('details.ig6-fold').forEach(d => d.addEventListener('toggle', () => { if (d.open) fitLines(d); }));
   const r = root.querySelector('.ig6-jump .lg6-jrow'); if (!r) return;
   const set = () => { const over = r.scrollWidth > r.clientWidth + 1; r.classList.toggle('ovf', over); r.classList.toggle('atstart', r.scrollLeft <= 1); r.classList.toggle('atend', r.scrollLeft + r.clientWidth >= r.scrollWidth - 1); };
+  r.scrollLeft = 0;   // a phone's chip row starts at its first chip
   set(); r.addEventListener('scroll', set, { passive: true });
 }
 // Fits each description to its two lines: drops whole words from the end, then adds "…", until the line box holds it.
@@ -117,17 +125,14 @@ export function cutWords(t, max) {
   const cut = first.slice(0, max + 1), at = Math.max(cut.lastIndexOf(' '), 0);
   return (at > max * 0.5 ? cut.slice(0, at) : cut.slice(0, max)).replace(/[\s,;:–—-]+$/, '') + '…';
 }
-// Where an issue's live bills are now: "House and Senate", "in the Senate", "with the Governor".
+// Where its live bills started, as the issue's page and My issues count it: "House and Senate" is a House bill (HB) and a
+// Senate bill (SB) alive; one chamber alone is "House bills" or "a Senate bill".
 function whereWords(bills) {
-  const at = new Set();
-  for (const b of bills) { const st = stopOf(b);
-    if (st.phase === 'governor') at.add('G'); else if (st.phase === 'law') at.add('L');
-    else if (st.chamber === 'H' || st.chamber === 'S') at.add(st.chamber);
-    else { const m = /^(H|S)/i.exec(b.bill_number || ''); if (m) at.add(m[1].toUpperCase()); } }
-  const ws = [at.has('H') ? 'House' : '', at.has('S') ? 'Senate' : '', at.has('G') ? 'the Governor' : '', at.has('L') ? 'law' : ''].filter(Boolean);
-  if (!ws.length) return '';
-  if (ws.length === 1) return ws[0] === 'the Governor' ? 'with the Governor' : ws[0] === 'law' ? 'law now' : `in the ${ws[0]}`;
-  return andWords(ws);
+  const n = { H: 0, S: 0 };
+  for (const b of bills) { const m = /^\s*(H|S)/i.exec(b.bill_number || ''); if (m) n[m[1].toUpperCase()]++; }
+  if (n.H && n.S) return 'House and Senate';
+  const k = n.H ? 'House' : n.S ? 'Senate' : '', c = n.H || n.S;
+  return k ? (c === 1 ? `a ${k} bill` : `${k} bills`) : '';
 }
 const aliveWords = x => { const n = x.going.length, w = whereWords(x.going); return `${plural(n, 'bill')} alive${w ? ` · ${w}` : ''}`; };
 // The hearing that leads, in words: the viewer's own step says so; the testimony states are those of steps.js.
@@ -170,8 +175,9 @@ function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) 
   // A quiet tag ("Not public yet", "Not in the first visit") takes the description's line: it is what staff need to know
   // about that issue, and the card stays four facts and the same height (the description is still the title).
   const line = tags.length ? [esc(tags.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
-  return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor,
-    pic: picHTML({ ic: staffIcon(c?.icon || '') || 'tag', tint: Math.max(catIndex(i.category), 0) }),
+  return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
+    // The topic's icon (Nate's pick). Hook for R-339: an issue that gets its own icon (issues.icon) shows that instead.
+    pic: picHTML({ ic: staffIcon(i.icon || '') || staffIcon(c?.icon || '') || 'tag', tint: Math.max(catIndex(i.category), 0) }),
     lines: [line, statusHTML(st)] });
 }
 
@@ -187,8 +193,9 @@ export const setSort = v => { S.igSort = v; try { localStorage.setItem(KEY, v); 
 const byName = (a, b) => a.i.name.localeCompare(b.i.name, 'en', { sensitivity: 'base' });
 const WEEK = 7 * 864e5;
 const atRisk = l => l.filter(x => x.state === 'risk').length, hearWeek = l => l.filter(x => x.hear && new Date(x.hear.h.scheduled_at) - Date.now() <= WEEK).length;
-// "18 issues, 1 at risk, 3 with a hearing this week": one fact, commas (issuestand.js topicCount's words).
-const countWords = l => [plural(l.length, 'issue'), atRisk(l) ? `${atRisk(l)} at risk` : '', hearWeek(l) ? `${hearWeek(l)} with a hearing this week` : ''].filter(Boolean).join(', ');
+// "1 at risk, 3 with a hearing this week": one fact, commas (issuestand.js topicCount's words). How many issues is the chip's
+// number, so the heading does not say it again (A-14).
+const countWords = l => [atRisk(l) ? `${atRisk(l)} at risk` : '', hearWeek(l) ? `${hearWeek(l)} with a hearing this week` : ''].filter(Boolean).join(', ');
 
 function topicGroups(list, o) {
   return (S.categories || []).map((c, k) => { const l = list.filter(x => x.i.category === c.key).sort(byName); if (!l.length) return null;
@@ -210,7 +217,8 @@ function deadlineGroupsOf(list, o) {
     return { id: `ig6-d-${k}`, title, n: l.length, folded, count: folded ? '' : plural(l.length, 'issue'), inner: l.map(x => issueCard(x, { tags: o.tagsOf(x) })).join('') };
   }).filter(Boolean);
 }
-const sortWords = k => (SORTS.find(s => s[0] === k) || SORTS[0])[1].replace(/^By /, 'by ').replace(/^A to Z$/, 'A to Z');
+const sortLabel = k => (SORTS.find(s => s[0] === k) || SORTS[0])[1];
+const sortWords = k => sortLabel(k).replace(/^By /, 'by ');
 
 // The body for the sort in force; a search shows its matches in one grid. `tagsOf(x)`: the quiet tags of an issue.
 export function gridBody(issues, { q = '', tagsOf = () => [] } = {}) {
@@ -238,14 +246,14 @@ export function gridBody(issues, { q = '', tagsOf = () => [] } = {}) {
 
 // ---- the tools: the find box, Sort, and (on a phone) New issue ----
 // The find box stays open at every width here: with chips and cards under it, the box is the quickest way to an issue
-// (Nate's "hard to find what you're looking for"). Sort opens a picker, as on Everyone; its label stays short and says the
-// order to a screen reader. `extra`: the phone's New issue button.
+// (Nate's "hard to find what you're looking for"). Sort opens a picker, as on Everyone, and says the order in force in the
+// picker's own words ("Sort: By topic"). `extra`: the phone's New issue button.
 export const toolsHTML = (q, { extra = '' } = {}) => `<div class="i6-tools ig6-tools open" data-istools="is-q">
     <div class="i6-find" id="is-q-find">${icon(ICONS['list-filter'] ? 'list-filter' : 'search')}<input id="is-q" type="search" placeholder="${narrow() ? 'Find an issue' : 'Find an issue or a bill'}" value="${esc(q)}" autocomplete="off" aria-label="Find an issue: a word, a bill number or a bill’s nickname" aria-controls="is-q-body">${iconBtn('x', 'Clear the box', { 'data-istq': 'clear', hidden: !q })}</div>
-    ${btn('Sort', { kind: 'secondary', sm: true, iconEnd: 'chevron-down', cls: 'ig6-sortb', attrs: { 'data-igsort': '1', 'aria-haspopup': 'dialog', 'aria-label': `Sort, now ${sortWords(sortOf())}`, hidden: !!q.trim() } })}
+    ${btn(`Sort: ${esc(sortLabel(sortOf()))}`, { kind: 'secondary', sm: true, iconEnd: 'chevron-down', cls: 'ig6-sortb', attrs: { 'data-igsort': '1', 'aria-haspopup': 'dialog', hidden: !!q.trim() } })}
     ${extra}
   </div>`;
 export function pickSort(root, paint) {
   pickerSheet({ title: 'Sort the issues', value: sortOf(), options: SORTS.map(([k, l]) => [k, l]),
-    onPick: v => { setSort(v); const b = root.querySelector('[data-igsort]'); if (b) b.setAttribute('aria-label', `Sort, now ${sortWords(v)}`); paint(); root.querySelector('[data-igsort]')?.focus(); } });
+    onPick: v => { setSort(v); const s = root.querySelector('[data-igsort] > span'); if (s) s.textContent = `Sort: ${sortLabel(v)}`; paint(); root.querySelector('[data-igsort]')?.focus(); } });
 }

@@ -263,7 +263,7 @@ const index = {
     const v = V();
     // New issue on the title's row (a phone: an icon button at the end of the filter line, where the title is the top bar's).
     const acts = btn('New issue', { kind: 'secondary', icon: 'plus', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog' } });
-    const phoneNew = iconBtn('plus', 'New issue', { 'data-is': 'new', 'aria-haspopup': 'dialog' }, 'i6-newic');
+    const phoneNew = btn('New', { kind: 'secondary', sm: true, icon: 'plus', cls: 'i6-newic', attrs: { 'data-is': 'new', 'aria-haspopup': 'dialog', 'aria-label': 'New issue' } });   // labelled, not a bare + (the critic)
     if (!(S.categories || []).length) return `<div class="le-page i6-page">${headHTML('all')}<div class="le-empty">${empty({ title: 'Issues are not set up yet', text: 'They arrive with migration 063. Ask Claude to load the list.' })}</div></div>`;
     // The admins' All issues · Prep board switch (F165) shows between sessions, when the prep is the work, or while an issue
     // waits for an admin; in session a November job never sits over the list (the critic). Today's line and Team link the

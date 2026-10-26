@@ -12,8 +12,12 @@
 #      groups: This week, Next deadlines...); the pick is remembered on this device.
 #   4. The find box matches words and bill numbers ("HB 1779" and "hb1779"), Sort steps aside while it shows matches, and
 #      clearing it brings the groups back. New issue opens its form.
-#   5. Coalitions: your coalition first, then the others; each card its icon (or a monogram when it has none), its short and
-#      full name, its owner and its week; I help stays on the card and still works (and Undo).
+#   5. Coalitions: your coalition first, then the others; each card its icon on the neutral wash (a monogram when it has
+#      none or its icon is a topic's), its full name then its short one, its owner and its week; I help stays on the card,
+#      says what it does in its title, and still works.
+#   The critic's round (walk 3): a 56px band and four cards a row on a laptop, one compact card a row on a phone (a 40px
+#   disc, the name, the status line), "Sort: By topic", no issue count on a topic heading, "New" labelled on a phone, chips
+#   that start at their start, and "House and Senate" only for an HB and an SB alive.
 #   6. No sideways scroll and no page errors.
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_issuegrid.py      exits 1 when a check fails
@@ -29,7 +33,7 @@ def overflow(pg): return pg.page.evaluate('document.documentElement.scrollWidth 
 CARDS = """[...document.querySelectorAll('#is-q-body .ig6-cell, .co6-index .ig6-cell')].map(c => { const a = c.querySelector('.ig6-link');
   return { id: c.dataset.igcard, href: a.getAttribute('href'), title: a.getAttribute('title') || '', name: a.querySelector('.ig6-name')?.innerText.trim(),
     desc: [...a.querySelectorAll('.ig6-desc')].map(e => e.innerText.trim()), stat: a.querySelector('.ig6-stat')?.innerText.trim() || '',
-    links: a.querySelectorAll('a, button').length, svg: !!a.querySelector('.ig6-pic svg'), mono: a.querySelector('.ig6-mono')?.innerText || '',
+    links: a.querySelectorAll('a, button').length, svg: !!a.querySelector('.ig6-pic svg'), mono: a.querySelector('.ig6-mono')?.dataset.m || '',
     tint: [...a.querySelector('.ig6-pic').classList].find(k => /^ig6-tint/.test(k)) || '', badge: a.querySelector('.ig6-badge')?.innerText || '',
     group: c.closest('section, details')?.querySelector('h2, summary')?.innerText.trim() || '', foot: [...c.querySelectorAll('.ig6-foot button')].map(b => [b.innerText.trim(), b.getAttribute('aria-pressed')]) }; })"""
 def cards(pg): return pg.page.evaluate(CARDS)
@@ -49,14 +53,15 @@ with L.browser() as B:
     pg = B.page('NT', w, h); pg.open(ALL)
     pg.page.evaluate("try { localStorage.removeItem('sv6_allissues_sort') } catch {}")
     pg.open(ALL)
-    data = pg.page.evaluate("""import('./staff6/data.js').then(m => ({ cats: m.S.categories.map(c => ({ key: c.key, name: c.name })),
+    data = pg.page.evaluate("""import('./staff6/data.js').then(m => ({ topic_icons: [...new Set(m.S.categories.flatMap(c => [c.icon, c.icon === 'apple' ? 'salad' : c.icon]))], cats: m.S.categories.map(c => ({ key: c.key, name: c.name })),
       issues: m.S.issues.filter(i => !i.archived_at).map(i => ({ id: i.id, name: i.name, cat: i.category, desc: i.description || '' })),
       camps: m.S.campaigns.map(c => ({ id: c.id, name: c.name, full: c.public_name, owner: c.owner_id, icon: c.icon })), me: m.S.me.id }))""")
     by = {i['id']: i for i in data['issues']}
     cat_name = {c['key']: c['name'] for c in data['cats']}
 
     # ---- 1. By topic ----
-    R.check(f'{w}: Sort says by topic by default', pg.page.get_attribute('[data-igsort]', 'aria-label') == 'Sort, now by topic', pg.page.get_attribute('[data-igsort]', 'aria-label'))
+    sortl = lambda: pg.page.inner_text('[data-igsort]').strip()
+    R.check(f'{w}: Sort names the order in force: "Sort: By topic" by default', sortl() == 'Sort: By topic', sortl())
     topics = [c['name'] for c in data['cats'] if any(i['cat'] == c['key'] for i in data['issues'])]
     R.check(f'{w}: grouped by topic, the six in order', heads(pg) == topics, heads(pg))
     cs = cards(pg)
@@ -67,7 +72,7 @@ with L.browser() as B:
     n_of = {t: sum(1 for c in cs if c['group'] == t) for t in topics}
     R.check(f'{w}: a jump chip per topic, with its count', chips(pg) == [f'{t} {n_of[t]}' for t in topics], chips(pg))
     sn = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-sn')].map(e => e.innerText.trim())")
-    R.check(f'{w}: each topic heading counts its issues', all(s.startswith(f'{n_of[t]} issues') for s, t in zip(sn, topics)) and len(sn) == len(topics), sn[:2])
+    R.check(f'{w}: a topic heading says only what the chip does not (no issue count again)', all(re.fullmatch(r'(\d+ at risk|\d+ with a hearing this week)(, \d+ with a hearing this week)?', s) for s in sn) and not any('issue' in s for s in sn), sn[:3])
     R.check(f'{w}: each topic heading carries its icon', pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-sh')].every(s => s.querySelector('.ig6-pic svg'))"))
     pg.page.click('.ig6-jump .lg6-jchip >> nth=3'); pg.page.wait_for_timeout(900)
     jt = pg.page.evaluate("(() => { const h = document.querySelector('#ig6-g-family'); const r = h.getBoundingClientRect(); return [Math.round(r.top), document.activeElement === h]; })()")
@@ -77,6 +82,11 @@ with L.browser() as B:
       st = pg.page.evaluate("(() => { const r = document.querySelector('#ig6-g-care').closest('.ig6-sh').getBoundingClientRect(); return Math.round(r.top); })()")
       R.check(f'{w}: on a phone the topic heading stays under the top bar while its cards pass', 40 <= st <= 70, st)
     pg.page.evaluate('scrollTo(0, 0)'); pg.page.wait_for_timeout(200)
+    if w < 768:
+      pg.open(ALL)
+      R.check(f'{w}: the chip row starts at its first chip', pg.page.evaluate("document.querySelector('.ig6-jump .lg6-jrow').scrollLeft") == 0)
+    hv = pg.page.evaluate("(() => { const r = [...document.styleSheets].flatMap(s => { try { return [...s.cssRules]; } catch { return []; } }).flatMap(r => r.cssRules ? [...r.cssRules] : [r]).find(r => r.selectorText === 'body.staff6 .ig6-jump .lg6-jchip:hover'); return r ? r.style.background : ''; })()")
+    R.check(f'{w}: a chip\'s hover is the page\'s wash, not the selected teal', 'wash-hover' in hv, hv)
     shot(pg, 'all-by-topic')
 
     # ---- 2. the cards ----
@@ -96,13 +106,25 @@ with L.browser() as B:
     R.check(f'{w}: the whole description is the card\'s title', all(c['title'] == by[c['id']]['desc'] for c in cs))
     nclamp = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-desc')].filter(e => e.scrollHeight > e.clientHeight + 2).length")
     R.check(f'{w}: no description runs past its two lines (the cut is the word\'s, not the box\'s)', nclamp == 0, nclamp)
-    STAT = r'(At risk: .+ needs? a hearing( by .+)?|Safe, but a bill on it is dying: .+|(Your step: testimony|Testimony) (due .+|late, still accepted until .+)|Testimony filed, hearing .+|Testimony missed|Hearing .+|.+ needs? a hearing by .+|\d+ bills? alive( · (House and Senate|in the (House|Senate)|with the Governor|.+))?|HIPHI opposes it · \d+ bills? alive|No bills this session|Nothing moving this session|Its bills did not advance|No \d{4} bills on it( yet)?|\d+ bills? in \d{4}|Safe: .+|Next deadline: .+|Bills must .+)'
+    STAT = r'(At risk: .+ needs? a hearing( by .+)?|Safe, but a bill on it is dying: .+|(Your step: testimony|Testimony) (due .+|late, still accepted until .+)|Testimony filed, hearing .+|Testimony missed|Hearing .+|.+ needs? a hearing by .+|\d+ bills? alive( · (House and Senate|a (House|Senate) bill|(House|Senate) bills))?|HIPHI opposes it · \d+ bills? alive|No bills this session|Nothing moving this session|Its bills did not advance|No \d{4} bills on it( yet)?|\d+ bills? in \d{4}|Safe: .+|Next deadline: .+|Bills must .+)'
     bad = [c['stat'] for c in cs if not re.fullmatch(STAT, c['stat'])]
     R.check(f'{w}: one status line in words on every card', not bad, bad[:4])
     R.check(f'{w}: the status lines vary (alive, at risk or a hearing, no bills)', any('alive' in c['stat'] for c in cs) and any(re.match(r'(At risk|Testimony|Your step|Hearing)', c['stat']) for c in cs), sorted({c['stat'][:14] for c in cs})[:6])
     R.check(f'{w}: "2 bills alive · House and Senate" reads as Nate wrote it', any(re.fullmatch(r'\d+ bills alive · House and Senate', c['stat']) for c in cs))
+    hs_ok = pg.page.evaluate("""Promise.all([import('./staff6/data.js'), import('./staff6/issuestand.js')]).then(([m, I]) => m.S.issues.filter(i => !i.archived_at).map(I.standOf).map(x => {
+      const H = x.going.some(b => /^\\s*H/i.test(b.bill_number)), S = x.going.some(b => /^\\s*S/i.test(b.bill_number)); return [x.i.id, H && S]; }))""")
+    both = dict(hs_ok)
+    bad = [c['name'] for c in cs if 'alive' in c['stat'] and ('House and Senate' in c['stat']) != both[c['id']]]
+    R.check(f'{w}: "House and Senate" means a House bill and a Senate bill alive, by where they started', not bad, bad[:3])
     n = per_row(pg)
-    R.check(f'{w}: {"four or five" if w >= 768 else "two"} cards a row', (4 <= n <= 5) if w >= 768 else n == 2, n)
+    R.check(f'{w}: {"four" if w >= 768 else "one compact"} card{"s" if w >= 768 else ""} a row', n == 4 if w >= 768 else n == 1, n)
+    if w < 768:
+      ch = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-card')].slice(0, 40).map(c => Math.round(c.getBoundingClientRect().height))")
+      R.check(f'{w}: phone cards are compact (a disc, the name and the status line, about 90px)', max(ch) <= 124 and sorted(ch)[len(ch) // 2] <= 100, (min(ch), sorted(ch)[len(ch) // 2], max(ch)))
+      R.check(f'{w}: phone cards: the icon a 40px disc on the left, no description', pg.page.evaluate("(() => { const c = document.querySelector('#is-q-body .ig6-issue'); const p = c.querySelector('.ig6-pic').getBoundingClientRect(), n = c.querySelector('.ig6-name').getBoundingClientRect(); const d = c.querySelector('.ig6-desc'); return Math.round(p.width) === 40 && p.right < n.left && (!d || !d.getClientRects().length); })()"))
+    else:
+      bh = pg.page.evaluate("Math.round(document.querySelector('#is-q-body .ig6-cell .ig6-pic').getBoundingClientRect().height)")
+      R.check(f'{w}: the picture band is short (about 56px)', 50 <= bh <= 60, bh)
     R.check(f'{w}: no sideways scroll (by topic)', overflow(pg) <= 0, overflow(pg))
 
     # ---- 3. the sorts ----
@@ -114,10 +136,10 @@ with L.browser() as B:
       k = c['name'][0].upper()
       if not letters or letters[-1] != k: letters.append(k)
     R.check(f'{w}: A to Z: a letter badge on each letter\'s first card, and a chip per letter', [c['badge'] for c in cs2 if c['badge']] == letters and chips(pg) == letters, chips(pg)[:6])
-    R.check(f'{w}: Sort says A to Z', pg.page.get_attribute('[data-igsort]', 'aria-label') == 'Sort, now A to Z')
+    R.check(f'{w}: Sort says A to Z', sortl() == 'Sort: A to Z', sortl())
     pg.page.evaluate('scrollTo(0, 0)'); shot(pg, 'all-a-to-z')
     pg.open(ALL)
-    R.check(f'{w}: the sort is remembered on this device', pg.page.get_attribute('[data-igsort]', 'aria-label') == 'Sort, now A to Z')
+    R.check(f'{w}: the sort is remembered on this device', sortl() == 'Sort: A to Z', sortl())
     sort(pg, 'By next deadline'); hs = heads(pg)
     order = ['This week', 'Next deadlines', 'Safe for now', 'Nothing moving this session', 'No bills yet']
     R.check(f'{w}: By next deadline: R-272\'s groups in order', hs and hs[0] == 'This week' and hs == [x for x in order if x in hs], hs)
@@ -154,7 +176,7 @@ with L.browser() as B:
     pg.page.click('[data-istq="clear"]'); pg.page.wait_for_timeout(400)
     R.check(f'{w}: clearing the box brings the topics back, and Sort', heads(pg) == topics and pg.page.evaluate("document.querySelector('[data-igsort]').hidden") is False, heads(pg)[:2])
     nb = pg.page.locator('[data-is="new"]:visible')
-    R.check(f'{w}: New issue is in view', nb.count() == 1, nb.count())
+    R.check(f'{w}: New issue is in view, labelled ("New issue" on a laptop, "New" on a phone)', nb.count() == 1 and nb.first.inner_text().strip() == ('New issue' if w >= 768 else 'New'), [nb.nth(k).inner_text() for k in range(nb.count())])
     if nb.count():
       nb.first.click(); pg.page.wait_for_timeout(600)
       R.check(f'{w}: New issue opens its form', pg.page.evaluate("!!document.querySelector('dialog[open] input, dialog[open] textarea')"))
@@ -176,14 +198,21 @@ with L.browser() as B:
     mine = [c for c in cc if c['group'] == 'Your coalition']
     R.check(f'{w}: Coalitions: Nate\'s own coalition leads, with no I help on it', len(mine) == 1 and cby[mine[0]['id']]['owner'] == data['me'] and not mine[0]['foot'], mine[:1])
     R.check(f'{w}: each coalition card is one link to its page', all(c['links'] == 0 and c['href'] == f"#/coalition/{c['id']}" for c in cc))
-    R.check(f'{w}: each coalition card shows its icon on a tint', all(c['svg'] and c['tint'] for c in cc))
-    full_ok = all((c['desc'][0] == cby[c['id']]['full']) if cby[c['id']]['full'] and cby[c['id']]['full'] != c['name'] else True for c in cc)
-    R.check(f'{w}: each card names it and says its full name', all(c['name'] == cby[c['id']]['name'] for c in cc) and full_ok)
+    cards_by = {c['id']: c for c in cc}
+    R.check(f'{w}: each coalition card shows a picture: its icon or a monogram', all(c['svg'] or c['mono'] for c in cc))
+    norm = lambda s: re.sub(r'[^a-z0-9]', '', (s or '').lower())
+    want = lambda k: (k['full'] or k['name']) + (f" · {k['name']}" if norm(k['full'] or k['name']) != norm(k['name']) else '')
+    R.check(f'{w}: each card leads with the full name, the short name after it ("Community Health Workers · CHW")', all(c['name'] == want(cby[c['id']]) for c in cc), [c['name'] for c in cc][:3])
     R.check(f'{w}: each card says its owner', all(re.fullmatch(r'You own it|Owner: .+|No owner yet', c['desc'][-1]) for c in cc), [c['desc'] for c in cc][:2])
     R.check(f'{w}: each card says its week', all(re.fullmatch(r'(\d+ live bills?|No live bills), (\d+ hearings? this week|no hearings this week)', c['stat']) for c in cc), [c['stat'] for c in cc][:3])
     R.check(f'{w}: I help on every coalition Nate does not own', all(c['foot'] and c['foot'][0][0] == 'I help' for c in cc if c not in mine))
     n = per_row(pg, '.co6-index section:nth-of-type(2) .ig6-cell')
-    R.check(f'{w}: Coalitions: {"four or five" if w >= 768 else "two"} cards a row', (4 <= n <= 5) if w >= 768 else n == 2, n)
+    R.check(f'{w}: Coalitions: {"four" if w >= 768 else "one"} card{"s" if w >= 768 else ""} a row', n == 4 if w >= 768 else n == 1, n)
+    R.check(f'{w}: coalition cards wear the neutral wash, never a topic\'s tint', all(c['tint'] == 'ig6-tint0' for c in cc), sorted({c['tint'] for c in cc}))
+    clash = [c for c in data['camps'] if c['icon'] in data['topic_icons']]
+    R.check(f'{w}: a coalition whose icon is a topic\'s shows a monogram instead', clash and all(cards_by[c['id']]['mono'] and not cards_by[c['id']]['svg'] for c in clash), [c['name'] for c in clash])
+    helpt = pg.page.evaluate("[...document.querySelectorAll('.co6-index [data-misup]')].map(b => b.title)")
+    R.check(f'{w}: I help says what it does in its title', helpt and all(x == 'Adds you as a helper: its bills show on your Today' for x in helpt), helpt[:1])
     R.check(f'{w}: Coalitions: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     shot(pg, 'coalitions')
     other = next(c for c in cc if c not in mine)
@@ -196,7 +225,7 @@ with L.browser() as B:
     R.check(f'{w}: pressed again, it lets go', pg.page.get_attribute(sel, 'aria-pressed') == 'false')
     # a coalition with no icon gets a monogram, never a broken or stand-in picture
     pg.page.evaluate(f"import('./staff6/data.js').then(m => {{ const c = m.S.campaigns.find(c => c.id === '{other['id']}'); c.icon = ''; m.hooks.render(); }})"); pg.page.wait_for_timeout(500)
-    mono = pg.page.evaluate(f"document.querySelector('[data-igcard=\"{other['id']}\"] .ig6-mono')?.innerText || ''")
+    mono = pg.page.evaluate(f"(() => {{ const m = document.querySelector('[data-igcard=\"{other['id']}\"] .ig6-mono'); return m ? getComputedStyle(m, '::before').content.replace(/\"/g, '') : ''; }})()")
     R.check(f'{w}: a coalition with no icon shows a monogram', bool(re.fullmatch(r'[A-Z0-9]{1,2}', mono)), mono)
     R.check(f'{w}: Coalitions: no page errors', not pg.errors, pg.errors[:2])
     pg.close()

@@ -24,7 +24,7 @@ import { issuesOfBill } from './issues.js';
 import { headHTML as tabsHead, rememberRow, restoreRow, numNb } from './issuestand.js';
 import { isPos, byPri, waitingOfBills } from './standing.js';
 import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
-import { cardHTML, picHTML, monogram, groupHTML, restoreCard } from './issuegrid.js';   // R-336 walk 3: the index as cards
+import { cardHTML, picHTML, monogram, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
 import { ICONS } from '../icons.js';
 
 const WEEK = 7 * 864e5, FOLD = 6;
@@ -118,7 +118,7 @@ export function coalRow(c, { button = '' } = {}) {
 // The I help switch: a toggle button (aria-pressed), the one control a row may carry (D16), on every coalition its owner is
 // not (the owner has its work on Today already). Its name stays "I help" either way (WCAG 2.5.3); pressed, it shows a check.
 export const helpBtn = (c, on = supports(c)) => btn('I help', { kind: 'secondary', sm: true, icon: on ? 'check' : 'user-plus', cls: 'co6-help',
-  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': `I help on ${c.name}` } });
+  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': `I help on ${c.name}`, title: 'Adds you as a helper: its bills show on your Today' } });
 // This visit's switches: a coalition switched here stays in the section it was in until the next visit, showing its new
 // state, so the row under the pointer never changes (the critic: pressing I help moved the row up and slid the next one's
 // I help under the pointer). A visit is this history entry; a redraw keeps it, arriving again starts afresh.
@@ -162,20 +162,22 @@ export function helpLineHTML() {
 // coalitions a sort would add a control and find nothing faster (A-25), so there is none.
 const ownerLine = c => { const o = advocate(c.owner_id); return o ? (o.id === S.me?.id ? 'You own it' : `Owner: ${ownerFirst(o)}`) : 'No owner yet'; };
 const weekWords = c => { const f = facts(c); return `${f.live ? plural(f.live, 'live bill') : 'No live bills'}, ${hearWords(f.hear)}`; };
-function coalCard(c, k) {
+function coalCard(c) {
   // An icon Lucide has, or an emoji v5 kept that iconName knows; anything else gets the monogram, not iconName's stand-in.
-  const has = !!c.icon && (!!ICONS[c.icon] || iconName(c.icon) !== 'heart-pulse'), ic = has ? iconName(c.icon) : '';
-  const full = c.public_name && c.public_name !== c.name ? c.public_name : '';
-  return cardHTML({ key: c.id, href: coalHref(c), name: c.name, title: c.description || full,
-    pic: picHTML({ ic, mono: monogram(c.public_name || c.name), tint: k }),
-    lines: [[full ? esc(full) : '', 'ig6-desc co6-full'], [esc(ownerLine(c)), 'ig6-desc co6-own'], [`${icon('calendar-days')}<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']],
+  // A topic's icon (HEAL's salad, CTFH's crossed-out cigarette) means that topic on All issues, so here it is a monogram.
+  const has = !!c.icon && (!!ICONS[c.icon] || iconName(c.icon) !== 'heart-pulse'), ic = has && !topicIcons().has(iconName(c.icon)) ? iconName(c.icon) : '';
+  // The full name leads ("Community Health Workers"), the short name after it, small (the critic: "CHW" alone says nothing).
+  const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''), full = c.public_name || c.name, short = words(full) !== words(c.name) ? c.name : '';
+  return cardHTML({ key: c.id, href: coalHref(c), name: full, after: short, title: c.description || '', cls: 'co6-cell',
+    pic: picHTML({ ic, mono: monogram(full), tint: null }),
+    lines: [[esc(ownerLine(c)), 'ig6-desc co6-own'], [`${icon('calendar-days')}<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']],
     foot: ownsCoal(c) ? '' : helpBtn(c) });
 }
 export function coalCardsHTML({ yoursTitle = '' } = {}) {
-  const all = (S.campaigns || []).slice().sort(byOrder), st = stays(), tint = new Map(all.map((c, k) => [c.id, k]));
+  const all = (S.campaigns || []).slice().sort(byOrder), st = stays();
   const isMine = c => st.has(c.id) ? st.get(c.id) : supports(c) || ownsCoal(c);
   const mine = all.filter(isMine), rest = all.filter(c => !isMine(c));
-  const sec = (id, title, l) => groupHTML({ id, title, inner: l.map(c => coalCard(c, tint.get(c.id))).join('') });
+  const sec = (id, title, l) => groupHTML({ id, title, inner: l.map(c => coalCard(c)).join('') });
   return `<div class="ig6-groups co6-groups">${mine.length ? sec('co6-yh', yoursTitle || (mine.length === 1 ? 'Your coalition' : 'Your coalitions'), mine) : ''}
     ${rest.length ? sec('co6-oh', mine.length ? 'Other coalitions' : 'Coalitions', rest) : ''}</div>`;
 }
