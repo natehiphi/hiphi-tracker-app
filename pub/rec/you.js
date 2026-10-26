@@ -5,7 +5,8 @@
 //              accessibility, My issues link: Nate's 10/10 decision keeps it here). It was a 16-destination drawer
 //              (more-help-frame-firstvisit.md section 1); "Every bill HIPHI tracks" and "Committees" moved to Find's foot.
 //   #/privacy  "In short" open, every other section a closed card with its first sentence as the preview, Accessibility its
-//              own card near the top. The words are the page's own, unchanged (a lawyer should confirm any change to them).
+//              own card near the top. The words are the page's own (more.js PRIVACY), the fourth tab named You, not More
+//              (more.js youWords); a lawyer should confirm any change to them.
 // It also holds what the other pages under You share: the back row that names the page behind (B-4), the "Your alerts" row
 // Profile starts with, and this page group's stylesheet (pub/rec/you.css), which comes with the first page drawn under
 // ?rec=1 and holds a skeleton until it is in, so nothing draws unstyled.
@@ -145,14 +146,17 @@ export const profileAlertsRow = () => `<nav class="rc-card yu-pfal" aria-label="
 const plain = s => String(s).replace(/<\/(p|li)>/g, ' ').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const firstLine = p => { const s = plain(Array.isArray(p) ? p[0] : String(p).split('\n\n')[0]); const m = /^(.+?[.!?])(\s|$)/.exec(s); return m ? m[1] : s; };
 const body = p => Array.isArray(p) ? `<ul class="mr-factlist">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : String(p).split('\n\n').map(x => `<p>${x}</p>`).join('');
-export function privacyRec({ rows, updated, policy, a11y }) {
+// The short card's lines drop their bullets (you.css: the bold lead words do the scanning, R-212 #52), and Safari's
+// VoiceOver stops calling an unbulleted list a list unless it says so.
+const shortList = p => Array.isArray(p) ? `<ul class="mr-factlist" role="list">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : body(p);
+export function privacyRec({ rows, updated, policy, a11y, previews = {} }) {
   const [[, t0, p0], ...rest] = rows;
   return `<div class="mr mr-privacy rc yu yu-pv">
     ${backFrom('#/more', 'You')}
     ${recHead({ title: 'Privacy', lede: 'What we keep, who sees it, and how to remove it.' })}
-    <section class="rc-card yu-short" aria-labelledby="mr-pv-0"><h2 class="rc-h2" id="mr-pv-0">${t0}</h2>${body(p0)}</section>
+    <section class="rc-card yu-short" aria-labelledby="mr-pv-0"><h2 class="rc-h2" id="mr-pv-0">${t0}</h2>${shortList(p0)}</section>
     ${recFolds([`<div id="mr-access">${recFold('privacy-access', 'Accessibility', firstLine(plain(a11y)), a11y)}</div>`,
-      ...rest.map(([ic, ti, p]) => recFold(`privacy-${ic}`, plain(ti), firstLine(p), body(p)))])}
+      ...rest.map(([ic, ti, p]) => recFold(`privacy-${ic}`, plain(ti), previews[ic] || firstLine(p), body(p)))])}
     <p class="small muted yu-upd">Updated ${esc(updated)}.</p>
     <p class="mr-ext"><a class="btn text" href="${esc(policy)}" target="_blank" rel="noopener">${icon('external-link')}<span>HIPHI’s website privacy policy</span></a></p>
   </div>`;

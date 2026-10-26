@@ -697,14 +697,30 @@ function wireAlerts() {
 // (counts and public bill data only); the full-access login is used only for a fix Nate approves. Keep both true together.
 const MAIL = `<a href="mailto:${EMAIL}">${EMAIL}</a>`;
 // Every sentence here is ticked against the code in HANDOFF 3.142 (J2-3, R-180 wave 2). A body that is an array is a short list.
-// The first section answers "what do you have on me?" in a few lines; the rest is the detail, in the order a person would ask.
+// The first section is the whole page in short (R-212 #52): most people read only the top, and the walkers who worried most
+// (someone sharing a hard health story, a neighborhood captain, a teacher with a class) were not told there what happens to
+// a story, that testimony is public, that the address is never kept, or that they can delete it all themselves. So it has
+// one plain line per question a person asks, each the short form of a section below with its lead words bold for scanning
+// (the house's <b> lead-in, as Zoom's steps in actions.js): change a section, change its line. The rest is the detail, in
+// the order a person would ask. Lines 2 and 4 change once sign-in by text code is on (PRIVACY_CODES below).
+// A saved story starts the "why" of each new letter (helper.js), and sent testimony is public at the Capitol, so the story
+// and testimony lines say both (ui-critic, R-212 #52): a story-sharer must not read "quoted only if you say yes" as "never
+// public". Deleting here cannot take testimony off the Capitol's site, and deleting an account leaves texts (text_signups,
+// backend 159), so the last line says both. About 180 words, so "Delete it" starts near the first phone screen's foot.
+const STORY_LINE = who => `<b>Your story:</b> once you add your ${who}, staff can read it. It goes into your letters, and a letter you send is public. HIPHI itself quotes it only if you say yes.`;
+const shortLines = (contact, story) => [
+  '<b>Just looking:</b> we don’t know who you are. What you follow stays on this device.',
+  ...contact,
+  story,
+  '<b>Testimony:</b> the Capitol posts your name and letter for anyone to read, and it stays there if you delete your account here. Our copies are only for you, not HIPHI staff.',
+  '<b>Your address:</b> used only to find your districts, never kept. Staff see just your districts.',
+  '<b>Never sold:</b> we don’t sell your information or give it to other groups.',
+  `<b>Delete it:</b> any time, from your profile under More. Texts are separate: reply STOP. To have everything we hold removed, email ${MAIL}. We answer within 10 business days.`];
 const PRIVACY = [
-  ['eye', 'What we have on you, in short', [
-    'If you only look around: nothing. What you follow stays on your device.',
-    'If you give a mobile number: the number, what you follow, and when you agreed to texts. Staff never see the number.',
-    'If you add your email: your email, what you follow, where you stand and the actions you mark. Staff see these, and which of our emails you open.',
-    'Staff may also keep notes about people who gave an email.',
-    `We never sell it. To see it or remove it, email ${MAIL}. We answer within 10 business days.`]],
+  ['eye', 'What we have on you, in short', shortLines([
+    '<b>A mobile number:</b> we keep it, what you follow and when you agreed to texts. Staff never see the number.',
+    '<b>Your email:</b> we keep it, what you follow, where you stand, the actions you mark and your profile. Staff see these, which of our emails you open, and their own notes about you.'],
+    STORY_LINE('email'))],
   ['lock', 'If you don’t add your email', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
   ['message-square', 'If you add your mobile number', [
     'We keep your number, what you follow, when you agreed to texts and the words you agreed to. We use them only to send you those texts.',
@@ -770,11 +786,16 @@ const PRIVACY = [
     'Texts are separate. A number you gave for texts stays until you reply STOP or ask us.',
     `To have everything removed, even a number, email ${MAIL}. We answer within 10 business days.`]],
 ];
-const PRIVACY_UPDATED = '7 October 2026';   // change it with any sentence above (R-151)
-// Once sign-in by text code is on (R-155), a number signs people in and their profile is kept with the account, so three
+const PRIVACY_UPDATED = '25 October 2026';   // change it with any sentence above (R-151)
+// Once sign-in by text code is on (R-155), a number signs people in and their profile is kept with the account, so four
 // sections say so. Change the date to the day codes were switched on (backend docs/TEXT-SIGN-IN.md, step 6).
-const PRIVACY_CODES_UPDATED = '7 October 2026';
+const PRIVACY_CODES_UPDATED = '25 October 2026';
 const PRIVACY_CODES = {
+  // With codes a number signs people in and keeps the same account as an email, so the two lines are one (the
+  // 'message-square' section below): seven lines.
+  eye: ['What we have on you, in short', shortLines([
+    '<b>Your number or email:</b> we keep it with your profile, what you follow, where you stand and the actions you mark. Staff see those (never your number), which of our emails you open, and their own notes about you.'],
+    STORY_LINE('email or number'))],
   lock: ['If you don’t add your email or number', 'We don’t know who you are. The issues and bills you follow, where you stand on them and the actions you mark stay in this browser, on this device. Clearing your browser data erases them.'],
   'message-square': ['If you add your mobile number', [
     'We text you a 6-digit code to be sure the number is yours, and from then on the number signs you in, the way an email does.',
@@ -791,9 +812,18 @@ const PRIVACY_CODES = {
 const ACCESS = () => `<p>We want everyone in Hawaiʻi to be able to use this tracker. It is built to work with screen readers, a keyboard and zoom. Buttons are large enough for a thumb, and motion turns off when your device asks for less of it.</p>
       <p>If something gets in your way, email <a href="mailto:${EMAIL}">${EMAIL}</a> and we’ll fix it.</p>
       <p class="mr-ext">${btn('HIPHI’s accessibility statement', { kind: 'text', icon: 'external-link', href: HIPHI.access, attrs: { target: '_blank', rel: 'noopener' } })}</p>`;
+// "under More" names the old fourth tab. Since 19 Oct everyone's is "You" (pub/app.js TABS_A), whose "Your alerts" row (on
+// You and at the top of the profile, rec/you.js) is where texts stop; the old profile's section was "Alerts". So the calm
+// page says those, and ?rec=0 keeps the old page's words.
+// A closed card's preview is its own first sentence, unless that sentence is the short card's again (A-14, ui-critic R-212
+// #52): these cards hold the exceptions, so their previews say what is inside.
+const PREVIEWS = { lock: 'What this device keeps, and how to clear it', 'map-pin': 'How we find your districts, and who else sees the address',
+  'shield-check': 'Who we do share with, and when', 'trash-2': 'What deleting erases, and what it can’t' };
+const YOU_WORDS = [['use Alerts in your profile, under More', 'use Your alerts, under You'], ['under More', 'under You']];
+const youWords = s => YOU_WORDS.reduce((x, [a, b]) => x.replaceAll(a, b), s);
 function privacyView() {
   const rows = codesOn() ? PRIVACY.map(([ic, t, p]) => PRIVACY_CODES[ic] ? [ic, ...PRIVACY_CODES[ic]] : [ic, t, p]) : PRIVACY;
-  if (REC()) return privacyRec({ rows, updated: codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED, policy: HIPHI.privacy, a11y: ACCESS() });
+  if (REC()) return privacyRec({ rows: rows.map(([ic, t, p]) => [ic, t, Array.isArray(p) ? p.map(youWords) : youWords(p)]), updated: codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED, policy: HIPHI.privacy, a11y: ACCESS(), previews: PREVIEWS });
   return `<div class="mr mr-privacy">
     <header class="pagehead"><h1 class="hero">Privacy</h1><p class="lede">What we keep, who sees it, and how to remove it.</p></header>
     <div class="card mr-facts">${rows.map(([ic, t, p], i) => `<section aria-labelledby="mr-pv-${i}"><span class="mr-factic">${icon(ic)}</span><div><h2 id="mr-pv-${i}">${t}</h2>${Array.isArray(p) ? `<ul class="mr-factlist">${p.map(x => `<li>${x}</li>`).join('')}</ul>` : p.split("\n\n").map(x => `<p>${x}</p>`).join("")}</div></section>`).join('')}</div>

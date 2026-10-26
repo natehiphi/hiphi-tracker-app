@@ -210,12 +210,15 @@ def main():
                     nsec = pg.evaluate("document.querySelectorAll('#main .mr-facts > section').length")
                     open_page(pg, '#/privacy', sel='#main .yu-pv')
                     new = pg.evaluate("document.querySelector('#main .yu-pv').textContent.replace(/\\s+/g, ' ')")
+                    # The calm page names its tab "You" and its "Your alerts" row where the old page says "under More" (R-212 #52).
+                    old = [o.replace('use Alerts in your profile, under More', 'use Your alerts, under You').replace('under More', 'under You') for o in old]
                     missing = [o[:50] for o in old if o.replace(' ', '') not in new.replace(' ', '')]
                     check(not missing, f'{t}: every word of the privacy page is still there ({missing[:2]})')
                     folds = pg.evaluate("[...document.querySelectorAll('#main .rc-fold')].map(d => [d.dataset.rcFold, d.open])")
                     check(len(folds) == nsec and not any(o for _, o in folds) and folds[0][0] == 'privacy-access', f'{t}: In short open, Accessibility second, the rest closed cards ({len(folds)})')
                     check(pg.evaluate(ORDER, ['#main .yu-short', '#main [data-rc-fold="privacy-access"]']) == 'ok', f'{t}: "In short" first')
-                    if tag == 'phone': check(H(pg) < 2600, f'{t}: Privacy is {H(pg)}px on a phone (8,926 before)')
+                    # 2,319 before R-212 #52; its short card of eight lines (the whole page in short, on top) adds about 300.
+                    if tag == 'phone': check(H(pg) < 2700, f'{t}: Privacy is {H(pg)}px on a phone (8,926 before R-303, 2,319 before R-212 #52)')
                     shot(pg, tag, 'privacy_none')
                     open_page(pg, '#/privacy?part=access', sel='#main .yu-pv')
                     check(pg.evaluate("document.querySelector('[data-rc-fold=\"privacy-access\"]').open"), f'{t}: #/privacy?part=access opens Accessibility')
