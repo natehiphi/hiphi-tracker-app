@@ -757,7 +757,7 @@ body.staff6 .ip6-health { margin: var(--s16) 0 0; padding: var(--s12) var(--s16)
 body.staff6 .ip6-hs { display: flex; align-items: flex-start; gap: var(--s12); margin: 0; font-size: var(--v6-t18); line-height: 28px; color: var(--v6-ink); }
 body.staff6 .ip6-hs > .ic { width: 22px; height: 22px; margin-top: 3px; flex: none; color: var(--v6-ink); }
 body.staff6 .ip6-hs b { font-weight: 600; }
-body.staff6 .ip6-hn { color: var(--v6-body); }
+body.staff6 .ip6-hn { display: block; color: var(--v6-body); }   /* Next: on a line of its own, so the tile reads in two parts */
 body.staff6 .ip6-sec { margin-top: var(--s32); }
 body.staff6 .ip6-side > .ip6-sec:first-child { margin-top: 0; }
 body.staff6 .ip6-bills { margin-top: var(--s24); }
@@ -828,3 +828,7 @@ body.staff6 .ip6-edit { margin-top: var(--s16); }
 @media (min-width: 1100px) {
   body.staff6 .ip6-wide { grid-template-columns: minmax(0, 1fr) 380px; gap: var(--s32); max-width: 1320px; }
 }
+/* a bill's name second, when two of the issue's bills share it (the number leads) */
+body.staff6 .ip6-twin { flex: 0 1 auto; white-space: normal; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+/* a joint committee's name is long; three lines keep the hearing's time in view instead of cutting it at an ellipsis */
+body.staff6 .ip6-brow .v6-row-line > span { -webkit-line-clamp: 3; line-clamp: 3; }

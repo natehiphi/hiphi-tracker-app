@@ -70,18 +70,31 @@ const P = () => S.isPage ??= { q: {}, edit: {}, rel: {} };
 const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: BOARD_HREF, label: 'Prep board' }
   : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/my-issues/all', label: 'All issues' };
 
-// ---- where each bill stands: the chamber it is in now, or where it stopped ----
-// A bill counts in the chamber it sits in now (an HB the House passed is working in the Senate): that is where its chairs
-// are and where the team works on it. Past both chambers (conference, the Governor, law) is its own row over the columns.
+// ---- where each bill stands: by the chamber it STARTED in (coordinator, 25 Oct, from Nate's goal) ----
+// Nate: "having at least one per chamber is ideal". That is two vehicles, a House bill and a Senate bill still alive, so a
+// bill counts in its own chamber (HB, HCR, HR: House; SB, SCR, SR: Senate) wherever it is now; its line says where it is
+// now ("Now in Senate Health and Human Services · hearing Fri 3/20, 9:30 AM"). My issues uses the same rule.
 const PAST = new Set(['conference', 'governor', 'ballot', 'law']);
+const originOf = b => b.chamber === 'S' || b.chamber === 'H' ? b.chamber : String(b.bill_number || '').startsWith('S') ? 'S' : 'H';
 function placeOfBill(b) {
-  const st = stopOf(b), stage = effStage(b);
-  if (stage === 'enacted' || st.phase === 'law') return { b, st, side: 'past', alive: true, law: true };
-  if (!diedish(b)) return { b, st, side: PAST.has(st.phase) ? 'past' : st.chamber, alive: true };
-  // Stopped: in the chamber of the stop it stopped at (the tracker's own reading of died_at_stage), else its own chamber.
-  let side = b.chamber || (String(b.bill_number).startsWith('S') ? 'S' : 'H');
-  try { const m = trackerModel(b); const s = m.stops[m.place.at]; if (s && (s.group === 'H' || s.group === 'S')) side = s.group; } catch { /* the bar is optional */ }
+  const st = stopOf(b), stage = effStage(b), side = originOf(b);
+  if (stage === 'enacted' || st.phase === 'law') return { b, st, side, alive: true, law: true };
+  if (!diedish(b)) return { b, st, side, alive: true };
   return { b, st, side, alive: false, vetoed: stage === 'vetoed' };
+}
+// Where an alive bill is now, in words: "Now in Senate Health and Human Services · hearing Fri 3/20, 9:30 AM", "Now waiting
+// for a vote of the full Senate", "Now in conference · House and Senate must agree by Fri 5/1".
+function nowWords(b, st) {
+  const h = hearingAhead(b), dl = st.deadline && !st.deadline.missed ? st.deadline : null, ch = CH[st.chamber] || '';
+  if (st.phase === 'conference') return `Now in conference${dl ? ` · House and Senate must agree by ${dayWords(dl.date)}` : ''}`;
+  if (st.phase === 'governor') return 'Now on the Governor’s desk';
+  if (st.phase === 'ballot') return 'Passed the Legislature · the voters decide';
+  if (st.phase === 'floor') return `Now waiting for a vote of the full ${ch}`;
+  const code = h?.committee || st.committee;
+  const where = code ? `Now in ${cw(code)}` : `Now waiting for a ${ch} committee`;
+  if (h) return `${where} · hearing ${whenAt(h.scheduled_at)}`;
+  if (st.hearingState === 'held') return `${where} · heard, waiting for its vote`;
+  return dl ? `${where} · needs a hearing by ${dayWords(dl.date)}` : where;
 }
 // Why and when a bill stopped, in a few words: "Stopped 2/20: did not reach its last committee", "Stopped 2/10: deferred
 // by House Health", "Vetoed by the Governor". Neutral, never red (A-5 on v6: a stopped bill cannot be acted on).
@@ -106,10 +119,14 @@ function barHTML(b) {
 }
 const stepOfWords = b => { try { const m = trackerModel(b); return m.place.state === 'live' && m.cur >= 0 ? `Step ${m.cur + 1} of ${m.n}. ` : ''; } catch { return ''; } };
 // One bill in a chamber column: its name, its number small, the bar, and one line (where it is, or why it stopped).
+// When two of its bills share a name (HB 2121 and SB 2175 are both "Disposable e-cigarette ban"), the number leads and the
+// name comes second, so the two cards can be told apart.
 function billCard(x) {
-  const b = x.b, line = x.law ? 'Signed into law' : x.alive ? whereWords(b) : stoppedWords(b);
+  const b = x.b, line = x.law ? 'Signed into law' : x.alive ? nowWords(b, x.st) : stoppedWords(b);
+  const top = x.twin ? `<span class="v6-row-name">${esc(numWords(b))}</span> <span class="v6-row-num ip6-twin">${esc(nameWords(b))}</span>`
+    : `<span class="v6-row-name">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span>`;
   return `<div class="v6-row ip6-brow${x.alive ? '' : ' is-stop'}" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}">
-    <a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span></span>
+    <a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top">${top}</span>
       ${x.alive ? barHTML(b) : ''}<span class="v6-row-line">${x.alive ? '' : icon('circle-minus')}<span><span class="sr">${esc(stepOfWords(b))}</span>${nw(esc(line))}</span></span></a></div>`;
 }
 const STOP_SHOWN = 2;   // stopped bills past this many fold under one line (what is done may fold: rule 3)
@@ -119,12 +136,24 @@ function columnHTML(side, xs) {
   const shown = gone.slice(0, alive.length ? 0 : STOP_SHOWN), more = gone.slice(shown.length);
   const fold = more.length ? `<details class="ip6-fold" data-fold="stop-${side}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${alive.length || shown.length ? `${plural(more.length, 'more')} stopped` : `${plural(more.length, 'bill')} stopped`}</span></summary>${listBox(more.map(billCard).join(''))}</details>` : '';
   return `<section class="ip6-col" aria-labelledby="ip-c${side}" data-ip-col="${side}">
-    <h3 class="ip6-colh" id="ip-c${side}">${word}${count ? ` <span class="ip6-coln">${count}</span>` : ''}</h3>
+    <h3 class="ip6-colh" id="ip-c${side}">${word} bills${count ? ` <span class="ip6-coln">${count}</span>` : ''}</h3>
     ${alive.length ? listBox(alive.map(billCard).join('')) : `<p class="ip6-none" data-ip-none="${side}">${icon('circle-minus')}<span>No ${word} bill alive</span></p>`}
     ${shown.length ? listBox(shown.map(billCard).join('')) : ''}${fold}
   </section>`;
 }
 
+// The health check's "Next:" in one short phrase (coordinator, 25 Oct: one or two lines; the full step is in What to do
+// next): "Kevin files the HB 2121 testimony (due Wed 3/18)", "Kevin: send the ask to HIPHI’s list and partners for… (due today)".
+const cut = (t, n) => t.length <= n ? t : `${t.slice(0, n).replace(/\s+\S*$/, '')}…`;
+const lc1 = t => /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t;
+const dueSay = at => dayWords(at) === dayWords(Date.now()) ? 'due today' : `due ${dayWords(at)}`;
+const SAYV = { nodraft: ['write', 'writes'], write: ['write', 'writes'], submit: ['send', 'sends'], revise: ['resubmit', 'resubmits'], approve: ['approve', 'approves'],
+  second: ['give a second look to', 'gives a second look to'], file: ['file', 'files'], missed: ['check', 'checks'] };
+function shortSay(s, b, at) {
+  const v = SAYV[s.kind]; if (!v) return `${numWords(b)}: ${cut(String(s.line || ''), 50)}`;
+  const who = s.nobody ? 'No owner yet:' : s.you ? 'You' : cap(s.whose?.words || '');
+  return `${who} ${s.nobody ? v[0] : s.you ? v[0] : v[1]} the ${numWords(b)} testimony${at != null ? ` (${dueSay(at)})` : ''}`;
+}
 // ---- what to do next: each alive bill's step (steps.js billStep, the row Today and the bill draw), its hearing ahead
 // when it has no step, and its open to-dos; in date order ----
 function nextSteps(bills) {
@@ -134,17 +163,17 @@ function nextSteps(bills) {
     const s = billStep(b, { viewer: v }), h = hearingAhead(b), st = stopOf(b);
     if (s && !['none', 'filed'].includes(s.kind)) {
       const at = s.act?.at ?? s.due ?? (s.kind === 'chair' && st.deadline ? ms(st.deadline.date) : null);
-      const say = s.kind === 'chair' && s.ask?.key === 'ask' && st.deadline ? `${numWords(b)} needs a hearing by ${dayWords(st.deadline.date)}` : `${numWords(b)} · ${String(s.line || '')}`;
+      const say = s.kind === 'chair' && s.ask?.key === 'ask' && st.deadline ? `${numWords(b)} needs a hearing by ${dayWords(st.deadline.date)}` : shortSay(s, b, at);
       out.push({ at, b, html: billRow(b, { viewer: v, step: s }), say, who: s.nobody ? [] : (s.whose?.ids || []), verb: s.kind, nobody: !!s.nobody });
     } else if (h) {
       out.push({ at: ms(h.scheduled_at), b, html: billRow(b, { viewer: v, line: nw(esc(`Hearing ${whenAt(h.scheduled_at)} · ${cw(h.committee)}`)), button: false }),
-        say: `${numWords(b)} has a hearing ${whenAt(h.scheduled_at)}`, who: [], verb: 'hearing' });
+        say: `${numWords(b)} has a hearing ${dayWords(h.scheduled_at)}`, who: [], verb: 'hearing' });
     }
     for (const t of (S.todos?.[b.id] || []).filter(t => !t.done)) {
       const due = t.due_date ? ms(String(t.due_date).length === 10 ? t.due_date + 'T17:00:00-10:00' : t.due_date) : null;
       const who = t.assignee_id ? cap(firstWords(t.assignee_id, v)) : 'No owner yet';
       out.push({ at: due, b, html: itemRow({ key: 'td' + t.id, name: unCode(t.title), num: numWords(b), line: nw(esc([who, due != null ? `due ${dayWords(due)}` : ''].filter(Boolean).join(' · '))), href: billRoute(b), cls: 'ip6-todo' }),
-        say: `${numWords(b)}: ${unCode(t.title)}`, who: t.assignee_id ? [t.assignee_id] : [], verb: 'todo' });
+        say: `${who === 'No owner yet' ? `${numWords(b)}: ` : `${who}: `}${cut(lc1(unCode(t.title)), 34)}${due != null ? ` (${dueSay(due)})` : ''}`, who: t.assignee_id ? [t.assignee_id] : [], verb: 'todo' });
     }
   }
   return out.sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity));
@@ -159,16 +188,16 @@ function nextHTML(steps, anyBills) {
 // ---- the health check: one plain sentence, Nate's words (25 Oct) ----
 function health(xs, steps, earlier) {
   const now = xs.filter(x => thisSession(x.b)), alive = now.filter(x => x.alive), law = alive.filter(x => x.law);
-  const H = alive.filter(x => x.side === 'H'), Sn = alive.filter(x => x.side === 'S'), past = alive.filter(x => x.side === 'past' && !x.law);
+  const H = alive.filter(x => x.side === 'H'), Sn = alive.filter(x => x.side === 'S'), past = alive.filter(x => PAST.has(x.st.phase) && !x.law);
   let k, text;
   if (!now.length) { k = 'none'; text = earlier.length ? `No ${SESSION_YEAR} bills yet: put this session’s bills on it to follow them here.` : 'No bills yet: put a bill on this issue to follow it here.'; }
   else if (law.length) { k = 'won'; text = `${listAnd(law.map(x => numWords(x.b)))} became law.`; }
   else if (!alive.length) { k = 'stopped'; text = now.length === 1 ? 'its only bill stopped this session.' : 'every bill on this issue stopped this session.'; }
-  else if (past.length) { k = 'ontrack'; const x = past[0]; text = `${numWords(x.b)} is through both chambers, ${x.st.phase === 'conference' ? 'in conference' : x.st.phase === 'governor' ? 'on the Governor’s desk' : 'with the voters'}.`; }
   else if (H.length && Sn.length) { k = 'ontrack'; text = 'alive in both chambers.'; }
-  else { k = 'risk'; const one = H.length ? 'House' : 'Senate', n = alive.length; text = n === 1 ? `only one bill alive, in the ${one}.` : `${n} bills alive, all in the ${one}.`; }
+  else if (past.length) { k = 'ontrack'; const x = past[0]; text = `${numWords(x.b)} is ${x.st.phase === 'conference' ? 'in conference' : x.st.phase === 'governor' ? 'on the Governor’s desk' : 'with the voters'}.`; }
+  else { k = 'risk'; const one = H.length ? 'House' : 'Senate', n = alive.length; text = n === 1 ? `only one bill alive, a ${one} bill.` : `${n} bills alive, all ${one} bills.`; }
   const LEAD = { ontrack: ['On track', 'circle-check'], risk: ['At risk', 'circle-alert'], stopped: ['Stopped', 'circle-minus'], won: ['Won', 'circle-check'], none: ['', 'circle-dashed'] }[k];
-  const nx = steps[0] && k !== 'stopped' && k !== 'none' ? ` <span class="ip6-hn">Next: ${esc(steps[0].say.replace(/\.$/, ''))}.</span>` : '';
+  const nx = steps[0] && k !== 'stopped' && k !== 'none' ? ` <span class="ip6-hn">Next: ${esc(steps[0].say)}</span>` : '';
   return { k, html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
     <p class="ip6-hs">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(cap(text) === text || LEAD[0] ? text : cap(text)))}${nx ? nw(nx) : ''}</span></p></section>` };
 }
@@ -201,7 +230,7 @@ function whoHTML(i, xs, steps) {
 function legsHTML(i, xs) {
   const by = new Map(), floor = [];
   for (const x of xs) {
-    if (!x.alive || !thisSession(x.b) || x.side === 'past') continue;
+    if (!x.alive || !thisSession(x.b) || PAST.has(x.st.phase) || x.law) continue;
     if (x.st.phase === 'floor') { floor.push(x); continue; }
     const code = hearingAhead(x.b)?.committee || x.st.committee; if (!code) continue;
     const key = codesOf(code).sort().join('/'); (by.get(key) || by.set(key, { code, bills: [] }).get(key)).bills.push(x.b);
@@ -509,7 +538,9 @@ function pageRender(route) {
   const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), { now, earlier } = billsSplit(i);
   const from = billFrom(route), bk = backTo(route), wide = wideNow();
   wantTl(i, now.concat(earlier));
-  const xs = now.map(placeOfBill), steps = nextSteps(now), hc = health(xs, steps, earlier);
+  const xs = now.map(placeOfBill), names = new Map(); for (const x of xs) { const n = plain(nameWords(x.b)); names.set(n, (names.get(n) || 0) + 1); }
+  for (const x of xs) x.twin = names.get(plain(nameWords(x.b))) > 1;
+  const steps = nextSteps(now), hc = health(xs, steps, earlier);
   const outlook = i.outlook ? `<p class="is6-desc"><span class="is6-dl">Between sessions, the public reads:</span> ${esc(i.outlook)}</p>` : '';
   const head = `<header class="is6-head ip6-head">
       <span class="is6-icon" aria-hidden="true">${icon(c?.icon || 'tag')}</span>
@@ -522,10 +553,9 @@ function pageRender(route) {
       <div class="is6-hacts">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
     </header>
     ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
-  // The bills, House | Senate (a bill past both chambers sits over the two columns).
+  // The bills, House bills | Senate bills, by the chamber each started in.
   const edit = !!P().edit[i.id] || !(now.length + earlier.length);
-  const past = xs.filter(x => x.side === 'past');
-  const cols = now.length ? `${past.length ? listBox(past.map(billCard).join('')) : ''}<div class="ip6-cols">${columnHTML('H', xs.filter(x => x.side === 'H'))}${columnHTML('S', xs.filter(x => x.side === 'S'))}</div>` : '';
+  const cols = now.length ? `<div class="ip6-cols">${columnHTML('H', xs.filter(x => x.side === 'H'))}${columnHTML('S', xs.filter(x => x.side === 'S'))}</div>` : '';
   const editBtn = now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : '';
   const billsSec = `<section class="ip6-sec ip6-bills" aria-labelledby="is-bh"><div class="i6-hrow"><h2 class="ip6-h" id="is-bh">Its bills</h2>${editBtn}</div>
     ${cols}${edit ? editHTML(i, now, earlier) : ''}</section>`;
