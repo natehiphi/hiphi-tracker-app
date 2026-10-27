@@ -34,7 +34,7 @@ export function askedChip(b, code, a = chairAskOf(b, code)) {
   if (!a) return '';
   const tone = a.answer === 'will_schedule' ? 'ok' : a.answer === 'said_no' ? 'warn' : '';
   // R-344 Rule 2: where the ask is, as its one shape (verbs.js STATES.chair: hourglass no reply yet, phone left a message,
-  // calendar-check will schedule, the raised hand said no); the check meant "done", "approve" and "asked" at once (Rule 5).
+  // calendar-check will schedule, thumbs-down said no); the check meant "done", "approve" and "asked" at once (Rule 5).
   return `<button type="button" class="ca-chip${tone ? ' ' + tone : ''}" data-askanswer="${esc(b.id)}|${esc(code)}" data-state="chair:${esc(chairKey(a))}" aria-haspopup="dialog" aria-label="${esc(askLine(a))}. Record the chair’s answer">${icon(STATES.chair[chairKey(a)].icon)}<span>${esc(askLine(a))}</span>${icon('chevron-right', { cls: 'ca-chev' })}</button>`;
 }
 

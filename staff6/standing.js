@@ -4,6 +4,11 @@
 // Each takes the bills it is given; a coalition passes its own, an issue passes its own.
 import { SESSION_OVER, fmtDate } from './data.js';
 import { stopOf, riskOf, diedish, factsOf, whenAt } from './model.js';
+import { stateMark, stanceKey } from './verbs.js';
+
+// HIPHI's stance on a bill as its one shape and one word (R-344 Rule 2, verbs.js STATES.stance): Support, Oppose, Comments,
+// Monitor; nothing for a bill with no position. Bills' rows and search results show it; the bill and issue pages can too.
+export const stanceMark = (b, o = {}) => { const k = stanceKey(b?.position || ''); return k === 'none' ? '' : stateMark('stance', k, { size: 20, ...o }); };
 
 export const isPos = b => !!b.position && b.position !== 'monitor';
 export const byPri = (a, b) => (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });

@@ -128,7 +128,8 @@ export const STATES = {
     asked: St('Asked, no reply yet', 'hourglass', '', 'waiting for a reply'),
     left_message: St('Left a message', 'phone', '', 'a phone call'),
     will_schedule: St('Will schedule', 'calendar-check', 'done', 'a hearing is coming'),
-    said_no: St('Said no', 'hand', '', 'said no'),
+    // thumbs-down: "against", as a legislator's no on Legislators and HIPHI's Oppose (the raised hand is My issues' Needs you)
+    said_no: St('Said no', 'thumbs-down', '', 'against'),
   },
   // How an issue is doing (Decision 4: shapes only, no tint). Won is the trophy, and the bill bar's end at Law is the same
   // trophy: a flag already means a Capitol deadline on the stage tracker (tracker.js), so it cannot also mean "won".
@@ -142,7 +143,7 @@ export const STATES = {
   // HIPHI's stance: one word each (the review: "Support" everywhere, not "Support" here and "Strong support" there).
   stance: {
     support: St('Support', 'thumbs-up', '', 'support'),
-    oppose: St('Oppose', 'thumbs-down', '', 'oppose'),
+    oppose: St('Oppose', 'thumbs-down', '', 'against'),
     comments: St('Comments', 'message-square', '', 'a message or comment'),
     monitor: St('Monitor', 'eye', '', 'watch it'),
     none: St('No position', 'circle-dashed', '', 'nothing yet'),

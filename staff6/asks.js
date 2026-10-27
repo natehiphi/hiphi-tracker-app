@@ -20,6 +20,7 @@ import { pageHead } from './lists.js';
 import { nameWords, numWords, committeeName, statusTile, nw } from './steps.js';
 import { emailDoor, paused, dailyWord, HELD_HEAD } from './composer.js';
 import { weekLanding } from './firstvisit.js';
+import { ACTS } from './verbs.js';   // R-344: one icon per action (Write the public ask: the megaphone, the job's own picture)
 import { markNewStep } from './help.js';   // Getting started's rallier steps tick from here (Write a public ask, Copy this week's newsletter)
 
 const HR = 36e5, DAY = 864e5;
@@ -233,7 +234,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
   else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${may ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
-  else if (may) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: 'pencil', attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
+  else if (may) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
   else left = `<p class="ot-nw">${noAskLine(otherWords(d))}</p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>

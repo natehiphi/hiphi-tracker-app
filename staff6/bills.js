@@ -31,8 +31,8 @@ import { bl, save, setCompact, shownBills, freshFacts, isOn, toggle, clearAll, c
 import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { offTag, teamName, teamFirst, newOwnerTag, FACTS } from './model.js';   // R-316 W28: a turned-off owner says so
-import { GROUPS, groupKey } from './standing.js';
-import { actTile, stateMark, stanceKey, dropVerb } from './verbs.js';   // R-344: the picture rules' one table
+import { GROUPS, groupKey, stanceMark } from './standing.js';
+import { actTile, dropVerb } from './verbs.js';   // R-344: the picture rules' one table
 import { slimBarHTML } from './tracker.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
@@ -306,8 +306,8 @@ function topicLead(b) {
 // Search results use the same (search.js).
 export function glanceRow(html, b, { step = null, stance = true, bar = true } = {}) {
   if (!html || !b) return html;
-  const tw = twinWord(b), sk = stanceKey(b.position || '');
-  const after = `${tw ? `<span class="v6-twin">${esc(tw)}</span>` : ''}${stance && sk !== 'none' ? stateMark('stance', sk, { size: 20, cls: 'bl-stance' }) : ''}`;
+  const tw = twinWord(b);
+  const after = `${tw ? `<span class="v6-twin">${esc(tw)}</span>` : ''}${stance ? stanceMark(b, { cls: 'bl-stance' }) : ''}`;
   if (after) html = html.replace(/(<span class="v6-row-num">[^<]*<\/span>)/, `$1${after}`);
   const own = step && step.you && OWN_ACT.has(step.kind) && step.act?.kind !== 'none';
   // the tile takes the line's own icon's place and its verb (A-25: the tile says the job); the line keeps its colour
