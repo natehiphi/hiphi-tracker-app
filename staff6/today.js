@@ -35,7 +35,7 @@ import { draftHearing, hearingAhead, diedish, stopOf, wantsHearing, whenAt, bill
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
-  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor } from './steps.js';
+  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor, billLineHTML, issueLinksHTML } from './steps.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
@@ -484,7 +484,7 @@ function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   if (it.kind === 'stale') {
     const d = it.d, b = it.b;
     return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
-      <p class="v6-step-bill"><span class="v6-step-bn">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span></p>
+      ${billLineHTML(b, { name: nameWords(b) })}
       <h3 class="v6-step-what" id="${id}">Check your testimony against the new version</h3>
       <p class="v6-step-when">${esc(`The bill is now ${versionWords(b.current_version)}; your testimony was written for ${versionWords(d.version)}. It is ${lower(testimonyState(d, b)?.word || 'with an approver')}.`)}</p>
       ${d.doc_url ? `<div class="v6-step-acts">${docBtn(d.doc_url, { kind: primary ? 'primary' : 'secondary' })}</div>` : ''}</section>`;
@@ -494,7 +494,7 @@ function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   const tile = it.kind === 'prep' ? statusTile({ tone: 'neutral', icon: 'calendar', words: it.at < Date.now() ? 'Still to finish' : `Due ${dayWords(it.at)}` })
     : it.at != null ? statusTile(it.tone === 'overdue' ? status({ due: it.at, kind: it.kind }) : { tone: 'neutral', icon: 'calendar', words: actBy({ kind: 'due', due: it.at, verb: 'Due' }).words }) : '';
   return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
-    <p class="v6-step-bill"><span class="v6-step-bn">${esc(r.name)}</span>${r.num ? ` <span class="v6-row-num">${esc(r.num)}</span>` : ''}</p>
+    ${billLineHTML(r.num ? it.b : null, { name: r.name, num: r.num })}
     <h3 class="v6-step-what" id="${id}">${nw(esc(r.what || r.line))}</h3>
     ${tile ? `<div class="v6-step-meta">${tile}</div>` : ''}
     ${r.sub ? `<p class="v6-step-when">${nw(esc(r.sub))}</p>` : ''}
@@ -511,7 +511,7 @@ function itemFor(key, v = S.me) {
   if (it.kind === 'partner') return pqItem(it.p, { close });
   if (!it.b || !(it.s || it.kind === 'todo' || it.kind === 'rally' || it.kind === 'moved' || it.kind === 'askup')) {
     const r = miniOf(it, v);
-    return `<div class="v6-item t6-item" data-v6item="${esc(it.key)}"><div class="v6-item-top"><p class="v6-item-num">${esc(r.num || '')}</p>${r.href && r.href !== '#/' ? `<a class="v6-item-open" href="${esc(r.href)}"><span>${it.kind === 'followup' ? 'Open their page' : 'Open it'}</span>${icon('arrow-right')}</a>` : ''}${close}</div>
+    return `<div class="v6-item t6-item" data-v6item="${esc(it.key)}"><div class="v6-item-top"><p class="v6-item-num">${esc(r.num || '')}${r.num && it.b ? issueLinksHTML(it.b) : ''}</p>${r.href && r.href !== '#/' ? `<a class="v6-item-open" href="${esc(r.href)}"><span>${it.kind === 'followup' ? 'Open their page' : 'Open it'}</span>${icon('arrow-right')}</a>` : ''}${close}</div>
       <h2 class="v6-item-name" id="v6-item-h" tabindex="-1">${esc(r.name)}</h2>${miniCard(it, { primary: false, v, id: 't6-item-h3' })}</div>`;
   }
   const b = it.b, sum = b.nickname ? blurb(b, 240) : '';
@@ -522,7 +522,7 @@ function itemFor(key, v = S.me) {
   const alsoL = work(v).own.filter(x => x.key !== it.key && x.b && x.b.id === b.id), also = alsoL.map(x => `<li class="v6-also-item"><span class="v6-also-t">${nw(esc(lineOf(x, v)))}</span></li>`).join('');
   const shown = it.s?.h && it.kind !== 'chair', facts = aboutBill(b, { hearing: !shown });
   return `<div class="v6-item t6-item" data-v6item="${esc(b.id)}">
-    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${close}</div>
+    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}${issueLinksHTML(b)}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${close}</div>
     <h2 class="v6-item-name" id="v6-item-h" tabindex="-1">${esc(nameWords(b, 160))}</h2>
     ${sum ? `<p class="v6-item-sum">${esc(sum)}</p>` : ''}${card}
     ${also || facts ? `<div class="v6-item-doors">${also ? `<details class="v6-item-det t6-also"><summary class="v6-item-door">${icon('list')}<span>Also on this bill · ${alsoL.length}</span>${icon('chevron-down')}</summary><ul class="v6-also-list">${also}</ul></details>` : ''}${facts ? `<details class="v6-item-det"${S.v6About?.[b.id] ? ' open' : ''} data-v6about="${esc(b.id)}"><summary class="v6-item-door">${icon('info')}<span>About this bill</span>${icon('chevron-down')}</summary><div class="v6-item-about">${facts}</div></details>` : ''}</div>` : ''}
@@ -938,7 +938,7 @@ function roCard(it, v) {
   // Said from the reader's side ("Kevin revises the testimony"), with no buttons (where 'team').
   if (it.s && it.b && it.kind !== 'stale') return stepCard(it.b, { viewer: S.me, where: 'team', d: it.kind === 'chair' || it.kind === 'followask' ? null : it.d ?? null, h: it.kind === 'chair' || it.kind === 'followask' ? null : it.h ?? null, primary: false, id: 't6-next-h' });
   const r = it.kind === 'partner' ? { name: it.p.partner_name, num: '', line: 'Partner words to approve' } : miniOf(it, v);
-  return `<section class="v6-step others named w-team t6-mini" aria-labelledby="t6-next-h"><p class="v6-step-bill"><span class="v6-step-bn">${esc(r.name)}</span>${r.num ? ` <span class="v6-row-num">${esc(r.num)}</span>` : ''}</p><h3 class="v6-step-what" id="t6-next-h">${nw(esc(r.line))}</h3></section>`;
+  return `<section class="v6-step others named w-team t6-mini" aria-labelledby="t6-next-h">${billLineHTML(r.num && it.kind !== 'partner' ? it.b : null, { name: r.name, num: r.num })}<h3 class="v6-step-what" id="t6-next-h">${nw(esc(r.line))}</h3></section>`;
 }
 // Nothing of the person's own (F67): a calm sentence, the next hearing, and for someone with no bills and no coalition,
 // where to pick one. Never "All clear" over work.

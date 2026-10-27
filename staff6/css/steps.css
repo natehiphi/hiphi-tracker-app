@@ -36,6 +36,22 @@ body.staff6 .v6-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; b
 body.staff6 .v6-step-bill { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
 body.staff6 .v6-step-bn { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
 body.staff6 .v6-step-bill + .v6-step-eyebrow { margin-top: -8px; }
+/* Nate 10/26: the name opens the bill and "Its issue" opens the issue. The name keeps its ink and weight but is underlined at
+   rest, a thin line in the action colour, so it reads as a link without hover (A-12, B-9); hover thickens the line. The issue
+   link is quiet: 14px, the link colour, the tag icon the bill page uses (R-226), one per issue, at most two. */
+body.staff6 a.v6-step-bn { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px;
+  text-decoration-color: color-mix(in srgb, var(--v6-action) 55%, transparent); border-radius: 4px; }
+body.staff6 a.v6-step-bn:focus-visible, body.staff6 .v6-step-iss:focus-visible { outline: 2px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .v6-step-iss { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px);
+  color: var(--v6-action); text-decoration: none; border-radius: 4px; }
+body.staff6 .v6-step-iss > .ic { width: 14px; height: 14px; flex: none; }
+body.staff6 .v6-step-iss > span { overflow-wrap: anywhere; }
+/* in the open item's top row, after the number: the issue sits with the number, Open the bill stays on the right */
+body.staff6 .v6-item-num .v6-step-iss { margin-left: 8px; }
+@media (hover: hover) and (pointer: fine) {
+  body.staff6 a.v6-step-bn:hover { text-decoration-thickness: 2px; text-decoration-color: var(--v6-action); }
+  body.staff6 .v6-step-iss:hover > span { text-decoration: underline; text-underline-offset: 3px; }
+}
 /* item names at Poppins 500 (spec 12.1): 600+ is for section headings, the page title and the filled button, at most a
    quarter of the text (spec 4); the step's sentence is an item's name, on Today's next-step card too */
 body.staff6 .v6-step-what { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18);
