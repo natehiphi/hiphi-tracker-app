@@ -455,3 +455,97 @@ body.staff6 .bl-gh .bl-ghic svg { width: 24px; height: 24px; }   /* A-18: 24px b
    the box steps 2px left to put the drawn line on the card's edge. Centred in the 44px heading it sat 6px under the words'
    middle; a 5px nudge up (position, so the heading's words do not move) puts it level with them. */
 body.staff6 .bl-gh .bl-ghic { position: relative; top: -5px; margin-left: -2px; margin-right: -2px; }
+
+/* ==== R-344 (the five picture rules, R-336's at-a-glance review; Nate's decisions of 26 Oct): staff6/verbs.js's pictures ==== */
+/* The action hues (Decision 1, soft filled): one per family of jobs, never the amber, red or green of status (A-5 on v6).
+   Drawn as a soft wash of the hue with the icon in the hue, like More's round tiles (staff.css .v6-more-ic); each hue's icon
+   is at least 3:1 on its wash (A-7, UI graphics). Indigo writes, violet approves, steel blue files, the action blue asks a
+   chair, rose rallies the public and partners, slate takes a step on. */
+body.staff6 { --v6-hue-write: #5767A8; --v6-hue-approve: #8A57A0; --v6-hue-file: #2F6F8F; --v6-hue-chair: var(--v6-action);
+  --v6-hue-rally: #A24A76; --v6-hue-take: #56656C; }
+body.staff6 .v6-at { --hue: var(--v6-hue-take); display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 40px; height: 40px; border-radius: 50%; color: var(--hue); background: color-mix(in srgb, var(--hue) 18%, var(--v6-card)); }
+body.staff6 .v6-at svg { width: 20px; height: 20px; }
+body.staff6 .v6-at.s32 { width: 32px; height: 32px; } body.staff6 .v6-at.s32 svg { width: 18px; height: 18px; }
+body.staff6 .v6-at.s24 { width: 24px; height: 24px; } body.staff6 .v6-at.s24 svg { width: 14px; height: 14px; }
+body.staff6 .v6-at.h-write { --hue: var(--v6-hue-write); } body.staff6 .v6-at.h-approve { --hue: var(--v6-hue-approve); }
+body.staff6 .v6-at.h-file { --hue: var(--v6-hue-file); } body.staff6 .v6-at.h-chair { --hue: var(--v6-hue-chair); }
+body.staff6 .v6-at.h-rally { --hue: var(--v6-hue-rally); } body.staff6 .v6-at.h-take { --hue: var(--v6-hue-take); }
+/* A row led by its action tile (verbs.js rowLead): a 40px column on a laptop, 32px on a phone, where it stays (Rule 1 is for
+   the phone's blur test too; the topic icons' "none below 600px" stays theirs). The tile's top sits level with the name. */
+body.staff6 .v6-row-main.has-lead:has(> .v6-act-lead) { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; }
+body.staff6 .v6-row-lead.v6-act-lead { width: 40px; height: 40px; grid-row: 1 / span 3; align-self: start; color: inherit; }
+@media (max-width: 599.98px) {
+  body.staff6 .v6-row-main.has-lead:has(> .v6-act-lead) { display: grid; grid-template-columns: 32px minmax(0, 1fr); }
+  body.staff6 .v6-row-main.has-lead > .v6-row-lead.v6-act-lead { display: inline-flex; width: 32px; height: 32px; }
+  body.staff6 .v6-row-lead.v6-act-lead .v6-at { width: 32px; height: 32px; }
+  body.staff6 .v6-row-lead.v6-act-lead .v6-at svg { width: 18px; height: 18px; }
+  /* a row's button under its words starts at the words' edge, not the tile's (A-8) */
+  body.staff6 .v6-row:has(.v6-act-lead) > .v6-row-act { padding-left: 44px; }
+}
+/* the job's tile inside a line (Bills rows: the viewer's own step), level with the 16px words */
+body.staff6 .v6-row-line > .v6-at.s24 { margin: -2px 0; }
+
+/* ---- a state's mark (verbs.js stateMark): its shape on a small round wash, and its word ---- */
+/* Rule 2: one shape, one colour, one word per state. The wash is neutral; the shape carries the tone, and only the status
+   tones: done leaf, late amber, overdue red (never an action hue). */
+body.staff6 .v6-sm { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-body); }
+body.staff6 .v6-sm-ic { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--v6-wash); color: var(--v6-ink); }
+body.staff6 .v6-sm-ic svg { width: 14px; height: 14px; }
+body.staff6 .v6-sm.s20 .v6-sm-ic { width: 20px; height: 20px; } body.staff6 .v6-sm.s20 .v6-sm-ic svg { width: 12px; height: 12px; }
+body.staff6 .v6-sm.t-done .v6-sm-ic { color: var(--v6-leaf); background: var(--v6-leaf-wash); }
+body.staff6 .v6-sm.t-late .v6-sm-ic { color: var(--v6-late); background: var(--v6-late-wash); }
+body.staff6 .v6-sm.t-overdue .v6-sm-ic { color: var(--v6-bad); background: var(--v6-bad-wash); }
+body.staff6 .v6-sm-w { overflow-wrap: anywhere; }
+
+/* ---- the testimony step picture (verbs.js testimonyTrack, C5): 20px dots, 14px words in ink, one line ---- */
+/* Done: a leaf dot with a white tick. The step it is at: the action colour with its state's shape in white, its word bold.
+   Still to come: a hollow ring. Joined by short hairlines that give way first. When they would not fit (400px with Second look, 280px without) the done steps
+   keep their dot and give their word to screen readers, so Write, Approve, Second look and File stay on one line. */
+body.staff6 .v6-tt-box { container-type: inline-size; min-width: 0; }
+body.staff6 .v6-tt { display: flex; flex-wrap: nowrap; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; min-width: 0;
+  font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-body); }
+body.staff6 .v6-tt li { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; white-space: nowrap; }
+body.staff6 .v6-tt li + li::before { content: ''; flex: 0 1 20px; min-width: 6px; width: 20px; height: 2px; margin: 0 8px; border-radius: 1px; background: var(--v6-hair); }
+body.staff6 .v6-tt li.done + li::before { background: var(--v6-leaf); }
+body.staff6 .v6-tt-dot { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; height: 20px; border-radius: 50%;
+  box-shadow: inset 0 0 0 2px var(--v6-field); color: #fff; }
+body.staff6 .v6-tt-dot svg { width: 12px; height: 12px; stroke-width: 3; }
+body.staff6 .v6-tt li.done .v6-tt-dot { background: var(--v6-leaf); box-shadow: none; }
+body.staff6 .v6-tt li.cur .v6-tt-dot { background: var(--v6-action); box-shadow: none; }
+body.staff6 .v6-tt li.cur .v6-tt-dot svg { stroke-width: 2.5; }
+body.staff6 .v6-tt li.cur .v6-tt-w { color: var(--v6-ink); font-weight: 700; }
+body.staff6 .v6-tt li.next .v6-tt-w { color: var(--v6-muted); }
+body.staff6 .v6-tt-w { overflow: hidden; text-overflow: ellipsis; }
+/* four steps (with Second look) need about 400px with every word, three about 280px */
+@container (max-width: 399.98px) {
+  body.staff6 .v6-tt.n4 li.done .v6-tt-w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body.staff6 .v6-tt.n4 li + li::before { margin: 0 6px; }
+}
+@container (max-width: 279.98px) {
+  body.staff6 .v6-tt li.done .v6-tt-w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body.staff6 .v6-tt li + li::before { margin: 0 6px; }
+}
+
+/* ---- the bill's own picture on a row (tracker.js slimBarHTML): the slim bar, a Now pin, the trophy at Law ---- */
+body.staff6 .v6-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 6px; margin-top: 4px; width: 100%; max-width: 420px; min-width: 0; align-self: stretch; }
+body.staff6 .v6-bar-segs { position: relative; display: grid; column-gap: 3px; padding-top: 17px; min-width: 0; }
+body.staff6 .v6-bar-segs > i { display: block; height: 6px; border-radius: var(--v6-pill); background: var(--v6-hair); }
+body.staff6 .v6-bar-segs > i.is-done { background: var(--v6-leaf); }
+body.staff6 .v6-bar-segs > i.is-now { background: var(--v6-action); }
+body.staff6 .v6-bar-segs > i.is-stopped { background: repeating-linear-gradient(135deg, var(--v6-muted) 0 3px, var(--v6-field) 3px 6px); }
+/* "Now" over the stop it is at: a pin and the word, 14px, kept inside the bar's ends */
+body.staff6 .v6-bar-now { position: absolute; top: 0; display: inline-flex; align-items: center; gap: 2px; transform: translateX(-50%);
+  font-size: var(--v6-t14); line-height: 16px; color: var(--v6-action); font-weight: 400; white-space: nowrap; }
+body.staff6 .v6-bar-now svg { width: 14px; height: 14px; }
+body.staff6 .v6-bar-now.at-start { transform: none; } body.staff6 .v6-bar-now.at-end { transform: translateX(-100%); }
+body.staff6 .v6-bar-end { display: inline-flex; align-items: center; color: var(--v6-field); line-height: 0; }
+body.staff6 .v6-bar-end svg { width: 16px; height: 16px; }
+body.staff6 .v6-bar.is-law .v6-bar-end { color: var(--v6-leaf); }
+/* a twin bill's chamber (HB 2121 and SB 2175 share a name): a small tag beside the number */
+body.staff6 .v6-twin { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-wash);
+  font-size: var(--v6-t14); line-height: 22px; color: var(--v6-body); white-space: nowrap; }
+body.staff6 .v6-twin svg { width: 14px; height: 14px; }
+/* HIPHI's stance beside the number: its shape and one word, quiet */
+body.staff6 .v6-row-top .v6-sm { flex: none; }
