@@ -908,6 +908,6 @@ export function issueFrameHTML(i, b) {
         <p class="bw-if-s">${pill}<span>${esc(hc.text)}</span></p></div>
       <a class="bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></div>
     ${alive.length ? `<div class="bw-if-bills" role="list">${alive.map(x => billCard(x, { me: x.b.id === b.id })).join('')}</div>` : ''}
-    ${gone ? `<p class="bw-if-more">${esc(plural(gone, alive.length ? 'more bill' : 'bill'))} on it stopped</p>` : ''}
+    ${gone ? `<p class="bw-if-more">${esc(alive.length ? `${plural(gone, 'other bill')} on this issue ${gone === 1 ? 'has' : 'have'} stopped` : `${plural(gone, 'bill')} on this issue ${gone === 1 ? 'has' : 'have'} stopped`)}</p>` : ''}
   </section>`;
 }
