@@ -72,7 +72,7 @@ const [setup] = lazy(() => import('./setup.js'), m => ({ setup: m.default }), { 
 const [triage] = lazy(() => import('./triage.js'), m => ({ triage: m.default }), { tab: 'bills', tabs: false, title: () => 'Sort new bills' });
 const [memo, memoGet] = lazy(() => import('./memo.js'), m => ({ memo: m.default, partners: m.partners }), { tab: 'outreach', tabs: false, title: () => 'Partner update' });
 const partners = { ...memo, tab: 'outreach', tabs: true, render() { memoGet(); return skeleton(5); } };
-const [supporters] = lazy(() => import('./supporters.js'), m => ({ supporters: m.default }), { tab: 'outreach', title: () => 'Supporters' });
+const [supporters] = lazy(() => import('./supporters.js'), m => ({ supporters: m.default }), { tab: 'outreach', ownTitle: true, title: () => 'Supporters' });
 const [person] = lazy(() => import('./person.js'), m => ({ person: m.default }), { tab: 'outreach', title: () => 'Supporter' });
 const [list] = lazy(() => import('./list.js'), m => ({ list: m.default }), { tab: 'outreach', title: () => 'List' });
 const [emails] = lazy(() => import('./emails.js'), m => ({ emails: m.default }), { tab: 'outreach', title: () => 'Emails' });
@@ -469,7 +469,8 @@ export function render() {
   // A redraw of the same page (data arriving, a 2-minute look) while someone is in the header's search box keeps them there:
   // the box is redrawn too, and an empty palette (Cmd/Ctrl-K's start list) lost its focus, so the keys typed next went nowhere.
   const inSearch = document.activeElement?.id === 'hq' && location.hash === lastKey;
-  const shownT = placeTitle(main, title) || title;
+  // A screen with ownTitle keeps its own name as the heading (Supporters, R-343: "Outreach" over the list said nothing about it).
+  const shownT = (scr.ownTitle ? '' : placeTitle(main, title)) || title;
   app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr, shownT)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
   retitle(app, shownT);
   S.shownTitle = shownT;
