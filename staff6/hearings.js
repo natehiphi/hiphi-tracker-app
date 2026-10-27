@@ -279,12 +279,11 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
     const due = ms(String(t.due_date).slice(0, 10) + 'T17:00:00-10:00'); if (!(due >= t0 && due <= t1)) continue;
     put(due, { k: 'todo', words: t.title || 'To-do', b, href: billRoute(b), who: t.assignee_id ? (t.assignee_id === S.me?.id ? 'You' : teamFirst(t.assignee_id)) : 'No one yet' });
   }
-  const plainS = x => String(x || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, '’');
   for (const t of mine) {
     if (t.due == null || !(t.due >= t0 && t.due <= t1)) continue;
     // The person's own step on a bill (approve, resubmit, file, fix an email) at its own time, in Today's words, so the
     // calendar and Today's list never give two times for one job (critic, R-342). Mine only: Team is the Capitol's times.
-    if (!['todo', 'followup', 'wait'].includes(t.kind) && t.who === 'yours' && t.b && tasks !== 'team' && !steps) { put(t.due, { k: 'step', words: plainS(t.s), b: t.b, href: billRoute(t.b) }); continue; }
+    // (the person's own steps come only from Today, which hands its rows in: `steps` below; Hearings and All issues have none)
     if (t.kind === 'todo' && t.who === 'yours') { if (tasks !== 'team') put(t.due, { k: 'todo', words: t.t?.title || 'To-do', b: t.b, href: t.b ? billRoute(t.b) : '#/' }); }
     else if (t.kind === 'followup') { const p = t.p || {}, name = p.name || p.email || 'a supporter';
       put(t.due, { k: 'fu', words: `Follow up with ${name}`, sub: t.f?.what || '', who: tasks === 'team' ? 'You' : '', href: t.f?.person_id ? `#/person/${encodeURIComponent(t.f.person_id)}` : '#/' }); }
