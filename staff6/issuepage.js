@@ -719,6 +719,26 @@ async function putOn(i, b) {
   } catch (e) { toast(e, { err: true }); }
 }
 
+// ---- stories from supporters (R-341, Nate 10/26) ----
+// The stories supporters told about this issue, for its owner, its helpers and admins: first name and island only (the
+// rest of a supporter's details are an admin's). Read once per visit; reference, so it sits in a fold.
+const STO = () => S.ipStories ??= {};
+const mayStories = i => !!S.me && (!!S.me.is_admin || i.owner_id === S.me.id || issueHelpersOf(i).some(h => h.id === S.me.id));
+const STORY_QUOTE = { none: 'Not for quoting: they did not say HIPHI may quote it.', first: 'HIPHI may quote it with their first name and island, after asking again.',
+  name: 'HIPHI may quote it with their full name, after asking again. An admin has their details.', media: 'HIPHI may quote it with their full name and share it with reporters, after asking again. An admin has their details.' };
+function wantStories(i) {
+  const st = STO(); if (st[i.id] !== undefined) return;
+  st[i.id] = null;
+  DB.issueStories(i.id).then(r => { st[i.id] = r; }).catch(() => { st[i.id] = false; }).finally(() => { if (S.route?.name === 'issue' && String(S.route.id) === String(i.id)) hooks.render(); });
+}
+function storiesHTML(i) {
+  const r = STO()[i.id];
+  if (r === null || r === undefined) return { sum: 'Loading', body: '<p class="meta">Loading the stories.</p>' };
+  if (r === false) return { sum: 'Did not load', body: '<p class="meta">The stories did not load. Open the page again to retry.</p>' };
+  if (!r.length) return { sum: 'None yet', body: '<p class="meta">No supporter has told a story about this issue yet. Supporters add one from their profile on the tracker.</p>' };
+  return { sum: plural(r.length, 'story', 'stories'), body: `<ul class="ip6-stories">${r.map(x => `<li><q>${esc(x.story)}</q><span class="meta">${esc(x.first_name)}${x.island ? `, ${esc(x.island)}` : ''}${x.about_issue ? '' : ' · a story for any issue; they follow this one'} · ${esc(STORY_QUOTE[x.quote] || STORY_QUOTE.none)}</span></li>`).join('')}</ul>` };
+}
+
 // ---- the page ----
 const billsSplit = i => { const bills = billsOn(i).sort(byNum); return { now: bills.filter(thisSession), earlier: bills.filter(b => !thisSession(b)) }; };
 // A folded section (Nate, walk 4: "filling the issue page with content both in the middle and on the right can be too
@@ -768,6 +788,7 @@ function pageRender(route) {
   const folds = [
     foldSec('points', 'ip-mh', 'Talking points and materials', pointsHTML(i, now, earlier)),
     foldSec('public', 'ip-ph', pub.title, pub),
+    mayStories(i) ? (wantStories(i), foldSec('stories', 'ip-sh', 'Stories from supporters', storiesHTML(i))) : '',
     foldSec('legs', 'ip-lh', 'Where legislators stand', legsHTML(i, xs), { quiet: true }),
     foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' }),
     foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' }),

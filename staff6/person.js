@@ -223,6 +223,8 @@ export default {
   title: route => { const p = personById(route.id); return p ? personName(p) : 'Supporter'; },
   back: route => { const [label, href] = FROM[route.q?.from] || ['Supporters', SUPPORTERS]; return { href, label }; },
   render(route) {
+    // R-341: a supporter's page is an admin's; the database gives anyone else nothing to show (migration 190).
+    if (!S.me?.is_admin) return `<div class="sp-person">${empty({ title: 'Supporters’ details are for admins', text: 'Names, emails, phone numbers and histories stay with admins. Ask one when you need to reach this person.', action: btn('Back to Supporters', { kind: 'secondary', href: SUPPORTERS }) })}</div>`;
     const id = route.id, p = personById(id), st = P();
     if (!p) {
       // Live: fetch just this person first (fast), not the whole list of up to 5,000.
@@ -245,7 +247,7 @@ export default {
   },
   wire(route, root) {
     const p = personById(route.id), page = root.querySelector('.sp-person');
-    if (!p || !page) return;
+    if (!p || !page || !S.me?.is_admin) return;
     const st = P();
     const on = (sel, fn) => page.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-pp="more"]', () => moreMenu(p));

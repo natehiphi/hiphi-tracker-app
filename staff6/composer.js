@@ -265,7 +265,7 @@ const STEPS = ['Who', 'Write', 'Preview', 'Submit'];
 const stepBar = step => `<ol class="le-steps" aria-label="Step ${step + 1} of ${STEPS.length}">${STEPS.map((l, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"${i === step ? ' aria-current="step"' : ''}><span class="le-sdot" aria-hidden="true">${i < step ? icon('check') : i + 1}</span><span>${i === step ? `<span class="le-sof">Step ${i + 1} of ${STEPS.length} · </span>` : ''}${l}</span></li>`).join('')}</ol>`;
 
 // A segment's size, when Supporters has loaded (the exact audience is counted once it is picked).
-const segSub = s => { if (!S.peopleLoaded) return 'A saved group of supporters'; try { return `${people(segmentPeople(s.id).length)} in this group`; } catch { return 'A saved group of supporters'; } };
+const segSub = s => { if (!S.me?.is_admin || !S.peopleLoaded) return 'A saved group of supporters'; try { return `${people(segmentPeople(s.id).length)} in this group`; } catch { return 'A saved group of supporters'; } };
 function billOk(b) { return b.is_public && b.position !== 'monitor' && !diedish(b) && (S.me?.is_admin || (S.assignments[b.id] || []).includes(S.me?.id)); }
 function listOk(l) { return l.is_published && (S.me?.is_admin || l.owner_id === S.me?.id); }
 function whoResults(q) {

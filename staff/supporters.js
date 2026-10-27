@@ -215,6 +215,8 @@ export default {
   noTabs: () => !!S.spView?.selecting && !isDesk() && document.body.dataset.screen === 'supporters',
   render(route) {
     const v = V();
+    // R-341: the supporter list is an admin's (migration 190 gives anyone else none of it); others can still add a contact.
+    if (!S.me?.is_admin) return `<div class="sp-page">${empty({ title: 'The supporter list is for admins', text: 'Supporters’ names, emails, phone numbers and histories stay with admins. You can still add someone who wants to help; they get supporter emails only if they say yes.', action: btn('Add a person', { icon: 'user-plus', attrs: { 'data-sp': 'add', 'aria-haspopup': 'dialog' } }) })}</div>`;
     if (!S.peopleLoaded) {
       if (!DEMO && !S.spLoadKick) {
         S.spLoadKick = true;
@@ -267,6 +269,7 @@ export default {
     if (!page) return;
     const on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-sp="retry"]', () => { S.spLoadErr = null; hooks.render(); });
+    if (!S.me?.is_admin) { on('[data-sp="add"]', () => addPersonSheet()); return; }
     if (!S.peopleLoaded) return;
     const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; };
     const q = page.querySelector('#sp-q'), qx = page.querySelector('[data-sp="qclear"]');
@@ -583,6 +586,13 @@ function addPersonSheet() {
       const save = async () => {
         const e = em.value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
+        if (!S.me?.is_admin) {
+          go.setAttribute('aria-busy', 'true'); go.disabled = true;
+          try { const r = await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
+            afterSheet(() => toast(r.added !== false ? `Added ${nm.value.trim() || e}. An admin can see them in Supporters.` : `${e} is already in Supporters.`, { ok: r.added !== false })); }
+          catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
+          return;
+        }
         const ex = (S.people || []).find(p => (p.email || '').toLowerCase() === e);
         if (ex) { closeSheet({ silent: true }); afterSheet(() => { S.go('#/person/' + encodeURIComponent(ex.id)); toast(`${personName(ex)} is already in Supporters.`); }); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;

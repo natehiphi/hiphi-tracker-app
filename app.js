@@ -611,9 +611,12 @@ const DB = {
     const { error } = await S.supa.from('people').update({ ...patch, island: 'senate_district' in patch ? islandOf(patch.senate_district) : undefined, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw error;
     return this.refreshPerson(id);
   },
+  // R-341: through add_supporter (migration 190), the same call as Staff v2.
   async addPerson(fields) {
     if (DEMO) { const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
-    const { data, error } = await S.supa.from('people').insert({ ...fields, island: islandOf(fields.senate_district), source: 'manual', created_by: S.me?.id }).select('id').single(); if (error) throw error;
+    const { data, error } = await S.supa.rpc('add_supporter', { p: { email: fields.email, name: fields.name ?? null, phone: fields.phone ?? null } }); if (error) throw error;
+    if (!S.me?.is_admin) return { added: !!data?.added };
+    if (!data?.id) throw new Error('That email is already in Supporters.');
     return this.refreshPerson(data.id);
   },
   async deletePerson(id) { if (!DEMO) { const { error } = await S.supa.from('people').delete().eq('id', id); if (error) throw error; } S.people = S.people.filter(p => p.id !== id); },
