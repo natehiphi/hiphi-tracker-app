@@ -26,7 +26,7 @@ import { S, DB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
-  streamOf, billById, offTag, legById, askReply } from './model.js';
+  streamOf, billById, offTag, legById, askReply, billRef } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field } from './ui.js';
 import { askLine, answerSheet } from './chairask.js';
 import { askTodoOf, giveAsk, logAsk } from './push.js';
@@ -556,19 +556,25 @@ export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
 // ---- the one step card (V07, V11, V22) ----
 // One verb per step across the card's sentence, its tile, the row and the button (V19, rule 6): "Make the draft", "Send
 // for approval", "Resubmit", "Approve", "File".
+// Nate 10/26 (option E): where nothing else on the screen names the bill, the sentence does, "Ask for a hearing on
+// Hygienists can place temporary fillings", the name a link to the bill. x is that name's placeholder (BILL_IN) or ''.
+const on = x => x ? ` on ${x}` : '';
 const SENT = { // the card's sentence, the viewer's own step
-  nodraft: () => 'Make the draft', write: () => 'Write the testimony, then send it for approval', submit: () => 'Send the testimony for approval',
+  nodraft: (s, v, x) => x ? `Make the testimony draft for ${x}` : 'Make the draft',
+  write: (s, v, x) => x ? `Write the testimony on ${x}` : 'Write the testimony, then send it for approval',
+  submit: (s, v, x) => x ? `Send the testimony on ${x} for approval` : 'Send the testimony for approval',
   // Says plainly that it came back, in the flag's own lower-case words (spec 12.6; a capitalised "Sent back" reads as a sixth
   // state): Patti's first screen said only "Revise and resubmit" over "The approver's note", and nothing said it was sent back.
-  revise: () => 'Revise and resubmit: it was sent back',
-  approve: (s, v) => `Approve ${s.d?.submitted_by ? (s.d.submitted_by === v?.id ? 'your own' : `${cap(firstWords(s.d.submitted_by, v))}’s`) : 'the'} testimony`,
-  second: (s, v) => `Give the second look to ${s.d?.submitted_by && s.d.submitted_by !== v?.id ? `${cap(firstWords(s.d.submitted_by, v))}’s` : 'the'} testimony`,
-  file: s => `File the ${s.status.tone === 'late' ? 'late ' : ''}testimony at the Capitol`,
+  revise: (s, v, x) => x ? `Revise and resubmit the testimony on ${x}` : 'Revise and resubmit: it was sent back',
+  approve: (s, v, x) => `Approve ${s.d?.submitted_by ? (s.d.submitted_by === v?.id ? 'your own' : `${cap(firstWords(s.d.submitted_by, v))}’s`) : 'the'} testimony${on(x)}`,
+  second: (s, v, x) => `Give the second look to ${s.d?.submitted_by && s.d.submitted_by !== v?.id ? `${cap(firstWords(s.d.submitted_by, v))}’s` : 'the'} testimony${on(x)}`,
+  file: (s, v, x) => `File the ${s.status.tone === 'late' ? 'late ' : ''}testimony${on(x)} at the Capitol`,
 };
 const OTHERS = { // someone else's step: who, then what
-  nodraft: w => `${w} makes the draft`, write: w => `${w} writes the testimony`, submit: w => `${w} sends the testimony for approval`,
-  revise: w => `${w} revises the testimony`, approve: w => `${w} approves the testimony`, second: w => `${w} gives the testimony its second look`,
-  file: w => `${w} files the testimony at the Capitol`,
+  nodraft: (w, x) => `${w} makes the draft${x ? ` for ${x}` : ''}`, write: (w, x) => `${w} writes the testimony${on(x)}`,
+  submit: (w, x) => `${w} sends the testimony${on(x)} for approval`, revise: (w, x) => `${w} revises the testimony${on(x)}`,
+  approve: (w, x) => `${w} approves the testimony${on(x)}`, second: (w, x) => `${w} gives the testimony${on(x)} its second look`,
+  file: (w, x) => `${w} files the testimony${on(x)} at the Capitol`,
 };
 // The words over an approver's note (the step card, the hearing card's row, the Resubmit sheet): not a state word.
 const NOTE_HEAD = 'The approver’s note';
@@ -676,31 +682,56 @@ function hearingLineHTML(h, v, from, { going = true } = {}) {
 // it again (A-14). The viewer's own step whose bill has a deadline alert they have not read shows a small quiet dot and
 // who sent what, where ("We alerted you in Slack at 8:00 AM"), until the step is done (F49, V26: alerts live on the step,
 // not in the Inbox; C-15 says "alert", never "reminder").
-// The top line of a step card, the bill's name and number, is the way to the bill and its issue (Nate 10/26, as Patrick:
-// Today's chair ask said HB 1671 but neither the bill nor its issue could be opened from the card; the bill was two
-// clicks away by This week's side door). The name is a link that looks like one (A-12: underlined at rest, not only on
-// hover, B-9) and keeps the name's ink and weight, so the card reads as before; a quiet "Its issue" (or the issue's own
-// name when it differs from the bill's) follows in the link colour with the tag icon the bill page uses (R-226).
-// Rows that are not about a bill (a follow-up with a person) pass no bill and get the plain name, as before.
+// The bill's issue, a quiet link on the card's top line (R-226: the way from a bill to its issue is always clear): "Its
+// issue" when it shares the bill's name, else the issue's own name; at most two.
 const sameIssueName = (i, b) => (i.name || '').trim().toLowerCase() === (b?.nickname || '').trim().toLowerCase();
 export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : []).map(i => `<a class="v6-step-iss" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameIssueName(i, b) ? 'Its issue' : esc(i.name)}</span></a>`).join('');
-export function billLineHTML(b, { name, num } = {}) {
-  const nm = name ?? (b ? fullName(b) : ''), no = num ?? (b ? numWords(b) : '');
-  const numH = no ? ` <span class="v6-row-num">${esc(no)}</span>` : '';
-  if (!b || !b.id) return `<p class="v6-step-bill"><span class="v6-step-bn">${esc(nm)}</span>${numH}</p>`;
-  const issH = issueLinksHTML(b);
-  return `<p class="v6-step-bill"><a class="v6-step-bn" href="${esc(billRoute(b))}" aria-label="${esc(nm)}${no ? ', ' + esc(no) : ''}. Open the bill">${esc(nm)}</a>${numH}${issH}</p>`;
+const BILL_IN = '\u0001bill\u0001';
+// The bill's name inside the sentence: the app's in-sentence link (the bill page's chair name, bill.css .bw-chairl): the
+// action colour, underlined at rest (A-12, B-9). It keeps the sentence's size and weight, so the card has one heading.
+const billInHTML = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(fullName(b))}</a>`;
+// The chair's name opens their page, wherever the card names them (R-316 W18 did it on the bill page only; option E moves
+// the chair to a line of its own, so the link moves with it and now works on Today, Testimony and Team too). Same words
+// chairAskMail writes ("Sen. San Buenaventura"), so the name is found in the line.
+// The head of a card that is not a bill step (Today's small cards, partner words) in the same shape (option E): the quiet
+// line (kind · number · issue) and the sentence, its {bill} the bill's name as the in-sentence link. No bill: the
+// sentence alone, under the kind.
+export function stepHeadHTML(b, { kind = '', sentence = '', id = '' } = {}) {
+  const top = [kind ? esc(kind) : '', b ? `<span class="v6-row-num">${esc(numWords(b))}</span>` : '', b ? issueLinksHTML(b) : ''].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
+  const said = nw(esc(sentence)).split('{bill}').join(b ? billInHTML(b) : '');
+  return `${top ? `<p class="v6-step-eyebrow v6-step-eyeb">${top}</p>` : ''}<h3 class="v6-step-what"${id ? ` id="${esc(id)}"` : ''}>${said}</h3>`;
+}
+export function linkChairs(b, html, code) {
+  if (!code || !html) return html;
+  let out = html;
+  for (const k of codesOf(code)) {
+    const c = S.committees?.[k], m = (S.committeeMembers || []).find(y => y.committee === k && y.role === 'chair');
+    const l = m && (S.legislators || []).find(y => y.id === m.legislator_id); if (!c || !l) continue;
+    const sur = l.sort_name ? l.sort_name.split(',')[0] : String(c.chair || '').replace(/\s*(jr\.?|sr\.?|ii|iii|iv)$/i, '').trim().split(/\s+/).pop();
+    const name = esc(`${c.chamber === 'S' ? 'Sen.' : 'Rep.'} ${sur}`);
+    if (out.includes(`>${name}</a>`)) continue;
+    out = out.replace(name, `<a class="v6-step-in" href="#/legislator/${esc(l.id)}?from=${esc(billRef(b))}">${name}</a>`);
+  }
+  return out;
 }
 export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big = false, id = '', from, named, compact = false, track, who, going, acts: actsHTML, title, lead = '' } = {}) {
   const v = meOf(viewer), s = billStep(b, { viewer: v, ...(d !== undefined ? { d } : {}), ...(h !== undefined ? { h } : {}) }); if (!s) return '';
   const ro = where === 'team', own = s.you && !ro, hid = id || `v6s-${esc(b.id)}${s.d ? '-' + esc(s.d.id) : ''}`;
   const showName = named ?? ['today', 'testimony', 'team', 'hearing'].includes(where);
   const showTrack = track ?? !compact, showWho = who ?? !compact, showGoing = going ?? !compact;
-  const c = s.kind === 'chair' ? chairCard(s, v, own) : s.kind === 'none' ? { what: s.says || 'Nothing to do on it now' } : testimonyCard(s, v, own);
-  if (title) c.what = title;
-  // The committee is named once: by the hearing line under a testimony step, by this small line on a chair ask.
-  const eye = s.kind === 'chair' ? `${s.ask.decide ? 'Getting a vote' : 'Getting a hearing'}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? 'Where it stands' : '';
-  const eyebrow = [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
+  // Option E (Nate 10/26): where nothing else names the bill, its name is inside the sentence, as a link (BILL_IN, swapped
+  // for the link after the sentence is escaped); the line above says what kind of step, the number and its issue.
+  const x = showName ? BILL_IN : '';
+  const c = s.kind === 'chair' ? chairCard(s, v, own, x) : s.kind === 'none' ? (x ? { what: x, when: s.says || 'Nothing to do on it now' } : { what: s.says || 'Nothing to do on it now' }) : testimonyCard(s, v, own, x);
+  if (title) c.what = x && !title.includes(BILL_IN) ? `${title}: ${x}` : title;
+  // The committee is named once: by the hearing line under a testimony step, by the chair's line (named) or this small line
+  // (the bill page, the open item) on a chair ask.
+  const kindW = s.kind === 'chair' ? (s.ask.decide ? 'Getting a vote' : 'Getting a hearing') : s.kind === 'none' ? 'Where it stands' : 'Testimony';
+  const eye = x ? '' : s.kind === 'chair' ? `${kindW}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? kindW : '';
+  const eyebrow = x ? [esc(kindW), `<span class="v6-row-num">${esc(numWords(b))}</span>`, issueLinksHTML(b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>')
+    : [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
+  const say = t => nw(esc(t)).split(BILL_IN).join(billInHTML(b));
+  const chairH = c.chairLine ? linkChairs(b, say(c.chairLine), s.ask?.code) : '';
   // Someone else's step: Open Doc for everyone, and where the step is done (the open item, the bill) a teammate who may
   // approve covers it (File it for Kevin, Resubmit for Lauren: v5 kept both). The viewer's shared writing step: Message
   // the other writer, to say "I've got it" (v5's "Message Lauren").
@@ -715,10 +746,10 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const sent = sentWords(s, v);
   const fit = actsHTML == null ? actsFit(acts) : '';
   return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''}${showName ? ' named' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
-    ${showName ? billLineHTML(b) : ''}
-    ${eyebrow ? `<p class="v6-step-eyebrow">${eyebrow}</p>` : ''}
-    <h3 class="v6-step-what" id="${hid}">${nw(esc(c.what))}${showName ? `<span class="sr">, ${esc(sayWords(b))}</span>` : ''}</h3>
-    ${c.tile?.words || c.when || rem ? `<div class="v6-step-meta">${[statusTile(c.tile), rem, c.when ? `<span class="v6-step-when">${nw(esc(c.when))}</span>` : ''].filter(Boolean).join(' ')}</div>` : ''}
+    ${eyebrow ? `<p class="v6-step-eyebrow${x ? ' v6-step-eyeb' : ''}">${eyebrow}</p>` : ''}
+    <h3 class="v6-step-what" id="${hid}">${say(c.what)}</h3>
+    ${chairH ? `<p class="v6-step-chair">${chairH}</p>` : ''}
+    ${c.tile?.words || c.when || rem ? `<div class="v6-step-meta">${[statusTile(c.tile), rem, c.when ? `<span class="v6-step-when">${s.kind === 'chair' && x ? linkChairs(b, say(c.when), s.ask?.code) : say(c.when)}</span>` : ''].filter(Boolean).join(' ')}</div>` : ''}
     ${sent ? `<p class="v6-step-sent">${nw(esc(sent))}</p>` : ''}
     ${s.kind === 'chair' || s.kind === 'none' || !showTrack ? '' : trackHTML(s)}${c.note || ''}
     ${c.who && showWho ? `<p class="v6-step-who">${nw(esc(c.who))}</p>` : ''}
@@ -817,18 +848,18 @@ export function clearReminders(b, d) {
 // deadline under the sentence when the hand-on time is earlier. Someone else's: the tile is the state ("With an
 // approver"), the sentence who does it, the line when testimony is due. Late is amber and overdue red only for the
 // step's own person and the bill's owner (shownStatus); anyone else reads the same words, neutral, with the clock.
-function testimonyCard(s, v, own) {
+function testimonyCard(s, v, own, x = '') {
   const st = s.state, shown = shownStatus(s);
   // Said once (A-14): the sentence says what happened, the leaf tile who filed it and when.
-  if (st.key === 'filed') return { tile: { ...s.status, words: s.doneWords }, what: 'The testimony is filed' };
-  if (st.key === 'missed') return { tile: s.status, what: own ? 'The hearing has started. Did we file?' : 'Not filed before the hearing',
+  if (st.key === 'filed') return { tile: { ...s.status, words: s.doneWords }, what: `The testimony${on(x)} is filed` };
+  if (st.key === 'missed') return { tile: s.status, what: own ? `The hearing${on(x)} has started. Did we file?` : x ? `The testimony on ${x} was not filed before the hearing` : 'Not filed before the hearing',
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
   const tile = ['late', 'overdue'].includes(s.status.tone) ? shown
     : own ? (s.act.words ? { tone: 'neutral', icon: s.status.soon ? 'clock' : 'calendar', words: s.act.words } : null)
     : { tone: 'neutral', icon: '', words: st.label };
   // A step nobody holds is titled with the step itself ("File the testimony at the Capitol"); "No owner yet" sits beside
   // Take it, in the bill header's words (the critic: a card titled "No owner" under a header saying "No owner yet").
-  const what = own || s.nobody ? SENT[s.kind](s, v) : OTHERS[s.kind](cap(s.whose.words));
+  const what = own || s.nobody ? SENT[s.kind](s, v, x) : OTHERS[s.kind](cap(s.whose.words), x);
   let when = '';
   if (s.off) when = 'The hearing was cancelled; no new date yet.';
   else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Testimony is due ${whenAt(s.due)}.`;
@@ -842,29 +873,38 @@ function testimonyCard(s, v, own) {
 // A chair ask's words: "Ask Rep. Takayama for a hearing" with the notice day as the tile; once asked, "Kevin asked Rep.
 // Takayama for a hearing" with the reply as the tile; and the asker's own Follow up after 3 working days with no reply
 // (or 2 before the notice), with the office's phone when the Capitol lists it (V13, spec 6).
-function chairCard(s, v, own) {
+function chairCard(s, v, own, x = '') {
   const a = s.ask, chair = a.m ? a.m.who : 'the chair', what0 = a.decide ? 'to schedule a vote' : 'for a hearing';
   if (a.key === 'waiting' || a.key === 'said_no') {
     const reply = askReply(a), ph = phoneOf(a.code), asker = cap(firstWords(a.asker, v));
     const tile = { tone: 'neutral', icon: a.answer === 'said_no' ? 'circle-x' : a.answer === 'will_schedule' ? 'calendar' : 'hourglass', words: cap(reply) };
-    if (a.followUp && own) return { tile, what: `Follow up with ${chair}`,
-      when: `${asker} asked ${dayWords(a.at)}${a.lastAt && hday(a.lastAt) !== hday(a.at) ? `, then again ${dayWords(a.lastAt)}` : ''}.${ph ? ` Their office: ${ph}.` : ''}` };
-    return { tile, what: `${asker} asked ${chair} ${what0}`, when: `On ${dayWords(a.at)}.` };
+    const again = a.lastAt && hday(a.lastAt) !== hday(a.at) ? `, then again ${dayWords(a.lastAt)}` : '';
+    if (a.followUp && own) return x ? { tile, what: `Follow up on the ${a.decide ? 'vote' : 'hearing'} ask for ${x}`,
+      when: `${asker} asked ${chair} ${dayWords(a.at)}${again}.${ph ? ` Their office: ${ph}.` : ''}` }
+      : { tile, what: `Follow up with ${chair}`, when: `${asker} asked ${dayWords(a.at)}${again}.${ph ? ` Their office: ${ph}.` : ''}` };
+    return x ? { tile, what: `${asker} asked ${what0}${on(x)}`, when: `Asked ${chair} ${dayWords(a.at)}.` }
+      : { tile, what: `${asker} asked ${chair} ${what0}`, when: `On ${dayWords(a.at)}.` };
   }
-  if (a.key === 'passed') return { tile: { tone: 'neutral', icon: 'circle-alert', words: 'Notice time passed' }, what: `Only ${chair} can help now`,
+  if (a.key === 'passed') return { tile: { tone: 'neutral', icon: 'circle-alert', words: 'Notice time passed' },
+    what: x ? `Only ${chair} can still ${a.decide ? 'schedule a vote on' : 'give a hearing to'} ${x}` : `Only ${chair} can help now`,
     when: cap(deadlineWords(a.st.deadline.label, a.st.deadline.date)) + '.' };
   const due = shownStatus({ status: status({ due: a.by }), mine: s.mine });
   const tile = { ...due, icon: due.tone === 'neutral' ? (due.soon ? 'clock' : 'calendar') : due.icon, words: due.tone === 'neutral' ? `Ask by ${a.day || a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
   const who = cap(s.whose.words), n = s.whose.ids.length;
   // The step itself for the asker and for a step nobody holds ("No owner yet" sits beside Take it); someone else's, who
   // asks: the same verb as the row, handed or not ("Kris asks Sen. DeCoite and Sen. Keohokalole for a hearing", V19).
-  const what = own || s.nobody ? `Ask ${chair} ${what0}` : `${who} ${n > 1 ? 'ask' : 'asks'} ${chair} ${what0}`;
+  // Named (option E): the sentence is the ask and the bill, "Ask for a hearing on <bill>", and the chair has a line of its
+  // own under it, "Ask Sen. San Buenaventura, chair of Senate Health and Human Services." (next to Email the chair).
+  const what = x ? (own || s.nobody ? `Ask ${what0}${on(x)}` : `${who} ${n > 1 ? 'ask' : 'asks'} ${what0}${on(x)}`)
+    : own || s.nobody ? `Ask ${chair} ${what0}` : `${who} ${n > 1 ? 'ask' : 'asks'} ${chair} ${what0}`;
+  const chairs = / and /.test(chair), cn = a.code ? committeeName(a.code) : '';
+  const chairLine = x ? `${own || s.nobody ? 'Ask ' : ''}${chair}${cn ? `, ${chairs ? 'chairs' : 'chair'} of ${cn}` : ''}.` : '';
   // When the tile already says the day to ask by, the sentence says only what the day is for (A-14: the date was said
   // twice in 100px, HB1991): "It must reach its last committee by Mon 3/30."
   const askDay = due.tone === 'neutral', must = deadlineWords(a.st.deadline.label, a.st.deadline.date);
   const when = askDay ? (/^must /.test(must) ? `It ${must}.` : cap(must) + '.')
     : a.aw?.a.notice ? `The notice has to post by ${dayWords(a.aw.a.notice)} for it to ${gateNeed(a.st.deadline.label, 1)} by ${dayWords(a.st.deadline.date)}.` : cap(must) + '.';
-  return { tile, what, when };
+  return { tile, what, when, chairLine };
 }
 const phoneOf = code => { const id = chairIdsOf(code)[0], l = id && legById(id); return l?.phone || ''; };
 // A live bill with a position and no owner, whose current step someone does hold (Patti writes it), says so with Take it

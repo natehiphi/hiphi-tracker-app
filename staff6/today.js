@@ -35,7 +35,7 @@ import { draftHearing, hearingAhead, diedish, stopOf, wantsHearing, whenAt, bill
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords, segmented } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
-  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor, billLineHTML, issueLinksHTML } from './steps.js';
+  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor, issueLinksHTML, stepHeadHTML } from './steps.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
@@ -481,12 +481,27 @@ function shared(html, it, v = S.me) {
   // (the meta line holds spans only, so its first </div> is its own)
   return /<div class="v6-step-meta">/.test(html) ? html.replace(/(<div class="v6-step-meta">[\s\S]*?)(<\/div>)/, `$1<span class="t6-shared">${inner}</span>$2`) : html.replace(/(<h3 class="v6-step-what"[\s\S]*?<\/h3>)/, `$1<p class="t6-shared">${inner}</p>`);
 }
+// Option E (Nate 10/26): a small card's head is the step cards' head, the quiet line (kind · number · issue) and a
+// sentence that names the bill as a link: "Write the public ask for Hygienists can place temporary fillings". A to-do,
+// whose title is the person's own words, keeps them and names the bill on the line under it ("For <bill>.").
+const MINI_SAY = {
+  email: r => [`Email`, `${r.what} about {bill}`], fix: () => ['Email', 'Fix your email about {bill}'], send: () => ['Email', 'Send your approved email about {bill}'],
+  reply: r => ['Question', `${r.what} about {bill}`], rally: () => ['Public ask', 'Write the public ask for {bill}'],
+  moved: () => ['Hearing', 'Your hearing on {bill} moved: still going?'], askup: () => ['Public ask', 'Keep the public ask for {bill} up?'],
+  todo: (r, it) => it.share ? ['Public ask', `${r.what} on {bill}`] : ['To-do', r.what, true],
+};
+function miniHead(it, r, id) {
+  const b = r.num ? it.b : null, say = b && MINI_SAY[it.kind]?.(r, it);
+  if (!b || !say) return stepHeadHTML(null, { sentence: r.what || r.line, id });
+  const [kind, sentence, under] = say;
+  return stepHeadHTML(b, { kind, sentence, id }) + (under ? `<p class="v6-step-under">For ${billInLink(b)}.</p>` : '');
+}
+const billInLink = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(nameWords(b))}</a>`;
 function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   if (it.kind === 'stale') {
     const d = it.d, b = it.b;
     return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
-      ${billLineHTML(b, { name: nameWords(b) })}
-      <h3 class="v6-step-what" id="${id}">Check your testimony against the new version</h3>
+      ${stepHeadHTML(b, { kind: 'Testimony', sentence: 'Check your testimony on {bill} against the new version', id })}
       <p class="v6-step-when">${esc(`The bill is now ${versionWords(b.current_version)}; your testimony was written for ${versionWords(d.version)}. It is ${lower(testimonyState(d, b)?.word || 'with an approver')}.`)}</p>
       ${d.doc_url ? `<div class="v6-step-acts">${docBtn(d.doc_url, { kind: primary ? 'primary' : 'secondary' })}</div>` : ''}</section>`;
   }
@@ -495,8 +510,7 @@ function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   const tile = it.kind === 'prep' ? statusTile({ tone: 'neutral', icon: 'calendar', words: it.at < Date.now() ? 'Still to finish' : `Due ${dayWords(it.at)}` })
     : it.at != null ? statusTile(it.tone === 'overdue' ? status({ due: it.at, kind: it.kind }) : { tone: 'neutral', icon: 'calendar', words: actBy({ kind: 'due', due: it.at, verb: 'Due' }).words }) : '';
   return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
-    ${billLineHTML(r.num ? it.b : null, { name: r.name, num: r.num })}
-    <h3 class="v6-step-what" id="${id}">${nw(esc(r.what || r.line))}</h3>
+    ${miniHead(it, r, id)}
     ${tile ? `<div class="v6-step-meta">${tile}</div>` : ''}
     ${r.sub ? `<p class="v6-step-when">${nw(esc(r.sub))}</p>` : ''}
     <div class="v6-step-acts">${r.buttons(k).filter(Boolean).join('')}</div></section>`;
@@ -939,7 +953,7 @@ function roCard(it, v) {
   // Said from the reader's side ("Kevin revises the testimony"), with no buttons (where 'team').
   if (it.s && it.b && it.kind !== 'stale') return stepCard(it.b, { viewer: S.me, where: 'team', d: it.kind === 'chair' || it.kind === 'followask' ? null : it.d ?? null, h: it.kind === 'chair' || it.kind === 'followask' ? null : it.h ?? null, primary: false, id: 't6-next-h' });
   const r = it.kind === 'partner' ? { name: it.p.partner_name, num: '', line: 'Partner words to approve' } : miniOf(it, v);
-  return `<section class="v6-step others named w-team t6-mini" aria-labelledby="t6-next-h">${billLineHTML(r.num && it.kind !== 'partner' ? it.b : null, { name: r.name, num: r.num })}<h3 class="v6-step-what" id="t6-next-h">${nw(esc(r.line))}</h3></section>`;
+  return `<section class="v6-step others named w-team t6-mini" aria-labelledby="t6-next-h">${it.kind === 'partner' ? stepHeadHTML(null, { kind: 'Partner words', sentence: `${r.name}: ${r.line}`, id: 't6-next-h' }) : miniHead(it, r, 't6-next-h')}</section>`;
 }
 // Nothing of the person's own (F67): a calm sentence, the next hearing, and for someone with no bills and no coalition,
 // where to pick one. Never "All clear" over work.

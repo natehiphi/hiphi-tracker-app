@@ -244,17 +244,21 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     const card = X.stepCard(nb.b, { viewer: JMM, where: 'today' }), t = strip(card);
     ok(!/btn primary/.test(card) && (t.match(/No owner/g) || []).length === 1 && /No owner yet/.test(t) && /data-v6act="take"/.test(card) && !/Open to anyone|no one holds it/i.test(t), `the card says it once, "No owner yet", with Take it and no filled button: ${nb.b.bill_number}`);
     // The card is titled with the step, not the owner situation; "No owner yet" sits beside Take it (the critic's HB 2300).
-    ok(/<h3 class="v6-step-what"[^>]*>File the testimony at the Capitol/.test(card) && /class="v6-step-noown"[^>]*>[\s\S]*No owner yet[\s\S]*data-v6act="take"/.test(card), 'the card is titled "File the testimony at the Capitol", with "No owner yet" beside Take it');
+    ok(/<h3 class="v6-step-what"[^>]*>File the testimony on <a class="v6-step-in"[^>]*>[^<]*<\/a> at the Capitol/.test(card) && /class="v6-step-noown"[^>]*>[\s\S]*No owner yet[\s\S]*data-v6act="take"/.test(card), 'the card is titled "File the testimony at the Capitol", with "No owner yet" beside Take it');
     ok(/^No owner yet · /.test(nb.s.line), `the row says so: "${nb.s.line}"`);
     ok(X.billStep(nb.b, { viewer: NT }).takeFor && !X.billStep(nb.b, { viewer: JMM }).takeFor, 'it reaches whoever may hand it (an admin, the issue’s owner), not everyone');
   }
   // The card names its bill where nothing else does, and not in the open item (its h2 does).
   const b1 = M.billByNum('HB1523'), today = X.stepCard(b1, { viewer: KR, where: 'today' }), pane = X.stepCard(b1, { viewer: KR, where: 'pane' });
-  ok(/class="v6-step-bn"[^>]*>Let people cross/.test(today) && /<span class="sr">, Let people cross/.test(today) && !/v6-step-bn/.test(pane), 'Today’s card names the bill (and its heading says it to screen readers); the open item’s does not repeat its h2');
-  // Nate 10/26 (as Patrick): the name opens the bill, and the card links its issue, so the ask's bill and issue are one click.
-  ok(/<a class="v6-step-bn" href="#\/bill\/HB1523"/.test(today), 'the bill’s name on the card is a link to the bill');
+  // Option E (Nate 10/26): the card's one heading names the step and the bill, the bill's name a link inside the sentence;
+  // the open item's card does not (its h2 names the bill).
+  ok(/<h3 class="v6-step-what"[^>]*>[^<]*<a class="v6-step-in" href="#\/bill\/HB1523">Let people cross/.test(today) && !/v6-step-in" href="#\/bill/.test(pane), 'Today’s card names the bill inside its sentence, as a link; the open item’s does not repeat its h2');
+  ok(!/v6-step-bn|class="sr">, /.test(today), 'no separate name line above the sentence and no hidden copy of the name');
   const withIss = M.billByNum('HB1671'), pc = X.stepCard(withIss, { viewer: KR, where: 'today' });
-  ok(/<a class="v6-step-iss" href="#\/issue\/[^"]+\?from=HB1671"/.test(pc), 'a bill on an issue links its issue from the card (HB 1671: "Its issue")');
+  ok(/<a class="v6-step-iss" href="#\/issue\/[^"]+\?from=HB1671"/.test(pc) && /v6-step-eyeb/.test(pc), 'the line above the sentence links the bill’s issue (HB 1671: "Its issue")');
+  const ownAsk = X.stepCard(withIss, { viewer: M.advocates?.find?.(a => a.initials === 'PT') || KR, where: 'today' }), askT = strip(ownAsk);
+  ok(/Ask for a hearing on Hygienists can place temporary fillings/.test(askT) || /asks for a hearing on Hygienists/.test(askT), `a chair ask reads "Ask for a hearing on <bill>" (${askT.slice(0, 90)})`);
+  ok(/class="v6-step-chair"/.test(ownAsk) && /chair of Senate Health and Human Services/.test(askT), 'the chair is named on the line under the sentence, with the committee');
   // Follow up: the asker's own row and filled button after 3 working days with no reply.
   const fu = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: KV }) })).find(x => x.s.kind === 'chair' && x.s.ask.followUp && x.s.you);
   ok(!!fu && /^Follow up with /.test(fu.s.line) && /no reply$/.test(fu.s.line), `the asker's row says to follow up: "${fu && fu.s.line}"`);
