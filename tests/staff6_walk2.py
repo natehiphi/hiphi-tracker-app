@@ -61,8 +61,8 @@ with L.browser() as B:
   # ---- 4. A legislator's page ----
   for w, h in [(1440, 900), (390, 844)]:
     pg = B.page('NT', w, h); pg.open(f'/legislator/{L.LEGISLATOR}')
-    n = pg.text().count('The pencil on a bill marks where they stand on it.')
-    R.check(f'{w}: the pencil hint is said once', n == 1, n)
+    n = pg.text().count('The thumbs-up on a bill marks where they stand on it.')
+    R.check(f'{w}: the stance hint is said once', n == 1, n)
     more = pg.page.query_selector('.lg6-s-intro button[data-fold], .lg6-s-intro [aria-expanded="false"]')
     if more: more.click(); pg.page.wait_for_timeout(200)
     rows = pg.page.evaluate("""[...document.querySelectorAll('.lg6-intro .v6-row-name')].map(e => ({ t: e.textContent, h: Math.round(e.getBoundingClientRect().height), lh: parseFloat(getComputedStyle(e).lineHeight) || 24, title: e.title }))""")
