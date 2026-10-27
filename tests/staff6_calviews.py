@@ -27,6 +27,7 @@ with L.browser() as B:
   R.check("Monday's Senate HHS hearing with HB 1562 and its issue", all(x in mon for x in ['Senate Health and Human Services', 'HB 1562', 'Youth mental health app pilot']), mon[:200])
   R.check('each bill carries its issue as a chip that opens the issue', len(pg.page.query_selector_all(".hc-iss[href^='#/issue/']")) >= 10)
   R.check('a chip wears its topic tint', pg.page.evaluate("[...document.querySelectorAll('.hc-iss')].every(e => /ig6-tint\\d/.test(e.className))"))
+  R.check('no Your step entries on All issues (they are Today\'s own)', not pg.page.query_selector('.hc-step'))
   R.check('no link inside a link', pg.page.evaluate("document.querySelectorAll('a a').length") == 0)
   R.check('Capitol deadline Triple filing on Thu 3/19', 'Triple filing' in day(pg, '2026-03-19'))
   R.check('nothing runs off the side at 1440', overflow(pg) <= 0, overflow(pg))
