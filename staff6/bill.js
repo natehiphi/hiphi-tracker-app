@@ -712,7 +712,7 @@ function aboutBody(b) {
     g ? [`Our ${esc(SESSION_YEAR)} goal`, `${esc(g.goal)} <span class="bw-quiet">(${esc(g.name)}, staff only)</span>`] : null,
     sp.length ? ['Introduced by', `<b>${sponsorHTML(b, sp[0], onCmte)}</b> <span class="bw-quiet">(lead)</span>${sp.length > 1 ? ', ' + sp.slice(1, all ? sp.length : 5).map(n => sponsorHTML(b, n, onCmte)).join(', ') : ''}${sp.length > 5 && !all ? ` ${btn(`Show all ${sp.length}`, { kind: 'text', sm: true, attrs: { 'data-sponsall': '1' } })}` : ''}`] : null,
     companionsOf(b).length ? ['Companion', `<span id="bw-comp">${compHTML(b)}</span>`] : null,
-    ['Coalitions', `<span class="bw-ddrow"><span>${coal.length ? coal.map(c => `<a class="bw-inline" href="#/coalition/${esc(c.id)}">${esc(c.name)}</a>`).join(', ') : '<span class="bw-quiet">None</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</span>`],
+    ['Coalitions', `<span class="bw-ddrow"><span>${coal.length ? coal.map(c => `<a class="bw-inline" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">None</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</span>`],
     ['Following', f ? esc(f) : '<span class="bw-quiet">No one yet</span>'],
     b.last_action ? ['Last action', `${b.last_action_date ? `<span class="bw-quiet">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}${esc(shortAction(b.last_action))}`] : null,
     b.title ? ['Official title', esc(titleCaseTitle(b.title))] : null,
@@ -811,15 +811,18 @@ async function todoDelete(b, t) {
     } });
   } catch (e) { toast(e, { err: true }); }
 }
+// A coalition by its name in words ("Tobacco-Free Hawaiʻi"), as the issue page says it (issuepage.js), never its code
+// ("CTFH", the coalition's short name, which the search still finds it by). R-344 D1.
+const coalName = c => c ? c.public_name || c.name : '';
 function editCoalitions(b) {
   const body = () => S.campaigns.length ? `<p class="small muted bw-shhelp">Tap to add or remove. Each change saves.</p><div class="sv-pickl">${S.campaigns.map(c => { const on = (S.billCampaigns[b.id] || []).includes(c.id);
-    return `<button type="button" role="checkbox" aria-checked="${on}" data-camp="${esc(c.id)}">${icon(on ? 'square-check-big' : 'square', { cls: on ? 'on' : '' })}<span class="body"><span class="title">${esc(c.name)}</span></span></button>`; }).join('')}</div>`
+    return `<button type="button" role="checkbox" aria-checked="${on}" data-camp="${esc(c.id)}">${icon(on ? 'square-check-big' : 'square', { cls: on ? 'on' : '' })}<span class="body"><span class="title">${esc(coalName(c))}</span></span></button>`; }).join('')}</div>`
     : '<p class="muted">No coalitions yet. An admin adds them under Session setup.</p>';
   openSheet({ title: `Coalitions for ${esc(sayWords(b))}`, body: body(),
     onClose: () => rerender('[data-coal]'),
     wire: dlg => {
       const wireBtns = () => dlg.querySelectorAll('[data-camp]').forEach(el => el.onclick = async () => {
-        const id = el.dataset.camp, on = el.getAttribute('aria-checked') !== 'true', nm = S.campaigns.find(c => c.id === id)?.name || 'the coalition';
+        const id = el.dataset.camp, on = el.getAttribute('aria-checked') !== 'true', nm = coalName(S.campaigns.find(c => c.id === id)) || 'the coalition';
         el.disabled = true;
         try { await DB.toggleCampaign(b.id, id, on); FACTS.clear(); dlg.querySelector('.sv-sh-body').innerHTML = body(); wireBtns(); dlg.querySelector(`[data-camp="${CSS.escape(id)}"]`)?.focus(); toast(on ? `Added to ${nm}.` : `Removed from ${nm}.`); }
         catch (e) { el.disabled = false; toast(e, { err: true }); }

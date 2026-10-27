@@ -62,7 +62,7 @@ with L.browser() as B:
           [f['at'] for f in fl] == [3, 4, 5, 6], [(f['at'], f['stop']) for f in fl])
   R.check('flags: each a line under its stop\'s label, inside the stop', all(f['below'] and f['inside'] for f in fl), [(f['stop'], f['below'], f['inside']) for f in fl])
   cap = s['caption']
-  R.check('caption: where it is, in words (the step card names the hearing, so the line does not repeat it)', cap[0] == 'Now: Senate committee 1 of 2.', cap)
+  R.check('caption: where it is, in words, naming the committee (R-344 D2)', cap[0] == 'Now: in Health and Human Services, Senate committee 1 of 2.', cap)
   R.check('caption: the next deadline and what it asks', any(c == 'Next deadline Second lateral, Mon 3/30: must pass the committee it is in now.' for c in cap), cap)
   R.check('the step card still leads with its title, and the hearing is said once', pg.text().count('today 1:10 PM') == 1, pg.text().count('today 1:10 PM'))
   R.check('no page errors', not pg.errors, pg.errors[:2]); pg.close()

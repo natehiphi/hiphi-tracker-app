@@ -21,7 +21,7 @@ import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, l
 import { icon, btn, sectionNav, toast, docBtn } from './ui.js';
 import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
-import { filingSteps, missedChoices } from './filing.js';
+import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
 import { queue } from './review.js';
 
@@ -282,7 +282,9 @@ function head(cur, m) {
   if (m) for (const t of ['write', 'approve', 'sent', 'file']) {
     const tones = m.tabs[t].map(lateTone).filter(Boolean); if (!tones.length || !counts[t]) continue;
     const tone = tones.includes('overdue') ? 'overdue' : 'late', n = tones.length;
-    nav = nav.replace(new RegExp(`(view=${t}"[^>]*>[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon('clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
+    // Through the label's own span (ui.js sectionNav wraps it in <span class="sv-tl">): the pattern stopped at its "<" and
+    // the mark never drew (R-344 C1).
+    nav = nav.replace(new RegExp(`(view=${t}"[^>]*>(?:<span class="sv-tl"[^>]*>[^<]*</span>)?[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon('clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
   }
   return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${nav}`;
 }
@@ -316,6 +318,21 @@ function emailsLine() {
   return `<a class="tp-emails" href="#/outreach/emails">${icon('mail')}<span>${n === 1 ? '1 supporter email to approve' : `${n} supporter emails to approve`}</span><span class="tp-open">Open</span>${icon('chevron-right')}</a>`;
 }
 const EMPTY = { write: 'Nothing to write right now. A draft shows here the day its hearing notice lands.', approve: 'Nothing is with an approver right now.', sent: 'Nothing has come back for changes.', file: 'Nothing is ready to file right now.', filed: 'Nothing filed yet this session.', missed: 'Nothing missed.' };
+// The draft made for hearing `hid` (the row that stood for it before the draft came), among `items`.
+function draftFor(hid, items) {
+  const h = (S.hearings || []).find(x => String(x.id) === String(hid)); if (!h) return null;
+  return items.find(it => it.d && (String(it.d.hearing_id) === String(h.id) || (it.d.bill_id === h.bill_id && it.d.committee === h.committee))) || null;
+}
+// The step a button in this place was pressed for, a row's or the open item's: its draft's row key, or the hearing's
+// ("h<id>") before a draft exists. Read by the redraw after the step (wire), so a row's Resubmit or File follows its draft
+// to the tab it moved to as the card's buttons do (R-344 C7; the row is not the picked one, so the picked key said nothing).
+let ACTED = null;
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
+  const el = e.target?.closest?.('[data-v6act], [data-fgo]');
+  if (!el || !el.closest('.tp') && !el.closest('dialog')) return;
+  if (el.closest('dialog') && !ACTED) return;   // a sheet's own button keeps the step its row or card opened it for
+  if (!el.closest('dialog')) ACTED = el.dataset.v6d ? String(el.dataset.v6d) : el.dataset.v6h ? 'h' + el.dataset.v6h : null;
+}, true);
 function render(route) {
   if (!S.me) return '<p>No staff record yet. Ask your admin to add you.</p>';
   if (route.view === 'library') { S.tpView = 'library'; return `<div class="tp">${renderLibrary()}</div>`; }
@@ -323,7 +340,11 @@ function render(route) {
   const m = model(), view = TABS.includes(route.view) && (route.view !== 'missed' || m.tabs.missed.length) ? route.view : openOn(m);
   S.tpView = view;
   const items = m.tabs[view], id = `tp-${view}`;
-  let picked = ldPicked(id); const pit0 = picked != null ? items.find(it => it.key === String(picked)) : null;
+  let picked = ldPicked(id); let pit0 = picked != null ? items.find(it => it.key === String(picked)) : null;
+  // Make the draft on a hearing with no draft yet: its row was "h<hearing id>" and is now the new draft's own, so the open
+  // item follows it there instead of closing (R-344 C7).
+  if (picked != null && !pit0 && /^h/.test(String(picked))) { const nd = draftFor(String(picked).slice(1), items);
+    if (nd) { (S.v6ld ??= {})[id] = { ...(S.v6ld[id] || {}), key: nd.key }; picked = nd.key; pit0 = nd; } }
   // Below 1100px the picked item is a page of its own: arriving at the tab by a link (not Back to the item's own history
   // entry, not a redraw after a step) shows the list, so a tab never opens on something picked an hour ago.
   const narrow = !matchMedia('(min-width: 1100px)').matches, stale = narrow && pit0 && !history.state?.panel;
@@ -339,13 +360,27 @@ function wire(route, root) {
   // (the open item's panel is sized by steps.js wireListDetail alone: the local fitter fought it on every scroll)
   // After a step taken in the open item, the page follows the draft to its new tab with its row highlighted (Nate's walk:
   // after Resubmit it jumped to To write, "Nothing for you to write right now", not to where the draft went).
+  // A row's own button (Resubmit, File) follows its draft the same way (R-344 C7): the step pressed is ACTED's, the open
+  // item's otherwise. Mark filed moves it from Ready to file to Filed, so Ready to file follows too.
   const pickedKey = ldPicked(id);
-  wireSteps(root, { after: () => {
-    const key = ldPicked(id) ?? pickedKey;
-    const it = key != null ? collect().find(x => x.key === String(key)) : null;
-    if (it && (view === 'sent' || view === 'write') && it.tab !== view && TABS.includes(it.tab)) { S.tpHi = it.key; (S.v6ld ??= {})[`tp-${it.tab}`] = { key: matchMedia('(min-width: 1100px)').matches ? it.key : null }; S.go(`#/testimony?view=${it.tab}`, { replace: true }); return; }
+  const follow = () => {
+    if (S.route?.name !== 'testimony' || S.tpView !== view) { ACTED = null; hooks.render(); return; }
+    let key = ACTED ?? ldPicked(id) ?? pickedKey; ACTED = null;
+    const all = collect();
+    let it = key != null ? all.find(x => x.key === String(key)) : null;
+    if (!it && key != null && /^h/.test(String(key))) it = draftFor(String(key).slice(1), all);
+    if (it && ['sent', 'write', 'file'].includes(view) && it.tab !== view && TABS.includes(it.tab)) { S.tpHi = it.key; (S.v6ld ??= {})[`tp-${it.tab}`] = { key: matchMedia('(min-width: 1100px)').matches ? it.key : null };
+      const to = () => S.go(`#/testimony?view=${it.tab}`, { replace: true });
+      // A row's Resubmit closes its sheet without waiting for the sheet's Back (ui.js closeSheet): moving now renamed the
+      // sheet's history entry, and that Back then put the address back on the old tab under the new page. So wait for it.
+      if (history.state?.sheet && !document.querySelector('dialog[open]')) { let done = false; const once = () => { if (!done) { done = true; to(); } };
+        addEventListener('popstate', () => setTimeout(once, 0), { once: true }); setTimeout(once, 500); }
+      else to();
+      return; }
     hooks.render();
-  } });
+  };
+  wireSteps(root, { after: follow });
+  setFilingAfter(follow);   // the open item's own filing card (filing.js markFiled) redraws the same way
   if (view === 'library') {
     const libs = library(), find = key => libs.find(x => String(x.b.id) === String(key));
     wireListDetail(root, { id, open: key => { const e = find(key); return e ? libDetail(e) : ''; },
