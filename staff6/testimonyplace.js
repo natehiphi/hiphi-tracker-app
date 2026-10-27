@@ -19,7 +19,7 @@
 import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn } from './ui.js';
-import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf } from './steps.js';
+import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
@@ -197,7 +197,7 @@ function detailOf(it, view) {
   const also = others.length ? `<section class="v6-also" aria-labelledby="tp-also-h"><h3 class="v6-also-h" id="tp-also-h">Also on this bill</h3><ul class="v6-also-list">${others.slice(0, 3).map(o => `<li class="v6-also-item"><span class="v6-also-t">${esc(committeeName(o.x.committee) || o.x.committee)} · ${esc(o.t.word)}</span></li>`).join('')}</ul></section>` : '';
   const about = aboutBill(b, { hearing: !h });
   return `<div class="v6-item tp-item" data-v6item="${esc(b.id)}">
-    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${closeBtn()}</div>
+    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}${issueLinksHTML(b)}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${closeBtn()}</div>
     <h2 class="v6-item-name" id="tp-item-h" tabindex="-1">${esc(nameWords(b, 160))}</h2>
     ${card}
     ${extra.length ? `<div class="tp-extra">${extra.join('')}</div>` : ''}
@@ -247,7 +247,7 @@ function filedPart(b) {
 function libDetail(e) {
   const b = e.b;
   return `<div class="v6-item tp-item tp-libitem" data-v6item="${esc(b.id)}">
-    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${closeBtn()}</div>
+    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}${issueLinksHTML(b)}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${closeBtn()}</div>
     <h2 class="v6-item-name" id="tp-item-h" tabindex="-1">${esc(nameWords(b, 160))}</h2>
     <div class="tm tp-lib-own">${filedPart(b)}</div>
     <div class="tp-earlier">${renderEarlier(b, { open: true })}</div>

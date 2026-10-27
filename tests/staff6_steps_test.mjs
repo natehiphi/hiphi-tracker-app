@@ -250,7 +250,11 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   }
   // The card names its bill where nothing else does, and not in the open item (its h2 does).
   const b1 = M.billByNum('HB1523'), today = X.stepCard(b1, { viewer: KR, where: 'today' }), pane = X.stepCard(b1, { viewer: KR, where: 'pane' });
-  ok(/class="v6-step-bn">Let people cross/.test(today) && /<span class="sr">, Let people cross/.test(today) && !/v6-step-bn/.test(pane), 'Today’s card names the bill (and its heading says it to screen readers); the open item’s does not repeat its h2');
+  ok(/class="v6-step-bn"[^>]*>Let people cross/.test(today) && /<span class="sr">, Let people cross/.test(today) && !/v6-step-bn/.test(pane), 'Today’s card names the bill (and its heading says it to screen readers); the open item’s does not repeat its h2');
+  // Nate 10/26 (as Patrick): the name opens the bill, and the card links its issue, so the ask's bill and issue are one click.
+  ok(/<a class="v6-step-bn" href="#\/bill\/HB1523"/.test(today), 'the bill’s name on the card is a link to the bill');
+  const withIss = M.billByNum('HB1671'), pc = X.stepCard(withIss, { viewer: KR, where: 'today' });
+  ok(/<a class="v6-step-iss" href="#\/issue\/[^"]+\?from=HB1671"/.test(pc), 'a bill on an issue links its issue from the card (HB 1671: "Its issue")');
   // Follow up: the asker's own row and filled button after 3 working days with no reply.
   const fu = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: KV }) })).find(x => x.s.kind === 'chair' && x.s.ask.followUp && x.s.you);
   ok(!!fu && /^Follow up with /.test(fu.s.line) && /no reply$/.test(fu.s.line), `the asker's row says to follow up: "${fu && fu.s.line}"`);

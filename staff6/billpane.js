@@ -11,7 +11,7 @@ import { S, esc, startedFromLine } from './data.js';
 import { icon, iconBtn, goingBtn } from './ui.js';
 import { billNum, blurb, hearingWhen, billRoute, stopOf, hearingAhead, diedish, deadlineName, legislativeDay } from './model.js';
 import { TERMS_TAP, termBtn, plainCodes } from './terms.js';   // R-316 W40: the codes still shown tap open what they mean
-import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWords, numWords, nameWords, ownerLine } from './steps.js';
+import { stepCard, billStep, whereWords, committeeName, versionWords, deadlineWords, numWords, nameWords, ownerLine, issueLinksHTML } from './steps.js';
 
 // ---- v6: the open item ----
 // openItem(b, { viewer, where, close, headId, about, primary, from, also, d, h }) -> HTML.
@@ -42,7 +42,7 @@ export function openItem(b, { viewer, where = 'pane', close = '', headId = 'v6-i
   const alsoList = Array.isArray(also) ? also.filter(Boolean).map(x => `<li class="v6-also-item"><span class="v6-also-t">${x.text || ''}</span>${x.button || ''}</li>`).join('') : '';
   const alsoHTML = alsoList ? `<ul class="v6-also-list">${alsoList}</ul>` : typeof also === 'string' ? also : '';
   return `<div class="v6-item" data-v6item="${esc(b.id)}">
-    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${close}</div>
+    <div class="v6-item-top"><p class="v6-item-num">${esc(numWords(b))}${issueLinksHTML(b)}</p><a class="v6-item-open" href="${esc(billRoute(b))}" data-bill="${esc(b.id)}"><span>Open the bill</span>${icon('arrow-right')}</a>${close}</div>
     <h2 class="v6-item-name" id="${esc(headId)}" tabindex="-1">${esc(nameWords(b, 160))}</h2>
     ${sum ? `<p class="v6-item-sum">${esc(sum)}</p>` : ''}
     ${stepCard(b, { viewer, where, primary, named: false, ...pick, ...(from !== undefined ? { from } : {}) })}

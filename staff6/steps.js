@@ -30,6 +30,7 @@ import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field } from './ui.js';
 import { askLine, answerSheet } from './chairask.js';
 import { askTodoOf, giveAsk, logAsk } from './push.js';
+import { issuesOfBill, issueLinkHref } from './issues.js';
 
 const HR = 36e5, DAY = 864e5;
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -675,6 +676,21 @@ function hearingLineHTML(h, v, from, { going = true } = {}) {
 // it again (A-14). The viewer's own step whose bill has a deadline alert they have not read shows a small quiet dot and
 // who sent what, where ("We alerted you in Slack at 8:00 AM"), until the step is done (F49, V26: alerts live on the step,
 // not in the Inbox; C-15 says "alert", never "reminder").
+// The top line of a step card, the bill's name and number, is the way to the bill and its issue (Nate 10/26, as Patrick:
+// Today's chair ask said HB 1671 but neither the bill nor its issue could be opened from the card; the bill was two
+// clicks away by This week's side door). The name is a link that looks like one (A-12: underlined at rest, not only on
+// hover, B-9) and keeps the name's ink and weight, so the card reads as before; a quiet "Its issue" (or the issue's own
+// name when it differs from the bill's) follows in the link colour with the tag icon the bill page uses (R-226).
+// Rows that are not about a bill (a follow-up with a person) pass no bill and get the plain name, as before.
+const sameIssueName = (i, b) => (i.name || '').trim().toLowerCase() === (b?.nickname || '').trim().toLowerCase();
+export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : []).map(i => `<a class="v6-step-iss" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameIssueName(i, b) ? 'Its issue' : esc(i.name)}</span></a>`).join('');
+export function billLineHTML(b, { name, num } = {}) {
+  const nm = name ?? (b ? fullName(b) : ''), no = num ?? (b ? numWords(b) : '');
+  const numH = no ? ` <span class="v6-row-num">${esc(no)}</span>` : '';
+  if (!b || !b.id) return `<p class="v6-step-bill"><span class="v6-step-bn">${esc(nm)}</span>${numH}</p>`;
+  const issH = issueLinksHTML(b);
+  return `<p class="v6-step-bill"><a class="v6-step-bn" href="${esc(billRoute(b))}" aria-label="${esc(nm)}${no ? ', ' + esc(no) : ''}. Open the bill">${esc(nm)}</a>${numH}${issH}</p>`;
+}
 export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big = false, id = '', from, named, compact = false, track, who, going, acts: actsHTML, title, lead = '' } = {}) {
   const v = meOf(viewer), s = billStep(b, { viewer: v, ...(d !== undefined ? { d } : {}), ...(h !== undefined ? { h } : {}) }); if (!s) return '';
   const ro = where === 'team', own = s.you && !ro, hid = id || `v6s-${esc(b.id)}${s.d ? '-' + esc(s.d.id) : ''}`;
@@ -699,7 +715,7 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const sent = sentWords(s, v);
   const fit = actsHTML == null ? actsFit(acts) : '';
   return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''}${showName ? ' named' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
-    ${showName ? `<p class="v6-step-bill"><span class="v6-step-bn">${esc(fullName(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span></p>` : ''}
+    ${showName ? billLineHTML(b) : ''}
     ${eyebrow ? `<p class="v6-step-eyebrow">${eyebrow}</p>` : ''}
     <h3 class="v6-step-what" id="${hid}">${nw(esc(c.what))}${showName ? `<span class="sr">, ${esc(sayWords(b))}</span>` : ''}</h3>
     ${c.tile?.words || c.when || rem ? `<div class="v6-step-meta">${[statusTile(c.tile), rem, c.when ? `<span class="v6-step-when">${nw(esc(c.when))}</span>` : ''].filter(Boolean).join(' ')}</div>` : ''}
