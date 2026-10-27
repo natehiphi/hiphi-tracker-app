@@ -1412,10 +1412,26 @@ export const DB = {
     const { error } = await S.supa.from('people').update({ ...patch, island: 'senate_district' in patch ? islandOf(patch.senate_district) : undefined, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw error;
     return this.refreshPerson(id);
   },
+  // R-341: anyone on the team adds a contact through add_supporter (migration 190). An admin gets the new person back to
+  // open their page; anyone else learns only { added } (true, or false when the email was already on the list).
   async addPerson(fields) {
-    if (DEMO) { const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
-    const { data, error } = await S.supa.from('people').insert({ ...fields, island: islandOf(fields.senate_district), source: 'manual', created_by: S.me?.id }).select('id').single(); if (error) throw error;
+    const admin = !!S.me?.is_admin;
+    if (DEMO) {
+      if (!admin) { const had = (S.people || []).some(p => (p.email || '').toLowerCase() === String(fields.email).toLowerCase()); if (!had) S.people.unshift({ id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: false, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }); return { added: !had }; }
+      const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
+    const { data, error } = await S.supa.rpc('add_supporter', { p: { email: fields.email, name: fields.name ?? null, phone: fields.phone ?? null } }); if (error) throw error;
+    if (!admin) return { added: !!data?.added };
+    if (!data?.id) throw new Error('That email is already in Supporters.');
     return this.refreshPerson(data.id);
+  },
+  // R-341: the stories told about one issue, for its owner, its helpers and admins (issue_stories, migration 190): first
+  // name and island only. The practice copy builds the same rows from its sample supporters.
+  async issueStories(issueId) {
+    if (DEMO) {
+      const quote = p => { const i = p.interests || []; return !i.includes('quote') ? 'none' : i.includes('quote-media') ? 'media' : i.includes('quote-name') ? 'name' : 'first'; };
+      return (S.people || []).filter(p => (p.stories || {})[issueId]).map(p => ({ person_ref: String(p.id), first_name: (p.name || '').trim().split(/\s+/)[0] || 'A supporter', island: p.island || null, story: p.stories[issueId], about_issue: true, quote: quote(p), told_at: p.updated_at || p.created_at }));
+    }
+    const { data, error } = await S.supa.rpc('issue_stories', { p_issue: issueId }); if (error) throw error; return data || [];
   },
   async deletePerson(id) { if (!DEMO) { const { error } = await S.supa.from('people').delete().eq('id', id); if (error) throw error; } S.people = S.people.filter(p => p.id !== id); },
   async mergePeople(keep, drop) { if (DEMO) { const k = personById(keep), d = personById(drop); k.tags = [...new Set([...k.tags, ...d.tags])]; S.people = S.people.filter(p => p.id !== drop); return k; } const { error } = await S.supa.rpc('merge_people', { p_keep: keep, p_drop: drop }); if (error) throw error; S.people = S.people.filter(p => p.id !== drop); return this.refreshPerson(keep); },

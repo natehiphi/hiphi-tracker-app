@@ -212,6 +212,7 @@ export default {
   noTabs: () => !!S.spView?.selecting && !isDesk() && document.body.dataset.screen === 'supporters',
   render(route) {
     const v = V(), nav = sectionNav('outreach', 'supporters');
+    if (!S.me?.is_admin) return teamPageHTML(nav);   // R-341: the list is an admin's
     if (!S.peopleLoaded) {
       if (!DEMO && !S.spLoadKick) {
         S.spLoadKick = true;
@@ -263,6 +264,7 @@ export default {
     if (!page) return;
     const on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-sp="retry"]', () => { S.spLoadErr = null; hooks.render(); });
+    if (!S.me?.is_admin) { on('[data-sp="add"]', () => addPersonSheet()); const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; }; return; }
     if (!S.peopleLoaded) return;
     const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; };
     const q = page.querySelector('#sp-q'), qx = page.querySelector('[data-sp="qclear"]');
@@ -299,6 +301,30 @@ export default {
     };
   },
 };
+
+// R-341 (Nate 10/26): supporters' names, emails, phones and histories are for admins. Everyone else on the team gets this
+// page: what they can still do (add someone from a sign-up sheet, email a saved group, see how many), and who to ask for
+// the rest. The database gives them no list either (migration 190), so this page is the whole of it, not a curtain.
+const AUD = () => S.spAud ??= {};
+function groupCount(sg) {
+  const a = AUD(); if (a[sg.id] === undefined) { a[sg.id] = null; DB.alertAudience(null, null, sg.id).then(n => { a[sg.id] = n; if (S.route?.name === 'supporters') hooks.render(); }).catch(() => { a[sg.id] = -1; }); }
+  const n = a[sg.id]; return n == null || n < 0 ? 'A saved group of supporters' : `${n.toLocaleString()} ${n === 1 ? 'person says' : 'people say'} yes to supporter emails`;
+}
+function teamPageHTML(nav) {
+  const admins = (S.advocates || []).filter(a => a.is_admin && a.is_active !== false).map(a => a.full_name.split(' ')[0]);
+  const who = admins.length ? admins.length === 1 ? admins[0] : `${admins.slice(0, -1).join(', ')} or ${admins[admins.length - 1]}` : 'an admin';
+  const segs = S.segments || [];
+  const groups = segs.length ? `<section class="sp-tgroups" aria-labelledby="sp-tg-h"><h2 class="sp-th" id="sp-tg-h">Email a saved group</h2>
+      <ul class="sp-tglist">${segs.map(sg => `<li><span class="sp-tgname">${icon('users')}<span><b>${esc(sg.name)}</b><span class="meta">${esc(groupCount(sg))}</span></span></span>${emailDoor({ segment: sg }, { sm: true, label: 'Write an email' })}</li>`).join('')}</ul>
+      <p class="meta">An approver reads it before it goes out.</p></section>` : '';
+  return `<div class="le-page sp-page sp-team">${pageHead(nav, 'Outreach', '', '')}
+    <section class="sp-tlock">${icon('lock')}<div><h2 class="sp-th">The supporter list is for admins</h2>
+      <p>Supporters’ names, emails, phone numbers and histories stay with admins, so fewer people hold them. Ask ${esc(who)} when you need to reach someone.</p></div></section>
+    <section class="sp-tadd"><div><h2 class="sp-th">Met someone who wants to help?</h2><p>Add them here. They get supporter emails only if they say yes.</p></div>
+      ${btn('Add a person', { icon: 'user-plus', attrs: { 'data-sp': 'add', 'aria-haspopup': 'dialog' } })}</section>
+    ${groups}${rollHTML()}
+  </div>`;
+}
 
 // More tools' "Supporters' groups, import and export" opens #/outreach/supporters?io=1: the admin foot (Import CSV, Export)
 // brought into view and its first button focused, once per arrival, so the row keeps its promise without a scroll (C-6). It
@@ -588,6 +614,13 @@ function addPersonSheet() {
       const save = async () => {
         const e = em.value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
+        if (!S.me?.is_admin) {
+          go.setAttribute('aria-busy', 'true'); go.disabled = true;
+          try { const r = await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
+            afterSheet(() => toast(r.added ? `Added ${nm.value.trim() || e}. An admin can see them in Supporters.` : `${e} is already in Supporters.`, { ok: r.added })); }
+          catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
+          return;
+        }
         const ex = (S.people || []).find(p => (p.email || '').toLowerCase() === e);
         if (ex) { closeSheet({ silent: true }); afterSheet(() => { S.go('#/person/' + encodeURIComponent(ex.id)); toast(`${personName(ex)} is already in Supporters.`); }); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
