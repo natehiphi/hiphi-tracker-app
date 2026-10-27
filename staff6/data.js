@@ -1413,14 +1413,14 @@ export const DB = {
     return this.refreshPerson(id);
   },
   // R-341: anyone on the team adds a contact through add_supporter (migration 190). An admin gets the new person back to
-  // open their page; anyone else learns only { added } (true, or false when the email was already on the list).
+  // open their page; anyone else gets { ok: true } either way, so the form cannot show who is already a supporter.
   async addPerson(fields) {
     const admin = !!S.me?.is_admin;
     if (DEMO) {
-      if (!admin) { const had = (S.people || []).some(p => (p.email || '').toLowerCase() === String(fields.email).toLowerCase()); if (!had) S.people.unshift({ id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: false, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }); return { added: !had }; }
+      if (!admin) { const had = (S.people || []).some(p => (p.email || '').toLowerCase() === String(fields.email).toLowerCase()); if (!had) S.people.unshift({ id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: false, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }); return { ok: true }; }
       const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
     const { data, error } = await S.supa.rpc('add_supporter', { p: { email: fields.email, name: fields.name ?? null, phone: fields.phone ?? null } }); if (error) throw error;
-    if (!admin) return { added: !!data?.added };
+    if (!admin) return { ok: true };   // the same answer whether or not they were already on the list
     if (!data?.id) throw new Error('That email is already in Supporters.');
     return this.refreshPerson(data.id);
   },

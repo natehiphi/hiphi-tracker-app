@@ -11,7 +11,7 @@ import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoS
 import { nameWords, numWords } from './steps.js';
 import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
-import { followupSheet, afterSheet } from './supporters.js';
+import { followupSheet, afterSheet, adminWho } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
 import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
@@ -224,7 +224,7 @@ export default {
   back: route => { const [label, href] = FROM[route.q?.from] || ['Supporters', SUPPORTERS]; return { href, label }; },
   render(route) {
     // R-341: a supporter's page is an admin's; the database gives anyone else nothing to show (migration 190).
-    if (!S.me?.is_admin) return `<div class="sp-person">${empty({ title: 'Supporters’ details are for admins', text: 'Names, emails, phone numbers and histories stay with admins. Ask one when you need to reach this person.', action: btn('Back to Supporters', { kind: 'secondary', href: SUPPORTERS }) })}</div>`;
+    if (!S.me?.is_admin) return `<div class="sp-person">${empty({ title: 'Supporters’ details are for admins', text: `Names, emails, phone numbers and histories stay with admins. Ask ${esc(adminWho())} when you need to reach this person.` })}</div>`;
     const id = route.id, p = personById(id), st = P();
     if (!p) {
       // Live: fetch just this person first (fast), not the whole list of up to 5,000.

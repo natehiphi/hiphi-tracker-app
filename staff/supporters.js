@@ -579,7 +579,7 @@ function addPersonSheet() {
     body: `<div class="sp-sheet"><div class="field"><label for="sp-ae">Email</label><input id="sp-ae" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="sp-aerr"></div>
       <div class="field"><label for="sp-an">Name (optional)</label><input id="sp-an" autocomplete="off" maxlength="120"></div>
       <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get action alerts only if they opt in.</p></div>`,
-    foot: btn('Add person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
+    foot: btn('Add a person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const em = dlg.querySelector('#sp-ae'), nm = dlg.querySelector('#sp-an'), go = dlg.querySelector('[data-go]'); em.focus();
       const err = m => { dlg.querySelector('#sp-aerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; em.toggleAttribute('aria-invalid', !!m); };
@@ -588,8 +588,8 @@ function addPersonSheet() {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
         if (!S.me?.is_admin) {
           go.setAttribute('aria-busy', 'true'); go.disabled = true;
-          try { const r = await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
-            afterSheet(() => toast(r.added !== false ? `Added ${nm.value.trim() || e}. An admin can see them in Supporters.` : `${e} is already in Supporters.`, { ok: r.added !== false })); }
+          try { await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
+            afterSheet(() => toast('Added. They get supporter emails only if they say yes.', { ok: true })); }
           catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
           return;
         }

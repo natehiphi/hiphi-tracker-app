@@ -310,19 +310,20 @@ function groupCount(sg) {
   const a = AUD(); if (a[sg.id] === undefined) { a[sg.id] = null; DB.alertAudience(null, null, sg.id).then(n => { a[sg.id] = n; if (S.route?.name === 'supporters') hooks.render(); }).catch(() => { a[sg.id] = -1; }); }
   const n = a[sg.id]; return n == null || n < 0 ? 'A saved group of supporters' : `${n.toLocaleString()} ${n === 1 ? 'person says' : 'people say'} yes to supporter emails`;
 }
+export const adminWho = () => { const admins = (S.advocates || []).filter(a => a.is_admin && a.is_active !== false).map(a => a.full_name.split(' ')[0]);
+  return admins.length ? admins.length === 1 ? admins[0] : `${admins.slice(0, -1).join(', ')} or ${admins[admins.length - 1]}` : 'an admin'; };
 function teamPageHTML(nav) {
-  const admins = (S.advocates || []).filter(a => a.is_admin && a.is_active !== false).map(a => a.full_name.split(' ')[0]);
-  const who = admins.length ? admins.length === 1 ? admins[0] : `${admins.slice(0, -1).join(', ')} or ${admins[admins.length - 1]}` : 'an admin';
+  const who = adminWho();
   const segs = S.segments || [];
   const groups = segs.length ? `<section class="sp-tgroups" aria-labelledby="sp-tg-h"><h2 class="sp-th" id="sp-tg-h">Email a saved group</h2>
       <ul class="sp-tglist">${segs.map(sg => `<li><span class="sp-tgname">${icon('users')}<span><b>${esc(sg.name)}</b><span class="meta">${esc(groupCount(sg))}</span></span></span>${emailDoor({ segment: sg }, { sm: true, label: 'Write an email' })}</li>`).join('')}</ul>
       <p class="meta">An approver reads it before it goes out.</p></section>` : '';
   return `<div class="le-page sp-page sp-team">${pageHead(nav, 'Outreach', '', '')}
-    <section class="sp-tlock">${icon('lock')}<div><h2 class="sp-th">The supporter list is for admins</h2>
-      <p>Supporters’ names, emails, phone numbers and histories stay with admins, so fewer people hold them. Ask ${esc(who)} when you need to reach someone.</p></div></section>
     <section class="sp-tadd"><div><h2 class="sp-th">Met someone who wants to help?</h2><p>Add them here. They get supporter emails only if they say yes.</p></div>
       ${btn('Add a person', { icon: 'user-plus', attrs: { 'data-sp': 'add', 'aria-haspopup': 'dialog' } })}</section>
     ${groups}${rollHTML()}
+    <section class="sp-tlock">${icon('lock')}<div><h2 class="sp-th">Names and contact details are for admins</h2>
+      <p>Supporters’ names, emails, phone numbers and histories stay with admins, so fewer people hold them. Ask ${esc(who)} when you need to reach someone.</p></div></section>
   </div>`;
 }
 
@@ -607,7 +608,7 @@ function addPersonSheet() {
     body: `<div class="sp-sheet"><div class="field"><label for="sp-ae">Email</label><input id="sp-ae" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="sp-aerr"></div>
       <div class="field"><label for="sp-an">Name (optional)</label><input id="sp-an" autocomplete="off" maxlength="120"></div>
       <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get supporter emails only if they say yes.</p></div>`,
-    foot: btn('Add person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
+    foot: btn('Add a person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const em = dlg.querySelector('#sp-ae'), nm = dlg.querySelector('#sp-an'), go = dlg.querySelector('[data-go]'); em.focus();
       const err = m => { dlg.querySelector('#sp-aerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; em.toggleAttribute('aria-invalid', !!m); };
@@ -616,8 +617,8 @@ function addPersonSheet() {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
         if (!S.me?.is_admin) {
           go.setAttribute('aria-busy', 'true'); go.disabled = true;
-          try { const r = await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
-            afterSheet(() => toast(r.added ? `Added ${nm.value.trim() || e}. An admin can see them in Supporters.` : `${e} is already in Supporters.`, { ok: r.added })); }
+          try { await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
+            afterSheet(() => toast('Added. They get supporter emails only if they say yes.', { ok: true })); }
           catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
           return;
         }
