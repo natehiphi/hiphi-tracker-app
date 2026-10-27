@@ -330,6 +330,6 @@ export function slimBarHTML(b) {
   const law = place.state === 'done', live = place.state === 'live' && cur >= 0 && cur < n;
   const sr = law ? (model.res ? 'Adopted' : 'Law') : live ? `Step ${cur + 1} of ${n}` : place.state === 'vetoed' ? 'Vetoed' : 'Stopped';
   const left = live ? ((cur + 0.5) / n) * 100 : 0, edge = left < 12 ? ' at-start' : left > 88 ? ' at-end' : '';
-  const pin = live ? `<span class="v6-bar-now${edge}" style="left:${edge === ' at-start' ? 0 : edge === ' at-end' ? 100 : left.toFixed(1)}%">${icon('map-pin')}Now</span>` : '';
+  const pin = live ? `<span class="v6-bar-now${edge}" style="left:${edge === ' at-start' ? 0 : edge === ' at-end' ? 100 : left.toFixed(1)}%">${icon('map-pin')}</span>` : '';   // its word "Now" is drawn by CSS: part of the picture (role=img), not one more fact on the row
   return `<span class="v6-bar${law ? ' is-law' : ''}" role="img" aria-label="${esc(sr)}"><span class="v6-bar-segs" style="grid-template-columns: repeat(${n}, minmax(0, 1fr))">${pin}${states.map(st => `<i class="is-${st}"></i>`).join('')}</span><span class="v6-bar-end" title="${model.res ? 'Adopted' : 'Law'}">${icon('trophy')}</span></span>`;
 }

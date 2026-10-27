@@ -539,12 +539,13 @@ body.staff6 .v6-bar-segs > i.is-stopped { background: repeating-linear-gradient(
 body.staff6 .v6-bar-now { position: absolute; top: 0; display: inline-flex; align-items: center; gap: 2px; transform: translateX(-50%);
   font-size: var(--v6-t14); line-height: 16px; color: var(--v6-action); font-weight: 400; white-space: nowrap; }
 body.staff6 .v6-bar-now svg { width: 14px; height: 14px; }
+body.staff6 .v6-bar-now::after { content: 'Now'; }
 body.staff6 .v6-bar-now.at-start { transform: none; } body.staff6 .v6-bar-now.at-end { transform: translateX(-100%); }
 body.staff6 .v6-bar-end { display: inline-flex; align-items: center; color: var(--v6-field); line-height: 0; }
 body.staff6 .v6-bar-end svg { width: 16px; height: 16px; }
 body.staff6 .v6-bar.is-law .v6-bar-end { color: var(--v6-leaf); }
 /* a twin bill's chamber (HB 2121 and SB 2175 share a name): a small tag beside the number */
-body.staff6 .v6-twin { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-wash);
+body.staff6 .v6-twin { display: inline; margin-left: 4px; padding: 1px 8px; border-radius: var(--v6-pill); background: var(--v6-wash);
   font-size: var(--v6-t14); line-height: 22px; color: var(--v6-body); white-space: nowrap; }
 body.staff6 .v6-twin svg { width: 14px; height: 14px; }
 /* HIPHI's stance beside the number: its shape and one word, quiet */

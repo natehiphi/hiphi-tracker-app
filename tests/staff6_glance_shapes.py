@@ -7,7 +7,8 @@
 #      and stays on one line, "Second look" included (C5).
 #   3. Partners, Words to approve: every row starts with the partner tile; Approve carries its icon.
 #   4. Bills (Team): each row shows the slim bar (Now, the trophy at Law), twins that share a name say House or Senate, the
-#      topic icons show by default (and ?icons=0 turns them off); search results show the bar too.
+#      topic icons show by default (and ?icons=0 turns them off); search results show the bar too; no row passes spec 8's
+#      four facts.
 #   5. All issues: each card says how the issue is doing as one shape and word (no tint), with the House and Senate dots.
 #   6. No sideways scroll, no page errors.
 #
@@ -103,7 +104,7 @@ with L.browser() as B:
     b = pg.page.evaluate("""(() => { const rows = [...document.querySelectorAll('.bl-page .v6-row[data-v6row]')];
       return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar .v6-bar-segs i')).length, now: rows.filter(r => r.querySelector('.v6-bar-now')).length,
         law: rows.filter(r => r.querySelector('.v6-bar-end svg.ic-trophy')).length,
-        twins: rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').innerText.trim(), r.querySelector('.v6-twin').innerText.trim()]),
+        twins: rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').firstChild.textContent.trim(), r.querySelector('.v6-twin').innerText.trim()]),
         leads: rows.filter(r => r.querySelector('.v6-row-lead:not(.none):not(.v6-act-lead) svg')).length,
         stance: rows.filter(r => r.querySelector('[data-state^="stance:"]')).length,
         barW: Math.max(0, ...rows.map(r => r.querySelector('.v6-bar')?.getBoundingClientRect().width || 0)) }; })()""")
@@ -113,7 +114,8 @@ with L.browser() as B:
     tw = dict(b['twins'])
     R.check(f'{w} Bills (Team): twins that share a name say House or Senate', len(tw) > 0 and all(tw.get(n, v) == v for n, v in [('HB 2121', 'House'), ('SB 2175', 'Senate')]), b['twins'][:6])
     R.check(f'{w} Bills (Team): a twin tag says the chamber its number starts in', all((n.startswith('H') and t2 == 'House') or (n.startswith('S') and t2 == 'Senate') for n, t2 in b['twins']), b['twins'][:6])
-    R.check(f'{w} Bills (Team): HIPHI\'s stance shows as its shape and word', b['stance'] > 0, b['stance'])
+    facts = pg.measure(full=True)
+    R.check(f'{w} Bills (Team): the pictures add no fact to a row (spec 8: four at most)', facts['facts_max'] <= 4, (facts['facts_max'], facts['worst_row']))
     if w >= 600: R.check(f'{w} Bills (Team): the topic icons show by default (R-339, Nate\'s go)', b['leads'] > 0, b['leads'])
     R.check(f'{w} Bills: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     shot(pg, 'bills-team')
@@ -128,10 +130,12 @@ with L.browser() as B:
     s = pg.page.evaluate("""(() => { const rows = [...document.querySelectorAll('.sr-page .v6-row[data-bill], .sr-page .v6-row')].filter(r => r.querySelector('.v6-row-main[data-bill]'));
       return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar')).length,
         over: rows.filter(r => { const l = r.querySelector('.v6-row-line > span'); return l && l.scrollHeight > l.clientHeight + 2; }).length,
-        twins: Object.fromEntries(rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').innerText.trim(), r.querySelector('.v6-twin').innerText.trim()])) }; })()""")
+        twins: Object.fromEntries(rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').firstChild.textContent.trim(), r.querySelector('.v6-twin').innerText.trim()])) }; })()""")
     R.check(f'{w} Search: the twins HB 2121 and SB 2175 ("Disposable e-cigarette ban") say House and Senate', s['twins'].get('HB 2121') == 'House' and s['twins'].get('SB 2175') == 'Senate', s['twins'])
     R.check(f'{w} Search: every bill result shows the slim bar', s['n'] > 0 and s['bar'] == s['n'], s)
     R.check(f'{w} Search: no result line is drawn past its box (the old clamp)', s['over'] == 0, s)
+    fs = pg.measure(full=True)
+    R.check(f'{w} Search: the pictures add no fact to a result (spec 8: four at most)', fs['facts_max'] <= 4, (fs['facts_max'], fs['worst_row']))
     R.check(f'{w} Search: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     shot(pg, 'search')
 
