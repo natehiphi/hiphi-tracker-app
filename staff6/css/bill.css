@@ -98,14 +98,21 @@ body.staff6 .bw-icard .v6-row + .v6-row::before { background: transparent; }
 .bw-if-more { font-size: var(--v6-t14) !important; line-height: var(--v6-lh14) !important; }
 /* the hearing card: the time and room large, the committee the door to the sitting, who is going with I'm going */
 .bw-hs-when { font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif !important; color: var(--v6-ink) !important; }
-.bw-hs-cn a { display: inline-flex; align-items: center; min-height: 32px; color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.bw-hs-cn a { display: inline-flex; align-items: center; min-height: 44px; color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .bw-hs-note { display: flex; align-items: center; gap: 6px; color: var(--v6-body); }
 .bw-hs-note .ic { width: 18px; height: 18px; color: var(--v6-muted); }
 body.staff6 .bw-hside .v6-step-go { margin-top: var(--s8); }
+/* every card's button sits on the left, under its words (A-13) */
+body.staff6 .bw-hside .v6-step-go .btn { margin-left: 0; }
+body.staff6 .bw-hside .v6-step-go > span { flex: 1 1 calc(100% - 40px); }
+body.staff6 .bw-hside .v6-step-go > .btn { flex: none; }
 /* who is on it */
 .bw-ws-k { color: var(--v6-muted); }
 .bw-ws-a { color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
-.bw-ws-coal { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 8px; }
+.bw-ws-coal { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 0 8px; }
+.bw-icard .bw-ic-this { min-height: 44px; display: flex; align-items: center; padding: 8px 12px; }
+.bw-icard .bw-ic-this .v6-row-top { padding-right: 0; width: 100%; justify-content: space-between; }
+.bw-icard .bw-ic-this .bw-if-you { position: static; }
 /* The phone's top bar carries Back and the number; the page's own back row shows from 768px (spec 3.1: the laptop header
    holds only search). Previous / Next ride on it when the bill was opened from a list. */
 .bw-top { display: none; }
@@ -658,6 +665,17 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
   .tk-cap .tk-now.tk-onslim { display: flex; }
   .tk .tk-more { display: inline-flex; margin-left: -12px; }
   .tk-list:not([hidden]) { display: block; }
+}
+/* Beside the right column the bar takes the slim form under 720px of its own width (R-346: at 1280 "Conferenc/e" and
+   "HHS/CP/N" broke in half), the same parts the phone shows under 600px. */
+@container (max-width: 719.98px) {
+  .bw-two .tk-wide, .bw-two .tk-cap .tk-onwide { display: none; }
+  .bw-two .tk-slim { display: grid; }
+  .bw-two .tk-cap { margin-top: var(--s8); }
+  .bw-two .tk-cap .tk-onslim { display: block; }
+  .bw-two .tk-cap .tk-now.tk-onslim { display: flex; }
+  .bw-two .tk .tk-more { display: inline-flex; margin-left: -12px; }
+  .bw-two .tk-list:not([hidden]) { display: block; }
 }
 /* every stop, one line each, a dot for its state (the same colours as the bar) and the deadlines ahead under the stop they
    gate */

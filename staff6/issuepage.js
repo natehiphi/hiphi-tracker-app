@@ -892,6 +892,9 @@ export function nextPhrase(b) {
 // even when it is the bill's own name: the title is in the other column, A-14), how it stands in the issue page's own
 // words (On track, At risk, Stopped, Won) and its sentence, its bills still alive as the issue page's cards with the
 // page's own bill ringed as "This bill", how many stopped, then Open the issue.
+// The page's own bill among them is one short ringed line, its number and "This bill": its name, bar and where it is are
+// the page's header, said once (A-14; the critic: the full card repeated the title and the hearing time).
+const thisRow = b => `<div class="v6-row ip6-brow is-this bw-ic-this" role="listitem" data-bill="${esc(b.id)}"><span class="v6-row-top"><span class="v6-row-num">${esc(numWords(b))}</span><span class="bw-if-you">This bill</span></span></div>`;
 export function issueCardHTML(i, b) {
   const { now, earlier } = billsSplit(i), xs = now.map(placeOfBill), names = new Map();
   for (const x of xs) { const n = plain(nameWords(x.b)); names.set(n, (names.get(n) || 0) + 1); }
@@ -904,7 +907,7 @@ export function issueCardHTML(i, b) {
     <p class="bw-ic-l"><span class="bw-if-ic" aria-hidden="true">${icon(issueIcon(i))}</span><span>Its issue</span></p>
     <h2 class="bw-ic-n" id="bw-ic-h"><a href="${esc(href)}">${esc(i.name)}</a></h2>
     ${pill}<p class="bw-if-s">${esc(hc.text)}</p>
-    ${alive.length ? `<div class="bw-if-bills" role="list" aria-label="Its bills">${alive.map(x => billCard(x, { me: x.b.id === b.id })).join('')}</div>` : ''}
+    ${alive.length ? `<div class="bw-if-bills" role="list" aria-label="Its bills">${alive.map(x => x.b.id === b.id ? thisRow(x.b) : billCard(x)).join('')}</div>` : ''}
     ${gone ? `<p class="bw-if-more">${esc(alive.length ? `${plural(gone, 'other bill')} on this issue ${gone === 1 ? 'has' : 'have'} stopped` : `${plural(gone, 'bill')} on this issue ${gone === 1 ? 'has' : 'have'} stopped`)}</p>` : ''}
     <a class="bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a>
   </section>`;

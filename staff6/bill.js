@@ -908,13 +908,17 @@ function whoSide(b) {
   const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean), f = followText(b);
   return `<section class="bw-scard bw-wside" aria-labelledby="bw-ws-h">
     <h2 class="bw-sh" id="bw-ws-h">${icon('users')}<span>Who is on it</span></h2>
-    <p><span class="bw-ws-k">Following:</span> ${f ? esc(f) : '<span class="bw-quiet">no one yet</span>'}</p>
+    <p><span class="bw-ws-k">Teammates following:</span> ${f ? esc(f) : '<span class="bw-quiet">no one yet</span>'}</p>
     <p class="bw-ws-coal"><span><span class="bw-ws-k">${coal.length === 1 ? 'Coalition' : 'Coalitions'}:</span> ${coal.length ? coal.map(c => `<a class="bw-ws-a" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">none</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</p>
   </section>`;
 }
 function sideHTML(b, s) {
   const isx = issuesOfBill(b.id);
-  return `<aside class="bw-side" aria-label="Its issue, hearing and team">${isx.length ? issueCardHTML(isx[0], b) : ''}${hearingSide(b, s)}${whoSide(b)}</aside>`;
+  // A hearing today or tomorrow comes first, so its time and room are on the first screen (B-2, A-1: the critic found them
+  // below the fold under a long issue card).
+  const h = sideHearing(b, s), soon = h && h.status !== 'cancelled' && new Date(h.scheduled_at).getTime() - Date.now() < 2 * 864e5;
+  const iss = isx.length ? issueCardHTML(isx[0], b) : '', hs = hearingSide(b, s);
+  return `<aside class="bw-side" aria-label="Its issue, hearing and team">${soon ? hs + iss : iss + hs}${whoSide(b)}</aside>`;
 }
 
 // ---- the page ----
