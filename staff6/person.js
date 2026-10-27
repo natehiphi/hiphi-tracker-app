@@ -150,6 +150,14 @@ function follows(p) {
       : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
 }
+// The database says "Followed HB2540" and "Submitted testimony on HB2540" (person_timeline, migration 049). Said the way
+// Follows says a bill (C-15, R-343): what they did, the bill's nickname as the link, its number after ("HB 2540"). A line
+// that does not end in the bill's number (an email's subject) stays as it came, the whole line the link.
+function billLine(label, b) {
+  const num = String(b.bill_number || ''), at = num ? label.lastIndexOf(num) : -1;
+  if (at < 0 || at + num.length !== label.length) return `<a href="${billRoute(b)}">${esc(label)}</a>`;
+  return `${esc(label.slice(0, at))}<a href="${billRoute(b)}">${esc(nameWords(b, 80))}</a> <span class="sp-fnum">${esc(numWords(b))}</span>`;
+}
 function feed(p) {
   const st = P(), notes = S.peopleNotes?.[p.id], tl = S.personTL?.[p.id];
   const loading = notes === undefined || tl === undefined;
@@ -169,7 +177,7 @@ function feed(p) {
         ${mine || S.me?.is_admin ? btn('Delete', { kind: 'text', sm: true, attrs: { 'data-ndel': String(x.n.id), 'aria-label': 'Delete this note' } }) : ''}</li>`;
     }
     const b = x.e.bill_id && billById(x.e.bill_id);
-    return `<li class="sp-fi"><span class="sp-fic" aria-hidden="true">${icon(KIND_ICON[x.e.kind] || 'circle-dot')}</span><div class="sp-fb"><p>${b ? `<a href="${billRoute(b)}">${esc(x.e.label)}</a>` : esc(x.e.label)}</p><p class="meta">${esc(fmtDate(x.e.at))}</p></div></li>`;
+    return `<li class="sp-fi"><span class="sp-fic" aria-hidden="true">${icon(KIND_ICON[x.e.kind] || 'circle-dot')}</span><div class="sp-fb"><p>${b ? billLine(x.e.label, b) : esc(x.e.label)}</p><p class="meta">${esc(fmtDate(x.e.at))}</p></div></li>`;
   };
   return `<section class="sp-sec" aria-labelledby="sp-h-feed"><div class="sechead"><h2 id="sp-h-feed">Activity</h2><span class="meta">Notes are for the team only</span></div>
     ${loading ? skeleton(2).replace('skelpage', 'skelpage sp-feedload') : st.loadErr && !items.length ? `<p class="muted sp-none">The activity did not load. Try again later.</p>`
