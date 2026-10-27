@@ -28,6 +28,7 @@ import { askTodoOf } from './push.js';   // an ask handed to someone (W14): made
 import { icon, btn, iconBtn, chip, toast, openSheet, closeSheet, menuSheet } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { issuesOfBill, issueById } from './issues.js';
+import { issueIcon } from './issuegrid.js';   // R-339: the issue picker shows each issue's icon
 import { photo, shortName, partyDist, legHref, roleWord, seatsText, STANCE_WORD } from './pathway.js';
 import { matchLegs } from './legislators.js';
 import { billRoute } from './model.js';
@@ -449,7 +450,7 @@ export function logConversation({ bill = null, issueId = null, legislatorIds = [
       // Another issue: what is typed finds it (the committees' issues first); a pick joins the choices, chosen.
       const hits = () => {
         const shown = new Set(opts().map(([v]) => v)), list = issueHits(iq.value, ctx, picked, shown), t = iq.value.trim();
-        il.innerHTML = list.length ? `${t ? '' : '<p class="cv-sgh">Their committees’ issues</p>'}<div class="sv-pickl cv-ipick">${list.map(i => `<button type="button" data-cvissue="${esc(i.id)}"><span class="body"><span class="title">${esc(i.name)}</span>${issueNums(i, ctx) ? `<span class="sub">${esc(issueNums(i, ctx))}</span>` : ''}</span>${icon('plus', { cls: 'cv-plus' })}</button>`).join('')}</div>`
+        il.innerHTML = list.length ? `${t ? '' : '<p class="cv-sgh">Their committees’ issues</p>'}<div class="sv-pickl cv-ipick">${list.map(i => `<button type="button" data-cvissue="${esc(i.id)}">${icon(issueIcon(i))}<span class="body"><span class="title">${esc(i.name)}</span>${issueNums(i, ctx) ? `<span class="sub">${esc(issueNums(i, ctx))}</span>` : ''}</span>${icon('plus', { cls: 'cv-plus' })}</button>`).join('')}</div>`
           : t ? `<p class="cv-sgnone">No issue matches “${esc(t)}”.</p>` : '';
         il.querySelectorAll('[data-cvissue]').forEach(el => el.onclick = () => { const i = issueById(el.dataset.cvissue); if (!i) return;
           extra = ['i:' + i.id, issueLabel(i, ctx)]; iq.value = ''; il.innerHTML = ''; drawOpts(extra[0]); optsEl.querySelector('input:checked')?.focus(); });

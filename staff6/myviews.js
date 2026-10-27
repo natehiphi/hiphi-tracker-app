@@ -41,7 +41,7 @@ import { stopOf, hearingAhead, deadlineName, plainDeadlines, gateGloss, whenAt, 
 import { icon, iconBtn, toast } from './ui.js';
 import { plural } from './lists.js';
 import { numWords, dayWords, committeeName, nw } from './steps.js';
-import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW } from './issuestand.js';
+import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW, issueLead } from './issuestand.js';
 import { ICONS } from '../icons.js';
 import { issueIcon } from './issuegrid.js';
 
@@ -283,7 +283,7 @@ const DAY = 864e5;
 function todayHTML(js) {
   const l = js.filter(j => j.needs && j.dueAt != null && j.dueAt - Date.now() <= DAY).sort((a, b) => a.dueAt - b.dueAt);
   if (!l.length) return '';
-  const row = j => `<a class="mi-trow" href="${href(j.i)}" data-mirow="${esc(j.i.id)}"><span class="mi-trn">${esc(j.i.name)}</span>${lineSpan(j.dstate === 'risk' && !(j.hp && j.hp.s) ? j.dline : j.next)}</a>`;
+  const row = j => `<a class="mi-trow" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${topicIc(j.i, 'mi-tic sm')}<span class="mi-trb"><span class="mi-trn">${esc(j.i.name)}</span>${lineSpan(j.dstate === 'risk' && !(j.hp && j.hp.s) ? j.dline : j.next)}</span></a>`;
   return `<section class="mi-today" aria-labelledby="mi-today-h"><h2 class="mi-todayh" id="mi-today-h">${icon('hand')}Needs you today</h2>
     ${l.slice(0, 3).map(row).join('')}${l.length > 3 ? `<p class="mi-tmore">${esc(`and ${l.length - 3} more due today, each marked Needs you below`)}</p>` : ''}</section>`;
 }
@@ -328,7 +328,7 @@ function deadlinesHTML(js, opts) {
 
 // ---- Status: Needs you · On track · Stopped, each with Cleared / At risk / Not yet ----
 function statusRow(j) {
-  return `<div class="v6-row i6-row mi-srow" role="listitem" data-v6row="${esc(j.i.id)}"><a class="v6-row-main" href="${href(j.i)}"><span class="v6-row-top"><span class="v6-row-name">${esc(j.i.name)}</span>${tagsOf(j).length ? ` <span class="v6-row-num">${esc(tagsOf(j).join(', '))}</span>` : ''}</span>
+  return `<div class="v6-row i6-row mi-srow" role="listitem" data-v6row="${esc(j.i.id)}"><a class="v6-row-main has-lead" href="${href(j.i)}">${issueLead(j.i)}<span class="v6-row-top"><span class="v6-row-name">${esc(j.i.name)}</span>${tagsOf(j).length ? ` <span class="v6-row-num">${esc(tagsOf(j).join(', '))}</span>` : ''}</span>
     ${lineSpan(j.next || j.health, 'v6-row-line')}${j.dline ? lineSpan(j.dline, 'v6-row-line mi-dl') : ''}</a></div>`;
 }
 function statusHTML(js, opts) {
@@ -383,7 +383,7 @@ let LAST = [];
 function sheetHTML(js) {
   const s = S.miSort, rows = sorted(js); LAST = rows;
   const cell = (k, j) => {
-    if (k === 'issue') return `<a class="mi-tlink" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${esc(j.i.name)}</a>${tagsOf(j).length ? `<span class="mi-q mi-ttag">${esc(tagsOf(j).join(', '))}</span>` : ''}`;
+    if (k === 'issue') return `<a class="mi-tlink" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${topicIc(j.i, 'mi-tic xs')}<span>${esc(j.i.name)}</span></a>${tagsOf(j).length ? `<span class="mi-q mi-ttag">${esc(tagsOf(j).join(', '))}</span>` : ''}`;
     if (k === 'state') { const t = COLS[4][2](j), ic = { Cleared: 'circle-check', 'At risk': 'triangle-alert', 'Not yet': 'clock', Stopped: 'circle-minus', 'HIPHI opposes': 'circle-x' }[t];
       return t ? `<span class="mi-st${t === 'Cleared' ? ' t-done' : ''}">${ic ? icon(ic) : ''}${esc(t)}</span>` : ''; }
     if (k === 'next') return j.next ? `<span class="mi-tnext">${j.next.html}</span>` : esc(j.health.text);
