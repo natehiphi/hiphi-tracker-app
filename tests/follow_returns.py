@@ -195,9 +195,9 @@ with sync_playwright() as pw:
         where = p.evaluate("(() => { const e = document.querySelector('.bl-storyline'); if (!e) return ''; const a = document.querySelector('.bl-side');"
                            " return e.previousElementSibling?.classList.contains('bl-ract') ? (a && a.contains(e) ? 'side, under the card' : 'under the card') : 'elsewhere'; })()")
         ok(where == ('under the card' if w < 700 else 'side, under the card'), f'{w} stopped: the line right under the action card ({where})')
-        # R-340: the issue band (.bl-iband) says it now, on every bill page: "Part of the issue" (its name, or "of the same name") and "Following the issue"
+        # R-340: the issue band (.bl-iband) says it now, on every bill page: "Its issue:" and its name (R-346) and "Following the issue"
         iss = p.evaluate("(() => { const e = document.querySelector('.bl-rhead .bl-iband'); return e && e.offsetParent ? e.textContent.replace(/\\s+/g, ' ').trim() : ''; })()")
-        ok('Part of the issue' in iss and ('Cigars shipped by mail' in iss or 'of the same name' in iss) and 'Following the issue' in iss, f'{w} stopped: the head says "Part of" the issue, "Following the issue", after the toast has gone ({iss!r})')
+        ok('Its issue:' in iss and 'Cigars shipped by mail' in iss and 'Following the issue' in iss, f'{w} stopped: the head says "Its issue:" and its name, "Following the issue", after the toast has gone ({iss!r})')
         main = p.evaluate("[...document.querySelectorAll('.bl-ract .btn.primary, .actionbar .btn.primary')].filter(e => e.offsetParent !== null).map(e => e.innerText.trim())")
         ok(not any(m == 'Follow the issue' for m in main), f'{w} stopped: the main button no longer asks to follow ({main})')
         r = checks.page_report(p, f'{w} stopped', do_axe=True)

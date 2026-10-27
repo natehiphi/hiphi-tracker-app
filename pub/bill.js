@@ -1399,14 +1399,13 @@ function recHead(b, x) {
 // that has an issue. The issue's name (its page's link), how it is doing in a badge and one sentence (issuehealth.js), and
 // Follow the issue: the one follow on a bill page (R-067). It replaced "Part of <issue>", which this layout showed only after
 // a text's link or a follow (R-212 #47); both still say what they said: a text's level line, and "Following the issue".
-// When the issue has the bill's own name (102 of 248 in 2026), the band says so instead of repeating it (A-14).
+// "Its issue: <name>", the name said even when it is the bill's own (R-346, Nate 10/27: "of the same name" read oddly).
 // A stopped bill's main button is already Follow the issue, and a newcomer has it on their own card, so then the band has none.
 const plainN = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().trim();
 const TONE_IC = { ok: 'circle-check', warn: 'circle-alert', stop: 'circle-minus' };
 function issueBand(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0], on = issueFollowed(i), hx = issueHealth(i, b);
-  const same = plainN(i.name) === plainN(nick(b));
   const badge = hx?.word ? `<span class="bl-ib-badge bl-ib-${hx.tone}">${icon(TONE_IC[hx.tone] || 'circle')}<span>${esc(hx.word)}</span></span> ` : '';
   const follow = (x && followIsMain(b, x)) || firstVisit() ? ''
     : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on bl-ib-btn', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
@@ -1414,8 +1413,8 @@ function issueBand(b, x) {
   const tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '';
   return `<section class="bl-iband" data-topic="${esc(i.category || '')}" aria-label="Part of an issue">
     <span class="bl-ib-ic" aria-hidden="true">${icon(issueLead(i))}</span>
-    <div class="bl-ib-m"><p class="bl-ib-l"><a href="#/issue/${esc(i.slug)}">${same ? 'Part of the issue of the same name' : 'Part of the issue'}${icon('chevron-right', { cls: 'bl-ib-chev' })}</a></p>
-      ${same ? '' : `<p class="bl-ib-n"><a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></p>`}
+    <div class="bl-ib-m"><p class="bl-ib-l"><a href="#/issue/${esc(i.slug)}">Its issue:${icon('chevron-right', { cls: 'bl-ib-chev' })}</a></p>
+      <p class="bl-ib-n"><a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></p>
       ${hx ? `<p class="bl-ib-s">${badge}<span class="bl-ib-why">${esc(hx.text)}</span>${tx}</p>` : tx ? `<p class="bl-ib-s">${tx}</p>` : ''}</div>
     ${t ? levelBox(t, TXT) : ''}${follow}</section>`;   // the switch opens right under its line, before Follow (R-299's critic)
 }
