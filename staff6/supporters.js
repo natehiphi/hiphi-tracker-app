@@ -106,7 +106,8 @@ function doneBits(p) {
   return [t ? `testified ${t}×` : a ? `took ${a} action${a === 1 ? '' : 's'}` : '', f ? `follows ${f} bill${f === 1 ? '' : 's'}` : ''].filter(Boolean);
 }
 const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
-const doneText = p => cap(doneBits(p).join(' · '));
+// Each fact is kept whole (no-break spaces), so a narrow column breaks between "Testified 2×" and "follows 4 bills", never inside.
+const doneText = p => cap(doneBits(p).map(t => t.replace(/ /g, '\u00a0')).join(' · '));
 // The phone's one line: "Oʻahu, Senate 18 · active 3/16".
 function subLine(p) {
   const w = [p.island, p.senate_district ? `Senate ${p.senate_district}` : ''].filter(Boolean).join(', ');
