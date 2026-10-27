@@ -19,7 +19,7 @@
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL } from './data.js';
 import { billById, plain, PUBLIC_APP, billRef, billByRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, wantsHearing } from './model.js';
 import { ownerFirst } from './model.js';   // R-316 W28
-import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, pickerSheet, pickerChip, ownerOf } from './ui.js';
+import { icon, btn, iconBtn, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, pickerSheet, pickerChip, ownerOf, segmented } from './ui.js';
 import { plural, afterClose, billName } from './lists.js';
 import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
 import { FV_HREF, fvView, fvTitle, fvBack, renderFirstVisit, wireFirstVisit } from './firstvisit.js';
@@ -30,7 +30,8 @@ import { weekOfBills, standWeekHTML, wireWeek, billLineRow, billWords } from './
 import { standOf, markOf, bodyHTML, toolsHTML, wireTools, listBox, headHTML, rememberRow, restoreRow } from './issuestand.js';
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';   // R-335 (practice copy): "Legislators who care about this"
 import { itemRow, nw, dayWords } from './steps.js';
-import { gridBody, toolsHTML as gridTools, wireJump, fitLines, pickSort, restoreCard } from './issuegrid.js';   // R-336 walk 3: All issues as cards
+import { gridBody, toolsHTML as gridTools, wireJump, fitLines, pickSort, restoreCard } from './issuegrid.js';
+import { CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal, calPick } from './hearings.js';   // All issues as a week (R-342)   // R-336 walk 3: All issues as cards
 
 // Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
 const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: BOARD_HREF, label: 'Prep board' }
@@ -269,7 +270,18 @@ const index = {
     // waits for an admin; in session a November job never sits over the list (the critic). Today's line and Team link the
     // board whenever something waits.
     const sw = SESSION_OVER || boardWaits() ? boardSwitch('') : '';
+    // R-342 (Nate 26 Oct): All issues as a week, the same calendar as Hearings with each bill's issue in its card's tint, so
+    // the busy issues show at a glance. The team's bills (All issues is everyone's), reached by the Calendar tab or the
+    // Cards | Calendar switch (both for now, hearings.js CAL_WAYS), remembered per person (prefs.iview).
+    const cm = calPick('iview', route).mode;
+    const swap = CAL_WAYS.swap ? segmented('iview', [['list', 'Cards'], ['cal', 'Calendar']], cm, 'Show the issues as') : '';
+    if (cm === 'cal') return `<div class="le-page i6-page is6-index is6-cal">
+      ${headHTML(CAL_WAYS.tab ? 'cal' : 'all', { action: acts })}
+      ${swap ? `<div class="is6-swap">${swap}</div>` : ''}
+      <div class="hc-wrap"><div class="hw-bar"><p class="is6-calwho">All the team’s bills</p>${calWeekBar(route)}</div>${weekCalHTML(route, { scope: 'team', tag: true })}</div>
+    </div>`;
     return `<div class="le-page i6-page is6-index">
+      ${swap ? `<div class="is6-swap">${swap}</div>` : ''}
       ${headHTML('all', { action: acts })}
       ${sw}
       ${needsLine()}
@@ -282,6 +294,14 @@ const index = {
     if (fvView(route)) return wireFirstVisit(route, root);
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
+    const pick = calPick('iview', route);
+    root.querySelectorAll('[data-seg="iview"]').forEach(el => el.onclick = async () => {
+      const m = el.dataset.val; await pick.save(m); S.hcRefocus = `[data-seg="iview"][data-val="${m}"]`;
+      S.go(`#/my-issues/all?view=${m}`, { replace: true });
+    });
+    root.querySelectorAll('.i6-head .sv-secnav a[href*="/my-issues/all?view="]').forEach(a => a.addEventListener('click', () => { pick.save(/view=cal/.test(a.getAttribute('href')) ? 'cal' : 'list'); }));
+    if (root.querySelector('.is6-cal')) { wireWeekCal(root, { href: w => `#/my-issues/all?view=cal${w ? `&w=${w}` : ''}` }); return; }
+    if (S.hcRefocus) { const f = root.querySelector(S.hcRefocus); S.hcRefocus = null; f?.focus({ preventScroll: true }); }
     root.querySelector('[data-is="needs"]')?.addEventListener('click', needsSheet);
     const body = root.querySelector('#is-q-body'), sortB = root.querySelector('[data-igsort]');
     // Redraw the cards only, so typing keeps the focus in the box; Sort hides while a search shows its matches.

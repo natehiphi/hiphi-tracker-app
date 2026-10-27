@@ -16,7 +16,8 @@
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
-import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName } from './model.js';
+import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
+import { tintOf } from './issuegrid.js';   // an issue's topic tint, as its card on All issues (R-342)
 import { icon, btn, iconBtn, toast, segmented, menuSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
@@ -249,7 +250,7 @@ function stepOfB(h, b) {
   return { s, st, tone, word: st ? st.label : '' };
 }
 // Everything the calendar draws for one week: { day: [entries in time order] } and each day's Capitol deadlines.
-function calWeek(scope, mon) {
+function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
   const sun = addDays(mon, 6), t0 = ms(mon + 'T00:00:00-10:00'), t1 = ms(sun + 'T23:59:59.999-10:00'), ok = scopeOk(scope), now = Date.now();
   const days = new Map([0, 1, 2, 3, 4, 5, 6].map(i => [addDays(mon, i), []]));
   const put = (t, e) => { const d = days.get(hst(t)); if (d) d.push({ t, ...e }); };
@@ -270,15 +271,28 @@ function calWeek(scope, mon) {
     if (bills.length) put(due, { k: 'due', h: x.h, bills, late: due <= now });
   }
   // The person's own dated to-dos and follow-ups, as Today has them (the same rows, the same links).
-  let tasks = []; try { tasks = todayItems('mine').tasks || []; } catch (e) { console.error(e); }
-  for (const t of tasks) {
-    if (t.due == null || !(t.due >= t0 && t.due <= t1)) continue;
-    if (t.kind === 'todo' && t.who === 'yours') put(t.due, { k: 'todo', words: t.t?.title || 'To-do', b: t.b, href: t.b ? billRoute(t.b) : '#/' });
-    else if (t.kind === 'followup') { const p = t.p || {}, name = p.name || p.email || 'a supporter';
-      put(t.due, { k: 'fu', words: `Follow up with ${name}`, sub: t.f?.what || '', href: t.f?.person_id ? `#/person/${encodeURIComponent(t.f.person_id)}` : '#/' }); }
+  let mine = []; try { mine = todayItems('mine').tasks || []; } catch (e) { console.error(e); }
+  // Today's Team calendar (R-342): every dated to-do on the scope's bills, each with whose it is; follow-ups stay the
+  // person's own (a supporter's name is not the team's business, R-341).
+  if (tasks === 'team') for (const [bid, arr] of Object.entries(S.todos || {})) for (const t of arr) {
+    const b = billById(bid); if (t.done || !t.due_date || !b || !ok(b)) continue;
+    const due = ms(String(t.due_date).slice(0, 10) + 'T17:00:00-10:00'); if (!(due >= t0 && due <= t1)) continue;
+    put(due, { k: 'todo', words: t.title || 'To-do', b, href: billRoute(b), who: t.assignee_id ? (t.assignee_id === S.me?.id ? 'You' : teamFirst(t.assignee_id)) : 'No one yet' });
   }
+  const plainS = x => String(x || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, '’');
+  for (const t of mine) {
+    if (t.due == null || !(t.due >= t0 && t.due <= t1)) continue;
+    // The person's own step on a bill (approve, resubmit, file, fix an email) at its own time, in Today's words, so the
+    // calendar and Today's list never give two times for one job (critic, R-342). Mine only: Team is the Capitol's times.
+    if (!['todo', 'followup', 'wait'].includes(t.kind) && t.who === 'yours' && t.b && tasks !== 'team' && !steps) { put(t.due, { k: 'step', words: plainS(t.s), b: t.b, href: billRoute(t.b) }); continue; }
+    if (t.kind === 'todo' && t.who === 'yours') { if (tasks !== 'team') put(t.due, { k: 'todo', words: t.t?.title || 'To-do', b: t.b, href: t.b ? billRoute(t.b) : '#/' }); }
+    else if (t.kind === 'followup') { const p = t.p || {}, name = p.name || p.email || 'a supporter';
+      put(t.due, { k: 'fu', words: `Follow up with ${name}`, sub: t.f?.what || '', who: tasks === 'team' ? 'You' : '', href: t.f?.person_id ? `#/person/${encodeURIComponent(t.f.person_id)}` : '#/' }); }
+  }
+  // Today hands its own rows (today.js work: the times its list says), so the two never disagree
+  for (const x of steps || []) if (x.t >= t0 && x.t <= t1) put(x.t, { k: 'step', words: x.words, b: x.b, href: billRoute(x.b) });
   // At the same minute: the testimony due first, then the hearing, then the to-dos (v5's order).
-  const rank = { due: 0, h: 1, todo: 2, fu: 2 };
+  const rank = { step: 0, due: 1, h: 2, todo: 3, fu: 3 };
   for (const list of days.values()) list.sort((p, q) => p.t - q.t || rank[p.k] - rank[q.k]);
   return { days, caps: capDays(scope, mon), monN: all.filter(x => x.mon).length };
 }
@@ -289,7 +303,17 @@ const capCal = ds => (ds || []).map(d => { const g = gateGloss(d.label);
   return `<p class="hc-cap">${icon('landmark')}<span><a href="#/help/words?w=${encodeURIComponent(d.label)}" aria-label="${esc(`Capitol deadline: ${d.label}`)}">${esc(d.label)}</a>${g ? `<span class="hc-capg">${esc(g)}</span>` : ''}</span></p>`; }).join('');
 // One entry. Times are the first thing on each line (the day's order is time order). A testimony deadline says "Due 3:00 PM",
 // so its time never reads as an event, and it carries a thin action rule: it is the part of the day someone acts on (critic).
-function calEntry(e, { wkend = false } = {}) {
+// All issues' calendar (R-342, Nate 26 Oct: "week grid by issue"): each bill says its issue in the issue card's own tint, so
+// the week shows which issues are busy. Two at most, then "+1"; a bill on no issue says nothing.
+function issueTags(b) {
+  const cats = S.categories || [], ids = (S.billIssues || []).filter(x => x.bill_id === b?.id).map(x => x.issue_id);
+  const iss = ids.map(id => (S.issues || []).find(i => i.id === id)).filter(Boolean).sort((x, y) => String(x.name).localeCompare(String(y.name)));
+  if (!iss.length) return '';
+  const chip = i => `<a class="hc-iss ${tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0))}" href="#/issue/${encodeURIComponent(i.id)}">${esc(clipW(i.name, 44))}</a>`;
+  return `<span class="hc-isss">${iss.slice(0, 2).map(chip).join('')}${iss.length > 2 ? `<span class="hc-issn">+${iss.length - 2}</span>` : ''}</span>`;
+}
+function calEntry(e, { wkend = false, tag = false } = {}) {
+  const tg = b => tag ? issueTags(b) : '';
   const when = `${wkend ? `${new Date(e.t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ` : ''}${timeWords(e.t)}`;
   const tm = `<span class="hc-t">${esc(when)}</span>`;
   if (e.k === 'h') {
@@ -297,24 +321,36 @@ function calEntry(e, { wkend = false } = {}) {
     const going = goingTo(e.x.rows), label = `Hearing ${when}, ${cn}${room ? `, ${room}` : ''}${e.cancelled ? ', cancelled' : ''}. Open the hearing`;
     const bills = e.bills.map(y => { const st = stepOfB(y.r, y.b);
       return `<li><span class="hc-bn">${esc(billShort(y.b))}</span>${st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : ''}</li>`; }).join('');
+    const head = `<span class="hc-hh">${tm}<span class="hc-hk">Hearing</span>${going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : ''}</span>
+      <span class="hc-cn">${esc(cn)}</span>${room || e.cancelled ? `<span class="hc-room">${esc(e.cancelled ? 'Cancelled, no new date yet' : room)}</span>` : ''}`;
+    // With issue tags (links of their own) the card is a box whose committee name opens the hearing, so no link holds another
+    if (tag) {
+      const tb = e.bills.map(y => { const st = stepOfB(y.r, y.b);
+        return `<li><a class="hc-bl" href="${esc(billRoute(y.b))}">${esc(tag ? numWords(y.b) : billShort(y.b))}</a>${st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : ''}${tg(y.b)}</li>`; }).join('');
+      return `<li class="hc-e hc-h hc-hbox${e.cancelled ? ' off' : ''}"><div class="hc-hl"><span class="hc-hh">${tm}<span class="hc-hk">Hearing</span>${going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : ''}</span>
+        <a class="hc-cn" href="#/hearing/${encodeURIComponent(h.id)}?from=week" aria-label="${esc(label)}">${esc(cn)}</a>${room || e.cancelled ? `<span class="hc-room">${esc(e.cancelled ? 'Cancelled, no new date yet' : room)}</span>` : ''}
+        ${tb ? `<ul class="hc-bills">${tb}</ul>` : ''}</div></li>`;
+    }
     return `<li class="hc-e hc-h${e.cancelled ? ' off' : ''}"><a class="hc-hl" href="#/hearing/${encodeURIComponent(h.id)}?from=week" aria-label="${esc(label)}">
-      <span class="hc-hh">${tm}<span class="hc-hk">Hearing</span>${going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : ''}</span>
-      <span class="hc-cn">${esc(cn)}</span>${room || e.cancelled ? `<span class="hc-room">${esc(e.cancelled ? 'Cancelled, no new date yet' : room)}</span>` : ''}
+      ${head}
       ${bills ? `<ul class="hc-bills">${bills}</ul>` : ''}</a></li>`;
   }
   if (e.k === 'due') {
     const h = e.h, cn = committeeName(h.committee) || h.committee, what = `for ${weekdayLong(h.scheduled_at)}’s ${cn} hearing`;
     const bills = e.bills.map(y => `<li><a class="hc-dl${y.tone === 'late' ? ' late' : ''}" href="${esc(billRoute(y.b))}" aria-label="${esc(`${sayWords(y.b)}: testimony due ${when}, ${what}. ${y.word}${y.tone === 'late' ? ', late, still accepted until the hearing starts' : ''}`)}">
-      <span class="hc-bn">${esc(billShort(y.b))}</span><span class="hc-st${y.tone === 'late' ? ' late' : ''}">${y.tone === 'late' ? icon('clock') : ''}${esc(y.tone === 'late' ? `${y.word} · late` : y.word)}</span></a></li>`).join('');
+      <span class="hc-bn">${esc(tag ? numWords(y.b) : billShort(y.b))}</span><span class="hc-st${y.tone === 'late' ? ' late' : ''}">${y.tone === 'late' ? icon('clock') : ''}${esc(y.tone === 'late' ? `${y.word} · late` : y.word)}</span></a>${tg(y.b)}</li>`).join('');
     return `<li class="hc-e hc-due${e.late ? ' past' : ''}"><p class="hc-eh"><span class="hc-t">${esc(`Due ${when}`)}</span><span class="hc-ek">${icon('file-text')}Testimony</span></p><p class="hc-es">${esc(what)}</p><ul class="hc-dls">${bills}</ul></li>`;
   }
-  const ic = e.k === 'fu' ? 'phone' : 'list-todo', sub = e.k === 'todo' && e.b ? numWords(e.b) : e.sub ? clipW(e.sub, 48) : '';
+  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step"><a class="hc-tl" href="${esc(e.href)}"><span class="hc-eh"><span class="hc-t">${esc(`By ${when}`)}</span><span class="hc-ek">${icon('circle-check')}Your step</span></span>
+    <span class="hc-tw">${esc(e.words)}</span><span class="hc-es">${esc(numWords(e.b))}</span></a></li>`;
+  const ic = e.k === 'fu' ? 'phone' : 'list-todo', sub = [e.k === 'todo' && e.b ? numWords(e.b) : e.sub ? clipW(e.sub, 48) : '', e.who ? `For ${e.who === 'You' ? 'you' : e.who}` : ''].filter(Boolean).join(' · ');
   return `<li class="hc-e hc-todo"><a class="hc-tl" href="${esc(e.href)}"><span class="hc-eh">${tm}<span class="hc-ek">${icon(ic)}${esc(e.k === 'fu' ? 'Follow-up' : 'To-do')}</span></span>
-    <span class="hc-tw">${esc(e.words)}</span>${sub ? `<span class="hc-es">${esc(sub)}</span>` : ''}</a></li>`;
+    <span class="hc-tw">${esc(e.words)}</span>${sub ? `<span class="hc-es">${esc(sub)}</span>` : ''}</a>${e.b ? tg(e.b) : ''}</li>`;
 }
 const dayShort = d => fmt(d, { weekday: 'short' }), dateShort = d => fmt(d, { month: 'numeric', day: 'numeric' });
-function calHTML(route, scope, sum) {
-  const now = Date.now(), today = hst(now), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), cw = calWeek(scope, mon);
+function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', steps = null } = {}) {
+  const now = Date.now(), today = hst(now), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), cw = calWeek(scope, mon, { tasks, steps });
+  const askL = () => ask && off === 0 ? askLine(sum, scope) : '', ent = (e, o = {}) => calEntry(e, { ...o, tag });
   const wd = [0, 1, 2, 3, 4].map(i => addDays(mon, i)), we = [addDays(mon, 5), addDays(mon, 6)];
   const has = d => (cw.days.get(d) || []).length > 0 || (cw.caps.get(d) || []).length > 0;
   const any = [...wd, ...we].some(has), anyH = [...cw.days.values()].some(l => l.some(e => e.k === 'h'));
@@ -323,20 +359,57 @@ function calHTML(route, scope, sum) {
   // the list's own empty words (weekHTML), and between sessions its line
   if (SESSION_OVER && !anyH) return `<p class="hw-none">${icon('calendar')}<span>The Legislature is between sessions. Hearings start after opening day, ${esc(dayWords(openingDay()))}. Until then: <a href="#/my-issues">get your issues ready</a>.</span></p>`;
   const monLine = cw.monN ? `<p class="hw-mon">${btn(monOn() ? `Hide the ${plural(cw.monN, 'hearing')} on bills ${who}` : `+${plural(cw.monN, 'hearing')} on bills ${who}`, { kind: 'text', sm: true, icon: monOn() ? 'eye-off' : 'eye', attrs: { 'data-hwmon': '1', 'aria-pressed': String(monOn()) } })}</p>` : '';
-  if (!any) return `<p class="hw-none">${icon('calendar')}<span>${esc(`No hearings on ${whose}${cw.monN ? ' we support or oppose' : ''} ${when}.`)}</span></p>${monLine}${off === 0 ? askLine(sum, scope) : ''}`;
+  if (!any) return `<p class="hw-none">${icon('calendar')}<span>${esc(`No hearings on ${whose}${cw.monN ? ' we support or oppose' : ''} ${when}.`)}</span></p>${monLine}${askL()}`;
   // The phone shows one day at a time: today when it is in this week on a weekday, else the first day with something.
   const pick = S.hcDay && wd.includes(S.hcDay) ? S.hcDay : wd.includes(today) ? today : wd.find(has) || wd[0];
   const dayCol = d => { const list = cw.days.get(d) || [], isT = d === today, id = `hc-d-${d}`;
     return `<section class="hc-day${isT ? ' today' : ''}${d < today ? ' past' : ''}${d === pick ? ' on' : ''}" data-hcday="${d}" aria-labelledby="${id}"${isT ? ' aria-current="date"' : ''}>
       <h2 class="hc-dh" id="${id}"><span class="hc-dw">${esc(dayShort(d))}</span> <span class="hc-dd">${esc(dateShort(d))}</span>${isT ? ' <span class="hc-today">Today</span>' : ''}<span class="sr">${esc(`, ${plural(list.length, 'entry', 'entries')}`)}</span></h2>
       ${capCal(cw.caps.get(d))}
-      ${list.length ? `<ul class="hc-list" aria-labelledby="${id}">${list.map(e => calEntry(e)).join('')}</ul>` : `<p class="hc-nothing">Nothing scheduled</p>`}</section>`; };
+      ${list.length ? `<ul class="hc-list" aria-labelledby="${id}">${list.map(e => ent(e)).join('')}</ul>` : `<p class="hc-nothing">Nothing scheduled</p>`}</section>`; };
   const wkList = we.flatMap(d => cw.days.get(d) || []), wkCaps = we.flatMap(d => cw.caps.get(d) || []);
   const weekend = wkList.length || wkCaps.length ? `<section class="hc-wkend" aria-labelledby="hc-d-wkend"><h2 class="hc-dh" id="hc-d-wkend"><span class="hc-dw">Weekend</span> <span class="hc-dd">${esc(`${dateShort(we[0])} and ${dateShort(we[1])}`)}</span></h2>
-      ${capCal(wkCaps)}${wkList.length ? `<ul class="hc-list">${wkList.map(e => calEntry(e, { wkend: true })).join('')}</ul>` : ''}</section>` : '';
+      ${capCal(wkCaps)}${wkList.length ? `<ul class="hc-list">${wkList.map(e => ent(e, { wkend: true })).join('')}</ul>` : ''}</section>` : '';
   const btns = `<div class="hc-pick" role="group" aria-label="Pick a day">${wd.map(d => `<button type="button" data-hcpick="${d}" aria-pressed="${d === pick}" aria-label="${esc(`${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${d === today ? ', today' : ''}${has(d) ? '' : ', nothing scheduled'}`)}">
       <span class="hc-pw">${esc(dayShort(d))}</span><span class="hc-pd">${esc(dateShort(d))}</span><span class="hc-dot${has(d) ? ' on' : ''}" aria-hidden="true"></span></button>`).join('')}</div>`;
-  return `<div class="hc-cal">${btns}<div class="hc-grid">${wd.map(dayCol).join('')}</div>${weekend}</div>${monLine}${off === 0 ? askLine(sum, scope) : ''}`;
+  return `<div class="hc-cal">${btns}<div class="hc-grid">${wd.map(dayCol).join('')}</div>${weekend}</div>${monLine}${askL()}`;
+}
+
+// ---- The same week calendar on All issues and on Today (R-342, Nate 26 Oct: "Can there be a calendar view for all
+// issues, and for the today page?") ----
+// One calendar, drawn here, so the three never drift: All issues shows the team's week with each bill's issue in its
+// tint (tag); Today shows the person's week or the team's (tasks: 'mine' | 'team'). The week arrows and the phone's day
+// buttons work as on Hearings; `href(w)` is the page's own address for week w, so Back and a shared link keep the week.
+// Nate asked for both ways in (a List | Calendar switch and a Calendar tab) "for now, then we can adjust": each page draws
+// both from CAL_WAYS, so dropping one later is one word.
+export const CAL_WAYS = { tab: true, swap: true };
+export const calWeekBar = route => weekNav(route);
+export function weekCalHTML(route, { scope = 'team', tag = false, tasks = 'mine', steps = null } = {}) {
+  seedMoved(); freshScope();
+  return calHTML(route, scope, null, { ask: false, tag, tasks, steps });
+}
+export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
+  root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {
+    S.hcRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.hcDay = null;
+    S.go(href(+el.dataset.hweek || 0), { replace: true, keepScroll: true });
+  });
+  root.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {
+    const d = el.dataset.hcpick; S.hcDay = d;
+    root.querySelectorAll('[data-hcpick]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hcpick === d)));
+    root.querySelectorAll('[data-hcday]').forEach(x => x.classList.toggle('on', x.dataset.hcday === d));
+  });
+  root.querySelector('[data-hwmon]')?.addEventListener('click', async () => {
+    try { await DB.patchPrefs({ showMonitor: !monOn() }); } catch (e) { toast(e, { err: true }); return; }
+    S.hcRefocus = '[data-hwmon]'; redraw();
+  });
+  if (S.hcRefocus) { const f = root.querySelector(S.hcRefocus); S.hcRefocus = null; f?.focus({ preventScroll: true }); }
+}
+// A page's List | Calendar pick, remembered per person in their settings (and this browser's copy), as Hearings' is.
+export function calPick(key, route) {
+  const lk = `hiphi6_${key}_${S.me?.id || ''}`;
+  let saved = ''; try { saved = localStorage.getItem(lk) || ''; } catch { /* private window */ }
+  const mode = [route?.q?.view, S.me?.prefs?.[key], saved].find(x => x === 'cal' || x === 'list') || 'list';
+  return { mode, async save(v) { try { localStorage.setItem(lk, v); } catch { /* this visit only */ } try { await DB.patchPrefs({ [key]: v }); } catch { /* the address keeps it */ } } };
 }
 
 // The next session's opening day: the calendar's, else the third Wednesday in January (the Hawaiʻi Constitution's day).
