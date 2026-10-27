@@ -183,12 +183,10 @@ function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) 
   const shown = tags.filter(t => !/first visit/i.test(t));
   const line = shown.length ? [esc(shown.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
   // R-344 Rule 2, Decision 4: how the issue is doing as one shape and its word (On track, At risk, Stopped, Won, No bills
-  // yet), neutral, no tint, with the House and Senate dots beside it. The status line then stops saying the state's word
-  // (A-25), and a card with no bills says it once.
+  // yet), neutral, no tint, with the House and Senate dots beside it. A card with no bills keeps its status line's words
+  // and shows the shape alone (A-25: said once); "At risk:" stays at the head of its status line (R-272's This week).
   const key = issueKey(x);
-  if (st && key === 'risk') st = { ...st, text: String(st.text).replace(/^At risk: /, '').replace(/^\w/, c => c.toUpperCase()) };
-  if (key === 'none' && st?.ic === 'circle-dashed') st = null;
-  const state = [`${stateMark('issue', key, { size: 20, cls: 'ig6-state' })}${key !== 'none' ? chamberDots(x.going) : ''}`, 'ig6-sline'];
+  const state = [`${stateMark('issue', key, { size: 20, cls: 'ig6-state', word: key !== 'none' })}${key !== 'none' ? chamberDots(x.going) : ''}`, 'ig6-sline'];
   return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
     // The issue's own icon (Nate's R-339 picks), else its topic's.
     pic: picHTML({ ic: issueIcon(i), tint: Math.max(catIndex(i.category), 0) }),

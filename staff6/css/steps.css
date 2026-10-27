@@ -464,7 +464,7 @@ body.staff6 .bl-gh .bl-ghic { position: relative; top: -5px; margin-left: -2px; 
 body.staff6 { --v6-hue-write: #5767A8; --v6-hue-approve: #8A57A0; --v6-hue-file: #2F6F8F; --v6-hue-chair: var(--v6-action);
   --v6-hue-rally: #A24A76; --v6-hue-take: #56656C; }
 body.staff6 .v6-at { --hue: var(--v6-hue-take); display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: 40px; height: 40px; border-radius: 50%; color: var(--hue); background: color-mix(in srgb, var(--hue) 18%, var(--v6-card)); }
+  width: 40px; height: 40px; border-radius: 50%; color: var(--hue); background: color-mix(in srgb, var(--hue) 26%, var(--v6-card)); }
 body.staff6 .v6-at svg { width: 20px; height: 20px; }
 body.staff6 .v6-at.s32 { width: 32px; height: 32px; } body.staff6 .v6-at.s32 svg { width: 18px; height: 18px; }
 body.staff6 .v6-at.s24 { width: 24px; height: 24px; } body.staff6 .v6-at.s24 svg { width: 14px; height: 14px; }
