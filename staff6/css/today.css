@@ -987,7 +987,8 @@ body.staff6 .t6-wacts { display: flex; flex-wrap: wrap; gap: 4px; }
   body.staff6 .t6-head { margin: 0 0 16px; }
   /* a phone shows the day itself and its top bar says Today: the line is drawn only for an overdue count (Nate's phone Today
      ran 3.36 screens; integrator: trim what is not the person's own work) */
-  body.staff6 .t6-head:has(.t6-nolate) { display: none; }
+  body.staff6 .t6-head:has(.t6-nolate):not(:has(.t6-ways)) { display: none; }
+  body.staff6 .t6-head:has(.t6-nolate):has(.t6-ways) > :not(.t6-ways) { display: none; }   /* R-342: the ways in stay */
   body.staff6 .t6-date .t6-day { display: none; }
   body.staff6 .t6-col { gap: 24px; }   /* the laptop's 24 (was 28): Patti's 320 Today ran past 2 screens by a few pixels */
   body.staff6 .t6-season { padding: 16px; }

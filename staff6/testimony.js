@@ -22,6 +22,7 @@ import { docBtn } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { testimonyState, versionWords, numWords } from './steps.js';
 import { issuesOfBill, catByKey } from './issues.js';
+import { issueTile } from './issuestand.js';   // R-339: each issue group leads with its icon
 import { billRoute } from './model.js';
 
 // ---- which drafts count ----
@@ -150,7 +151,7 @@ function body(b) {
   if (m.others.length) {
     const cat = m.cats.map(k => catByKey(k)?.name || k).join(' and ');
     h += `<section class="tm-part" aria-labelledby="tm-cat-h"><h3 id="tm-cat-h">More in ${esc(cat)}</h3>
-      <div class="tm-cat">${m.others.map(o => `<details class="tm-iss"><summary><b>${esc(o.i.name)}</b><span>${plural(o.rows.length, 'draft', 'drafts')} on ${plural(o.bills, 'bill', 'bills')}</span>${icon('chevron-right')}</summary>
+      <div class="tm-cat">${m.others.map(o => `<details class="tm-iss"><summary>${issueTile(o.i)}<b>${esc(o.i.name)}</b><span>${plural(o.rows.length, 'draft', 'drafts')} on ${plural(o.bills, 'bill', 'bills')}</span>${icon('chevron-right')}</summary>
         <div class="tm-rows">${byBill(o.rows, null, o.i.name)}</div></details>`).join('')}</div></section>`;
   }
   return h;

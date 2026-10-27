@@ -192,3 +192,37 @@ body.staff6 a.mi-trow:hover .mi-trn { color: var(--v6-action); text-decoration: 
 body.staff6 a.mi-trow:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: var(--v6-r12); }
 body.staff6 a.mi-trow .mi-ln { margin: 0; }
 body.staff6 .mi-tmore { margin: var(--s4) 0 0; font-size: var(--v6-t16); color: var(--v6-body); }
+
+/* R-339 (Nate 10/26 audit): an issue's icon on every row that lists issues, the Deadlines rows' 32px tile on the topic's
+   soft tint, so Status, Needs you today, Stopped and the Spreadsheet read like Deadlines (A-11, A-18). Issue rows keep it
+   on a phone: the tile is the landmark there too, and the Deadlines rows already show it at 32px. */
+body.staff6 .v6-row-lead.i6-lead { width: 32px; height: 32px; border-radius: var(--v6-r12); background: var(--mi-tint, var(--v6-wash)); color: var(--mi-ink, var(--v6-body)); align-self: start; }
+body.staff6 .v6-row-lead.i6-lead svg { width: 18px; height: 18px; }
+body.staff6 .v6-row-main.has-lead:has(> .i6-lead) { grid-template-columns: 32px minmax(0, 1fr); }
+@media (max-width: 599.98px) {
+  body.staff6 .v6-row-main.has-lead:has(> .i6-lead) { display: grid; }
+  body.staff6 .v6-row-main.has-lead > .v6-row-lead.i6-lead { display: inline-flex; }
+}
+body.staff6 .mi-tic.xs { width: 24px; height: 24px; border-radius: var(--v6-r12); } body.staff6 .mi-tic.xs .ic { width: 16px; height: 16px; }
+body.staff6 .mi-tlink { gap: var(--s8); }
+body.staff6 a.mi-trow { align-items: center; flex-wrap: nowrap; }
+body.staff6 .mi-trb { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s12); min-width: 0; }
+/* The issue page's header shows the issue's own icon on its topic's tint, and keeps it on a phone at 40px (it was hidden
+   there), so the page starts with the same picture the lists show. */
+body.staff6 .is6-icon[class*="mi-c-"] { background: var(--mi-tint, var(--v6-wash)); color: var(--mi-ink, var(--v6-body)); }
+@media (max-width: 599px) { body.staff6 .is6-icon[class*="mi-c-"] { display: inline-flex; width: 40px; height: 40px; } body.staff6 .is6-icon[class*="mi-c-"] .ic { width: 20px; height: 20px; } }
+body.staff6 .co6-iss li > a { display: inline-flex; align-items: center; gap: var(--s8); }
+/* The issue page's "Coalitions:" line: each coalition's own icon before its name. */
+body.staff6 a.ip6-coal { display: inline-flex; align-items: center; gap: 4px; } body.staff6 a.ip6-coal .ic { width: 16px; height: 16px; }
+/* After the fresh-eyes critic (10/26): the drawing 20px in a 32px tile so it reads; the tile's top level with the name's
+   first line in every view; a white tile on the tinted Needs you today band; no tile in the phone spreadsheet (the name
+   column is narrow there); header tiles are rounded squares like the rows, 32px on a phone. */
+body.staff6 .v6-row-lead.i6-lead svg, body.staff6 .mi-trow .mi-tic.sm .ic { width: 20px; height: 20px; }
+body.staff6 .v6-row-lead.i6-lead { grid-row: 1 / span 3; margin-top: 0; }
+body.staff6 .mi-today .mi-tic { background: var(--v6-surface, #fff); }
+body.staff6 a.mi-trow { align-items: flex-start; } body.staff6 a.mi-trow > .mi-tic { margin-top: 2px; }
+body.staff6 .mi-tlink { align-items: flex-start; } body.staff6 .mi-tlink > .mi-tic { margin-top: 8px; }
+@media (max-width: 599.98px) { body.staff6 .mi-tlink > .mi-tic.xs { display: none; } }
+body.staff6 .is6-icon[class*="mi-c-"] { border-radius: var(--v6-r12); }
+@media (max-width: 599px) { body.staff6 .is6-icon[class*="mi-c-"] { width: 32px; height: 32px; } body.staff6 .is6-icon[class*="mi-c-"] .ic { width: 20px; height: 20px; } }
+@media (min-width: 600px) { body.staff6 .mi-td-issue .mi-ttag { padding-left: 32px; } }   /* the tag lines up under the name, not the tile */

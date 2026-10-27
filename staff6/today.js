@@ -32,14 +32,15 @@ import { S, DB, DEMO, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks 
 import v5, { todayItems, slipNow, slipWho } from './today5.js';
 import { draftHearing, hearingAhead, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, attendees, chairMail,
   legislativeDay, deadlineName, blurb, approves, canFirstApprove, filerOf, offTag, gateNeed, gateGloss } from './model.js';
-import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords } from './ui.js';
+import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords, segmented } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor, issueLinksHTML, stepHeadHTML } from './steps.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary, toAskWords, decideWords, nwParts } from './push.js';
+import { askTodoOf, askSummary, toAskWords, decideWords, nwParts, scopesFor, defaultScope } from './push.js';
+import { CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal, calPick } from './hearings.js';   // the week calendar (R-342)
 import { isLead } from './more.js';
 import { teamSlipCount } from './team.js';   // a cycle (team.js reads today.js), safe: used only when a page draws
 import { newSteps, markNewStep } from './help.js';
@@ -1000,6 +1001,67 @@ function nextSec(P, L, n = '', v = S.me) {
   if (!P.nextSit) return L.nextH(n);
   return `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">Your next step</h2>${sittingCard(P.nextSit, { v, id: `t6-hcn${n}`, lead: P.next, drop: P.drop(P.nextSit) })}</section>`;
 }
+// ---- Today as a week calendar (R-342, Nate 26 Oct: "My week, or whole team's week with a switch") ----
+// The same calendar as Hearings > This week (hearings.js weekCalHTML): Mine is the person's own bills (or their coalitions'
+// for a helper, the house's whose rule), with their dated to-dos and follow-ups; Team is every bill the team works and
+// every dated to-do with whose it is. Both ways in, for now (CAL_WAYS): the Today | Calendar tabs and the List | Calendar
+// switch, remembered per person (prefs.tview), as is Mine | Team (prefs.tcscope). The address says it (#/?view=cal&who=team),
+// not scope=, which still opens Team for v5's old links.
+const tview = route => calPick('tview', route);
+function calScope(route) {
+  const ok = scopesFor().map(x => x[0]), want = [route?.q?.who, S.me?.prefs?.tcscope].find(x => x && ok.includes(x));
+  return want || (ok.includes('mine') ? 'mine' : defaultScope());
+}
+const calHref = (route, o = {}) => { const q = { view: 'cal', who: route?.q?.who || '', w: route?.q?.w || '', ...o };
+  const u = new URLSearchParams(Object.entries(q).filter(([, x]) => x && x !== '0')); return `#/?${u}`; };
+function calWays(mode) {
+  const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
+  const tabs = CAL_WAYS.tab ? `<nav class="sv-tabrow sv-secnav t6-caltabs" aria-label="Today"><a href="#/?view=list"${mode === 'list' ? ' aria-current="page"' : ''}>${tl('Today')}</a><a href="#/?view=cal"${mode === 'cal' ? ' aria-current="page"' : ''}>${tl('Calendar')}</a></nav>` : '';
+  return tabs;
+}
+// The switch is two links shaped as the pill switch (not buttons: Today's first screen keeps its four labelled buttons, spec
+// 8 / D4), and with the tabs it sits on the title's row, so Today's list starts where it did (Kevin's chair ask stays on his
+// first screen).
+const swapSeg = mode => CAL_WAYS.swap ? `<nav class="sv-seg t6-swapl" aria-label="Show Today as">${[['list', 'List'], ['cal', 'Calendar']].map(([k, l]) => `<a href="#/?view=${k}" data-tview="${k}"${k === mode ? ' aria-current="page"' : ''}>${l}</a>`).join('')}</nav>` : '';
+const waysHTML = mode => CAL_WAYS.tab || CAL_WAYS.swap ? `<div class="t6-ways">${calWays(mode)}${swapSeg(mode)}</div>` : '';
+// Mine's own steps are Today's own rows at the times the list says ("Approve by today 11:00 AM" is 11:00 AM on the
+// calendar too: the critic found 3:00 PM there), in the row's words less the time the calendar already shows.
+const STRIP_T = /\s*(?:·\s*)?(?:due |by )?(?:today|tomorrow|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}\/\d{1,2})?,?\s*\d{1,2}:\d{2}\s*[AP]M/g;
+function calSteps(v) {
+  let own = []; try { own = work(v).own || []; } catch (e) { console.error(e); }
+  return own.filter(it => it.at != null && it.b && !['todo', 'followup'].includes(it.kind)).map(it => {
+    const words = String(lineOf(it, v) || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, '’').replace(STRIP_T, '').replace(/,?\s*still accepted until\s*\S*$/, '').replace(/\s*·\s*$/, '').trim();
+    return { t: it.at, b: it.b, words: words || 'Your step' }; });
+}
+function calRender(route, v) {
+  const scope = calScope(route), bd = badgeOf();
+  return `<div class="t6-root t6-calpage">
+    <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}${waysHTML('cal')}</header>
+    <div class="hc-wrap"><div class="hw-bar">${segmented('tcwho', scopesFor(v), scope, 'Whose week')}${calWeekBar(route)}</div>
+    ${weekCalHTML(route, { scope, tasks: scope === 'team' ? 'team' : 'mine', steps: scope === 'team' ? null : calSteps(v) })}</div>
+  </div>`;
+}
+function calWire(route, root) {
+  const main = root.querySelector('.t6-calpage'); if (!main) return;
+  wireWeekCal(main, { href: w => calHref(route, { w: String(w) }) });
+  main.querySelectorAll('[data-seg="tcwho"]').forEach(el => el.onclick = async () => {
+    const w = el.dataset.val; S.hcRefocus = `[data-seg="tcwho"][data-val="${w}"]`;
+    try { await DB.patchPrefs({ tcscope: w }); } catch { /* the address keeps it */ }
+    S.go(calHref(route, { who: w }), { replace: true, keepScroll: true });
+  });
+  wireSwap(route, main);
+}
+function wireSwap(route, root) {
+  root.querySelectorAll('[data-tview]').forEach(el => el.addEventListener('click', ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    const m = el.dataset.tview; tview(route).save(m); S.hcRefocus = `[data-tview="${m}"]`;
+    S.go(m === 'cal' ? calHref(route) : '#/?view=list', { replace: true });
+  }));
+  // a tab is a pick too: Today or Calendar is how Today opens next time
+  root.querySelectorAll('.t6-caltabs a').forEach(a => a.addEventListener('click', () => { tview(route).save(/view=cal/.test(a.getAttribute('href')) ? 'cal' : 'list'); }));
+  if (S.hcRefocus) { const f = root.querySelector(S.hcRefocus); S.hcRefocus = null; f?.focus({ preventScroll: true }); }
+}
+
 function render(route) {
   // v5's This week, under the Hearings stub, until HEARINGS replaces hearings.js (FRAME's stub hands it here).
   if (route?.place === 'hearings' || route?.q?.view === 'week' || route?.q?.view === 'ahead') return v5.render(route);
@@ -1007,6 +1069,8 @@ function render(route) {
   if (!v) return `<div class="t6-root"><h1 class="v6-ptitle">Today</h1><p class="t6-quiet">You are signed in, but the tracker does not know who you are. Ask your admin to add you.</p></div>`;
   MEMO.clear(); REG.clear(); seedMoved();
   loads();
+  const vmode = route?.place === 'hearings' ? 'list' : tview(route).mode;
+  if (vmode === 'cal') return calRender(route, v);
   const bd = badgeOf(), P = plan(v), { w, sits, phone, phoneDay } = P;
   const L = listHTML(v, { skip: phoneDay ? P.onCard : null, hideHear: P.hideHear });
   const coal = true, lead = leadLine(), done = doneBand(v);
@@ -1034,7 +1098,7 @@ function render(route) {
   // Nothing for the side column and nothing to list: one calm reading column (the side opens when a door does).
   const side = sideHTML(v, P), alone = !P.rows && !/t6-season|t6-doors|t6-start/.test(side);
   return `<div class="t6-root${phone ? ' ph' : ''}${!P.rows ? ' t6-solo' : ''}${alone ? ' t6-alone' : ''}">
-    <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}</header>
+    <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}${waysHTML('list')}</header>
     <div class="v6-ld t6-ld${item ? ' open' : ''}" data-v6ld="today">
       <div class="t6-col">
         ${big}${phoneDay && P.nextSit ? '' : `<div class="t6-nextcol">${nextSec(P, L, '', v)}</div>`}${leadPh}${start ? `<div class="t6-startcol">${start}</div>` : ''}
@@ -1198,7 +1262,9 @@ function balance(main) {
 }
 function wire(route, root) {
   if (route?.place === 'hearings' || route?.q?.view === 'week' || route?.q?.view === 'ahead') return v5.wire(route, root);
+  if (root.querySelector('.t6-calpage')) return calWire(route, root);
   const main = root.querySelector('.t6-root'); if (!main) return;
+  wireSwap(route, main);
   wireSteps(main, { after: redraw });
   wirePartner(main);
   // The frame routes every a[href^="#/"] itself (app.js wireFrame, wired after this), which would open the bill instead of

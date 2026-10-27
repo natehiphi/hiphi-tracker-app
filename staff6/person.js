@@ -11,7 +11,7 @@ import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoS
 import { nameWords, numWords } from './steps.js';
 import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
-import { followupSheet, afterSheet } from './supporters.js';
+import { followupSheet, afterSheet, adminWho } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
 import { issueById, catByKey } from './issues.js';
 import { billRoute, whenAt, hearingWhen, roomName } from './model.js';
@@ -150,6 +150,14 @@ function follows(p) {
       : `<p class="muted sp-none">${lists.length || iss.length || cats.length ? 'No bills followed on their own.' : 'Not following any issue, bill or list yet.'}</p>`}
   </section>`;
 }
+// The database says "Followed HB2540" and "Submitted testimony on HB2540" (person_timeline, migration 049). Said the way
+// Follows says a bill (C-15, R-343): what they did, the bill's nickname as the link, its number after ("HB 2540"). A line
+// that does not end in the bill's number (an email's subject) stays as it came, the whole line the link.
+function billLine(label, b) {
+  const num = String(b.bill_number || ''), at = num ? label.lastIndexOf(num) : -1;
+  if (at < 0 || at + num.length !== label.length) return `<a href="${billRoute(b)}">${esc(label)}</a>`;
+  return `${esc(label.slice(0, at))}<a href="${billRoute(b)}">${esc(nameWords(b, 80))}</a> <span class="sp-fnum">${esc(numWords(b))}</span>`;
+}
 function feed(p) {
   const st = P(), notes = S.peopleNotes?.[p.id], tl = S.personTL?.[p.id];
   const loading = notes === undefined || tl === undefined;
@@ -169,7 +177,7 @@ function feed(p) {
         ${mine || S.me?.is_admin ? btn('Delete', { kind: 'text', sm: true, attrs: { 'data-ndel': String(x.n.id), 'aria-label': 'Delete this note' } }) : ''}</li>`;
     }
     const b = x.e.bill_id && billById(x.e.bill_id);
-    return `<li class="sp-fi"><span class="sp-fic" aria-hidden="true">${icon(KIND_ICON[x.e.kind] || 'circle-dot')}</span><div class="sp-fb"><p>${b ? `<a href="${billRoute(b)}">${esc(x.e.label)}</a>` : esc(x.e.label)}</p><p class="meta">${esc(fmtDate(x.e.at))}</p></div></li>`;
+    return `<li class="sp-fi"><span class="sp-fic" aria-hidden="true">${icon(KIND_ICON[x.e.kind] || 'circle-dot')}</span><div class="sp-fb"><p>${b ? billLine(x.e.label, b) : esc(x.e.label)}</p><p class="meta">${esc(fmtDate(x.e.at))}</p></div></li>`;
   };
   return `<section class="sp-sec" aria-labelledby="sp-h-feed"><div class="sechead"><h2 id="sp-h-feed">Activity</h2><span class="meta">Notes are for the team only</span></div>
     ${loading ? skeleton(2).replace('skelpage', 'skelpage sp-feedload') : st.loadErr && !items.length ? `<p class="muted sp-none">The activity did not load. Try again later.</p>`
@@ -223,6 +231,8 @@ export default {
   title: route => { const p = personById(route.id); return p ? personName(p) : 'Supporter'; },
   back: route => { const [label, href] = FROM[route.q?.from] || ['Supporters', SUPPORTERS]; return { href, label }; },
   render(route) {
+    // R-341: a supporter's page is an admin's; the database gives anyone else nothing to show (migration 190).
+    if (!S.me?.is_admin) return `<div class="sp-person">${empty({ title: 'Supporters’ details are for admins', text: `Names, emails, phone numbers and histories stay with admins. Ask ${esc(adminWho())} when you need to reach this person.` })}</div>`;
     const id = route.id, p = personById(id), st = P();
     if (!p) {
       // Live: fetch just this person first (fast), not the whole list of up to 5,000.
@@ -245,7 +255,7 @@ export default {
   },
   wire(route, root) {
     const p = personById(route.id), page = root.querySelector('.sp-person');
-    if (!p || !page) return;
+    if (!p || !page || !S.me?.is_admin) return;
     const st = P();
     const on = (sel, fn) => page.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-pp="more"]', () => moreMenu(p));

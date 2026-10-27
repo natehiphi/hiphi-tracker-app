@@ -30,6 +30,7 @@ import { icon, iconBtn, sectionNav } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { itemRow, billStep, shownStatus, numWords, dayWords, nw } from './steps.js';
+import { issueIcon } from './issuegrid.js';   // R-339: an issue's own icon, else its topic's
 
 const AGAINST = new Set(['strongly_oppose', 'oppose']);
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
@@ -229,10 +230,15 @@ export function searcher(q) {
 // One row per issue (steps.js itemRow): its name, a quiet tag beside it ("You help", "Draft") where it applies, and the
 // one line. The whole row opens the issue's page, where its week and every bill are (R-226). No topic icon on the row
 // (X33: My issues carried 127 icons); the topic's icon heads its group in the topic view.
+// R-339 (Nate 10/26 audit): every row that lists an issue leads with its icon on the topic's soft tint, the same 32px tile
+// My issues' Deadlines rows use, so a list of issues reads the same on every screen (A-11, A-18). Decorative: the name says it.
+export const issueLead = i => `<span class="v6-row-lead i6-lead mi-c-${esc(i?.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>`;
+// The same tile outside a row (a heading, a picker, a group's summary): `sm` 32px, `xs` 24px, none 40px.
+export const issueTile = (i, size = 'sm') => `<span class="mi-tic${size ? ' ' + size : ''} mi-c-${esc(i?.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>`;
 export function rowOf(x, { from = '', tags = [], why = null, under = null } = {}) {
   const { i } = x, href = `#/issue/${encodeURIComponent(i.id)}${from ? `?from=${from}` : ''}`, l = lineOf(x, { under, why });
   // The tone is on the line's first part only (lineOf); the row's class colours its icon to match.
-  return itemRow({ key: i.id, name: i.name, num: [...tags, l.you ? 'Your step' : ''].filter(Boolean).join(', '), line: l.html, icon: l.ic, href, cls: `i6-row${l.tone ? ' i6-ic-' + l.tone : ''}` });
+  return itemRow({ key: i.id, name: i.name, num: [...tags, l.you ? 'Your step' : ''].filter(Boolean).join(', '), line: l.html, icon: l.ic, href, cls: `i6-row${l.tone ? ' i6-ic-' + l.tone : ''}`, lead: issueLead(i) });
 }
 export const lineHTML = rowOf;   // v5's name for the row
 // R-316 W56 (FR-6, R-277's 25-row rule): a long group shows its first 8 rows, then "Show the other N" in place.

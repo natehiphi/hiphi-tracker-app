@@ -21,7 +21,23 @@ function syntax() {
   return { ok: !bad.length, out: bad.map(f => 'SYNTAX ERROR in ' + f).join('\n') };
 }
 
+// Tests runs on eight machines at once (R-345): each browser step names the one shard that runs it. A step that names none
+// would run on all eight, or with a typo on none; this names the shard with the fewest steps for it.
+function shards() {
+  const yml = fs.readFileSync(root + '.github/workflows/tests.yml', 'utf8');
+  const n = ((yml.match(/shard: \[([\d, ]+)\]/) || [, '1'])[1]).split(',').length;
+  const steps = yml.split(/^      - /m).filter(b => /^\s+run: (python3 tests\/|node (tests|tools)\/)/m.test(b) && !/quick_checks\.mjs/.test(b));
+  const count = Array(n + 1).fill(0), bad = [];
+  for (const b of steps) {
+    const s = Number((b.match(/matrix\.shard == (\d+)/) || [])[1]);
+    if (s >= 1 && s <= n) count[s]++; else bad.push((b.match(/^name: (.*)$/m) || [, b.split('\n')[0]])[1]);
+  }
+  const light = count.indexOf(Math.min(...count.slice(1)), 1);
+  return { ok: !bad.length, out: bad.map(b => `No shard for: ${b}\n  its if: line should be  if: \${{ !cancelled() && matrix.shard == ${light} }}`).join('\n') };
+}
+
 const CHECKS = [
+  ['Every browser step in Tests names its machine (R-345)', shards],
   ['Syntax of every JS file (module-aware)', syntax],
   ['The two staff apps make the same data calls', 'staff/tools/parity.mjs'],
   ["The public page's first load carries the kernel only (R-122)", 'tools/check_split.mjs'],

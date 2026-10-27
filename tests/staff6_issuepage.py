@@ -78,7 +78,7 @@ with L.browser() as B:
       R.check(f'{where}: the top four open, in order: health check, What to do next, Its bills, Who is working on it', top == ['health', 'next', 'bills', 'who'], top)
       folds = pg.page.evaluate("[...document.querySelectorAll('.ip6-folds > details.ip6-sf')].map(d => [d.dataset.fold, d.open, d.querySelector('summary').innerText.replace(/\\s+/g, ' ').trim()])")
       keys = [f[0] for f in folds]
-      R.check(f'{where}: then the folds, in Nate\'s order, where legislators stand right before the timeline', keys == ['points', 'public', 'legs', 'timeline', 'lastyear', 'related'], keys)
+      R.check(f'{where}: then the folds, in Nate\'s order, where legislators stand right before the timeline', keys == ['points', 'public', 'stories', 'legs', 'timeline', 'lastyear', 'related'], keys)   # R-341: stories, for the issue's owner, helpers and admins (the sandbox signs in as an admin)
       R.check(f'{where}: every fold starts closed with a summary on its closed line', all(not o and ' · ' in t and len(t.split(' · ', 1)[1]) > 3 for _, o, t in folds), folds)
       shot(pg, name.replace(' ', '-'))
     # alive in one chamber: the other column says so plainly; alive bills carry the bar

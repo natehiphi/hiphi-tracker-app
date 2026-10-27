@@ -27,13 +27,14 @@
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL } from './data.js';
 import { billById, plain, PUBLIC_APP, billRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, switchRow, ownerOf, openSheet, closeSheet } from './ui.js';
-import { plural, afterClose, billName } from './lists.js';
+import { plural, afterClose, billName, iconName } from './lists.js';
 import { logConversation, refreshConversations } from './conversation.js';
 import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF, prepHoldsOutlook, helpersOf as issueHelpersOf } from './prep.js';
 import { testimonyOf, dueOf } from './hearing.js';
 import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
-import { listBox, rememberRow } from './issuestand.js';
+import { listBox, rememberRow, issueLead } from './issuestand.js';
+import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
 import { itemRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus } from './steps.js';
 import { surname } from './pathway.js';
@@ -270,7 +271,7 @@ function whoHTML(i, xs, steps) {
   return `<section class="ip6-sec" aria-labelledby="ip-wh"><h2 class="ip6-h" id="ip-wh">Who is working on it</h2>
     ${rows ? `<div class="v6-list i6-list" role="list">${rows}</div>` : `<p class="ip6-quiet">Nobody yet.</p>`}
     ${nobody ? `<p class="ip6-pl">${icon('user-plus')}<span>${plural(nobody, 'step')} above ${nobody === 1 ? 'has' : 'have'} no owner yet</span></p>` : ''}
-    ${coal.length ? `<p class="ip6-pl">${icon('users')}<span>${coal.length === 1 ? 'Coalition' : 'Coalitions'}: ${coal.map(c => `<a href="#/coalition/${encodeURIComponent(c.id)}">${esc(c.public_name || c.name)}</a>`).join(', ')}</span></p>` : ''}
+    ${coal.length ? `<p class="ip6-pl">${icon('users')}<span>${coal.length === 1 ? 'Coalition' : 'Coalitions'}: ${coal.map(c => `<a class="ip6-coal" href="#/coalition/${encodeURIComponent(c.id)}">${icon(iconName(c.icon))}<span>${esc(c.public_name || c.name)}</span></a>`).join(', ')}</span></p>` : ''}
   </section>`;
 }
 
@@ -633,7 +634,7 @@ function relatedHTML(i) {
   const { on, off } = relatedOf(i), edit = !!P().rel[i.id];
   const about = (o, staff) => cap([o.category === i.category ? '' : catByKey(o.category)?.name || o.category, staff ? 'linked by staff' : ''].filter(Boolean).join(', '));
   const who = c => { const a = c.set_by && advocate(c.set_by); return `unlinked${a ? ` by ${a.full_name.split(' ')[0]}` : ''}${c.set_at ? ` ${fmtDate(c.set_at)}` : ''}`; };
-  const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: line ? esc(line) : '', href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row' });
+  const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: line ? esc(line) : '', href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row', lead: issueLead(o) });
   return { sum: on.length ? plural(on.length, 'linked issue') : 'none yet', body: `<div class="is6-rel">
     <div class="i6-hrow ip6-sfa"><p class="ip6-quiet">Followers of either one see the other’s bills first.</p>${btn(edit ? 'Done' : 'Edit', { kind: 'text', sm: true, attrs: { 'data-is': 'reledit', 'aria-expanded': String(edit), 'aria-label': edit ? 'Done editing related issues' : 'Edit related issues' } })}</div>
     ${on.length ? listBox(on.map(({ o, staff }) => row(o, about(o, staff), edit ? iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }) : '')).join('')) : '<p class="ip6-quiet">None yet.</p>'}
@@ -652,7 +653,7 @@ async function setLink(i, o, on) {
 function pickSheet({ title, intro, find, attr, list, onPick }) {
   let q = '';
   const draw = () => { const l = list(plain(q.trim()));
-    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" ${attr}="${esc(x.id)}">${icon(catIcon(x.category))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
+    return l.length ? `<div class="sv-pickl">${l.map(x => `<button type="button" ${attr}="${esc(x.id)}">${icon(issueIcon(x))}<span class="body"><span class="title">${esc(x.name)}</span><span class="sub">${esc(catByKey(x.category)?.name || '')} · ${plural(billsOn(x).length, 'bill')}</span></span></button>`).join('')}</div>` : '<p class="le-none">No other issue matches.</p>'; };
   openSheet({ title, pop: true,
     body: `<p class="small muted is-for">${intro}</p><div class="le-search is-psearch">${icon('search')}<input id="is-pkq" type="search" placeholder="${esc(find)}" autocomplete="off" aria-label="${esc(find)}"></div><div id="is-pkl">${draw()}</div>`,
     wire: d => {
@@ -719,6 +720,26 @@ async function putOn(i, b) {
   } catch (e) { toast(e, { err: true }); }
 }
 
+// ---- stories from supporters (R-341, Nate 10/26) ----
+// The stories supporters told about this issue, for its owner, its helpers and admins: first name and island only (the
+// rest of a supporter's details are an admin's). Read once per visit; reference, so it sits in a fold.
+const STO = () => S.ipStories ??= {};
+const mayStories = i => !!S.me && (!!S.me.is_admin || i.owner_id === S.me.id || issueHelpersOf(i).some(h => h.id === S.me.id));
+const STORY_QUOTE = { none: 'Not for quoting: they did not say HIPHI may quote it.', first: 'HIPHI may quote it with their first name and island, after asking again.',
+  name: 'HIPHI may quote it with their full name, after asking again. An admin has their details.', media: 'HIPHI may quote it with their full name and share it with reporters, after asking again. An admin has their details.' };
+function wantStories(i) {
+  const st = STO(); if (st[i.id] !== undefined) return;
+  st[i.id] = null;
+  DB.issueStories(i.id).then(r => { st[i.id] = r; }).catch(() => { st[i.id] = false; }).finally(() => { if (S.route?.name === 'issue' && String(S.route.id) === String(i.id)) hooks.render(); });
+}
+function storiesHTML(i) {
+  const r = STO()[i.id];
+  if (r === null || r === undefined) return { sum: 'Loading', body: '<p class="meta">Loading the stories.</p>' };
+  if (r === false) return { sum: 'Did not load', body: '<p class="meta">The stories did not load. Open the page again to retry.</p>' };
+  if (!r.length) return { sum: 'None yet', body: '<p class="meta">No supporter has told a story about this issue yet. Supporters add one from their profile on the tracker.</p>' };
+  return { sum: plural(r.length, 'story', 'stories'), body: `<ul class="ip6-stories">${r.map(x => `<li><q>${esc(x.story)}</q><span class="meta">${esc(x.first_name)}${x.island ? `, ${esc(x.island)}` : ''}${x.about_issue ? '' : ' · a story for any issue; they follow this one'} · ${esc(STORY_QUOTE[x.quote] || STORY_QUOTE.none)}</span></li>`).join('')}</ul>` };
+}
+
 // ---- the page ----
 const billsSplit = i => { const bills = billsOn(i).sort(byNum); return { now: bills.filter(thisSession), earlier: bills.filter(b => !thisSession(b)) }; };
 // A folded section (Nate, walk 4: "filling the issue page with content both in the middle and on the right can be too
@@ -740,7 +761,7 @@ function pageRender(route) {
   const steps = nextSteps(now), hc = health(xs, steps, earlier, { prepNext: !i.archived_at && !isDraft(i) && stateOf(i) !== 'approved' });
   const outlook = i.outlook ? `<p class="is6-desc"><span class="is6-dl">Between sessions, the public reads:</span> ${esc(i.outlook)}</p>` : '';
   const head = `<header class="is6-head ip6-head">
-      <span class="is6-icon" aria-hidden="true">${icon(c?.icon || 'tag')}</span>
+      <span class="is6-icon mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>
       <div class="is6-hbody"><h1 class="is6-h1">${esc(i.name)}</h1>
         ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}
         ${SESSION_OVER && !prepHoldsOutlook(i) ? outlook : ''}
@@ -768,6 +789,7 @@ function pageRender(route) {
   const folds = [
     foldSec('points', 'ip-mh', 'Talking points and materials', pointsHTML(i, now, earlier)),
     foldSec('public', 'ip-ph', pub.title, pub),
+    mayStories(i) ? (wantStories(i), foldSec('stories', 'ip-sh', 'Stories from supporters', storiesHTML(i))) : '',
     foldSec('legs', 'ip-lh', 'Where legislators stand', legsHTML(i, xs), { quiet: true }),
     foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' }),
     foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' }),

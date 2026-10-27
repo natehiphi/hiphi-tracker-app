@@ -21,7 +21,7 @@ import { icon, btn, empty, toast, switchRow, openSheet, ASK_TAB, andWords } from
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, afterClose, iconName } from './lists.js';
 import { issuesOfBill } from './issues.js';
-import { headHTML as tabsHead, rememberRow, restoreRow, numNb } from './issuestand.js';
+import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile } from './issuestand.js';
 import { isPos, byPri, waitingOfBills } from './standing.js';
 import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
 import { cardHTML, picHTML, monogram, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
@@ -343,7 +343,7 @@ function shareHTML(c) {
       ${btn('Copy code', { kind: 'secondary', sm: true, icon: 'copy', attrs: { 'data-cocopy': 'embed', 'aria-label': 'Copy the website box code' } })}
     </div>
     ${iss.length ? `<details class="co6-iss"${open ? ' open' : ''}><summary><span>Its issues on the public tracker (${iss.length})</span>${icon('chevron-down', { cls: 'i6-chev' })}</summary>
-      <ul>${iss.map(i => `<li><a href="${esc(`${PUBLIC_APP()}#/issue/${encodeURIComponent(i.slug)}`)}" target="_blank" rel="noopener">${esc(i.name)}${newTab}</a></li>`).join('')}</ul></details>` : ''}
+      <ul>${iss.map(i => `<li><a href="${esc(`${PUBLIC_APP()}#/issue/${encodeURIComponent(i.slug)}`)}" target="_blank" rel="noopener">${issueTile(i, 'xs')}<span>${esc(i.name)}</span>${newTab}</a></li>`).join('')}</ul></details>` : ''}
   </section>`;
 }
 

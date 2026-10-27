@@ -207,17 +207,19 @@ function groupChips(v) {
 // ---- the screen ----
 export default {
   tab: 'outreach',
+  ownTitle: true,   // R-343: the heading is "Supporters", not the place's "Outreach" (app.js)
   title: () => 'Supporters',
   wide: () => true,
   noTabs: () => !!S.spView?.selecting && !isDesk() && document.body.dataset.screen === 'supporters',
   render(route) {
     const v = V(), nav = sectionNav('outreach', 'supporters');
+    if (!S.me?.is_admin) return teamPageHTML(nav);   // R-341: the list is an admin's
     if (!S.peopleLoaded) {
       if (!DEMO && !S.spLoadKick) {
         S.spLoadKick = true;
         DB.loadPeople().then(() => { S.spLoadErr = null; hooks.render(); }).catch(e => { S.spLoadErr = e; S.spLoadKick = false; hooks.render(); });
       }
-      return `<div class="le-page sp-page">${pageHead(nav, 'Outreach', '', '')}${S.spLoadErr
+      return `<div class="le-page sp-page">${pageHead(nav, 'Supporters', '', '')}${S.spLoadErr
         ? empty({ title: 'Supporters did not load', text: 'Check your connection and try again.', action: btn('Try again', { kind: 'secondary', icon: 'rotate-ccw', attrs: { 'data-sp': 'retry' } }) })
         : skeleton(6)}</div>`;
     }
@@ -228,19 +230,16 @@ export default {
     for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
     const n = nFilters(v.f), admin = !!S.me?.is_admin, rows = shown(v), all = S.people || [];
     const acts = `${btn('Add a person', { kind: 'secondary', icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } })}${all.length ? btn(v.selecting ? 'Done' : 'Select', { kind: 'text', icon: v.selecting ? 'check' : 'square-check-big', attrs: { 'data-sp': v.selecting ? 'selexit' : 'select', 'data-k': 'select' } }) : ''}`;
-    // F177: import and export are an admin's, in plain sight at the foot (they exist nowhere else; rule 3: no "…" for them).
-    const foot = admin ? `<section class="sp-admin" aria-labelledby="sp-admin-h"><h2 class="sp-adminh" id="sp-admin-h">For admins</h2><div class="sp-adminb">
-      ${btn('Import CSV', { kind: 'secondary', icon: 'upload', attrs: { 'data-sp': 'import', 'aria-haspopup': 'dialog' } })}
-      ${btn(rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, { kind: 'secondary', icon: 'download', attrs: { 'data-sp': 'export', ...(rows.length ? {} : { disabled: true }) } })}</div></section>` : '';
+    const foot = admin ? footHTML(rows, all) : '';
     return `<div class="le-page sp-page${isDesk() ? ' sp-desk' : ''}">
-      ${pageHead(nav, 'Outreach', '', isDesk() ? acts : '')}
+      ${pageHead(nav, 'Supporters', '', isDesk() ? acts : '')}
       <div class="sp-find">
         <div class="sp-search" role="search"><label class="sr" for="sp-q">Filter supporters by name, email or phone</label>${icon('search')}
           <input id="sp-q" type="search" placeholder="${isDesk() ? 'Filter by name, email or phone' : 'Filter by name or email'}" value="${esc(v.f.q)}" autocomplete="off" enterkeyhint="search">
           ${iconBtn('x', 'Clear the search', { 'data-sp': 'qclear', hidden: !v.f.q })}</div>
         ${filterBtn(n, { 'data-sp': 'filter', 'data-k': 'filter' })}
       </div>
-      ${groupChips(v)}
+      <div id="sp-groupsbox">${groupChips(v)}</div>
       <div id="sp-results">${resultsHTML(v)}</div>
       ${foot}${rollHTML()}
       <input type="file" id="sp-file" accept=".csv,text/csv" hidden>
@@ -263,6 +262,7 @@ export default {
     if (!page) return;
     const on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-sp="retry"]', () => { S.spLoadErr = null; hooks.render(); });
+    if (!S.me?.is_admin) { on('[data-sp="add"]', () => addPersonSheet()); const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; }; return; }
     if (!S.peopleLoaded) return;
     const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; };
     const q = page.querySelector('#sp-q'), qx = page.querySelector('[data-sp="qclear"]');
@@ -276,14 +276,7 @@ export default {
     on('.sp-page [data-sp="add"]', () => addPersonSheet());
     on('[data-sp="select"]', () => { startSelect(); rerender('select'); });
     on('[data-sp="import"]', () => importSheet());
-    on('[data-sp="export"]', () => { const rows = shown(v); if (!rows.length) return; exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); });
-    on('[data-sp="allgroups"]', () => { v.allGroups = true; rerender('s:' + ((S.segments || [])[3]?.id ?? '')); });
-    on('[data-segpick]', el => {
-      const id = el.dataset.segpick, sg = (S.segments || []).find(x => String(x.id) === id);
-      if (!sg || v.seg === sg.id) { v.seg = null; v.f = { ...EMPTY_PF(), q: '' }; }
-      else { v.seg = sg.id; v.f = clone(sg.filter); }
-      v.limit = 10; rerender(el.dataset.k);
-    });
+    wireTop(root);
     // select mode bar (outside main, so looked up on the whole frame)
     on('[data-sp="selexit"]', () => stopSelect());
     on('[data-sp="tag"]', () => tagSheet([...v.sel]));
@@ -299,6 +292,31 @@ export default {
     };
   },
 };
+
+// R-341 (Nate 10/26): supporters' names, emails, phones and histories are for admins. Everyone else on the team gets this
+// page: what they can still do (add someone from a sign-up sheet, email a saved group, see how many), and who to ask for
+// the rest. The database gives them no list either (migration 190), so this page is the whole of it, not a curtain.
+const AUD = () => S.spAud ??= {};
+function groupCount(sg) {
+  const a = AUD(); if (a[sg.id] === undefined) { a[sg.id] = null; DB.alertAudience(null, null, sg.id).then(n => { a[sg.id] = n; if (S.route?.name === 'supporters') hooks.render(); }).catch(() => { a[sg.id] = -1; }); }
+  const n = a[sg.id]; return n == null || n < 0 ? 'A saved group of supporters' : `${n.toLocaleString()} ${n === 1 ? 'person says' : 'people say'} yes to supporter emails`;
+}
+export const adminWho = () => { const admins = (S.advocates || []).filter(a => a.is_admin && a.is_active !== false).map(a => a.full_name.split(' ')[0]);
+  return admins.length ? admins.length === 1 ? admins[0] : `${admins.slice(0, -1).join(', ')} or ${admins[admins.length - 1]}` : 'an admin'; };
+function teamPageHTML(nav) {
+  const who = adminWho();
+  const segs = S.segments || [];
+  const groups = segs.length ? `<section class="sp-tgroups" aria-labelledby="sp-tg-h"><h2 class="sp-th" id="sp-tg-h">Email a saved group</h2>
+      <ul class="sp-tglist">${segs.map(sg => `<li><span class="sp-tgname">${icon('users')}<span><b>${esc(sg.name)}</b><span class="meta">${esc(groupCount(sg))}</span></span></span>${emailDoor({ segment: sg }, { sm: true, label: 'Write an email' })}</li>`).join('')}</ul>
+      <p class="meta">An approver reads it before it goes out.</p></section>` : '';
+  return `<div class="le-page sp-page sp-team">${pageHead(nav, 'Supporters', '', '')}
+    <section class="sp-tadd"><div><h2 class="sp-th">Met someone who wants to help?</h2><p>Add them here. They get supporter emails only if they say yes.</p></div>
+      ${btn('Add a person', { icon: 'user-plus', attrs: { 'data-sp': 'add', 'aria-haspopup': 'dialog' } })}</section>
+    ${groups}${rollHTML()}
+    <section class="sp-tlock">${icon('lock')}<div><h2 class="sp-th">Names and contact details are for admins</h2>
+      <p>Supporters’ names, emails, phone numbers and histories stay with admins, so fewer people hold them. Ask ${esc(who)} when you need to reach someone.</p></div></section>
+  </div>`;
+}
 
 // More tools' "Supporters' groups, import and export" opens #/outreach/supporters?io=1: the admin foot (Import CSV, Export)
 // brought into view and its first button focused, once per arrival, so the row keeps its promise without a scroll (C-6). It
@@ -329,9 +347,34 @@ function rollHTML() {
         <p class="meta">Before each session, a title 10 or more people wrote can join the list that everyone picks from. Tell Nate which.</p></div>
     </div></details>`;
 }
+// The admin foot: Import, and Export with what it will export said exactly (all, or the ones showing). F177: in plain sight
+// at the foot (they exist nowhere else; rule 3: no "…" for them). No heading: the whole page is an admin's (R-341, R-343).
+function footHTML(rows, all) {
+  return `<section class="sp-admin" id="sp-foot" aria-label="Import and export"><div class="sp-adminb">
+      ${btn('Import CSV', { kind: 'secondary', icon: 'upload', attrs: { 'data-sp': 'import', 'aria-haspopup': 'dialog' } })}
+      ${btn(rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, { kind: 'secondary', icon: 'download', attrs: { 'data-sp': 'export', ...(rows.length ? {} : { disabled: true }) } })}</div></section>`;
+}
+// The groups row and Export, wired after the page draws and again after a search redraws them.
+function wireTop(root) {
+  const v = V(), on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
+  on('[data-sp="export"]', () => { const rows = shown(v); if (!rows.length) return; exportPeopleCSV(rows); toast(`Downloading ${plural(rows.length, 'person', 'people')} as a CSV file.`); });
+  on('[data-sp="allgroups"]', () => { v.allGroups = true; rerender('s:' + ((S.segments || [])[3]?.id ?? '')); });
+  on('[data-segpick]', el => {
+    const id = el.dataset.segpick, sg = (S.segments || []).find(x => String(x.id) === id);
+    if (!sg || v.seg === sg.id) { v.seg = null; v.f = { ...EMPTY_PF(), q: '' }; }
+    else { v.seg = sg.id; v.f = clone(sg.filter); }
+    v.limit = 10; rerender(el.dataset.k);
+  });
+}
+// A search redraws everything it changes (R-343, B-7): the people, the groups row (Everyone is no longer "on" once a
+// search narrows it) and Export's words (it exports what shows), so the page never says one thing and does another.
 function drawResults(root) {
   const box = root.querySelector('#sp-results'); if (!box) return;
-  box.innerHTML = resultsHTML(V()); wireResults(root);
+  const v = V();
+  box.innerHTML = resultsHTML(v); wireResults(root);
+  const gb = root.querySelector('#sp-groupsbox'); if (gb) gb.innerHTML = groupChips(v);
+  const ft = root.querySelector('#sp-foot'); if (ft) { const rows = shown(v); ft.outerHTML = footHTML(rows, S.people || []); root.querySelector('[data-sp="import"]').onclick = () => importSheet(); }
+  wireTop(root);
   const n = nFilters(V().f), fb = root.querySelector('[data-sp="filter"]'); if (fb) fb.outerHTML = filterBtn(n, { 'data-sp': 'filter', 'data-k': 'filter' });
   root.querySelector('[data-sp="filter"]')?.addEventListener('click', () => filterSheet());
 }
@@ -581,13 +624,20 @@ function addPersonSheet() {
     body: `<div class="sp-sheet"><div class="field"><label for="sp-ae">Email</label><input id="sp-ae" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="sp-aerr"></div>
       <div class="field"><label for="sp-an">Name (optional)</label><input id="sp-an" autocomplete="off" maxlength="120"></div>
       <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get supporter emails only if they say yes.</p></div>`,
-    foot: btn('Add person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
+    foot: btn('Add a person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const em = dlg.querySelector('#sp-ae'), nm = dlg.querySelector('#sp-an'), go = dlg.querySelector('[data-go]'); em.focus();
       const err = m => { dlg.querySelector('#sp-aerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; em.toggleAttribute('aria-invalid', !!m); };
       const save = async () => {
         const e = em.value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
+        if (!S.me?.is_admin) {
+          go.setAttribute('aria-busy', 'true'); go.disabled = true;
+          try { await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
+            afterSheet(() => toast('Added. They get supporter emails only if they say yes.', { ok: true })); }
+          catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
+          return;
+        }
         const ex = (S.people || []).find(p => (p.email || '').toLowerCase() === e);
         if (ex) { closeSheet({ silent: true }); afterSheet(() => { S.go('#/person/' + encodeURIComponent(ex.id)); toast(`${personName(ex)} is already in Supporters.`); }); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;
@@ -760,7 +810,7 @@ export function followupSheet(ids, { onDone } = {}) {
   const single = ids.length === 1 ? personById(ids[0]) : null;
   const who = single ? personName(single) : plural(ids.length, 'person', 'people');
   openSheet({ title: `Follow up with ${esc(who)}`, size: 'auto',
-    body: `<div class="sp-sheet"><div class="field"><label for="sp-fw">What to do</label><textarea id="sp-fw" rows="2" maxlength="300" placeholder="e.g. Call before the EDU hearing" aria-describedby="sp-fwerr"></textarea><div id="sp-fwerr" role="alert"></div></div>
+    body: `<div class="sp-sheet"><div class="field"><label for="sp-fw">What to do</label><textarea id="sp-fw" rows="2" maxlength="300" placeholder="e.g. Call before the Education hearing" aria-describedby="sp-fwerr"></textarea><div id="sp-fwerr" role="alert"></div></div>
       <div class="sp-two"><div class="field"><label for="sp-fd">Due (optional)</label><input id="sp-fd" type="date"></div>
       <div class="field"><label for="sp-fa">Who does it</label><select id="sp-fa">${activeAdvs().map(a => `<option value="${esc(a.id)}"${a.id === S.me?.id ? ' selected' : ''}>${esc(a.id === S.me?.id ? `${firstName(a)} (you)` : firstName(a))}</option>`).join('')}</select></div></div>
       <p class="meta sp-fnote">It shows in Today for whoever does it.</p></div>`,

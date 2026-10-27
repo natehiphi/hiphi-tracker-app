@@ -215,6 +215,8 @@ export default {
   noTabs: () => !!S.spView?.selecting && !isDesk() && document.body.dataset.screen === 'supporters',
   render(route) {
     const v = V();
+    // R-341: the supporter list is an admin's (migration 190 gives anyone else none of it); others can still add a contact.
+    if (!S.me?.is_admin) return `<div class="sp-page">${empty({ title: 'The supporter list is for admins', text: 'Supporters’ names, emails, phone numbers and histories stay with admins. You can still add someone who wants to help; they get supporter emails only if they say yes.', action: btn('Add a person', { icon: 'user-plus', attrs: { 'data-sp': 'add', 'aria-haspopup': 'dialog' } }) })}</div>`;
     if (!S.peopleLoaded) {
       if (!DEMO && !S.spLoadKick) {
         S.spLoadKick = true;
@@ -267,6 +269,7 @@ export default {
     if (!page) return;
     const on = (sel, fn) => root.querySelectorAll(sel).forEach(el => { el.onclick = e => fn(el, e); });
     on('[data-sp="retry"]', () => { S.spLoadErr = null; hooks.render(); });
+    if (!S.me?.is_admin) { on('[data-sp="add"]', () => addPersonSheet()); return; }
     if (!S.peopleLoaded) return;
     const roll = page.querySelector('.sp-roll'); if (roll) roll.ontoggle = () => { S.spRollOpen = roll.open; };
     const q = page.querySelector('#sp-q'), qx = page.querySelector('[data-sp="qclear"]');
@@ -576,13 +579,20 @@ function addPersonSheet() {
     body: `<div class="sp-sheet"><div class="field"><label for="sp-ae">Email</label><input id="sp-ae" type="email" inputmode="email" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="200" aria-describedby="sp-aerr"></div>
       <div class="field"><label for="sp-an">Name (optional)</label><input id="sp-an" autocomplete="off" maxlength="120"></div>
       <div id="sp-aerr" role="alert"></div><p class="meta sp-addnote">They are added as a contact. They get action alerts only if they opt in.</p></div>`,
-    foot: btn('Add person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
+    foot: btn('Add a person', { icon: 'user-plus', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const em = dlg.querySelector('#sp-ae'), nm = dlg.querySelector('#sp-an'), go = dlg.querySelector('[data-go]'); em.focus();
       const err = m => { dlg.querySelector('#sp-aerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; em.toggleAttribute('aria-invalid', !!m); };
       const save = async () => {
         const e = em.value.trim().toLowerCase();
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) { err('Enter an email address, like name@example.com.'); em.focus(); return; }
+        if (!S.me?.is_admin) {
+          go.setAttribute('aria-busy', 'true'); go.disabled = true;
+          try { await DB.addPerson({ email: e, name: nm.value.trim() || null }); closeSheet({ silent: true });
+            afterSheet(() => toast('Added. They get supporter emails only if they say yes.', { ok: true })); }
+          catch (x) { go.removeAttribute('aria-busy'); go.disabled = false; toast(x, { err: true }); }
+          return;
+        }
         const ex = (S.people || []).find(p => (p.email || '').toLowerCase() === e);
         if (ex) { closeSheet({ silent: true }); afterSheet(() => { S.go('#/person/' + encodeURIComponent(ex.id)); toast(`${personName(ex)} is already in Supporters.`); }); return; }
         go.setAttribute('aria-busy', 'true'); go.disabled = true;

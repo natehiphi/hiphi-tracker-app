@@ -524,6 +524,11 @@ export const DB = {
     const before = { ...arr[i] };
     // The practice copy has no server to refuse a step that no longer fits (its demoTransition re-files a filed draft), so
     // it asks the same question the database does first (R-316 W43).
+    // A send-back is held ten seconds so Undo can cancel it (review.js holdBack), and the screen shows it sent back at once:
+    // by the time it is sent here the draft already reads "draft" with the note. The live database still holds "review", so
+    // only the practice copy saw a step that "no longer fits", put the draft back to With an approver and saved that on the
+    // next reload or person switch (R-344 C11). The held send is the same step, already shown: nothing more to do.
+    if (DEMO && action === 'request_changes' && arr[i].status === 'draft' && (arr[i].review_note || null) === (note || null)) return;
     if (DEMO) { try { if (!fits(arr[i], action)) throw new Error('Nothing to do on it now.'); demoTransition(arr[i], action, note, url); } catch (e) { throw await raced(billId, before, action, e); } return; }
     const { data, error } = await S.supa.rpc('testimony_transition',
       { p_draft: id, p_action: action, p_note: note || null, p_url: url || null });
@@ -1412,10 +1417,26 @@ export const DB = {
     const { error } = await S.supa.from('people').update({ ...patch, island: 'senate_district' in patch ? islandOf(patch.senate_district) : undefined, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw error;
     return this.refreshPerson(id);
   },
+  // R-341: anyone on the team adds a contact through add_supporter (migration 190). An admin gets the new person back to
+  // open their page; anyone else gets { ok: true } either way, so the form cannot show who is already a supporter.
   async addPerson(fields) {
-    if (DEMO) { const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
-    const { data, error } = await S.supa.from('people').insert({ ...fields, island: islandOf(fields.senate_district), source: 'manual', created_by: S.me?.id }).select('id').single(); if (error) throw error;
+    const admin = !!S.me?.is_admin;
+    if (DEMO) {
+      if (!admin) { const had = (S.people || []).some(p => (p.email || '').toLowerCase() === String(fields.email).toLowerCase()); if (!had) S.people.unshift({ id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: false, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }); return { ok: true }; }
+      const p = { id: 'p' + Date.now(), tags: [], interests: [], ...fields, source: 'manual', created_at: new Date().toISOString(), last_active: new Date().toISOString(), has_account: false, action_optin: !!fields.action_alerts, bill_ids: [], list_ids: [], actions: 0, testimonies: 0, emails_sent: 0, emails_opened: 0, emails_clicked: 0, score: 0, island: islandOf(fields.senate_district) }; S.people.unshift(p); S.personTL[p.id] = [{ at: p.created_at, kind: 'added', label: 'Added by hand' }]; return p; }
+    const { data, error } = await S.supa.rpc('add_supporter', { p: { email: fields.email, name: fields.name ?? null, phone: fields.phone ?? null } }); if (error) throw error;
+    if (!admin) return { ok: true };   // the same answer whether or not they were already on the list
+    if (!data?.id) throw new Error('That email is already in Supporters.');
     return this.refreshPerson(data.id);
+  },
+  // R-341: the stories told about one issue, for its owner, its helpers and admins (issue_stories, migration 190): first
+  // name and island only. The practice copy builds the same rows from its sample supporters.
+  async issueStories(issueId) {
+    if (DEMO) {
+      const quote = p => { const i = p.interests || []; return !i.includes('quote') ? 'none' : i.includes('quote-media') ? 'media' : i.includes('quote-name') ? 'name' : 'first'; };
+      return (S.people || []).filter(p => (p.stories || {})[issueId]).map(p => ({ person_ref: String(p.id), first_name: (p.name || '').trim().split(/\s+/)[0] || 'A supporter', island: p.island || null, story: p.stories[issueId], about_issue: true, quote: quote(p), told_at: p.updated_at || p.created_at }));
+    }
+    const { data, error } = await S.supa.rpc('issue_stories', { p_issue: issueId }); if (error) throw error; return data || [];
   },
   async deletePerson(id) { if (!DEMO) { const { error } = await S.supa.from('people').delete().eq('id', id); if (error) throw error; } S.people = S.people.filter(p => p.id !== id); },
   async mergePeople(keep, drop) { if (DEMO) { const k = personById(keep), d = personById(drop); k.tags = [...new Set([...k.tags, ...d.tags])]; S.people = S.people.filter(p => p.id !== drop); return k; } const { error } = await S.supa.rpc('merge_people', { p_keep: keep, p_drop: drop }); if (error) throw error; S.people = S.people.filter(p => p.id !== drop); return this.refreshPerson(keep); },

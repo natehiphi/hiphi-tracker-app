@@ -977,3 +977,10 @@ body.staff6 .ip6-pp .v6-row-main { display: flex; flex-direction: column; align-
 body.staff6 .ip6-ppn { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .ip6-ppby { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
 body.staff6 .ip6-pp + .ip6-sfa, body.staff6 .v6-list + .ip6-sfa { margin-top: var(--s8); }
+
+/* ---- R-341: stories from supporters, in the issue page's folds (owner, helpers, admins) ---- */
+body.staff6 .ip6-stories { list-style: none; margin: 0; padding: 0; }
+body.staff6 .ip6-stories li { padding: var(--s12) 0; border-top: 1px solid rgba(var(--v6-ink-rgb), .12); }
+body.staff6 .ip6-stories li:first-child { border-top: 0; padding-top: 0; }
+body.staff6 .ip6-stories q { display: block; font-size: var(--v6-t16); line-height: 1.5; color: var(--v6-ink); }
+body.staff6 .ip6-stories .meta { display: block; margin-top: 4px; }
