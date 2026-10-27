@@ -2,7 +2,7 @@
 // issue's name and whether it's on track" at a glance, picked from mockups). The rule is the staff issue page's health
 // check (staff6/issuepage.js health), said in the public page's words:
 //   Became law     a bill on it became law this year
-//   Stopped        every bill on it stopped this year
+//   Did not advance  no bill on it is still moving this year (the public words, never "stopped": R-158's check)
 //   Still moving   bills that started in the House and in the Senate are both alive, or one is in its final steps
 //                  (conference, the Governor, the voters)
 //   At risk        every bill still moving started in one chamber: if they stop there, the issue ends this year
@@ -37,7 +37,7 @@ export function issueHealth(i, b = null) {
   const law = bills.filter(becameLaw);
   if (law.length) return { tone: 'ok', word: 'Became law', text: `${law.map(b => spaced(b.bill_number)).join(' and ')} became law.` };
   const live = bills.filter(moving);
-  if (!live.length) return { tone: 'stop', word: 'Stopped', text: bills.length === 1 ? 'Its only bill stopped this year.' : 'Every bill on it stopped this year.' };
+  if (!live.length) return { tone: 'stop', word: 'Did not advance', text: bills.length === 1 ? 'Its only bill did not advance this year.' : 'No bill on it advanced this year.' };
   const fin = live.find(b => FINAL.has(stopOf(b).phase));
   if (fin) return { tone: 'ok', word: 'Still moving', text: `${spaced(fin.bill_number)} has passed the House and the Senate.` };
   const from = new Set(live.map(originOf));
