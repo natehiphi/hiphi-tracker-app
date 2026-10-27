@@ -27,6 +27,7 @@ import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
 import { legMoments, planFor } from './speakup.js';   // the floor vote's email to their own legislator (R-169); the walkthrough a button opens
 import { openAddTo, onListsLine } from './mylists.js';
+import { issueHealth } from './issuehealth.js';   // the issue band's badge and sentence (R-340)
 import { aboutBill, capitolUrl, billTextUrl } from './billtext.js';   // "Read more about the bill" and the Capitol's links (R-178)
 import { GO_HELP } from './topics.js';   // the first visit's last button (R-190)
 // HIPHI's partners' own words (R-328 batch D): always under the partner's name, its side a grey chip, never HIPHI's blue one.
@@ -1389,8 +1390,34 @@ function recHead(b, x) {
   const read = `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
   // The issue's line (Part of ..., ✓ Following the issue) for a text's link, and after a newcomer's follow here (R-212
   // #47, the critic's high, 24 Oct): once the toast has gone it is what says they follow the issue, and stops it (B-5).
-  return `<div class="bl-head bl-rhead"><p class="bl-reye">${esc(spaced(b.bill_number))}</p><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}</h1>
-    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${pw}${sponsorLine(b)}${textIssue(b) || S.blFollowedNew.has(b.id) ? issueLine(b, x) : ''}${onListsLine(b)}</div>`;
+  // The bill's number follows its name, smaller (Nate, 26 Oct, R-340: "bill pages should include bill number in the name of the
+  // bill at the end"); it was a line of its own over the title. The issue band follows the row under it.
+  return `<div class="bl-head bl-rhead"><h1 class="${name ? 'hero bl-nick' : 'bl-what'}">${esc(name || plainHead(b))}<span class="bl-hnum"> ${esc(spaced(b.bill_number))}</span></h1>
+    ${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${chips}${read}</div>${issueBand(b, x)}${pw}${sponsorLine(b)}${onListsLine(b)}</div>`;
+}
+// The issue band (R-340, Nate's pick of option C in the topic's colour, 26 Oct): where the bill sits, said on every bill page
+// that has an issue. The issue's name (its page's link), how it is doing in a badge and one sentence (issuehealth.js), and
+// Follow the issue: the one follow on a bill page (R-067). It replaced "Part of <issue>", which this layout showed only after
+// a text's link or a follow (R-212 #47); both still say what they said: a text's level line, and "Following the issue".
+// When the issue has the bill's own name (102 of 248 in 2026), the band says so instead of repeating it (A-14).
+// A stopped bill's main button is already Follow the issue, and a newcomer has it on their own card, so then the band has none.
+const plainN = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().trim();
+const TONE_IC = { ok: 'circle-check', warn: 'circle-alert', stop: 'circle-minus' };
+function issueBand(b, x) {
+  const iss = issuesOf(b); if (!iss.length) return '';
+  const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0], on = issueFollowed(i), hx = issueHealth(i);
+  const same = plainN(i.name) === plainN(nick(b));
+  const badge = hx?.word ? `<span class="bl-ib-badge bl-ib-${hx.tone}">${icon(TONE_IC[hx.tone] || 'circle')}<span>${esc(hx.word)}</span></span> ` : '';
+  const follow = (x && followIsMain(b, x)) || firstVisit() ? ''
+    : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on bl-ib-btn', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
+    : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', cls: 'bl-ib-btn', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } });
+  const tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '';
+  return `<section class="bl-iband" data-topic="${esc(i.category || '')}" aria-label="Part of an issue">
+    <span class="bl-ib-ic" aria-hidden="true">${icon(issueLead(i))}</span>
+    <div class="bl-ib-m"><p class="bl-ib-l"><a href="#/issue/${esc(i.slug)}">${same ? 'Part of the issue of the same name' : 'Part of the issue'}${icon('chevron-right', { cls: 'bl-ib-chev' })}</a></p>
+      ${same ? '' : `<p class="bl-ib-n"><a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></p>`}
+      ${hx ? `<p class="bl-ib-s">${badge}<span>${esc(hx.text)}</span>${tx}</p>` : tx ? `<p class="bl-ib-s">${tx}</p>` : ''}</div>
+    ${follow}${t ? levelBox(t, TXT) : ''}</section>`;
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
 // name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).

@@ -431,7 +431,33 @@
    remembers. The parts and tokens are today's page's (A-12 one blue, A-6 44px targets); only the order and the cards are new. */
 .bl-rec .bl-rtop .bl-tools { margin-left: auto; }
 .bl-rec .bl-rtop .bl-back span { max-width: min(16em, 52vw); }
-.bl-rec .bl-reye { margin: var(--s12) 0 0; font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n700); }
+/* The bill's number after its name, smaller and quiet (R-340): it was a line of its own over the title. */
+.bl-rec .bl-rhead h1 .bl-hnum { font: 700 .5em/1 var(--font); letter-spacing: .02em; color: var(--n500); white-space: nowrap; vertical-align: .35em; }
+/* The issue band (R-340, option C in the topic's colour, Nate 26 Oct). The tints are Staff v6's (staff6/css/issues.css
+   .ig6-tint1..6), so a topic is the same colour for staff and the public; the badge alone says how the issue is doing. */
+.bl-rec .bl-iband { --ib-wash: var(--n100); --ib-ink: var(--n700);
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--r16); background: var(--ib-wash); }
+.bl-rec .bl-iband[data-topic="food"] { --ib-wash: #FCEBDD; --ib-ink: #8A4F2A; }
+.bl-rec .bl-iband[data-topic="tobacco"] { --ib-wash: #ECE7F7; --ib-ink: #5A4A8F; }
+.bl-rec .bl-iband[data-topic="care"] { --ib-wash: #DFEEF2; --ib-ink: #1F6478; }
+.bl-rec .bl-iband[data-topic="family"] { --ib-wash: #F7EFD5; --ib-ink: #6B5A24; }
+.bl-rec .bl-iband[data-topic="around"] { --ib-wash: #E2ECF8; --ib-ink: #2D5A8A; }
+.bl-rec .bl-iband[data-topic="climate"] { --ib-wash: #E3F0E3; --ib-ink: #2F6B3A; }
+.bl-rec .bl-ib-ic { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--pill); background: rgba(255,255,255,.75); color: var(--ib-ink); }
+.bl-rec .bl-ib-ic .ic { width: 22px; height: 22px; }
+.bl-rec .bl-ib-m { flex: 1 1 260px; min-width: 0; }
+.bl-rec .bl-ib-m p { margin: 0; }
+.bl-rec .bl-ib-l a { display: inline-flex; align-items: center; gap: 2px; font: 700 var(--t13)/1.3 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--ib-ink); text-decoration: none; }
+.bl-rec .bl-ib-l .bl-ib-chev { width: 14px; height: 14px; }
+.bl-rec .bl-ib-n a { font: 600 var(--t18)/1.35 var(--font-h); color: var(--n900); text-decoration: none; overflow-wrap: anywhere; }
+.bl-rec .bl-ib-l a:hover, .bl-rec .bl-ib-n a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.bl-rec .bl-ib-s { margin-top: var(--s4) !important; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
+.bl-rec .bl-ib-badge { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; padding: 1px 10px 1px 7px; border-radius: var(--pill); background: rgba(255,255,255,.85); font: 700 var(--t14)/20px var(--font); white-space: nowrap; vertical-align: 1px; }
+.bl-rec .bl-ib-badge .ic { width: 16px; height: 16px; }
+.bl-rec .bl-ib-ok { color: var(--ok-text); } .bl-rec .bl-ib-warn { color: var(--warn-text); } .bl-rec .bl-ib-stop { color: var(--n700); }
+.bl-rec .bl-iband .bl-ib-btn { flex: none; background: var(--n0); }
+.bl-rec .bl-iband > .lvl-box { flex: 1 0 100%; max-width: 560px; }
+@media (max-width: 479px) { .bl-rec .bl-ib-ic { display: none; } .bl-rec .bl-iband { padding: var(--s12) var(--s16); } }
 .bl-rec .bl-rhead h1 { margin-top: 2px; }
 .bl-rec .bl-rhrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); margin-top: var(--s8); }
 .bl-rec .bl-rread { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; text-decoration: none; }
