@@ -31,13 +31,14 @@ import { billRoute, billByNum, MEMO_SAYS, plain, companionsOf, wantsHearing, cha
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill } from './issues.js';
-import { issueFrameHTML } from './issuepage.js';   // the issue frame over the bill's name (R-340)
+import { issueCardHTML } from './issuepage.js';   // the issue card at the top of the right column (R-346)
 import { dayOf } from './standing.js';
 import { askedChip } from './chairask.js';
 import { teamFirst, teamName, newOwnerTag } from './model.js';
 import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
-import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts } from './steps.js';
+import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts, goingRowHTML, dayWords } from './steps.js';
+import { roomName, movedFrom } from './model.js';
 import { aboutBill } from './billpane.js';
 import { trackerHTML, wireTracker } from './tracker.js';
 // A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
@@ -426,11 +427,10 @@ function headHTML(b, route) {
     `<span class="bw-f">${pick('data-bwpos="1"', pos, `Position: ${pos}. Change it`)}</span>`,
     `<span class="bw-f">${pick('data-bwowner="1"', ow, `${ow}. Give ${numWords(b)} to someone`)}</span>`,
     isMuted(b) ? `<span class="bw-f bw-muted">${icon('bell-off')}<span>Muted</span></span>` : ''].filter(Boolean).join('');
-  // The issue frame (R-340) took the place of the facts line's issue link: the bill's issue, how it stands, its bills.
-  const isx = issuesOfBill(b.id), frame = isx.length ? issueFrameHTML(isx[0], b) : '';
+  // The bill's issue is the right column's first card (R-346, issueCardHTML), no longer a frame over the name (R-340).
   // Grid areas (bill.css): from 481px the name, then Follow and "…" beside it; on a phone "…" stays beside the name and
   // Follow rides on the issue's line, so neither takes a row of its own (A-1).
-  return `<header class="bw-head${follow ? ' bw-hasfollow' : ''}${frame ? ' bw-hasframe' : ''}">
+  return `<header class="bw-head${follow ? ' bw-hasfollow' : ''}">
     <div class="bw-top">
       <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
       ${nb ? `<div class="bw-nav" role="group" aria-label="Move through ${esc(o.label)}">
@@ -439,7 +439,6 @@ function headHTML(b, route) {
         ${nb.next ? `<a class="bw-pn" href="${billHref(nb.next, tab)}" data-nav="next" aria-label="Next bill: ${esc(sayWords(nb.next))}" title="${esc(sayWords(nb.next))} (])"><span>Next</span>${icon('chevron-right')}</a>` : ''}
       </div>` : ''}
     </div>
-    ${frame}
     <div class="bw-titlerow">${editing ? nickForm(b) : `<h1 class="bw-h1${b.nickname ? '' : ' bw-long'}" id="bw-h1" tabindex="-1">${esc(billName(b))}</h1>`}</div>
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
@@ -538,7 +537,7 @@ function whatsNext(b, s) {
   const dm = !s?.heardNow && (!s || s.kind === 'none') ? decideCard(b) : '';
   const mine = dm ? dm.includes('"v6-step own') : !!s?.you;
   let card = s?.heardNow ? `<div class="bw-calm">${icon('landmark')}<p>If the committee does not vote at this hearing, asking the chair to schedule a vote comes next.</p></div>`
-    : dm || (!s || s.kind === 'none' ? noneCard(b) : stepCard(b, { where: 'bill', from: b.bill_number }));
+    : dm || (!s || s.kind === 'none' ? noneCard(b) : stepCard(b, { where: 'bill', from: b.bill_number, hear: !sideHearing(b, s) }));
   if (s?.kind === 'chair') card = chairLinked(b, card, s.ask?.code);
   if (mine) card = yourStep(card);
   return `<section class="bw-sec bw-next" aria-labelledby="bw-next-h">
@@ -703,15 +702,12 @@ function stageRow(b) {
 function aboutBody(b) {
   const sp = sponsorList(b), all = !!S.bwSponsAll?.[b.id], st0 = stopOf(b);
   const onCmte = new Map(st0.committee && !diedish(b) ? legsOf(st0.committee).map(m => [m.l.id, committeeName(codesOf(st0.committee)[0]) || codesOf(st0.committee)[0]]) : []);
-  const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean);
-  const f = followText(b), g = goalOf(b), sum = summaryOf(b), desc = String(b.description || '').trim(), pub = publicUrl(b);
+  const g = goalOf(b), sum = summaryOf(b), desc = String(b.description || '').trim(), pub = publicUrl(b);
   const rows = [
     sum && b.nickname ? ['What it does', esc(sum)] : !sum && desc ? ['What it does', `${esc(desc)} <span class="bw-quiet">(the Capitol’s words)</span>`] : null,
     g ? [`Our ${esc(SESSION_YEAR)} goal`, `${esc(g.goal)} <span class="bw-quiet">(${esc(g.name)}, staff only)</span>`] : null,
     sp.length ? ['Introduced by', `<b>${sponsorHTML(b, sp[0], onCmte)}</b> <span class="bw-quiet">(lead)</span>${sp.length > 1 ? ', ' + sp.slice(1, all ? sp.length : 5).map(n => sponsorHTML(b, n, onCmte)).join(', ') : ''}${sp.length > 5 && !all ? ` ${btn(`Show all ${sp.length}`, { kind: 'text', sm: true, attrs: { 'data-sponsall': '1' } })}` : ''}`] : null,
     companionsOf(b).length ? ['Companion', `<span id="bw-comp">${compHTML(b)}</span>`] : null,
-    ['Coalitions', `<span class="bw-ddrow"><span>${coal.length ? coal.map(c => `<a class="bw-inline" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">None</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</span>`],
-    ['Following', f ? esc(f) : '<span class="bw-quiet">No one yet</span>'],
     b.last_action ? ['Last action', `${b.last_action_date ? `<span class="bw-quiet">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}${esc(shortAction(b.last_action))}`] : null,
     b.title ? ['Official title', esc(titleCaseTitle(b.title))] : null,
     sum && desc ? ['The Capitol’s description', esc(desc)] : null,
@@ -882,6 +878,45 @@ export function wireNote(pnl, b) {
   };
 }
 
+// ---- the right column (R-346, Nate's pick "bold" 27 Oct): the issue, the hearing, who is on it ----
+// On a laptop (900px and up) it stands beside the bill, so the page uses the width (G); below 900px it drops under the
+// step card on Next step, and under the tab's own content on Team talk and Public (bill.css .bw-two).
+// The hearing the card shows: the step's own sitting (what the step card's hearing line used to say), else the next one.
+function sideHearing(b, s) {
+  if (s?.kind === 'chair') return hearingAhead(b) || null;
+  return s?.h || hearingAhead(b) || null;
+}
+// "Hearing today", the time and room large, the committee as the door to the sitting's page, who is going and I'm going
+// (the step card's going row, steps.js goingRowHTML). A cancelled sitting says only that.
+function hearingSide(b, s) {
+  const h = sideHearing(b, s); if (!h) return '';
+  const href = `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, name = committeeName(h.committee) || h.committee;
+  const at = new Date(h.scheduled_at).getTime(), day = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  const word = day(at) === day(Date.now()) ? 'today' : day(at) === day(Date.now() + 864e5) ? 'tomorrow' : dayWords(h.scheduled_at);
+  const moved = movedFrom(h), cancelled = h.status === 'cancelled';
+  return `<section class="bw-scard bw-hside" aria-labelledby="bw-hs-h">
+    <h2 class="bw-sh" id="bw-hs-h">${icon('landmark')}<span>${cancelled ? 'Hearing cancelled' : `Hearing ${esc(word)}`}</span></h2>
+    ${cancelled ? '<p class="bw-hs-note">No new date yet.</p>' : `<p class="bw-hs-when">${nw(esc(timeWords(at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}</p>`}
+    <p class="bw-hs-cn"><a href="${esc(href)}">${esc(name)}</a></p>
+    ${moved && !cancelled ? `<p class="bw-hs-note">${icon('calendar')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
+    ${cancelled ? '' : goingRowHTML(h)}
+  </section>`;
+}
+// Who is on it: who follows the bill and its coalitions (moved here from About this bill, said once: A-14). The owner is
+// the header's own line, with its picker.
+function whoSide(b) {
+  const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean), f = followText(b);
+  return `<section class="bw-scard bw-wside" aria-labelledby="bw-ws-h">
+    <h2 class="bw-sh" id="bw-ws-h">${icon('users')}<span>Who is on it</span></h2>
+    <p><span class="bw-ws-k">Following:</span> ${f ? esc(f) : '<span class="bw-quiet">no one yet</span>'}</p>
+    <p class="bw-ws-coal"><span><span class="bw-ws-k">${coal.length === 1 ? 'Coalition' : 'Coalitions'}:</span> ${coal.length ? coal.map(c => `<a class="bw-ws-a" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">none</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</p>
+  </section>`;
+}
+function sideHTML(b, s) {
+  const isx = issuesOfBill(b.id);
+  return `<aside class="bw-side" aria-label="Its issue, hearing and team">${isx.length ? issueCardHTML(isx[0], b) : ''}${hearingSide(b, s)}${whoSide(b)}</aside>`;
+}
+
 // ---- the page ----
 // On Team talk and Public, one quiet line when the bill's step is the viewer's, "Your step: File by Wed 3/18, 7:30 AM ›",
 // that opens Next step (B-7; v5 kept its Next up card beside every tab). A link to the tab, not a second copy of the button.
@@ -930,11 +965,16 @@ export default {
     // Where it is, on every tab (R-336): the stage tracker under the name (tracker.js), whose caption took over the header's
     // line. On Next step, when the step card names the committee and its hearing (cardSays), the caption keeps only where it
     // is among the chamber's committees (A-14); the other tabs have no step card, so it names them.
-    return `<div class="bw-page" data-bw="${esc(b.id)}">
+    // Two columns from 900px (R-346): the bill, its stage bar, the tabs and the step on the left; the right column
+    // (sideHTML) holds the issue, the hearing and who is on it.
+    return `<div class="bw-page bw-two${next ? ' bw-onnext' : ''}" data-bw="${esc(b.id)}">
+      <div class="bw-main">
       ${headHTML(b, route)}
       ${trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
       ${tabsNav(b, tab, s)}
       <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${next ? '' : yourStepLine(b, s)}${panel(b, tab)}</div>
+      </div>
+      ${sideHTML(b, s)}
     </div>`;
   },
   // Team talk's one box sits at the top of the stream at every width (activity.js): no bar over the phone's tab bar.
@@ -954,6 +994,7 @@ export default {
     page.querySelector('[data-bwfollow]')?.addEventListener('click', () => toggleFollow(b));
     wireNick(page, b);
     wireTracker(page, b);
+    page.querySelector('.bw-side [data-coal]')?.addEventListener('click', () => editCoalitions(b));
     // Previous / Next replace this entry, so Back still goes to the list.
     page.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); e.stopImmediatePropagation(); const nb = neighbours(b), to = nb && (a.dataset.nav === 'prev' ? nb.prev : nb.next); if (to) goBill(to); }));
     // Tabs replace the entry too (Back leaves the bill).
@@ -985,7 +1026,6 @@ function wireOverview(pnl, b) {
   pnl.querySelectorAll('[data-borrow]').forEach(el => el.onclick = () => openDoor(b, 'earlier'));
   pnl.querySelectorAll('[data-logtalk]').forEach(el => el.onclick = () => logConversation({ bill: b, onDone: () => hooks.render() }));
   pnl.querySelectorAll('[data-stage]').forEach(el => el.onclick = () => pickStage(b));
-  pnl.querySelector('[data-coal]')?.addEventListener('click', () => editCoalitions(b));
   pnl.querySelector('[data-sponsall]')?.addEventListener('click', () => { (S.bwSponsAll ??= {})[b.id] = true; rerender(); });
   // to-dos
   pnl.querySelectorAll('[data-tick]').forEach(el => el.onclick = async () => {

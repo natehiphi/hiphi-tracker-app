@@ -331,6 +331,9 @@ export function goingWords(sitting, { viewer } = {}) {
   return ids.length ? `Going: ${orWords(ids, viewer, { and: true })}` : 'Going: no one yet';
 }
 const goingOn = (h, v) => !!v && sittingRows(h).some(r => (S.attend?.[r.id] || []).includes(v.id));
+// Who is going and the I'm going toggle on one line, as under a testimony step (the bill page's hearing card, R-346).
+export const goingRowHTML = (h, { viewer } = {}) => { if (!h) return ''; const v = meOf(viewer), past = ms(h.scheduled_at) <= Date.now();
+  return `<p class="v6-step-go">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: true })}</p>`; };
 // The row a person is marked on: a bill with a position, so the hearing reaches their calendar (hearing.js leadOf).
 const leadRow = h => { const rows = sittingRows(h).filter(r => r.status !== 'cancelled'), pos = rows.find(r => { const b = billById(r.bill_id); return b && b.position && b.position !== 'monitor'; });
   return pos || rows[0] || h; };
@@ -661,7 +664,7 @@ function hearingLineHTML(h, v, from, { going = true } = {}) {
   return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('landmark')}<span><span class="v6-step-cn">${esc(name)}</span> · ${nw(esc(whenAt(h.scheduled_at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}${moved ? ` · moved from ${nw(esc(moved))}` : ''}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>
     ${going ? `<p class="v6-step-go">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(on, { 'data-v6act': 'going', 'data-v6h': lead.id }, { kind: 'secondary', sm: true })}</p>` : ''}</div>`;
 }
-// stepCard(b, { viewer, where, d, h, primary, big, id, from, named, compact, track, who, going, acts, title, lead })
+// stepCard(b, { viewer, where, d, h, primary, big, id, from, named, compact, track, who, going, acts, title, lead, hear })
 //   -> the card for a bill's current step.
 //   where: 'today' (the next-step card), 'pane' (the open item), 'bill', 'hearing' (no hearing line: the page is it),
 //          'testimony', 'team' (read-only: no buttons for anyone).
@@ -714,7 +717,7 @@ export function linkChairs(b, html, code) {
   }
   return out;
 }
-export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big = false, id = '', from, named, compact = false, track, who, going, acts: actsHTML, title, lead = '' } = {}) {
+export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big = false, id = '', from, named, compact = false, track, who, going, acts: actsHTML, title, lead = '', hear: hearOn = true } = {}) {
   const v = meOf(viewer), s = billStep(b, { viewer: v, ...(d !== undefined ? { d } : {}), ...(h !== undefined ? { h } : {}) }); if (!s) return '';
   const ro = where === 'team', own = s.you && !ro, hid = id || `v6s-${esc(b.id)}${s.d ? '-' + esc(s.d.id) : ''}`;
   const showName = named ?? ['today', 'testimony', 'team', 'hearing'].includes(where);
@@ -739,7 +742,8 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const acts = actsHTML != null ? actsHTML : (own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : '') + more.html;
   if (more.who) c.who = more.who;
   const back = from ?? (where === 'bill' ? b.bill_number : where === 'pane' ? 'today' : where);
-  const hear = where === 'hearing' || s.kind === 'chair' ? '' : hearingLineHTML(s.h, v, back, { going: showGoing });
+  // hear: false leaves the hearing line out (the bill page's own hearing card in its right column says it, R-346).
+  const hear = !hearOn || where === 'hearing' || s.kind === 'chair' ? '' : hearingLineHTML(s.h, v, back, { going: showGoing });
   const rem = own ? reminderHTML(s) : '';
   // Who sent the draft and who else may act on it: said on every card, Today's compact one too (its own class: Today hides
   // .v6-step-who), so the bill's owner and a stand-in know whose draft it is without opening Review (v5's card said it).
