@@ -14,8 +14,8 @@
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
 import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks } from './data.js';
 import { codesOf, draftFor, attendees, billById, billSay, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, shareKit, billByRef,
-  billRoute, whenAt, lateLine, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf, publicResponse } from './model.js';
-import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD } from './ui.js';
+  billRoute, whenAt, lateLine, spanOf, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf, publicResponse } from './model.js';
+import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD, avatar, timeTone } from './ui.js';
 import { teamFirst, filerOf } from './model.js';
 import { legName, partyDist, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
@@ -113,13 +113,30 @@ function cardHTML(c) {
     const link = `<a class="hr-msg" href="${esc(`${billRoute(x.b, 'talk')}?mention=${to.map(id => advocate(id)?.initials).filter(Boolean).join(',')}`)}">${icon('message-square')}<span>Message ${esc(orWords(to, null, { and: true }))}</span></a>`;
     html = html.slice(0, j + 4) + link + html.slice(j + 4);
   }
+  return facesIn(html, c);
+}
+// R-344 rule 4 (faces): the card is steps.js's (another build's file), so its words come as they are and the faces are put
+// in beside them here. Who is going: their faces in place of the generic people icon, before "Going: Kris" (the words stay).
+// Each bill: its owner's face before "Kevin's bill" on the quiet facts line. All hidden from reading: the words say it.
+function facesIn(html, c) {
+  const goers = c.cancelled ? [] : goersOf(c.rows);
+  if (goers.length) html = html.replace(/(<p class="v6-hcard-going">)<svg[\s\S]*?<\/svg>/, `$1<span class="hr-goface" aria-hidden="true">${goers.slice(0, 3).map(a => avatar(a, 28, { deco: true })).join('')}</span>`);
+  for (const x of c.items) { if (!isPos(x.b)) continue;
+    const own = advocate((S.assignments?.[x.b.id] || [])[0]); if (!own) continue;
+    const at = `<a class="v6-hcard-bl" href="${esc(billRoute(x.b))}">`, i = html.indexOf(at); if (i < 0) continue;
+    const j = html.indexOf('<span class="v6-hcard-facts">', i), k = html.indexOf('</a>', i); if (j < 0 || j > k) continue;
+    // right before "Kevin's bill" (else at the line's start), so the face sits beside the words it pictures
+    const tag = '<span class="v6-hcard-facts">', w = html.indexOf(esc(whoseWords(x.b)), j), at2 = w > j && w < k ? w : j + tag.length;
+    html = html.slice(0, at2) + `<span class="hr-ownface" aria-hidden="true">${avatar(own, 20, { deco: true })}</span>` + html.slice(at2);
+  }
   return html;
 }
 // "Strong support · Kevin's bill · Public: 43 follow, 12 emailed": the position, whose bill, and the public's numbers,
 // each only from 10 people (the team's rule for group counts, spec 2), so no one person can be picked out.
+const whoseWords = b => { const own = (S.assignments?.[b.id] || [])[0], a = own && advocate(own);
+  return !own ? 'No owner yet' : own === S.me?.id ? 'Your bill' : a ? `${first(a)}’s bill` : ''; };
 function factsOf(b) {
-  const own = (S.assignments?.[b.id] || [])[0], a = own && advocate(own);
-  const whose = !own ? 'No owner yet' : own === S.me?.id ? 'Your bill' : a ? `${first(a)}’s bill` : '';
+  const whose = whoseWords(b);
   const c = publicResponse(b) || {}, ten = n => (n || 0) >= 10;
   // "followers", in Outreach's order of counts (followers, testified, emailed), one word for one fact (C-15, A-14).
   const pub = [ten(c.followers) ? `${c.followers} followers` : '', ten(c.testimonies) ? `${c.testimonies} testified` : '', ten(c.emails) ? `${c.emails} emailed` : '', ten(c.attending) ? `${c.attending} plan to attend` : ''].filter(Boolean).join(', ');
@@ -136,14 +153,17 @@ function dueHTML(c, card = '') {
   const past = new Date(due) <= Date.now();
   const lines = (card.match(/<ul class="v6-hcard-bills">[\s\S]*?<\/ul>/)?.[0] || '').replace(/<[^>]+>/g, '');
   if (lines.includes(timeWords(past ? c.h.scheduled_at : due))) return '';
-  return `<p class="hr-due">${icon('clock')}<span>${nw(esc(past ? `Written testimony: ${lateLine(c.h.scheduled_at, { lower: true })}` : `Written testimony due ${whenAt(due)}`))}</span></p>`;
+  // R-344 rule 3: the Capitol's deadline with how long is left in words beside it ("· in 2 days"), amber once it is today.
+  // It names whose deadline it is (the Capitol's), so it never reads as a second time for a teammate's hand-on step.
+  const tone = past ? '' : timeTone(due);
+  return `<p class="hr-due${tone ? ' ' + tone : ''}">${icon('clock')}<span>${nw(esc(past ? `Written testimony: ${lateLine(c.h.scheduled_at, { lower: true })}` : `The Capitol takes written testimony until ${whenAt(due)} · in ${spanOf(due)}`))}</span></p>`;
 }
 // A cancelled sitting points to where each bill is heard next, so the page is never a dead end (B-3), and asks whoever was
 // going whether they still are (W53).
 function cancelledHTML(c) {
   if (!c.cancelled) return '';
   const next = c.items.map(x => ({ b: x.b, n: hearingAhead(x.b) })).filter(x => x.n);
-  const list = next.length ? `<div class="v6-list" role="list" aria-label="Where these bills are heard next">${next.map(({ b, n }) => itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`${committeeName(n.committee) || n.committee} · ${whenAt(n.scheduled_at)}`)), icon: 'landmark', href: `#/hearing/${encodeURIComponent(n.id)}` })).join('')}</div>` : '';
+  const list = next.length ? `<div class="v6-list" role="list" aria-label="Where these bills are heard next">${next.map(({ b, n }) => itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`${committeeName(n.committee) || n.committee} · ${whenAt(n.scheduled_at)}`)), icon: 'gavel', href: `#/hearing/${encodeURIComponent(n.id)}` })).join('')}</div>` : '';
   const moved = !c.over ? movedGoingHTML(c.rows[0], btn) : '';
   return section('hr-s-next', 'This hearing was cancelled', `${moved ? `<div class="hr-moved">${moved}</div>` : ''}${next.length ? `<p class="hr-p">Where these bills are heard next:</p>${list}` : '<p class="hr-p">None of these bills has a new hearing yet.</p>'}`);
 }
@@ -172,7 +192,8 @@ function linksHTML(c) {
   const { h, items, cancelled } = c, out = [], v = cancelled ? null : streamOf(h), lead = items[0]?.b;
   const door = (href, ic, label, sub) => `<a class="hr-door" href="${esc(href)}" target="_blank" rel="noopener">${icon(ic)}<span class="hr-door-t"><span class="hr-door-l">${esc(label)}<span class="sr"> (opens in a new tab)</span></span>${sub ? `<span class="hr-door-s">${esc(sub)}</span>` : ''}</span>${icon('external-link', { cls: 'hr-ext' })}</a>`;
   if (h.notice_url) out.push(door(h.notice_url, 'newspaper', 'Hearing notice', 'The Capitol’s notice'));
-  else if (lead) out.push(door(capitolUrl(lead), 'landmark', items.length > 1 ? 'Hearing notice' : 'Capitol page', items.length > 1 ? `On ${numWords(lead)}’s Capitol page` : numWords(lead)));
+  // R-344 rule 5: the Capitol building is Legislators' picture only; the notice is the newspaper, a bill's page a web page.
+  else if (lead) out.push(door(capitolUrl(lead), items.length > 1 ? 'newspaper' : 'globe', items.length > 1 ? 'Hearing notice' : 'Capitol page', items.length > 1 ? `On ${numWords(lead)}’s Capitol page` : numWords(lead)));
   // On the sitting's day the card above has "Watch it live" (the same video): one link, the card's (A-14).
   const cardHasIt = !!v && new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) === new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   if (v && !cardHasIt) out.push(door(v.url, 'video', v.label, v.hint || ''));
@@ -201,6 +222,9 @@ function shareHTML(c) {
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent', G: 'Green', L: 'Libertarian' };
 const seatWords = l => { const p = PARTY[String(l.party || '').trim().toUpperCase()] || l.party || '';
   return [p, l.district != null && l.district !== '' ? `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district}` : ''].filter(Boolean).join(', '); };
+// R-344 rule 4: each member's photo leads their row, drawn as Legislators › Everyone draws it (legislators.js face): the
+// photo over its initial, so a missing or broken photo shows the initial, never a broken image.
+const legFace = l => `<span class="v6-row-lead sv-face hr-lgface" aria-hidden="true"><span class="lg6-rph" data-i="${esc((l.name || '?')[0])}">${l.photo_url ? `<img class="lg-ph" src="${esc(l.photo_url)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span></span>`;
 // The members, chair first, each with where they stand on this sitting's bills with a position (only stances someone
 // recorded). Long lists show the first rows; "Show all" opens the rest in place (remembered for this visit).
 function membersHTML(c) {
@@ -215,7 +239,7 @@ function membersHTML(c) {
     // A joint referral names the committee in words, never its code (D15): "Chair of Commerce".
     const r = joint ? codes.filter(k => m.roles[k]).map(k => m.roles[k] === 'member' ? '' : `${role(m.roles[k])} of ${committeeName(k, { chamber: false })}`).filter(Boolean).join(', ') || 'Member' : role(m.role);
     const st = [yes ? `for ${yes}` : '', no ? `against ${no}` : ''].filter(Boolean).join(', ');
-    return itemRow({ key: String(m.l.id), name: legName(m.l), line: esc([r, seatWords(m.l), st ? `on these bills: ${st}` : ''].filter(Boolean).join(' · ')), href: legHref(m.l), cls: 'hr-mrow' });
+    return itemRow({ key: String(m.l.id), name: legName(m.l), line: esc([r, seatWords(m.l), st ? `on these bills: ${st}` : ''].filter(Boolean).join(' · ')), href: legHref(m.l), cls: 'hr-mrow v6-face-row', lead: legFace(m.l) });
   });
   const lead = pos[0]?.b;
   // v3: the stance pickers are in Committees on the bill's page; the door lands there (a button, not a link inside a

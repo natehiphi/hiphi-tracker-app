@@ -2,10 +2,11 @@
 // looks and behaves the same everywhere (plan section 4). Styles in staff/staff.css, on top of pub/base.css.
 // Staff v6 (R-336): the same functions and signatures; staff6/staff.css restyles them on staff6/css/tokens.css. btn() kinds:
 // 'primary' is the FILLED button (one per screen or region, V11), 'secondary' the TONAL one (action wash, no outline), 'text'
-// a text button, 'danger' only inside a confirm. Countdowns and urgency tiles follow D3 (amber only while late testimony is
-// still accepted, red only overdue, due-soon neutral and bold). sectionNav() knows every v6 place's page tabs (spec 3.3, D12).
+// a text button, 'danger' only inside a confirm. Countdowns and urgency tiles follow A-5 on v6 as Nate decided it on 26 Oct
+// (R-344): amber for due today and while late testimony is still accepted, red only once the deadline has passed, anything
+// further out neutral with its distance in words. sectionNav() knows every v6 place's page tabs (spec 3.3, D12).
 import { S, STAGES, effStage, esc, advocate } from './data.js';
-import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine } from './model.js';
+import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine, hstDayOf, whenAt } from './model.js';
 export { clockDay, lateLine };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
 import { icon } from '../icons.js';
 export { icon };
@@ -57,12 +58,47 @@ export const showAllBtn = (n, a = {}, { what = '', open = null, cls = '' } = {})
   attrs: { ...(open !== null ? { 'aria-expanded': open ? 'true' : 'false' } : {}), ...a } });
 
 // ---- people ----
-export function avatar(adv, size = 24) {
-  if (!adv) return `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
-  const me = S.me && adv.id === S.me.id;
-  const ini = adv.initials || adv.full_name?.[0] || '?';   // three letters (JMM) take a smaller size to stay inside the circle (R-267)
-  return `<span class="sv-av${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(adv.initials || adv.full_name?.[0] || '?')}</span>`;
+// R-344 rule 4, faces (Nate 26 Oct, decision 3): every staff member has a soft colour of their own, so a row of faces says
+// "whose" before a word is read and twelve circles no longer all look alike. Six tints (staff.css .sv-av.p0 ... .p5), none
+// of them the amber, red or green that status uses, each with its initials at WCAG AA (A-7). A person's tint is their
+// place among everyone's ids (S.advocates, sorted), so it is the same on every screen, device and visit, and the team's
+// 13 spread evenly over the six (a hash of the id left two tints unused and gave Nate and Kevin one colour). Adding a
+// person can move the people after them to the next tint; nothing stores it.
+export const PERSON_TINTS = 6;
+let tintIds = null, tintFrom = null;
+export function tintOf(id) {
+  if (id == null) return -1;
+  if (tintFrom !== S.advocates) { tintFrom = S.advocates; tintIds = (S.advocates || []).map(a => String(a.id)).sort(); }
+  const i = tintIds.indexOf(String(id));
+  if (i >= 0) return i % PERSON_TINTS;
+  let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // someone not on the team list (a removed author)
+  return h % PERSON_TINTS;
 }
+// The viewer keeps their own tint everywhere (the colour others see them by) plus an action-coloured ring, so "you" is
+// found at a glance without being a different colour on your screen than on a teammate's.
+// `deco`: a face beside words that already name the person (faceLead, a hearing card's owner): no name of its own for a
+// screen reader, and the initials drawn by CSS (staff.css .sv-av[data-ini]) so they are not text either; the row's words,
+// counted and read by every test and reader, stay exactly what they were.
+export function avatar(adv, size = 24, { deco = false } = {}) {
+  if (!adv) return deco ? `<span class="sv-av none" style="--av:${size}px"></span>` : `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
+  const me = S.me && adv.id === S.me.id, t = tintOf(adv.id);
+  const ini = adv.initials || adv.full_name?.[0] || '?';   // three letters (JMM) take a smaller size to stay inside the circle (R-267)
+  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}`;
+  if (deco) return `<span class="${cls}" style="--av:${size}px" data-ini="${esc(ini)}"></span>`;
+  return `<span class="${cls}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(ini)}</span>`;
+}
+// A face for a list row's lead (steps.js itemRow's `lead`): the person's circle, hidden from reading because the row's own
+// words name them (a picture beside words, never instead of them). Two people share the square; more than two show the first and "+N".
+export function faceLead(ids, size = 32) {
+  const list = (Array.isArray(ids) ? ids : [ids]).filter(x => x != null);
+  const ppl = list.map(x => typeof x === 'object' ? x : advocate(x)).filter(Boolean);
+  const shown = ppl.slice(0, ppl.length > 2 ? 1 : 2), more = ppl.length - shown.length;
+  const inner = !ppl.length ? avatar(null, size, { deco: true }) : shown.map(a => avatar(a, size, { deco: true })).join('') + (more > 0 ? `<span class="sv-av sv-avmore" style="--av:${size}px" data-ini="+${more}"></span>` : '');
+  return `<span class="v6-row-lead sv-face${ppl.length > 1 ? ' many' : ''}" aria-hidden="true">${inner}</span>`;
+}
+// A soft round tile with an icon (Nate's decision 1, 26 Oct: "soft filled", like More's rows): for a row whose lead is a
+// kind of thing rather than a person (a note from the tracker), so faces and tiles line up down one edge.
+export const tileLead = (ic, tone = '') => `<span class="v6-row-lead sv-face sv-tile${tone ? ' ' + tone : ''}" aria-hidden="true">${icon(ic)}</span>`;
 export const ownerOf = b => advocate((S.assignments[b.id] || [])[0]);
 // R-277 ui-critic: "Undo filed" is a quiet text link beside Filed (it was a button, and on the hearing page the only one),
 // offered to whoever marked it filed, the bill's owner and admins; where nobody is recorded as filing it, to everyone.
@@ -73,17 +109,33 @@ export const undoFiledLink = (a = {}) => `<button type="button" class="linkbtn s
 // v3 (R-264, A-5 as amended by R-250): a testimony deadline that has passed while the Capitol still takes late testimony
 // (before the hearing starts) is amber "late testimony until 1:10 PM", not red "overdue". Pass the hearing's start as \`until\`.
 const lateUntil = (iso, until) => { const now = Date.now(); return !!until && new Date(iso) <= now && new Date(until) > now; };
+// R-344 rule 3, time left (Nate 26 Oct, decision 2): the colour of time. Amber once a deadline falls today (the same
+// calendar day in Hawaiʻi, not yet passed) and while late testimony is still accepted; red only once it has passed;
+// anything further out neutral, with the distance in words. One function, so every countdown and tile agrees.
+//   'late' (red, passed) · 'lateok' (amber, late but accepted) · 'today' (amber, due today) · '' (neutral, later)
+export function timeTone(iso, { until = null } = {}) {
+  if (!iso) return '';
+  if (lateUntil(iso, until)) return 'lateok';
+  const t = new Date(iso).getTime();
+  if (t <= Date.now()) return 'late';
+  return hstDayOf(t) === hstDayOf(Date.now()) ? 'today' : '';
+}
+// The moment with its day after the clock, the way the late line says it ("3:00 PM today", "9:30 AM tomorrow"); a later day
+// as the date ("Fri 3/27, 9:30 AM").
+export const dayAt = iso => { const w = whenAt(iso), m = /^(today|tomorrow|yesterday) (.+)$/.exec(w); return m ? `${m[2]} ${m[1]}` : w; };
 // v4 (R-269): "late testimony until 9:30 AM" said on Thursday about Friday's 9:30 read as half an hour away; the day goes in
 // whenever the hearing is not today ("until tomorrow 9:30 AM", "until Fri 3/20, 9:30 AM"): clockDay, model.js.
-export function countdown(iso, { prefix = '', until = null } = {}) {
+// `at`: the moment goes first and the distance beside it ("3:00 PM today · in 1 hour", "Fri 3/27, 9:30 AM · in 3 days"), so
+// nobody has to work out the distance from a date (rule 3); without it, the distance alone, as before.
+export function countdown(iso, { prefix = '', until = null, at = false } = {}) {
   if (!iso) return '';
-  if (lateUntil(iso, until)) return `<span class="sv-count lateok">${icon('clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
-  const ms = new Date(iso) - Date.now(), h = ms / 36e5;
+  const tone = timeTone(iso, { until });
+  if (tone === 'lateok') return `<span class="sv-count lateok">${icon('clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
   // Never round a deadline up: 2 days 6 hours is "2 days", not 3 (R-022). R-277 fix 3 (W-6): the words come from model.js
   // timeLeft, the same on every screen: "in 28 min", "in 4 hours", "4 hours overdue" (no more "under an hour", "7h left").
-  const text = ms <= 0 ? `${prefix}${timeLeft(iso)}` : `${prefix}in ${spanOf(iso)}`;
-  const tone = ms <= 0 ? 'late' : h <= 24 ? 'soon' : '';
-  return `<span class="sv-count ${tone}">${icon(ms <= 0 ? 'circle-alert' : 'clock')}${esc(text)}</span>`;
+  const left = tone === 'late' ? timeLeft(iso) : `in ${spanOf(iso)}`;
+  const text = `${prefix}${at ? `${dayAt(iso)} · ` : ''}${left}`;
+  return `<span class="sv-count${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'circle-alert' : 'clock')}${esc(text)}</span>`;
 }
 
 // ---- rows and groups ----
@@ -234,12 +286,12 @@ addEventListener('scroll', () => { if (!fbRaf) fbRaf = requestAnimationFrame(() 
 export function urgentMark(iso, { done = false, until = null, act = null } = {}) {
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
-  if (lateUntil(iso, until)) { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}"><b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
-  const ms = new Date(iso) - Date.now(), h = ms / 36e5;
+  const tone = timeTone(iso, { until });
+  if (tone === 'lateok') { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}">${icon('clock')}<b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
-  const word = ms <= 0 ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
-  const tone = ms <= 0 ? ' late' : h <= 24 ? ' soon' : '';
-  return `<span class="sv-urg${tone}" role="img" aria-label="${esc(`${big} ${word}`)}">${ms <= 0 ? icon('circle-alert') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
+  const word = tone === 'late' ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
+  // R-344 rule 3: amber with a clock when due today, red with the alert once passed, neutral further out.
+  return `<span class="sv-urg${tone ? ' ' + tone : ''}" role="img" aria-label="${esc(`${big} ${word}${tone === 'today' ? ', due today' : ''}`)}">${tone === 'late' ? icon('circle-alert') : tone === 'today' ? icon('clock') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
 }
 
 export const empty = ({ title, text = '', action = '', h = 'h2', art = '' }) => `<div class="empty">${art}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;

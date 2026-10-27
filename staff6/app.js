@@ -300,7 +300,9 @@ function header(route, scr, title) {
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-  // Help is one visible tap on a phone, as the bell is for the Inbox (spec 8: "Inbox and Help 1 visible tap", B-13, D2); More's
+  // R-344 rule 5: the Inbox is the tray on a phone as in the sidebar (it was a bell here), with the sidebar's number, not a
+  // bare dot: one picture and one count for one place.
+  // Help is one visible tap on a phone, as the tray is for the Inbox (spec 8: "Inbox and Help 1 visible tap", B-13, D2); More's
   // Help row stays. A laptop has Help in the sidebar, so the button is a phone's only (staff.css).
   const help = placeOf(route) === 'help';
   return `<header class="sv-hdr">
@@ -310,7 +312,7 @@ function header(route, scr, title) {
     <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people and places</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"><span class="sv-kbd" aria-hidden="true">${mac ? '⌘K' : 'Ctrl K'}</span></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
     <a class="iconbtn sv-helpbtn" href="#/help" aria-label="Help"${help ? ' aria-current="page"' : ''}>${icon('circle-help')}</a>
-    <a class="iconbtn sv-bell" href="#/inbox" aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('bell')}${unread ? '<span class="sv-dot" aria-hidden="true"></span>' : ''}</a>
+    <a class="iconbtn sv-bell sv-tray" href="#/inbox" aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('inbox')}${unread ? `<span class="sv-dot sv-trayn" aria-hidden="true">${unread > 99 ? '99+' : unread}</span>` : ''}</a>
   </header>`;
 }
 // The sidebar (768px and wider): every place, labelled, in the same order for everyone (V02, V18, D11, D12). Exactly two
@@ -611,7 +613,7 @@ const REFRESH_SUB = 'Read what your teammates changed since this page loaded';
 function accountItems() {
   return [
     { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', nav: true, run: () => go('#/me') },
-    DEMO ? { label: 'Practice as someone else', icon: 'users-round', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
+    DEMO ? { label: 'Practice as someone else', icon: 'id-card', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the
     // sidebar's foot says it too, as a line, not a row (more.js syncNote, B-7, 12.4).
     // plainSub: the More page says a stale age once, at its top (more.js syncNote), so its Refresh now row reads this instead.

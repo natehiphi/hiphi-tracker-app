@@ -100,3 +100,15 @@ body.staff6 .mv-acts { display: flex; flex-wrap: wrap; align-items: center; gap:
 body.staff6 .hr-page .v6-hcard-going { flex-wrap: wrap; row-gap: 4px; }
 /* room between the camera and "Watch it live" at every width (the critic: they touched on a phone) */
 body.staff6 .hr-page .v6-hcard-watch a { display: inline-flex; gap: 8px; }
+
+/* R-344 rule 4 (faces). The members' photos lead their rows at 40px (Legislators › Everyone's face, legislators.css .lg6-rph),
+   kept on a phone; who is going shows their faces on the card's going line; each bill's owner a small face on its facts line. */
+body.staff6 .hr-page .hr-mrow.v6-face-row .v6-row-main.has-lead { grid-template-columns: 40px minmax(0, 1fr); }
+body.staff6 .hr-page .hr-lgface { width: 40px; min-height: 40px; margin-top: 0; }
+body.staff6 .hr-page .hr-goface { display: inline-flex; flex: none; align-items: center; margin-right: 2px; }
+body.staff6 .hr-page .hr-goface .sv-av + .sv-av { margin-left: -6px; box-shadow: 0 0 0 2px var(--v6-card); }
+body.staff6 .hr-page .hr-ownface { display: inline-flex; vertical-align: -5px; margin-right: 4px; }
+body.staff6 .hr-page .hr-ownface .sv-av { font-size: 10px; }
+/* R-344 rule 3: the Capitol's deadline turns amber once it falls today (A-5 on v6, Nate 26 Oct) */
+body.staff6 .hr-due.today, body.staff6 .hr-due.today svg { color: var(--v6-late); }
+body.staff6 .hr-due.today { font-weight: 700; }

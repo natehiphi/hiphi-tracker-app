@@ -76,6 +76,9 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 /* The Inbox bell: a dot when something is unread (spec 3.2); the number is in its label and on the Inbox page. */
 .sv-bell { position: relative; }
 .sv-bell .sv-dot { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--v6-action); box-shadow: 0 0 0 2px var(--v6-page); }
+/* R-344: the phone's Inbox is the tray with the sidebar's number on it, not a bell with a dot */
+.sv-bell .sv-dot.sv-trayn { top: 2px; right: 0; width: auto; height: 20px; min-width: 20px; padding: 0 5px; border-radius: var(--v6-pill); color: #fff;
+  font: 700 var(--v6-t14)/20px var(--font); text-align: center; }
 @media (max-width: 280px) { .sv-hdr .sv-back { max-width: 60%; } }
 /* A narrow phone with Search, Help and the bell (app.js fitHeader): when the title would be cut, Back keeps its arrow (its
    word is still its name for a screen reader), then the title steps down to 16px over two lines. Nothing cut (A-1). */
@@ -413,7 +416,36 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
   font: 700 var(--v6-t14)/1 var(--font); flex: none; letter-spacing: 0; }
 .sv-av.ini3 { font-size: 11px; letter-spacing: -0.02em; }   /* three-letter initials (JMM) stay inside a 24px circle (R-267); not reading text */
 .sv-av.none { background: none; border: 1.5px dashed var(--v6-field); }
-.sv-av.me { background: var(--v6-action-wash); color: var(--v6-action); }
+/* R-344 rule 4 (Nate 26 Oct, decision 3): a soft colour per person (ui.js tintOf), never the amber, red or green of status
+   and not the action teal. Fixed values, not palette tokens: a person is the same colour whatever palette a teammate picked,
+   and every palette's card is white or near it, so each pair keeps its contrast (initials on tint, WCAG 1.4.3): blue 6.4,
+   sky 6.4, violet 6.4, orchid 6.1, indigo 6.9, taupe 6.7. v6 has no dark mode yet; DESIGN.md (A-5 on v6) records the dark
+   pairs for when A-21 is built. */
+.sv-av.p0 { background: #CCDDFB; color: #1B4A8C; }   /* blue */
+.sv-av.p1 { background: #C2E7F4; color: #0B5470; }   /* sky */
+.sv-av.p2 { background: #DFD3FA; color: #533596; }   /* violet */
+.sv-av.p3 { background: #F5D0EE; color: #7E2B76; }   /* orchid */
+.sv-av.p4 { background: #D6D3F7; color: #3A3591; }   /* indigo */
+.sv-av.p5 { background: #EADCCD; color: #56463A; }   /* taupe */
+/* you: your own tint (the colour teammates see you by) and an action ring around it */
+.sv-av.me { box-shadow: 0 0 0 2px var(--v6-card), 0 0 0 3.5px var(--v6-action); }
+.sv-av.sv-avmore { background: var(--v6-wash); color: var(--v6-muted); font-weight: 400; }
+.sv-av[data-ini]::before { content: attr(data-ini); }   /* a decorative face's initials: drawn, not text (ui.js avatar deco) */
+/* A row's face (ui.js faceLead) or soft tile (tileLead) in steps.js's lead slot: 32px beside an 18px name and a 16px line,
+   in the first column so every name still starts at one edge, and kept on a phone (the R-339 icon trial hides its 20px
+   glyph below 600px; a face is the "whose" a phone needs most). */
+body.staff6 .v6-row.v6-face-row .v6-row-main.has-lead { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; row-gap: 2px; align-items: start; }
+body.staff6 .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-lead { display: inline-flex; }
+body.staff6 .v6-row-lead.sv-face { width: 32px; height: auto; min-height: 32px; margin-top: 2px; color: inherit; position: relative; }
+body.staff6 .v6-row-lead.sv-face .sv-av { --av: 32px; width: 32px; height: 32px; font-size: var(--v6-t14); }
+/* two people: two smaller circles on a diagonal inside the same 32px square (more than two: the first and "+N") */
+body.staff6 .v6-row-lead.sv-face.many { height: 32px; }
+body.staff6 .v6-row-lead.sv-face.many .sv-av { position: absolute; --av: 22px; width: 22px; height: 22px; font-size: 10px; }
+body.staff6 .v6-row-lead.sv-face.many .sv-av:first-child { top: 0; left: 0; }
+body.staff6 .v6-row-lead.sv-face.many .sv-av + .sv-av { right: -2px; bottom: -2px; box-shadow: 0 0 0 2px var(--v6-card); }
+body.staff6 .v6-row-lead.sv-face.many .sv-av.me + .sv-av, body.staff6 .v6-row-lead.sv-face.many .sv-av + .sv-av.me { box-shadow: 0 0 0 2px var(--v6-card), 0 0 0 3.5px var(--v6-action); }
+body.staff6 .v6-row-lead.sv-tile { width: 32px; height: 32px; border-radius: 50%; background: var(--v6-wash); color: var(--v6-muted); align-items: center; justify-content: center; }
+body.staff6 .v6-row-lead.sv-tile svg { width: 18px; height: 18px; }
 /* A picker ("Strong support ▾") is a select in disguise, so it wears a field's edge, not a button's (A-12). */
 .sv-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px 0 14px; border-radius: var(--v6-r12); background: var(--v6-card); border: 1px solid var(--v6-field);
   color: var(--v6-ink); font: 400 var(--v6-t16)/1.2 var(--font); }
@@ -422,10 +454,12 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
 .sv-pick .chev { width: 16px; height: 16px; color: var(--v6-muted); }
 .sv-pick.sv-toggle.on { border-color: var(--v6-action); background: var(--v6-action-wash); color: var(--v6-action); }
 .sv-pick.sv-toggle.on .ic { color: var(--v6-action); }
-/* a countdown: neutral and bold when due soon; amber only while late testimony is still accepted; red only overdue (D3) */
+/* a countdown (R-344 rule 3, Nate 26 Oct): amber when due today and while late testimony is still accepted, red only once
+   the deadline has passed, neutral further out (ui.js timeTone). .soon (neutral bold) stays for v5's Today (today5.js). */
 .sv-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); font-weight: 400; color: var(--v6-body); white-space: nowrap; }
 .sv-count .ic { width: 16px; height: 16px; }
 .sv-count.soon { color: var(--v6-ink); font-weight: 700; }
+.sv-count.today { color: var(--v6-late); font-weight: 700; }
 .sv-count.lateok { color: var(--v6-late); font-weight: 700; }
 .sv-count.late { color: var(--v6-bad); font-weight: 700; }
 .sv-posic { display: inline-flex; color: var(--v6-muted); }
@@ -656,13 +690,15 @@ body.staff6 main.sv-login, body.staff6 main.sv-load { width: 100%; max-width: 44
 @media (max-width: 420px) { .sv-riblab { gap: var(--s4); } .sv-riblab span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 
 /* ---- urgency mark (ui.js urgentMark): the v5 tile, kept for the screens not yet rebuilt. v6 rows carry no tiles (V04);
-   its tones follow D3: neutral when due soon, amber only for late-but-accepted, red only overdue. ---- */
+   its tones follow A-5 on v6 as Nate set it on 26 Oct (R-344): amber due today or late-but-accepted, red only overdue. ---- */
 .sv-urg { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; flex: none; min-width: 60px; padding: 4px 6px; border-radius: var(--v6-r12);
   background: var(--v6-wash); color: var(--v6-body); line-height: 1.1; }
 .sv-urg b { font: 700 var(--v6-t16)/1.15 var(--font-h); letter-spacing: -.02em; }
 .sv-urg span { font-size: var(--v6-t14); text-transform: lowercase; color: var(--v6-muted); }
 .sv-urg .ic { width: 14px; height: 14px; margin-bottom: 1px; }
 .sv-urg.soon { background: var(--v6-wash); color: var(--v6-ink); }
+.sv-urg.today { background: var(--v6-late-wash); color: var(--v6-late); }
+.sv-urg.today span { color: var(--v6-late); }
 .sv-urg.lateok { background: var(--v6-late-wash); color: var(--v6-late); }
 .sv-urg.lateok span { color: var(--v6-late); }
 .sv-urg.late { background: var(--v6-bad-wash); color: var(--v6-bad); box-shadow: none; }
@@ -1355,3 +1391,9 @@ body.staff6 .bp-open { border-top: 0; box-shadow: 0 -8px 12px -10px rgba(var(--v
 body.staff6 :is(.td-pane, .bl-dock).more .bp-open { box-shadow: 0 -8px 12px -8px rgba(var(--v6-shadow), .22); }
 body.staff6 .cf-c { background: var(--v6-page); }
 @media (hover: hover) and (pointer: fine) { body.staff6 .ca-chip:hover { background: var(--v6-page); } }
+
+/* R-344 rule 4: a teammate's list (#/team?who=) carries their face beside its title, centred on the 28px title line. */
+body.staff6 .t6-head.tm6-whohead { align-items: center; column-gap: 12px; }
+body.staff6 .t6-head.tm6-whohead > .sv-av { font-size: var(--v6-t16); }
+/* a supporter's page (person.js): a team note's writer as a small face inside its meta line */
+body.staff6 .sp-person .sp-nwho .sv-av { margin: 0 4px -5px 0; font-size: 10px; }

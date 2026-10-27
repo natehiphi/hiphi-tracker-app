@@ -9,7 +9,7 @@
 import { S, DB, DEMO, hooks, esc, fmtDate, fmtDT, advocate, islandOf, personById } from './data.js';
 import { INTERESTS, personName, whereOf, billById, blurb, looksLikeAddress, geoSuggest, geoDistricts, hiToday } from './model.js';
 import { nameWords, numWords } from './steps.js';
-import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow } from './ui.js';
+import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, menuSheet, confirmSheet, switchRow, avatar } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { followupSheet, afterSheet, adminWho } from './supporters.js';
 import { titleLabel, isOwn } from '../pub/titles.js';   // the public profile's "I'm a..." (R-147)
@@ -94,8 +94,9 @@ function followups(p) {
   return `<section class="sp-sec" aria-labelledby="sp-h-fup"><div class="sechead"><h2 id="sp-h-fup">To-dos</h2></div>
     <ul class="rows sp-fups">${list.map(f => {
       const late = f.due && dueAt(f) < Date.now(), today = f.due && String(f.due).slice(0, 10) === hiToday();
-      const when = !f.due ? '' : late ? `<span class="sv-count late">${icon('circle-alert')}Overdue, was due ${esc(whenAt(dueAt(f)).replace(/,.*$/, '').replace(/ \d+:\d+ [AP]M$/, ''))}</span>` : today ? `<span class="sv-count soon">${icon('clock')}Due today</span>` : `due ${esc(whenAt(dueAt(f)).replace(/,.*$/, '').replace(/ \d+:\d+ [AP]M$/, ''))}`;
-      return `<li class="sp-fup"><div class="body"><span class="title">${esc(f.what)}</span><span class="sub">${esc(f.advocate_id === S.me?.id ? 'You' : firstName(advocate(f.advocate_id)))}${when ? ' · ' : ''}${when}</span></div>${btn('Done', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-fdone': String(f.id), 'aria-label': `Done: ${f.what}` } })}</li>`;
+      const when = !f.due ? '' : late ? `<span class="sv-count late">${icon('circle-alert')}Overdue, was due ${esc(whenAt(dueAt(f)).replace(/,.*$/, '').replace(/ \d+:\d+ [AP]M$/, ''))}</span>` : today ? `<span class="sv-count today">${icon('clock')}Due today</span>` : `due ${esc(whenAt(dueAt(f)).replace(/,.*$/, '').replace(/ \d+:\d+ [AP]M$/, ''))}`;
+      // R-344: the teammate's face beside whose to-do it is (rule 4); due today is amber, overdue red (rule 3, A-5 on v6).
+      return `<li class="sp-fup">${advocate(f.advocate_id) ? avatar(advocate(f.advocate_id), 32, { deco: true }) : ''}<div class="body"><span class="title">${esc(f.what)}</span><span class="sub">${esc(f.advocate_id === S.me?.id ? 'You' : firstName(advocate(f.advocate_id)))}${when ? ' · ' : ''}${when}</span></div>${btn('Done', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-fdone': String(f.id), 'aria-label': `Done: ${f.what}` } })}</li>`;
     }).join('')}</ul></section>`;
 }
 function about(p) {
@@ -173,7 +174,7 @@ function feed(p) {
   const li = x => {
     if (x.n) {
       const mine = x.n.advocate_id === S.me?.id;
-      return `<li class="sp-fi note"><span class="sp-fic" aria-hidden="true">${icon('notebook-pen')}</span><div class="sp-fb"><p class="meta">Team note · ${esc(mine ? 'You' : advocate(x.n.advocate_id)?.full_name || 'Someone')} · ${esc(fmtDate(x.n.created_at))}</p><p class="sp-nbody">${esc(x.n.body)}</p></div>
+      return `<li class="sp-fi note"><span class="sp-fic" aria-hidden="true">${icon('notebook-pen')}</span><div class="sp-fb"><p class="meta sp-nwho">Team note · ${advocate(x.n.advocate_id) ? avatar(advocate(x.n.advocate_id), 20, { deco: true }) : ''}${esc(mine ? 'You' : advocate(x.n.advocate_id)?.full_name || 'Someone')} · ${esc(fmtDate(x.n.created_at))}</p><p class="sp-nbody">${esc(x.n.body)}</p></div>
         ${mine || S.me?.is_admin ? btn('Delete', { kind: 'text', sm: true, attrs: { 'data-ndel': String(x.n.id), 'aria-label': 'Delete this note' } }) : ''}</li>`;
     }
     const b = x.e.bill_id && billById(x.e.bill_id);

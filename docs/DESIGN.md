@@ -989,15 +989,30 @@ comments, so a swap is one edit (D6). Contrast is WCAG, on page / card / wash:
 | action-press | #095A5E | filled button hover and press | white on it 8.0 |
 | action-wash | #E2EFEE | tonal buttons, selected row, current place | action on it 5.1 |
 | leaf | #3A7533, leaf-wash #E5F0E1 | done, filed, approved (with a check icon) | 5.0 / 4.7 on its wash |
-| late | #955A00, late-wash #FBEFD9 | ONLY "Late, still accepted until …" (clock icon) | 5.1 / 4.9 on its wash |
+| late | #955A00, late-wash #FBEFD9 | ONLY a deadline due today and "Late, still accepted until …" (clock icon) | 5.1 / 4.9 on its wash |
 | bad | #AF3328, bad-wash #FBE9E5 | ONLY a step still to do whose deadline passed (alert icon and the word) | 5.7 / 5.4 on its wash |
 | coral | #EE7B4F | celebration fills only, ink text on it | 5.7 |
 | band | #3B332B | the practice-copy band | sand text on it 11.2 |
 
-- **Amber** only for "Late, still accepted until …" (R-250). **Red** only for a step still to do whose deadline passed.
-  **Missed** is said in neutral with a circle-x icon, never red (spec 11.4, amending D3). **Green** only for done.
-  **Coral** only for celebration.
-- **Due today** (or within 2 hours) is neutral: first in the list, the time in bold, a clock icon.
+- **The colour of time (amended 27 Oct 2026, Nate's decision via R-344, Decision 2 of the at-a-glance review):
+  amber for due today, red only once the deadline has passed.** **Amber** for a deadline that falls today (the same
+  calendar day in Hawaiʻi, not yet passed: "in 1 hour", "3:00 PM today", a clock icon) and for "Late, still accepted
+  until …" (R-250; the late-testimony amber, "late testimony until 1:10 PM", stays amber). **Red** only for a step still to
+  do whose deadline has passed (an alert icon and "overdue"). Anything further out is neutral, with how long is left in
+  words beside the date ("Fri 3/27 · in 3 days"; the words come from `model.js` `spanOf`/`timeLeft`, one way everywhere).
+  One function decides it (`ui.js` `timeTone`, used by `countdown()` and `urgentMark()`). **Missed** is said in neutral
+  with a circle-x icon, never red (spec 11.4, amending D3). **Green** only for done. **Coral** only for celebration.
+  This replaces "due today (or within 2 hours) is neutral: first in the list, the time in bold, a clock icon".
+- **A soft colour for each person (27 Oct 2026, Nate's decision 3 via R-344):** every staff member's initials circle has a
+  tint of their own, so "whose" reads before a word does. Six tints, none of them the amber, red or green of status nor the
+  action teal, the same in every palette (fixed values; each palette's card is white or near it), initials at WCAG AA
+  (A-7): blue #CCDDFB / #1B4A8C (6.4), sky #C2E7F4 / #0B5470 (6.4), violet #DFD3FA / #533596 (6.4), orchid #F5D0EE /
+  #7E2B76 (6.1), indigo #D6D3F7 / #3A3591 (6.9), taupe #EADCCD / #56463A (6.7). For dark mode, when A-21 is built:
+  blue #24395E / #C9DAFA, sky #173F4F / #BFE6F4, violet #36295C / #DCD0FA, orchid #4D2547 / #F4CDEC, indigo #2C2A5C /
+  #D6D3F7, taupe #3F342B / #E8DACB (all 8:1 or more). A person's tint is their place among everyone's ids, sorted
+  (`ui.js` `tintOf`), so it is the same on every screen and device; the viewer keeps their own tint with an action-coloured
+  ring. Faces are added beside names, never instead of them (`ui.js` `faceLead`; hidden from reading, since the words name
+  the person), and where a face is added a repeated name goes (A-25). Legislators show their photo over their initial.
 - Every status has its icon AND its word, from one function (`steps.js` `status()`); never colour alone (WCAG 1.4.1).
 - **At most 5 text colours in view**: ink, body, muted, action and white on the filled button. Status colours are counted
   apart, when a status is shown (spec 13).
@@ -1008,6 +1023,10 @@ comments, so a swap is one edit (D6). Contrast is WCAG, on page / card / wash:
 In v5 every row due within a day carried an amber chip ("4h to file", "59m"), so amber was spent on half the list and
 meant nothing. Red says "act now"; a missed hearing can no longer be acted on, so it is said plainly rather than alarmed.
 Whether "due within 2 hours" should earn amber is a guess for the cold test with Kris, Patti and Julie to settle.
+*Reason for the 27 Oct amendment (R-344).* On the practice day three things were due today with no colour at all, so a
+skimmer could not find what came first (the at-a-glance review's blur test). Nate asked for "red only for due today or
+missed"; his decision keeps red rarer than that: amber for today, red once passed, so red still means "act now, it is
+late". The five-second test (no one reads amber as an emergency) settles whether this holds.
 
 ### A-6 on v6: 40px on a laptop too
 
@@ -1038,6 +1057,21 @@ Page tabs show the open tab bold with a teal bar under it, never a pill, so they
 a person cannot tell which one they are pressing, which is what A-12 forbids. A tab row that scrolls sideways hides the
 tabs past the edge, and things hidden or hard to find are Nate's worst case.
 
+### A-18 on v6: one picture, one meaning (R-344, 27 Oct 2026)
+
+Each icon stands for one thing in staff6, and a soft round tile behind an action or kind icon is the one icon style (Nate's
+decision 1, 26 Oct: "soft filled", like More's rows). **The Capitol building (`landmark`) is Legislators only**: a committee
+line is a gavel, a bill's or a member's page at the Capitol is a web page (`globe`), a hearing notice the newspaper.
+**The megaphone is Outreach only. Date chips use the clock; the calendar is Hearings. The check mark is done and approve
+only** (Inbox marks read with the open envelope, unread with the closed one). **The Inbox is the tray**, on a phone's top
+bar as in the sidebar, with the same number. **Where a legislator stands is the thumbs-up** (as the stances themselves).
+**Session setup's Blocking is the warning triangle**; the circle with an x is Missed. More tools' rows each carry their
+place's picture: people icons are Team (`users`) and People (`user-round`) only.
+
+*Reason.* The at-a-glance review (R-336, 26 Oct) found one picture meaning up to five things (the check mark: done,
+approve, support, Review and Mark read), so a picture could not be trusted without reading its words. The review's research (NN/g,
+IBM Carbon) puts a working set at about 6 to 10 status and action icons, each with one meaning.
+
 ### A-20 on v6: "…" holds only what also lives somewhere else
 
 "…" holds only rare actions that also exist in the open item or on the bill page. **No step of a job (hand off, Undo filed,
@@ -1062,7 +1096,7 @@ panel until an item is picked, at most 5 text colours, 12 controls in view** (A-
 | Supporters, first screen | ≤25 controls, ≤15 filter choices shown |
 | Session setup | 5 groups, no part over 1.5 screens |
 | Every row | ≤4 facts |
-| Every screen | ≤30% of text at 14px or under · ≤25% bold · ≤8 bordered elements on the first screen · 3 radii · ≤5 text colours · 0 amber or red marks on a day when nothing is late · 0 weekly-used pages behind a menu (a More-page destination counts as 2 taps) |
+| Every screen | ≤30% of text at 14px or under · ≤25% bold · ≤8 bordered elements on the first screen · 3 radii · ≤5 text colours · 0 amber or red marks on a day when nothing is late or due today · 0 weekly-used pages behind a menu (a More-page destination counts as 2 taps) |
 | The sidebar | ≤11 rows for staff, ≤15 for leads; rows are the links only, not the Lead tools heading or Collapse (12.4) |
 
 **One exception (spec 13):** a person's own Today rows may run past the length target (screens and words), because R-274

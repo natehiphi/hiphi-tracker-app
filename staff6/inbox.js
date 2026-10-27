@@ -11,9 +11,9 @@
 // that, with Back (V17, F12). Reading, marking read or unread and Mark all read keep v5's data calls (my_inbox, inbox_mark,
 // migration 032) and its Undo. Keys (a keyboard and mouse; Help › Keyboard shortcuts switches them off): j and k move, Enter
 // opens, e marks read or unread, Shift+M marks the list read (not Shift+A, which approves in Review: R-277 E-11).
-import { S, DB, DEMO, esc, fmtDT, hooks, isMine } from './data.js';
+import { S, DB, DEMO, esc, fmtDT, hooks, isMine, advocate } from './data.js';
 import { unslack, billById, plainAction, OUT_PLAIN as OUT, billRoute, agoWords, teamFirst, hstDayOf, legNotesAll, ASK_LOG, whenAt, blurb } from './model.js';
-import { icon, btn, iconBtn, toast, keysOn, keysUsed, segmented, sectionNav } from './ui.js';
+import { icon, btn, iconBtn, toast, keysOn, keysUsed, segmented, sectionNav, faceLead, tileLead, avatar } from './ui.js';
 import { itemRow, nameWords, numWords, nw, listDetail, wireListDetail, ldPicked } from './steps.js';
 import { plainCodes } from './terms.js';
 
@@ -100,20 +100,28 @@ function lineOf(i) {
   return [bill, words].filter(Boolean).join(' · ');
 }
 const ICON = i => fromTeam(i) ? 'message-square' : i.kind === 'testimony' ? 'file-text' : i.kind === 'system' ? 'settings' : 'bell';
-// The button shows what it does: a tick marks it read, the dot (the unread mark) marks it unread again (A-18).
-const readBtn = (key, unread, n = 1) => iconBtn(unread ? 'check' : 'circle-dot', n > 1 ? (unread ? `Mark all ${n} read` : `Mark all ${n} unread`) : unread ? 'Mark read' : 'Mark unread', { 'data-ibtoggle': key }, 'ib-read');
+// R-344 rule 4: who wrote leads the row as their face (their own colour), and a note from the tracker as a soft round tile
+// with its kind's picture (decision 1), so the eye sorts teammates from the tracker before reading. The face replaces the
+// small speech-bubble on the line (A-25); the name stays the row's name, in words.
+const senderOf = i => { const m = (S.messages?.[i.bill_id] || []).find(x => 'm:' + x.id === i.key);
+  if (m?.advocate_id) return m.advocate_id;
+  const who = whoOf(i).toLowerCase(); return (S.advocates || []).find(a => String(a.full_name || '').toLowerCase() === who)?.id || null; };
+const leadOf = i => fromTeam(i) ? faceLead(senderOf(i) ? [senderOf(i)] : []) : tileLead(ICON(i));
+// R-344 rule 5: the check mark means done and approve only, so marking read is the open envelope and marking unread again
+// the closed one (A-18; the label says it, for a screen reader and on hover).
+const readBtn = (key, unread, n = 1) => iconBtn(unread ? 'mail-open' : 'mail', n > 1 ? (unread ? `Mark all ${n} read` : `Mark all ${n} unread`) : unread ? 'Mark read' : 'Mark unread', { 'data-ibtoggle': key }, 'ib-read');
 function msgRow(i) {
-  return itemRow({ key: i.key, name: whatOf(i), num: ago(i.at), icon: ICON(i),
+  return itemRow({ key: i.key, name: whatOf(i), num: ago(i.at), lead: leadOf(i),
     line: `${i.unread ? '<span class="sr">Unread. </span>' : ''}${lineOf(i)}`, pick: i.key, selected: ldPicked('ib-msg') === i.key,
-    button: i.unread && ownStep(i) ? '' : readBtn(i.key, i.unread), cls: `ib-row ib-msgrow${i.unread ? ' ib-unread' : ''}` });
+    button: i.unread && ownStep(i) ? '' : readBtn(i.key, i.unread), cls: `ib-row ib-msgrow v6-face-row${i.unread ? ' ib-unread' : ''}` });
 }
 // The same note on three or more bills (a status sweep) is one row; opening it lists each.
 const dupKey = i => `${i.kind}|${unslack(i.title || '')}|${unslack(i.body || '')}`;
 function dupRow(k, list) {
   const un = list.filter(x => x.unread).length, i = list[0], key = 'dup:' + k;
-  return itemRow({ key, name: whatOf(i), num: ago(i.at), icon: ICON(i),
+  return itemRow({ key, name: whatOf(i), num: ago(i.at), lead: leadOf(i),
     line: `${un ? '<span class="sr">Unread. </span>' : ''}${plural(list.length, 'bill')}: ${esc(clip(list.map(x => { const bb = x.bill_id && billById(x.bill_id); return bb ? nameWords(bb, 40) : x.bill_number || ''; }).filter(Boolean).join(', '), 160))}`,
-    pick: key, selected: ldPicked('ib-msg') === key, button: readBtn(key, !!un, list.length), cls: `ib-row ib-msgrow${un ? ' ib-unread' : ''}` });
+    pick: key, selected: ldPicked('ib-msg') === key, button: readBtn(key, !!un, list.length), cls: `ib-row ib-msgrow v6-face-row${un ? ' ib-unread' : ''}` });
 }
 function groupedMessages(rows) {
   const seen = new Map(), order = [];
@@ -139,7 +147,8 @@ function msgDetail(key) {
     // The talk on the bill, ending with this message and anything after it (at most three before it).
     const all = (S.messages?.[i.bill_id] || []).slice().sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
     const at = all.findIndex(m => 'm:' + m.id === i.key), shown = at >= 0 ? all.slice(Math.max(0, at - 3)) : [];
-    const msg = m => `<li class="ib-msg${'m:' + m.id === i.key ? ' this' : ''}"><p class="ib-msg-who">${esc(m.advocate_id === S.me?.id ? 'You' : teamFirst(m.advocate_id))} · ${nw(esc(fmtDT(m.created_at)))}</p><p class="ib-msg-t">${esc(unslack(m.body))}</p></li>`;
+    // Each message in the talk carries its writer's face beside their name (R-344 rule 4), as the rows do.
+    const msg = m => `<li class="ib-msg${'m:' + m.id === i.key ? ' this' : ''}"><p class="ib-msg-who">${advocate(m.advocate_id) ? avatar(advocate(m.advocate_id), 24, { deco: true }) : ''}<span>${esc(m.advocate_id === S.me?.id ? 'You' : teamFirst(m.advocate_id))} · ${nw(esc(fmtDT(m.created_at)))}</span></p><p class="ib-msg-t">${esc(unslack(m.body))}</p></li>`;
     const thread = shown.length ? `<ol class="ib-thread" aria-label="The talk on this bill">${shown.map(msg).join('')}</ol>`
       : `<ol class="ib-thread"><li class="ib-msg this"><p class="ib-msg-who">${esc(whoOf(i))} · ${nw(esc(when))}</p><p class="ib-msg-t">${esc(unslack(i.body || ''))}</p></li></ol>`;
     return `<div class="ib-item">${head}${thread}

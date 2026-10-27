@@ -64,11 +64,12 @@ function waitingOn(l, from) {
 const unknownStance = (b, l) => { const x = stanceOf(b.id, l.id); return !x.stance || x.stance === 'unknown'; };
 function stanceBtn(b, l) {
   const x = stanceOf(b.id, l.id), word = STANCE_WORD[x.stance] || 'Unknown', none = !x.stance || x.stance === 'unknown';
-  // Unknown, a small pencil whose name says the act and the bill: eight identical "Mark where they stand" buttons ran down
-  // Kevin's page, one per row (A-3, A-14); the section's line says once what the pencil does. Known, the stance itself, a
-  // text button that changes it (A-12: never a status tag that acts).
-  if (none) return iconBtn('pencil', `Mark where ${shortName(l)} stands on ${billSay(b)}`, { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog' }, 'lg6-standb');
-  return btn(word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance] || 'pencil',
+  // Unknown, a small thumbs-up whose name says the act and the bill: eight identical "Mark where they stand" buttons ran down
+  // Kevin's page, one per row (A-3, A-14); the section's line says once what it does. Known, the stance itself, a text
+  // button that changes it (A-12: never a status tag that acts). R-344 rule 5: the thumbs-up, as the hearing page's "Mark
+  // where they stand" and the stances themselves use; the pencil meant "edit" everywhere else.
+  if (none) return iconBtn('thumbs-up', `Mark where ${shortName(l)} stands on ${billSay(b)}`, { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog' }, 'lg6-standb');
+  return btn(word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance] || 'thumbs-up',
     attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Where ${shortName(l)} stands on ${billSay(b)}: ${word}. Change it` } });
 }
 // One of our bills with this legislator: the shared row (name, number, one line) and its one button. In "Waiting on them"
@@ -144,8 +145,8 @@ function pageHTML(route, l, back) {
   const sub = [PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, island === 'Hawaiʻi' ? 'Hawaiʻi Island' : island].filter(Boolean).join(' · ');
   const ours = intro.filter(b => ourBill(b)).length;
   const billsTitle = asks.length ? 'Our other bills in their committees' : 'Our bills in their committees';
-  // The pencil's hint is said once, over the first list that has a pencil (R-336 walk 2: it was printed over both).
-  const PENCIL = 'The pencil on a bill marks where they stand on it.';   // on a phone it sits under the bill, not beside it
+  // The button's hint is said once, over the first list that has one (R-336 walk 2: it was printed over both).
+  const PENCIL = 'The thumbs-up on a bill marks where they stand on it.';   // on a phone it sits under the bill, not beside it
   const waitPencil = asks.length > 0 && asks.some(x => !x.waitingMine && unknownStance(x.b, l));
   const cmPencil = !waitPencil && [...(fromRest ? [fromRest] : []), ...inCm].some(b => unknownStance(b, l));
   // A bill they introduced with no nickname shows its summary, which ran to two bold lines (R-336 walk 2). It is cut at a
@@ -179,7 +180,7 @@ function pageHTML(route, l, back) {
       ${l.phone ? `<li><span>${icon('phone')}${esc(l.phone)}</span>${copyBtn('phone number', l.phone)}</li>` : ''}
       ${l.email ? `<li><span>${icon('mail')}<a href="mailto:${esc(l.email)}">${esc(l.email).replace('@', '@<wbr>')}</a></span>${copyBtn('email address', l.email)}</li>` : ''}
       ${l.places ? `<li><span>${icon('house')}Represents ${esc(l.places)}</span></li>` : ''}
-      ${l.capitol_url ? `<li><span>${icon('landmark')}<a href="${esc(l.capitol_url)}" target="_blank" rel="noopener">Their page at capitol.hawaii.gov${icon('external-link')}<span class="sr"> (opens in a new tab)</span></a></span></li>` : ''}
+      ${l.capitol_url ? `<li><span>${icon('globe')}<a href="${esc(l.capitol_url)}" target="_blank" rel="noopener">Their page at capitol.hawaii.gov${icon('external-link')}<span class="sr"> (opens in a new tab)</span></a></span></li>` : ''}
     </ul>`)}
   </div>`;
 }
