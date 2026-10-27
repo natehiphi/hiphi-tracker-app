@@ -17,7 +17,7 @@
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
-import { tintOf, issueIcon } from './issuegrid.js';   // an issue's topic tint and icon, as its card on All issues (R-342, R-346)
+import { issueIcon } from './issuegrid.js';   // an issue's own icon, else its topic's (R-339), on each calendar entry (R-346)
 import { icon, btn, iconBtn, toast, segmented, menuSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
@@ -320,14 +320,18 @@ function issuesOfB(b) {
   const ids = new Set((S.billIssues || []).filter(x => x.bill_id === b?.id).map(x => x.issue_id));
   return (S.issues || []).filter(i => ids.has(i.id));
 }
-// The issues of an entry's bills, each once, at most two then "+N": icon and whole name, a link to the issue.
-function issueTags(bills) {
-  const cats = S.categories || [], seen = new Map();
+// The issues of an entry's bills, each once, as one quiet line: the first issue's small icon and whole name in the muted
+// text colour (no pastel fill: the fresh-eyes review, A-5's five text colours), "+1" when there are more. An issue named as
+// its bill, when the entry's job already says that name ("File the testimony on Youth mental health app pilot"), is its
+// icon alone; the link keeps the name for screen readers (A-14).
+function issueTags(bills, said = '') {
+  const seen = new Map();
   for (const b of bills || []) for (const i of issuesOfB(b)) if (!seen.has(i.id)) seen.set(i.id, i);
   const iss = [...seen.values()].sort((x, y) => String(x.name).localeCompare(String(y.name)));
   if (!iss.length) return '';
-  const chip = i => `<a class="hc-iss ${tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0))}" href="#/issue/${encodeURIComponent(i.id)}">${icon(issueIcon(i))}<span>${esc(i.name)}</span></a>`;
-  return `<span class="hc-isss">${iss.slice(0, 2).map(chip).join('')}${iss.length > 2 ? `<span class="hc-issn">+${iss.length - 2}</span>` : ''}</span>`;
+  const i = iss[0], nm = String(i.name || '').trim().toLowerCase();
+  const same = !!nm && String(said || '').toLowerCase().includes(nm) && (bills || []).some(b => String(b?.nickname || '').trim().toLowerCase() === nm);
+  return `<p class="hc-isl"><a class="hc-iss" href="#/issue/${encodeURIComponent(i.id)}" aria-label="${esc(`Issue: ${i.name}`)}"${same ? ` title="${esc(i.name)}"` : ''}>${icon(issueIcon(i))}${same ? '' : `<span>${esc(i.name)}</span>`}</a>${iss.length > 1 ? `<span class="hc-issn">+${iss.length - 1}</span>` : ''}</p>`;
 }
 const stWords = st => st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : '';
 // One bill on an entry: its number (a link to it), then where it stands, or the person's own step on it when Today folded
@@ -351,9 +355,9 @@ function calEntry(e, { wkend = false } = {}) {
     const bills = e.bills.map(y => billLi(y.b, y)).join('');
     return `<li class="hc-e hc-due${e.late ? ' past' : ''}">${head('file-text', 'Testimony due')}${job(`#/hearing/${encodeURIComponent(h.id)}?from=week`, what)}${list(bills)}${issueTags(e.bills.map(y => y.b))}</li>`;
   }
-  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step">${head('circle-check', 'Your step')}${job(e.href, e.words)}${list(billLi(e.b, {}))}${issueTags([e.b])}</li>`;
+  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step">${head('circle-check', 'Your step')}${job(e.href, e.words)}${list(billLi(e.b, {}))}${issueTags([e.b], e.words)}</li>`;
   if (e.k === 'fu') return `<li class="hc-e hc-todo hc-fu">${head('phone', 'Follow-up')}${job(e.href, e.words)}${e.sub || e.who ? `<p class="hc-es">${esc([e.sub, e.who ? `For ${e.who === 'You' ? 'you' : e.who}` : ''].filter(Boolean).join(' · '))}</p>` : ''}</li>`;
-  return `<li class="hc-e hc-todo">${head('list-todo', 'To-do')}${job(e.href, e.words)}${e.who ? `<p class="hc-es">${esc(`For ${e.who === 'You' ? 'you' : e.who}`)}</p>` : ''}${e.b ? list(billLi(e.b, {})) + issueTags([e.b]) : ''}</li>`;
+  return `<li class="hc-e hc-todo">${head('list-todo', 'To-do')}${job(e.href, e.words)}${e.who ? `<p class="hc-es">${esc(`For ${e.who === 'You' ? 'you' : e.who}`)}</p>` : ''}${e.b ? list(billLi(e.b, {})) + issueTags([e.b], e.words) : ''}</li>`;
 }
 const dayShort = d => fmt(d, { weekday: 'short' }), dateShort = d => fmt(d, { month: 'numeric', day: 'numeric' });
 function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', steps = null } = {}) {

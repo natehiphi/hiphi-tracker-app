@@ -47,7 +47,14 @@ with L.browser() as B:
     R.check(f'{w}: the Team card has its heading and the partners line', team.startswith('Team') and re.search(r'Partners · \d+ sets? of words', team) is not None, team[:200])
     strip = pg.page.query_selector('.t6-aside .t6-wk')
     R.check(f'{w}: the week strip leads the side column', bool(strip) and strip.is_visible() and pg.page.evaluate("document.querySelector('.t6-aside').firstElementChild?.classList.contains('t6-wk')"))
-    R.check(f'{w}: the strip has five days, today ringed', pg.page.evaluate("document.querySelectorAll('.t6-wk .t6-wkd').length") == 5 and bool(pg.page.query_selector('.t6-wk .t6-wkd.today[aria-current=date]')))
+    R.check(f'{w}: the strip has five days, each a link, today ringed', pg.page.evaluate("document.querySelectorAll('.t6-wk .t6-wkd > a.t6-wkl[data-t6day]').length") == 5 and bool(pg.page.query_selector('.t6-wk .t6-wkd.today a[aria-current=date]')))
+    R.check(f'{w}: the strip says its marks in words ("1 hearing", "3 yours"), no legend, no separate Open the calendar', re.search(r'\b\d+ hearings?\b', pg.text('.t6-wk')) is not None and re.search(r'\b\d+ yours\b', pg.text('.t6-wk')) is not None
+      and not pg.page.query_selector('.t6-wkkey, [data-t6cal]') and 'Open the calendar' not in pg.text('.t6-wk'))
+    R.check(f'{w}: an issue named as its bill is its icon alone (its name is in the sentence)', pg.page.evaluate("""[...document.querySelectorAll('.t6-job')].every(r => { const c = r.querySelector('.t6-iss'), say = r.querySelector('.t6-jsay')?.textContent || '';
+      if (!c) return true; const nm = (c.getAttribute('aria-label') || '').replace(/^Issue: /, ''); return !(say.includes(nm) && c.textContent.trim()); })"""))
+    R.check(f'{w}: "Any time" is as large as the times', pg.page.evaluate("(() => { const a = document.querySelector('.t6-jt.any'), t = document.querySelector('.t6-jt:not(.any)'); return !a || !t || getComputedStyle(a).fontSize === getComputedStyle(t).fontSize; })()"))
+    R.check(f"{w}: a hearing day's next step leads with the step's sentence, its bill a link, above the sitting", pg.page.evaluate("""(() => { const c = document.querySelector('.t6-nextsit'); if (!c) return true;
+      const h = c.querySelector('.t6-nshead .t6-nsay a.v6-step-in'), n = c.querySelector('.v6-hcard-name'); return !!h && !!n && (h.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) > 0; })()"""))
     R.check(f'{w}: the next step card is first', pg.page.evaluate("document.querySelector('.t6-col').firstElementChild?.querySelector('.t6-next, .t6-nexth') != null"))
     R.check(f'{w}: no link inside a link', pg.page.evaluate("document.querySelectorAll('a a').length") == 0)
     R.check(f'{w}: no sideways scroll', overflow(pg) <= 0, overflow(pg))
@@ -63,19 +70,22 @@ with L.browser() as B:
       return out; })()""")
     R.check(f'{w}: the calendar lists no job twice (finding C)', not dup, dup)
     R.check(f'{w}: no calendar entry name is cut short', pg.page.evaluate("![...document.querySelectorAll('#t6-week .hc-e')].some(e => /…/.test(e.textContent))"))
-    # the strip's link goes to the week; a row still opens beside the list
-    pg.page.click('.t6-wk [data-t6cal]'); pg.page.wait_for_timeout(900)
-    R.check(f'{w}: "Open the calendar" goes to the week', pg.page.evaluate("Math.abs(document.querySelector('#t6-week').getBoundingClientRect().top) < innerHeight * 0.6"))
+    # a day of the strip goes to its own column in the week; a row still opens beside the list
+    pg.page.click('.t6-wk a[data-t6day="2026-03-18"]'); pg.page.wait_for_timeout(900)
+    R.check(f"{w}: a day in the strip goes to that day's column in the week", pg.page.evaluate("(() => { const r = document.querySelector('#t6-week .hc-day[data-hcday=\"2026-03-18\"]').getBoundingClientRect(); return r.top >= -2 && r.top < innerHeight * 0.6; })()"))
     pg.page.evaluate('scrollTo(0, 0)')
     pick = pg.page.query_selector('section[aria-labelledby="t6-g-today"] .t6-jmain[data-v6pick]')
-    pick.click(); pg.page.wait_for_timeout(600)
+    pick.click(position={'x': 24, 'y': 24}); pg.page.wait_for_timeout(600)   # on the time column, off the bill's own link
     R.check(f'{w}: a row still opens beside the list', bool(pg.page.query_selector('.t6-ld.open .v6-item')))
     R.check(f'{w}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
   # ---- a phone: nothing lost, nothing sideways ----
   pg = B.page('NT', 390, 844, mobile=True); pg.open('/')
   # (on a phone's hearing day the next step is inside its sitting's big card, V14: .t6-hday-ph)
-  R.check('390: the next step, Do today, Coming up, the Team lines and the week are all there', all(pg.page.query_selector(s) for s in ['.t6-next, .t6-hday-ph .t6-hc-lead', 'section[aria-labelledby="t6-g-today"]', 'section[aria-labelledby="t6-g-soon"]', '.t6-edges .t6-teamc', '#t6-week .hc-cal']))
+  R.check('390: the next step, Do today, Coming up, the Team lines and the week are all there', all(pg.page.query_selector(s) for s in ['.t6-next, .t6-hday-ph .t6-nshead', 'section[aria-labelledby="t6-g-today"]', 'section[aria-labelledby="t6-g-soon"]', '.t6-teamc', '#t6-week .hc-cal']))
+  R.check('390: the whole Team card sits right under the next step, before Do today', pg.page.evaluate("""(() => { const t = document.querySelector('.t6-teamc'), d = document.querySelector('section[aria-labelledby="t6-g-today"]'), n = document.querySelector('.t6-hday-ph, .t6-nextcol');
+    return !!t && !!d && !!n && (n.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 && (t.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 && /slipping/.test(t.textContent) && /Partners/.test(t.textContent); })()"""))
+  R.check('390: the Team card is not drawn twice', len(pg.page.query_selector_all('.t6-col .t6-teamc')) == 1)
   R.check('390: rows keep the time and the sentence', pg.page.evaluate("[...document.querySelectorAll('section[aria-labelledby=\"t6-g-today\"] .v6-row')].every(r => r.querySelector('.t6-jt') && r.querySelector('.t6-jsay a'))"))
   R.check('390: no sideways scroll', overflow(pg) <= 0, overflow(pg))
   R.check('390: no page errors', not pg.errors, pg.errors[:2]); pg.close()

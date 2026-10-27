@@ -491,9 +491,9 @@ def zoom(b, R, only):
     zoomed += pg.page.evaluate(CONTROLS.replace("main a[href], main button, main input:not([type=hidden]), main select, main textarea, main [role=tab], main [role=switch]", ".hc-cal:has([data-hcpick]) .hc-day:not(.on) a[href]").replace("e.getClientRects().length && ", ""))
     back = pg.page.evaluate("() => !![...document.querySelectorAll('a[data-back], .sv-back')].find(e => e.getClientRects().length)")
     heads = pg.page.evaluate(HEADS)
-    # Today's "Open the calendar" (R-346, the side column's week strip from 1100px) goes to the week section of the same
-    # page; at 640px that section is in the one column, so the place it opens is on the page.
-    if pg.page.query_selector('#t6-week'): zoomed.append(['', '#/?view=cal', '', ''])
+    # Today's week strip (R-346, the side column from 1100px): each day goes to its column in the week section of the
+    # same page; at 640px that section is in the one column, so the place each opens is on the page.
+    if pg.page.query_selector('#t6-week'): zoomed += [['', c[1], '', ''] for c in full if frag(c[1]).startswith('#/?view=cal')]
     lost = sorted({c[0] or c[1] for c in full if not kept(c, zoomed, back, heads) and len(c[0] or c[1]) > 1})
     out[key] = {'cut': c['n'], 'hscroll': c['hscroll'], 'lost': len(lost)}
     ok = not c['hscroll'] and not c['cut'] and not lost and not pg.errors

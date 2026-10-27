@@ -343,3 +343,23 @@ body.staff6 .hc-e a.hc-iss svg { width: 14px; height: 14px; flex: none; margin-t
 body.staff6 .hc-e a.hc-iss > span { min-width: 0; overflow-wrap: break-word; }
 body.staff6 .hc-step { padding-left: 10px; box-shadow: inset 3px 0 0 var(--v6-action); }
 @media (max-width: 767.98px) { body.staff6 .hc-e.hc-h { padding: 12px 16px; } body.staff6 .hc-e a.hc-bl { min-height: 44px; } body.staff6 .hc-e a.hc-job { min-height: 32px; } }
+
+/* ---- After the fresh-eyes review (R-346 finding D): every entry is the same card, whatever it is (a hearing, your step,
+   testimony due, a follow-up, a to-do, the Capitol's deadline): one background, one radius, one padding, no side rules.
+   The kind line tells them apart. The issue is one quiet line, its small icon and its name in the muted text colour, no
+   pastel fill (A-5: at most five text colours on a screen). ---- */
+body.staff6 .hc-e, body.staff6 .hc-e.hc-h, body.staff6 .hc-due, body.staff6 .hc-todo, body.staff6 .hc-step, body.staff6 .hc-cap {
+  padding: 10px 12px; border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .hc-due, body.staff6 .hc-step { box-shadow: var(--v6-sh1); }
+body.staff6 .hc-cap { margin: 0; }
+body.staff6 .hc-e .hc-bills, body.staff6 .hc-e.hc-h .hc-bills { margin: 2px 0 0; padding: 0; border-top: 0; gap: 0; }
+body.staff6 .hc-e a.hc-bl { min-height: 28px; }
+body.staff6 .hc-isl { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 6px; margin: 2px 0 0; min-width: 0; }
+body.staff6 .hc-e a.hc-iss, body.staff6 .hc-isl a.hc-iss { display: inline-flex; align-items: flex-start; gap: 6px; min-height: 0; max-width: 100%; padding: 0; border: 0; border-radius: 0;
+  background: none; color: var(--v6-muted); font-weight: 400; font-size: var(--v6-t14); line-height: 20px; text-decoration: none; }
+body.staff6 .hc-isl a.hc-iss svg { width: 14px; height: 14px; flex: none; margin-top: 3px; color: var(--v6-muted); }
+body.staff6 .hc-isl a.hc-iss > span { min-width: 0; overflow-wrap: break-word; }
+body.staff6 .hc-isl a.hc-iss::after { content: ""; position: absolute; inset: -8px 0; }
+body.staff6 .hc-isl a.hc-iss { position: relative; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hc-isl a.hc-iss:hover > span { text-decoration: underline; text-underline-offset: 3px; } }
+@media (max-width: 767.98px) { body.staff6 .hc-e, body.staff6 .hc-e.hc-h, body.staff6 .hc-cap { padding: 12px 16px; } body.staff6 .hc-e a.hc-bl { min-height: 44px; } }

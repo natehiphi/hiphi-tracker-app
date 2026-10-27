@@ -1267,3 +1267,37 @@ body.staff6 .t6-week .hw-bar { display: flex; flex-wrap: wrap; align-items: cent
 body.staff6 .t6-root > .t6-week { margin-top: 32px; }
 @media (max-width: 767px) { body.staff6 .t6-root > .t6-week { margin-top: 24px; } }
 body.staff6 .t6-week .hc-e a.hc-job, body.staff6 .t6-week .hc-e a.hc-iss > span { overflow-wrap: break-word; }
+
+/* ---- After the fresh-eyes review (R-346) ---- */
+/* "Any time" is a time like the others, in the muted colour */
+body.staff6 .t6-jt.any { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 500; color: var(--v6-muted); }
+/* an issue named as its bill: its icon alone (the name is in the sentence) */
+body.staff6 a.t6-iss.t6-iss-ic { padding: 2px 6px; }
+body.staff6 a.t6-iss.t6-iss-ic svg { margin-top: 0; }
+/* the week strip: each day a link to its column in the week, its marks in words */
+body.staff6 .t6-wkd { display: block; min-height: 0; padding: 0; background: none; }
+body.staff6 .t6-wkd.today { background: none; box-shadow: none; }
+body.staff6 a.t6-wkl { display: grid; align-content: start; gap: 2px; height: 100%; min-height: 76px; padding: 8px 6px; border-radius: var(--v6-r12); background: var(--v6-wash);
+  color: var(--v6-body); text-decoration: none; font-size: var(--v6-t14); line-height: 20px; }
+body.staff6 .t6-wkd.today a.t6-wkl { background: var(--v6-card); box-shadow: inset 0 0 0 2px var(--v6-action); }
+body.staff6 .t6-wkd.past a.t6-wkl { color: var(--v6-muted); }
+body.staff6 a.t6-wkl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.t6-wkl:hover { box-shadow: var(--v6-sh1); } body.staff6 .t6-wkd.today a.t6-wkl:hover { box-shadow: inset 0 0 0 2px var(--v6-action), var(--v6-sh1); } }
+body.staff6 .t6-wkc { display: block; overflow-wrap: break-word; }
+body.staff6 .hc-day:focus { outline: none; }
+body.staff6 .hc-day:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hc-day { scroll-margin-top: calc(var(--header, 64px) + 16px); }
+/* a hearing day's next step leads with the step (option E), then the sitting */
+body.staff6 .t6-nshead { display: grid; gap: 4px; padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid var(--v6-hair); }
+body.staff6 .t6-nshead > * { margin: 0; }
+body.staff6 .t6-nsay { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t22); line-height: var(--v6-lh22, 30px); color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .t6-nsacts { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
+body.staff6 .t6-nsacts .btn.primary { min-height: 44px; }
+/* a phone: the Team card right under the next step */
+body.staff6 .t6-leadph > .t6-doors { margin: 0; }
+/* five days in a 360px column: room for "2 hearings" whole (a word never breaks inside, A-24) */
+body.staff6 .t6-wk { padding-left: 12px; padding-right: 12px; }
+body.staff6 .t6-wk .t6-wkhd { padding: 0 8px; }
+body.staff6 .t6-wkdays { gap: 4px; }
+body.staff6 a.t6-wkl { padding: 8px 4px 8px 6px; }
+body.staff6 .t6-wkc, body.staff6 .t6-wkcap { overflow-wrap: normal; word-break: keep-all; hyphens: manual; }

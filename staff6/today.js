@@ -388,8 +388,12 @@ const billInA = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(fu
 function issueChip(b) {
   const i = b?.id ? issuesOfBill(b.id)[0] : null; if (!i) return '';
   const cats = S.categories || [], tint = tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0));
-  return `<a class="t6-iss ${tint}" href="${esc(issueLinkHref(i, b))}" aria-label="${esc(`Issue: ${i.name}`)}">${icon(issueIcon(i))}<span>${esc(i.name)}</span></a>`;
+  // An issue named as its bill is ("Youth mental health app pilot" for HB 1562's nickname) is its icon alone: the name is
+  // in the sentence just under it (A-14, the fresh-eyes review); the link keeps the issue's name for screen readers.
+  const same = sameName(i, b);
+  return `<a class="t6-iss ${tint}${same ? ' t6-iss-ic' : ''}" href="${esc(issueLinkHref(i, b))}" aria-label="${esc(`Issue: ${i.name}`)}"${same ? ` title="${esc(i.name)}"` : ''}>${icon(issueIcon(i))}${same ? '' : `<span>${esc(i.name)}</span>`}</a>`;
 }
+const sameName = (i, b) => !!b?.nickname && String(i?.name || '').trim().toLowerCase() === String(b.nickname).trim().toLowerCase();
 const plainOf = html => String(html || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, '’').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 // What a row says: { kind, b (the bill on its quiet line), html (the sentence, its bill a link), plain, sub (HTML), tone, ic }.
 function sayOf(it, v = S.me) {
@@ -1108,7 +1112,23 @@ function plan(v = S.me) {
 // "Your next step": the step card, or on a hearing day the sitting's card with the step's row leading it.
 function nextSec(P, L, n = '', v = S.me) {
   if (!P.nextSit) return L.nextH(n);
-  return `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">Your next step</h2>${sittingCard(P.nextSit, { v, id: `t6-hcn${n}`, lead: P.next, drop: P.drop(P.nextSit) })}</section>`;
+  return `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">Your next step</h2>${stepFirst(sittingCard(P.nextSit, { v, id: `t6-hcn${n}`, lead: P.next, drop: P.drop(P.nextSit) }), P.next, v)}</section>`;
+}
+// On a hearing day the next step's card is its sitting's (V14), and it reads as a step, as every other next-step card does
+// (the fresh-eyes review: Nate's card led with the committee, Kevin's with the job): the quiet line and the step's sentence
+// with the bill as a link (option E), the late window and the step's filled button, then the hearing's own name, Open
+// the hearing and I'm going. The step's row leaves the card's list, since the head says it (A-14).
+function stepFirst(html, it, v) {
+  if (!it?.b || !it.s) return html;
+  const m = /<li class="v6-hcard-bill t6-hc-lead">[\s\S]*?<\/li>/.exec(html); if (!m) return html;
+  const btnM = /<span class="v6-row-act">([\s\S]*?)<\/span><\/li>$/.exec(m[0]), y = sayOf(it, v);
+  const late = /<p class="v6-hcard-note v6-hcard-late">[\s\S]*?<\/p>/.exec(html);
+  const eye = [esc(y.kind), `<span class="v6-row-num">${esc(numWords(it.b))}</span>`, issueChip(it.b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
+  const head = `<div class="t6-nshead"><p class="t6-jeye">${eye}</p><p class="v6-step-what t6-nsay">${y.html}</p>${late ? late[0] : `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.sub}</p>`}${btnM ? `<div class="t6-nsacts">${btnM[1]}</div>` : ''}</div>`;
+  let out = html.replace(m[0], '');
+  if (late) out = out.replace(late[0], '');
+  out = out.replace(/<ul class="v6-hcard-bills">\s*<\/ul>/, '');
+  return out.replace('<div class="v6-hcard-body">', `<div class="v6-hcard-body">${head}`);
 }
 // ---- The week, in Today's own page (R-342, then R-346) ----
 // R-342 gave Today a whole calendar page behind two switches (the Today | Calendar tabs and a List | Calendar switch, one
@@ -1146,17 +1166,26 @@ function weekSec(route, v) {
 // the column itself.
 function glanceHTML(v, extra = '') {
   let days = []; try { days = weekGlance({ scope: calScope(S.route), steps: calSteps(v) }); } catch (e) { console.error(e); return ''; }
-  const say = x => `${x.long}${x.today ? ', today' : ''}: ${plural(x.h, 'hearing')}, ${plural(x.own, 'entry', 'entries')} of yours${x.caps.length ? `, Capitol deadline ${x.caps.join(', ')}` : ''}`;
-  const day = x => `<li class="t6-wkd${x.today ? ' today' : ''}${x.past ? ' past' : ''}"${x.today ? ' aria-current="date"' : ''}><span class="sr">${esc(say(x))}</span><span aria-hidden="true" class="t6-wkn">${esc(x.day)}</span>
-    ${x.h ? `<span aria-hidden="true" class="t6-wkc">${icon('landmark')}${x.h}</span>` : ''}${x.own ? `<span aria-hidden="true" class="t6-wkc t6-wko">${icon('check')}${x.own}</span>` : ''}${x.caps.length ? `<span aria-hidden="true" class="t6-wkcap">${esc(x.caps[0])}</span>` : ''}</li>`;
-  return `<section class="t6-wk" aria-labelledby="t6-wk-h"><div class="t6-wkhd"><h2 class="t6-sh" id="t6-wk-h">${icon('calendar')}<span>This week</span></h2><a class="t6-wkopen" href="#/?view=cal" data-t6cal>Open the calendar</a></div>
-    <ol class="t6-wkdays">${days.map(day).join('')}</ol>
-    <p class="t6-wkkey" aria-hidden="true">${icon('landmark')}<span>hearings on your bills</span><span class="v6-sep"> · </span>${icon('check')}<span>yours</span></p>${extra}</section>`;
+  // Each day is a link to its own column in the week under Coming up (the fresh-eyes review: one way in, not a day box and a
+  // separate "Open the calendar"); its marks in words, "1 hearing · 3 yours" (no legend to learn, A-14).
+  const marks = x => [x.h ? plural(x.h, 'hearing') : '', x.own ? `${x.own} yours` : ''].filter(Boolean);
+  const say = x => `${x.long}${x.today ? ', today' : ''}: ${marks(x).join(', ') || 'nothing yet'}${x.caps.length ? `, Capitol deadline ${x.caps.join(', ')}` : ''}. Open the day in your week`;
+  const day = x => `<li class="t6-wkd${x.today ? ' today' : ''}${x.past ? ' past' : ''}"><a class="t6-wkl" href="#/?view=cal&amp;day=${esc(x.d)}" data-t6day="${esc(x.d)}" aria-label="${esc(say(x))}"${x.today ? ' aria-current="date"' : ''}>
+    <span class="t6-wkn">${esc(x.day)}</span>${marks(x).map(m => `<span class="t6-wkc">${esc(m)}</span>`).join('')}${x.caps.length ? `<span class="t6-wkcap">${esc(x.caps[0])}</span>` : ''}</a></li>`;
+  return `<section class="t6-wk" aria-labelledby="t6-wk-h"><div class="t6-wkhd"><h2 class="t6-sh" id="t6-wk-h">${icon('calendar')}<span>This week</span></h2></div>
+    <ol class="t6-wkdays">${days.map(day).join('')}</ol>${extra}</section>`;
 }
 // The week's address arrives (#/?view=cal: the strip's link, an old Calendar link, a week arrow): to the section, once per
 // address, and only when it is not already in sight.
-function toWeek(main, { force = false } = {}) {
+function toWeek(main, { force = false, day = null } = {}) {
   const sec = main.querySelector('#t6-week'); if (!sec) return;
+  const col = day && sec.querySelector(`.hc-day[data-hcday="${CSS.escape(day)}"]`);
+  if (col) {
+    // a phone shows one day: pick it as its day button would
+    const pb = sec.querySelector(`[data-hcpick="${CSS.escape(day)}"]`); if (pb?.offsetParent) pb.click();
+    col.scrollIntoView({ block: 'start', behavior: force && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
+    col.setAttribute('tabindex', '-1'); col.focus({ preventScroll: true }); return;
+  }
   const r = sec.getBoundingClientRect();
   if (force || r.top < 0 || r.top > innerHeight * 0.6) sec.scrollIntoView({ block: 'start', behavior: force && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
   sec.querySelector('#t6-week-h')?.focus({ preventScroll: true });
@@ -1169,9 +1198,9 @@ function weekWire(route, main) {
     try { await DB.patchPrefs({ tcscope: w }); } catch { /* the address keeps it */ }
     S.go(calHref(route, { who: w }), { replace: true, keepScroll: true });
   });
-  main.querySelectorAll('[data-t6cal]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); toWeek(main, { force: true }); }));
+  main.querySelectorAll('[data-t6day]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey) return; e.preventDefault(); toWeek(main, { force: true, day: a.dataset.t6day }); }));
   // (claimed, so the frame's own scroll after a Back or a link does not put the page back at the top: app.js scrollClaimed)
-  if (route?.q?.view === 'cal' && S.t6WeekAt !== location.hash) { S.t6WeekAt = location.hash; S.scrollClaimed = true; requestAnimationFrame(() => toWeek(main)); }
+  if (route?.q?.view === 'cal' && S.t6WeekAt !== location.hash) { S.t6WeekAt = location.hash; S.scrollClaimed = true; requestAnimationFrame(() => toWeek(main, { day: route.q.day || null })); }
   if (route?.q?.view !== 'cal') S.t6WeekAt = null;
 }
 
@@ -1198,14 +1227,17 @@ function render(route) {
   if (picked != null && !item) S.v6ld.today.key = null;
   // A phone's hearing day (V14): one big card per sitting first (time and room at a glance), the person's own step inside
   // it with the filled button, the team's rows folded; the next-step card only when the next step is not on a sitting.
-  const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${sits.map((h, i) => sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.nextSit === h ? P.next : null, own: P.drop(h) })).join('')}</section>` : '';
+  const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${sits.map((h, i) => { const c = sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.nextSit === h ? P.next : null, own: P.drop(h) }); return P.nextSit === h ? stepFirst(c, P.next, v) : c; }).join('')}</section>` : '';
   // Below 1100px (not a phone) the day's other sittings come right under the next step; from 1100px they are in the side
   // column. Any other season card closes the column below 1100px, beside the doors from 768px.
   const seasonCol = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: P.others, drop: P.drop, skipH: P.skipH });
   // On a phone a lead's slipping line comes right under the next step, on the first screen (v5 had it there; Nate's walk:
   // it was the last thing on a 3.3-screen Today), not among the doors after the lists.
-  const leadPh = phone && lead ? `<nav class="t6-doors t6-leadph" aria-label="The team">${lead}</nav>` : '';
-  const hday = P.others.length > 0 && !phone, doors = doorsNav([...(startIn ? [startIn] : []), ...doorLines(w, v, { coal, lead: phone ? '' : lead, leadShown: !!lead })]);
+  // On a phone the whole Team card (slipping, waiting on others, partners, the bills to ask) comes right under the next
+  // step, on the first screen, not after the lists (the fresh-eyes review; v5 had the slipping line there, Nate's walk).
+  const teamLines = doorLines(w, v, { coal, lead, leadShown: !!lead });
+  const leadPh = phone && teamLines.length ? `<div class="t6-leadph">${doorsNav(teamLines)}</div>` : '';
+  const hday = P.others.length > 0 && !phone, doors = doorsNav([...(startIn ? [startIn] : []), ...(phone ? [] : teamLines)]);
   const edge = doors || (!hday && seasonCol) ? `<div class="t6-edges">${doors}${!hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}</div>` : '';
   // Nothing for the side column and nothing to list: one calm reading column (the side opens when a door does).
   const side = sideHTML(v, P), alone = !P.rows && !/t6-season|t6-doors|t6-start/.test(side);
