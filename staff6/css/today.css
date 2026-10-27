@@ -1000,7 +1000,7 @@ body.staff6 .t6-wacts { display: flex; flex-wrap: wrap; gap: 4px; }
    button is on the first screen above the phone's bar (Nate's walk: Patti's Resubmit fell below the fold at 320) */
 @media (max-width: 359px) {
   body.staff6 .t6-next .v6-step > * { order: 2; }
-  body.staff6 .t6-next .v6-step > .v6-step-bill, body.staff6 .t6-next .v6-step > .v6-step-eyebrow, body.staff6 .t6-next .v6-step > .v6-step-what, body.staff6 .t6-next .v6-step > .v6-step-meta { order: 0; }
+  body.staff6 .t6-next .v6-step > .v6-step-bill, body.staff6 .t6-next .v6-step > .v6-step-eyebrow, body.staff6 .t6-next .v6-step > .v6-step-what, body.staff6 .t6-next .v6-step > .v6-step-chair, body.staff6 .t6-next .v6-step > .v6-step-meta { order: 0; }
   body.staff6 .t6-next .v6-step > .v6-step-acts { order: 1; }
 }
 /* a lead's slipping line on a phone, right under the next step */

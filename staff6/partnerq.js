@@ -23,7 +23,7 @@ import { S, DB, esc, fmtDate, hooks } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
 import { dailyWord, paused, HELD_NEXT } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
-import { numWords, billLineHTML } from './steps.js';   // Staff v6: the bill number as every row says it (D15)
+import { numWords, stepHeadHTML } from './steps.js';   // Staff v6: the bill number as every row says it (D15)
 
 // ---- who ----
 // approves_partners comes with the advocates row (migration 184); a turned-off person approves nothing.
@@ -334,10 +334,9 @@ export function pqRow(it, { short = false } = {}) {
 export function pqCard(it, { id = 't6-next-h' } = {}) {
   const r = pqRow(it, { short: true }), w = it.words || {};
   const ask = askHTML(it, 'c', { fold: true }), how = ask.match(/<details class="pq-more pq-how"[\s\S]*?<\/details>/)?.[0] || '';
-  const whatW = it.kind === 'issue' ? `${it.partner_name}’s new issue to approve` : `${it.partner_name}’s words to approve`;
   return `<section class="v6-step own named w-today t6-mini pq6" aria-labelledby="${id}" data-pqcard="${esc(keyOf(it))}">
-    ${billLineHTML(it.kind === 'bill' ? billOf(it) : null, { name: r.name, num: r.num })}
-    <h3 class="v6-step-what" id="${id}">${esc(whatW)}</h3>
+    ${it.kind === 'bill' && billOf(it) ? stepHeadHTML(billOf(it), { kind: 'Partner words', sentence: `Approve ${it.partner_name}’s words on {bill}`, id })
+      : stepHeadHTML(null, { kind: it.kind === 'issue' ? 'Partner issue' : 'Partner words', sentence: it.kind === 'issue' ? `Approve ${it.partner_name}’s new issue: ${r.name}` : `Approve ${it.partner_name}’s words on ${r.name}`, id })}
     <p class="v6-step-when">${esc(sentLine(it))}</p>
     ${it.kind === 'bill' ? flagLine(it.flag) : ''}
     ${how ? ask.replace(how, '') : ask}
