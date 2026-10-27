@@ -5,7 +5,8 @@
 # and on live data (screens_smoke.py), year-proof bill links (year_links.py) and the error reporter (errlog.py); then Staff v2's
 # live path on a fake database (staff_live.py) and its flows in the sandbox (staff_flows.py, R-152). The live
 # half reads production as the public does, with the privacy signal set, so no visit is counted. A red run emails whoever
-# pushed. Since R-278 every step runs even after one fails (the run is still red), so one run lists every stale check. The
+# pushed. Since R-278 every step runs even after one fails (the run is still red), so one run lists every stale check. Since
+# R-345 the steps run on eight machines at once (the job below); Staff v3 and v4 are frozen and their checks retired. The
 # share-pages commits (b/, i/ and cal/ only; hourly from January to June) do not run it.
 name: Tests
 on:
@@ -23,13 +24,18 @@ concurrency:
   # ~20-minute run, cancelling meant no run ever finished on 10/11 (R-240).
   cancel-in-progress: false
 jobs:
+  # Eight machines at once, each running its own share of the browser steps (R-345, Nate 26 Oct): one machine running all
+  # 64 one after another took 47 to 77 minutes, and every build waited for it. Each step names its shard in its `if:` line;
+  # the shares were balanced by the green run's times of 27 Oct (about 6 minutes of tests each). A new step goes on the
+  # lightest shard: tools/quick_checks.mjs refuses a push with a browser step that names none and says which one to use.
   tests:
+    strategy:
+      fail-fast: false   # one shard's red does not stop the others: one run still names every stale check (R-278)
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    name: Tests ${{ matrix.shard }} of 8
     runs-on: ubuntu-latest
-    timeout-minutes: 80   # 20 stopped the run in its last step on 10/11 (R-240); since R-278 a red run runs every step too, where a
-                          # failing browser test waits out its timeouts (minutes are free here: the repo is public).
-                          # 40 stopped a run with every step passing on 10/22 (R-316: 33 minutes the run before, 40 that one).
-                          # 50 stopped two runs at step 72 of 76 with every step before it passing on 10/25 (R-212 #51): the green run
-                          # before them took 49 minutes, and each build adds a check. Raise it again rather than drop a check.
+    timeout-minutes: 30   # a shard is about 8 minutes green; a red one waits out its browser timeouts. Minutes are free here.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,6 +47,7 @@ jobs:
       # The steps that need no browser are one list, tools/quick_checks.mjs, which also runs before every push from
       # Nate's machine (backend/.githooks/pre-push, R-278); it runs them all and names every one that fails.
       - name: "The quick checks: syntax, the staff apps' parity, the first load, the suggested bill, HIPHI's words, share cards, the quiz, the words list, where a bill stands, the Capitol's words"
+        if: ${{ matrix.shard == 1 }}
         run: node tools/quick_checks.mjs
       - name: Playwright
         if: ${{ !cancelled() }}
@@ -53,197 +60,188 @@ jobs:
           python3 -m http.server 8832 > /dev/null 2>&1 &
           sleep 1
       - name: Every public screen, three kinds of person, sandbox and live
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/screens_smoke.py
       - name: "Where a bill stands: six words written once, one rule for every list, Help explains them (R-212 #44, R-333, R-309)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/stands_page.py
       - name: "The step line in plain words: each committee named once, one way, and no committee code on the bill page (R-212 #45)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/step_line.py
       - name: "The first visit's doors: Skip this part, Leave, go to Home on every step, and the welcome's Just look around (R-212 #46)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/first_visit_doors.py http://localhost:8832 /tmp
       - name: "Follow from a shared bill returns to the bill: Save your profile, the Mahalo! over it, the story in one quiet line (R-212 #47)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/follow_returns.py http://localhost:8832 /tmp
       - name: "Printing: a clean paper copy of a bill, the walkthrough's letter and the lists, and Print this page in the bill's menu (R-212 #48)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/print_pages.py http://localhost:8832 /tmp
       - name: "When a screen cannot load: one message in plain words next to the thing, Try again that asks again in place, nothing typed lost (R-212 #49)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/load_fail.py http://localhost:8832 /tmp
       - name: "A new draft on My issues and the issue page: its words and links, the letter case, 44px, none in Edit or between sessions, /changes lands on the drafts, the honesty rule (R-212 #50)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/new_draft.py http://localhost:8832 /tmp
       - name: "This week's hearings in one calendar file on My issues: the line, the file (the one-hearing file's events and UIDs, Testimony due only where it can be sent), the done line, none in Edit, with nothing in the week or between sessions; the one-hearing file unchanged (R-212 #51)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/week_cal.py http://localhost:8832 /tmp
-      - name: "Staff v3 on a laptop (R-264, DESIGN A-24): one side panel, at most 5 things, 7 colours, 1 filled button in view"
-        if: ${{ !cancelled() }}
-        run: python3 tests/staff3_budget.py
-      - name: "Staff v4 on a laptop (R-269, DESIGN A-24): the same budget"
-        if: ${{ !cancelled() }}
-        run: python3 tests/staff4_budget.py
-      - name: "Staff v4: each person's three things where R-269 put them (Nate's targets, 12 Oct)"
-        if: ${{ !cancelled() }}
-        run: python3 tests/staff4_people.py
       - name: "Staff v5 on a laptop (R-277, DESIGN A-24): the same budget"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/staff5_budget.py
       - name: "Staff v5: each person's three things (as v4's)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/staff5_people.py
       - name: "Staff v5: no hearing ask on a bill HIPHI opposes (R-316 W2)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/staff5_oppose.py
       - name: "Staff v5: turning someone off never hides their work (R-316 W28)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/staff5_turnoff.py
       - name: "Staff v5: a hearing cancelled with no new date yet keeps its testimony row, with no countdown (R-316 W24)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/staff5_cancelled.py
       - name: "Staff v5: Help answers everyday questions; search finds coalitions (R-316 W29)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/staff5_help_search.py
       - name: "Staff v5: every ask to a chair is recorded and the team sees it; hand-on skips the night (R-316 W3, W31)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/staff5_chair_ask.py
       - name: "Staff v5: no label spills out of its card at 1280 and 1440 (R-316 W54)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/staff5_overflow.py
       - name: "Staff v5: My issues and Bills give the same testimony step and due time (R-316 W23)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/staff5_step_match.py
       - name: "Staff v5: search finds conversations with legislators and the asks to chairs (R-316 H-15)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/staff5_conv_search.py
       - name: Year-proof bill links
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/year_links.py
       - name: The error reporter
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/errlog.py
       - name: "Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/staff_live.py
       - name: Staff v2's flows in the sandbox (R-152)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/staff_flows.py
       - name: "Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/staff_r152c.py
       - name: "Staff v2, batch D: the practice copy, readiness, small fixes (R-152)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/staff_r152d.py
       - name: Staff v2, Today | Ahead (R-049)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/staff_ahead.py
       - name: Staff v2, a bill the team does not track (R-058)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/staff_untracked.py
       - name: Staff v2, the note on an issue when a bill goes against its stance (R-095)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/staff_issue_note.py
       - name: A stop asked for by number, from any browser (D1-3, R-180)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/stop_number.py
       - name: The plans' sign-up keeps the promise beside the button, and promises no reminder (D1-6, D1-1)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/plans_join.py
       - name: Staff v2, Session setup > Privacy and keeping (J2-1, J2-2)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/staff_privacy.py
       - name: The privacy page, whole and short (J2-3)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/privacy_page.py
       - name: The unsubscribe page changes nothing until its button is pressed (X1-7)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/unsubscribe_page.py
       - name: A stopped bill whose same idea became law says so (X4-4)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/same_idea_law.py
       - name: "What kind of advocate are you? In the practice copy, and not outside it (R-217, a draft)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/quiz.py
       - name: The words list for the checker panel is current (R-166 step 3)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: node tools/words_extract.mjs --check
       - name: "The tracker in other languages: the machinery, with a made-up language (R-166 step 3)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/i18n.py
       - name: "Staff v2, R-180 wave 3: new hearings, the rallying path, saves that say what they did (X10-3, X10-5, X10-6)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/staff_x10.py
       - name: "The step tests: thirteen journeys within budget and working (X10-7)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/journeys.py
       - name: Session setup shows the dated steps as expected, and Sort new bills puts a hearing first (Z1-6)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/setup_expected.py
       - name: Home's first card counts the day's deadlines, and twin bills are one card (R-131, R-244)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/home_now.py
       - name: The public page's words on a phone and a laptop, testimony to sharing (R-199 wave 1, R-244)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/r199_words.py
       - name: "The story kept when written: with no profile, a letter's reason stays on the device for the next letter (R-212 #26)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/story_kept.py
       - name: "Your letters: the session page's day, stance and Your letter / Your email, the profile's list, a letter whose hearing is gone (R-212 #27)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/my_letters.py
       - name: "Delete buttons: a story, a letter and a phone-only profile, each with Undo or a question on the page (R-212 #28)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/delete_buttons.py
       - name: "Next after a letter: the soonest other open testimony on what you follow, with Write on (R-212 #29)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/next_up.py
       - name: "Fewer repeats: About you's blue box in full once, then one line (R-212 #30)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/fewer_repeats.py http://localhost:8832/ /tmp
       - name: "A second device: where the letters are kept, and sign-in brings them (R-212 #31)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/second_device.py http://localhost:8832/ /tmp
       - name: "Speaking at a hearing, in person or on Zoom (R-212 #32)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/speaking.py http://localhost:8832/track.html?demo=1\&codes=0 /tmp
       - name: "Ask a friend on a phone: the message to change, each ask its own opening, Send yours first (R-212 #33)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/ask_friend_phone.py http://localhost:8832/ /tmp
       - name: "A friend's link: the ask and its deadline, and whether it is done or has passed (R-212 #34)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/friend_link.py http://localhost:8832/ /tmp
       - name: "Closes tomorrow: Home offers one reminder to the friends you asked (R-212 #35)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/remind_friends.py http://localhost:8832/ /tmp
       - name: "This week's asks: every ask due in 7 days, one message to copy, picked bill by bill (R-212 #36)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/week_asks.py http://localhost:8832/ /tmp
       - name: "Send my issues to a friend: You, an issue's menu, the first visit's end, and the friend's arrival (R-212 #37)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/send_issues_friend.py http://localhost:8832/ /tmp
       - name: "Put bills on your website: the code maker, and the website table's fixes (R-212 #38)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/embed_page.py http://localhost:8832
       - name: "The practice copy findable: Help's answer, You's link and the way back out (R-212 #39)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/practice_copy.py http://localhost:8832/ /tmp
       - name: "Legislators by name and title: \"Senator Chang\" in the header search and the finder (R-212 #40)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/legislator_names.py http://localhost:8832/ /tmp
       - name: "Sponsors cleaned, up top and clickable, and Bills they filed on a lawmaker's page (R-212 #41)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/sponsors.py http://localhost:8832/ /tmp
       - name: "A committee's page: the next real hearing, yours, Email the chair, the next hearing's bills (R-212 #42)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/committee_page.py http://localhost:8832/ /tmp
       - name: "Every bill HIPHI tracks keeps its search and filters in the address: bookmark, reload, Back, share (R-212 #43)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/allbills_address.py http://localhost:8832/ /tmp
       - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/versions.py
       - name: Density and splits across 70 screens against the recorded baseline (X9-6)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/density.py --check
