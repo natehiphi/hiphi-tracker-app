@@ -50,6 +50,13 @@
  },
  {
   "img": "ask",
+  "slug": "end-non-medical-vaccine-exemptions",
+  "name": "End non-medical vaccine exemptions",
+  "category": "care",
+  "have": false
+ },
+ {
+  "img": "ask",
   "slug": "family-caregiver-tax-credit",
   "name": "Tax credit for family caregivers",
   "category": "family",
@@ -1254,6 +1261,20 @@
  },
  {
   "img": "hold",
+  "slug": "higher-minimum-wage",
+  "name": "A higher minimum wage",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "hold",
+  "slug": "legal-sports-betting",
+  "name": "Legal sports betting",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "hold",
   "slug": "looser-alcohol-sales-rules",
   "name": "Looser alcohol sales rules",
   "category": "tobacco",
@@ -1415,6 +1436,13 @@
  },
  {
   "img": "testify",
+  "slug": "end-non-medical-vaccine-exemptions",
+  "name": "End non-medical vaccine exemptions",
+  "category": "care",
+  "have": false
+ },
+ {
+  "img": "testify",
   "slug": "family-caregiver-tax-credit",
   "name": "Tax credit for family caregivers",
   "category": "family",
@@ -1499,6 +1527,13 @@
  },
  {
   "img": "testify",
+  "slug": "higher-minimum-wage",
+  "name": "A higher minimum wage",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "higher-taxes-on-top-earners",
   "name": "Higher taxes on top earners",
   "category": "family",
@@ -1530,6 +1565,13 @@
   "slug": "keep-preventive-care-covered",
   "name": "Protect preventive care and vaccines",
   "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "legal-sports-betting",
+  "name": "Legal sports betting",
+  "category": "family",
   "have": true
  },
  {
