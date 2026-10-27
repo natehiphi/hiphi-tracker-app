@@ -69,7 +69,7 @@ body.staff6 .sp-flag { display: block; font-size: var(--v6-t16); color: var(--v6
 body.staff6 .sp-tagt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* R-343: whether email reaches them, quiet (muted) unless it is trouble (bounced, unsubscribed); what they have done */
 body.staff6 .sp-flag.quiet { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
-body.staff6 .sp-table td.c-done { white-space: normal; }
+body.staff6 .sp-table td.c-done { white-space: nowrap; }   /* one line per row (ui-critic, A-19) */
 /* A saved group's bar: "In this group:" and its filters as removable chips (A-14: the count is on the group's chip) */
 body.staff6 .sp-rn .sp-rnw { color: var(--v6-muted); margin-right: var(--s4); }
 body.staff6 .sp-rn .sp-fchip { margin: 2px var(--s4) 2px 0; vertical-align: middle; }
