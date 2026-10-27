@@ -135,6 +135,11 @@ body.staff6 .sp-adminb { display: flex; flex-wrap: wrap; gap: var(--s8); }
 @container spbar (max-width: 345px) {
   .sp-bar .sp-selw { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+/* R-343: three actions (Tag, Follow up, Email) fit a phone: below 440px the buttons lose their icons and pad tighter */
+@container spbar (max-width: 439px) {
+  .sp-bar .btn { padding: 0 12px; }
+  .sp-bar .btn .ic { display: none; }
+}
 @container spbar (max-width: 399px) {
   .sp-bar.sp-many .sp-selw { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
