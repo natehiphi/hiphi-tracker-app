@@ -24,6 +24,7 @@ import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
 import { queue } from './review.js';
+import { rowLead, iconizeButtons, testimonyTrack, dropVerb, STATES, ACTS } from './verbs.js';   // R-344: the picture rules' one table
 
 const DAY = 864e5;
 const ms = t => t == null || t === '' ? null : new Date(t).getTime();
@@ -139,10 +140,16 @@ const HR2 = 2 * 36e5;
 let TP_HI = null;   // the row a writer's step just moved here (render takes S.tpHi once, so the next draw drops it)
 const soonRow = it => { if (it.own || !it.s || it.s.off || ['filed', 'missed'].includes(it.tab)) return false;
   const t = it.s.status?.tone === 'late' ? it.s.until : it.s.due, now = Date.now(); return t != null && t > now && t - now <= HR2; };
-const rowOf = (it, picked, view) => soonRow(it)
-  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(lineOf(it))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r' })
-  : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(lineOf(it))) } : { step: { ...it.s, line: lineOf(it) } }),
-  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r' });
+// R-344 Rule 1: every row starts with its job's tile (verbs.js ACTS: the same picture as its button and the open item's
+// step), and every row button carries its icon (steps.js rowButton draws them bare; iconizeButtons adds them). A row of the
+// record shows its state's shape (Filed, Missed). Where the tile and the button say the job, the line stops repeating its
+// verb (A-25): "File now · due today 10:00 AM" beside File is "Due today 10:00 AM".
+const leadKind = it => it.tab === 'filed' ? 'filed' : it.tab === 'missed' ? 'missed' : it.s?.kind && ACTS[it.s.kind] ? it.s.kind : it.tab === 'sent' ? 'revise' : it.tab === 'file' ? 'file' : it.tab === 'approve' ? 'approve' : 'write';
+const rowLine = it => it.own && !['filed', 'missed'].includes(it.tab) ? dropVerb(lineOf(it), it.s?.act?.verb) : lineOf(it);
+const rowOf = (it, picked, view) => iconizeButtons(soonRow(it)
+  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: rowLead(leadKind(it)) })
+  : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(rowLine(it))) } : { step: { ...it.s, line: rowLine(it) } }),
+  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: rowLead(leadKind(it)) }));
 // The viewer's bills whose step is someone else's (they own it, or wrote the draft): a group of their own, "Your bills",
 // between "For you" and "The team's", each row naming who acts next (Nate's walk: Lauren's HB 1523, Patti's draft, sat
 // under "The team's" on To approve, where she would not look; spec 5 whoseStep).
@@ -167,6 +174,9 @@ function listRows(view, items, picked) {
 function detailOf(it, view) {
   const { b, d, h } = it, s = billStep(b, { d, h }), own = !!s?.you, primary = view !== 'approve';
   let card = stepCard(b, { where: 'testimony', d, h, named: false, primary, from: 'testimony', id: `tp-s-${esc(it.key)}` });
+  // R-344 Rule 2 (C5): the bigger step picture, one line, a sent-back draft's own shape (verbs.js testimonyTrack; steps.js
+  // trackHTML is another build's: asked to use it there too).
+  if (s) card = card.replace(/<ol class="v6-track"[\s\S]*?<\/ol>/, () => testimonyTrack(s, { second: /Second look/.test((card.match(/<ol class="v6-track"[\s\S]*?<\/ol>/) || [''])[0]) }));
   const ACTS = /<div class="v6-step-acts">[\s\S]*?<\/div>/;
   // V25: the viewer's own filing is the filing card's four steps in place of the card's buttons (a stepCard option for
   // this is asked of the integrator; until then the buttons' box is swapped for the steps). Who is going and I'm going
@@ -274,6 +284,7 @@ function renderLibrary() {
 // A tab that holds one of the person's own late steps says so beside its count, in the late colour with the clock (amber
 // "late, still accepted"; red only once it is overdue), so a late filing on another tab is never hidden behind a count that
 // looks like every other (D3; fresh-eyes review 23 Oct). The tab it opens on stays spec 3.3's.
+const TAB_STATE = { write: 'write', approve: 'approve', sent: 'sent', file: 'file', filed: 'filed', missed: 'missed' };
 const lateTone = it => it.own && ['late', 'overdue'].includes(it.s?.status?.tone) ? it.s.status.tone : '';
 function head(cur, m) {
   const hide = !m || !m.tabs.missed.length ? ['missed'] : [];
@@ -286,6 +297,8 @@ function head(cur, m) {
     // the mark never drew (R-344 C1).
     nav = nav.replace(new RegExp(`(view=${t}"[^>]*>(?:<span class="sv-tl"[^>]*>[^<]*</span>)?[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon('clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
   }
+  // R-344 Rule 2: each tab wears its state's shape (verbs.js STATES.testimony), the same as the rows and the step picture.
+  for (const [t, k] of Object.entries(TAB_STATE)) nav = nav.replace(new RegExp(`(view=${t}"[^>]*>)(<span class="sv-tl")`), (_, a, b2) => `${a}<span class="tp-tic" aria-hidden="true">${icon(STATES.testimony[k].icon)}</span>${b2}`);
   return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${nav}`;
 }
 // One calm line per tab under the tabs: what it holds. To approve also starts Review (F41, F42) and says how many
@@ -301,7 +314,7 @@ function intro(view, m) {
       // their own one door, the line under the list (emailsLine). On a phone the sentence is left out: the tab's count and
       // the button say it, and the first row comes up into the first screen (A-1).
       const q = queue().filter(x => x.type === 'draft').length;
-      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Review', { kind: 'primary', icon: 'user-check', href: '#/review?only=testimony' })}</div>`;
+      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Review', { kind: 'primary', icon: 'scan-eye', href: '#/review?only=testimony' })}</div>`;
       return m.tabs.approve.length ? `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : 'Testimony with an approver, or waiting for its second look.'}</p>` : '';
     }
     case 'sent': return `<p class="tp-intro">${n ? 'An approver asked for changes: read the note, revise it in the Doc, then resubmit.' : 'Nothing has come back to you for changes.'}</p>`;

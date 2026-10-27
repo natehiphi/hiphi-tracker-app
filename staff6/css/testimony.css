@@ -283,3 +283,7 @@ body.staff6 .tp-fold { padding: 4px 0; }
 body.staff6 .tp-fold .tp-foldbtn { width: 100%; text-align: left; background: none; cursor: pointer; font: inherit; color: var(--v6-body); }
 /* What the bill does, under its name in Review (v5 showed it) */
 body.staff6 .rv6-desc { margin: -4px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
+
+/* R-344 Rule 2: each tab's state shape (verbs.js STATES.testimony), 16px beside its 16px word, in the tab's own colour */
+body.staff6 .tp .sv-secnav .tp-tic { display: inline-flex; align-items: center; }
+body.staff6 .tp .sv-secnav .tp-tic svg { width: 16px; height: 16px; }

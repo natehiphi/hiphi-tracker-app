@@ -16,6 +16,7 @@ import { S, DB, DEMO, esc, advocate, hooks } from './data.js';
 import { ASK_LOG, ASK_ANSWERS, ASK_MAILS, chairAskOf, chairIdsOf, askReply, billById, chairMail, legById, legsOf,
   legNotesAll, companionsOf, billByNum, billRoute, hearingAhead, codesOf, whenAt } from './model.js';
 import { icon, btn, toast, menuSheet, sheetOpen, openSheet, closeSheet, ASK_TAB } from './ui.js';
+import { STATES, chairKey } from './verbs.js';   // R-344: the chair-ask states' shapes
 import { sayWords } from './steps.js';   // a bill as staff say it, with no draft code (D15); steps.js imports this file too (used in functions only)
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -32,7 +33,9 @@ export const askLine = a => `Asked by ${firstOf(a.by)} ${dayAt(a.at)} · ${askRe
 export function askedChip(b, code, a = chairAskOf(b, code)) {
   if (!a) return '';
   const tone = a.answer === 'will_schedule' ? 'ok' : a.answer === 'said_no' ? 'warn' : '';
-  return `<button type="button" class="ca-chip${tone ? ' ' + tone : ''}" data-askanswer="${esc(b.id)}|${esc(code)}" aria-haspopup="dialog" aria-label="${esc(askLine(a))}. Record the chair’s answer">${icon(a.answer === 'said_no' ? 'circle-x' : 'check')}<span>${esc(askLine(a))}</span>${icon('chevron-right', { cls: 'ca-chev' })}</button>`;
+  // R-344 Rule 2: where the ask is, as its one shape (verbs.js STATES.chair: hourglass no reply yet, phone left a message,
+  // calendar-check will schedule, the raised hand said no); the check meant "done", "approve" and "asked" at once (Rule 5).
+  return `<button type="button" class="ca-chip${tone ? ' ' + tone : ''}" data-askanswer="${esc(b.id)}|${esc(code)}" data-state="chair:${esc(chairKey(a))}" aria-haspopup="dialog" aria-label="${esc(askLine(a))}. Record the chair’s answer">${icon(STATES.chair[chairKey(a)].icon)}<span>${esc(askLine(a))}</span>${icon('chevron-right', { cls: 'ca-chev' })}</button>`;
 }
 
 // ---- the ask handed to someone (W14, R-329): a to-do with this title, so it shows on their Today with its due day ----
@@ -113,7 +116,9 @@ export function sentSheet(e) {
 // chair having left one, with what it does.
 const REPLY_LABEL = { left_message: 'We left a message' };
 const REPLY_SUB = { will_schedule: 'Record their reply', said_no: 'Record it, then see what to do next', left_message: 'Record it; the follow-up clock starts again' };
-const replies = () => ASK_ANSWERS.filter(([k]) => k !== 'asked').map(([k, label, ic]) => [k, REPLY_LABEL[k] || label, ic]);
+// Each answer wears its state's shape (verbs.js STATES.chair), the same as the chip it becomes (R-344 Rule 2).
+const shapeOf = (k, ic) => STATES.chair[k]?.icon || ic;
+const replies = () => ASK_ANSWERS.filter(([k]) => k !== 'asked').map(([k, label, ic]) => [k, REPLY_LABEL[k] || label, shapeOf(k, ic)]);
 // A joint committee's ask went to two chairs: the sheet asks who replied (each chair, or both: "Both chairs" is chosen, so
 // the reply is still two clicks, spec 8), and the answer is saved for that chair alone (V24: one chair of a joint committee
 // marks only that chair; Nate's walk: HB 756's reply was saved for both Sen. Keohokalole and Sen. San Buenaventura).
@@ -141,7 +146,7 @@ export function followSheet(b, code, { mail = null } = {}) {
 // bill asked of a joint committee's two chairs, the sheet asks who replied as well.
 export function answerSheet(ids, code) {
   const bills = ids.map(billById).filter(Boolean), m = chairMail(code), a = bills.length === 1 ? chairAskOf(bills[0], code) : null;
-  const items = (a ? replies() : ASK_ANSWERS.map(([k, label, ic]) => [k, REPLY_LABEL[k] || label, ic]))
+  const items = (a ? replies() : ASK_ANSWERS.map(([k, label, ic]) => [k, REPLY_LABEL[k] || label, shapeOf(k, ic)]))
     .map(([k, label, ic]) => ({ label, icon: ic, sub: k === 'asked' && bills.length > 1 ? `On all ${bills.length} bills` : REPLY_SUB[k] || '', run: legs => recordAsk(ids.map(id => ({ id, code, ...(legs ? { legs } : {}) })), k) }));
   replySheet(a ? bills[0] : null, code, { title: a ? `What did ${m?.who || 'the chair'} say?` : `Record the ask to ${m?.who || 'the chair'}`, items });
 }

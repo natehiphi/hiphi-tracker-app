@@ -24,6 +24,7 @@ import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb } from './issuestand.js';
 import { nw } from './steps.js';
+import { stateMark, issueKey, chamberDots } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape (Decision 4)
 
 // ---- the picture: an icon on a soft tint ----
 // Six tints, in the topics' order (tokens in issues.css .ig6-tint1..6, each a wash of one hue with a darker ink of the same
@@ -160,7 +161,7 @@ export function statusOf(x) {
   switch (x.state) {
     case 'none': return { ic: 'circle-dashed', text: 'No bills this session' };
     case 'off': case 'stopped': return m ? { ic: m.ic || 'circle-minus', text: m.text } : null;
-    case 'oppose': return { ic: 'circle-x', text: `HIPHI opposes it · ${plural(x.going.length, 'bill')} alive` };
+    case 'oppose': return { ic: 'thumbs-down', text: `HIPHI opposes it · ${plural(x.going.length, 'bill')} alive` };   // the stance's shape (Rule 5: circle-x is Missed)
     case 'ahead': if (x.facing?.length && m) return { ic: m.ic, text: m.text };
   }
   return x.going.length ? { ic: x.state === 'safe' ? 'shield-check' : 'circle-dot', text: aliveWords(x) } : null;
@@ -181,10 +182,17 @@ function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) 
   // goes (R-344 D10, "Legal adult-use cannabis"), so it stays on the issue's own page with its switch.
   const shown = tags.filter(t => !/first visit/i.test(t));
   const line = shown.length ? [esc(shown.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
+  // R-344 Rule 2, Decision 4: how the issue is doing as one shape and its word (On track, At risk, Stopped, Won, No bills
+  // yet), neutral, no tint, with the House and Senate dots beside it. The status line then stops saying the state's word
+  // (A-25), and a card with no bills says it once.
+  const key = issueKey(x);
+  if (st && key === 'risk') st = { ...st, text: String(st.text).replace(/^At risk: /, '').replace(/^\w/, c => c.toUpperCase()) };
+  if (key === 'none' && st?.ic === 'circle-dashed') st = null;
+  const state = [`${stateMark('issue', key, { size: 20, cls: 'ig6-state' })}${key !== 'none' ? chamberDots(x.going) : ''}`, 'ig6-sline'];
   return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
     // The issue's own icon (Nate's R-339 picks), else its topic's.
     pic: picHTML({ ic: issueIcon(i), tint: Math.max(catIndex(i.category), 0) }),
-    lines: [line, statusHTML(st)] });
+    lines: [line, statusHTML(st), state] });
 }
 
 // ---- the sorts ----

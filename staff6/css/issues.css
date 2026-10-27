@@ -984,3 +984,23 @@ body.staff6 .ip6-stories li { padding: var(--s12) 0; border-top: 1px solid rgba(
 body.staff6 .ip6-stories li:first-child { border-top: 0; padding-top: 0; }
 body.staff6 .ip6-stories q { display: block; font-size: var(--v6-t16); line-height: 1.5; color: var(--v6-ink); }
 body.staff6 .ip6-stories .meta { display: block; margin-top: 4px; }
+
+/* ---- R-344 Rule 2, Decision 4: how an issue is doing, as a shape and its word, no tint; the House and Senate dots ---- */
+body.staff6 .ig6-sline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-top: 6px; min-width: 0; }
+body.staff6 .ig6-stat + .ig6-sline { padding-top: 4px; }
+body.staff6 .ig6-sline .v6-sm { color: var(--v6-ink); }
+/* the dots: a filled action dot where a bill that started in that chamber is alive, a hollow ring where none is (with words) */
+body.staff6 .v6-chdots { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+body.staff6 .v6-chd { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+body.staff6 .v6-chdot { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--v6-field); flex: none; }
+body.staff6 .v6-chd.on { color: var(--v6-body); }
+body.staff6 .v6-chd.on .v6-chdot { background: var(--v6-action); box-shadow: none; }
+/* A phone's compact card stays about 90px (the critic's round): the state's shape sits under the 40px disc, in the room the
+   left column already has, its word kept for screen readers and in the card's title; the status line beside it says the
+   rest, "House and Senate" among it. */
+@media (max-width: 767px) {
+  body.staff6 .ig6-issue .ig6-link { position: relative; }
+  body.staff6 .ig6-issue .ig6-sline { position: absolute; left: 26px; top: 58px; padding: 0; }
+  body.staff6 .ig6-issue .ig6-sline .v6-sm-w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body.staff6 .ig6-issue .ig6-sline .v6-chdots { display: none; }
+}

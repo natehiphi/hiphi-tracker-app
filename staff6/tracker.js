@@ -309,3 +309,27 @@ export function wireTracker(root, b) {
     b0.querySelector('.ic:last-child')?.replaceWith(Object.assign(document.createElement('template'), { innerHTML: icon(open ? 'chevron-up' : 'chevron-down') }).content.firstChild);
   };
 }
+
+// ---- the bill's own picture on a row (R-344, the review's "Also · the bill's own picture"; D2, D3) ----
+// The slim bar the phone's tracker draws (.tk-slim), small enough for a Bills row or a search result: one segment per stop,
+// done leaf, the one it is at the action colour with a "Now" pin over it, the rest hairline; a trophy at the end, "Law"
+// (lit once it is law: Won, verbs.js STATES.issue.won, the same shape). Decorative: the row's own line says where it is,
+// and the bar carries one short sentence for screen readers ("Step 4 of 9"). The stops are trackerModel's; the deadline
+// flags are left to the bill's page (a row has no room for them, and a flag means a deadline: Rule 5).
+export function slimBarHTML(b) {
+  let model, place;
+  try { model = stopsOf(b); place = placeOf(b, model); } catch { return ''; }
+  const { stops } = model, n = stops.length, cur = place.at;
+  if (!n) return '';
+  const pw = place.state === 'live' ? (() => { try { return pathwayStops(b, place.st, S.counterparts || [], null); } catch { return []; } })() : [];
+  const states = stops.map((s, i) => {
+    let st = i < cur ? 'done' : i === cur ? (place.state === 'live' ? 'now' : place.state === 'done' ? 'done' : 'stopped') : 'next';
+    if (s.kind === 'cmte' && place.state === 'live' && st === 'next' && pw.find(x => x.committee === s.code)?.state === 'passed') st = 'done';
+    return st;
+  });
+  const law = place.state === 'done', live = place.state === 'live' && cur >= 0 && cur < n;
+  const sr = law ? (model.res ? 'Adopted' : 'Law') : live ? `Step ${cur + 1} of ${n}` : place.state === 'vetoed' ? 'Vetoed' : 'Stopped';
+  const left = live ? ((cur + 0.5) / n) * 100 : 0, edge = left < 12 ? ' at-start' : left > 88 ? ' at-end' : '';
+  const pin = live ? `<span class="v6-bar-now${edge}" style="left:${edge === ' at-start' ? 0 : edge === ' at-end' ? 100 : left.toFixed(1)}%">${icon('map-pin')}Now</span>` : '';
+  return `<span class="v6-bar${law ? ' is-law' : ''}" role="img" aria-label="${esc(sr)}"><span class="v6-bar-segs" style="grid-template-columns: repeat(${n}, minmax(0, 1fr))">${pin}${states.map(st => `<i class="is-${st}"></i>`).join('')}</span><span class="v6-bar-end" title="${model.res ? 'Adopted' : 'Law'}">${icon('trophy')}</span></span>`;
+}

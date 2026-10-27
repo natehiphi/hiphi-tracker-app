@@ -32,6 +32,8 @@ import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { offTag, teamName, teamFirst, newOwnerTag, FACTS } from './model.js';   // R-316 W28: a turned-off owner says so
 import { GROUPS, groupKey } from './standing.js';
+import { actTile, stateMark, stanceKey, dropVerb } from './verbs.js';   // R-344: the picture rules' one table
+import { slimBarHTML } from './tracker.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
@@ -250,15 +252,18 @@ function selRow(b) {
   return `<div class="v6-row bl-selrow${on ? ' sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}" role="listitem" data-v6row="${esc(b.id)}"><button type="button" class="v6-row-main bl-selmain" data-blsel="${esc(b.id)}" aria-pressed="${on}">
     <span class="bl-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span><span class="bl-seltx"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${s?.line ? `<span class="v6-row-line"><span>${nw(esc(s.line))}</span></span>` : ''}</span></button></div>`;
 }
-// ---- R-339 trial (Nate 10/25): icons to soften a long list of words, off unless the address has ?icons=1 ----
+// ---- R-339 (Nate 10/25 trial; on by default since R-344, Nate's go of 26 Oct): icons to soften a long list of words ----
+// ?icons=0 turns them off again, for a side-by-side.
 // A heading gets its stage's icon; on Team a row gets one quiet topic icon (its issues' category, the same icon Issues
 // uses) in the row's leading slot. No chips (Nate 10/13: chips made Today's rows too dense). Neutral ink only: colour stays
 // urgency (A-5). The icons are guesses until the team uses them; a side-by-side settles the look. Nate's five fixes (10/25):
 // rows on Team only (Mine is mostly one topic, so one picture repeated; its headings carry the landmark), no icon when a
 // bill's issues span two topics, three staff-only swaps for glyphs that are unclear at 20px, none below 600px (CSS), and the
 // heading icon on the card's left edge on phones (CSS).
-const ICONS_ON = (() => { try { return /[?&]icons=1\b/.test(location.search); } catch { return false; } })();
-const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'landmark', mon: 'eye', dead: 'circle-x' };
+const ICONS_ON = (() => { try { return !/[?&]icons=0\b/.test(location.search); } catch { return true; } })();
+// Each heading's icon keeps one meaning (Rule 5, verbs.js ICON_MEANS): At risk's triangle, a hearing coming, waiting, through,
+// the trophy for law (the landmark is Legislators'), Monitor's eye, and stopped (the circle-x is Missed testimony's).
+const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'trophy', mon: 'eye', dead: 'circle-minus' };
 // Staff-only swaps (fix 3) for glyphs unclear at 20px. Nate's picks of 10/25 are in the categories table itself
 // (cigarette-off and stethoscope since migration 187; Food's lunch tray and Climate's earth since 188), so Staff and the
 // public show the same icons; an apple left in the data (before 188 is applied) still shows as the salad (R-339).
@@ -290,6 +295,36 @@ function topicLead(b) {
   const own = issueIconOf(b), ic = own?.ic || STAFF_TOPIC_IC[c.icon] || c.icon || 'tag', name = own?.name || c.name;
   return `<span class="v6-row-lead" title="${esc(name)}">${icon(ic)}<span class="sr">${esc(name)}: </span></span>`;
 }
+// ---- R-344 (the at-a-glance review's "the bill's own picture", Rules 1 and 2): what a row shows at a glance ----
+// glanceRow(html, b, { step, stance }) adds to a steps.js billRow, without changing it (steps.js is another build's):
+//   - a twin's chamber: two bills the team calls by one name (HB 2121 and SB 2175, "Disposable e-cigarette ban") each say
+//     House or Senate beside the number, so the right twin is picked (D3: a reviewer picked the wrong one);
+//   - HIPHI's stance as its shape and one word (verbs.js STATES.stance, D1), left out where the group already says it
+//     (Monitoring);
+//   - the viewer's own step's job as its small tile at the start of the line (Rule 1: the row says what kind of job it is);
+//   - the slim progress bar under the line, with Now and Law (tracker.js slimBarHTML, D2).
+// Search results use the same (search.js).
+export function glanceRow(html, b, { step = null, stance = true, bar = true } = {}) {
+  if (!html || !b) return html;
+  const tw = twinWord(b), sk = stanceKey(b.position || '');
+  const after = `${tw ? `<span class="v6-twin">${esc(tw)}</span>` : ''}${stance && sk !== 'none' ? stateMark('stance', sk, { size: 20, cls: 'bl-stance' }) : ''}`;
+  if (after) html = html.replace(/(<span class="v6-row-num">[^<]*<\/span>)/, `$1${after}`);
+  const own = step && step.you && OWN_ACT.has(step.kind) && step.act?.kind !== 'none';
+  // the tile takes the line's own icon's place and its verb (A-25: the tile says the job); the line keeps its colour
+  if (own) html = html.replace(/(<span class="v6-row-line[^"]*">)(?:<svg[\s\S]*?<\/svg>)?<span>([\s\S]*?)<\/span><\/span>/, (_, open, text) => `${open}${actTile(step.kind, { size: 24 })}<span>${dropVerb(text, step.act?.verb)}</span></span>`);
+  if (bar) { const sb = slimBarHTML(b); if (sb) html = html.replace(/(<\/(?:a|button)>)((?:<span class="v6-row-act">[\s\S]*?<\/span>)?<\/div>)\s*$/, `${sb}$1$2`); }
+  return html;
+}
+// The jobs a row's tile can show (the steps a person does; filed, missed and none are not jobs).
+const OWN_ACT = new Set(['nodraft', 'write', 'submit', 'revise', 'approve', 'review', 'review2', 'second', 'file', 'stale', 'chair']);
+// "House" or "Senate" when another bill this session goes by the same nickname (cached per draw of S.bills).
+let TWINS = null, TWINS_OF = null;
+export function twinWord(b) {
+  if (TWINS_OF !== S.bills) { TWINS_OF = S.bills; TWINS = new Map();
+    for (const x of S.bills || []) { const k = String(x.nickname || '').trim().toLowerCase(); if (!k) continue; const key = `${x.session_year}|${k}`; TWINS.set(key, (TWINS.get(key) || 0) + 1); } }
+  const k = String(b.nickname || '').trim().toLowerCase(); if (!k || (TWINS.get(`${b.session_year}|${k}`) || 0) < 2) return '';
+  return /^\s*S/i.test(b.bill_number || '') ? 'Senate' : /^\s*H/i.test(b.bill_number || '') ? 'House' : '';
+}
 const groupHead = g => FOLDED.has(g.k)
   ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
   : `<h2 class="bl-gh" id="bl-g-${g.k}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
@@ -297,11 +332,11 @@ function rowsView(groups) {
   const v = bl(), pick = !v.selecting;
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
-  const rowOf = b => v.selecting ? selRow(b) : billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: topicLead(b) });
+  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: topicLead(b) }), b, { step: stepOf(b), stance: g?.k !== 'mon' });
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
   const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
-  const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(rowOf).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
+  const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(b => rowOf(b, g)).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
   if (!pick) return `<div class="bl-groups bl-selecting">${html}</div>${keysHint()}`;
   const b = v.look ? S.bills.find(x => x.id === v.look) : null;
   // listDetail's one list becomes one card per group, so the list box itself carries no role (each group's card is the list).

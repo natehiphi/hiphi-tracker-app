@@ -23,7 +23,8 @@ import { S, DB, esc, fmtDate, hooks } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
 import { dailyWord, paused, HELD_NEXT } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
-import { numWords, stepHeadHTML } from './steps.js';   // Staff v6: the bill number as every row says it (D15)
+import { numWords, stepHeadHTML } from './steps.js';
+import { ACTS, rowLead } from './verbs.js';   // R-344: Approve's one icon (verbs.js ACTS.approve; the bare check is On track's, Rule 5) and the row's tile   // Staff v6: the bill number as every row says it (D15)
 
 // ---- who ----
 // approves_partners comes with the advocates row (migration 184); a turned-off person approves nothing.
@@ -220,7 +221,7 @@ const head = (it, h = 'h3', id = '') => {
 // The side they take, in plain words: a status, never shaped like a button (spec 4; the bordered "Support" pill with its
 // thumbs-up read as one). sideChip and stanceChip stay for the Partners screen's own look.
 const sideOf = it => { const w = it.kind === 'issue' ? STANCE[it.words?.stance]?.[0] : sideWord(it.words?.side); return w ? `<span class="pq-side">${esc(it.kind === 'issue' ? w : `Side: ${w}`)}</span>` : ''; };
-const acts = (it, primary) => `${btn('Approve', { kind: primary ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-pqok': keyOf(it) } })}${btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } })}`;
+const acts = (it, primary) => `${btn('Approve', { kind: primary ? 'primary' : 'secondary', icon: ACTS.approve.icon, attrs: { 'data-pqok': keyOf(it) } })}${btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } })}`;
 const errLine = m => `<p class="inlinemsg">${icon('circle-alert')}<span>${esc(m)}</span></p>`;
 // The ask on its own, just above Approve (R-328 G): what it says and until when, what approving does with it, and Also by
 // text (off unless switched on for this one ask), with a line of its own when the ask is longer than a text. where: 'c'
@@ -323,7 +324,9 @@ export function pqRow(it, { short = false } = {}) {
   const b = it.kind === 'bill' ? billOf(it) : null;
   const name = short ? (it.kind === 'issue' ? it.words?.name || 'A new issue' : nameOf(it)) : it.partner_name;
   return { name, num: b ? numWords(b) : '', line: short ? pqShort(it) : pqLine(it), href: groupHref(it.partner_slug), what: pqLine(it).split(' · ')[0],
-    sub: sentLine(it), buttons: k => [btn('Approve', { kind: k, icon: 'check', attrs: { 'data-pqok': keyOf(it) } }), btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } }), pqOpen()] };
+    // R-344 Rule 1: the job's tile for the row's `lead` (steps.js itemRow), the same on Today and on Partners
+    kind: 'partner', lead: rowLead('partner'),
+    sub: sentLine(it), buttons: k => [btn('Approve', { kind: k, icon: ACTS.approve.icon, attrs: { 'data-pqok': keyOf(it) } }), btn('Ask for a change', { kind: 'text', icon: 'message-square', attrs: { 'data-pqask': keyOf(it), 'aria-haspopup': 'dialog' } }), pqOpen()] };
 }
 // The next-step card: the group, what to approve, the closer-look flag, the ask, then Approve; every word, and how the ask
 // goes out, one fold away under the buttons (Nate's November card put Approve below a 320 phone's first screen; the doors'
