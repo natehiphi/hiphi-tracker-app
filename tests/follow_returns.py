@@ -15,7 +15,7 @@
 #   - a bill on no issue (HB 1079, HIPHI only watches it) says "Follow this bill" and returns the same way;
 #   - today's page (layout 3): a stopped bill's main "Follow the issue" for a newcomer (HB 10) returns the same way, the
 #     line right under the action card (the critic, 24 Oct: the page's action first, A-13, and not where Continue was),
-#     "Part of <issue>" with "✓ Following the issue" in the bill's head after it (the critic's high: once the toast went,
+#     "Part of <issue>" (since R-340 the issue band) with "✓ Following the issue" in the bill's head after it (the critic's high: once the toast went,
 #     nothing said they follow), and "Stop following" on the toast, which stops it;
 #   - the backup ?ab=save.alerts asks nothing and still returns to the bill;
 #   - Back with the sheet open closes it and stays on the bill (B-4), and "Not now" leaves no extra step or scroll jump;
@@ -195,8 +195,9 @@ with sync_playwright() as pw:
         where = p.evaluate("(() => { const e = document.querySelector('.bl-storyline'); if (!e) return ''; const a = document.querySelector('.bl-side');"
                            " return e.previousElementSibling?.classList.contains('bl-ract') ? (a && a.contains(e) ? 'side, under the card' : 'under the card') : 'elsewhere'; })()")
         ok(where == ('under the card' if w < 700 else 'side, under the card'), f'{w} stopped: the line right under the action card ({where})')
-        iss = p.evaluate("(() => { const e = document.querySelector('.bl-rhead .bl-issue'); return e && e.offsetParent ? e.innerText.replace(/\\s+/g, ' ').trim() : ''; })()")
-        ok('Part of Cigars shipped by mail' in iss and 'Following the issue' in iss, f'{w} stopped: the head says "Part of" the issue, "Following the issue", after the toast has gone ({iss!r})')
+        # R-340: the issue band (.bl-iband) says it now, on every bill page: "Part of the issue" (its name, or "of the same name") and "Following the issue"
+        iss = p.evaluate("(() => { const e = document.querySelector('.bl-rhead .bl-iband'); return e && e.offsetParent ? e.textContent.replace(/\\s+/g, ' ').trim() : ''; })()")
+        ok('Part of the issue' in iss and ('Cigars shipped by mail' in iss or 'of the same name' in iss) and 'Following the issue' in iss, f'{w} stopped: the head says "Part of" the issue, "Following the issue", after the toast has gone ({iss!r})')
         main = p.evaluate("[...document.querySelectorAll('.bl-ract .btn.primary, .actionbar .btn.primary')].filter(e => e.offsetParent !== null).map(e => e.innerText.trim())")
         ok(not any(m == 'Follow the issue' for m in main), f'{w} stopped: the main button no longer asks to follow ({main})')
         r = checks.page_report(p, f'{w} stopped', do_axe=True)

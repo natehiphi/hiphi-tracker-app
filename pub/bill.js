@@ -1417,7 +1417,7 @@ function issueBand(b, x) {
     <div class="bl-ib-m"><p class="bl-ib-l"><a href="#/issue/${esc(i.slug)}">${same ? 'Part of the issue of the same name' : 'Part of the issue'}${icon('chevron-right', { cls: 'bl-ib-chev' })}</a></p>
       ${same ? '' : `<p class="bl-ib-n"><a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></p>`}
       ${hx ? `<p class="bl-ib-s">${badge}<span class="bl-ib-why">${esc(hx.text)}</span>${tx}</p>` : tx ? `<p class="bl-ib-s">${tx}</p>` : ''}</div>
-    ${follow}${t ? levelBox(t, TXT) : ''}</section>`;
+    ${t ? levelBox(t, TXT) : ''}${follow}</section>`;   // the switch opens right under its line, before Follow (R-299's critic)
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
 // name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).
