@@ -19,10 +19,9 @@ import { pageHead } from './lists.js';
 import { nameWords, numWords } from './steps.js';
 import { emailDoor } from './composer.js';   // one email rule at every door (V20)
 const SCORE_LINE = () => true;   // R-316 W55: live at Nate's go 10/22 (R-332)
-// R-343 Show me (Nate 10/26): the practice copy only until his yes. Rows say what they have done and whether email reaches
-// them; Select can Email the picked people; a saved group says its count once; Delete group moves into Edit group.
-// On the live app all four stay as they were. His yes: make this `() => true` (and later drop the old branches).
-const TRY = () => DEMO;
+// R-343 (Nate's yes 10/27): rows say what they have done and whether email reaches them; Select can Email the picked
+// people; a saved group says its count once; Delete group is in Edit group. On everywhere; the old branches can go.
+const TRY = () => true;
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
