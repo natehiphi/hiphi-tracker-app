@@ -19,6 +19,9 @@ import { pageHead } from './lists.js';
 import { nameWords, numWords } from './steps.js';
 import { emailDoor } from './composer.js';   // one email rule at every door (V20)
 const SCORE_LINE = () => true;   // R-316 W55: live at Nate's go 10/22 (R-332)
+// R-343 (Nate's yes 10/27): rows say what they have done and whether email reaches them; Select can Email the picked
+// people; a saved group says its count once; Delete group is in Edit group. On everywhere; the old branches can go.
+const TRY = () => true;
 import { TITLES, titleLabel } from '../pub/titles.js';   // "They are": the public profile's titles (R-147)
 
 // ---- the filter model (the same shape as people_match() in the database, so a saved segment counts the same here,
@@ -92,13 +95,26 @@ function dropFilter(f, key, val) {
 // ---- rows (R-336 V31: a name and one line; everything else is on the person's page) ----
 // "Oʻahu, Senate 18, House 34": where they are, in words (no district codes in a row, D15).
 const whereText = p => [p.island, p.senate_district ? `Senate ${p.senate_district}` : '', p.house_district ? `House ${p.house_district}` : ''].filter(Boolean).join(', ');
-// Their email's trouble, said first, only when there is one (status by exception, D3).
-const flagText = p => p.bounced_at ? 'Email bounced' : p.unsubscribed_at ? 'Unsubscribed' : '';
+// Their email's trouble, said first, only when there is one (status by exception, D3). R-343: also whether a supporter
+// email can reach them at all ("No email yet", "Not opted in"), quietly, since a third of the list is that.
+const flagText = p => p.bounced_at ? 'Email bounced' : p.unsubscribed_at ? 'Unsubscribed' : !TRY() ? '' : !p.email ? 'No email yet' : !p.action_optin ? 'No supporter emails' : '';
+const flagQuiet = p => !p.bounced_at && !p.unsubscribed_at;
+// What they have done (R-343, A-24, C-14): "Testified 2× · follows 4"; actions other than testimony when there is none.
+function doneBits(p) {
+  const t = p.testimonies || 0, a = p.actions || 0, f = (p.bill_ids || []).length;
+  return [t ? `testified ${t}×` : a ? `took ${a} action${a === 1 ? '' : 's'}` : '', f ? `follows ${f} bill${f === 1 ? '' : 's'}` : ''].filter(Boolean);
+}
+const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
+// Each fact is kept whole (no-break spaces), so a narrow column breaks between "Testified 2×" and "follows 4 bills", never inside.
+const doneText = p => cap(doneBits(p).map(t => t.replace(/ /g, '\u00a0')).join(' · '));
 // The phone's one line: "Oʻahu, Senate 18 · active 3/16".
 function subLine(p) {
   const w = [p.island, p.senate_district ? `Senate ${p.senate_district}` : ''].filter(Boolean).join(', ');
-  const bits = [flagText(p), w, p.last_active ? `active ${shortDate(p.last_active)}` : ''].filter(Boolean);
-  return bits.join(' · ') || 'No district or activity yet';
+  const t = TRY() && p.testimonies ? `testified ${p.testimonies}×` : '';   // R-343: the one deed that matters most, on a phone
+  // Trouble (bounced, unsubscribed) leads the line; the quiet flags come after the place, in lower case (design review).
+  const f = flagText(p), lead = f && !flagQuiet(p) ? f : '', quiet = f && flagQuiet(p) ? f[0].toLowerCase() + f.slice(1) : '';
+  const bits = [lead, w, quiet, t, p.last_active ? `active ${shortDate(p.last_active)}` : ''].filter(Boolean);
+  return cap(bits.join(' · ')) || 'No district or activity yet';
 }
 function phoneRow(p, v) {
   const name = esc(personName(p)), line = `<span class="v6-row-line"><span>${esc(subLine(p))}</span></span>`;
@@ -110,7 +126,10 @@ function phoneRow(p, v) {
 // ---- the laptop table: four columns (V31: name, where, tags, last active), roomy 64px rows, the whole row opens the
 // person. The rest (phone, score, emails, actions, joined) is on their page. The order is chosen with "Sorted by ..." in
 // the line over the table (one control, not a button in every header). Select mode adds a tick box column. ----
-const COLS = [{ k: 'name', label: 'Name' }, { k: 'where', label: 'Where' }, { k: 'tags', label: 'Tags' }, { k: 'active', label: 'Last active' }];
+const COLS_OLD = [{ k: 'name', label: 'Name' }, { k: 'where', label: 'Where' }, { k: 'tags', label: 'Tags' }, { k: 'active', label: 'Last active' }];
+// R-343: Tags (empty on half the rows) gives way to what they have done; tags stay in the Filter and on their page.
+const COLS_TRY = [{ k: 'name', label: 'Name' }, { k: 'where', label: 'Where' }, { k: 'done', label: 'Done so far' }, { k: 'active', label: 'Last active' }];
+const COLS = () => TRY() ? COLS_TRY : COLS_OLD;
 const SORT_KEYS = {
   name: [1, p => personName(p).toLowerCase()],
   where: [1, p => p.island || p.senate_district || p.house_district ? [ISLAND_ORDER[p.island] ?? 9, p.senate_district || 99, p.house_district || 99] : null],
@@ -129,9 +148,9 @@ function deskRow(p, v) {
   const on = v.sel.has(p.id), name = personName(p), w = whereText(p), tags = (p.tags || []).join(', '), flag = flagText(p);
   return `<tr data-row="${esc(p.id)}"${on ? ' class="sel"' : ''}>
     ${v.selecting ? `<td class="c-cb"><label class="sp-cbl"><input type="checkbox" data-sel="${esc(p.id)}" data-k="c:${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Select ${esc(name)}"></label></td>` : ''}
-    <td class="c-name"><a class="sp-nm" href="#/person/${encodeURIComponent(p.id)}" data-k="p:${esc(p.id)}">${esc(name)}</a>${flag ? `<span class="sp-flag">${esc(flag)}</span>` : ''}</td>
+    <td class="c-name"><a class="sp-nm" href="#/person/${encodeURIComponent(p.id)}" data-k="p:${esc(p.id)}">${esc(name)}</a>${flag ? `<span class="sp-flag${flagQuiet(p) ? ' quiet' : ''}">${esc(flag)}</span>` : ''}</td>
     <td class="c-where">${w ? esc(w) : DASH}</td>
-    <td class="c-tags">${tags ? `<span class="sp-tagt" title="${esc(tags)}">${esc(tags)}</span>` : DASH}</td>
+    ${TRY() ? `<td class="c-done">${doneText(p) ? esc(doneText(p)) : DASH}</td>` : `<td class="c-tags">${tags ? `<span class="sp-tagt" title="${esc(tags)}">${esc(tags)}</span>` : DASH}</td>`}
     <td class="c-active">${p.last_active ? esc(shortDate(p.last_active)) : DASH}</td></tr>`;
 }
 
@@ -140,7 +159,9 @@ function barHTML(v, rows) {
   const seg = segOf(v), changed = !!seg && norm(v.f) !== norm(seg.filter), n = rows.length;
   if (pfEmpty(v.f) && !seg) return '';
   const acts = [];
-  if (seg && !changed) acts.push(emailDoor({ segment: seg }, { label: 'Email this group' }), btn('Delete group', { kind: 'text', attrs: { 'data-sp': 'segdel', 'aria-haspopup': 'dialog' } }));
+  if (seg && !changed) acts.push(emailDoor({ segment: seg }, { label: 'Email this group' }), TRY()
+    ? btn('Edit group', { kind: 'text', icon: 'pencil', attrs: { 'data-sp': 'segedit', 'aria-haspopup': 'dialog' } })   // R-343, A-20: Delete is inside
+    : btn('Delete group', { kind: 'text', attrs: { 'data-sp': 'segdel', 'aria-haspopup': 'dialog' } }));
   else {
     if (changed) acts.push(btn(`Save changes to “${esc(seg.name)}”`, { kind: 'secondary', icon: 'bookmark-check', attrs: { 'data-sp': 'segupdate' } }));
     acts.push(btn(seg ? 'Save as a new group' : 'Save as a group', { kind: 'secondary', icon: 'bookmark', attrs: { 'data-sp': 'segsave', 'aria-haspopup': 'dialog', ...(n ? {} : { disabled: true }) } }),
@@ -148,12 +169,20 @@ function barHTML(v, rows) {
   }
   // A phone (A-1, the list in the first 400px): the bar is the buttons alone; the count sits in the "Sorted by" line, Clear
   // with the filter chips, and "Everyone" is the groups row's own first chip.
-  if (!isDesk()) return `<div class="sp-rbar sp-rbarp"><div class="sp-racts">${acts.join('')}</div></div>`;
+  // R-343 (design review): a phone's saved group says who is in it, in words, over its two buttons.
+  const who = TRY() && seg && !changed ? `<p class="sp-rwho"><span class="sp-rnw">In this group:</span> ${esc(activeChips(v.f).map(c => c[2]).join(' · '))}</p>` : '';
+  if (!isDesk()) return `<div class="sp-rbar sp-rbarp">${who}<div class="sp-racts">${acts.join('')}</div></div>`;
   // A group just as saved: the groups row's "Everyone" chip shows everyone again (a text button "Everyone" here repeated it
   // and did not say what it did); with a filter changed, Clear.
   if (!(seg && !changed)) acts.push(btn('Clear', { kind: 'text', attrs: { 'data-sp': 'clear' } }));
+  // R-343 (A-14): a group just as saved has its count on its chip; the bar says what the group is, its filters as chips.
+  if (TRY() && seg && !changed) return `<div class="sp-rbar"><p class="sp-rn"><span class="sp-rnw">In this group:</span> ${groupChipsHTML(v)}</p><div class="sp-racts">${acts.join('')}</div></div>`;
   return `<div class="sp-rbar"><p class="sp-rn" aria-live="polite"><b>${barWhat(v, rows)}</b></p><div class="sp-racts">${acts.join('')}</div></div>`;
 }
+// A saved group's own filters, each removable (removing one makes it "changed", and Save changes appears).
+const pristine = v => { const seg = segOf(v); return !!seg && norm(v.f) === norm(seg.filter); };
+const fchip = ([k, val, l]) => `<button type="button" class="chip sp-fchip" data-drop="${esc(k)}" data-val="${esc(val)}" data-k="d:${esc(k)}:${esc(val)}" aria-label="Remove filter: ${esc(l)}">${esc(l)}${icon('x')}</button>`;
+const groupChipsHTML = v => activeChips(v.f).map(fchip).join(' ');
 const barWhat = (v, rows) => { const seg = segOf(v), n = rows.length, pristine = !!seg && norm(v.f) === norm(seg.filter);
   return pristine ? `${esc(seg.name)}: ${esc(plural(n, 'person', 'people'))}` : `${esc(plural(n, 'person', 'people'))} ${n === 1 ? 'matches' : 'match'}`; };
 // A phone shows the filter chips instead of the groups row while a filter is on (a saved group just as saved keeps the row,
@@ -164,9 +193,10 @@ const groupsHidden = v => { const seg = segOf(v); return !isDesk() && activeChip
 // search box keeps focus.
 function resultsHTML(v) {
   const all = S.people || [], rows = shown(v), seg = segOf(v), desk = isDesk();
-  const chips = desk || groupsHidden(v) ? activeChips(v.f) : [];
+  // R-343: a laptop's saved group shows its filters in the bar ("In this group: ..."), not again over it.
+  const chips = (desk || groupsHidden(v)) && !(TRY() && desk && pristine(v)) ? activeChips(v.f) : [];
   const clearAll = !desk && chips.length > 1 ? btn('Clear', { kind: 'text', sm: true, attrs: { 'data-sp': 'clear', 'data-k': 'clear' } }) : '';
-  const on = chips.length ? `<div class="sp-active" aria-label="Filters on">${chips.map(([k, val, l]) => `<button type="button" class="chip sp-fchip" data-drop="${esc(k)}" data-val="${esc(val)}" data-k="d:${esc(k)}:${esc(val)}" aria-label="Remove filter: ${esc(l)}">${esc(l)}${icon('x')}</button>`).join('')}${clearAll}</div>` : '';
+  const on = chips.length ? `<div class="sp-active" aria-label="Filters on">${chips.map(fchip).join('')}${clearAll}</div>` : '';
   const bar = barHTML(v, rows);
   if (!all.length) return `${empty({ title: 'No supporters yet', text: 'Add someone by hand, or an admin imports a list from a CSV file.', action: btn('Add a person', { kind: 'secondary', icon: 'user-plus', attrs: { 'data-sp': 'add' } }) })}`;
   if (!rows.length) return `${on}${bar}${empty({ title: 'Nobody matches', text: 'Try fewer filters or a shorter search.' })}`;
@@ -177,12 +207,12 @@ function resultsHTML(v) {
   // A phone: the count, the order and Select on one line (Add a person waits at the foot of the list).
   const selB = btn(v.selecting ? 'Done' : 'Select', { kind: 'text', sm: true, icon: v.selecting ? 'check' : 'square-check-big', attrs: { 'data-sp': v.selecting ? 'selexit' : 'select', 'data-k': 'select' } });
   const sum = (desk ? `<p class="sp-tsum">${bar ? '' : `<b>${esc(plural(all.length, 'person', 'people'))}</b> · `}${sortB}</p>`
-    : `<div class="sp-tsum sp-tsump"><p><b aria-live="polite">${esc(plural(bar ? rows.length : all.length, 'person', 'people'))}</b> · ${sortB}</p>${selB}</div>`)
+    : `<div class="sp-tsum sp-tsump"><p>${TRY() && pristine(v) ? '' : `<b aria-live="polite">${esc(plural(bar ? rows.length : all.length, 'person', 'people'))}</b> · `}${sortB}</p>${selB}</div>`)
     + `${SCORE_LINE() && v.sort[0] === 'score' ? '<p class="sp-score">Score: 1 for each bill they follow, 5 for each action (testimony, an email to a chair, a hearing, a share), 2 for each click in our emails and a quarter for each email opened.</p>' : ''}`;
   const selHead = v.selecting ? `<div class="sp-selhead">${rows.every(p => v.sel.has(p.id)) ? btn('Clear the selection', { kind: 'text', sm: true, attrs: { 'data-sp': 'selnone' } }) : btn(`Select all ${rows.length.toLocaleString()}`, { kind: 'text', sm: true, attrs: { 'data-sp': 'selall' } })}</div>` : '';
   if (isDesk()) {
     return `${on}${bar}${sum}${selHead}<div class="sp-twrap"><table class="sp-table${v.selecting ? ' selecting' : ''}"><caption class="sr">Supporters, ${esc(plural(rows.length, 'person', 'people'))}, ${esc(sortWords(v.sort))}. Select a name to open that person.</caption>
-      <thead><tr>${v.selecting ? '<th class="c-cb" scope="col"><span class="sr">Selected</span></th>' : ''}${COLS.map(c => `<th scope="col" class="c-${c.k}">${c.label}</th>`).join('')}</tr></thead>
+      <thead><tr>${v.selecting ? '<th class="c-cb" scope="col"><span class="sr">Selected</span></th>' : ''}${COLS().map(c => `<th scope="col" class="c-${c.k}">${c.label}</th>`).join('')}</tr></thead>
       <tbody>${page.map(p => deskRow(p, v)).join('')}</tbody></table></div>${more}`;
   }
   const add = v.selecting ? '' : `<p class="sp-addp">${btn('Add a person', { kind: 'secondary', icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } })}</p>`;
@@ -228,7 +258,7 @@ export default {
     // Select mode is a mode: coming back from another page starts without it (the frame sets data-screen after render).
     if (document.body.dataset.screen !== 'supporters') { v.selecting = false; v.sel.clear(); }
     for (const id of [...v.sel]) if (!personById(id)) v.sel.delete(id);
-    const n = nFilters(v.f), admin = !!S.me?.is_admin, rows = shown(v), all = S.people || [];
+    const n = TRY() && pristine(v) ? 0 : nFilters(v.f), admin = !!S.me?.is_admin, rows = shown(v), all = S.people || [];
     const acts = `${btn('Add a person', { kind: 'secondary', icon: 'user-plus', attrs: { 'data-sp': 'add', 'data-k': 'add', 'aria-haspopup': 'dialog' } })}${all.length ? btn(v.selecting ? 'Done' : 'Select', { kind: 'text', icon: v.selecting ? 'check' : 'square-check-big', attrs: { 'data-sp': v.selecting ? 'selexit' : 'select', 'data-k': 'select' } }) : ''}`;
     const foot = admin ? footHTML(rows, all) : '';
     return `<div class="le-page sp-page${isDesk() ? ' sp-desk' : ''}">
@@ -254,7 +284,7 @@ export default {
     return `<div class="sp-bar${n > 9 ? ' sp-many' : ''}" role="toolbar" aria-label="Change the selected people">
       ${iconBtn('x', 'Stop selecting', { 'data-sp': 'selexit' })}
       <span class="sp-selcount" aria-live="polite"><b>${n.toLocaleString()}</b><span class="sp-selw"> selected</span></span>
-      <span class="sp-baract">${btn('Tag', { kind: 'secondary', icon: 'tag', attrs: { 'data-sp': 'tag', disabled: !n } })}${btn('Follow up', { kind: 'secondary', icon: 'calendar-plus', attrs: { 'data-sp': 'fup', disabled: !n } })}</span>
+      <span class="sp-baract">${btn('Tag', { kind: 'secondary', icon: 'tag', attrs: { 'data-sp': 'tag', disabled: !n } })}${btn('Follow up', { kind: 'secondary', icon: 'calendar-plus', attrs: { 'data-sp': 'fup', disabled: !n } })}${TRY() ? btn('Email', { kind: 'secondary', icon: 'mail', attrs: { 'data-sp': 'selmail', 'aria-haspopup': 'dialog', disabled: !n } }) : ''}</span>
     </div>`;
   },
   wire(route, root) {
@@ -281,6 +311,7 @@ export default {
     on('[data-sp="selexit"]', () => stopSelect());
     on('[data-sp="tag"]', () => tagSheet([...v.sel]));
     on('[data-sp="fup"]', () => followupSheet([...v.sel], { onDone: () => stopSelect() }));
+    on('[data-sp="selmail"]', () => emailPicked([...v.sel]));
     wireResults(root);
     ioArrive(route, page);
     const file = page.querySelector('#sp-file');
@@ -352,7 +383,7 @@ function rollHTML() {
 function footHTML(rows, all) {
   return `<section class="sp-admin" id="sp-foot" aria-label="Import and export"><div class="sp-adminb">
       ${btn('Import CSV', { kind: 'secondary', icon: 'upload', attrs: { 'data-sp': 'import', 'aria-haspopup': 'dialog' } })}
-      ${btn(rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : `Export these ${rows.length.toLocaleString()} as CSV`, { kind: 'secondary', icon: 'download', attrs: { 'data-sp': 'export', ...(rows.length ? {} : { disabled: true }) } })}</div></section>`;
+      ${btn(rows.length === all.length ? `Export all ${all.length.toLocaleString()} as CSV` : TRY() && pristine(V()) ? 'Export this group as CSV' : `Export these ${rows.length.toLocaleString()} as CSV`, { kind: 'secondary', icon: 'download', attrs: { 'data-sp': 'export', ...(rows.length ? {} : { disabled: true }) } })}</div></section>`;
 }
 // The groups row and Export, wired after the page draws and again after a search redraws them.
 function wireTop(root) {
@@ -375,7 +406,7 @@ function drawResults(root) {
   const gb = root.querySelector('#sp-groupsbox'); if (gb) gb.innerHTML = groupChips(v);
   const ft = root.querySelector('#sp-foot'); if (ft) { const rows = shown(v); ft.outerHTML = footHTML(rows, S.people || []); root.querySelector('[data-sp="import"]').onclick = () => importSheet(); }
   wireTop(root);
-  const n = nFilters(V().f), fb = root.querySelector('[data-sp="filter"]'); if (fb) fb.outerHTML = filterBtn(n, { 'data-sp': 'filter', 'data-k': 'filter' });
+  const n = TRY() && pristine(V()) ? 0 : nFilters(V().f), fb = root.querySelector('[data-sp="filter"]'); if (fb) fb.outerHTML = filterBtn(n, { 'data-sp': 'filter', 'data-k': 'filter' });
   root.querySelector('[data-sp="filter"]')?.addEventListener('click', () => filterSheet());
 }
 // Re-draw the whole frame (the bar and the tab bar change with selection) and put focus back where it was.
@@ -413,6 +444,7 @@ function wireResults(root) {
   on('[data-sp="segsave"]', () => saveSegmentSheet());
   on('[data-sp="mailthese"]', () => emailThese());
   on('[data-sp="segdel"]', () => { const sg = segOf(v); if (sg) deleteSegment(sg); });
+  on('[data-sp="segedit"]', () => { const sg = segOf(v); if (sg) editSegmentSheet(sg); });
   on('[data-sp="add"]', () => addPersonSheet());
   on('[data-sp="select"]', () => { startSelect(); rerender('select'); });   // a phone's Select sits in the results' count line
   on('[data-sp="selexit"]', () => stopSelect());
@@ -468,6 +500,42 @@ function emailThese() {
   const v = V(), seg = segOf(v);
   if (seg && norm(v.f) === norm(seg.filter)) { S.go('#/email/new?segment=' + encodeURIComponent(seg.id)); return; }
   saveSegmentSheet({ then: sg => S.go('#/email/new?segment=' + encodeURIComponent(sg.id)) });
+}
+
+// Email for hand-picked people (R-343, finding 4). An email goes to a saved group, and a group is a filter, so the picks
+// get a tag named for the group and the group is "everyone with that tag": the same people now, and anyone tagged later.
+// The way emailThese does it: one sheet names the group, then the composer opens on it. No new database call.
+function emailPicked(ids) {
+  if (!ids.length) return;
+  const v = V(), taken = new Set(allTags().map(t => t.toLowerCase())), names = new Set((S.segments || []).map(x => x.name.toLowerCase()));
+  // What will happen, before how (ui-critic): who can get it, then what is saved for the team.
+  const n = ids.length, can = ids.filter(id => personById(id)?.action_optin).length, who = plural(n, 'person', 'people');
+  const reach = can === n ? (n === 1 ? 'They get supporter emails.' : `All ${n} get supporter emails.`) : can ? `${can} of ${n} get supporter emails; the email goes to those ${can}.` : `None of them get supporter emails, so nobody would receive it.`;
+  openSheet({ title: `Email ${who}`, size: 'auto',
+    body: `<div class="sp-sheet"><p class="sp-segwhy"><b>${esc(reach)}</b></p>
+      <div class="field"><label for="sp-pkname">Name of the group</label><input id="sp-pkname" maxlength="60" autocomplete="off" placeholder="e.g. Maui callers" aria-describedby="sp-pkhelp sp-pkerr"><span class="help" id="sp-pkhelp">This saves a group for the team, here and in Emails, and tags these ${esc(who)} with its name. You can delete the group later; the tags stay.</span></div><div id="sp-pkerr" role="alert"></div></div>`,
+    foot: btn('Save group and write the email', { icon: 'mail', attrs: { 'data-go': '1' } }),
+    wire: dlg => {
+      const inp = dlg.querySelector('#sp-pkname'), go = dlg.querySelector('[data-go]'); inp.focus();
+      const err = m => { dlg.querySelector('#sp-pkerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; inp.toggleAttribute('aria-invalid', !!m); };
+      if (!can) { go.disabled = true; }
+      const save = async () => {
+        const name = inp.value.trim();
+        if (!can) return;
+        if (name.length < 2) { err('Give it a name first.'); inp.focus(); return; }
+        if (taken.has(name.toLowerCase())) { err(`Some people already have the tag “${name}”. Pick another name, so the group is only these people.`); inp.focus(); return; }
+        if (names.has(name.toLowerCase())) { err(`There is a group called “${name}” already. Pick another name.`); inp.focus(); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try {
+          await DB.bulkTag(ids, name, true);
+          const sg = await DB.saveSegment({ name, filter: { tags: [name] } });
+          v.selecting = false; v.sel.clear(); inSelEntry = false; lastBox = null;
+          closeSheet({ silent: true });
+          afterSheet(() => { S.go('#/email/new?segment=' + encodeURIComponent(sg.id)); toast(`Saved the group “${name}”. Write the email to it here.`, { ok: true }); });
+        } catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
+      };
+      go.onclick = save; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
+    } });
 }
 
 // ---- the Filter sheet: the four common choices first (V31: island, follows, tag, said yes to supporter emails), the
@@ -611,6 +679,33 @@ async function saveSegmentChanges() {
     await DB.saveSegment({ id: sg.id, name: sg.name, filter: pfClean(v.f) }); rerender();
     toast(`Saved the changes to “${sg.name}”.`, { ok: true, undo: async () => { await DB.saveSegment({ id: sg.id, name: sg.name, filter: before }); v.f = clone(before); hooks.render(); toast('The group is back as it was.'); } });
   } catch (e) { toast(e, { err: true }); }
+}
+// Edit group (R-343, A-20): rename it; Delete group waits here, not beside Email this group as its equal.
+function editSegmentSheet(sg) {
+  const names = new Set((S.segments || []).filter(x => x.id !== sg.id).map(x => x.name.toLowerCase()));
+  openSheet({ title: 'Edit group', size: 'auto',
+    body: `<div class="sp-sheet"><div class="field"><label for="sp-egname">Name of the group</label><input id="sp-egname" maxlength="80" autocomplete="off" value="${esc(sg.name)}" aria-describedby="sp-egerr"></div><div id="sp-egerr" role="alert"></div>
+      <p class="meta sp-egnote">To change who is in it, press × on a filter in the group bar or use Filter; then Save changes appears.</p>
+      <div class="sp-egdel">${btn('Delete group', { kind: 'text', icon: 'trash-2', attrs: { 'data-egdel': '1', 'aria-haspopup': 'dialog' } })}<span class="meta">The people stay; only the group goes.</span></div></div>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Save', { icon: 'check', attrs: { 'data-go': '1' } })}`,
+    wire: dlg => {
+      const inp = dlg.querySelector('#sp-egname'), go = dlg.querySelector('[data-go]'); inp.focus(); inp.select();
+      const err = m => { dlg.querySelector('#sp-egerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; inp.toggleAttribute('aria-invalid', !!m); };
+      dlg.querySelector('[data-no]').onclick = () => closeSheet();
+      dlg.querySelector('[data-egdel]').onclick = () => { closeSheet({ silent: true }); afterSheet(() => deleteSegment(sg)); };
+      const save = async () => {
+        const name = inp.value.trim();
+        if (name.length < 2) { err('Give it a name first.'); inp.focus(); return; }
+        if (names.has(name.toLowerCase())) { err(`There is a group called “${name}” already.`); inp.focus(); return; }
+        if (name === sg.name) { closeSheet(); return; }
+        go.setAttribute('aria-busy', 'true'); go.disabled = true;
+        try {
+          await DB.saveSegment({ id: sg.id, name, filter: sg.filter }); closeSheet({ silent: true });
+          afterSheet(() => { rerender(); toast(`Renamed the group “${name}”.`, { ok: true }); });
+        } catch (e) { go.removeAttribute('aria-busy'); go.disabled = false; toast(e, { err: true }); }
+      };
+      go.onclick = save; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
+    } });
 }
 async function deleteSegment(sg) {
   const ok = await confirmSheet({ title: `Delete the group “${esc(sg.name)}”?`, text: 'The people stay. Only this saved group goes, here and in Emails.', ok: 'Delete group', danger: true });
