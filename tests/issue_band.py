@@ -1,7 +1,7 @@
 # R-340: the issue band on the public bill page (layout 3). Checks, on a phone and a laptop:
 #   - the bill's number follows its name in the title, and the old number line over the title is gone
-#   - a bill on an issue shows the band: "Part of the issue", the issue's name (a link to its page), a badge and a sentence
-#   - an issue with the bill's own name says "Part of the issue of the same name" and does not repeat the name (A-14)
+#   - a bill on an issue shows the band: "Its issue:", the issue's name (a link to its page), a badge and a sentence
+#   - an issue with the bill's own name says its name too, "Its issue: <name>" (R-346, Nate 10/27: "of the same name" read oddly)
 #   - the band is in the topic's colour (data-topic), a returning visitor gets Follow the issue in it, a newcomer does not
 #   - nothing scrolls sideways and the page has no errors
 # usage: python3 tests/issue_band.py [BASE]   (BASE defaults to http://localhost:8832)
@@ -40,8 +40,7 @@ async def main():
           check(not r['eye'], f'{tag}: no number line over the title')
           check(r['band'] and r['topic'] == topic, f'{tag}: the band, in the {topic} colour ({r["topic"]})')
           check((r['href'] or '').startswith('#/issue/'), f'{tag}: the band opens the issue page ({r["href"]})')
-          if same: check(r['label'].startswith('Part of the issue of the same name') and not r['name'], f'{tag}: same name said once ({r["label"]!r}, {r["name"]!r})')
-          else: check(r['label'].startswith('Part of the issue') and r['name'] == name, f'{tag}: the issue named ({r["name"]!r})')
+          check(r['label'].startswith('Its issue:') and 'same name' not in r['label'] and (r['name'] == name if name else bool(r['name'])), f'{tag}: "Its issue:" and the issue named ({r["label"]!r}, {r["name"]!r})')
           check(r['badge'] == 'Still moving' and 'each chamber' in (r['says'] or ''), f'{tag}: badge and sentence ({r["says"]!r})')
           check(('Follow the issue' in r['follow'] or 'Following' in r['follow']) if back else not r['follow'], f'{tag}: Follow the issue {"in the band" if back else "left to the newcomer card"} ({r["follow"]!r})')
           check(not r['wide'], f'{tag}: nothing scrolls sideways')
