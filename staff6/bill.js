@@ -30,7 +30,8 @@ import { renderEarlier, wireTestimony, earlierCount, onNextUp } from './testimon
 import { billRoute, billByNum, MEMO_SAYS, plain, companionsOf, wantsHearing, chairAskMail, chairAskOf, ASK_LOG, liveAsk } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
-import { issuesOfBill, issueLinkHref } from './issues.js';
+import { issuesOfBill } from './issues.js';
+import { issueFrameHTML } from './issuepage.js';   // the issue frame over the bill's name (R-340)
 import { dayOf } from './standing.js';
 import { askedChip } from './chairask.js';
 import { teamFirst, teamName, newOwnerTag } from './model.js';
@@ -401,11 +402,6 @@ function wireNick(page, b) {
 }
 
 // ---- the header ----
-// The issues a bill is on (R-226, Nate 10/10: the way from a bill to its issue must be abundantly clear): a link each,
-// with the bill in its address so the issue's Back returns here. One named like the bill's nickname is "Its issue"
-// (R-277 fix 13: it said the name twice).
-const sameName = (i, b) => (i.name || '').trim().toLowerCase() === (b.nickname || '').trim().toLowerCase();
-const issueLinks = b => issuesOfBill(b.id).map(i => `<a class="bw-issue" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameName(i, b) ? 'Its issue' : esc(i.name)}</span>${icon('chevron-right', { cls: 'bw-chev' })}</a>`).join('');
 // "You own it", "Kevin owns it", "Lauren (turned off) owns it, needs a new owner", "No owner yet" (a live bill with a
 // position: the step card offers Take it).
 function ownerWords(b) {
@@ -430,10 +426,11 @@ function headHTML(b, route) {
     `<span class="bw-f">${pick('data-bwpos="1"', pos, `Position: ${pos}. Change it`)}</span>`,
     `<span class="bw-f">${pick('data-bwowner="1"', ow, `${ow}. Give ${numWords(b)} to someone`)}</span>`,
     isMuted(b) ? `<span class="bw-f bw-muted">${icon('bell-off')}<span>Muted</span></span>` : ''].filter(Boolean).join('');
-  const iss = issueLinks(b);
+  // The issue frame (R-340) took the place of the facts line's issue link: the bill's issue, how it stands, its bills.
+  const isx = issuesOfBill(b.id), frame = isx.length ? issueFrameHTML(isx[0], b) : '';
   // Grid areas (bill.css): from 481px the name, then Follow and "…" beside it; on a phone "…" stays beside the name and
   // Follow rides on the issue's line, so neither takes a row of its own (A-1).
-  return `<header class="bw-head${follow ? ' bw-hasfollow' : ''}${iss ? ' bw-hasiss' : ''}">
+  return `<header class="bw-head${follow ? ' bw-hasfollow' : ''}${frame ? ' bw-hasframe' : ''}">
     <div class="bw-top">
       <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
       ${nb ? `<div class="bw-nav" role="group" aria-label="Move through ${esc(o.label)}">
@@ -442,10 +439,11 @@ function headHTML(b, route) {
         ${nb.next ? `<a class="bw-pn" href="${billHref(nb.next, tab)}" data-nav="next" aria-label="Next bill: ${esc(sayWords(nb.next))}" title="${esc(sayWords(nb.next))} (])"><span>Next</span>${icon('chevron-right')}</a>` : ''}
       </div>` : ''}
     </div>
+    ${frame}
     <div class="bw-titlerow">${editing ? nickForm(b) : `<h1 class="bw-h1${b.nickname ? '' : ' bw-long'}" id="bw-h1" tabindex="-1">${esc(billName(b))}</h1>`}</div>
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
-    <div class="bw-fline"><p class="bw-facts">${facts}</p>${iss ? `<p class="bw-fiss">${iss}</p>` : ''}</div>
+    <div class="bw-fline"><p class="bw-facts">${facts}</p></div>
   </header>`;
 }
 

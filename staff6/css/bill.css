@@ -43,6 +43,45 @@
   .bw-head > .bw-hfollow { align-self: center; justify-self: end; }
   .bw-head:not(.bw-hasiss) > .bw-hfollow { justify-self: start; }
 }
+/* The issue frame (R-340, Nate's pick D, 26 Oct): the bill's issue over its name, in the topic's tint (issues.css
+   .ig6-tint1..6 set --ig-wash; the words stay in the app's ink, since the food tint's brown reads as amber, D3), with its bills still alive as the issue page's cards, this one ringed. It
+   takes a row of its own above the name at every width (the header grid's "frame" area). */
+.bw-head.bw-hasframe { grid-template-areas: "top top top" "frame frame frame" "title follow more" "fline fline fline"; }
+.bw-head > .bw-iframe { grid-area: frame; min-width: 0; margin: var(--s8) 0 var(--s24); padding: 6px; border-radius: var(--v6-r20); background: var(--ig-wash); }
+.bw-if-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); padding: var(--s8) var(--s12) var(--s12); }
+.bw-if-ic { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--v6-pill); background: rgba(255,255,255,.75); color: var(--v6-ink); }
+.bw-if-ic .ic { width: 22px; height: 22px; }
+.bw-if-m { flex: 1 1 260px; min-width: 0; display: grid; gap: 2px; }
+.bw-if-l { justify-self: start; font: 700 var(--v6-t14)/var(--v6-lh14) Lato, system-ui, sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--v6-body); text-decoration: none; }
+.bw-if-n { justify-self: start; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow-wrap: anywhere; }
+.bw-if-s { margin: 4px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+.bw-if-pill { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; padding: 1px 10px 1px 7px; border-radius: var(--v6-pill); background: rgba(255,255,255,.85); font: 700 var(--v6-t14)/20px Lato, system-ui, sans-serif; white-space: nowrap; color: var(--v6-body); }
+.bw-if-pill .ic { width: 16px; height: 16px; }
+.bw-if-pill.is-ontrack, .bw-if-pill.is-won { color: var(--v6-leaf); }
+/* At risk in ink, as the issue page's own health line says it: amber is kept for a bill's own deadlines (D3), and the word
+   and the alert icon carry it. */
+.bw-if-pill.is-risk { color: var(--v6-ink); }
+.bw-if-go { flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px; border-radius: var(--v6-pill); background: var(--v6-card); color: var(--v6-action); font-weight: 700; text-decoration: none; }
+.bw-if-go .ic { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) { .bw-if-l:hover, .bw-if-n:hover { text-decoration: underline; text-underline-offset: 3px; } .bw-if-go:hover { background: var(--v6-action-wash); } }
+.bw-iframe .bw-if-bills { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 6px; }
+.bw-iframe .ip6-brow { border-radius: var(--v6-r12); background: rgba(255,255,255,.72); border: 2px solid transparent; }
+.bw-iframe .ip6-brow.is-this { background: var(--v6-card); border-color: var(--v6-ink); position: relative; }
+.bw-iframe .ip6-brow.is-this .v6-row-top { padding-right: 76px; }
+/* the cards are tiles here, not a list: no divider line between them (steps.css .v6-row + .v6-row::before) */
+body.staff6 .bw-iframe .v6-row + .v6-row::before { background: transparent; }
+.bw-if-you { position: absolute; top: 10px; right: 10px; padding: 1px 8px; border-radius: var(--v6-pill); background: var(--v6-ink); color: var(--v6-card); font: 700 12px/18px Lato, system-ui, sans-serif; white-space: nowrap; }
+.bw-iframe .v6-row-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; }
+.bw-if-more { margin: 0; padding: 6px var(--s12) 4px; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-body); }
+@media (max-width: 480px) {
+  .bw-head.bw-hasframe { grid-template-areas: "frame frame frame" "title title more" "facts facts facts" "follow follow follow"; }
+  .bw-head.bw-hasframe:not(.bw-hasfollow) { grid-template-areas: "frame frame frame" "title title more" "fline fline fline"; }
+  .bw-if-ic { display: none; }
+  /* On a phone the frame says the issue and how it stands, and leaves its bill cards to the issue page, so the bill's own
+     name, Follow and bar stay on the first screen (A-1, the fresh-eyes review) */
+  .bw-iframe .bw-if-bills, .bw-iframe .bw-if-more { display: none; }
+  .bw-if-top { padding-bottom: var(--s8); }
+}
 /* The phone's top bar carries Back and the number; the page's own back row shows from 768px (spec 3.1: the laptop header
    holds only search). Previous / Next ride on it when the bill was opened from a list. */
 .bw-top { display: none; }
