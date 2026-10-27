@@ -40,7 +40,8 @@ import { itemRow, billStep, nw, dayWords, numWords, nameWords, committeeName, fi
 import { surname } from './pathway.js';
 import { trackerModel } from './tracker.js';
 import { STANCE_WORD, STANCE_ICON, photo, shortName, legHref, roleWord } from './pathway.js';
-import { catByKey, issueById, alsoIn, billsOn, billFrom, whyNot, inFirstVisit, relatedOf, STANCES, againstStance, stanceChip, pickStance, openIssueForm } from './issues.js';
+import { tintOf } from './issuegrid.js';   // the topic's tint for the bill page's issue frame (R-340)
+import { issueLinkHref, catByKey, issueById, alsoIn, billsOn, billFrom, whyNot, inFirstVisit, relatedOf, STANCES, againstStance, stanceChip, pickStance, openIssueForm } from './issues.js';
 
 // ---- small helpers (copied from issues.js, which keeps its own for the list) ----
 const live = () => (S.issues || []).filter(i => !i.archived_at);
@@ -138,12 +139,12 @@ const stepOfWords = b => { try { const m = trackerModel(b); return m.place.state
 // One bill in a chamber column: its name, its number small, the bar, and one line (where it is, or why it stopped).
 // When two of its bills share a name (HB 2121 and SB 2175 are both "Disposable e-cigarette ban"), the number leads and the
 // name comes second, so the two cards can be told apart.
-function billCard(x) {
+function billCard(x, { me = false } = {}) {
   const b = x.b, line = x.law ? 'Signed into law' : x.alive ? nowWords(b, x.st) : stoppedWords(b);
   const top = x.twin ? `<span class="v6-row-name ip6-num">${esc(numWords(b))}</span> <span class="v6-row-num ip6-twin">${esc(nameWords(b))}</span>`
     : `<span class="v6-row-name">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span>`;
-  return `<div class="v6-row ip6-brow${x.alive ? '' : ' is-stop'}" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}">
-    <a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top">${top}</span>
+  return `<div class="v6-row ip6-brow${x.alive ? '' : ' is-stop'}${me ? ' is-this' : ''}" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}">
+    <a class="v6-row-main" href="${esc(billRoute(b))}"${me ? ' aria-current="page"' : ''}><span class="v6-row-top">${top}${me ? '<span class="bw-if-you">This bill</span>' : ''}</span>
       ${x.alive ? barHTML(b) : ''}<span class="v6-row-line">${x.alive ? '' : icon('circle-minus')}<span><span class="sr">${esc(stepOfWords(b))}</span>${nw(esc(line))}</span></span></a></div>`;
 }
 const STOP_SHOWN = 2;   // stopped bills past this many fold under one line (what is done may fold: rule 3)
@@ -247,7 +248,7 @@ function health(xs, steps, earlier, { prepNext = false } = {}) {
   const LEAD = { ontrack: ['On track', 'circle-check'], risk: ['At risk', 'circle-alert'], stopped: ['Stopped', 'circle-minus'], won: ['Won', 'circle-check'], none: ['', 'circle-dashed'] }[k];
   const nx = k === 'stopped' ? (prepNext ? `<span class="ip6-hn">Next: ${btn('get it ready for 2027', { kind: 'text', cls: 'ip6-hlink', attrs: { 'data-ip': 'prep' } })}.</span>` : '')
     : steps[0] && k !== 'none' ? `<span class="ip6-hn">${nw(esc(`Next: ${steps[0].say}`))}</span>` : '';
-  return { k, html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
+  return { k, lead: LEAD[0], text: LEAD[0] ? cap(text) : cap(text), html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
     <p class="ip6-hs">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}${nx}</span></p></section>` };
 }
 
@@ -884,4 +885,29 @@ export function nextPhrase(b) {
     say = h ? `Hearing ${whenAt(h.scheduled_at)}` : st.deadline?.missed ? `Missed the ${st.deadline.label} deadline` : st.phase === 'committee' && st.deadline ? `Needs a hearing by ${dayWords(st.deadline.date)}` : st.deadline ? `${st.deadline.label} ${dayWords(st.deadline.date)}` : STAGE_LABEL[effStage(b)] || ''; }
   const who = ownerOf(b);
   return who && who.id !== S.me?.id ? `${say} · Owner: ${ownerFirst(who)}` : say;
+}
+
+// The issue frame on a staff bill page (R-340, Nate's pick D from the mockups, 26 Oct, in the topic's colour): where the
+// bill sits. The issue's name (its page's link), how it stands in this page's own words (health above: On track, At risk,
+// Stopped, Won), and its bills still alive as this page's cards, the page's own bill ringed as "This bill", then how many
+// stopped. It replaced the bill header's "Its issue ›" link (R-226), so the bill page adds nothing (V6 density rule).
+// An issue with the bill's own name says "Part of the issue of the same name" rather than the name twice (A-14).
+export function issueFrameHTML(i, b) {
+  const { now, earlier } = billsSplit(i), xs = now.map(placeOfBill), names = new Map();
+  for (const x of xs) { const n = plain(nameWords(x.b)); names.set(n, (names.get(n) || 0) + 1); }
+  for (const x of xs) x.twin = names.get(plain(nameWords(x.b))) > 1;
+  const hc = health(xs, [], earlier), alive = xs.filter(x => x.alive), gone = xs.length - alive.length;
+  const same = plain(i.name) === plain(b.nickname || ''), href = issueLinkHref(i, b);
+  const tint = tintOf(Math.max((S.categories || []).findIndex(c => c.key === i.category), 0));
+  const LEAD_IC = { ontrack: 'circle-check', risk: 'circle-alert', stopped: 'circle-minus', won: 'circle-check' };
+  const pill = hc.lead ? `<span class="bw-if-pill is-${hc.k}">${icon(LEAD_IC[hc.k] || 'circle')}<span>${esc(hc.lead)}</span></span> ` : '';
+  return `<section class="bw-iframe ${tint}" aria-label="Part of an issue">
+    <div class="bw-if-top"><span class="bw-if-ic" aria-hidden="true">${icon(issueIcon(i))}</span>
+      <div class="bw-if-m"><a class="bw-if-l" href="${esc(href)}">${same ? 'Part of the issue of the same name' : 'Part of the issue'}</a>
+        ${same ? '' : `<a class="bw-if-n" href="${esc(href)}">${esc(i.name)}</a>`}
+        <p class="bw-if-s">${pill}<span>${esc(hc.text)}</span></p></div>
+      <a class="bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></div>
+    ${alive.length ? `<div class="bw-if-bills" role="list">${alive.map(x => billCard(x, { me: x.b.id === b.id })).join('')}</div>` : ''}
+    ${gone ? `<p class="bw-if-more">${esc(plural(gone, alive.length ? 'more bill' : 'bill'))} on it stopped</p>` : ''}
+  </section>`;
 }
