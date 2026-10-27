@@ -214,3 +214,15 @@ body.staff6 .is6-icon[class*="mi-c-"] { background: var(--mi-tint, var(--v6-wash
 body.staff6 .co6-iss li > a { display: inline-flex; align-items: center; gap: var(--s8); }
 /* The issue page's "Coalitions:" line: each coalition's own icon before its name. */
 body.staff6 a.ip6-coal { display: inline-flex; align-items: center; gap: 4px; } body.staff6 a.ip6-coal .ic { width: 16px; height: 16px; }
+/* After the fresh-eyes critic (10/26): the drawing 20px in a 32px tile so it reads; the tile's top level with the name's
+   first line in every view; a white tile on the tinted Needs you today band; no tile in the phone spreadsheet (the name
+   column is narrow there); header tiles are rounded squares like the rows, 32px on a phone. */
+body.staff6 .v6-row-lead.i6-lead svg, body.staff6 .mi-trow .mi-tic.sm .ic { width: 20px; height: 20px; }
+body.staff6 .v6-row-lead.i6-lead { grid-row: 1 / span 3; margin-top: 0; }
+body.staff6 .mi-today .mi-tic { background: var(--v6-surface, #fff); }
+body.staff6 a.mi-trow { align-items: flex-start; } body.staff6 a.mi-trow > .mi-tic { margin-top: 2px; }
+body.staff6 .mi-tlink { align-items: flex-start; } body.staff6 .mi-tlink > .mi-tic { margin-top: 8px; }
+@media (max-width: 599.98px) { body.staff6 .mi-tlink > .mi-tic.xs { display: none; } }
+body.staff6 .is6-icon[class*="mi-c-"] { border-radius: var(--v6-r12); }
+@media (max-width: 599px) { body.staff6 .is6-icon[class*="mi-c-"] { width: 32px; height: 32px; } body.staff6 .is6-icon[class*="mi-c-"] .ic { width: 20px; height: 20px; } }
+@media (min-width: 600px) { body.staff6 .mi-td-issue .mi-ttag { padding-left: 32px; } }   /* the tag lines up under the name, not the tile */

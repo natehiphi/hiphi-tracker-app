@@ -55,6 +55,7 @@ def check(pg, label, w):
   spots = pg.page.evaluate(SCAN)
   own = [s for s in spots if not s['bill']]; bills = [s for s in spots if s['bill']]
   miss = [s for s in own if not s['ok']]; bmiss = [s for s in bills if not s['ok']]
+  if w < 600: miss = [s for s in miss if s['where'] != 'a.mi-tlink']   # the phone spreadsheet drops the tile on purpose (its name column is narrow)
   later = [s for s in miss if s['where'] in LATER or label in LATER_SCREENS]; miss = [s for s in miss if s not in later]
   if later: print(f'  waiting for another build: {w}: {label}: {len(later)} ({", ".join(sorted({LATER.get(s["where"], LATER_SCREENS.get(label, "")) for s in later}))})')
   R.check(f'{w}: {label}: every issue, topic and coalition name has its icon ({len(own) - len(miss)} of {len(own)})', not miss,
