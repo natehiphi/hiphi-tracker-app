@@ -29,7 +29,7 @@ function billsOf(i) {
 }
 
 // { tone: 'ok' | 'warn' | 'stop' | '', word, text }, or null while its bills are still coming.
-export function issueHealth(i) {
+export function issueHealth(i, b = null) {
   const si = sessionInfo();
   if (si.phase !== 'in') return { tone: '', word: '', text: 'New bills on it can come up when the Legislature meets in January.' };
   const bills = billsOf(i); if (!bills) return null;
@@ -43,6 +43,10 @@ export function issueHealth(i) {
   const from = new Set(live.map(originOf));
   if (from.size > 1) return { tone: 'ok', word: 'Still moving', text: 'A bill in each chamber is still alive.' };
   const one = CH[[...from][0]];
-  return { tone: 'warn', word: 'At risk', text: live.length === 1 ? `Only one bill on it is still moving, and it started in the ${one}. If it stops, the issue ends this year.`
+  // Said from the page's bill when it is the last one (the fresh-eyes review: "only one bill ... started in the Senate" read
+  // as another bill on SB 2695's own page).
+  const last = live.length === 1 && b && live[0].id === b.id;
+  return { tone: 'warn', word: 'At risk', text: last ? 'This is the only bill on it still moving. If it stops, the issue ends this year.'
+    : live.length === 1 ? `Only ${spaced(live[0].bill_number)} is still moving on it. If it stops, the issue ends this year.`
     : `Its bills still moving all started in the ${one}. If they stop, the issue ends this year.` };
 }

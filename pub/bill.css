@@ -457,7 +457,10 @@
 .bl-rec .bl-ib-ok { color: var(--ok-text); } .bl-rec .bl-ib-warn { color: var(--warn-text); } .bl-rec .bl-ib-stop { color: var(--n700); }
 .bl-rec .bl-iband .bl-ib-btn { flex: none; background: var(--n0); }
 .bl-rec .bl-iband > .lvl-box { flex: 1 0 100%; max-width: 560px; }
-@media (max-width: 479px) { .bl-rec .bl-ib-ic { display: none; } .bl-rec .bl-iband { padding: var(--s12) var(--s16); } }
+/* On a phone the band stays short so the bill's own action card starts on the first screen (A-1, the fresh-eyes review):
+   the name, the badge and Follow; the sentence is on the issue page, one tap away. */
+@media (max-width: 479px) { .bl-rec .bl-ib-ic, .bl-rec .bl-ib-why { display: none; } .bl-rec .bl-iband { padding: var(--s12) var(--s16); row-gap: var(--s8); }
+  .bl-rec .bl-ib-n a { font-size: var(--t16); } }
 .bl-rec .bl-rhead h1 { margin-top: 2px; }
 .bl-rec .bl-rhrow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); margin-top: var(--s8); }
 .bl-rec .bl-rread { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--p700); font-weight: 700; text-decoration: none; }

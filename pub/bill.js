@@ -1405,7 +1405,7 @@ const plainN = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02
 const TONE_IC = { ok: 'circle-check', warn: 'circle-alert', stop: 'circle-minus' };
 function issueBand(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
-  const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0], on = issueFollowed(i), hx = issueHealth(i);
+  const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0], on = issueFollowed(i), hx = issueHealth(i, b);
   const same = plainN(i.name) === plainN(nick(b));
   const badge = hx?.word ? `<span class="bl-ib-badge bl-ib-${hx.tone}">${icon(TONE_IC[hx.tone] || 'circle')}<span>${esc(hx.word)}</span></span> ` : '';
   const follow = (x && followIsMain(b, x)) || firstVisit() ? ''
@@ -1416,7 +1416,7 @@ function issueBand(b, x) {
     <span class="bl-ib-ic" aria-hidden="true">${icon(issueLead(i))}</span>
     <div class="bl-ib-m"><p class="bl-ib-l"><a href="#/issue/${esc(i.slug)}">${same ? 'Part of the issue of the same name' : 'Part of the issue'}${icon('chevron-right', { cls: 'bl-ib-chev' })}</a></p>
       ${same ? '' : `<p class="bl-ib-n"><a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></p>`}
-      ${hx ? `<p class="bl-ib-s">${badge}<span>${esc(hx.text)}</span>${tx}</p>` : tx ? `<p class="bl-ib-s">${tx}</p>` : ''}</div>
+      ${hx ? `<p class="bl-ib-s">${badge}<span class="bl-ib-why">${esc(hx.text)}</span>${tx}</p>` : tx ? `<p class="bl-ib-s">${tx}</p>` : ''}</div>
     ${follow}${t ? levelBox(t, TXT) : ''}</section>`;
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
