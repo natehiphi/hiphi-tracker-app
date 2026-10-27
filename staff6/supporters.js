@@ -98,12 +98,12 @@ function dropFilter(f, key, val) {
 const whereText = p => [p.island, p.senate_district ? `Senate ${p.senate_district}` : '', p.house_district ? `House ${p.house_district}` : ''].filter(Boolean).join(', ');
 // Their email's trouble, said first, only when there is one (status by exception, D3). R-343: also whether a supporter
 // email can reach them at all ("No email yet", "Not opted in"), quietly, since a third of the list is that.
-const flagText = p => p.bounced_at ? 'Email bounced' : p.unsubscribed_at ? 'Unsubscribed' : !TRY() ? '' : !p.email ? 'No email yet' : !p.action_optin ? 'Not opted in' : '';
+const flagText = p => p.bounced_at ? 'Email bounced' : p.unsubscribed_at ? 'Unsubscribed' : !TRY() ? '' : !p.email ? 'No email yet' : !p.action_optin ? 'No supporter emails' : '';
 const flagQuiet = p => !p.bounced_at && !p.unsubscribed_at;
 // What they have done (R-343, A-24, C-14): "Testified 2× · follows 4"; actions other than testimony when there is none.
 function doneBits(p) {
   const t = p.testimonies || 0, a = p.actions || 0, f = (p.bill_ids || []).length;
-  return [t ? `testified ${t}×` : a ? `acted ${a}×` : '', f ? `follows ${f}` : ''].filter(Boolean);
+  return [t ? `testified ${t}×` : a ? `took ${a} action${a === 1 ? '' : 's'}` : '', f ? `follows ${f} bill${f === 1 ? '' : 's'}` : ''].filter(Boolean);
 }
 const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
 const doneText = p => cap(doneBits(p).join(' · '));
@@ -111,8 +111,10 @@ const doneText = p => cap(doneBits(p).join(' · '));
 function subLine(p) {
   const w = [p.island, p.senate_district ? `Senate ${p.senate_district}` : ''].filter(Boolean).join(', ');
   const t = TRY() && p.testimonies ? `testified ${p.testimonies}×` : '';   // R-343: the one deed that matters most, on a phone
-  const bits = [flagText(p), w, t, p.last_active ? `active ${shortDate(p.last_active)}` : ''].filter(Boolean);
-  return bits.join(' · ') || 'No district or activity yet';
+  // Trouble (bounced, unsubscribed) leads the line; the quiet flags come after the place, in lower case (design review).
+  const f = flagText(p), lead = f && !flagQuiet(p) ? f : '', quiet = f && flagQuiet(p) ? f[0].toLowerCase() + f.slice(1) : '';
+  const bits = [lead, w, quiet, t, p.last_active ? `active ${shortDate(p.last_active)}` : ''].filter(Boolean);
+  return cap(bits.join(' · ')) || 'No district or activity yet';
 }
 function phoneRow(p, v) {
   const name = esc(personName(p)), line = `<span class="v6-row-line"><span>${esc(subLine(p))}</span></span>`;
@@ -167,7 +169,9 @@ function barHTML(v, rows) {
   }
   // A phone (A-1, the list in the first 400px): the bar is the buttons alone; the count sits in the "Sorted by" line, Clear
   // with the filter chips, and "Everyone" is the groups row's own first chip.
-  if (!isDesk()) return `<div class="sp-rbar sp-rbarp"><div class="sp-racts">${acts.join('')}</div></div>`;
+  // R-343 (design review): a phone's saved group says who is in it, in words, over its two buttons.
+  const who = TRY() && seg && !changed ? `<p class="sp-rwho"><span class="sp-rnw">In this group:</span> ${esc(activeChips(v.f).map(c => c[2]).join(' · '))}</p>` : '';
+  if (!isDesk()) return `<div class="sp-rbar sp-rbarp">${who}<div class="sp-racts">${acts.join('')}</div></div>`;
   // A group just as saved: the groups row's "Everyone" chip shows everyone again (a text button "Everyone" here repeated it
   // and did not say what it did); with a filter changed, Clear.
   if (!(seg && !changed)) acts.push(btn('Clear', { kind: 'text', attrs: { 'data-sp': 'clear' } }));
@@ -504,15 +508,20 @@ function emailThese() {
 function emailPicked(ids) {
   if (!ids.length) return;
   const v = V(), taken = new Set(allTags().map(t => t.toLowerCase())), names = new Set((S.segments || []).map(x => x.name.toLowerCase()));
-  openSheet({ title: `Email ${plural(ids.length, 'person', 'people')}`, size: 'auto',
-    body: `<div class="sp-sheet"><p class="sp-segwhy">An email goes to a saved group, so these people become one first. Each gets the group’s name as a tag.</p>
-      <div class="field"><label for="sp-pkname">Name of the group</label><input id="sp-pkname" maxlength="60" autocomplete="off" placeholder="e.g. Maui callers" aria-describedby="sp-pkhelp sp-pkerr"><span class="help" id="sp-pkhelp">Everyone on the team sees it here and in Emails.</span></div><div id="sp-pkerr" role="alert"></div></div>`,
+  // What will happen, before how (ui-critic): who can get it, then what is saved for the team.
+  const n = ids.length, can = ids.filter(id => personById(id)?.action_optin).length, who = plural(n, 'person', 'people');
+  const reach = can === n ? (n === 1 ? 'They get supporter emails.' : `All ${n} get supporter emails.`) : can ? `${can} of ${n} get supporter emails; the email goes to those ${can}.` : `None of them get supporter emails, so nobody would receive it.`;
+  openSheet({ title: `Email ${who}`, size: 'auto',
+    body: `<div class="sp-sheet"><p class="sp-segwhy"><b>${esc(reach)}</b></p>
+      <div class="field"><label for="sp-pkname">Name of the group</label><input id="sp-pkname" maxlength="60" autocomplete="off" placeholder="e.g. Maui callers" aria-describedby="sp-pkhelp sp-pkerr"><span class="help" id="sp-pkhelp">This saves a group for the team, here and in Emails, and tags these ${esc(who)} with its name. You can delete the group later; the tags stay.</span></div><div id="sp-pkerr" role="alert"></div></div>`,
     foot: btn('Save group and write the email', { icon: 'mail', attrs: { 'data-go': '1' } }),
     wire: dlg => {
       const inp = dlg.querySelector('#sp-pkname'), go = dlg.querySelector('[data-go]'); inp.focus();
       const err = m => { dlg.querySelector('#sp-pkerr').innerHTML = m ? `<p class="inlinemsg">${icon('circle-alert')}${esc(m)}</p>` : ''; inp.toggleAttribute('aria-invalid', !!m); };
+      if (!can) { go.disabled = true; }
       const save = async () => {
         const name = inp.value.trim();
+        if (!can) return;
         if (name.length < 2) { err('Give it a name first.'); inp.focus(); return; }
         if (taken.has(name.toLowerCase())) { err(`Some people already have the tag “${name}”. Pick another name, so the group is only these people.`); inp.focus(); return; }
         if (names.has(name.toLowerCase())) { err(`There is a group called “${name}” already. Pick another name.`); inp.focus(); return; }
@@ -676,7 +685,7 @@ function editSegmentSheet(sg) {
   const names = new Set((S.segments || []).filter(x => x.id !== sg.id).map(x => x.name.toLowerCase()));
   openSheet({ title: 'Edit group', size: 'auto',
     body: `<div class="sp-sheet"><div class="field"><label for="sp-egname">Name of the group</label><input id="sp-egname" maxlength="80" autocomplete="off" value="${esc(sg.name)}" aria-describedby="sp-egerr"></div><div id="sp-egerr" role="alert"></div>
-      <p class="meta">To change who is in it, change the filters on the list, then Save changes.</p>
+      <p class="meta sp-egnote">To change who is in it, press × on a filter in the group bar or use Filter; then Save changes appears.</p>
       <div class="sp-egdel">${btn('Delete group', { kind: 'text', icon: 'trash-2', attrs: { 'data-egdel': '1', 'aria-haspopup': 'dialog' } })}<span class="meta">The people stay; only the group goes.</span></div></div>`,
     foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Save', { icon: 'check', attrs: { 'data-go': '1' } })}`,
     wire: dlg => {

@@ -74,7 +74,9 @@ body.staff6 .sp-table td.c-done { white-space: normal; }
 body.staff6 .sp-rn .sp-rnw { color: var(--v6-muted); margin-right: var(--s4); }
 body.staff6 .sp-rn .sp-fchip { margin: 2px var(--s4) 2px 0; vertical-align: middle; }
 /* Edit group: Delete waits at the foot of the sheet, apart from Save (A-20) */
-.sp-sheet .sp-egdel { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s16); padding-top: var(--s12); border-top: 1px solid var(--v6-line, var(--n200)); }
+.sp-sheet .sp-egdel { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin-top: var(--s24); }
+body.staff6 .sp-sheet .sp-egnote, body.staff6 .sp-sheet .sp-egdel .meta { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .sp-rwho { width: 100%; margin: 0 0 var(--s8); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
 body.staff6 .sp-dash { color: var(--v6-muted); }
 @container sptable (max-width: 620px) { body.staff6 .sp-table .c-tags { display: none; } }
 /* For admins: Import CSV and Export, in plain sight at the foot (F177) */
