@@ -38,30 +38,36 @@ with L.browser() as B:
   pg.page.click('.i6-head .sv-secnav a:has-text("All issues")'); pg.ready()
   R.check('the All issues tab goes back to the cards', bool(pg.page.query_selector('.ig6-grid')) and not pg.page.query_selector('.hc-cal'))
 
-  # ---- Today: Today | Calendar tabs and a List | Calendar switch; Mine | Team inside ----
+  # ---- Today (R-346, Nate 27 Oct): one page, no Today | Calendar tabs and no List | Calendar switch; the week is a section
+  # under Coming up (the same calendar), with R-342's Mine | Team inside; #/?view=cal opens Today at that section ----
   pg = B.page('NT', 1440, 900); pg.page.on('pageerror', lambda e: errs.append(str(e))); pg.open('/')
-  R.check('Today opens on its list for someone who never picked', not pg.page.query_selector('.hc-cal') and bool(pg.page.query_selector('.t6-ld')))
-  R.check('Today shows Today | Calendar tabs', 'Calendar' in pg.text('.t6-caltabs'))
-  R.check('Today shows a List | Calendar switch', bool(pg.page.query_selector('[data-tview="cal"]')))
-  pg.page.click('.t6-caltabs a:has-text("Calendar")'); pg.ready()
-  R.check('the Calendar tab opens the week', pg.page.evaluate(COLS) == 5)
+  R.check('Today draws its list and the week on one page', bool(pg.page.query_selector('.t6-ld')) and bool(pg.page.query_selector('#t6-week .hc-cal')))
+  R.check('no Today | Calendar tabs and no List | Calendar switch on Today', not pg.page.query_selector('.t6-caltabs, [data-tview], .t6-ways'))
+  R.check('the week comes after Coming up', pg.page.evaluate("(() => { const c = document.querySelector('#t6-g-soon'), w = document.querySelector('#t6-week'); return !!c && !!w && (c.compareDocumentPosition(w) & Node.DOCUMENT_POSITION_FOLLOWING) > 0; })()"))
+  R.check('the week shows five day columns', pg.page.evaluate(COLS) == 5)
   R.check('Mine is the start', pg.page.get_attribute('[data-seg="tcwho"][data-val="mine"]', 'aria-pressed') == 'true')
-  mine = pg.text('.hc-cal')
+  mine = pg.text('#t6-week .hc-cal')
   R.check("Mine has Nate's 1:10 PM hearing and his follow-up", '1:10 PM' in mine and 'Follow up with' in mine)
-  steps = [' '.join(e.inner_text().split()) for e in pg.page.query_selector_all('.hc-step')]
-  R.check("Mine's own steps keep Today's times: Approve HB 1523 by 11:00 AM, Resubmit HB 2116 by 4:00 PM", any('By 11:00 AM' in x and 'Approve' in x and 'HB 1523' in x for x in steps) and any('By 4:00 PM' in x and 'Resubmit' in x for x in steps), steps[:4])
+  steps = [' '.join(e.inner_text().split()) for e in pg.page.query_selector_all('#t6-week .hc-step')]
+  R.check("Mine's own steps keep Today's times: Approve HB 1523 at 11:00 AM, Resubmit HB 2116 at 4:00 PM", any('11:00 AM' in x and 'Approve' in x and 'HB 1523' in x for x in steps) and any('4:00 PM' in x and 'resubmit' in x.lower() for x in steps), steps[:4])
   R.check('a late step says late, not a dangling "until today"', not any('until today' in x for x in steps), steps[:4])
-  R.check('Mine draws no issue chips (Today is about the person)', not pg.page.query_selector('.hc-iss'))
+  # R-346 finding C: one entry per job, the person's own testimony step is never also a "testimony due" entry
+  dup = pg.page.evaluate("""(() => { const stepBills = new Set([...document.querySelectorAll('#t6-week .hc-step a.hc-bl')].map(a => a.textContent.trim()));
+    return [...document.querySelectorAll('#t6-week .hc-due a.hc-bl')].map(a => a.textContent.trim()).filter(n => stepBills.has(n)); })()""")
+  R.check('no testimony due entry for a bill whose step is already an entry (one entry per job)', not dup, dup)
+  R.check('Mine names each entry\'s issue, icon and name (R-346 D, E)', bool(pg.page.query_selector('#t6-week .hc-iss svg')))
+  R.check('no link inside a link on Today', pg.page.evaluate("document.querySelectorAll('a a').length") == 0)
   pg.page.click('[data-seg="tcwho"][data-val="team"]'); pg.ready()
-  team = pg.text('.hc-cal')
+  team = pg.text('#t6-week .hc-cal')
   R.check('Team says whose each to-do is', 'For ' in team, team[:80])
   R.check('Team has more hearings than Mine', team.count('Hearing') >= mine.count('Hearing'), (team.count('Hearing'), mine.count('Hearing')))
   R.check('the address says who=team, not scope= (which opens Team)', 'who=team' in pg.hash() and 'scope=' not in pg.hash(), pg.hash())
+  R.check('Today stays one page with Team picked', bool(pg.page.query_selector('.t6-ld')))
   R.check('nothing runs off the side at 1440', overflow(pg) <= 0, overflow(pg))
-  pg.page.goto(pg.url('/')); pg.page.wait_for_timeout(500); pg.ready()
-  R.check('Today remembers Calendar after a reload', bool(pg.page.query_selector('.hc-cal')))
-  pg.page.click('[data-tview="list"]'); pg.ready()
-  R.check('List goes back to the day', bool(pg.page.query_selector('.t6-ld')) and not pg.page.query_selector('.hc-cal'))
+  pg.page.goto(pg.url('/?view=cal')); pg.page.wait_for_timeout(1200); pg.ready()
+  R.check('an old #/?view=cal link opens Today at its week', bool(pg.page.query_selector('.t6-ld')) and pg.page.evaluate("scrollY > 0 && document.querySelector('#t6-week').getBoundingClientRect().top >= -2 && document.querySelector('#t6-week').getBoundingClientRect().top < innerHeight * 0.6"),
+    pg.page.evaluate("document.querySelector('#t6-week')?.getBoundingClientRect().top"))
+  pg.close()
 
   # ---- phones: one day at a time ----
   for route in ['/?view=cal', '/my-issues/all?view=cal']:

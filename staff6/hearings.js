@@ -17,7 +17,7 @@
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
-import { tintOf } from './issuegrid.js';   // an issue's topic tint, as its card on All issues (R-342)
+import { tintOf, issueIcon } from './issuegrid.js';   // an issue's topic tint and icon, as its card on All issues (R-342, R-346)
 import { icon, btn, iconBtn, toast, segmented, menuSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
@@ -239,9 +239,9 @@ async function rememberView(v) {
 const modeOf = route => [route?.q?.view, S.me?.prefs?.hview, viewSaved()].find(x => x === 'cal' || x === 'list') || 'list';
 const modeSwitch = mode => segmented('hview', [['list', 'List'], ['cal', 'Calendar']], mode, 'Show the week as');
 const isPosB = b => !!b && b.tracked !== false && !isMon(b);
-const clipW = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s; };
-const billShort = b => `${numWords(b)}${b.nickname ? ` · ${clipW(b.nickname, 34)}` : ''}`;
 const weekdayLong = t => new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'long' });
+// Whether Today's steps hold the person's own step on this bill for this sitting (sitKey `k`; a step with no sitting, any).
+const ownStep = (steps, b, k) => !!b && (steps || []).some(x => x.b?.id === b.id && x.testimony && (!x.h || sitKey(x.h) === k));
 // One bill's testimony as the hearing card says it (steps.js billStep: the state word, late only for the step's own person
 // or the bill's owner, D3 / A-5 on v6).
 function stepOfB(h, b) {
@@ -266,7 +266,9 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
     const rows = x.rows.filter(r => r.status !== 'cancelled'); if (!rows.length) continue;
     const due = ms(dueOf(rows[0])); if (!(due >= t0 && due <= t1)) continue;
     const k = sitKey(rows[0]); if (seen.has(k)) continue; seen.add(k);
-    const bills = rows.map(r => ({ r, b: billById(r.bill_id) })).filter(y => isPosB(y.b) && ok(y.b))
+    // One entry per job (R-346 finding C): a bill whose testimony is the person's own step on this sitting is said once, as
+    // that step (Today hands its steps in), never again as "testimony due" beside it.
+    const bills = rows.map(r => ({ r, b: billById(r.bill_id) })).filter(y => isPosB(y.b) && ok(y.b) && !ownStep(steps, y.b, k))
       .map(y => ({ ...y, ...stepOfB(y.r, y.b) })).filter(y => y.st && y.st.key !== 'filed');
     if (bills.length) put(due, { k: 'due', h: x.h, bills, late: due <= now });
   }
@@ -288,8 +290,15 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
     else if (t.kind === 'followup') { const p = t.p || {}, name = p.name || p.email || 'a supporter';
       put(t.due, { k: 'fu', words: `Follow up with ${name}`, sub: t.f?.what || '', who: tasks === 'team' ? 'You' : '', href: t.f?.person_id ? `#/person/${encodeURIComponent(t.f.person_id)}` : '#/' }); }
   }
-  // Today hands its own rows (today.js work: the times its list says), so the two never disagree
-  for (const x of steps || []) if (x.t >= t0 && x.t <= t1) put(x.t, { k: 'step', words: x.words, b: x.b, href: billRoute(x.b) });
+  // Today hands its own rows (today.js work: the times its list says), so the two never disagree. A step due when its
+  // sitting starts (a late filing, accepted until the hearing) is said on that hearing's entry, beside its bill, so the
+  // hour holds one entry, not two for one job (R-346 finding C; the bold mock's 1:10 PM).
+  for (const x of steps || []) {
+    if (!(x.t >= t0 && x.t <= t1)) continue;
+    const he = x.h && (days.get(hst(x.t)) || []).find(e => e.k === 'h' && e.t === x.t && sitKey(e.x.h) === sitKey(x.h) && e.bills.some(y => y.b?.id === x.b.id));
+    if (he) { (he.mine ??= new Map()).set(x.b.id, x.short || x.words); continue; }
+    put(x.t, { k: 'step', words: x.words, b: x.b, href: billRoute(x.b) });
+  }
   // At the same minute: the testimony due first, then the hearing, then the to-dos (v5's order).
   const rank = { step: 0, due: 1, h: 2, todo: 3, fu: 3 };
   for (const list of days.values()) list.sort((p, q) => p.t - q.t || rank[p.k] - rank[q.k]);
@@ -300,51 +309,51 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
 const capCal = ds => (ds || []).map(d => { const g = gateGloss(d.label);
   if (plainDeadlines() && g) return `<p class="hc-cap">${icon('landmark')}<span>${esc(g.charAt(0).toUpperCase() + g.slice(1))}</span></p>`;
   return `<p class="hc-cap">${icon('landmark')}<span><a href="#/help/words?w=${encodeURIComponent(d.label)}" aria-label="${esc(`Capitol deadline: ${d.label}`)}">${esc(d.label)}</a>${g ? `<span class="hc-capg">${esc(g)}</span>` : ''}</span></p>`; }).join('');
-// One entry. Times are the first thing on each line (the day's order is time order). A testimony deadline says "Due 3:00 PM",
-// so its time never reads as an event, and it carries a thin action rule: it is the part of the day someone acts on (critic).
-// All issues' calendar (R-342, Nate 26 Oct: "week grid by issue"): each bill says its issue in the issue card's own tint, so
-// the week shows which issues are busy. Two at most, then "+1"; a bill on no issue says nothing.
-function issueTags(b) {
-  const cats = S.categories || [], ids = (S.billIssues || []).filter(x => x.bill_id === b?.id).map(x => x.issue_id);
-  const iss = ids.map(id => (S.issues || []).find(i => i.id === id)).filter(Boolean).sort((x, y) => String(x.name).localeCompare(String(y.name)));
+// One entry, one shape (R-346 finding D, Nate 27 Oct): every entry on every calendar (Today, Hearings > This week, All
+// issues) is the same four parts, top to bottom: the time and what kind of entry it is ("1:10 PM · Hearing"), the job (the
+// committee and room, "For Friday's Senate Health and Human Services hearing", the person's own step in Today's words, the
+// to-do), the bill or bills with where each stands, and the issue (its icon and name, in its topic's tint). Names are said
+// whole, never cut (the mock's "Senate HHS" and "Let people cross…" read as different things). The job is the entry's link
+// (the hearing, the bill, the person); each bill number and each issue is a link of its own, so no link sits in another.
+// A hearing is the one soft card in a day; testimony due carries a thin action rule (critic, R-342).
+function issuesOfB(b) {
+  const ids = new Set((S.billIssues || []).filter(x => x.bill_id === b?.id).map(x => x.issue_id));
+  return (S.issues || []).filter(i => ids.has(i.id));
+}
+// The issues of an entry's bills, each once, at most two then "+N": icon and whole name, a link to the issue.
+function issueTags(bills) {
+  const cats = S.categories || [], seen = new Map();
+  for (const b of bills || []) for (const i of issuesOfB(b)) if (!seen.has(i.id)) seen.set(i.id, i);
+  const iss = [...seen.values()].sort((x, y) => String(x.name).localeCompare(String(y.name)));
   if (!iss.length) return '';
-  const chip = i => `<a class="hc-iss ${tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0))}" href="#/issue/${encodeURIComponent(i.id)}">${esc(clipW(i.name, 44))}</a>`;
+  const chip = i => `<a class="hc-iss ${tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0))}" href="#/issue/${encodeURIComponent(i.id)}">${icon(issueIcon(i))}<span>${esc(i.name)}</span></a>`;
   return `<span class="hc-isss">${iss.slice(0, 2).map(chip).join('')}${iss.length > 2 ? `<span class="hc-issn">+${iss.length - 2}</span>` : ''}</span>`;
 }
-function calEntry(e, { wkend = false, tag = false } = {}) {
-  const tg = b => tag ? issueTags(b) : '';
+const stWords = st => st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : '';
+// One bill on an entry: its number (a link to it), then where it stands, or the person's own step on it when Today folded
+// that step into this entry (one entry per job, finding C).
+const billLi = (b, st, mine = '') => `<li><a class="hc-bl" href="${esc(billRoute(b))}" aria-label="${esc(sayWords(b))}">${esc(numWords(b))}</a>${mine ? `<span class="hc-st hc-mine">${icon('circle-check')}${esc(`Your step: ${mine}`)}</span>` : stWords(st)}</li>`;
+function calEntry(e, { wkend = false } = {}) {
   const when = `${wkend ? `${new Date(e.t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ` : ''}${timeWords(e.t)}`;
-  const tm = `<span class="hc-t">${esc(when)}</span>`;
+  const head = (ic, kind, more = '') => `<p class="hc-eh"><span class="hc-t">${esc(when)}</span><span class="hc-ek">${icon(ic)}${esc(kind)}</span>${more}</p>`;
+  const job = (href, words, label = '') => `<a class="hc-job" href="${esc(href)}"${label ? ` aria-label="${esc(label)}"` : ''}>${esc(words)}</a>`;
+  const list = items => items ? `<ul class="hc-bills">${items}</ul>` : '';
   if (e.k === 'h') {
     const h = e.x.h, cn = committeeName(h.committee) || h.committee, room = h.room ? roomName(h.room) : '';
     const going = goingTo(e.x.rows), label = `Hearing ${when}, ${cn}${room ? `, ${room}` : ''}${e.cancelled ? ', cancelled' : ''}. Open the hearing`;
-    const bills = e.bills.map(y => { const st = stepOfB(y.r, y.b);
-      return `<li><span class="hc-bn">${esc(billShort(y.b))}</span>${st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : ''}</li>`; }).join('');
-    const head = `<span class="hc-hh">${tm}<span class="hc-hk">Hearing</span>${going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : ''}</span>
-      <span class="hc-cn">${esc(cn)}</span>${room || e.cancelled ? `<span class="hc-room">${esc(e.cancelled ? 'Cancelled, no new date yet' : room)}</span>` : ''}`;
-    // With issue tags (links of their own) the card is a box whose committee name opens the hearing, so no link holds another
-    if (tag) {
-      const tb = e.bills.map(y => { const st = stepOfB(y.r, y.b);
-        return `<li><a class="hc-bl" href="${esc(billRoute(y.b))}">${esc(tag ? numWords(y.b) : billShort(y.b))}</a>${st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : ''}${tg(y.b)}</li>`; }).join('');
-      return `<li class="hc-e hc-h hc-hbox${e.cancelled ? ' off' : ''}"><div class="hc-hl"><span class="hc-hh">${tm}<span class="hc-hk">Hearing</span>${going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : ''}</span>
-        <a class="hc-cn" href="#/hearing/${encodeURIComponent(h.id)}?from=week" aria-label="${esc(label)}">${esc(cn)}</a>${room || e.cancelled ? `<span class="hc-room">${esc(e.cancelled ? 'Cancelled, no new date yet' : room)}</span>` : ''}
-        ${tb ? `<ul class="hc-bills">${tb}</ul>` : ''}</div></li>`;
-    }
-    return `<li class="hc-e hc-h${e.cancelled ? ' off' : ''}"><a class="hc-hl" href="#/hearing/${encodeURIComponent(h.id)}?from=week" aria-label="${esc(label)}">
-      ${head}
-      ${bills ? `<ul class="hc-bills">${bills}</ul>` : ''}</a></li>`;
+    const bills = e.bills.map(y => billLi(y.b, stepOfB(y.r, y.b), e.mine?.get(y.b.id) || '')).join('');
+    return `<li class="hc-e hc-h${e.cancelled ? ' off' : ''}">${head('landmark', 'Hearing', going ? `<span class="hc-going">${icon('user-check')}<span>You’re going</span></span>` : '')}
+      ${job(`#/hearing/${encodeURIComponent(h.id)}?from=week`, `${cn}${room ? ` · ${room}` : ''}`, label)}${e.cancelled ? '<p class="hc-es">Cancelled, no new date yet</p>' : ''}
+      ${list(bills)}${issueTags(e.bills.map(y => y.b))}</li>`;
   }
   if (e.k === 'due') {
-    const h = e.h, cn = committeeName(h.committee) || h.committee, what = `for ${weekdayLong(h.scheduled_at)}’s ${cn} hearing`;
-    const bills = e.bills.map(y => `<li><a class="hc-dl${y.tone === 'late' ? ' late' : ''}" href="${esc(billRoute(y.b))}" aria-label="${esc(`${sayWords(y.b)}: testimony due ${when}, ${what}. ${y.word}${y.tone === 'late' ? ', late, still accepted until the hearing starts' : ''}`)}">
-      <span class="hc-bn">${esc(tag ? numWords(y.b) : billShort(y.b))}</span><span class="hc-st${y.tone === 'late' ? ' late' : ''}">${y.tone === 'late' ? icon('clock') : ''}${esc(y.tone === 'late' ? `${y.word} · late` : y.word)}</span></a>${tg(y.b)}</li>`).join('');
-    return `<li class="hc-e hc-due${e.late ? ' past' : ''}"><p class="hc-eh"><span class="hc-t">${esc(`Due ${when}`)}</span><span class="hc-ek">${icon('file-text')}Testimony</span></p><p class="hc-es">${esc(what)}</p><ul class="hc-dls">${bills}</ul></li>`;
+    const h = e.h, cn = committeeName(h.committee) || h.committee, what = `For ${weekdayLong(h.scheduled_at)}’s ${cn} hearing`;
+    const bills = e.bills.map(y => billLi(y.b, y)).join('');
+    return `<li class="hc-e hc-due${e.late ? ' past' : ''}">${head('file-text', 'Testimony due')}${job(`#/hearing/${encodeURIComponent(h.id)}?from=week`, what)}${list(bills)}${issueTags(e.bills.map(y => y.b))}</li>`;
   }
-  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step"><a class="hc-tl" href="${esc(e.href)}"><span class="hc-eh"><span class="hc-t">${esc(`By ${when}`)}</span><span class="hc-ek">${icon('circle-check')}Your step</span></span>
-    <span class="hc-tw">${esc(e.words)}</span><span class="hc-es">${esc(numWords(e.b))}</span></a></li>`;
-  const ic = e.k === 'fu' ? 'phone' : 'list-todo', sub = [e.k === 'todo' && e.b ? numWords(e.b) : e.sub ? clipW(e.sub, 48) : '', e.who ? `For ${e.who === 'You' ? 'you' : e.who}` : ''].filter(Boolean).join(' · ');
-  return `<li class="hc-e hc-todo"><a class="hc-tl" href="${esc(e.href)}"><span class="hc-eh">${tm}<span class="hc-ek">${icon(ic)}${esc(e.k === 'fu' ? 'Follow-up' : 'To-do')}</span></span>
-    <span class="hc-tw">${esc(e.words)}</span>${sub ? `<span class="hc-es">${esc(sub)}</span>` : ''}</a>${e.b ? tg(e.b) : ''}</li>`;
+  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step">${head('circle-check', 'Your step')}${job(e.href, e.words)}${list(billLi(e.b, {}))}${issueTags([e.b])}</li>`;
+  if (e.k === 'fu') return `<li class="hc-e hc-todo hc-fu">${head('phone', 'Follow-up')}${job(e.href, e.words)}${e.sub || e.who ? `<p class="hc-es">${esc([e.sub, e.who ? `For ${e.who === 'You' ? 'you' : e.who}` : ''].filter(Boolean).join(' · '))}</p>` : ''}</li>`;
+  return `<li class="hc-e hc-todo">${head('list-todo', 'To-do')}${job(e.href, e.words)}${e.who ? `<p class="hc-es">${esc(`For ${e.who === 'You' ? 'you' : e.who}`)}</p>` : ''}${e.b ? list(billLi(e.b, {})) + issueTags([e.b]) : ''}</li>`;
 }
 const dayShort = d => fmt(d, { weekday: 'short' }), dateShort = d => fmt(d, { month: 'numeric', day: 'numeric' });
 function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', steps = null } = {}) {
@@ -386,6 +395,17 @@ export const calWeekBar = route => weekNav(route);
 export function weekCalHTML(route, { scope = 'team', tag = false, tasks = 'mine', steps = null } = {}) {
   seedMoved(); freshScope();
   return calHTML(route, scope, null, { ask: false, tag, tasks, steps });
+}
+// Today's week at a glance (R-346, the moderate mock's "This week"): this week's Monday to Friday, each with how many
+// hearings the calendar shows in this scope, how many entries are the person's own (steps, to-dos, follow-ups, testimony
+// due), and the Capitol's deadline that day, from the same calWeek, so the strip and the calendar under it never disagree.
+export function weekGlance({ scope = 'mine', steps = null } = {}) {
+  seedMoved(); freshScope();
+  const now = Date.now(), mon = mondayOf(now), today = hst(now), cw = calWeek(scope, mon, { tasks: 'mine', steps });
+  return [0, 1, 2, 3, 4].map(i => { const d = addDays(mon, i), list = cw.days.get(d) || [];
+    return { d, day: fmt(d, { weekday: 'short' }), long: fmt(d, { weekday: 'long', month: 'long', day: 'numeric' }), today: d === today, past: d < today,
+      h: list.filter(e => e.k === 'h' && !e.cancelled).length, own: list.filter(e => e.k !== 'h').length,
+      caps: (cw.caps.get(d) || []).map(c => c.label) }; });
 }
 export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
   root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {

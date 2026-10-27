@@ -911,6 +911,16 @@ function chairCard(s, v, own, x = '') {
   return { tile, what, when, chairLine };
 }
 const phoneOf = code => { const id = chairIdsOf(code)[0], l = id && legById(id); return l?.phone || ''; };
+// R-346 (Today's rows lead with the job, option E): the step card's own words for a step, so a row says exactly what its
+// card says. -> { kind, sentence, chair } with '{bill}' where the bill's name goes (stepHeadHTML's placeholder), the kind
+// word the card's quiet line uses, and a chair ask's chair line ("Ask Sen. X, chair of Y."), or null for no step.
+export function stepSentence(b, s, viewer) {
+  if (!b || !s || s.kind === 'none') return null;
+  const v = meOf(viewer), own = !!s.you;
+  const c = s.kind === 'chair' ? chairCard(s, v, own, BILL_IN) : testimonyCard(s, v, own, BILL_IN);
+  const un = t => String(t || '').split(BILL_IN).join('{bill}');
+  return { kind: s.kind === 'chair' ? (s.ask.decide ? 'Getting a vote' : 'Getting a hearing') : 'Testimony', sentence: un(c.what), chair: un(c.chairLine || '') };
+}
 // A live bill with a position and no owner, whose current step someone does hold (Patti writes it), says so with Take it
 // (R-330, W42); Give to… for admins and its issue's owner. A step nobody holds says it once, on the card itself.
 function noOwnerHTML(b, v, ro) {
