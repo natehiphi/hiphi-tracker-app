@@ -175,9 +175,12 @@ function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) 
   const sp = s => String(s || '').replace(/\u00a0/g, ' '), nb = why ? numNb(why) : '';
   if (why && !sp(st?.text).includes(sp(nb))) st = { ic: 'search', text: `Found by its bill ${sp(nb)}` };
   const desc = cutWords(i.description, 96);
-  // A quiet tag ("Not public yet", "Not in the first visit") takes the description's line: it is what staff need to know
-  // about that issue, and the card stays four facts and the same height (the description is still the title).
-  const line = tags.length ? [esc(tags.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
+  // A quiet tag ("Not public yet") takes the description's line: it is what staff need to know about that issue, and the
+  // card stays four facts and the same height (the description is still the title). "Not in the first visit" is a setting
+  // of the public first visit (issues.js, 066), not a fact about the issue: it put a setting's words where the description
+  // goes (R-344 D10, "Legal adult-use cannabis"), so it stays on the issue's own page with its switch.
+  const shown = tags.filter(t => !/first visit/i.test(t));
+  const line = shown.length ? [esc(shown.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
   return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
     // The issue's own icon (Nate's R-339 picks), else its topic's.
     pic: picHTML({ ic: issueIcon(i), tint: Math.max(catIndex(i.category), 0) }),

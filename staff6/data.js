@@ -524,6 +524,11 @@ export const DB = {
     const before = { ...arr[i] };
     // The practice copy has no server to refuse a step that no longer fits (its demoTransition re-files a filed draft), so
     // it asks the same question the database does first (R-316 W43).
+    // A send-back is held ten seconds so Undo can cancel it (review.js holdBack), and the screen shows it sent back at once:
+    // by the time it is sent here the draft already reads "draft" with the note. The live database still holds "review", so
+    // only the practice copy saw a step that "no longer fits", put the draft back to With an approver and saved that on the
+    // next reload or person switch (R-344 C11). The held send is the same step, already shown: nothing more to do.
+    if (DEMO && action === 'request_changes' && arr[i].status === 'draft' && (arr[i].review_note || null) === (note || null)) return;
     if (DEMO) { try { if (!fits(arr[i], action)) throw new Error('Nothing to do on it now.'); demoTransition(arr[i], action, note, url); } catch (e) { throw await raced(billId, before, action, e); } return; }
     const { data, error } = await S.supa.rpc('testimony_transition',
       { p_draft: id, p_action: action, p_note: note || null, p_url: url || null });

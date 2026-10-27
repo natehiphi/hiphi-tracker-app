@@ -39,6 +39,7 @@ const DAY = 864e5;
 const endOfDay = d => new Date(d + 'T23:59:59-10:00').getTime();
 const shortDate = d => { const [, m, dd] = String(d).split('-'); return `${+m}/${+dd}`; };
 const cmteFull = code => committeeName(code) || cmteName(code) || code;
+const shortCmte = code => (codesOf(code).length > 1 ? '' : committeeName(code, { chamber: false })) || cmteFull(code);
 // The deadline's own name: "Second lateral", "Crossover", "Final decking" (model.js gateName, inlined for the keys).
 const dlName = r => /^(first|second)_/.test(r.key) && /^(Lateral|Decking|Triple filing)$/.test(r.label) ? `${r.key.startsWith('first') ? 'First' : 'Second'} ${r.label.toLowerCase()}` : r.label;
 
@@ -185,7 +186,11 @@ function nowWords(b, model, place, { says, heardNow } = {}) {
   if (st.phase === 'committee') {
     if (!st.committee) return `Now: waiting to be sent to a ${esc(ch)} committee.`;
     const pos = st.stops > 1 ? `${ch} committee ${st.stop} of ${st.stops}` : `its only ${ch} committee`;
-    if (says) return `Now: ${esc(pos)}.`;
+    // The card under it names the hearing, but the caption still names the committee in words (the phone's step line does:
+    // "in Senate Health and Human Services and Senate Commerce"; R-344 D2): one committee by its short name ("Health and
+    // Human Services", the chamber is in the count), a joint referral in full, so where one name ends stays clear.
+    // (A joint referral's names already say the chamber, so its count leaves it out: "committee 1 of 2".)
+    if (says) return `Now: in <b>${esc(shortCmte(st.committee))}</b>, ${esc(codesOf(st.committee).length > 1 && st.stops > 1 ? `committee ${st.stop} of ${st.stops}` : pos)}.`;
     const name = `<b>${esc(cmteFull(st.committee))}</b>`;
     if (heardNow) return `Now: ${name}, its hearing started ${esc(timeWords(heardNow.scheduled_at))}.`;
     if (st.hearingState === 'scheduled') return `Now: ${name}, hearing ${esc(whenAt(st.hearing.scheduled_at))}.`;

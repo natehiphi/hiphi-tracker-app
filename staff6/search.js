@@ -41,7 +41,8 @@ const refresh = () => { if (repaint && document.getElementById('sr-res')) repain
 
 // ---- the keyboard shortcuts each place and step has (app.js's g-keys, v5's kept: Help › Keyboard shortcuts lists them) ----
 // Shown only where there is a keyboard and a mouse, and while shortcuts are on (they mean nothing on a phone).
-const fine = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
+// Not below 768px either (the phone frame, spec 3.2): a narrow window with a mouse is still a phone's layout (R-344 A11).
+const fine = () => { try { return matchMedia('(hover: hover) and (pointer: fine) and (min-width: 768px)').matches; } catch { return false; } };
 const KEY = { today: 'g t', hearings: 'g h', testimony: 'g w', review: 'g r', bills: 'g b', legislators: 'g l', outreach: 'g o', myissues: 'g m', inbox: 'g i', help: '?', keys: '?' };
 const withKey = (sub, k) => k && fine() && keysOn() ? `${sub} · Shortcut ${k}` : sub;
 
@@ -178,7 +179,17 @@ const startActions = () => START_ACTIONS.map(t => ACTIONS().find(p => p.title ==
 // A committee's code typed alone ("TRN", "hhs/cpn") is the bills in that committee now (V32: "by number, nickname or code").
 const cmteOf = q => { const k = String(q || '').trim().toUpperCase().replace(/\s+/g, ''); return k && k.split('/').every(c => S.committees?.[c]) ? k : ''; };
 // Each word typed must start a word; a coalition's short name must be the whole word (below).
-const wordRxs = q => coalOf(q) ? [wholeRx(plain(q).trim())] : plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+const wordRxs = q => coalOf(q) ? [wholeRx(plain(q).trim())] : plain(q).split(/\s+/).filter(Boolean).map(termRx);
+// Everyday words for what the bills and issues say otherwise (R-344 D11: "disposable vape" found nothing). HIPHI writes
+// "e-cigarettes" (R-158) and the Legislature "electronic smoking devices", so a word people type is also matched by those.
+// Only words with one meaning here ("weed" is also the invasive kind, so it is not one). The word itself still matches.
+const SYN = [[/^vap(e|es|ing|er|ers|or)$/, ['e-cig', 'electronic smoking', 'electronic cigarette', 'electronic vapor']],
+  [/^e-?cig(arette|arettes|s)?$/, ['e-cig', 'electronic smoking', 'electronic cigarette']],
+  [/^marijuana$/, ['cannabis']], [/^cannabis$/, ['marijuana']]];
+const altsOf = t => [t, ...SYN.filter(([re]) => re.test(t)).flatMap(([, xs]) => xs)];
+const esc_rx = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// A typed word must start a word of the text, or one of its everyday words must.
+const termRx = t => new RegExp(`(?:^|[^a-z0-9])(?:${altsOf(t).map(esc_rx).join('|')})`);
 // Legislators (legislators.js matchLegs) and supporters, for a coalition's short name: only a whole-word match ("HEAL" is
 // not every member of a Health committee).
 const coalKeep = (q, list, text) => { const co = coalOf(q); if (!co) return list; const w = wholeRx(plain(co.name)); return list.filter(x => w.test(plain(text(x)))); };
@@ -196,12 +207,13 @@ function billHits(q) {
   const hay = b => [b.bill_number, b.nickname, b.title, b.public_summary, b.description, b.committee, (b.referrals || []).join(' '),
     owners(b).map(a => a.full_name + ' ' + a.initials).join(' '), (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)?.name).join(' '),
     (b.sponsors || []).map(x => typeof x === 'string' ? x : x.n || x.name || '').join(' '), POSITIONS.find(p => p[0] === b.position)?.[1], STAGE_LABEL[effStage(b)]].join(' | ').toLowerCase();
-  const hit = S.bills.filter(b => b.bill_number.toLowerCase().includes(qn) || terms.every(t => hay(b).includes(t)))
+  const has = (h, t) => altsOf(t).some(a => h.includes(a));
+  const hit = S.bills.filter(b => b.bill_number.toLowerCase().includes(qn) || terms.every(t => has(hay(b), t)))
     .sort((a, b) => (diedish(a) - diedish(b)) || (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true }));
   // Found only through where it stands (its stage's name): with a Capitol word of that name the word's meaning answers
   // the search, so those bills leave; otherwise each row says the stage it was found by (stageHit).
   const noStage = b => { const h = hay(b), st = String(STAGE_LABEL[effStage(b)] || '').toLowerCase(); return st ? h.replace(st, ' ') : h; };
-  const viaStage = b => !b.bill_number.toLowerCase().includes(qn) && !terms.every(t => noStage(b).includes(t));
+  const viaStage = b => !b.bill_number.toLowerCase().includes(qn) && !terms.every(t => has(noStage(b), t));
   const wordFirst = wordHits(q).some(w => w.whole);
   STAGE_HIT.clear();
   return hit.filter(b => { if (!viaStage(b)) return true; if (wordFirst) return false; STAGE_HIT.add(b.id); return true; });
@@ -227,7 +239,7 @@ function teamHits(q) {
   return (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id && ws.every(w => plain(`${a.full_name} ${a.initials}`).split(/\s+/).some(x => x.startsWith(w))));
 }
 const teamHref = a => `#/team?who=${encodeURIComponent(a.id)}`;
-const issueHits = q => { const co = coalOf(q), res = co ? [wholeRx(plain(co.name))] : plain(q).split(/\s+/).filter(Boolean).map(t => new RegExp(`(?:^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+const issueHits = q => { const co = coalOf(q), res = co ? [wholeRx(plain(co.name))] : plain(q).split(/\s+/).filter(Boolean).map(termRx);
   return res.length ? (S.issues || []).filter(i => !i.archived_at && res.every(re => re.test(plain(`${i.name} ${i.description || ''}`)))) : []; };
 
 // ---- conversations with legislators (R-316 H-15) ----
