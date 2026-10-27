@@ -108,6 +108,7 @@ body.staff6 .bw-hside .v6-step-go > span { flex: 1 1 calc(100% - 40px); }
 body.staff6 .bw-hside .v6-step-go > .btn { flex: none; }
 /* who is on it */
 .bw-ws-k { color: var(--v6-muted); }
+.bw-ws-a .ic { width: 16px; height: 16px; margin-right: 4px; vertical-align: -2px; color: var(--v6-muted); }
 .bw-ws-a { color: var(--v6-action); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
 .bw-ws-coal { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 0 8px; }
 .bw-icard .bw-ic-this { min-height: 44px; display: flex; align-items: center; padding: 8px 12px; }
