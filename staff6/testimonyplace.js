@@ -18,7 +18,7 @@
 // Route: { name: 'testimony', view } (app.js parseRoute); ?view=write|approve|sent|file|filed|missed|library.
 import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
-import { icon, btn, sectionNav, toast, docBtn } from './ui.js';
+import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
 import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
@@ -145,11 +145,16 @@ const soonRow = it => { if (it.own || !it.s || it.s.off || ['filed', 'missed'].i
 // record shows its state's shape (Filed, Missed). Where the tile and the button say the job, the line stops repeating its
 // verb (A-25): "File now · due today 10:00 AM" beside File is "Due today 10:00 AM".
 const leadKind = it => it.tab === 'filed' ? 'filed' : it.tab === 'missed' ? 'missed' : it.s?.kind && ACTS[it.s.kind] ? it.s.kind : it.tab === 'sent' ? 'revise' : it.tab === 'file' ? 'file' : it.tab === 'approve' ? 'approve' : 'write';
+// R-344 Rule 4: whose it is matters on the team's rows, so they lead with the person's face (each in their own colour); the
+// viewer's own rows, and the record (filed, missed), lead with the job's tile.
+const leadOf = it => !it.own && !['filed', 'missed'].includes(it.tab) && it.s ? faceLead(it.s.nobody ? [] : (it.s.whose?.ids || [])) : rowLead(leadKind(it));
 const rowLine = it => it.own && !['filed', 'missed'].includes(it.tab) ? dropVerb(lineOf(it), it.s?.act?.verb) : lineOf(it);
-const rowOf = (it, picked, view) => iconizeButtons(soonRow(it)
-  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: rowLead(leadKind(it)) })
+const rowOf = (it, picked, view) => iconizeButtons(faceRow(it, soonRow(it)
+  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it) })
   : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(rowLine(it))) } : { step: { ...it.s, line: rowLine(it) } }),
-  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: rowLead(leadKind(it)) }));
+  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it) })));
+// a face-led row takes the faces' own row class (staff.css .v6-face-row: the 32px column at every width)
+const faceRow = (it, html) => /sv-face/.test(html.slice(0, 600)) ? html.replace('class="v6-row', 'class="v6-row v6-face-row') : html;
 // The viewer's bills whose step is someone else's (they own it, or wrote the draft): a group of their own, "Your bills",
 // between "For you" and "The team's", each row naming who acts next (Nate's walk: Lauren's HB 1523, Patti's draft, sat
 // under "The team's" on To approve, where she would not look; spec 5 whoseStep).

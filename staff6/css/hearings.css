@@ -363,3 +363,9 @@ body.staff6 .hc-isl a.hc-iss::after { content: ""; position: absolute; inset: -8
 body.staff6 .hc-isl a.hc-iss { position: relative; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .hc-isl a.hc-iss:hover > span { text-decoration: underline; text-underline-offset: 3px; } }
 @media (max-width: 767.98px) { body.staff6 .hc-e, body.staff6 .hc-e.hc-h, body.staff6 .hc-cap { padding: 12px 16px; } body.staff6 .hc-e a.hc-bl { min-height: 44px; } }
+
+/* R-344 (B4): the chair's photo on the ask board opens their page; the focus ring hugs the round photo */
+body.staff6 a.hg-cphl { display: inline-flex; border-radius: 50%; }
+body.staff6 a.hg-cphl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl { margin-left: -14px; }
+body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl .lg-ph { margin-left: 0; }

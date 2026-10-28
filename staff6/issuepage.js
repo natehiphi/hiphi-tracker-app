@@ -35,6 +35,7 @@ import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead } from './issuestand.js';
 import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
+import { STATES, chamberDots } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
 import { itemRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus } from './steps.js';
 import { surname } from './pathway.js';
@@ -195,9 +196,11 @@ function nextSteps(bills) {
       const at = s.act?.at ?? s.due ?? (s.kind === 'chair' && st.deadline ? ms(st.deadline.date) : null);
       const phrase = stepWords(s, b), sh = shownStatus(s) || {};
       // The row's one button where the app already offers one (D16; steps.js rowButtonFor's rule).
-      const button = rowButtonOK(s) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } }) : '';
+      const button = rowButtonOK(s) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, icon: 'user-round-plus', attrs: { 'data-v6act': 'take', 'data-v6b': b.id } }) : '';
       const tone = sh.tone && sh.tone !== 'neutral' ? sh.tone : '';
-      const line = [num, at != null ? (s.kind === 'chair' ? `by ${dayWords(at)}` : `due ${whenAt(at)}`) : ''].filter(Boolean).join(' · ');
+      // R-344 Rule 3: the team's own time says what it is for ("file by today 7:30 AM"); "due" is only the Capitol's.
+      const team = s.act?.kind === 'hand' && at === s.act.at;
+      const line = [num, at != null ? (s.kind === 'chair' ? `by ${dayWords(at)}` : team ? `${s.act.verb.toLowerCase()} by ${whenAt(at)}` : `due ${whenAt(at)}`) : ''].filter(Boolean).join(' · ');
       out.push({ at, b, html: itemRow({ key: 'st' + b.id, name: phrase, line: nw(esc(line)), tone, icon: tone ? sh.icon : '', href: billRoute(b), button, cls: 'ip6-step', bill: b.id }),
         say: `${phrase} on ${num}${at != null ? `, ${whenSay(at)}` : ''}.`, who: s.nobody ? [] : (s.whose?.ids || []), verb: s.kind, nobody: !!s.nobody });
     } else if (h) {
@@ -245,11 +248,13 @@ function health(xs, steps, earlier, { prepNext = false } = {}) {
     text = n === 1 ? `only one bill is still alive, and it started in the ${one}. If it stops${at}, the issue ends this year.`
       : `all ${n} alive bills started in the ${one}. If they stop${at}, the issue ends this year.`;
   }
-  const LEAD = { ontrack: ['On track', 'circle-check'], risk: ['At risk', 'circle-alert'], stopped: ['Stopped', 'circle-minus'], won: ['Won', 'circle-check'], none: ['', 'circle-dashed'] }[k];
+  // The state's word and shape from verbs.js STATES.issue (the same on All issues' cards and My issues): ✓ On track,
+  // ⚠ At risk, ⊖ Stopped, the trophy for Won; no tint on the box, the House and Senate dots under it.
+  const LEAD = [k === 'none' ? '' : STATES.issue[k].word, STATES.issue[k].icon];
   const nx = k === 'stopped' ? (prepNext ? `<span class="ip6-hn">Next: ${btn('get it ready for 2027', { kind: 'text', cls: 'ip6-hlink', attrs: { 'data-ip': 'prep' } })}.</span>` : '')
     : steps[0] && k !== 'none' ? `<span class="ip6-hn">${nw(esc(`Next: ${steps[0].say}`))}</span>` : '';
   return { k, lead: LEAD[0], text: LEAD[0] ? cap(text) : cap(text), html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
-    <p class="ip6-hs">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}${nx}</span></p></section>` };
+    <p class="ip6-hs" data-state="issue:${k}">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}${nx}</span></p>${k !== 'none' ? `<p class="ip6-hdots">${chamberDots(alive.map(x => x.b))}</p>` : ''}</section>` };
 }
 
 // ---- who is working on it ----
@@ -299,7 +304,7 @@ function legsHTML(i, xs) {
     const holds = `holds ${listAnd(g.bills.map(numWords))}${h ? `, hearing ${whenAt(h.scheduled_at)}` : ''}`;
     const chairWords = chairs.length ? `${chairs.length > 1 ? 'chairs' : 'chair'} ${listAnd(chairs.map(m => surname(m.l)))}` : '';
     // Nothing known yet: one line per committee (rows only once a stance exists; the fresh-eyes review).
-    if (!known.length) return `<p class="ip6-pl ip6-lline">${icon('landmark')}<span><span class="ip6-lname">${esc(cwShort(g.code))}</span> ${esc(`${holds} · ${[chairWords, 'no stances known yet'].filter(Boolean).join(' · ')}`)}</span></p>`;
+    if (!known.length) return `<p class="ip6-pl ip6-lline">${icon('gavel')}<span><span class="ip6-lname">${esc(cwShort(g.code))}</span> ${esc(`${holds} · ${[chairWords, 'no stances known yet'].filter(Boolean).join(' · ')}`)}</span></p>`;
     const unk = all.length - known.length;
     return `<div class="ip6-lg"><h3 class="ip6-lgh">${esc(cwShort(g.code))}</h3>
       <p class="ip6-lgs">${esc(cap(`${holds}${chairWords ? ` · ${chairWords}` : ''}`))}</p>
@@ -307,7 +312,7 @@ function legsHTML(i, xs) {
       ${unk ? `<p class="ip6-quiet">${esc(`${plural(unk, 'other member')}: no stance known yet`)}</p>` : ''}
     </div>`;
   }).join('');
-  const fl = floor.length ? `<p class="ip6-pl">${icon('landmark')}<span>${esc(floor.map(x => `${numWords(x.b)} waits for a vote of the full ${CH[x.st.chamber] || 'chamber'}`).join('; '))}</span></p>` : '';
+  const fl = floor.length ? `<p class="ip6-pl">${icon('vote')}<span>${esc(floor.map(x => `${numWords(x.b)} waits for a vote of the full ${CH[x.st.chamber] || 'chamber'}`).join('; '))}</span></p>` : '';
   const cares = !PROFILES() || i.archived_at ? '' : caresLegs(i.id).length ? caresSecHTML(i) : `<p class="ip6-pl">${icon('landmark')}<span>Legislators who care about this: none yet</span></p>`;
   // The closed line's summary (walk 4): how many committees hold its bills, and whether any stance is known.
   const known = [...by.values()].reduce((n, g) => n + legsOf(g.code).filter(m => stanceFor(m.l, g.bills).s !== 'unknown').length, 0);
@@ -345,7 +350,7 @@ function events(i, bills) {
     for (const a of rows) { const t = String(a.title || ''), at = ms(a.occurred_at);
       if (a.source === 'auto' || a.type === 'status_auto') {
         const ch = /senate/i.test(a.details || '') ? 'Senate' : /house/i.test(a.details || '') ? 'House' : '';
-        if (/^Passed Third Reading/i.test(t)) push(at, b, `${numWords(b)} passed the full ${ch || 'chamber'}`, '', 'landmark');
+        if (/^Passed Third Reading/i.test(t)) push(at, b, `${numWords(b)} passed the full ${ch || 'chamber'}`, '', 'vote');
         else if (/^Act \d+|became law|signed into law/i.test(t)) push(at, b, `${numWords(b)} became law`, '', 'circle-check');
         else if (/veto/i.test(t)) push(at, b, `${numWords(b)} was vetoed`, '', 'circle-minus');
         else if (/^Carried over to (\d{4})/i.test(t)) push(at, b, `${numWords(b)} carried over to ${/(\d{4})/.exec(t)[1]}`, '', 'history');
@@ -901,8 +906,8 @@ export function issueCardHTML(i, b) {
   for (const x of xs) x.twin = names.get(plain(nameWords(x.b))) > 1;
   const hc = health(xs, [], earlier), alive = xs.filter(x => x.alive), gone = xs.length - alive.length, href = issueLinkHref(i, b);
   const tint = tintOf(Math.max((S.categories || []).findIndex(c => c.key === i.category), 0));
-  const LEAD_IC = { ontrack: 'circle-check', risk: 'circle-alert', stopped: 'circle-minus', won: 'circle-check' };
-  const pill = hc.lead ? `<p class="bw-ic-pillp"><span class="bw-if-pill is-${hc.k}">${icon(LEAD_IC[hc.k] || 'circle')}<span>${esc(hc.lead)}</span></span></p>` : '';
+  // R-344: the issue set's shapes (verbs.js STATES.issue), the same as the issue page's box and All issues' cards
+  const pill = hc.lead ? `<p class="bw-ic-pillp"><span class="bw-if-pill is-${hc.k}" data-state="issue:${hc.k}">${icon(STATES.issue[hc.k]?.icon || 'circle')}<span>${esc(hc.lead)}</span></span></p>` : '';
   return `<section class="bw-scard bw-icard ${tint}" aria-labelledby="bw-ic-h">
     <p class="bw-ic-l"><span class="bw-if-ic" aria-hidden="true">${icon(issueIcon(i))}</span><span>Its issue</span></p>
     <h2 class="bw-ic-n" id="bw-ic-h"><a href="${esc(href)}">${esc(i.name)}</a></h2>

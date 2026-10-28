@@ -11,6 +11,10 @@
 #      four facts.
 #   5. All issues: each card says how the issue is doing as one shape and word (no tint), with the House and Senate dots.
 #   6. No sideways scroll, no page errors.
+#   Part 2 (the files R-346 held): Today's job rows lead with their tile and every button carries its icon; due today is
+#   amber; the bill page's step card wears its tile, the bigger step picture and "The Capitol’s deadline"; the issue page's
+#   health check is an issue shape with the House and Senate dots; the ask board's chair photos open their pages; the
+#   Capitol building is not used for hearings or asks (Rule 5); Testimony's team rows lead with whose face it is (Rule 4).
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_glance_shapes.py      exits 1 when a check fails
 #   --shots DIR                                                         saves each screen, laptop and phone
@@ -29,7 +33,8 @@ TABLE = """import('./staff6/verbs.js').then(V => ({ conflicts: V.conflicts(),
   acts: Object.entries(V.ACTS).map(([k, a]) => [k, a.word, a.icon, a.hue]),
   hues: [...new Set(Object.values(V.ACTS).map(a => a.hue))],
   tile: V.actTile('file'), track: V.testimonyTrack({ state: { key: 'write', sentBack: true }, d: null }, { second: true }) }))"""
-ROWS = """(sel) => [...document.querySelectorAll(sel)].map(r => ({ key: r.dataset.v6row || '', tile: !!r.querySelector('.v6-row-main .v6-act-lead .v6-at'),
+ROWS = """(sel) => [...document.querySelectorAll(sel)].map(r => ({ key: r.dataset.v6row || '', tile: !!r.querySelector('.v6-row-main .v6-act-lead .v6-at'), face: !!r.querySelector('.v6-row-main .v6-row-lead.sv-face'),
+  mine: !!r.closest('[role=list]') && (() => { let p = r.previousElementSibling; while (p && !p.classList.contains('tp-gh')) p = p.previousElementSibling; return !!p && /For you/.test(p.innerText); })(),
   act: r.querySelector('.v6-row-main .v6-at')?.dataset.act || '', name: r.querySelector('.v6-row-name')?.innerText.trim() || '',
   btns: [...r.querySelectorAll('.v6-row-act .btn')].map(b => [b.innerText.trim(), !!b.querySelector('svg')]) }))"""
 
@@ -58,11 +63,12 @@ with L.browser() as B:
       pg.nav(f'/testimony?view={view}')
       rows = pg.page.evaluate(ROWS, '.tp .v6-row')
       if not rows: R.check(f'{w} Testimony {view}: rows', True, skip='no rows on this tab in the practice copy'); continue
-      R.check(f'{w} Testimony {view}: every row starts with its job\'s tile', all(r['tile'] for r in rows), [r['name'] for r in rows if not r['tile']][:3])
+      R.check(f'{w} Testimony {view}: every row starts with its job\'s tile, or the face of whose it is (Rule 4)', all(r['tile'] or r['face'] for r in rows), [r['name'] for r in rows if not (r['tile'] or r['face'])][:3])
+      R.check(f'{w} Testimony {view}: your own rows lead with the job, not your face', all(r['tile'] for r in rows if r['mine']), [r['name'] for r in rows if r['mine'] and not r['tile']][:3])
       btns = [b for r in rows for b in r['btns']]
       R.check(f'{w} Testimony {view}: every row button carries its icon', all(b[1] for b in btns), [b[0] for b in btns if not b[1]][:3])
-      if view == 'sent': R.check(f'{w} Testimony sent back: its rows wear the sent-back tile, never a new draft\'s', all(r['act'] == 'revise' for r in rows), [r['act'] for r in rows])
-      if view == 'write': R.check(f'{w} Testimony to write: no row wears the sent-back tile', all(r['act'] != 'revise' for r in rows), [r['act'] for r in rows])
+      if view == 'sent': R.check(f'{w} Testimony sent back: its rows wear the sent-back tile, never a new draft\'s', all(r['act'] == 'revise' for r in rows if r['tile']), [r['act'] for r in rows])
+      if view == 'write': R.check(f'{w} Testimony to write: no row wears the sent-back tile', all(r['act'] != 'revise' for r in rows if r['tile']), [r['act'] for r in rows])
     tabs = pg.page.evaluate("[...document.querySelectorAll('.tp .sv-secnav a')].map(a => [a.innerText.trim().split(/\\s/)[0], !!a.querySelector('.tp-tic svg'), a.querySelector('.tp-tic svg')?.getAttribute('class') || ''])")
     R.check(f'{w} Testimony: every tab wears its state\'s shape', tabs and all(x[1] for x in tabs), tabs)
     R.check(f'{w} Testimony: each tab\'s shape is different', len({x[2] for x in tabs}) == len(tabs), [x[2] for x in tabs])
@@ -154,6 +160,31 @@ with L.browser() as B:
     R.check(f'{w} All issues: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     shot(pg, 'all-issues')
 
+    # ---- part 2: Today, the step card, the issue page, the bill page, the ask board ----
+    pg.nav('/')
+    t6 = pg.page.evaluate("""(() => { const rows = [...document.querySelectorAll('.t6-job')];
+      return { n: rows.length, tiles: rows.filter(r => r.querySelector('.t6-jtile .v6-at')).length,
+        btns: [...document.querySelectorAll('.t6-job .v6-row-act .btn, .v6-step-acts .btn:not(.text), .t6-nsacts .btn')].map(b => [b.innerText.trim(), !!b.querySelector('svg')]),
+        today: rows.filter(r => r.querySelector('.t6-jsub.t-today')).length,
+        landmark: document.querySelectorAll('.v6-step-hl svg.ic-landmark, .t6-line svg.ic-landmark').length }; })()""")
+    R.check(f'{w} Today: every job row starts with its job\'s tile (Rule 1)', t6['n'] > 0 and t6['tiles'] == t6['n'], (t6['tiles'], t6['n']))
+    R.check(f'{w} Today: every row and card button carries its icon', all(b[1] for b in t6['btns']), [b[0] for b in t6['btns'] if not b[1]][:4])
+    R.check(f'{w} Today: what is due today says so in amber (Rule 3, Decision 2)', t6['today'] > 0, t6['today'])
+    R.check(f'{w} Today: the Capitol building is not on hearing or ask lines (Rule 5)', t6['landmark'] == 0, t6['landmark'])
+    pg.nav('/bill/HB1523')
+    bp = pg.page.evaluate("""(() => ({ tt: !!document.querySelector('.v6-step .v6-tt'), old: !!document.querySelector('.v6-step .v6-track'),
+      tile: !!document.querySelector('.v6-step .v6-step-eyebrow .v6-at'), btn: [...document.querySelectorAll('.v6-step-acts .btn:not(.text)')].every(b => b.querySelector('svg')),
+      cap: /Capitol’s deadline/.test(document.querySelector('.v6-step')?.innerText || ''), pill: document.querySelector('.bw-if-pill')?.dataset.state || '' }))()""")
+    R.check(f'{w} Bill page: the step card wears its job\'s tile, the bigger step picture and icons on its buttons', bp['tt'] and not bp['old'] and bp['tile'] and bp['btn'], bp)
+    R.check(f'{w} Bill page: the card says whose the other time is ("The Capitol’s deadline")', bp['cap'], bp)
+    R.check(f'{w} Bill page: its issue\'s state wears the issue set\'s shape', bp['pill'].startswith('issue:'), bp)
+    pg.nav('/issue/' + L.ISSUE)
+    ip = pg.page.evaluate("""(() => { const h = document.querySelector('.ip6-health'); return { state: h?.querySelector('[data-state]')?.dataset.state || '', dots: h ? h.querySelectorAll('.v6-chd').length : 0,
+      bg: h ? getComputedStyle(h).backgroundColor : '', wash: getComputedStyle(document.body).getPropertyValue('--v6-wash').trim() }; })()""")
+    R.check(f'{w} Issue page: the health check is one issue shape with the House and Senate dots (Decision 4)', ip['state'].startswith('issue:') and ip['dots'] == 2, ip)
+    pg.nav('/hearings/ask')
+    ph = pg.page.evaluate("[...document.querySelectorAll('.hg-cph')].map(p => !!p.querySelector('a.hg-cphl[href^=\"#/legislator/\"]'))")
+    if ph: R.check(f'{w} Ask board: each chair\'s photo opens their page', all(ph), ph[:4])
     R.check(f'{w}: no page errors', not pg.errors, pg.errors[:3])
     pg.close()
 

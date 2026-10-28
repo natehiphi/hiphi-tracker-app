@@ -27,7 +27,9 @@ import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
   streamOf, billById, offTag, legById, askReply, billRef } from './model.js';
-import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field } from './ui.js';
+import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
+import { ACTS as PIC, actTile, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON } from './verbs.js';   // R-344: the one table of action pictures and status shapes
+import { issueIcon } from './issuegrid.js';   // R-339: an issue's own icon wherever an issue is named (used in functions only)
 import { askLine, answerSheet } from './chairask.js';
 import { askTodoOf, giveAsk, logAsk } from './push.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -176,9 +178,10 @@ export function whereWords(b, { hearing = true, pos = false, deadline = true } =
 // of a day to keep writer, approver, second look and filer in that order.
 const TESTI = new Set(['write', 'submit', 'revise', 'nodraft', 'review', 'review2', 'approve', 'second', 'file', 'stale']);
 const HAND = { write: 12, submit: 12, revise: 12, nodraft: 12, approve: 4, review: 4, second: 3, review2: 3, file: 2 };
-const VERB = { write: 'Send for approval', submit: 'Send for approval', nodraft: 'Send for approval', revise: 'Resubmit',
-  review: 'Approve', review2: 'Approve', approve: 'Approve', second: 'Approve', file: 'File', stale: 'Check it',
-  chair: 'Ask the chair', ask: 'Write the public ask', send: 'Send', email: 'Approve', fix: 'Fix the email' };
+// The verbs are verbs.js ACTS's words (imported here as PIC: this file's ACTS is its button handlers) (R-344: one table gives each action its word, icon and tile, so a row and its button
+// always match); a step with no draft yet is timed by when it must be sent for approval.
+const VERB = { ...Object.fromEntries(['write', 'submit', 'revise', 'review', 'review2', 'approve', 'second', 'file', 'stale', 'chair', 'ask', 'send', 'email', 'fix'].map(k => [k, PIC[k].word])),
+  nodraft: PIC.write.word };
 const hourOf = t => new Date(t).toLocaleTimeString('en-GB', { ...HST, hour: '2-digit', minute: '2-digit', hour12: false }).split(':').map(Number);
 export function handTime(due, hours) {
   const at = due - hours * HR;
@@ -217,9 +220,9 @@ export function actBy(step) {
 }
 
 // ---- status by exception (D3, V08) ----
-// status(x) -> { tone: 'neutral'|'late'|'overdue'|'done', icon, words, time, soon }
-// Due today, or within 2 hours, stays neutral: it shows by its place (first in the list), a bold time and a clock icon
-// (`soon`). Amber is only late testimony the Capitol still takes. Red is only a step still to do whose own deadline has
+// status(x) -> { tone: 'neutral'|'today'|'late'|'overdue'|'done', icon, words, time, soon }
+// R-344 (Nate's Decision 2 of 26 Oct, A-5 on v6 as amended): due today is amber ('today', with its clock); late testimony
+// the Capitol still takes is amber ('late'). Within 2 hours on another day stays neutral, a clock and a bold time (`soon`). Red is only a step still to do whose own deadline has
 // passed. Missed testimony (its hearing has started) is said, never coloured: nobody can act on it any more (V25, V30).
 // A 2027 prep date that has passed is "Still to finish", never red (spec section 6, My issues).
 export function status(x) {
@@ -237,15 +240,16 @@ export function status(x) {
     if (s.kind === 'prep') return { tone: 'neutral', icon: 'clock', words: 'Still to finish', time: '', soon: false };
     return { tone: 'overdue', icon: 'circle-alert', words: `${cap(spanOf(due))} overdue`, time: whenAt(due), soon: true };
   }
-  const soon = due - now <= 2 * HR || hday(due) === hday(now);
-  return { tone: 'neutral', icon: soon ? 'clock' : '', words: `Due ${whenAt(due)}`, time: whenAt(due), soon };
+  // R-344 Rule 3 (Nate's Decision 2, A-5 on v6 as amended): due today is amber, with its clock; red only once it passed.
+  const today = hday(due) === hday(now), soon = due - now <= 2 * HR || today;
+  return { tone: today ? 'today' : 'neutral', icon: soon ? 'clock' : '', words: `Due ${whenAt(due)}`, time: whenAt(due), soon };
 }
 // A status as a tile: the neutral sand tile, or late / overdue / done with its icon AND its word, never colour alone.
 export const statusTile = (st, { cls = '' } = {}) => st && st.words ? `<span class="v6-status ${esc(st.tone)}${cls ? ' ' + cls : ''}">${st.icon ? icon(st.icon) : ''}<span>${nw(esc(st.words))}</span></span>` : '';
 // Someone else's late or overdue step is said in neutral words with its clock, never amber or red: a wall of alarm about
 // work the viewer cannot act on is not calm (D3, rule 7 status by exception, A-5). The step's own person, and the bill's
 // owner, see the colour. Done stays leaf for everyone.
-export const shownStatus = s => !s?.status || s.mine || !['late', 'overdue'].includes(s.status.tone) ? s?.status
+export const shownStatus = s => !s?.status || s.mine || !['late', 'overdue', 'today'].includes(s.status.tone) ? s?.status
   : { ...s.status, tone: 'neutral', icon: 'clock', soon: false };
 // A time and its AM/PM, a room and its number, and a day and its date never part at a line's end ("2:00 / PM",
 // "Room / 329"): wrapped in a no-wrap span, so the text itself (and what tests read) keeps its plain spaces. `s` is
@@ -330,10 +334,13 @@ export function goingWords(sitting, { viewer } = {}) {
   const ids = goersOf(h).map(a => a.id);
   return ids.length ? `Going: ${orWords(ids, viewer, { and: true })}` : 'Going: no one yet';
 }
+// R-344 Rule 4: who is going as their faces (each person's own colour, ui.js avatar), the words beside them saying who; with
+// nobody going yet, the people icon (Rule 5: faces for people, never a generic icon where a face can stand).
+const goingPic = h => { const g = goersOf(h); return g.length ? `<span class="v6-gofaces" aria-hidden="true">${g.slice(0, 3).map(a => avatar(a, 24, { deco: true })).join('')}</span>` : icon('users'); };
 const goingOn = (h, v) => !!v && sittingRows(h).some(r => (S.attend?.[r.id] || []).includes(v.id));
 // Who is going and the I'm going toggle on one line, as under a testimony step (the bill page's hearing card, R-346).
 export const goingRowHTML = (h, { viewer } = {}) => { if (!h) return ''; const v = meOf(viewer), past = ms(h.scheduled_at) <= Date.now();
-  return `<p class="v6-step-go">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: true })}</p>`; };
+  return `<p class="v6-step-go">${goingPic(h)}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: true })}</p>`; };
 // The row a person is marked on: a bill with a position, so the hearing reaches their calendar (hearing.js leadOf).
 const leadRow = h => { const rows = sittingRows(h).filter(r => r.status !== 'cancelled'), pos = rows.find(r => { const b = billById(r.bill_id); return b && b.position && b.position !== 'monitor'; });
   return pos || rows[0] || h; };
@@ -470,8 +477,11 @@ function finishStep(step, v) {
   step.status = step.kind === 'chair' && step.ask.key === 'passed' ? { tone: 'neutral', icon: 'circle-alert', words: step.ask.words, time: '', soon: false } : status(step);
   // The viewer's own hand-on time today is today's work, though the Capitol's deadline is tomorrow morning: a clock and
   // a bold line, as for anything due today (D3).
+  // R-344 Rule 3: a hand-on time today is amber too (due today), red only once it has passed (actBy's 'now': the Capitol's
+  // deadline is still ahead, so it stays amber, never red).
   if (step.you && step.status.tone === 'neutral' && step.act?.at != null && step.act.at > now && (step.act.at - now <= 2 * HR || hday(step.act.at) === hday(now)))
-    step.status = { ...step.status, icon: 'clock', soon: true };
+    step.status = { ...step.status, tone: hday(step.act.at) === hday(now) ? 'today' : 'neutral', icon: 'clock', soon: true };
+  if (step.you && step.act?.kind === 'now' && step.status.tone === 'neutral') step.status = { ...step.status, tone: 'today', icon: 'clock', soon: true };
   if (step.state?.key === 'filed') step.doneWords = `Filed${step.d.filed_by ? ` by ${firstWords(step.d.filed_by, v)}` : ''}${step.d.filed_at ? ` ${whenAt(step.d.filed_at)}` : ''}`;
   step.mine = step.you || (!!v && ownersOf(b).includes(v.id));
   step.takeFor = step.nobody && takeFor(b, v);
@@ -588,8 +598,9 @@ function trackHTML(s) {
   const d = s.d, key = s.state?.key; if (!key || key === 'missed') return '';
   const second = key === 'second' || !!d?.second_approved_by || !!d?.first_for_bill || (d && ['draft', 'review'].includes(d.status) && !Object.values(S.drafts || {}).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && (['approved', 'filed'].includes(x.status) || x.second_approved_at)));
   const steps = TRACK.filter(([k]) => k !== 'second' || second), order = steps.map(x => x[0]);
-  const cur = key === 'filed' ? steps.length : Math.max(0, order.indexOf(key));
-  return `<ol class="v6-track" aria-label="Testimony steps">${steps.map(([k, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : `<span class="v6-track-dot" aria-hidden="true"></span>`}<span>${esc(l)}</span></li>`).join('')}</ol>`;
+  // R-344 Rule 2 (C5): verbs.js testimonyTrack draws it: 20px dots, words beside every step (the done ones too: an icon-only
+  // tick said nothing), one line, and a sent-back draft's own shape ("Revise").
+  return testimonyTrack(s, { second });
 }
 const A = (act, s, extra = {}) => ({ 'data-v6act': act, 'data-v6b': s.b.id, ...(s.d ? { 'data-v6d': s.d.id } : {}), ...(s.h ? { 'data-v6h': s.h.id } : {}), ...extra });
 // P1 (review mode reads the draft first): until its Doc has been opened here, an approval's filled button opens Review
@@ -609,12 +620,12 @@ function stepButtons(s, v, primary) {
   const k = primary ? 'primary' : 'secondary', out = [], d = s.d;
   const doc = (kind = 'secondary') => d?.doc_url ? docBtn(d.doc_url, { kind, attrs: { 'data-v6doc': d.id } }) : '';
   switch (s.kind) {
-    case 'nodraft': out.push(btn(S.draftAsked?.[s.h.id] ? 'Making the draft…' : 'Make the draft', { kind: k, icon: 'file-text', attrs: A('draftnow', s) })); break;
+    case 'nodraft': out.push(btn(S.draftAsked?.[s.h.id] ? 'Making the draft…' : 'Make the draft', { kind: k, icon: PIC.nodraft.btnIcon, attrs: A('draftnow', s) })); break;
     case 'write': case 'submit': out.push(btn('Send for approval', { kind: k, icon: 'send', attrs: A('submit', s) }), doc()); break;
     case 'revise': out.push(btn('Resubmit', { kind: k, icon: 'send', attrs: A('submit', s) }), doc()); break;
     case 'approve': case 'second': {
       const read = !d?.doc_url || DOC_OPENED.has(String(d.id));
-      out.push(read ? btn('Approve', { kind: k, icon: 'check', attrs: A('approve', s) }) : btn('Review', { kind: k, icon: 'check', href: `#/review/${encodeURIComponent(d.id)}` }),
+      out.push(read ? btn('Approve', { kind: k, icon: PIC.approve.icon, attrs: A('approve', s) }) : btn('Review', { kind: k, icon: BTN_ICON.Review, href: `#/review/${encodeURIComponent(d.id)}` }),
         btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: A('sendback', s) }), doc('text'));
       break;
     }
@@ -628,9 +639,9 @@ function stepButtons(s, v, primary) {
     case 'missed': out.push(btn('Yes, mark filed (late)', { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s, { 'data-v6late': '1' }) }), btn('No, we didn’t file', { kind: 'text', attrs: A('nofile', s) }), btn('How did it go?', { kind: 'text', icon: 'message-square', href: `${billRoute(s.b, 'activity')}?reply=1` })); break;
     case 'chair': {
       const a = s.ask, m = a.m, to = m ? (m.n > 1 ? 'Email the chairs' : 'Email the chair') : '';
-      const replied = kind => btn('They replied', { kind, icon: 'message-square', attrs: A('replied', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) });
+      const replied = kind => btn('They replied', { kind, icon: PIC.replied.icon, attrs: A('replied', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) });
       if (a.key === 'ask') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Give this ask to…', { kind: 'text', icon: 'user-round', attrs: A('giveask', s, { 'data-v6code': a.code, 'aria-haspopup': 'dialog' }) })); }
-      else if (a.key === 'giving') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Done, I asked', { kind: 'secondary', icon: 'check', attrs: A('askdone', s, { 'data-v6code': a.code }) })); }
+      else if (a.key === 'giving') { const ml = askMailOf(s); if (ml) out.push(btn(to, { kind: k, icon: 'mail', href: ml.href }), btn('Done, I asked', { kind: 'secondary', icon: STATES.chair.asked.icon, attrs: A('askdone', s, { 'data-v6code': a.code }) })); }
       // Spec 6: after 3 working days with no reply (or 2 before the notice) the asker follows up: the same approved email
       // again (its subject says it follows up), or a call to the office when the Capitol lists its number.
       else if (a.key === 'waiting' && a.followUp) {
@@ -659,10 +670,10 @@ const nobodyHTML = (s, ro) => `<p class="v6-step-noown">${icon('user-round')}<sp
 function hearingLineHTML(h, v, from, { going = true } = {}) {
   if (!h) return '';
   const name = committeeName(h.committee) || h.committee, href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
-  if (h.status === 'cancelled') return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('landmark')}<span><span class="v6-step-cn">${esc(name)}</span> · hearing cancelled, no new date yet</span>${icon('chevron-right', { cls: 'v6-chev' })}</a></div>`;
+  if (h.status === 'cancelled') return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('gavel')}<span><span class="v6-step-cn">${esc(name)}</span> · hearing cancelled, no new date yet</span>${icon('chevron-right', { cls: 'v6-chev' })}</a></div>`;
   const past = ms(h.scheduled_at) <= Date.now(), moved = movedFrom(h), lead = leadRow(h), on = goingOn(h, v);
-  return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('landmark')}<span><span class="v6-step-cn">${esc(name)}</span> · ${nw(esc(whenAt(h.scheduled_at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}${moved ? ` · moved from ${nw(esc(moved))}` : ''}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>
-    ${going ? `<p class="v6-step-go">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(on, { 'data-v6act': 'going', 'data-v6h': lead.id }, { kind: 'secondary', sm: true })}</p>` : ''}</div>`;
+  return `<div class="v6-step-hear"><a class="v6-step-hl" href="${esc(href)}">${icon('gavel')}<span><span class="v6-step-cn">${esc(name)}</span> · ${nw(esc(whenAt(h.scheduled_at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}${moved ? ` · moved from ${nw(esc(moved))}` : ''}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>
+    ${going ? `<p class="v6-step-go">${goingPic(h)}<span>${esc(goingWords(h, { viewer: v }))}</span>${past ? '' : goingBtn(on, { 'data-v6act': 'going', 'data-v6h': lead.id }, { kind: 'secondary', sm: true })}</p>` : ''}</div>`;
 }
 // stepCard(b, { viewer, where, d, h, primary, big, id, from, named, compact, track, who, going, acts, title, lead, hear })
 //   -> the card for a bill's current step.
@@ -688,7 +699,7 @@ function hearingLineHTML(h, v, from, { going = true } = {}) {
 // The bill's issue, a quiet link on the card's top line (R-226: the way from a bill to its issue is always clear): "Its
 // issue" when it shares the bill's name, else the issue's own name; at most two.
 const sameIssueName = (i, b) => (i.name || '').trim().toLowerCase() === (b?.nickname || '').trim().toLowerCase();
-export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : []).map(i => `<a class="v6-step-iss" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon('tag')}<span>${sameIssueName(i, b) ? 'Its issue' : esc(i.name)}</span></a>`).join('');
+export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : []).map(i => `<a class="v6-step-iss" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon(issueIcon(i))}<span>${sameIssueName(i, b) ? 'Its issue' : esc(i.name)}</span></a>`).join('');
 const BILL_IN = '\u0001bill\u0001';
 // The bill's name inside the sentence: the app's in-sentence link (the bill page's chair name, bill.css .bw-chairl): the
 // action colour, underlined at rest (A-12, B-9). It keeps the sentence's size and weight, so the card has one heading.
@@ -699,8 +710,9 @@ const billInHTML = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc
 // The head of a card that is not a bill step (Today's small cards, partner words) in the same shape (option E): the quiet
 // line (kind · number · issue) and the sentence, its {bill} the bill's name as the in-sentence link. No bill: the
 // sentence alone, under the kind.
-export function stepHeadHTML(b, { kind = '', sentence = '', id = '' } = {}) {
-  const top = [kind ? esc(kind) : '', b ? `<span class="v6-row-num">${esc(numWords(b))}</span>` : '', b ? issueLinksHTML(b) : ''].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
+// `job` (R-344 Rule 1): the job's kind in verbs.js ACTS, drawn as its tile at the head of the quiet line.
+export function stepHeadHTML(b, { kind = '', sentence = '', id = '', job = '' } = {}) {
+  const top = (job && PIC[job] && job !== 'none' ? actTile(job, { size: 24 }) : '') + [kind ? esc(kind) : '', b ? `<span class="v6-row-num">${esc(numWords(b))}</span>` : '', b ? issueLinksHTML(b) : ''].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
   const said = nw(esc(sentence)).split('{bill}').join(b ? billInHTML(b) : '');
   return `${top ? `<p class="v6-step-eyebrow v6-step-eyeb">${top}</p>` : ''}<h3 class="v6-step-what"${id ? ` id="${esc(id)}"` : ''}>${said}</h3>`;
 }
@@ -733,13 +745,15 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const eye = x ? '' : s.kind === 'chair' ? `${kindW}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? kindW : '';
   const eyebrow = x ? [esc(kindW), `<span class="v6-row-num">${esc(numWords(b))}</span>`, issueLinksHTML(b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>')
     : [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
+  // R-344 Rule 1: the card's quiet line starts with its job's tile, the same picture as its row and its buttons.
+  const tileH = s.kind !== 'none' && PIC[s.kind] ? actTile(s.kind, { size: 24 }) : '';
   const say = t => nw(esc(t)).split(BILL_IN).join(billInHTML(b));
   const chairH = c.chairLine ? linkChairs(b, say(c.chairLine), s.ask?.code) : '';
   // Someone else's step: Open Doc for everyone, and where the step is done (the open item, the bill) a teammate who may
   // approve covers it (File it for Kevin, Resubmit for Lauren: v5 kept both). The viewer's shared writing step: Message
   // the other writer, to say "I've got it" (v5's "Message Lauren").
   const more = actsHTML != null || ro ? { html: '' } : own ? { html: sharedMsg(s, v, where) } : coverButtons(s, v, where);
-  const acts = actsHTML != null ? actsHTML : (own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : '') + more.html;
+  const acts = actsHTML != null ? actsHTML : iconizeButtons((own || (s.kind === 'filed' && !ro) ? stepButtons(s, v, primary) : '') + more.html);
   if (more.who) c.who = more.who;
   const back = from ?? (where === 'bill' ? b.bill_number : where === 'pane' ? 'today' : where);
   // hear: false leaves the hearing line out (the bill page's own hearing card in its right column says it, R-346).
@@ -750,7 +764,7 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const sent = sentWords(s, v);
   const fit = actsHTML == null ? actsFit(acts) : '';
   return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''}${showName ? ' named' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
-    ${eyebrow ? `<p class="v6-step-eyebrow${x ? ' v6-step-eyeb' : ''}">${eyebrow}</p>` : ''}
+    ${eyebrow || tileH ? `<p class="v6-step-eyebrow${x ? ' v6-step-eyeb' : ''}">${tileH}${eyebrow}</p>` : ''}
     <h3 class="v6-step-what" id="${hid}">${say(c.what)}</h3>
     ${chairH ? `<p class="v6-step-chair">${chairH}</p>` : ''}
     ${c.tile?.words || c.when || rem ? `<div class="v6-step-meta">${[statusTile(c.tile), rem, c.when ? `<span class="v6-step-when">${s.kind === 'chair' && x ? linkChairs(b, say(c.when), s.ask?.code) : say(c.when)}</span>` : ''].filter(Boolean).join(' ')}</div>` : ''}
@@ -859,14 +873,16 @@ function testimonyCard(s, v, own, x = '') {
   if (st.key === 'missed') return { tile: s.status, what: own ? `The hearing${on(x)} has started. Did we file?` : x ? `The testimony on ${x} was not filed before the hearing` : 'Not filed before the hearing',
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
   const tile = ['late', 'overdue'].includes(s.status.tone) ? shown
-    : own ? (s.act.words ? { tone: 'neutral', icon: s.status.soon ? 'clock' : 'calendar', words: s.act.words } : null)
+    : own ? (s.act.words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words: s.act.words } : null)
     : { tone: 'neutral', icon: '', words: st.label };
   // A step nobody holds is titled with the step itself ("File the testimony at the Capitol"); "No owner yet" sits beside
   // Take it, in the bill header's words (the critic: a card titled "No owner" under a header saying "No owner yet").
   const what = own || s.nobody ? SENT[s.kind](s, v, x) : OTHERS[s.kind](cap(s.whose.words), x);
   let when = '';
   if (s.off) when = 'The hearing was cancelled; no new date yet.';
-  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Testimony is due ${whenAt(s.due)}.`;
+  // R-344 Rule 3, one time per step: the tile says the team's time to act ("File by today 7:30 AM"); this line says whose the
+  // other time is, the Capitol's, so the two never read as two deadlines for one step.
+  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `The Capitol’s deadline: ${whenAt(s.due)}.`;
   let note = '';
   // Headed with words that are not a state: a capitalised "Sent back" over the note read as a sixth state beside the tile's
   // "Writing · sent back" (spec 12.6: "sent back", lower case, is the flag on Writing; C-15).
@@ -881,7 +897,7 @@ function chairCard(s, v, own, x = '') {
   const a = s.ask, chair = a.m ? a.m.who : 'the chair', what0 = a.decide ? 'to schedule a vote' : 'for a hearing';
   if (a.key === 'waiting' || a.key === 'said_no') {
     const reply = askReply(a), ph = phoneOf(a.code), asker = cap(firstWords(a.asker, v));
-    const tile = { tone: 'neutral', icon: a.answer === 'said_no' ? 'circle-x' : a.answer === 'will_schedule' ? 'calendar' : 'hourglass', words: cap(reply) };
+    const tile = { tone: 'neutral', icon: STATES.chair[chairKey(a)].icon, words: cap(reply) };   // the chair-ask set's shapes (R-344 Rule 2)
     const again = a.lastAt && hday(a.lastAt) !== hday(a.at) ? `, then again ${dayWords(a.lastAt)}` : '';
     if (a.followUp && own) return x ? { tile, what: `Follow up on the ${a.decide ? 'vote' : 'hearing'} ask for ${x}`,
       when: `${asker} asked ${chair} ${dayWords(a.at)}${again}.${ph ? ` Their office: ${ph}.` : ''}` }
@@ -893,7 +909,8 @@ function chairCard(s, v, own, x = '') {
     what: x ? `Only ${chair} can still ${a.decide ? 'schedule a vote on' : 'give a hearing to'} ${x}` : `Only ${chair} can help now`,
     when: cap(deadlineWords(a.st.deadline.label, a.st.deadline.date)) + '.' };
   const due = shownStatus({ status: status({ due: a.by }), mine: s.mine });
-  const tile = { ...due, icon: due.tone === 'neutral' ? (due.soon ? 'clock' : 'calendar') : due.icon, words: due.tone === 'neutral' ? `Ask by ${a.day || a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
+  const calm = ['neutral', 'today'].includes(due.tone);
+  const tile = { ...due, icon: calm ? 'clock' : due.icon, words: calm ? `Ask by ${a.day || a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
   const who = cap(s.whose.words), n = s.whose.ids.length;
   // The step itself for the asker and for a step nobody holds ("No owner yet" sits beside Take it); someone else's, who
   // asks: the same verb as the row, handed or not ("Kris asks Sen. DeCoite and Sen. Keohokalole for a hearing", V19).
@@ -905,7 +922,7 @@ function chairCard(s, v, own, x = '') {
   const chairLine = x ? `${own || s.nobody ? 'Ask ' : ''}${chair}${cn ? `, ${chairs ? 'chairs' : 'chair'} of ${cn}` : ''}.` : '';
   // When the tile already says the day to ask by, the sentence says only what the day is for (A-14: the date was said
   // twice in 100px, HB1991): "It must reach its last committee by Mon 3/30."
-  const askDay = due.tone === 'neutral', must = deadlineWords(a.st.deadline.label, a.st.deadline.date);
+  const askDay = calm, must = deadlineWords(a.st.deadline.label, a.st.deadline.date);
   const when = askDay ? (/^must /.test(must) ? `It ${must}.` : cap(must) + '.')
     : a.aw?.a.notice ? `The notice has to post by ${dayWords(a.aw.a.notice)} for it to ${gateNeed(a.st.deadline.label, 1)} by ${dayWords(a.st.deadline.date)}.` : cap(must) + '.';
   return { tile, what, when, chairLine };
@@ -1014,9 +1031,9 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     <div class="v6-hcard-when"><p class="v6-hcard-time">${nw(esc(timeWords(at)))}</p> ${dayP}</div>
     <div class="v6-hcard-body">
       ${head}
-      ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('calendar')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
+      ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('clock')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
       ${lateAny ? `<p class="v6-hcard-note v6-hcard-late">${icon('clock')}<span>Late, still accepted until the hearing starts</span></p>` : ''}
-      ${cancelled ? '' : `<p class="v6-hcard-going">${icon('users')}<span>${esc(goingWords(h, { viewer: v }))}${week && watch ? ` <span class="v6-hcard-watchin"><span class="v6-hcard-wdot">· </span>${watch}</span>` : ''}</span> ${going}</p>`}
+      ${cancelled ? '' : `<p class="v6-hcard-going">${goingPic(h)}<span>${esc(goingWords(h, { viewer: v }))}${week && watch ? ` <span class="v6-hcard-watchin"><span class="v6-hcard-wdot">· </span>${watch}</span>` : ''}</span> ${going}</p>`}
       ${first1 ? `<ul class="v6-hcard-bills v6-hcard-lead1">${bill(first1)}</ul>` : ''}${rest.length ? `<ul class="v6-hcard-bills">${rest.map(bill).join('')}</ul>` : ''}
       ${mon.length && !self ? `<a class="v6-hcard-mon" href="${esc(href)}"><span>${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>` : ''}
       ${watch && !week ? `<p class="v6-hcard-watch">${watch}</p>` : ''}
@@ -1040,7 +1057,9 @@ export function rowButtonOK(s) {
 // opens the filing sheet, File at the Capitol first and Mark filed after it. A sent-back draft's Resubmit shows the
 // approver's note and the Doc first (a one-question sheet), since a row has no room for the note and one tap sent the
 // unrevised draft back (the critic's high, P1 for the writer); `confirm: false` where the note is beside it already.
-export function rowButton(s, { kind = 'secondary', sm = true, confirm = true } = {}) {
+// R-344 Rule 1: every row button carries its icon, verbs.js's one per action (iconizeButtons adds it by the button's words).
+export const rowButton = (s, o = {}) => iconizeButtons(rowButton0(s, o));
+function rowButton0(s, { kind = 'secondary', sm = true, confirm = true } = {}) {
   const a = (act, x = {}) => A(act, s, x);
   switch (s.kind) {
     case 'nodraft': return btn('Make the draft', { kind, sm, attrs: a('draftnow') });
@@ -1063,20 +1082,23 @@ export function rowButton(s, { kind = 'secondary', sm = true, confirm = true } =
 }
 // The one button a row shows, if any: the viewer's own step (D16), or Take it on a step nobody holds for whoever may hand
 // it (an admin, or the issue's owner: R-330); everyone else takes it from the open item.
-const rowButtonFor = s => rowButtonOK(s) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': s.b.id } }) : '';
+const rowButtonFor = s => rowButtonOK(s) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, icon: PIC.take.btnIcon, attrs: { 'data-v6act': 'take', 'data-v6b': s.b.id } }) : '';
 // The line's look: late or overdue in its colour, with its icon, only for the viewer's own step or bill (shownStatus);
 // due today bold with a clock for the viewer's own step; done leaf for everyone.
 function lineTone(s) {
   const st = shownStatus(s), tone = st.tone, hushed = st !== s.status;
-  return { tone, icon: tone !== 'neutral' ? st.icon : (st.soon && s.you) || hushed ? 'clock' : '', bold: st.soon && s.you };
+  return { tone, icon: tone !== 'neutral' ? st.icon : (st.soon && s.you) || hushed ? 'clock' : '', bold: st.soon && s.you && tone === 'neutral' };
 }
 // billRow(b, { viewer, line, button, href, pick, selected, hint, step, cls }) -> one bill: its name (Poppins 18), its
 // number small, and one 16px line; the whole row opens it (a link, or `pick` for a list with the item beside it). No
 // tiles, no "+N on this bill", no room, codes or history (those live in the open item). `line` and `button` override
 // what the step says; `button: false` draws none. Rows sit in a role="list" box (.v6-list, or listDetail's).
-export function billRow(b, { viewer, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '' } = {}) {
+// `act: true` (R-344 Rule 1): the row leads with its job's tile (verbs.js rowLead), the viewer's own steps only; any other
+// row keeps an empty slot of the same width, so every name in the list starts at one edge. Lists that opt in: Today's.
+export function billRow(b, { viewer, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '', act = false } = {}) {
   if (!b) return '';
   const v = meOf(viewer), s = step || billStep(b, { viewer: v }), t = line == null ? lineTone(s) : { tone: '', icon: '', bold: false };
+  if (act && !lead) lead = actLead(s);
   const text = line != null ? line : nw(esc(s.line));
   const btnHtml = button === false ? '' : button ? button : rowButtonFor(s);
   return rowHTML({ key: b.id, name: fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id, lead });
@@ -1084,6 +1106,9 @@ export function billRow(b, { viewer, line, button, href, pick, selected = false,
 // itemRow({ key, name, num, line, tone, icon, href, pick, button, selected, hint, cls }) -> any other item (a to-do, an
 // email, a person) in the same shape. `line` is HTML (escape it); `name` and `num` are text.
 export const itemRow = o => rowHTML(o);
+// The job's tile for a step row, or the empty slot (see billRow's `act`). Someone else's step leads with the job too where
+// it is the viewer's list to clear (a teammate's read-only list, Testimony's tabs); filed and missed wear their state.
+export const actLead = s => !s || ['none'].includes(s.kind) || !PIC[s.kind] ? '<span class="v6-row-lead v6-act-lead none" aria-hidden="true"></span>' : rowLead(s.kind);
 // `lead` (R-339, a trial behind ?icons=1): HTML for a small mark before the name, inside the link so it opens the row too;
 // the row's text moves into a second column so every name still starts at the same place.
 function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '' }) {

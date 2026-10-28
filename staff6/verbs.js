@@ -11,7 +11,7 @@
 //   actOf(kind)                -> ACTS[kind] or a neutral fallback, never undefined.
 //   actTile(kind, { size, label, cls }) -> the soft filled tile: the job's icon on a soft round tile of its hue (More's round
 //                                 tiles, Nate's Decision 1 "soft filled"). Decorative unless `label` is given (then role=img).
-//                                 size: 40 (a row, the default), 32 (a dense row), 24 (inside a line).
+//                                 size: 40 (a card), 32 (a row: rowLead's, the faces' size), 24 (inside a line).
 //   rowLead(kind, opts)        -> actTile wrapped as a row's leading mark for steps.js billRow / itemRow `lead` (class
 //                                 v6-row-lead v6-act-lead: the row's words move into a second column, names line up).
 //   BTN_ICON[label]            -> the icon for a row button's words ("File", "Review", "Resubmit", "Email the chair"...).
@@ -66,7 +66,18 @@ export const ACTS = {
   fix: A('Fix the email', 'pencil', 'rally', 'write words'),
   partner: A('Approve partner words', 'handshake', 'rally', 'partners'),
   take: A('Take it', 'user-round-plus', 'take', 'hand a step to a person'),
+  none: A('Where it stands', 'scroll-text', 'take', 'a bill'),
+  // Today's other jobs (today.js jobKind)
+  todo: A('To-do', 'list-checks', 'take', 'a to-do'),
+  talk: A('Follow up', 'message-circle', 'rally', 'talk with someone'),
+  message: A('Reply', 'message-square', 'chair', 'a message or comment'),
+  moved: A('Still going?', 'calendar-clock', 'take', 'a hearing moved'),
+  prep: A('Get the issue ready', 'clipboard-list', 'take', '2027 prep'),
 };
+// One table, read by today.js: a Today item's kind to its job here.
+export const JOB_OF = { followask: 'follow', rally: 'ask', askup: 'ask', followup: 'talk', reply: 'message', partner: 'partner', todo: 'todo', moved: 'moved', prep: 'prep',
+  email: 'email', fix: 'fix', send: 'send', stale: 'stale', chair: 'chair' };
+export const jobKind = (kind, step = null) => step?.kind && ACTS[step.kind] && step.kind !== 'none' ? step.kind : JOB_OF[kind] || (ACTS[kind] ? kind : 'none');
 const NONE = A('', 'circle', 'take', 'nothing');
 export const actOf = kind => ACTS[kind] || NONE;
 export const actIcon = kind => actOf(kind).icon;
@@ -77,7 +88,7 @@ export function actTile(kind, { size = 40, label = '', cls = '' } = {}) {
   return `<span class="v6-at h-${a.hue} s${size}${cls ? ' ' + cls : ''}" data-act="${esc(kind)}"${label ? ` role="img" aria-label="${esc(label)}"` : ' aria-hidden="true"'}>${icon(a.icon)}</span>`;
 }
 // A row's leading mark (steps.js billRow / itemRow `lead`): the tile, with the job's word for screen readers.
-export const rowLead = (kind, { size = 40, word = true } = {}) => { const a = actOf(kind);
+export const rowLead = (kind, { size = 32, word = true } = {}) => { const a = actOf(kind);
   return `<span class="v6-row-lead v6-act-lead s${size}">${actTile(kind, { size })}${word && a.word ? `<span class="sr">${esc(a.word)}: </span>` : ''}</span>`; };
 
 // ---- row buttons get their icons (Rule 1: every button carries its icon) ----
@@ -86,6 +97,7 @@ export const BTN_ICON = {
   'File': 'clipboard-check', 'Did we file?': 'circle-help', 'Take it': 'user-round-plus', 'Follow up': 'mail', 'Call the office': 'phone',
   'They replied': 'reply', 'Email the chair': 'mail', 'Email the chairs': 'mail', 'Email the chair again': 'mail',
   'Email the chairs again': 'mail', 'Ask for a change': 'message-square', 'Write the public ask': 'megaphone', 'Check it': 'refresh-cw',
+  'Reply': 'message-square', 'Keep it up': 'megaphone', 'Yes, move me': 'calendar-clock', 'Done, I asked': 'hourglass', 'Undo filed': 'undo-2',
 };
 // Adds the icon to each .btn whose words BTN_ICON knows and that has no icon yet. The label is the button's <span>…</span>.
 export function iconizeButtons(html) {

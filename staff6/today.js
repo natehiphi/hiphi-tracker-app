@@ -36,7 +36,8 @@ import { icon, btn, toast, openSheet, closeSheet, pickerSheet, confirmSheet, doc
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, helpersOf, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName } from './steps.js';
-import { issueIcon, tintOf } from './issuegrid.js';   // R-346: each row's issue, its icon on its topic's tint
+import { issueIcon, tintOf } from './issuegrid.js';
+import { actTile, iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // R-344 Rule 1: each row's job as its tile, every button its icon   // R-346: each row's issue, its icon on its topic's tint
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
@@ -348,31 +349,35 @@ function rowOf(it, { ro = false, v = S.me } = {}) {
     if (s.state?.key === 'second' && s.you && !ro && s.act?.words) {
       const st = shownStatus(s), hushed = st !== s.status, tone = st.tone;
       return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`Second look · ${lower(s.act.words)}${sx}`)), tone, icon: tone !== 'neutral' ? st.icon : st.soon || hushed ? 'clock' : '',
-        bold: !!st.soon, href: billRoute(b), pick, button: rowButtonOK(s) ? rowButton(s) : '' });
+        bold: !!st.soon && tone === 'neutral', href: billRoute(b), pick, button: rowButtonOK(s) ? rowButton(s) : '', lead: rowLeadOf(it) });
     }
-    return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined });
+    return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined, act: true });
   }
   // A chair ask given to the viewer reads like every other chair ask, "Ask the chair by Mon 3/23", a joint committee's "Ask
   // the chairs" beside its Email the chairs (C-15: one name per act; the critic: Kris's "You are asking · by Mon 3/23" beside
   // Kevin's "Ask the chair by Wed 3/25"); its open item says who gave it.
   if (it.kind === 'chair') { const a = it.s.ask, given = !ro && it.s.you && a.key === 'giving' && a.by != null;
-    return billRow(b, { viewer: v, step: ro ? { ...it.s, mine: false } : it.s, pick, button: ro ? false : rowButton(it.s), ...(given ? { line: nw(esc(`Ask ${a.chair || 'the chair'} by ${dayWords(a.by)}`)) } : {}) }); }
+    return billRow(b, { viewer: v, step: ro ? { ...it.s, mine: false } : it.s, pick, button: ro ? false : rowButton(it.s), act: true, ...(given ? { line: nw(esc(`Ask ${a.chair || 'the chair'} by ${dayWords(a.by)}`)) } : {}) }); }
   // The asker's follow-up: the row's button is the step itself, "Follow up", the same button and sheet as Get hearings'
   // (push.js's listener, chairask.js followSheet): the mail again, or what the chair said, so sending the follow-up and
   // recording the reply are each two clicks from Today (spec 8; the critic: the row offered only They replied, A-12, D16).
   if (it.kind === 'followask') { const code = it.s.ask.code;
-    return billRow(b, { viewer: v, step: it.s, pick, button: ro ? false : btn('Follow up', { kind: 'secondary', sm: true, icon: 'clock', attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } }) }); }
-  if (it.kind === 'stale') return billRow(b, { viewer: v, step: it.s, pick, button: false, line: nw(esc(`Check your testimony: the bill is now ${versionWords(b.current_version)}`)) });
+    return billRow(b, { viewer: v, step: it.s, pick, lead: rowLeadOf(it), button: ro ? false : btn('Follow up', { kind: 'secondary', sm: true, icon: PIC.follow.btnIcon, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } }) }); }
+  if (it.kind === 'stale') return billRow(b, { viewer: v, step: it.s, pick, button: false, lead: rowLeadOf(it), line: nw(esc(`Check your testimony: the bill is now ${versionWords(b.current_version)}`)) });
   // Partner words say only what and what is new: the group's heading says "to approve" (fewer words per row).
   const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v), due = dueTone(it, ro);
   return itemRow({ key: it.key, name: r.name, num: r.num, line: nw(plainCodes(esc(r.line + sx))), tone: due.tone, icon: due.icon, bold: due.bold, href: r.href, pick: r.pick === false ? undefined : pick,
-    button: ro ? '' : r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? r.rowBtn : '', cls: `t6-k-${it.kind}` });
+    button: ro ? '' : r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? iconizeButtons(r.rowBtn) : '', cls: `t6-k-${it.kind}`, lead: rowLeadOf(it) });
 }
+// R-344 Rule 1: an item's job (verbs.js JOB_OF, the step's own kind for a bill step) and its tile as a row's lead.
+const jobOf = it => jobKind(it.kind, it.s);
+const rowLeadOf = it => { const k = jobOf(it); return k === 'none' ? '<span class="v6-row-lead v6-act-lead none" aria-hidden="true"></span>' : `<span class="v6-row-lead v6-act-lead">${actTile(k, { size: 32 })}<span class="sr">${esc(PIC[k].word)}: </span></span>`; };
 // A to-do's or a follow-up's line colour: red only once its date has passed, for the viewer's own (D3).
 function dueTone(it, ro) {
   if (it.at == null) return { tone: '', icon: '', bold: false };
   const st = status({ due: it.at, kind: it.kind === 'rally' ? 'ask' : it.kind });
   if (ro || st.tone === 'neutral') return { tone: '', icon: st.soon ? 'clock' : '', bold: !ro && st.soon };
+  if (st.tone === 'today') return { tone: 'today', icon: 'clock', bold: false };   // R-344 Rule 3: amber for due today
   return { tone: st.tone, icon: st.icon, bold: false };
 }
 // ---- R-346: Today's rows lead with the job (Nate 27 Oct, the moderate mock; option E as in the step cards) ----
@@ -405,8 +410,10 @@ function sayOf(it, v = S.me) {
     if (it.kind === 'chair') sub = s.ask?.key === 'giving' && s.you ? `Ask ${s.ask.chair || 'the chair'} by ${dayWords(s.ask.by)}` : ss.chair || s.line;
     else if (newNotice(it)) sub = `New hearing ${dayWords(it.h.scheduled_at)}: make the draft · send by ${dayWords(s.act?.at ?? s.due)}`;
     else if (s.state?.key === 'second' && s.you && s.act?.words) sub = `Second look · ${lower(s.act.words)}`;
-    const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
-    return { kind: ss.kind, b, ...fill(ss.sentence), sub: nw(esc(sub + sx)), tone, ic: tone ? st.icon : '' };
+    const tone = ['late', 'overdue', 'today'].includes(st.tone) ? st.tone : '';
+    // A-25: the row's tile and button say the job, so its quiet line stops repeating the verb ("Due today 10:00 AM").
+    if (s.you && sub === s.line) sub = dropVerb(sub, s.act?.verb);
+    return { kind: ss.kind, b, ...fill(ss.sentence), sub: nw(esc(sub + sx)), tone, ic: tone ? (st.icon || 'clock') : '' };
   }
   if (it.kind === 'stale') return { kind: 'Testimony', b, ...fill('Check your testimony on {bill} against the new version'), sub: esc(`The bill is now ${versionWords(b.current_version)}`) };
   const r = miniOf(it, v), due = dueTone(it, false), tone = due.tone && due.tone !== 'neutral' ? due.tone : '';
@@ -438,15 +445,15 @@ function whenCol(it, today) {
 function jobButton(it, v) {
   const b = it.b;
   if (it.kind === 'chair') return rowButton(it.s);
-  if (it.kind === 'followask') return btn('Follow up', { kind: 'secondary', sm: true, icon: 'clock', attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': it.s.ask.code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } });
+  if (it.kind === 'followask') return btn('Follow up', { kind: 'secondary', sm: true, icon: PIC.follow.btnIcon, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': it.s.ask.code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } });
   if (it.kind === 'stale') return '';
-  if (it.s && b) return rowButtonOK(it.s) ? rowButton(it.s) : it.s.nobody && it.s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } }) : '';
+  if (it.s && b) return rowButtonOK(it.s) ? rowButton(it.s) : it.s.nobody && it.s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, icon: PIC.take.btnIcon, attrs: { 'data-v6act': 'take', 'data-v6b': b.id } }) : '';
   const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
-  return r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? r.rowBtn : '';
+  return r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? iconizeButtons(r.rowBtn) : '';
 }
 function jobRow(it, { v = S.me, today = false } = {}) {
   REG.set(it.key, it);
-  const y = sayOf(it, v), w = whenCol(it, today), button = jobButton(it, v);
+  const y = sayOf(it, v), w = whenCol(it, today), button = jobButton(it, v), jk = jobOf(it);
   const r = it.s && it.b ? null : it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
   const href = r ? r.href : billRoute(it.b), pick = r && r.pick === false ? null : it.key;
   const eye = [y.kind ? esc(y.kind) : '', y.b ? `<span class="v6-row-num">${esc(numWords(y.b))}</span>` : '', y.b ? issueChip(y.b) : ''].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
@@ -454,7 +461,7 @@ function jobRow(it, { v = S.me, today = false } = {}) {
   return `<div class="v6-row t6-job t6-k-${esc(it.kind)}" role="listitem" data-v6row="${esc(it.key)}">
     <a class="v6-row-main t6-jmain" href="${esc(href || '#/')}"${pick != null ? ` data-v6pick="${esc(pick)}"` : ''}><span class="sr">${esc(`${w.words}: ${name}`)}</span></a>
     <span class="t6-jt${w.any ? ' any' : ''}" aria-hidden="true">${esc(w.words)}</span>
-    <div class="t6-jb">${eye ? `<p class="t6-jeye">${eye}</p>` : ''}<p class="t6-jsay">${y.html}</p>${y.sub ? `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.ic ? icon(y.ic) : ''}<span>${y.sub}</span></p>` : ''}</div>
+    <div class="t6-jb${jk !== 'none' ? ' has-tile' : ''}">${jk !== 'none' ? `<span class="t6-jtile" aria-hidden="true">${actTile(jk, { size: 32 })}</span>` : ''}${eye ? `<p class="t6-jeye">${eye}</p>` : ''}<p class="t6-jsay">${y.html}</p>${y.sub ? `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.ic ? icon(y.ic) : ''}<span>${y.sub}</span></p>` : ''}</div>
     ${button ? `<span class="v6-row-act">${button}</span>` : ''}</div>`;
 }
 // Do today in the order the day runs: by the time, what has no time last (the next step stays the one groupsOf picks).
@@ -579,23 +586,23 @@ const MINI_SAY = {
 };
 function miniHead(it, r, id) {
   const b = r.num ? it.b : null, say = b && MINI_SAY[it.kind]?.(r, it);
-  if (!b || !say) return stepHeadHTML(null, { sentence: r.what || r.line, id });
+  if (!b || !say) return stepHeadHTML(null, { sentence: r.what || r.line, id, job: jobOf(it) });
   const [kind, sentence, under] = say;
-  return stepHeadHTML(b, { kind, sentence, id }) + (under ? `<p class="v6-step-under">For ${billInLink(b)}.</p>` : '');
+  return stepHeadHTML(b, { kind, sentence, id, job: jobOf(it) }) + (under ? `<p class="v6-step-under">For ${billInLink(b)}.</p>` : '');
 }
 const billInLink = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(nameWords(b))}</a>`;
 function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   if (it.kind === 'stale') {
     const d = it.d, b = it.b;
     return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
-      ${stepHeadHTML(b, { kind: 'Testimony', sentence: 'Check your testimony on {bill} against the new version', id })}
+      ${stepHeadHTML(b, { kind: 'Testimony', sentence: 'Check your testimony on {bill} against the new version', id, job: 'stale' })}
       <p class="v6-step-when">${esc(`The bill is now ${versionWords(b.current_version)}; your testimony was written for ${versionWords(d.version)}. It is ${lower(testimonyState(d, b)?.word || 'with an approver')}.`)}</p>
       ${d.doc_url ? `<div class="v6-step-acts">${docBtn(d.doc_url, { kind: primary ? 'primary' : 'secondary' })}</div>` : ''}</section>`;
   }
   const r = miniOf(it, v), k = primary ? 'primary' : 'secondary';
   // The 2027 issues are due on a day, and a passed day is "Still to finish", never red (V30).
-  const tile = it.kind === 'prep' ? statusTile({ tone: 'neutral', icon: 'calendar', words: it.at < Date.now() ? 'Still to finish' : `Due ${dayWords(it.at)}` })
-    : it.at != null ? statusTile(it.tone === 'overdue' ? status({ due: it.at, kind: it.kind }) : { tone: 'neutral', icon: 'calendar', words: actBy({ kind: 'due', due: it.at, verb: 'Due' }).words }) : '';
+  const tile = it.kind === 'prep' ? statusTile({ tone: 'neutral', icon: 'clock', words: it.at < Date.now() ? 'Still to finish' : `Due ${dayWords(it.at)}` })
+    : it.at != null ? statusTile(it.tone === 'overdue' ? status({ due: it.at, kind: it.kind }) : { tone: 'neutral', icon: 'clock', words: actBy({ kind: 'due', due: it.at, verb: 'Due' }).words }) : '';
   return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
     ${miniHead(it, r, id)}
     ${tile ? `<div class="v6-step-meta">${tile}</div>` : ''}
@@ -707,7 +714,7 @@ function doorLines(w, v = S.me, { coal = true, lead = '', leadShown = !!lead } =
   const sm = (S.bills || []).some(b => owns(v.id, b)) ? mineAsks(v) : null;
   // In the session's hearing weeks the season card gives way to the week (R-346: the strip and the calendar), so this line
   // is the one place the pile is counted, in the Team card, with the bills heard but not voted on (decideWords) under it.
-  if ((w.asks.length || w.weekAsk) && !w.askSaid && sm?.toAsk) out.push(lineA('#/hearings/ask?scope=mine', 'landmark', nwParts(boldLead(toAskWords(sm)))));
+  if ((w.asks.length || w.weekAsk) && !w.askSaid && sm?.toAsk) out.push(lineA('#/hearings/ask?scope=mine', 'mail', nwParts(boldLead(toAskWords(sm)))));   // R-344 Rule 5: asking a chair is the mail; the landmark is Legislators'
   const dk = w.weekAsk && !w.askSaid && sm ? w.asks.filter(r => r.s?.ask?.decide).length : 0;
   if (dk) out.push(lineA('#/hearings/ask?scope=mine', 'gavel', nwParts(boldLead(decideWords(dk)))));
   if (w.coal.size && coal) {
@@ -878,7 +885,7 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   if (season === 'governor') {
     const sine = (DEADLINE_ROWS || []).find(r => r.key === 'sine_die')?.deadline_date;
     const mine = (S.bills || []).filter(b => (owns(v.id, b) || inCoal(v, b)) && ['governor', 'law'].includes(stopOf(b).phase));
-    return { title: 'With the governor', html: p(`${mine.length ? `${plural(mine.length, 'of your bills went', 'of your bills went')} to the governor. ` : ''}${sine ? `The governor names the bills that may be vetoed by about ${esc(dayWords(vetoDay(sine, 35)))}.` : ''}`, 'landmark') };
+    return { title: 'With the governor', html: p(`${mine.length ? `${plural(mine.length, 'of your bills went', 'of your bills went')} to the governor. ` : ''}${sine ? `The governor names the bills that may be vetoed by about ${esc(dayWords(vetoDay(sine, 35)))}.` : ''}`, 'scroll-text') };
   }
   // Hearings, February to April: the person's next hearing and the next deadline, in words (V05).
   const nh = nextHearing(v, w), dl = nextDeadline(v), said = !!nh && skipH === sitKey(nh);
@@ -891,8 +898,8 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   // Bills heard but not voted on: a short line of their own, only for the ones that are not already rows above (decideWords).
   const dk = ownsAny ? w.asks.filter(r => r.s?.ask?.decide).length : 0;
   if (askT || dk) w.askSaid = true;
-  const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
-    askT ? lineA('#/hearings/ask?scope=mine', 'calendar', `${nwParts(boldLead(askT))} · <span class="v6-nw">${ASK_TAB}</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : '',
+  const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'gavel') : noHearingLine(v, w, p),
+    askT ? lineA('#/hearings/ask?scope=mine', 'mail', `${nwParts(boldLead(askT))} · <span class="v6-nw">${ASK_TAB}</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'flag') : '',
     dk ? lineA('#/hearings/ask?scope=mine', 'gavel', nwParts(boldLead(decideWords(dk)))) : ''];
   if (!parts.join('')) return null;
   return { title: 'This week', html: parts.join('') };   // Hearings is a place in the sidebar and the phone bar, always in sight
@@ -904,8 +911,8 @@ function weekLines(v, w, skipH) {
   const p = (txt, ic = '') => `<p class="t6-sl">${ic ? icon(ic) : ''}<span>${txt}</span></p>`;
   const nh = nextHearing(v, w), dl = nextDeadline(v), said = !!nh && skipH === sitKey(nh);
   const ownsAny = (S.bills || []).some(b => owns(v.id, b)), askT = ownsAny ? toAskWords(mineAsks(v)) : '';
-  return [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'landmark') : noHearingLine(v, w, p),
-    !askT && dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'calendar') : ''].join('');
+  return [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'gavel') : noHearingLine(v, w, p),
+    !askT && dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'flag') : ''].join('');
 }
 // A week with no hearing on the person's own bills, said truthfully (Nate's worst case is the hidden one): a helper's
 // coalition hearings counted as theirs ("3 hearings on your coalitions' bills this week · Hearings"; Kris owns none but
@@ -923,12 +930,12 @@ function noHearingLine(v, w, p) {
     (isPos(b) ? pos : mon).set(sitKey(h), { h, b });
   }
   for (const k of pos.keys()) mon.delete(k);
-  if (!ownsAny && pos.size) return lineA('#/hearings/week?scope=coal', 'landmark', `<b>${plural(pos.size, 'hearing')} on your coalitions’ bills this week</b> · Hearings`);
+  if (!ownsAny && pos.size) return lineA('#/hearings/week?scope=coal', 'gavel', `<b>${plural(pos.size, 'hearing')} on your coalitions’ bills this week</b> · Hearings`);
   const label = ownsAny ? 'your bills' : names.length ? `${andWords(names)} bills` : 'your coalitions’ bills';
   const m = [...mon.values()].sort((x, y) => ms(x.h.scheduled_at) - ms(y.h.scheduled_at));
-  if (!m.length) return !ownsAny && !names.length && !all ? '' : p(`No hearings on ${esc(label)} this week.`, 'landmark');
+  if (!m.length) return !ownsAny && !names.length && !all ? '' : p(`No hearings on ${esc(label)} this week.`, 'gavel');
   const at = ms(m[0].h.scheduled_at), when = `${dayWords(at)}, ${timeWords(at)}`;
-  return lineA(`#/hearing/${encodeURIComponent(m[0].h.id)}?from=today`, 'landmark', `<b>No hearings on ${esc(label)} we support or oppose</b> · ${esc(m.length === 1 ? '1 on a bill we monitor' : `${m.length} on bills we monitor, the first`)}: ${nw(esc(when))}`);
+  return lineA(`#/hearing/${encodeURIComponent(m[0].h.id)}?from=today`, 'gavel', `<b>No hearings on ${esc(label)} we support or oppose</b> · ${esc(m.length === 1 ? '1 on a bill we monitor' : `${m.length} on bills we monitor, the first`)}: ${nw(esc(when))}`);
 }
 // Between sessions, an admin's one line for Session setup's checklist (Nate's walk: November's Today said nothing while
 // it read "Not ready yet · 1 blocking problem"), in its own words, opening it. Read once a visit.
@@ -1082,8 +1089,8 @@ function clearCard(v, w, ro, n = '') {
   // With nothing of their own, the one filled button is the next hearing, or Hearings; a helper with the coalition's asks
   // to help with has none (the door is the way, and "Open Get hearings" named a place, not a step).
   const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' })
-    : nh && !onPage ? btn('Open the hearing', { icon: 'landmark', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : w.coal.size ? ''
-    : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'landmark', href: '#/hearings' });
+    : nh && !onPage ? btn('Open the hearing', { icon: 'gavel', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : w.coal.size ? ''
+    : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'calendar-days', href: '#/hearings' });
   return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
 }
@@ -1124,7 +1131,8 @@ function stepFirst(html, it, v) {
   const btnM = /<span class="v6-row-act">([\s\S]*?)<\/span><\/li>$/.exec(m[0]), y = sayOf(it, v);
   const late = /<p class="v6-hcard-note v6-hcard-late">[\s\S]*?<\/p>/.exec(html);
   const eye = [esc(y.kind), `<span class="v6-row-num">${esc(numWords(it.b))}</span>`, issueChip(it.b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
-  const head = `<div class="t6-nshead"><p class="t6-jeye">${eye}</p><p class="v6-step-what t6-nsay">${y.html}</p>${late ? late[0] : `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.sub}</p>`}${btnM ? `<div class="t6-nsacts">${btnM[1]}</div>` : ''}</div>`;
+  const jk = jobOf(it), tile = jk !== 'none' ? `<span class="t6-jtile" aria-hidden="true">${actTile(jk, { size: 24 })}</span>` : '';   // R-344 Rule 1
+  const head = `<div class="t6-nshead"><p class="t6-jeye">${tile}${eye}</p><p class="v6-step-what t6-nsay">${y.html}</p>${late ? late[0] : `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.sub}</p>`}${btnM ? `<div class="t6-nsacts">${btnM[1]}</div>` : ''}</div>`;
   let out = html.replace(m[0], '');
   if (late) out = out.replace(late[0], '');
   out = out.replace(/<ul class="v6-hcard-bills">\s*<\/ul>/, '');

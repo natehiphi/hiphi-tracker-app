@@ -1301,3 +1301,10 @@ body.staff6 .t6-wk .t6-wkhd { padding: 0 8px; }
 body.staff6 .t6-wkdays { gap: 4px; }
 body.staff6 a.t6-wkl { padding: 8px 4px 8px 6px; }
 body.staff6 .t6-wkc, body.staff6 .t6-wkcap { overflow-wrap: normal; word-break: keep-all; hyphens: manual; }
+
+/* R-344 Rule 1: each job row starts with its job's tile (verbs.js), the same picture as its button and its card, between the
+   time and the words; the words keep one left edge (a row with no job keeps the column empty). */
+body.staff6 .t6-jb.has-tile { grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; }
+body.staff6 .t6-jb.has-tile > p { grid-column: 2; }
+body.staff6 .t6-jb > .t6-jtile { grid-column: 1; grid-row: 1 / span 3; align-self: start; margin-top: 2px; }
+body.staff6 .t6-jeye > .t6-jtile { display: inline-flex; margin-right: 8px; }

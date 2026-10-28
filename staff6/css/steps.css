@@ -471,15 +471,13 @@ body.staff6 .v6-at.s24 { width: 24px; height: 24px; } body.staff6 .v6-at.s24 svg
 body.staff6 .v6-at.h-write { --hue: var(--v6-hue-write); } body.staff6 .v6-at.h-approve { --hue: var(--v6-hue-approve); }
 body.staff6 .v6-at.h-file { --hue: var(--v6-hue-file); } body.staff6 .v6-at.h-chair { --hue: var(--v6-hue-chair); }
 body.staff6 .v6-at.h-rally { --hue: var(--v6-hue-rally); } body.staff6 .v6-at.h-take { --hue: var(--v6-hue-take); }
-/* A row led by its action tile (verbs.js rowLead): a 40px column on a laptop, 32px on a phone, where it stays (Rule 1 is for
-   the phone's blur test too; the topic icons' "none below 600px" stays theirs). The tile's top sits level with the name. */
-body.staff6 .v6-row-main.has-lead:has(> .v6-act-lead) { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 12px; }
-body.staff6 .v6-row-lead.v6-act-lead { width: 40px; height: 40px; grid-row: 1 / span 3; align-self: start; color: inherit; }
+/* A row led by its action tile (verbs.js rowLead): 32px, the size of the faces other rows lead with (ui.js faceLead), so
+   tiles and faces line up down one edge at every width (Rule 1 is for the phone's blur test too; the topic icons' "none
+   below 600px" stays theirs). The tile's top sits level with the name. */
+body.staff6 .v6-row-main.has-lead:has(> .v6-act-lead) { display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; }
+body.staff6 .v6-row-main.has-lead > .v6-row-lead.v6-act-lead { display: inline-flex; width: 32px; height: 32px; grid-row: 1 / span 3; align-self: start; margin-top: 2px; color: inherit; }
 @media (max-width: 599.98px) {
-  body.staff6 .v6-row-main.has-lead:has(> .v6-act-lead) { display: grid; grid-template-columns: 32px minmax(0, 1fr); }
-  body.staff6 .v6-row-main.has-lead > .v6-row-lead.v6-act-lead { display: inline-flex; width: 32px; height: 32px; }
-  body.staff6 .v6-row-lead.v6-act-lead .v6-at { width: 32px; height: 32px; }
-  body.staff6 .v6-row-lead.v6-act-lead .v6-at svg { width: 18px; height: 18px; }
+  body.staff6 .v6-row-main.has-lead:has(> .v6-act-lead) { display: grid; }
   /* a row's button under its words starts at the words' edge, not the tile's (A-8) */
   body.staff6 .v6-row:has(.v6-act-lead) > .v6-row-act { padding-left: 44px; }
 }
@@ -550,3 +548,15 @@ body.staff6 .v6-twin { display: inline; margin-left: 4px; padding: 1px 8px; bord
 body.staff6 .v6-twin svg { width: 14px; height: 14px; }
 /* HIPHI's stance beside the number: its shape and one word, quiet */
 body.staff6 .v6-row-top .v6-sm { flex: none; }
+
+/* ---- R-344 Rule 3 (Decision 2): due today is amber, its clock and words; red only once passed ---- */
+body.staff6 .v6-status.today { background: var(--v6-late-wash); color: var(--v6-late); }
+body.staff6 .v6-row-line.t-today, body.staff6 .t6-jsub.t-today, body.staff6 .ig6-stat.t-today { color: var(--v6-late); }
+body.staff6 .v6-row-line.t-today .v6-nw, body.staff6 .v6-row-line.t-today .v6-tm { color: inherit; font-weight: 400; }
+body.staff6 .ig6-stat.t-today svg { color: inherit; }
+/* who is going: their faces (Rule 4), overlapped a little, before the words that name them */
+body.staff6 .v6-gofaces { display: inline-flex; flex: none; align-items: center; }
+body.staff6 .v6-gofaces .sv-av { --av: 24px; box-shadow: 0 0 0 2px var(--v6-card); }
+body.staff6 .v6-gofaces .sv-av + .sv-av { margin-left: -6px; }
+/* a step card's job tile at the head of its quiet line (Rule 1) */
+body.staff6 .v6-step-eyebrow > .v6-at { margin-right: 8px; vertical-align: middle; }

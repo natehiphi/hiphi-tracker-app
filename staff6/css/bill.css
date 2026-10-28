@@ -81,7 +81,8 @@
 .bw-if-s { color: var(--v6-ink) !important; }
 .bw-if-pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 10px 1px 7px; border-radius: var(--v6-pill); background: rgba(255,255,255,.85); font: 700 var(--v6-t14)/20px Lato, system-ui, sans-serif; white-space: nowrap; color: var(--v6-body); }
 .bw-if-pill .ic { width: 16px; height: 16px; }
-.bw-if-pill.is-ontrack, .bw-if-pill.is-won { color: var(--v6-leaf); }
+.bw-if-pill.is-won { color: var(--v6-leaf); }   /* R-344 Decision 4: On track is a shape, not green; only Won (done) is leaf */
+.bw-if-pill.is-ontrack { color: var(--v6-ink); }
 /* At risk in ink, as the issue page's own health line says it: amber is kept for a bill's own deadlines (D3) */
 .bw-if-pill.is-risk { color: var(--v6-ink); }
 .bw-if-go { justify-self: start; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin-top: 6px; padding: 0 16px; border-radius: var(--v6-pill); background: var(--v6-card); color: var(--v6-action); font-weight: 700; text-decoration: none; }

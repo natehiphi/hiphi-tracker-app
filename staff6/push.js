@@ -461,7 +461,9 @@ function groupHTML(g, v, scope, { primary, shared }) {
   const when = mineDue ? `you ask by ${hdrDay}` : day ? `ask by ${day}` : g.rows.every(x => x.k === 'scheduled') ? 'scheduled' : '';
   // The chair's photo (both, overlapped, for a joint referral), falling back to an initial; decoration, the name says who.
   const faces = chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean).slice(0, 2);
-  const ph = faces.length ? `<span class="hg-cph${faces.length > 1 ? ' two' : ''}" aria-hidden="true">${faces.map(l => photo(l, 40)).join('')}</span>` : '';
+  // R-344 (the review's B4): the photo is what people try to tap, so each one opens that legislator's page (a link with the
+  // chair's name for screen readers; the heading beside it still says who).
+  const ph = faces.length ? `<span class="hg-cph${faces.length > 1 ? ' two' : ''}">${faces.map(l => `<a class="hg-cphl" href="#/legislator/${encodeURIComponent(l.id)}" aria-label="${esc(`Open ${chairWho(l.id)}’s page`)}" title="${esc(chairWho(l.id))}">${photo(l, 40)}</a>`).join('')}</span>` : '';
   return `<section class="hg-chair" aria-labelledby="hg-c-${esc(g.id)}">
     <div class="hg-chead">${ph}<div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${esc(who)}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
     <div class="v6-list hg-list" role="list" aria-label="${esc(`Bills for ${who}`)}">${rows}</div>${foot}</section>`;

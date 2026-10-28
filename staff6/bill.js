@@ -536,7 +536,7 @@ function chairLinked(b, card, code) {
 function whatsNext(b, s) {
   const dm = !s?.heardNow && (!s || s.kind === 'none') ? decideCard(b) : '';
   const mine = dm ? dm.includes('"v6-step own') : !!s?.you;
-  let card = s?.heardNow ? `<div class="bw-calm">${icon('landmark')}<p>If the committee does not vote at this hearing, asking the chair to schedule a vote comes next.</p></div>`
+  let card = s?.heardNow ? `<div class="bw-calm">${icon('gavel')}<p>If the committee does not vote at this hearing, asking the chair to schedule a vote comes next.</p></div>`
     : dm || (!s || s.kind === 'none' ? noneCard(b) : stepCard(b, { where: 'bill', from: b.bill_number, hear: !sideHearing(b, s) }));
   if (s?.kind === 'chair') card = chairLinked(b, card, s.ask?.code);
   if (mine) card = yourStep(card);
@@ -735,7 +735,7 @@ function doors(b, says) {
   return `<section class="bw-sec bw-doors" aria-label="More about this bill">
     ${noTodos ? door('todo', 'bw-todos0', 'list-todo', 'To-dos on this bill', onStep ? 'Only the ask above' : 'None yet', todoForm(drafts.get(b.id + ':todo') || '')) : ''}
     ${door('about', 'bw-about', 'info', 'About this bill', '', aboutBody(b))}
-    ${door('cmt', 'bw-cmt', 'landmark', 'Committees', cmteHint(b), cm, says ? ' bw-ifnarrow' : '')}
+    ${door('cmt', 'bw-cmt', 'gavel', 'Committees', cmteHint(b), cm, says ? ' bw-ifnarrow' : '')}
     ${renderEarlier(b, { open: doorOpen(b, 'earlier') })}
   </section>`;
 }
@@ -895,10 +895,10 @@ function hearingSide(b, s) {
   const word = day(at) === day(Date.now()) ? 'today' : day(at) === day(Date.now() + 864e5) ? 'tomorrow' : dayWords(h.scheduled_at);
   const moved = movedFrom(h), cancelled = h.status === 'cancelled';
   return `<section class="bw-scard bw-hside" aria-labelledby="bw-hs-h">
-    <h2 class="bw-sh" id="bw-hs-h">${icon('landmark')}<span>${cancelled ? 'Hearing cancelled' : `Hearing ${esc(word)}`}</span></h2>
+    <h2 class="bw-sh" id="bw-hs-h">${icon('gavel')}<span>${cancelled ? 'Hearing cancelled' : `Hearing ${esc(word)}`}</span></h2>
     ${cancelled ? '<p class="bw-hs-note">No new date yet.</p>' : `<p class="bw-hs-when">${nw(esc(timeWords(at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}</p>`}
     <p class="bw-hs-cn"><a href="${esc(href)}">${esc(name)}</a></p>
-    ${moved && !cancelled ? `<p class="bw-hs-note">${icon('calendar')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
+    ${moved && !cancelled ? `<p class="bw-hs-note">${icon('clock')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
     ${cancelled ? '' : goingRowHTML(h)}
   </section>`;
 }
