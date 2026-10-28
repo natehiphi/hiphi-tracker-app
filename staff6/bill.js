@@ -34,6 +34,7 @@ import { issuesOfBill } from './issues.js';
 import { issueCardHTML } from './issuepage.js';   // the issue card at the top of the right column (R-346)
 import { dayOf } from './standing.js';
 import { askedChip } from './chairask.js';
+import { STATES } from './verbs.js';
 import { teamFirst, teamName, newOwnerTag } from './model.js';
 import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
@@ -427,9 +428,8 @@ function headHTML(b, route) {
     `<span class="bw-f">${pick('data-bwpos="1"', pos, `Position: ${pos}. Change it`)}</span>`,
     `<span class="bw-f">${pick('data-bwowner="1"', ow, `${ow}. Give ${numWords(b)} to someone`)}</span>`,
     isMuted(b) ? `<span class="bw-f bw-muted">${icon('bell-off')}<span>Muted</span></span>` : ''].filter(Boolean).join('');
-  // The bill's issue is the right column's first card (R-346, issueCardHTML), no longer a frame over the name (R-340).
-  // Grid areas (bill.css): from 481px the name, then Follow and "…" beside it; on a phone "…" stays beside the name and
-  // Follow rides on the issue's line, so neither takes a row of its own (A-1).
+  // The bill's issue is a card in the right column (R-346), no longer a frame over the name (R-340). Grid areas
+  // (bill.css): the name, then Follow and "…" beside it at every width, so neither takes a row of its own (A-1, R-352).
   return `<header class="bw-head${follow ? ' bw-hasfollow' : ''}">
     <div class="bw-top">
       <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
@@ -887,38 +887,60 @@ function sideHearing(b, s) {
   return s?.h || hearingAhead(b) || null;
 }
 // "Hearing today", the time and room large, the committee as the door to the sitting's page, who is going and I'm going
-// (the step card's going row, steps.js goingRowHTML). A cancelled sitting says only that.
+// (the step card's going row, steps.js goingRowHTML). A cancelled sitting says only that. It is the column's first card,
+// always (R-352 part 6): the time and room are what a person comes to the right column for on a hearing week (B-2).
 function hearingSide(b, s) {
   const h = sideHearing(b, s); if (!h) return '';
   const href = `#/hearing/${encodeURIComponent(h.id)}?from=${encodeURIComponent(b.bill_number)}`, name = committeeName(h.committee) || h.committee;
   const at = new Date(h.scheduled_at).getTime(), day = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   const word = day(at) === day(Date.now()) ? 'today' : day(at) === day(Date.now() + 864e5) ? 'tomorrow' : dayWords(h.scheduled_at);
   const moved = movedFrom(h), cancelled = h.status === 'cancelled';
+  // Card headings carry no icon (A-18 on v6, R-352: the word says it); a standalone link is teal with "›", no underline.
   return `<section class="bw-scard bw-hside" aria-labelledby="bw-hs-h">
-    <h2 class="bw-sh" id="bw-hs-h">${icon('gavel')}<span>${cancelled ? 'Hearing cancelled' : `Hearing ${esc(word)}`}</span></h2>
+    <h2 class="bw-sh" id="bw-hs-h">${cancelled ? 'Hearing cancelled' : `Hearing ${esc(word)}`}</h2>
     ${cancelled ? '<p class="bw-hs-note">No new date yet.</p>' : `<p class="bw-hs-when">${nw(esc(timeWords(at)))}${h.room ? ` · ${nw(esc(roomName(h.room)))}` : ''}</p>`}
-    <p class="bw-hs-cn"><a href="${esc(href)}">${esc(name)}</a></p>
+    <p class="bw-hs-cn"><a class="bw-go" href="${esc(href)}">${esc(name)}${icon('chevron-right')}</a></p>
     ${moved && !cancelled ? `<p class="bw-hs-note">${icon('clock')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
     ${cancelled ? '' : goingRowHTML(h)}
   </section>`;
 }
+// The issue card (R-346 kept; R-352 part 6): a white card like the other two, three lines: "Its issue", the issue's name
+// (or "Same name as this bill" when the bill is called what its issue is), and where the issue stands in one short line
+// ("At risk: the only bill still alive"), then "Open the issue ›". The bill rows, the paragraph and the black "This bill"
+// tag went: the tag was the heaviest thing on the page and the tint read as selected. How the issue stands is the issue
+// page's own judgement (issuepage.js health, read from issueCardHTML's data-state until it exports it), so the two agree.
+const CH_OF = b => /^S/.test(b.bill_number || '') ? 'S' : 'H';
+function issueSide(i, b) {
+  const full = issueCardHTML(i, b);
+  const k = (/data-state="issue:(\w+)"/.exec(full) || [])[1] || 'none', href = (/class="bw-if-go" href="([^"]*)"/.exec(full) || [])[1] || '';
+  const alive = (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(y => y.id === x.bill_id))
+    .filter(x => x && x.tracked !== false && (!x.session_year || +x.session_year === +SESSION_YEAR) && !diedish(x));
+  const chs = new Set(alive.map(CH_OF)), n = alive.length, CHN = { H: 'House', S: 'Senate' };
+  const says = k === 'risk' ? (n === 1 ? (alive[0].id === b.id ? 'the only bill still alive' : `only ${numWords(alive[0])} is still alive`) : `all ${n} live bills started in the ${CHN[[...chs][0]]}`)
+    : k === 'ontrack' ? (chs.size > 1 ? 'bills from both chambers still alive' : n === 1 ? 'its one bill is still alive' : `${n} bills still alive`)
+    : k === 'won' ? 'a bill on it became law' : k === 'stopped' ? 'every bill on it stopped this session' : 'no bills on it this session yet';
+  const st = STATES.issue[k] || STATES.issue.none;
+  const same = plain(i.name || '') === plain(billName(b));
+  return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
+    <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
+    ${same ? '<p class="bw-ic-same">Same name as this bill</p>' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
+    <p class="bw-ic-s"><span class="bw-if-pill is-${esc(k)}" data-state="issue:${esc(k)}">${icon(st.icon)}<span>${esc(k === 'none' ? cap1(says) : `${st.word}: ${says}`)}</span></span></p>
+    ${href ? `<p><a class="bw-go bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></p>` : ''}
+  </section>`;
+}
 // Who is on it: who follows the bill and its coalitions (moved here from About this bill, said once: A-14). The owner is
-// the header's own line, with its picker.
+// the header's own line, with its picker. Edit sits on the heading's row, where it says what it changes.
 function whoSide(b) {
   const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean), f = followText(b);
   return `<section class="bw-scard bw-wside" aria-labelledby="bw-ws-h">
-    <h2 class="bw-sh" id="bw-ws-h">${icon('users')}<span>Who is on it</span></h2>
+    <div class="bw-shrow"><h2 class="bw-sh" id="bw-ws-h">Who is on it</h2>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</div>
     <p><span class="bw-ws-k">Teammates following:</span> ${f ? esc(f) : '<span class="bw-quiet">no one yet</span>'}</p>
-    <p class="bw-ws-coal"><span><span class="bw-ws-k">${coal.length === 1 ? 'Coalition' : 'Coalitions'}:</span> ${coal.length ? coal.map(c => `<a class="bw-ws-a" href="#/coalition/${esc(c.id)}">${icon(c.icon || 'users')}<span>${esc(coalName(c))}</span></a>`).join(', ') : '<span class="bw-quiet">none</span>'}</span>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</p>
+    <p class="bw-ws-coal"><span class="bw-ws-k">${coal.length === 1 ? 'Coalition' : 'Coalitions'}:</span> ${coal.length ? coal.map(c => `<a class="bw-ws-a" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">none</span>'}</p>
   </section>`;
 }
 function sideHTML(b, s) {
   const isx = issuesOfBill(b.id);
-  // A hearing today or tomorrow comes first, so its time and room are on the first screen (B-2, A-1: the critic found them
-  // below the fold under a long issue card).
-  const h = sideHearing(b, s), soon = h && h.status !== 'cancelled' && new Date(h.scheduled_at).getTime() - Date.now() < 2 * 864e5;
-  const iss = isx.length ? issueCardHTML(isx[0], b) : '', hs = hearingSide(b, s);
-  return `<aside class="bw-side" aria-label="Its issue, hearing and team">${soon ? hs + iss : iss + hs}${whoSide(b)}</aside>`;
+  return `<aside class="bw-side" aria-label="Its hearing, issue and team">${hearingSide(b, s)}${isx.length ? issueSide(isx[0], b) : ''}${whoSide(b)}</aside>`;
 }
 
 // ---- the page ----

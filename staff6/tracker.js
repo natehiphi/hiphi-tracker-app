@@ -31,7 +31,8 @@
 import { S, DEADLINE_ROWS, effStage, esc } from './data.js';
 import { CHAMBER_NAME, pathwayStops, isResolution, isOneChamber, stoppedAt } from '../stops.js';
 import { stopOf, diedish, whenAt, codesOf, cmteName, plainDeadlines, gateNeed } from './model.js';
-import { committeeName, dayWords, timeWords } from './steps.js';
+import { committeeName, dayWords, timeWords, nw } from './steps.js';
+const cap = w => w ? w[0].toUpperCase() + w.slice(1) : w;
 import { icon, btn } from './ui.js';
 
 const OTHER = { H: 'S', S: 'H' };
@@ -161,18 +162,22 @@ function flagsOf(b, model, place) {
   const seen = new Set();
   return out.filter(f => !seen.has(f.edge) && seen.add(f.edge)).map((f, i) => ({ ...f, next: i === 0 }));
 }
-// What a deadline asks, in words: "must pass the committee it is in now and Senate Ways and Means", "must pass a vote of
-// the full Senate", "must be agreed by the House and Senate".
+// What a deadline asks, in words, without its Capitol name (C-15, R-352 part 6): { full, short }. `full` names the
+// committees ("must pass House Transportation", "must pass Senate Health and Senate Ways and Means"); `short` follows the
+// step line, which has just named where the bill is ("must pass it", "must pass it and Senate Ways and Means"). A vote:
+// "must pass a vote of the full Senate"; conference: "must be agreed on" (House and Senate, in conference).
 function mustOf(f, model, place) {
   const { stops } = model, at = Math.max(place.at, 0), edge = Math.ceil(f.edge) - 1, s = stops[edge];
-  if (!s) return '';
-  if (s.kind === 'vote') return `must pass ${s.full.replace(/^A /, 'a ')}`;
-  if (s.kind === 'conf') return 'must be agreed by the House and Senate';
-  if (s.kind === 'cmtes') return `must ${gateNeed(f.name)}`;
-  const names = [];
-  for (let i = at; i <= edge; i++) { const x = stops[i]; if (x.kind !== 'cmte') continue; names.push(i === place.at ? 'the committee it is in now' : x.full); }
-  if (!names.length) return `must ${gateNeed(f.name)}`;
-  return `must pass ${names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`}`;
+  if (!s) return { full: '', short: '' };
+  const one = w => ({ full: w, short: w });
+  if (s.kind === 'vote') return { full: `must pass ${s.full.replace(/^A /, 'a ')}`, short: at === edge ? 'must pass it' : `must pass ${s.full.replace(/^A /, 'a ')}` };
+  if (s.kind === 'conf') return one('must be agreed on');
+  if (s.kind === 'cmtes') return one(`must ${gateNeed(f.name)}`);
+  const full = [], short = [];
+  for (let i = at; i <= edge; i++) { const x = stops[i]; if (x.kind !== 'cmte') continue; full.push(x.full); short.push(i === place.at ? 'it' : x.full); }
+  if (!full.length) return one(`must ${gateNeed(f.name)}`);
+  const and = l => l.length < 3 ? l.join(' and ') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
+  return { full: `must pass ${and(full)}`, short: `must pass ${and(short)}` };
 }
 
 // ---- the words ----
@@ -270,12 +275,20 @@ export function trackerHTML(b, opts = {}) {
   const segs = stops.map((s, i) => `<span class="tk-seg is-${s.state}" title="${esc(s.full)}${s.day ? ` · passed ${esc(s.day)}` : ''}${gate(i) ? ` · ${esc(gate(i).name)} ${esc(dayWords(gate(i).date))}` : ''}"><i class="tk-b"></i><span class="tk-l">${s.state === 'done' ? icon('check', { cls: 'tk-li-ic' }) : s.state === 'stopped' ? icon('circle-minus', { cls: 'tk-li-ic' }) : ''}${esc(s.label)}</span>${dl(gate(i))}</span>`).join('');
   // A chair ask's card says the deadline it races ("It must clear its last committee by Fri 4/10"): the flag on the bar
   // still marks it, the caption does not say it again (A-14).
-  const nextLine = next && !opts.cardDeadline ? `<p class="tk-next">${icon('flag', { cls: 'tk-fi' })}<span>Next deadline <b>${esc(plain ? dayWords(next.date) : `${next.name}, ${dayWords(next.date)}`)}</b>: ${esc(m.must)}.</span></p>` : '';
+  // The next deadline in words, said once (C-15, R-352 part 6: "Next deadline Second triple filing, Thu 3/19: must pass the
+  // committee it is in now" became "Must pass House Transportation by Thu 3/19"). The flag on the bar marks it; its Capitol
+  // name stays in the bar's title and in See every step. A chair ask's card says the deadline it races, so the caption
+  // does not (A-14).
+  const by = next && !opts.cardDeadline ? dayWords(next.date) : '';
+  const nextLine = by && m.must.full ? `<p class="tk-next">${esc(cap(m.must.full))} by ${nw(esc(by))}.</p>` : '';
   const done = m.place.state === 'done' ? icon('circle-check', { cls: 'tk-ok' }) : m.place.state !== 'live' ? icon('circle-minus', { cls: 'tk-stop' }) : '';
   const nowLine = m.now ? `<p class="tk-now">${done}<span>${m.now}${set}</span></p>` : '';
   // The phone's step line: "Step 4 of 8 · Senate committee 1 of 2" (the full words are the first caption line's, which
   // the phone leaves out but for a stopped or finished bill).
-  const stepLine = m.place.state === 'live' && m.cur >= 0 ? `<p class="tk-step"><span>Step ${m.cur + 1} of ${n}</span>${m.where ? `<span class="tk-sw"> · ${esc(m.where)}</span>` : ''}${set}</p>` : nowLine;
+  // On the slim bar it is one line: "Step 4 of 9 · in House Transportation · must pass it by Thu 3/19". Where the place gives
+  // way (a 320 phone, .tk-short), the deadline names the committee itself (.tk-byf): "Step 4 of 9 · must pass House
+  // Transportation by Thu 3/19".
+  const stepLine = m.place.state === 'live' && m.cur >= 0 ? `<p class="tk-step"><span>Step ${m.cur + 1} of ${n}</span>${m.where ? `<span class="tk-sw"> · ${esc(m.where)}</span>` : ''}${by && m.must.short ? `<span class="tk-by"> · ${esc(m.where ? m.must.short : m.must.full)} by ${nw(esc(by))}</span>${m.where && m.must.short !== m.must.full ? `<span class="tk-byf"> · ${esc(m.must.full)} by ${nw(esc(by))}</span>` : ''}` : ''}${set}</p>` : nowLine;
   // Every stop as a list (the phone's "See every step"): its day when it passed, the deadlines ahead under the stop they gate.
   let g0 = '';
   const list = stops.map((s, i) => {
@@ -292,7 +305,7 @@ export function trackerHTML(b, opts = {}) {
       <div class="tk-bar" style="${col}">${segs}</div>
     </div>
     <div class="tk-slim" aria-hidden="true" style="${col}">${stops.map(s => `<i class="is-${s.state}"></i>`).join('')}</div>
-    <div class="tk-cap">${nowLine.replace('class="tk-now"', 'class="tk-now tk-onwide"')}${stepLine.replace(/class="tk-(step|now)"/, 'class="tk-$1 tk-onslim"')}${nextLine}</div>
+    <div class="tk-cap">${nowLine.replace('class="tk-now"', 'class="tk-now tk-onwide"')}${nextLine.replace('class="tk-next"', 'class="tk-next tk-onwide"')}${stepLine.replace(/class="tk-(step|now)"/, 'class="tk-$1 tk-onslim"')}${m.cur < 0 || m.place.state !== 'live' ? nextLine.replace('class="tk-next"', 'class="tk-next tk-onslim"') : ''}</div>
     ${btn(open ? 'Hide the steps' : 'See every step', { kind: 'text', iconEnd: open ? 'chevron-up' : 'chevron-down', cls: 'tk-more', attrs: { 'data-tkmore': '1', 'aria-expanded': String(open), 'aria-controls': 'tk-list' } })}
     <ol class="tk-list" id="tk-list"${open ? '' : ' hidden'}>${list}</ol></div>
   </section>`;
