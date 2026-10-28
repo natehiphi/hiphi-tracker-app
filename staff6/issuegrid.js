@@ -148,7 +148,7 @@ function hearWords(x) {
   if (k === 'filed') return { ic: 'circle-check', text: `Testimony filed, hearing ${whenAt(h.scheduled_at)}` };
   if (k === 'missed') return { ic: 'circle-x', text: 'Testimony missed' };
   const who = hp.you ? 'Your step: testimony' : 'Testimony';
-  if (hp.late) return { ic: hp.tone ? hp.ic : 'clock', tone: hp.tone, text: `${who} ${lateLine(s.until, { lower: true })}` };
+  if (hp.late) return { ic: hp.tone ? hp.ic : 'alarm-clock', tone: hp.tone, text: `${who} ${lateLine(s.until, { lower: true })}` };
   if (s.due != null) return { ic: hp.tone ? hp.ic : 'clock', tone: hp.tone, soon: hp.soon, text: `${who} due ${whenAt(s.due)}` };
   return { ic: 'calendar-days', text: `Hearing ${whenAt(h.scheduled_at)}` };
 }

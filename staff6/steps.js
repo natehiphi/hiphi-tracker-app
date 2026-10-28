@@ -236,7 +236,7 @@ export function status(x) {
   const due = ms(s.due), until = untilOfStep(s);
   if (due == null) return { tone: 'neutral', icon: '', words: '', time: '', soon: false };
   if (due <= now) {
-    if (until != null && until > now) return { tone: 'late', icon: 'clock', words: lateLine(until), time: clockDay(until), soon: true };
+    if (until != null && until > now) return { tone: 'late', icon: 'alarm-clock', words: lateLine(until), time: clockDay(until), soon: true };   // R-344: the alarm clock is late's own picture; the plain clock is due today's
     if (s.kind === 'prep') return { tone: 'neutral', icon: 'clock', words: 'Still to finish', time: '', soon: false };
     return { tone: 'overdue', icon: 'circle-alert', words: `${cap(spanOf(due))} overdue`, time: whenAt(due), soon: true };
   }
@@ -1003,6 +1003,8 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
   const steps = new Map(), stepOf = x => { if (!steps.has(x)) steps.set(x, billStep(x.b, { viewer: v, d: sittingDraft(x.h, x.b.id) || null, h: x.h })); return steps.get(x); };
   // The late window said once, over the rows (A-14; the card's time is the hearing's, which is when the window closes).
   const lateAny = !past && !cancelled && pos.some(x => { const s = stepOf(x); return !!s?.state && !['filed', 'missed'].includes(s.state.key) && !s.off && s.status?.tone === 'late'; });
+  // R-344: amber when one of those late steps is the viewer's own (or on their bill), as its row is (shownStatus)
+  const lateMine = lateAny && pos.some(x => { const s = stepOf(x); return s?.status?.tone === 'late' && s.mine && !['filed', 'missed'].includes(s.state?.key); });
   const bill = x => { const s = stepOf(x), first = lead != null && String(x.b.id) === String(lead);
     // Wherever the card offers Resubmit, the note is beside it (Hearings › This week too), so the button resubmits at once.
     const ok = rowButtonOK(s), home = (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
@@ -1033,7 +1035,7 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     <div class="v6-hcard-body">
       ${head}
       ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('clock')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
-      ${lateAny ? `<p class="v6-hcard-note v6-hcard-late">${icon('clock')}<span>Late, still accepted until the hearing starts</span></p>` : ''}
+      ${lateAny ? `<p class="v6-hcard-note v6-hcard-late${lateMine ? ' t-late' : ''}">${icon('alarm-clock')}<span>Late, still accepted until the hearing starts</span></p>` : ''}
       ${cancelled ? '' : `<p class="v6-hcard-going">${goingPic(h)}<span>${esc(goingWords(h, { viewer: v }))}${week && watch ? ` <span class="v6-hcard-watchin"><span class="v6-hcard-wdot">· </span>${watch}</span>` : ''}</span> ${going}</p>`}
       ${first1 ? `<ul class="v6-hcard-bills v6-hcard-lead1">${bill(first1)}</ul>` : ''}${rest.length ? `<ul class="v6-hcard-bills">${rest.map(bill).join('')}</ul>` : ''}
       ${mon.length && !self ? `<a class="v6-hcard-mon" href="${esc(href)}"><span>${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>` : ''}

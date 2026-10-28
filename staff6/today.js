@@ -1129,7 +1129,7 @@ function stepFirst(html, it, v) {
   if (!it?.b || !it.s) return html;
   const m = /<li class="v6-hcard-bill t6-hc-lead">[\s\S]*?<\/li>/.exec(html); if (!m) return html;
   const btnM = /<span class="v6-row-act">([\s\S]*?)<\/span><\/li>$/.exec(m[0]), y = sayOf(it, v);
-  const late = /<p class="v6-hcard-note v6-hcard-late">[\s\S]*?<\/p>/.exec(html);
+  const late = /<p class="v6-hcard-note v6-hcard-late[^"]*">[\s\S]*?<\/p>/.exec(html);
   const eye = [esc(y.kind), `<span class="v6-row-num">${esc(numWords(it.b))}</span>`, issueChip(it.b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
   const jk = jobOf(it), tile = jk !== 'none' ? `<span class="t6-jtile" aria-hidden="true">${actTile(jk, { size: 24 })}</span>` : '';   // R-344 Rule 1
   const head = `<div class="t6-nshead"><p class="t6-jeye">${tile}${eye}</p><p class="v6-step-what t6-nsay">${y.html}</p>${late ? late[0] : `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.sub}</p>`}${btnM ? `<div class="t6-nsacts">${btnM[1]}</div>` : ''}</div>`;

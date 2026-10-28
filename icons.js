@@ -208,7 +208,8 @@ export const ICONS = {"circle":"<circle cx=\"12\" cy=\"12\" r=\"10\"/>",
 "dices":"<rect width=\"12\" height=\"12\" x=\"2\" y=\"10\" rx=\"2\" ry=\"2\"/> <path d=\"m17.92 14 3.5-3.5a2.24 2.24 0 0 0 0-3l-5-4.92a2.24 2.24 0 0 0-3 0L10 6\"/> <path d=\"M6 18h.01\"/> <path d=\"M10 14h.01\"/> <path d=\"M15 6h.01\"/> <path d=\"M18 9h.01\"/>",
 "beer":"<path d=\"M17 11h1a3 3 0 0 1 0 6h-1\"/> <path d=\"M9 12v6\"/> <path d=\"M13 12v6\"/> <path d=\"M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z\"/> <path d=\"M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8\"/>",
 "calendar-heart":"<path d=\"M12.127 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v5.125\"/> <path d=\"M14.62 17.8A2.25 2.25 0 1118 14.836a2.25 2.25 0 113.38 2.966l-2.626 2.856a.998.998 0 01-1.507 0z\"/> <path d=\"M16 2v3\"/> <path d=\"M3 9h18\"/> <path d=\"M8 2v3\"/>",
-"banknote-arrow-up":"<path d=\"M12 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5\"/> <path d=\"M18 12h.01\"/> <path d=\"M19 22v-6\"/> <path d=\"m22 19-3-3-3 3\"/> <path d=\"M6 12h.01\"/> <circle cx=\"12\" cy=\"12\" r=\"2\"/>"};
+"banknote-arrow-up":"<path d=\"M12 18H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5\"/> <path d=\"M18 12h.01\"/> <path d=\"M19 22v-6\"/> <path d=\"m22 19-3-3-3 3\"/> <path d=\"M6 12h.01\"/> <circle cx=\"12\" cy=\"12\" r=\"2\"/>",
+"alarm-clock":"<circle cx=\"12\" cy=\"13\" r=\"8\"/> <path d=\"M12 9v4l2 2\"/> <path d=\"M5 3 2 6\"/> <path d=\"m22 6-3-3\"/> <path d=\"M6.38 18.7 4 21\"/> <path d=\"M17.64 18.67 20 21\"/>"};
 // The icons drawn for HIPHI in Lucide's style (icons-drawn.js, R-339) join the set after Lucide's.
 Object.assign(ICONS, DRAWN);
 // icon('calendar') -> an inline SVG sized to the text (1.25em), decorative unless a label is given.

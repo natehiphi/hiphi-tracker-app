@@ -333,7 +333,12 @@ function issueTags(bills, said = '') {
   const same = !!nm && String(said || '').toLowerCase().includes(nm) && (bills || []).some(b => String(b?.nickname || '').trim().toLowerCase() === nm);
   return `<p class="hc-isl"><a class="hc-iss" href="#/issue/${encodeURIComponent(i.id)}" aria-label="${esc(`Issue: ${i.name}`)}"${same ? ` title="${esc(i.name)}"` : ''}>${icon(issueIcon(i))}${same ? '' : `<span>${esc(i.name)}</span>`}</a>${iss.length > 1 ? `<span class="hc-issn">+${iss.length - 1}</span>` : ''}</p>`;
 }
-const stWords = st => st.word ? `<span class="hc-st${st.tone === 'late' ? ' late' : ''}">${st.tone === 'late' ? icon('clock') : ''}${esc(st.tone === 'late' ? `${st.word} · late` : st.word)}</span>` : '';
+// R-344 (the colour of time, one rule on every screen): late but still accepted leads with "Late" and the alarm clock, in
+// amber; due today is amber with the clock and says "due today"; passed is red. Someone else's step stays neutral
+// (steps.js shownStatus).
+const ST_TIME = { late: ['alarm-clock', w => `Late · ${w}`], today: ['clock', w => `${w} · due today`], overdue: ['circle-alert', w => `${w} · overdue`] };
+const stWords = st => { if (!st.word) return ''; const t = ST_TIME[st.tone];
+  return `<span class="hc-st${t ? ' ' + st.tone : ''}">${t ? icon(t[0]) : ''}${esc(t ? t[1](st.word) : st.word)}</span>`; };
 // One bill on an entry: its number (a link to it), then where it stands, or the person's own step on it when Today folded
 // that step into this entry (one entry per job, finding C).
 const billLi = (b, st, mine = '') => `<li><a class="hc-bl" href="${esc(billRoute(b))}" aria-label="${esc(sayWords(b))}">${esc(numWords(b))}</a>${mine ? `<span class="hc-st hc-mine">${icon('circle-check')}${esc(`Your step: ${mine}`)}</span>` : stWords(st)}</li>`;

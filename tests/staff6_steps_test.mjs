@@ -48,7 +48,8 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const t2 = X.status({ due: hst('2026-03-16T10:30:00-10:00') });
   ok(t2.tone === 'today' && t2.soon, 'due within 2 hours today is amber too, never red before it passes (R-344 Decision 2)');
   const late = X.status({ kind: 'file', due: hst('2026-03-16T08:00:00-10:00'), until: hst('2026-03-16T13:10:00-10:00') });
-  ok(late.tone === 'late' && late.icon === 'clock' && late.words === 'Late, still accepted until 1:10 PM today', `late testimony the Capitol still takes is amber with a clock and its words: "${late.words}"`);
+  // R-344 review: late wears its own alarm clock, so it never reads as due today's plain clock
+  ok(late.tone === 'late' && late.icon === 'alarm-clock' && late.words === 'Late, still accepted until 1:10 PM today', `late testimony the Capitol still takes is amber with the alarm clock and its words: "${late.words}"`);
   const od = X.status({ kind: 'todo', due: hst('2026-03-15T17:00:00-10:00') });
   ok(od.tone === 'overdue' && od.icon === 'circle-alert' && /overdue$/.test(od.words), `a to-do past its date is red with an alert icon and the word: "${od.words}"`);
   const prep = X.status({ kind: 'prep', due: hst('2026-03-10T17:00:00-10:00') });

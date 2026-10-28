@@ -23,7 +23,7 @@ import { itemRow, billRow, nameWords, numWords, whereWords, committeeName, nw } 
 import { isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
 import { issueIcon } from './issuegrid.js';
-import { glanceRow } from './bills.js';   // R-344: the bill's own picture (slim bar, Now, Law), its twin's chamber and HIPHI's stance, as Bills' rows
+import { glanceRow, twinsAmong } from './bills.js';   // R-344: the bill's own picture (slim bar, Now, Law), its twin's chamber and HIPHI's stance, as Bills' rows
 
 // This page's look (css/search.css). staff6.html links the screens' style sheets; until it links this one (shared_changes),
 // the module adds it once, before the first page is drawn.
@@ -439,7 +439,7 @@ function resultsHTML(q) {
     hp.length ? group('sr-gh', 'Help', hp.length, list(hp.map(placeRowH).join(''), 'Help guides')) : ''].filter(Boolean);
   const nBills = tracked.length + (un ? un.length : 0), main = [], side = [];
   if (tracked.length || (un && un.length) || un === null && lookUn)
-    main.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nBills, (tracked.length ? list(tracked.slice(0, N('b', tracked)).map(b => glanceRow(billRow(b, { line: billLine(b), button: false, cls: 'sr-row' }), b)).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
+    main.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nBills, (tracked.length ? list((sh => { const tw = twinsAmong(sh); return sh.map(b => glanceRow(billRow(b, { line: billLine(b), button: false, cls: 'sr-row' }), b, { twins: tw })); })(tracked.slice(0, N('b', tracked))).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
   if (issues.length) side.push(group('sr-gi', 'Issues', issues.length, list(issues.slice(0, N('i', issues)).map(issueRowH).join(''), 'Issues') + more('i', issues.length, N('i', issues), 'issues')));
   if (legs.length) side.push(group('sr-gl', 'Legislators', legs.length, list(legs.slice(0, N('l', legs)).map(l => legRowH(l, week)).join(''), 'Legislators') + more('l', legs.length, N('l', legs), 'legislators')));
   if (team.length) side.push(group('sr-gt', 'Teammates', team.length, list(team.slice(0, N('t', team)).map(teamRowH).join(''), 'Teammates') + more('t', team.length, N('t', team), 'teammates')));

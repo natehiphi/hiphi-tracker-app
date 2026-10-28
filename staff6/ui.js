@@ -132,7 +132,7 @@ export const dayAt = iso => { const w = whenAt(iso), m = /^(today|tomorrow|yeste
 export function countdown(iso, { prefix = '', until = null, at = false } = {}) {
   if (!iso) return '';
   const tone = timeTone(iso, { until });
-  if (tone === 'lateok') return `<span class="sv-count lateok">${icon('clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
+  if (tone === 'lateok') return `<span class="sv-count lateok">${icon('alarm-clock')}${esc(prefix ? `${prefix}${lateLine(until, { lower: true })}` : lateLine(until))}</span>`;
   // Never round a deadline up: 2 days 6 hours is "2 days", not 3 (R-022). R-277 fix 3 (W-6): the words come from model.js
   // timeLeft, the same on every screen: "in 28 min", "in 4 hours", "4 hours overdue" (no more "under an hour", "7h left").
   const left = tone === 'late' ? timeLeft(iso) : `in ${spanOf(iso)}`;
@@ -289,7 +289,7 @@ export function urgentMark(iso, { done = false, until = null, act = null } = {})
   if (done) return `<span class="sv-urg done" role="img" aria-label="Done">${icon('check')}</span>`;
   if (!iso) return '<span class="sv-urg none" aria-hidden="true"></span>';
   const tone = timeTone(iso, { until });
-  if (tone === 'lateok') { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}">${icon('clock')}<b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
+  if (tone === 'lateok') { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}">${icon('alarm-clock')}<b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
   const word = tone === 'late' ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
   // R-344 rule 3: amber with a clock when due today, red with the alert once passed, neutral further out.

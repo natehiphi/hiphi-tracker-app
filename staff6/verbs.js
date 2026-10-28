@@ -49,10 +49,11 @@ export const ACTS = {
   submit: A('Send for approval', 'pencil', 'write', 'write words', 'send'),
   revise: A('Resubmit', 'undo-2', 'write', 'sent back for changes', 'send'),
   stale: A('Check it', 'refresh-cw', 'write', 'the bill changed'),
-  approve: A('Approve', 'user-check', 'approve', 'approve', 'scan-eye'),
-  review: A('Approve', 'user-check', 'approve', 'approve', 'scan-eye'),
-  review2: A('Approve', 'users-round', 'approve', 'second look', 'scan-eye'),
-  second: A('Approve', 'users-round', 'approve', 'second look', 'scan-eye'),
+  // Review opens the approval, so it wears Approve's picture (the review: one picture for one job on a row)
+  approve: A('Approve', 'user-check', 'approve', 'approve'),
+  review: A('Approve', 'user-check', 'approve', 'approve'),
+  review2: A('Approve', 'users-round', 'approve', 'second look', 'user-check'),
+  second: A('Approve', 'users-round', 'approve', 'second look', 'user-check'),
   email: A('Approve', 'user-check', 'approve', 'approve'),
   file: A('File', 'clipboard-check', 'file', 'file at the Capitol'),
   missed: A('Did we file?', 'circle-x', 'file', 'missed', 'circle-help'),
@@ -93,7 +94,7 @@ export const rowLead = (kind, { size = 32, word = true } = {}) => { const a = ac
 
 // ---- row buttons get their icons (Rule 1: every button carries its icon) ----
 export const BTN_ICON = {
-  'Make the draft': 'pencil', 'Send for approval': 'send', 'Resubmit': 'send', 'Review': 'scan-eye', 'Approve': 'user-check',
+  'Make the draft': 'pencil', 'Send for approval': 'send', 'Resubmit': 'send', 'Review': 'user-check', 'Approve': 'user-check',
   'File': 'clipboard-check', 'Did we file?': 'circle-help', 'Take it': 'user-round-plus', 'Follow up': 'mail', 'Call the office': 'phone',
   'They replied': 'reply', 'Email the chair': 'mail', 'Email the chairs': 'mail', 'Email the chair again': 'mail',
   'Email the chairs again': 'mail', 'Ask for a change': 'message-square', 'Write the public ask': 'megaphone', 'Check it': 'refresh-cw',
@@ -131,7 +132,7 @@ export const STATES = {
     second: St('Second look', 'users-round', '', 'second look'),
     file: St('Ready to file', 'clipboard-check', '', 'file at the Capitol'),
     filed: St('Filed', 'circle-check', 'done', 'done'),
-    late: St('Late, still accepted', 'clock', 'late', 'a time'),
+    late: St('Late, still accepted', 'alarm-clock', 'late', 'late, still accepted'),   // the plain clock is due today's
     missed: St('Missed', 'circle-x', '', 'missed'),
   },
   // Where an ask to a chair is (model.js ASK_ANSWERS, plus not asked yet).

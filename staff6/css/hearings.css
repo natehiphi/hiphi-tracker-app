@@ -369,3 +369,6 @@ body.staff6 a.hg-cphl { display: inline-flex; border-radius: 50%; }
 body.staff6 a.hg-cphl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl { margin-left: -14px; }
 body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl .lg-ph { margin-left: 0; }
+/* R-344: due today amber, passed red, in the calendar as in every list (late keeps its bold) */
+body.staff6 .hc-st.today { color: var(--v6-late); }
+body.staff6 .hc-st.overdue { color: var(--v6-bad); font-weight: 700; }

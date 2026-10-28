@@ -6,7 +6,7 @@
 #      and a sent-back draft's tile and step picture differ from a new draft's. The open item's step picture has 20px dots
 #      and stays on one line, "Second look" included (C5).
 #   3. Partners, Words to approve: every row starts with the partner tile; Approve carries its icon.
-#   4. Bills (Team): each row shows the slim bar (Now, the trophy at Law), twins that share a name say House or Senate, the
+#   4. Bills (Team): each row shows the slim bar (Now, the trophy at Law), two shown bills that share a name say whose twin, the
 #      topic icons show by default (and ?icons=0 turns them off); search results show the bar too; no row passes spec 8's
 #      four facts.
 #   5. All issues: each card says how the issue is doing as one shape and word (no tint), with the House and Senate dots.
@@ -18,7 +18,7 @@
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_glance_shapes.py      exits 1 when a check fails
 #   --shots DIR                                                         saves each screen, laptop and phone
-import os, sys
+import os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import staff6_lib as L
 
@@ -111,6 +111,7 @@ with L.browser() as B:
       return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar .v6-bar-segs i')).length, now: rows.filter(r => r.querySelector('.v6-bar-now')).length,
         law: rows.filter(r => r.querySelector('.v6-bar-end svg.ic-trophy')).length,
         twins: rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').firstChild.textContent.trim(), r.querySelector('.v6-twin').innerText.trim()]),
+        shown: rows.map(r => r.querySelector('.v6-row-num')?.firstChild?.textContent.trim()),
         leads: rows.filter(r => r.querySelector('.v6-row-lead:not(.none):not(.v6-act-lead) svg')).length,
         stance: rows.filter(r => r.querySelector('[data-state^="stance:"]')).length,
         barW: Math.max(0, ...rows.map(r => r.querySelector('.v6-bar')?.getBoundingClientRect().width || 0)) }; })()""")
@@ -118,8 +119,9 @@ with L.browser() as B:
     R.check(f'{w} Bills (Team): the bar has room (wider than 200px)', b['barW'] > 200, b['barW'])
     R.check(f'{w} Bills (Team): the bar marks Now and ends at Law with the trophy', b['now'] > 0 and b['law'] == b['bar'], (b['now'], b['law']))
     tw = dict(b['twins'])
-    R.check(f'{w} Bills (Team): twins that share a name say House or Senate', len(tw) > 0 and all(tw.get(n, v) == v for n, v in [('HB 2121', 'House'), ('SB 2175', 'Senate')]), b['twins'][:6])
-    R.check(f'{w} Bills (Team): a twin tag says the chamber its number starts in', all((n.startswith('H') and t2 == 'House') or (n.startswith('S') and t2 == 'Senate') for n, t2 in b['twins']), b['twins'][:6])
+    # the review (27 Oct): a twin tag only where two shown bills share a name, and it names the other ("twin of SB 2175"),
+    # never a bare chamber that reads as where the bill is now
+    R.check(f'{w} Bills (Team): a twin tag names a twin that is shown too', all(re.fullmatch(r'twin of (\S+ \d+)', t2) and re.fullmatch(r'twin of (\S+ \d+)', t2).group(1) in b['shown'] for n, t2 in b['twins']), b['twins'][:6])
     facts = pg.measure(full=True)
     R.check(f'{w} Bills (Team): the pictures add no fact to a row (spec 8: four at most)', facts['facts_max'] <= 4, (facts['facts_max'], facts['worst_row']))
     if w >= 600: R.check(f'{w} Bills (Team): the topic icons show by default (R-339, Nate\'s go)', b['leads'] > 0, b['leads'])
@@ -137,7 +139,8 @@ with L.browser() as B:
       return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar')).length,
         over: rows.filter(r => { const l = r.querySelector('.v6-row-line > span'); return l && l.scrollHeight > l.clientHeight + 2; }).length,
         twins: Object.fromEntries(rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').firstChild.textContent.trim(), r.querySelector('.v6-twin').innerText.trim()])) }; })()""")
-    R.check(f'{w} Search: the twins HB 2121 and SB 2175 ("Disposable e-cigarette ban") say House and Senate', s['twins'].get('HB 2121') == 'House' and s['twins'].get('SB 2175') == 'Senate', s['twins'])
+    R.check(f'{w} Search: the twins HB 2121 and SB 2175 ("Disposable e-cigarette ban") name each other', s['twins'].get('HB 2121') == 'twin of SB 2175' and s['twins'].get('SB 2175') == 'twin of HB 2121', s['twins'])
+    R.check(f'{w} Search: only bills with a shown twin are tagged (not every result)', len(s['twins']) < s['n'], (len(s['twins']), s['n']))
     R.check(f'{w} Search: every bill result shows the slim bar', s['n'] > 0 and s['bar'] == s['n'], s)
     R.check(f'{w} Search: no result line is drawn past its box (the old clamp)', s['over'] == 0, s)
     fs = pg.measure(full=True)
@@ -166,11 +169,14 @@ with L.browser() as B:
       return { n: rows.length, tiles: rows.filter(r => r.querySelector('.t6-jtile .v6-at')).length,
         btns: [...document.querySelectorAll('.t6-job .v6-row-act .btn, .v6-step-acts .btn:not(.text), .t6-nsacts .btn')].map(b => [b.innerText.trim(), !!b.querySelector('svg')]),
         today: rows.filter(r => r.querySelector('.t6-jsub.t-today')).length,
-        landmark: document.querySelectorAll('.v6-step-hl svg.ic-landmark, .t6-line svg.ic-landmark').length }; })()""")
+        landmark: document.querySelectorAll('.v6-step-hl svg.ic-landmark, .t6-line svg.ic-landmark').length,
+        late: [...document.querySelectorAll('.v6-hcard-late, .t6-jsub.t-late')].map(e => [getComputedStyle(e).color, !!e.querySelector('svg.ic-alarm-clock'), /^\\s*Late\\b/.test(e.innerText)]),
+        amber: getComputedStyle(document.body).getPropertyValue('--v6-late').trim() }; })()""")
     R.check(f'{w} Today: every job row starts with its job\'s tile (Rule 1)', t6['n'] > 0 and t6['tiles'] == t6['n'], (t6['tiles'], t6['n']))
     R.check(f'{w} Today: every row and card button carries its icon', all(b[1] for b in t6['btns']), [b[0] for b in t6['btns'] if not b[1]][:4])
     R.check(f'{w} Today: what is due today says so in amber (Rule 3, Decision 2)', t6['today'] > 0, t6['today'])
     R.check(f'{w} Today: the Capitol building is not on hearing or ask lines (Rule 5)', t6['landmark'] == 0, t6['landmark'])
+    R.check(f'{w} Today: your late-but-accepted filing is amber, leads with "Late" and wears the alarm clock (not due today\'s clock)', t6['late'] and all(x[1] and x[2] for x in t6['late']) and len({x[0] for x in t6['late']}) == 1, t6['late'])
     pg.nav('/bill/HB1523')
     bp = pg.page.evaluate("""(() => ({ tt: !!document.querySelector('.v6-step .v6-tt'), old: !!document.querySelector('.v6-step .v6-track'),
       tile: !!document.querySelector('.v6-step .v6-step-eyebrow .v6-at'), btn: [...document.querySelectorAll('.v6-step-acts .btn:not(.text)')].every(b => b.querySelector('svg')),
@@ -181,7 +187,7 @@ with L.browser() as B:
     pg.nav('/issue/' + L.ISSUE)
     ip = pg.page.evaluate("""(() => { const h = document.querySelector('.ip6-health'); return { state: h?.querySelector('[data-state]')?.dataset.state || '', dots: h ? h.querySelectorAll('.v6-chd').length : 0,
       bg: h ? getComputedStyle(h).backgroundColor : '', wash: getComputedStyle(document.body).getPropertyValue('--v6-wash').trim() }; })()""")
-    R.check(f'{w} Issue page: the health check is one issue shape with the House and Senate dots (Decision 4)', ip['state'].startswith('issue:') and ip['dots'] == 2, ip)
+    R.check(f'{w} Issue page: the health check is one issue shape, no tint and no dots (the sentence says where)', ip['state'].startswith('issue:') and ip['dots'] == 0, ip)
     pg.nav('/hearings/ask')
     ph = pg.page.evaluate("[...document.querySelectorAll('.hg-cph')].map(p => !!p.querySelector('a.hg-cphl[href^=\"#/legislator/\"]'))")
     if ph: R.check(f'{w} Ask board: each chair\'s photo opens their page', all(ph), ph[:4])

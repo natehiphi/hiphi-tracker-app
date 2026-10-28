@@ -23,6 +23,7 @@ import { icon, btn, toast, pickerSheet, avatar, faceLead } from './ui.js';
 import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
 import { plainCodes } from './terms.js';
+import { dropVerb } from './verbs.js';   // R-344: one verb per row (A-25)
 import { isLead } from './more.js';
 import { ownerProgress, BOARD_HREF, dueEnd as prepDue } from './prep.js';
 import { pqItems, admitsPartners, wantQueue } from './partnerq.js';
@@ -172,7 +173,10 @@ function slipRow(x) {
   const late = !x.over && x.lateOk && shownStatus(x.s)?.tone === 'late';
   // R-344 rule 4: the face of whoever holds the step leads the row (a dashed circle when nobody does), so "whose" reads
   // before a word does; the line keeps its words.
-  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: x.over ? 'circle-alert' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.ids) });
+  // R-344 (A-25): beside the step's own button ("File") the line drops the verb, "Late, still accepted until…", as Testimony
+  // and Today say it; late wears the alarm clock, its own picture (verbs.js), and anything else the clock.
+  const line = button && x.mine && x.s?.act?.verb ? dropVerb(x.line, x.s.act.verb) : x.line;
+  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: x.over ? 'circle-alert' : x.lateOk ? 'alarm-clock' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.ids) });
 }
 // A long button ("Alert Lauren and Patti", "Alerted 9:00 AM · Undo") goes under the row's line below 1440px (css .tm6-wide),
 // so the name and its time never break onto lines of their own; a short one stays beside the words. Below 600px every

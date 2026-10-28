@@ -89,7 +89,9 @@ export function relatedOf(i) {
 }
 // HIPHI's stance on the issue as a whole (094, R-093). Mixed: HIPHI backs some bills on it and opposes others. An icon and a
 // word, never colour alone (A-5); its own icons, never the thumbs a bill's position uses (the ui-critic review, 9/29).
-export const STANCES = [['support', 'Support', 'circle-check', 'HIPHI is for it'], ['oppose', 'Oppose', 'circle-x', 'HIPHI is against it'],
+// R-344 Rule 2: the stance set's shapes (verbs.js STATES.stance): thumbs-up for, thumbs-down against; the check is On track's
+// and the circle-x Missed's (Rule 5). Mixed keeps the scales.
+export const STANCES = [['support', 'Support', 'thumbs-up', 'HIPHI is for it'], ['oppose', 'Oppose', 'thumbs-down', 'HIPHI is against it'],
   ['mixed', 'Mixed', 'scale', 'HIPHI supports some bills on it and opposes others']];
 const stanceOf = i => STANCES.find(x => x[0] === i?.stance) || null;
 // A quiet note when a bill on the issue has gone against the issue's stance (R-095, Nate 10/5): each bill keeps its own

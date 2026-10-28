@@ -1004,5 +1004,3 @@ body.staff6 .v6-chd.on .v6-chdot { background: var(--v6-action); box-shadow: non
   body.staff6 .ig6-issue .ig6-sline .v6-sm-w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   body.staff6 .ig6-issue .ig6-sline .v6-chdots { display: none; }
 }
-/* R-344 Decision 4: the health box's House and Senate dots, under its sentence (shapes only; the box keeps its neutral wash) */
-body.staff6 .ip6-hdots { margin: var(--s4) 0 0 calc(22px + var(--s12)); }

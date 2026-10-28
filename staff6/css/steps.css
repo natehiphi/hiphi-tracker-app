@@ -560,3 +560,6 @@ body.staff6 .v6-gofaces .sv-av { --av: 24px; box-shadow: 0 0 0 2px var(--v6-card
 body.staff6 .v6-gofaces .sv-av + .sv-av { margin-left: -6px; }
 /* a step card's job tile at the head of its quiet line (Rule 1) */
 body.staff6 .v6-step-eyebrow > .v6-at { margin-right: 8px; vertical-align: middle; }
+/* R-344: a late window that is the viewer's own says so in amber (Today's next-step card was grey beside amber rows) */
+body.staff6 .v6-hcard-note.v6-hcard-late.t-late { color: var(--v6-late); }
+body.staff6 .v6-hcard-note.v6-hcard-late.t-late svg { color: inherit; }

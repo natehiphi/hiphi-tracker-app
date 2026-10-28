@@ -300,7 +300,7 @@ function head(cur, m) {
     const tone = tones.includes('overdue') ? 'overdue' : 'late', n = tones.length;
     // Through the label's own span (ui.js sectionNav wraps it in <span class="sv-tl">): the pattern stopped at its "<" and
     // the mark never drew (R-344 C1).
-    nav = nav.replace(new RegExp(`(view=${t}"[^>]*>(?:<span class="sv-tl"[^>]*>[^<]*</span>)?[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon('clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
+    nav = nav.replace(new RegExp(`(view=${t}"[^>]*>(?:<span class="sv-tl"[^>]*>[^<]*</span>)?[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon(tone === 'overdue' ? 'circle-alert' : 'alarm-clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
   }
   // R-344 Rule 2: each tab wears its state's shape (verbs.js STATES.testimony), the same as the rows and the step picture.
   for (const [t, k] of Object.entries(TAB_STATE)) nav = nav.replace(new RegExp(`(view=${t}"[^>]*>)(<span class="sv-tl")`), (_, a, b2) => `${a}<span class="tp-tic" aria-hidden="true">${icon(STATES.testimony[k].icon)}</span>${b2}`);
@@ -319,7 +319,7 @@ function intro(view, m) {
       // their own one door, the line under the list (emailsLine). On a phone the sentence is left out: the tab's count and
       // the button say it, and the first row comes up into the first screen (A-1).
       const q = queue().filter(x => x.type === 'draft').length;
-      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Review', { kind: 'primary', icon: 'scan-eye', href: '#/review?only=testimony' })}</div>`;
+      if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Review', { kind: 'primary', icon: 'user-check', href: '#/review?only=testimony' })}</div>`;
       return m.tabs.approve.length ? `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : 'Testimony with an approver, or waiting for its second look.'}</p>` : '';
     }
     case 'sent': return `<p class="tp-intro">${n ? 'An approver asked for changes: read the note, revise it in the Doc, then resubmit.' : 'Nothing has come back to you for changes.'}</p>`;

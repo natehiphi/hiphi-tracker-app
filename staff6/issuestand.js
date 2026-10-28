@@ -124,7 +124,7 @@ export function hearPart(x) {
   const when = st.key === 'filed' ? `hearing ${whenAt(h.scheduled_at)}` : st.key === 'missed' ? '' : late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
   const text = `${lead}${when ? `, ${when}` : ''}`;
   const html = soon ? `${nw(esc(lead))}, due <b class="i6-time">${nw(esc(whenAt(s.due)))}</b>` : nw(esc(text));
-  return { ic: tone ? sh.icon : soon || late ? 'clock' : st.key === 'filed' ? 'circle-check' : 'calendar-days', text, html, tone, soon, late, you: !!s.you, s };
+  return { ic: tone ? sh.icon : late ? 'alarm-clock' : soon ? 'clock' : st.key === 'filed' ? 'circle-check' : 'calendar-days', text, html, tone, soon, late, you: !!s.you, s };
 }
 // The row's one line: risk and a dying bill lead (Nate: "see what issues are at risk of dying"); otherwise the hearing's
 // testimony leads, then the mark when it adds something. At most two parts, each one fact (spec 8: four facts a row).

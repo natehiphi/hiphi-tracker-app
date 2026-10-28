@@ -35,7 +35,7 @@ import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead } from './issuestand.js';
 import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
-import { STATES, chamberDots } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
+import { STATES } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
 import { itemRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus } from './steps.js';
 import { surname } from './pathway.js';
@@ -254,7 +254,7 @@ function health(xs, steps, earlier, { prepNext = false } = {}) {
   const nx = k === 'stopped' ? (prepNext ? `<span class="ip6-hn">Next: ${btn('get it ready for 2027', { kind: 'text', cls: 'ip6-hlink', attrs: { 'data-ip': 'prep' } })}.</span>` : '')
     : steps[0] && k !== 'none' ? `<span class="ip6-hn">${nw(esc(`Next: ${steps[0].say}`))}</span>` : '';
   return { k, lead: LEAD[0], text: LEAD[0] ? cap(text) : cap(text), html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
-    <p class="ip6-hs" data-state="issue:${k}">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}${nx}</span></p>${k !== 'none' ? `<p class="ip6-hdots">${chamberDots(alive.map(x => x.b))}</p>` : ''}</section>` };
+    <p class="ip6-hs" data-state="issue:${k}">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}${nx}</span></p></section>` };   // no House and Senate dots here (the review): the sentence says where, and "Its bills" splits it
 }
 
 // ---- who is working on it ----
