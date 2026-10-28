@@ -436,43 +436,8 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
   return `<div class="hc-cal">${btns}<div class="hc-grid">${wd.map(dayCol).join('')}</div>${weekend}</div>${monLine}${askL()}`;
 }
 
-// ---- The same week calendar on All issues and on Today (R-342, Nate 26 Oct: "Can there be a calendar view for all
-// issues, and for the today page?") ----
-// One calendar, drawn here, so the three never drift: All issues shows the team's week with each bill's issue in its
-// tint (tag); Today shows the person's week or the team's (tasks: 'mine' | 'team'). The week arrows and the phone's day
-// buttons work as on Hearings; `href(w)` is the page's own address for week w, so Back and a shared link keep the week.
-// R-352 (Nate 27 Oct): the calendar's one home is Hearings. Today's week is gone (and weekGlance, its strip, with it);
-// All issues' calendar waits for its own build, so issues.js still imports CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal
-// and calPick. Once it does not, all but weekCalHTML can be removed from here.
-export const CAL_WAYS = { tab: true, swap: true };
-export const calWeekBar = route => weekNav(route);
-export function weekCalHTML(route, { scope = 'team', tag = false, tasks = 'mine', steps = null } = {}) {
-  seedMoved(); freshScope(); ISS = '';   // Hearings' issue pick is its own
-  return calHTML(route, scope, null, { ask: false, tag, tasks, steps });
-}
-export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
-  root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {
-    S.hcRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.hcDay = null;
-    S.go(href(+el.dataset.hweek || 0), { replace: true, keepScroll: true });
-  });
-  root.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {
-    const d = el.dataset.hcpick; S.hcDay = d;
-    root.querySelectorAll('[data-hcpick]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hcpick === d)));
-    root.querySelectorAll('[data-hcday]').forEach(x => x.classList.toggle('on', x.dataset.hcday === d));
-  });
-  root.querySelector('[data-hwmon]')?.addEventListener('click', async () => {
-    try { await DB.patchPrefs({ showMonitor: !monOn() }); } catch (e) { toast(e, { err: true }); return; }
-    S.hcRefocus = '[data-hwmon]'; redraw();
-  });
-  if (S.hcRefocus) { const f = root.querySelector(S.hcRefocus); S.hcRefocus = null; f?.focus({ preventScroll: true }); }
-}
-// A page's List | Calendar pick, remembered per person in their settings (and this browser's copy), as Hearings' is.
-export function calPick(key, route) {
-  const lk = `hiphi6_${key}_${S.me?.id || ''}`;
-  let saved = ''; try { saved = localStorage.getItem(lk) || ''; } catch { /* private window */ }
-  const mode = [route?.q?.view, S.me?.prefs?.[key], saved].find(x => x === 'cal' || x === 'list') || 'list';
-  return { mode, async save(v) { try { localStorage.setItem(lk, v); } catch { /* this visit only */ } try { await DB.patchPrefs({ [key]: v }); } catch { /* the address keeps it */ } } };
-}
+// R-352 (Nate 27 Oct): the week calendar's one home is Hearings (calHTML below); Today's week and All issues' calendar,
+// and the exports they used (CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal, calPick, weekGlance), are gone.
 
 // The next session's opening day: the calendar's, else the third Wednesday in January (the Hawaiʻi Constitution's day).
 function openingDay() {

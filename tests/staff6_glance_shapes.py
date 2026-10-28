@@ -156,12 +156,12 @@ with L.browser() as B:
     pg.nav('/my-issues/all')
     c = pg.page.evaluate("""(() => { const cards = [...document.querySelectorAll('#is-q-body .ig6-issue')];
       return { n: cards.length, state: cards.map(x => x.querySelector('.ig6-stat [data-state^="issue:"]')?.dataset.state || ''),
-        word: cards.filter(x => (x.querySelector('.ig6-stat .ig6-sic')?.getAttribute('aria-label') || '').trim()).length,
+        word: cards.filter(x => (x.querySelector('.ig6-stat .v6-sm-w')?.textContent || '').trim()).length,
         boxTint: cards.filter(x => { const bg = getComputedStyle(x.querySelector('.ig6-stat')).backgroundColor; return !/rgba\\(0, 0, 0, 0\\)|transparent/.test(bg); }).length }; })()""")
     keys = {'issue:ontrack', 'issue:risk', 'issue:stopped', 'issue:won', 'issue:none'}
     R.check(f'{w} All issues: every card\'s status line wears how its issue is doing, one shape per state', c['n'] > 0 and all(k in keys for k in c['state']), sorted(set(c['state'])))
     R.check(f'{w} All issues: the states vary (not one shape on every card)', len(set(c['state'])) >= 3, sorted(set(c['state'])))
-    R.check(f'{w} All issues: each shape has its word for screen readers', c['word'] == c['n'], (c['word'], c['n']))
+    R.check(f'{w} All issues: each shape has its word, shown beside it (R-352: visible, not only spoken)', c['word'] == c['n'], (c['word'], c['n']))
     R.check(f'{w} All issues: no tint (Decision 4)', c['boxTint'] == 0, c['boxTint'])
     fa = pg.measure(full=True)
     R.check(f'{w} All issues: a card keeps spec 8\'s four facts', fa['facts_max'] <= 4, (fa['facts_max'], fa['worst_row']))
