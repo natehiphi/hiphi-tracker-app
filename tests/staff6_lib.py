@@ -307,7 +307,7 @@ MEASURE = r"""(arg) => {
     const own = [...e.childNodes].some(c => c.nodeType === 3 && c.nodeValue.trim()) || e.matches('svg');
     return (own && hot(s.color)) || hot(s.backgroundColor) || ['Top', 'Right', 'Bottom', 'Left'].some(k => parseFloat(s['border' + k + 'Width']) > 0 && hot(s['border' + k + 'Color'])); });
   const marks = marked.filter(e => !marked.some(o => o !== e && o.contains(e)));
-  // R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): amber is late's alone again, so "today" no longer words it.
+  // R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): amber is late, still accepted, and red overdue, so "today" no longer words a mark.
   const WORD = /\b(late|overdue|missed|past due|still accepted|not filed|didn.t file|failed|error|offline|could not|did not load)\b/i;
   const unworded = marks.filter(e => { const box = e.closest('li, tr, .row, .td-row, .v6-row, article, .card, .v6-hcard, .v6-step, [role=listitem], [role=alert], .notice') || e.parentElement || e; return !WORD.test((box.innerText || '') + ' ' + (e.getAttribute('aria-label') || '')); });
 

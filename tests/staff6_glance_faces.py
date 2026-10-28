@@ -4,8 +4,8 @@
 #     people and the same for one person on every screen and whoever is looking; the viewer's own carries a ring; faces lead
 #     the rows of People, Team and Inbox, and the hearing page's committee members show their photo (or its initial).
 #   Rule 3, time left: the colour of time (R-352, Nate 27 Oct, amending decision 2; A-5 on v6): due today plain, with a
-#     clock and the distance in words; amber only when late (still accepted, or passed and still to do, the alarm clock);
-#     never red; neutral further out, with the distance in words (ui.js timeTone, countdown, urgentMark).
+#     clock and the distance in words; amber with the alarm clock only for late testimony
+#     still accepted; red with the alert and "overdue" once the deadline has passed; neutral further out, with the distance in words (ui.js timeTone, countdown, urgentMark).
 #   Rule 5, one picture one meaning: the Inbox is the tray with its number on a phone too (no bell); Mark read is not a
 #     check mark; a legislator's "where they stand" is the thumbs-up; the Capitol building is Legislators only; Session
 #     setup's Blocking is not the circle-x of Missed; More tools' people icons are not used four ways.
@@ -113,7 +113,7 @@ def main():
       box.remove(); return out; }""")
     check('Time: due later today is plain (never amber or red), with a clock (R-352)', t['today']['tone'] == 'today' and t['today']['color'] not in (AMBER, RED) and t['today']['ucolor'] not in (AMBER, RED) and 'ic-clock' in t['today']['icons'], t['today'])
     check('Time: due today says the time and the distance ("11:00 AM today · in 2 hours")', re.search(r'\d:\d\d [AP]M today · in \d+ hours?', t['today']['text']), t['today']['text'])
-    check('Time: passed and still to do is amber, with the alarm clock and "overdue" (never red, R-352)', t['late']['tone'] == 'late' and t['late']['color'] == AMBER and t['late']['ucolor'] == AMBER and 'ic-alarm-clock' in t['late']['icons'] and 'ic-circle-alert' not in t['late']['icons'] and 'overdue' in t['late']['text'], t['late'])
+    check('Time: passed is red, with the alert and "overdue", never amber or the alarm clock', t['late']['tone'] == 'late' and t['late']['color'] == RED and t['late']['ucolor'] == RED and 'ic-circle-alert' in t['late']['icons'] and 'ic-alarm-clock' not in t['late']['icons'] and 'overdue' in t['late']['text'], t['late'])
     check('Time: late testimony still accepted stays amber', t['lateok']['tone'] == 'lateok' and t['lateok']['color'] == AMBER and 'still accepted' in t['lateok']['text'], t['lateok'])
     check('Time: three days out is neutral, the date and "in 3 days" beside it', t['later']['tone'] == '' and t['later']['color'] not in (AMBER, RED) and re.search(r'\w{3} \d+/\d+, .* · in 3 days', t['later']['text']), t['later'])
     check('Time: tomorrow morning is neutral, though under 24 hours away', t['tomorrow']['tone'] == '' and t['tomorrow']['color'] not in (AMBER, RED) and 'tomorrow' in t['tomorrow']['text'], t['tomorrow'])
