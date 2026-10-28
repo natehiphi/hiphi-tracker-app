@@ -1,0 +1,179 @@
+{
+  "name": "HIPHI rooster mascot animations",
+  "version": "2026-10-19",
+  "status": "Design assets. Not wired into any page yet; which moments use the rooster is Nate's call (see README).",
+  "character": {
+    "file": "character.svg",
+    "description": "H4+ rooster: round orange body, big five-point comb, five-feather ocean-blue tail fan, head at 121% of the base size, full-size body. Faces right.",
+    "viewBox": "0 0 200 200",
+    "colors": {
+      "body": "#F68B2C",
+      "belly": "#FCD09D",
+      "wing": "#D86F1C",
+      "legs": "#AD560F",
+      "comb_and_wattle": "#E5483A",
+      "back_wattle": "#C93A2E",
+      "beak": "#FBB040",
+      "cheek": "#F9A77C",
+      "eye": "#142B35",
+      "tail": [
+        "#093546",
+        "#00698E",
+        "#129DCB",
+        "#6BCDF8",
+        "#C4E8F6"
+      ],
+      "lei_flowers": [
+        "#FFFFFF",
+        "#F28AAE",
+        "#6BCDF8"
+      ],
+      "lei_leaf": "#3F8F5F"
+    },
+    "pivots_svg_units": {
+      "head_rotation": "118px 100px (transform-box: view-box)",
+      "comb_wobble": "50% 115% of the comb (rocks around the head centre so it never lifts off)",
+      "wing": "85% 15% of the wing (shoulder)",
+      "tail": "100% 80% of the tail",
+      "body_squash": "50% 100% (feet)"
+    },
+    "easing": {
+      "ease": "cubic-bezier(.2,.7,.3,1)",
+      "spring": "cubic-bezier(.34,1.4,.64,1)"
+    }
+  },
+  "animations": [
+    {
+      "id": "small-win",
+      "source": "AnimSmallWin.dc.html",
+      "title": "Small win · head bob",
+      "tier": "small burst",
+      "use": "A small step done: saving or following a bill, picking a stance, an address found.",
+      "trigger": "Right after the action succeeds, next to the thing just done.",
+      "plays": "once",
+      "duration_ms": 600,
+      "reduced_motion": "Rooster stands still; sparks hidden. Pair with fx.js tint() on the control.",
+      "design_rules": "Fits A-10 (small burst under 0.7 s) and C-7 (small win, small burst)."
+    },
+    {
+      "id": "big-win",
+      "source": "Main.dc.html",
+      "title": "Big win · hop and ta-da",
+      "tier": "full-screen moment",
+      "use": "A big step: testimony submitted, the first action sent.",
+      "trigger": "After the submit succeeds; plays over the next screen once its slide has ended (A-10).",
+      "plays": "once",
+      "duration_ms": 1600,
+      "reduced_motion": "Rooster stands still; feathers, ring and petals hidden.",
+      "design_rules": "C-7 moment. A-10 caps a full-screen moment at 1.5 s and says any tap, key or scroll ends it: trim the last 0.1 s of feather drift and make it dismissable when wiring it in."
+    },
+    {
+      "id": "milestone",
+      "source": "AnimMilestone.dc.html",
+      "title": "Milestone · crow",
+      "tier": "page moment",
+      "use": "The biggest personal moment, e.g. the end of the first visit (the Mahalo page).",
+      "trigger": "When the Mahalo page (or another milestone page) arrives; the words sit under it.",
+      "plays": "once",
+      "duration_ms": 2600,
+      "reduced_motion": "Rooster stands still; beak closed; waves, feathers, ring and petals hidden.",
+      "design_rules": "Too long for a 1.5 s full-screen moment (A-10). Fits the Mahalo page pattern instead (a page that waits for Next, with its moment opening as it arrives, R-140/R-298)."
+    },
+    {
+      "id": "bill-passed",
+      "source": "LeiD.dc.html",
+      "title": "Bill passed · lei bloom",
+      "tier": "full-screen moment",
+      "use": "A bill the person follows or acted on becomes law.",
+      "trigger": "When the person first sees that the bill passed.",
+      "plays": "once",
+      "duration_ms": 2900,
+      "reduced_motion": "Rooster stands still already wearing the lei; no sparkles.",
+      "design_rules": "C-7 names 'a bill becoming law' as a full-screen moment, capped at 1.5 s by A-10: either start it at the bloom (skip the hop, about 1.3 s) or show it on a page that waits for Next."
+    },
+    {
+      "id": "welcome",
+      "source": "AnimWelcome.dc.html",
+      "title": "Welcome · strut and wave",
+      "tier": "greeting",
+      "use": "First visit or onboarding: introduces the rooster.",
+      "trigger": "When the welcome screen opens; the welcome words sit beside it.",
+      "plays": "once",
+      "duration_ms": 2300,
+      "reduced_motion": "Rooster stands in place, no walk-in or wave.",
+      "design_rules": "Under the 5 s limit (A-10). Must not cover or delay the first visit's Next, and the first visit must still fit the window (R-265)."
+    },
+    {
+      "id": "submitting",
+      "source": "AnimSubmitting.dc.html",
+      "title": "Submitting · pecking loop",
+      "tier": "loading",
+      "use": "While testimony or a form is sending.",
+      "trigger": "Start when the request is sent; remove when it finishes.",
+      "plays": "loop",
+      "duration_ms": 1000,
+      "reduced_motion": "Rooster still; the three dots pulse slowly. Screen readers hear 'Sending your testimony' (role=status).",
+      "design_rules": "A-10: nothing moves by itself for more than 5 s. Stop the loop at 5 s and show the still rooster with words if the send is slow."
+    },
+    {
+      "id": "error",
+      "source": "AnimError.dc.html",
+      "title": "Error · gentle head tilt",
+      "tier": "feedback",
+      "use": "Something failed (a send, a save). Sympathetic, never silly.",
+      "trigger": "With the error message; the message carries the meaning (A-10: motion never alone).",
+      "plays": "once",
+      "duration_ms": 1500,
+      "reduced_motion": "Rooster still with the concerned brow showing.",
+      "design_rules": "Fits A-10. Keep the error words and the retry button visible; the rooster is decoration."
+    },
+    {
+      "id": "empty-state",
+      "source": "AnimEmpty.dc.html",
+      "title": "Empty state · peck and look up",
+      "tier": "ambient",
+      "use": "Empty lists: no bills saved yet, nothing due this week.",
+      "trigger": "When the empty state renders, next to its words and the action that fills it.",
+      "plays": "loop",
+      "duration_ms": 5000,
+      "reduced_motion": "Rooster stands still.",
+      "design_rules": "A-10: nothing moves by itself for more than 5 s. Play one 5 s cycle, then stop (animation-iteration-count: 1)."
+    },
+    {
+      "id": "deadline-reminder",
+      "source": "AnimReminder.dc.html",
+      "title": "Deadline reminder · ahem",
+      "tier": "nudge",
+      "use": "A gentle nudge: testimony due tomorrow, a hearing soon.",
+      "trigger": "When the reminder card or toast appears, beside its words.",
+      "plays": "once",
+      "duration_ms": 1500,
+      "reduced_motion": "Rooster stands still.",
+      "design_rules": "Fits A-10. Never alarming; the reminder words carry the date."
+    },
+    {
+      "id": "streak",
+      "source": "AnimStreak.dc.html",
+      "title": "Streak · quick ta-da",
+      "tier": "small burst",
+      "use": "Several actions in one session.",
+      "trigger": "After the third action in a session.",
+      "plays": "once",
+      "duration_ms": 1000,
+      "reduced_motion": "Rooster still; the three sparkles show without moving.",
+      "design_rules": "CONFLICT with C-7 ('Never a streak counter, a badge, a score'). The three sparkles read as a count. Do not use without Nate's decision; if kept, use it as the session-end burst on Home (C-7) without the counting sparkles."
+    },
+    {
+      "id": "idle",
+      "source": "AnimIdle.dc.html",
+      "title": "Idle loop",
+      "tier": "ambient",
+      "use": "A resting rooster beside content (breathing, blinking, a head tilt, a tail flick).",
+      "trigger": "When a screen with the rooster settles.",
+      "plays": "loop",
+      "duration_ms": 8000,
+      "reduced_motion": "Rooster stands still (blink only).",
+      "design_rules": "CONFLICT with A-10 ('Nothing moves by itself for more than 5 seconds'). Use for at most 5 s after the screen opens, or only when the person taps the rooster."
+    }
+  ]
+}

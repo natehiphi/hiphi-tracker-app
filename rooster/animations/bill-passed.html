@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rooster · Bill passed · lei bloom</title>
+<!--
+  HIPHI rooster · Bill passed · lei bloom
+  Use: A bill the person follows or acted on becomes law.
+  Trigger: When the person first sees that the bill passed.
+  Plays: once · about 2900 ms
+  Reduce Motion: Rooster stands still already wearing the lei; no sparkles.
+  Design rules: C-7 names 'a bill becoming law' as a full-screen moment, capped at 1.5 s by A-10: either start it at the bloom (skip the hop, about 1.3 s) or show it on a page that waits for Next.
+  Self-contained: the inline SVG + this file's CSS are the whole animation. It plays once on load (loops loop).
+  To replay, re-insert the element (or reload). See ../README.md for how to wire it in through pub/fx.js.
+-->
+<style>
+body{margin:0}
+a{color:#00698E}a:hover{color:#024F69}
+.ld-pop{transform-origin:50% 92%;animation:ld-pop .34s cubic-bezier(.34,1.4,.64,1) both}
+.ld-hop{transform-box:fill-box;transform-origin:50% 100%;animation:ld-hop 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ld-puff{transform-box:view-box;transform-origin:100px 186px;animation:ld-puff 1.6s cubic-bezier(.4,0,.3,1) 1.55s both}
+.ld-wing{transform-box:fill-box;transform-origin:85% 15%;animation:ld-flap 1.3s linear .2s both}
+.ld-tail{transform-box:fill-box;transform-origin:100% 80%;animation:ld-tail 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ld-head{transform-box:view-box;transform-origin:118px 100px;animation:ld-head 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ld-proud{transform-box:view-box;transform-origin:118px 100px;animation:ld-proud 1.6s cubic-bezier(.4,0,.3,1) 1.55s both}
+.ld-comb{transform-box:fill-box;transform-origin:50% 115%;animation:ld-comb 1.3s ease .2s both}
+.ld-shadow{transform-origin:center;animation:ld-shadow 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.ld-leaf{transform-box:view-box;transform-origin:0 0;opacity:0;animation:ld-leaf .4s cubic-bezier(.3,.7,.4,1) both}
+.ld-pet{transform-box:view-box;transform-origin:0 0;opacity:0;animation:ld-pet .55s cubic-bezier(.3,.7,.4,1) both}
+.ld-spark{transform-box:fill-box;transform-origin:center;opacity:0;animation:ld-spark .6s ease-out both}
+.ld-eye{animation:ld-eyeoff .9s linear 1.95s both}
+.ld-happy{opacity:0;animation:ld-eyeon .9s linear 1.95s both}
+@keyframes ld-pop{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes ld-hop{0%{transform:translateY(0) scale(1,1)}12%{transform:translateY(0) scale(1.08,.9)}30%{transform:translateY(-56px) scale(.94,1.08)}45%{transform:translateY(-64px) scale(1,1)}62%{transform:translateY(0) scale(1.12,.88)}74%{transform:translateY(-6px) scale(.97,1.03)}86%,100%{transform:translateY(0) scale(1,1)}}
+@keyframes ld-puff{0%{transform:scale(1,1)}20%,70%{transform:scale(1.03,1.035)}100%{transform:scale(1,1)}}
+@keyframes ld-flap{0%,14%{transform:rotate(0)}22%{transform:rotate(50deg)}30%{transform:rotate(-6deg)}38%{transform:rotate(50deg)}46%{transform:rotate(-6deg)}54%{transform:rotate(40deg)}66%,100%{transform:rotate(0)}}
+@keyframes ld-tail{0%,12%{transform:rotate(0)}30%{transform:rotate(-14deg)}62%{transform:rotate(10deg)}78%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+@keyframes ld-head{0%{transform:rotate(0)}12%{transform:rotate(6deg)}30%,45%{transform:rotate(-10deg)}62%{transform:rotate(4deg)}80%,100%{transform:rotate(0)}}
+@keyframes ld-proud{0%{transform:rotate(0)}20%,70%{transform:rotate(-9deg)}100%{transform:rotate(0)}}
+@keyframes ld-comb{0%,60%{transform:rotate(0)}68%{transform:rotate(-8deg)}78%{transform:rotate(6deg)}88%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+@keyframes ld-shadow{0%,12%{transform:scaleX(1.1);opacity:.22}30%,45%{transform:scaleX(.6);opacity:.1}62%{transform:scaleX(1.15);opacity:.26}100%{transform:scaleX(1);opacity:.2}}
+@keyframes ld-leaf{0%{opacity:0;transform:scale(0) rotate(-40deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes ld-pet{0%{opacity:0;transform:scale(0) rotate(-100deg)}55%{opacity:1;transform:scale(1.18) rotate(10deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes ld-spark{0%{opacity:0;transform:scale(.3)}40%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.8)}}
+@keyframes ld-eyeoff{0%{opacity:1}5%,90%{opacity:0}100%{opacity:1}}
+@keyframes ld-eyeon{0%{opacity:0}5%,90%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){
+.ld-pop,.ld-hop,.ld-puff,.ld-wing,.ld-tail,.ld-head,.ld-proud,.ld-comb,.ld-shadow,.ld-eye{animation:none}
+.ld-happy,.ld-spark{display:none}
+.ld-leaf,.ld-pet{animation:none;opacity:1}
+}
+</style>
+</head>
+<body style="margin:0;background:#F4F7F9">
+<div style="width: 480px; height: 480px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F7F9; font-family: Lato, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #142B35">
+<div style="position: absolute; inset: 0">
+<div class="ld-shadow" style="position: absolute; left: 186px; top: 312px; width: 108px; height: 16px; border-radius: 50%; background: #142B35; opacity: .2"></div>
+<div class="ld-pop" style="position: absolute; left: 140px; top: 136px; width: 200px; height: 200px">
+<svg viewBox="0 0 200 200" width="200" height="200" style="overflow: visible" role="img" aria-label="After a hop, the rooster puffs its chest proudly as a flower lei blooms open around its neck">
+<g class="ld-hop">
+<g stroke="#AD560F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M90 156 L88 182 M88 182 L80 186 M88 182 L97 185"></path>
+<path d="M110 156 L112 182 M112 182 L104 186 M112 182 L121 185"></path>
+</g>
+<g class="ld-puff">
+<g class="ld-tail">
+<ellipse cx="60" cy="62" rx="12" ry="36" transform="rotate(-15 60 62)" fill="#093546"></ellipse>
+<ellipse cx="46" cy="74" rx="12" ry="36" transform="rotate(-38 46 74)" fill="#00698E"></ellipse>
+<ellipse cx="36" cy="94" rx="12" ry="34" transform="rotate(-62 36 94)" fill="#129DCB"></ellipse>
+<ellipse cx="36" cy="116" rx="11" ry="28" transform="rotate(-86 36 116)" fill="#6BCDF8"></ellipse>
+<ellipse cx="44" cy="134" rx="9" ry="22" transform="rotate(-110 44 134)" fill="#C4E8F6"></ellipse>
+</g>
+<ellipse cx="98" cy="122" rx="50" ry="42" fill="#F68B2C"></ellipse>
+<ellipse cx="128" cy="96" rx="22" ry="30" fill="#F68B2C"></ellipse>
+<ellipse cx="116" cy="134" rx="26" ry="24" fill="#FCD09D"></ellipse>
+<g class="ld-wing">
+<path d="M64 110 C70 96 98 96 110 108 C112 126 96 146 74 142 C66 134 62 120 64 110 Z" fill="#D86F1C"></path>
+<path d="M76 124 C84 128 92 128 100 124 M78 134 C86 137 92 137 98 134" stroke="#AD560F" stroke-width="2.5" fill="none" stroke-linecap="round"></path>
+</g>
+<g>
+<g transform="translate(104 92)"><g class="ld-leaf" style="animation-delay: 1.98s"><g transform="scale(1.35)"><ellipse cx="-6" cy="3" rx="4.4" ry="1.8" transform="rotate(28 -6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 2.06s"><g transform="scale(1.35)"><g fill="#FFFFFF" stroke="#E7C9A9" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+<g transform="translate(108.8 101.9)"><g class="ld-leaf" style="animation-delay: 1.91s"><g transform="scale(1.35)"><ellipse cx="6" cy="3" rx="4.4" ry="1.8" transform="rotate(-28 6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.99s"><g transform="scale(1.35)"><g fill="#F28AAE" stroke="#E46F96" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+<g transform="translate(114.3 109.8)"><g class="ld-leaf" style="animation-delay: 1.84s"><g transform="scale(1.35)"><ellipse cx="-6" cy="3" rx="4.4" ry="1.8" transform="rotate(28 -6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.92s"><g transform="scale(1.35)"><g fill="#FFFFFF" stroke="#E7C9A9" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+<g transform="translate(120.3 115.4)"><g class="ld-leaf" style="animation-delay: 1.77s"><g transform="scale(1.35)"><ellipse cx="6" cy="3" rx="4.4" ry="1.8" transform="rotate(-28 6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.85s"><g transform="scale(1.35)"><g fill="#6BCDF8" stroke="#3FB4E6" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FFFFFF"></circle></g></g></g>
+<g transform="translate(127 119)"><g class="ld-leaf" style="animation-delay: 1.7s"><g transform="scale(1.35)"><ellipse cx="-6" cy="3" rx="4.4" ry="1.8" transform="rotate(28 -6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.78s"><g transform="scale(1.35)"><g fill="#FFFFFF" stroke="#E7C9A9" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+<g transform="translate(134.3 120.4)"><g class="ld-leaf" style="animation-delay: 1.77s"><g transform="scale(1.35)"><ellipse cx="6" cy="3" rx="4.4" ry="1.8" transform="rotate(-28 6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.85s"><g transform="scale(1.35)"><g fill="#F28AAE" stroke="#E46F96" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+<g transform="translate(142.3 119.8)"><g class="ld-leaf" style="animation-delay: 1.84s"><g transform="scale(1.35)"><ellipse cx="-6" cy="3" rx="4.4" ry="1.8" transform="rotate(28 -6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.92s"><g transform="scale(1.35)"><g fill="#FFFFFF" stroke="#E7C9A9" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+<g transform="translate(150.8 116.9)"><g class="ld-leaf" style="animation-delay: 1.91s"><g transform="scale(1.35)"><ellipse cx="6" cy="3" rx="4.4" ry="1.8" transform="rotate(-28 6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 1.99s"><g transform="scale(1.35)"><g fill="#6BCDF8" stroke="#3FB4E6" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FFFFFF"></circle></g></g></g>
+<g transform="translate(160 112)"><g class="ld-leaf" style="animation-delay: 1.98s"><g transform="scale(1.35)"><ellipse cx="-6" cy="3" rx="4.4" ry="1.8" transform="rotate(28 -6 3)" fill="#3F8F5F"></ellipse></g></g><g class="ld-pet" style="animation-delay: 2.06s"><g transform="scale(1.35)"><g fill="#FFFFFF" stroke="#E7C9A9" stroke-width=".5"><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(72)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(144)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(216)"></ellipse><ellipse cx="0" cy="-3.3" rx="2.6" ry="3.7" transform="rotate(288)"></ellipse></g><circle cx="0" cy="0" r="1.6" fill="#FBB040"></circle></g></g></g>
+</g>
+<g class="ld-proud">
+<g class="ld-head">
+<g transform="translate(136.1 67.4) scale(1.21) translate(-140 -70)">
+<g class="ld-comb">
+<circle cx="121" cy="56" r="8" fill="#E5483A"></circle>
+<circle cx="129" cy="44" r="10.5" fill="#E5483A"></circle>
+<circle cx="140" cy="37" r="12" fill="#E5483A"></circle>
+<circle cx="152" cy="41" r="10.5" fill="#E5483A"></circle>
+<circle cx="159" cy="53" r="8" fill="#E5483A"></circle>
+</g>
+<circle cx="140" cy="70" r="24" fill="#F68B2C"></circle>
+<ellipse cx="165" cy="90" rx="5" ry="9" fill="#C93A2E"></ellipse>
+<ellipse cx="158" cy="93" rx="6.5" ry="12" fill="#E5483A"></ellipse>
+<path d="M160 64 L179 72 L160 80 Z" fill="#FBB040" stroke="#FBB040" stroke-width="3" stroke-linejoin="round"></path>
+<ellipse cx="141" cy="79" rx="5" ry="3.2" fill="#F9A77C"></ellipse>
+<g class="ld-eye">
+<circle cx="148" cy="64" r="5.15" fill="#142B35"></circle>
+<circle cx="150" cy="62" r="1.65" fill="#FFFFFF"></circle>
+</g>
+<path class="ld-happy" d="M142 66 Q148 58 154 66" stroke="#142B35" stroke-width="3.2" fill="none" stroke-linecap="round"></path>
+</g>
+</g>
+</g>
+<path class="ld-spark" style="animation-delay: 2.2s" d="M96 112 C96.6 115.4 97.6 116.4 101 117 C97.6 117.6 96.6 118.6 96 122 C95.4 118.6 94.4 117.6 91 117 C94.4 116.4 95.4 115.4 96 112 Z" fill="#FBB040"></path>
+<path class="ld-spark" style="animation-delay: 2.32s" d="M170 118 C170.5 120.8 171.2 121.5 174 122 C171.2 122.5 170.5 123.2 170 126 C169.5 123.2 168.8 122.5 166 122 C168.8 121.5 169.5 120.8 170 118 Z" fill="#FBB040"></path>
+</g>
+</g>
+</svg>
+</div>
+</div>
+</div>
+</body>
+</html>

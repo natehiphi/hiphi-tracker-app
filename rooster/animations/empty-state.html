@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rooster · Empty state · peck and look up</title>
+<!--
+  HIPHI rooster · Empty state · peck and look up
+  Use: Empty lists: no bills saved yet, nothing due this week.
+  Trigger: When the empty state renders, next to its words and the action that fills it.
+  Plays: loop · about 5000 ms
+  Reduce Motion: Rooster stands still.
+  Design rules: A-10: nothing moves by itself for more than 5 s. Play one 5 s cycle, then stop (animation-iteration-count: 1).
+  Self-contained: the inline SVG + this file's CSS are the whole animation. It plays once on load (loops loop).
+  To replay, re-insert the element (or reload). See ../README.md for how to wire it in through pub/fx.js.
+-->
+<style>
+body{margin:0}
+a{color:#00698E}a:hover{color:#024F69}
+.n-upper{transform-box:view-box;transform-origin:100px 158px;animation:n-upper 5s cubic-bezier(.2,.7,.3,1) infinite}
+.n-head{transform-box:view-box;transform-origin:118px 100px;animation:n-head 5s cubic-bezier(.2,.7,.3,1) infinite}
+.n-comb{transform-box:fill-box;transform-origin:50% 115%;animation:n-comb 5s ease infinite}
+.n-tail{transform-box:fill-box;transform-origin:100% 80%;animation:n-tail 5s ease infinite}
+.n-eye{transform-box:fill-box;transform-origin:center;animation:n-blink 5s linear infinite}
+.n-shadow{transform-origin:center;animation:n-shadow 5s cubic-bezier(.2,.7,.3,1) infinite}
+.paused .n-upper,.paused .n-head,.paused .n-comb,.paused .n-tail,.paused .n-eye,.paused .n-shadow{animation-play-state:paused}
+@keyframes n-upper{0%,8%{transform:rotate(0)}13%{transform:rotate(28deg)}16%{transform:rotate(20deg)}19%{transform:rotate(28deg)}26%,34%{transform:rotate(0)}39%{transform:rotate(28deg)}43%,100%{transform:rotate(0)}}
+@keyframes n-head{0%,8%{transform:rotate(0)}13%{transform:rotate(12deg)}16%{transform:rotate(6deg)}19%{transform:rotate(12deg)}26%,34%{transform:rotate(0)}39%{transform:rotate(12deg)}43%,52%{transform:rotate(0)}58%,74%{transform:rotate(-10deg)}80%,100%{transform:rotate(0)}}
+@keyframes n-comb{0%,78%{transform:rotate(0)}83%{transform:rotate(-5deg)}87%{transform:rotate(3deg)}91%,100%{transform:rotate(0)}}
+@keyframes n-tail{0%,24%{transform:rotate(0)}28%{transform:rotate(-8deg)}32%{transform:rotate(3deg)}36%,100%{transform:rotate(0)}}
+@keyframes n-blink{0%,64%{transform:scaleY(1)}66%{transform:scaleY(.1)}68%,100%{transform:scaleY(1)}}
+@keyframes n-shadow{0%,8%{transform:scaleX(1)}13%,19%{transform:scaleX(1.08) translateX(6px)}26%,34%{transform:scaleX(1)}39%{transform:scaleX(1.08) translateX(6px)}43%,100%{transform:scaleX(1)}}
+@media (prefers-reduced-motion: reduce){
+.n-upper,.n-head,.n-comb,.n-tail,.n-shadow{animation:none}
+}
+</style>
+</head>
+<body style="margin:0;background:#F4F7F9">
+<div style="width: 480px; height: 480px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F7F9; font-family: Lato, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #142B35">
+<div class="n-shadow" style="position: absolute; left: 186px; top: 312px; width: 108px; height: 16px; border-radius: 50%; background: #142B35; opacity: .2"></div>
+<div style="position: absolute; left: 140px; top: 136px; width: 200px; height: 200px">
+<svg viewBox="0 0 200 200" width="200" height="200" style="overflow: visible" role="img" aria-label="The rooster pecks around, then looks up curiously">
+<g stroke="#AD560F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M90 156 L88 182 M88 182 L80 186 M88 182 L97 185"></path>
+<path d="M110 156 L112 182 M112 182 L104 186 M112 182 L121 185"></path>
+</g>
+<g class="n-upper">
+<g class="n-tail">
+<ellipse cx="60" cy="62" rx="12" ry="36" transform="rotate(-15 60 62)" fill="#093546"></ellipse>
+<ellipse cx="46" cy="74" rx="12" ry="36" transform="rotate(-38 46 74)" fill="#00698E"></ellipse>
+<ellipse cx="36" cy="94" rx="12" ry="34" transform="rotate(-62 36 94)" fill="#129DCB"></ellipse>
+<ellipse cx="36" cy="116" rx="11" ry="28" transform="rotate(-86 36 116)" fill="#6BCDF8"></ellipse>
+<ellipse cx="44" cy="134" rx="9" ry="22" transform="rotate(-110 44 134)" fill="#C4E8F6"></ellipse>
+</g>
+<ellipse cx="98" cy="122" rx="50" ry="42" fill="#F68B2C"></ellipse>
+<ellipse cx="128" cy="96" rx="22" ry="30" fill="#F68B2C"></ellipse>
+<ellipse cx="116" cy="134" rx="26" ry="24" fill="#FCD09D"></ellipse>
+<path d="M64 110 C70 96 98 96 110 108 C112 126 96 146 74 142 C66 134 62 120 64 110 Z" fill="#D86F1C"></path>
+<path d="M76 124 C84 128 92 128 100 124 M78 134 C86 137 92 137 98 134" stroke="#AD560F" stroke-width="2.5" fill="none" stroke-linecap="round"></path>
+<g class="n-head">
+<g transform="translate(136.1 67.4) scale(1.21) translate(-140 -70)">
+<g class="n-comb">
+<circle cx="121" cy="56" r="8" fill="#E5483A"></circle>
+<circle cx="129" cy="44" r="10.5" fill="#E5483A"></circle>
+<circle cx="140" cy="37" r="12" fill="#E5483A"></circle>
+<circle cx="152" cy="41" r="10.5" fill="#E5483A"></circle>
+<circle cx="159" cy="53" r="8" fill="#E5483A"></circle>
+</g>
+<circle cx="140" cy="70" r="24" fill="#F68B2C"></circle>
+<ellipse cx="165" cy="90" rx="5" ry="9" fill="#C93A2E"></ellipse>
+<ellipse cx="158" cy="93" rx="6.5" ry="12" fill="#E5483A"></ellipse>
+<path d="M160 64 L179 72 L160 80 Z" fill="#FBB040" stroke="#FBB040" stroke-width="3" stroke-linejoin="round"></path>
+<ellipse cx="141" cy="79" rx="5" ry="3.2" fill="#F9A77C"></ellipse>
+<g class="n-eye">
+<circle cx="148" cy="64" r="5.15" fill="#142B35"></circle>
+<circle cx="150" cy="62" r="1.65" fill="#FFFFFF"></circle>
+</g>
+</g>
+</g>
+</g>
+</svg>
+</div>
+</div>
+</body>
+</html>

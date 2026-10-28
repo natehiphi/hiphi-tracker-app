@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rooster · Big win · hop and ta-da</title>
+<!--
+  HIPHI rooster · Big win · hop and ta-da
+  Use: A big step: testimony submitted, the first action sent.
+  Trigger: After the submit succeeds; plays over the next screen once its slide has ended (A-10).
+  Plays: once · about 1600 ms
+  Reduce Motion: Rooster stands still; feathers, ring and petals hidden.
+  Design rules: C-7 moment. A-10 caps a full-screen moment at 1.5 s and says any tap, key or scroll ends it: trim the last 0.1 s of feather drift and make it dismissable when wiring it in.
+  Self-contained: the inline SVG + this file's CSS are the whole animation. It plays once on load (loops loop).
+  To replay, re-insert the element (or reload). See ../README.md for how to wire it in through pub/fx.js.
+-->
+<style>
+body{margin:0}
+a{color:#00698E}a:hover{color:#024F69}
+.r-pop{transform-origin:50% 92%;animation:r-pop .34s cubic-bezier(.34,1.4,.64,1) both}
+.r-hop{transform-box:fill-box;transform-origin:50% 100%;animation:r-hop 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.r-wing{transform-box:fill-box;transform-origin:85% 15%;animation:r-flap 1.3s linear .2s both}
+.r-wing2{transform-box:fill-box;transform-origin:85% 15%;animation:r-flap2 1.3s linear .2s both}
+.r-tail{transform-box:fill-box;transform-origin:100% 80%;animation:r-tail 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.r-head{transform-box:fill-box;transform-origin:20% 90%;animation:r-head 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.r-comb{transform-box:fill-box;transform-origin:50% 115%;animation:r-comb 1.3s ease .2s both}
+.r-eye{transform-box:fill-box;transform-origin:center;animation:r-blink .22s ease 1.34s both}
+.r-shadow{transform-origin:center;animation:r-shadow 1.3s cubic-bezier(.2,.7,.3,1) .2s both}
+.r-ring{transform-origin:center;opacity:0;animation:r-ring .6s cubic-bezier(.2,.7,.3,1) 1s both}
+.fx-feather{position:absolute;left:240px;top:214px;width:17px;height:23px;margin:-11px 0 0 -8px;opacity:0;animation:fx-drift 1.2s cubic-bezier(.3,.2,.4,1) both}
+.fx-petal{position:absolute;left:236px;top:314px;width:8px;height:12px;border-radius:50% / 60% 60% 40% 40%;opacity:0;animation:fx-petalfly .6s cubic-bezier(.2,.7,.3,1) 1s both}
+@keyframes r-pop{0%{opacity:0;transform:scale(.4)}70%{opacity:1;transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes r-hop{0%{transform:translateY(0) scale(1,1)}12%{transform:translateY(0) scale(1.08,.9)}30%{transform:translateY(-56px) scale(.94,1.08)}45%{transform:translateY(-64px) scale(1,1)}62%{transform:translateY(0) scale(1.12,.88)}74%{transform:translateY(-6px) scale(.97,1.03)}86%,100%{transform:translateY(0) scale(1,1)}}
+@keyframes r-flap{0%,14%{transform:rotate(0)}22%{transform:rotate(50deg)}30%{transform:rotate(-6deg)}38%{transform:rotate(50deg)}46%{transform:rotate(-6deg)}54%{transform:rotate(40deg)}62%{transform:rotate(0)}70%,86%{transform:rotate(72deg)}100%{transform:rotate(0)}}
+@keyframes r-flap2{0%,14%{transform:rotate(0)}22%{transform:rotate(35deg)}30%{transform:rotate(0)}38%{transform:rotate(35deg)}46%{transform:rotate(0)}54%{transform:rotate(28deg)}62%{transform:rotate(0)}70%,86%{transform:rotate(55deg)}100%{transform:rotate(0)}}
+@keyframes r-tail{0%,12%{transform:rotate(0)}30%{transform:rotate(-14deg)}62%{transform:rotate(10deg)}78%{transform:rotate(-4deg)}100%{transform:rotate(0)}}
+@keyframes r-head{0%{transform:rotate(0)}12%{transform:rotate(6deg)}30%,45%{transform:rotate(-10deg)}62%{transform:rotate(4deg)}80%,100%{transform:rotate(0)}}
+@keyframes r-comb{0%,60%{transform:rotate(0)}68%{transform:rotate(-8deg)}78%{transform:rotate(6deg)}88%{transform:rotate(-2deg)}100%{transform:rotate(0)}}
+@keyframes r-blink{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.1)}}
+@keyframes r-shadow{0%,12%{transform:scaleX(1.1);opacity:.22}30%,45%{transform:scaleX(.6);opacity:.1}62%{transform:scaleX(1.15);opacity:.26}100%{transform:scaleX(1);opacity:.2}}
+@keyframes r-ring{0%{opacity:1;transform:scale(.5)}100%{opacity:0;transform:scale(1.6)}}
+@keyframes fx-drift{0%{opacity:0;transform:translate(calc(var(--dx) * .7),calc(var(--dy) * .25 - 14px)) rotate(0)}15%{opacity:.95}70%{opacity:.8}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--dr))}}
+@keyframes fx-petalfly{0%{opacity:0;transform:translate(0,0) scale(.4) rotate(0)}20%{opacity:1}100%{opacity:0;transform:translate(var(--x),var(--y)) scale(1) rotate(160deg)}}
+@media (prefers-reduced-motion: reduce){
+.r-pop,.r-hop,.r-wing,.r-wing2,.r-tail,.r-head,.r-comb,.r-eye,.r-shadow{animation:none}
+.r-ring,.fx-feather,.fx-petal{display:none}
+}
+</style>
+</head>
+<body style="margin:0;background:#F4F7F9">
+<div style="width: 480px; height: 480px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F7F9; font-family: Lato, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #142B35">
+<div style="position: absolute; inset: 0">
+<div class="r-shadow" style="position: absolute; left: 186px; top: 312px; width: 108px; height: 16px; border-radius: 50%; background: #142B35; opacity: .2"></div>
+<div class="r-ring" style="position: absolute; left: 180px; top: 306px; width: 120px; height: 28px; box-sizing: border-box; border-radius: 50%; border: 3px solid #95DCFE"></div>
+
+<span class="fx-feather" style="--dx: -150px; --dy: -120px; --dr: -60deg; animation-delay: .40s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#129DCB"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: 140px; --dy: -130px; --dr: 70deg; animation-delay: .43s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#F68B2C"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: -180px; --dy: -20px; --dr: -120deg; animation-delay: .46s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#6BCDF8"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: 170px; --dy: -40px; --dr: 110deg; animation-delay: .49s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#00698E"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: -90px; --dy: -170px; --dr: -30deg; animation-delay: .52s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#FCD09D"></path><path d="M8.5 5 L8.5 21" stroke="#AD560F" stroke-opacity=".4" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: 80px; --dy: -180px; --dr: 40deg; animation-delay: .55s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#129DCB"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: -130px; --dy: 60px; --dr: -90deg; animation-delay: .58s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#F68B2C"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+<span class="fx-feather" style="--dx: 150px; --dy: 50px; --dr: 95deg; animation-delay: .61s"><svg viewBox="0 0 17 23" width="17" height="23" aria-hidden="true"><path d="M8.5 1 C14 7 14 15 8.5 22 C3 15 3 7 8.5 1 Z" fill="#6BCDF8"></path><path d="M8.5 5 L8.5 21" stroke="#FFFFFF" stroke-opacity=".6" stroke-width="1.2" stroke-linecap="round"></path></svg></span>
+
+<div class="r-pop" style="position: absolute; left: 140px; top: 136px; width: 200px; height: 200px">
+<svg viewBox="0 0 200 200" width="200" height="200" style="overflow: visible" role="img" aria-label="A friendly rooster hopping and flapping its wings in celebration">
+<g class="r-hop">
+<g class="r-tail">
+<ellipse cx="60" cy="62" rx="12" ry="36" transform="rotate(-15 60 62)" fill="#093546"></ellipse>
+<ellipse cx="46" cy="74" rx="12" ry="36" transform="rotate(-38 46 74)" fill="#00698E"></ellipse>
+<ellipse cx="36" cy="94" rx="12" ry="34" transform="rotate(-62 36 94)" fill="#129DCB"></ellipse>
+<ellipse cx="36" cy="116" rx="11" ry="28" transform="rotate(-86 36 116)" fill="#6BCDF8"></ellipse>
+<ellipse cx="44" cy="134" rx="9" ry="22" transform="rotate(-110 44 134)" fill="#C4E8F6"></ellipse>
+</g>
+<g stroke="#AD560F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M90 156 L88 182 M88 182 L80 186 M88 182 L97 185"></path>
+<path d="M110 156 L112 182 M112 182 L104 186 M112 182 L121 185"></path>
+</g>
+<g class="r-wing2">
+<path d="M78 104 C84 90 112 90 124 102 C126 120 110 140 88 136 C80 128 76 114 78 104 Z" fill="#AD560F"></path>
+</g>
+<ellipse cx="98" cy="122" rx="50" ry="42" fill="#F68B2C"></ellipse>
+<ellipse cx="128" cy="96" rx="22" ry="30" fill="#F68B2C"></ellipse>
+<ellipse cx="116" cy="134" rx="26" ry="24" fill="#FCD09D"></ellipse>
+<g class="r-wing">
+<path d="M64 110 C70 96 98 96 110 108 C112 126 96 146 74 142 C66 134 62 120 64 110 Z" fill="#D86F1C"></path>
+<path d="M76 124 C84 128 92 128 100 124 M78 134 C86 137 92 137 98 134" stroke="#AD560F" stroke-width="2.5" fill="none" stroke-linecap="round"></path>
+</g>
+<g class="r-head">
+<g transform="translate(136.1 67.4) scale(1.21) translate(-140 -70)">
+<g class="r-comb">
+<circle cx="121" cy="56" r="8" fill="#E5483A"></circle>
+<circle cx="129" cy="44" r="10.5" fill="#E5483A"></circle>
+<circle cx="140" cy="37" r="12" fill="#E5483A"></circle>
+<circle cx="152" cy="41" r="10.5" fill="#E5483A"></circle>
+<circle cx="159" cy="53" r="8" fill="#E5483A"></circle>
+</g>
+<circle cx="140" cy="70" r="24" fill="#F68B2C"></circle>
+<ellipse cx="165" cy="90" rx="5" ry="9" fill="#C93A2E"></ellipse>
+<ellipse cx="158" cy="93" rx="6.5" ry="12" fill="#E5483A"></ellipse>
+<path d="M160 64 L179 72 L160 80 Z" fill="#FBB040" stroke="#FBB040" stroke-width="3" stroke-linejoin="round"></path>
+<ellipse cx="141" cy="79" rx="5" ry="3.2" fill="#F9A77C"></ellipse>
+<g class="r-eye">
+<circle cx="148" cy="64" r="5.15" fill="#142B35"></circle>
+<circle cx="150" cy="62" r="1.65" fill="#FFFFFF"></circle>
+</g>
+</g>
+</g>
+</g>
+</svg>
+</div>
+
+<i class="fx-petal" style="--x: -96px; --y: -30px; background: #129DCB"></i>
+<i class="fx-petal" style="--x: -78px; --y: -72px; background: #F68B2C"></i>
+<i class="fx-petal" style="--x: -42px; --y: -98px; background: #6BCDF8"></i>
+<i class="fx-petal" style="--x: 0px; --y: -110px; background: #FCD09D"></i>
+<i class="fx-petal" style="--x: 42px; --y: -98px; background: #129DCB"></i>
+<i class="fx-petal" style="--x: 78px; --y: -72px; background: #F68B2C"></i>
+<i class="fx-petal" style="--x: 96px; --y: -30px; background: #6BCDF8"></i>
+<i class="fx-petal" style="--x: -20px; --y: -60px; background: #00698E"></i>
+</div>
+</div>
+</body>
+</html>

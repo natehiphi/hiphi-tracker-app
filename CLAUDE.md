@@ -73,6 +73,15 @@ found because sessions start in the backend repo) walks the whole checklist.
 - Never build anything that sends email while testing. **Email to the public is paused until Nate says so.**
 - Street addresses are private to the person; staff see districts only.
 
+## Rooster mascot animations
+
+**`rooster/README.md`** (added 19 Oct 2026) holds eleven rooster animations, one per kind of moment (small win, big
+win, milestone, bill passed, welcome, submitting, error, empty state, deadline reminder, streak, idle), with what each
+is for, its trigger, timing and Reduce Motion behaviour; `rooster/manifest.json` has the same in data form and
+`rooster/preview.html` plays them all. They are design assets, not wired into any page: which moments use the rooster
+is Nate's decision (put it on the board first). When wiring one in, route it through `pub/fx.js` (A-10) and follow
+the design-rule notes in the README: `streak` conflicts with C-7 and `idle` with A-10's 5-second limit.
+
 ## Before every push to main
 
 1. `node --experimental-default-type=module --check` every JS file touched (plain `node --check` reads these files as
