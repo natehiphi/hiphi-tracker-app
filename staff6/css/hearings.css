@@ -13,6 +13,13 @@ body.staff6 .hw-page > .sv-secnav { margin: -16px -4px -8px; }
 body.staff6 .hw-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
 body.staff6 .hw-bar .sv-seg { flex-wrap: wrap; max-width: 100%; }
 body.staff6 .hw-bar .hw-nav { margin: 0 0 0 auto; }
+/* whose hearings, then the issue picker (R-352), on one line while they fit */
+body.staff6 .hw-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+/* the week's other view, one plain link after its dates (R-352, A-12 on v6: never a second pill switch) */
+body.staff6 a.hw-view { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-action); text-decoration: none; }
+body.staff6 a.hw-view .v6-chev { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.hw-view:hover { text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 a.hw-view:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 @media (max-width: 380px) { body.staff6 .hw-bar .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-bar .sv-seg button { padding: 0 12px; } }
 /* this week on a phone: the week's row with its arrows sits under the scope switch, its own line (spec 2: phones
    first-class; Nate's walk: with the arrows hidden Patti could not look at next week) */
@@ -30,7 +37,6 @@ body.staff6 .hw-ask-t { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; c
 body.staff6 .hw-ask-n { color: var(--v6-ink); }
 body.staff6 .hw-ask-s { color: var(--v6-muted); }
 body.staff6 .hw-ask-go { flex: none; display: inline-flex; align-items: center; gap: 2px; font-size: var(--v6-t16); font-weight: 400; color: var(--v6-action); }
-body.staff6 .hw-ask-go .v6-chev { width: 20px; height: 20px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .hw-ask:hover { box-shadow: var(--v6-sh2); } }
 body.staff6 .hw-ask:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 /* the week: its dates, then Previous and Next */
@@ -120,8 +126,6 @@ body.staff6 .hg-dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 
 body.staff6 .hg-dlh { display: grid; gap: 4px; }
 body.staff6 .hg-dlh h2 { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .hg-dls { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
-/* The door to Get hearings at the end of Legislators' deadline line, as Bills' (bills.css .bl-dlgo). */
-body.staff6 .hg-dls .hg-dlgo { color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* Legislators' Who to ask: a later deadline folded to one line that opens it in place (push.js askBoard `fold`) */
 body.staff6 .hg-fold { display: block; }
 body.staff6 .hg-fold > summary { position: relative; list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 56px; padding: 12px 46px 12px 16px;
@@ -213,7 +217,6 @@ body.staff6 .ca-whorep .ca-how { display: grid; grid-template-columns: minmax(0,
    on the page ground, today's column on the card ground; one quiet line per entry; only a hearing is a soft card (sh1, no
    border); tokens only; nothing moves under Reduce Motion (A-10). */
 body.staff6 .hw-page.m-cal { max-width: none; }
-body.staff6 .hw-bar .sv-seg[aria-label="Show the week as"] { flex-wrap: nowrap; }
 body.staff6 .hc-cal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 body.staff6 .hc-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; min-width: 0; align-items: stretch; }
 body.staff6 .hc-day, body.staff6 .hc-wkend { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px; border-radius: var(--v6-r20); background: var(--v6-wash); }
@@ -290,17 +293,13 @@ body.staff6 .hc-st, body.staff6 .hc-room { font-size: var(--v6-t14); line-height
 
 /* A chair card's header leads with the chair's photo (both chairs, overlapped, on a joint referral), an initial when there
    is none (R-336 walk 2: Nate asked for photos on Who to ask; the same board is Hearings > Bills That Need Hearings). */
-body.staff6 .hg-cph { flex: none; display: inline-flex; align-self: flex-start; }
-body.staff6 .hg-cph .lg-ph { width: 40px; height: 40px; border: 2px solid var(--v6-card); box-sizing: content-box; background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1 Poppins, system-ui, sans-serif; }
-body.staff6 .hg-cph.two .lg-ph + .lg-ph { margin-left: -14px; }
-body.staff6 .hg-chead:has(.hg-cph) .hg-cwho { flex: 1 1 200px; }
 
-/* ---- The week calendar on All issues and on Today (R-342; hearings.js weekCalHTML) ----
-   The same .hc-* calendar; here only what the two pages add: the bar over the week, each bill's issue as a chip in its card's
+/* ---- The week calendar's extras (R-342; its homes are Hearings and All issues' Calendar tab, R-352 FIX-3) ----
+   The same .hc-* calendar; here what All issues (and Today once) added: the bar over the week, each bill's issue as a chip in its card's
    tint (issues.css .ig6-tintN tokens), the hearing as a box when its bills carry links of their own, and the two ways in. */
 body.staff6 .hc-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
 body.staff6 .hc-wrap > * { margin: 0; min-width: 0; }
-body.staff6 .hw-bar .sv-seg[aria-label="Whose week"], body.staff6 .hw-bar .sv-seg[aria-label="Show Today as"], body.staff6 .hw-bar .sv-seg[aria-label="Show the issues as"] { flex-wrap: nowrap; }
+body.staff6 .hw-bar .sv-seg[aria-label="Whose week"] { flex-wrap: nowrap; }
 body.staff6 .hc-isss { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 0; min-width: 0; }
 body.staff6 .hc-e a.hc-iss, body.staff6 .hc-iss { display: inline-flex; align-items: center; max-width: 100%; min-height: 24px; padding: 0 8px; border-radius: 999px;
   background: var(--ig-wash, var(--v6-wash)); color: var(--ig-ink, var(--v6-body)); font-size: var(--v6-t14); line-height: 20px; font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
@@ -311,7 +310,7 @@ body.staff6 .hc-hbox a.hc-cn { color: var(--v6-action); }   /* the hearing's lin
 body.staff6 .hc-hbox a.hc-cn:hover, body.staff6 .hc-hbox a.hc-bl:hover { text-decoration: underline; text-underline-offset: 3px; }
 body.staff6 .hc-e a.hc-bl { color: var(--v6-action); overflow-wrap: anywhere; }
 body.staff6 .hc-dls > li { display: grid; gap: 0; padding-bottom: 4px; }
-body.staff6 .is6-swap { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+/* All issues' calendar view (R-342; kept by R-352 FIX-3): whose week it is, then the same week bar as Hearings */
 body.staff6 .is6-calwho { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .is6-cal .hc-wrap { margin-top: 0; }
 /* critic 2: chips and bill links reach 40px to tap (44 on a phone) without looking bigger; critic 9: a chip keeps its edge on
@@ -365,10 +364,27 @@ body.staff6 .hc-isl a.hc-iss { position: relative; }
 @media (max-width: 767.98px) { body.staff6 .hc-e, body.staff6 .hc-e.hc-h, body.staff6 .hc-cap { padding: 12px 16px; } body.staff6 .hc-e a.hc-bl { min-height: 44px; } }
 
 /* R-344 (B4): the chair's photo on the ask board opens their page; the focus ring hugs the round photo */
-body.staff6 a.hg-cphl { display: inline-flex; border-radius: 50%; }
-body.staff6 a.hg-cphl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl { margin-left: -14px; }
-body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl .lg-ph { margin-left: 0; }
-/* R-344: due today amber, passed red, in the calendar as in every list (late keeps its bold) */
-body.staff6 .hc-st.today { color: var(--v6-late); }
+/* The colour of time in the calendar as in every list (A-5 on v6, R-352): due today plain with its clock, late amber (its
+   own rule above), red only for a step still to do whose deadline passed */
+body.staff6 .hc-st.today { color: var(--v6-body); }
+
+/* The chair's name is the link to their page (R-352): teal, no underline until hover (a standalone link). */
+body.staff6 a.hg-cnl { color: var(--v6-action); text-decoration: none; border-radius: 4px; }
+body.staff6 a.hg-cnl:hover { text-decoration: underline; text-underline-offset: 3px; }
+body.staff6 a.hg-cnl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .hc-st.overdue { color: var(--v6-bad); font-weight: 700; }
+
+/* R-352 (H, C-15, A-12): a calendar cell's bill is its name first, the link, in the cell's ink (underlined on hover only),
+   then its number small and plain and where it stands on one line; late is amber with its alarm clock and the word, not
+   bold; the issue line is words only. "Triple filing" and the other Capitol words stand alone: teal, no underline until
+   hover. */
+body.staff6 .hc-e a.hc-bl { flex: 1 0 100%; color: var(--v6-ink); padding-top: 4px; min-height: 0; overflow-wrap: break-word; }
+@media (max-width: 767.98px) { body.staff6 .hc-e a.hc-bl { min-height: 32px; } }
+body.staff6 .hc-e .hc-bnum { font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hc-e a.hc-bl:hover { text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 .hc-st.late { font-weight: 400; }
+body.staff6 a.hw-cap-n, body.staff6 .hc-cap a { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.hw-cap-n:hover, body.staff6 .hc-cap a:hover { text-decoration: underline; text-underline-offset: 3px; } }
+/* R-352 (G): the title sits as close to its tabs as on Testimony, Bills and Legislators (12px; it was 32px: the title's own
+   24px margin added to the grid's gap; a phone already matched) */
+body.staff6 .hw-page > h1.v6-ptitle { margin-bottom: 4px; }

@@ -154,7 +154,11 @@ function dueHTML(c, card = '') {
   const past = new Date(due) <= Date.now();
   const lines = (card.match(/<ul class="v6-hcard-bills">[\s\S]*?<\/ul>/)?.[0] || '').replace(/<[^>]+>/g, '');
   if (lines.includes(timeWords(past ? c.h.scheduled_at : due))) return '';
-  // R-344 rule 3: the Capitol's deadline with how long is left in words beside it ("· in 2 days"), amber once it is today.
+  // Past the deadline the card itself says "Late, still accepted until 9:30 AM today" (steps.js hearingCard): once (A-14,
+  // R-352 FIX-2: Lauren's card said late twice).
+  if (past && /v6-hcard-late/.test(card)) return '';
+  // R-344 rule 3: the Capitol's deadline with how long is left in words beside it ("· in 2 days"); on its day it is plain,
+  // its time in bold (A-5 on v6, R-352: amber is late's alone).
   // It names whose deadline it is (the Capitol's), so it never reads as a second time for a teammate's hand-on step.
   const tone = past ? '' : timeTone(due);
   return `<p class="hr-due${tone ? ' ' + tone : ''}">${icon('clock')}<span>${nw(esc(past ? `Written testimony: ${lateLine(c.h.scheduled_at, { lower: true })}` : `The Capitol takes written testimony until ${whenAt(due)} · in ${spanOf(due)}`))}</span></p>`;
@@ -244,8 +248,9 @@ function membersHTML(c) {
   });
   const lead = pos[0]?.b;
   // v3: the stance pickers are in Committees on the bill's page; the door lands there (a button, not a link inside a
-  // sentence: 44px links inside text break the line on a phone).
-  const hint = lead && !any ? `<p class="hr-p">No one has recorded where they stand on these bills yet.</p><p class="hr-more">${btn('Mark where they stand', { kind: 'text', sm: true, icon: 'thumbs-up', href: billRoute(lead, 'committees') })}</p>` : '';
+  // sentence: 44px links inside text break the line on a phone). Its picture is the pencil, a thing to fill in: the
+  // thumbs-up means support, and no stand is known here (A-18 on v6, R-344 rule 5, R-352).
+  const hint = lead && !any ? `<p class="hr-p">No one has recorded where they stand on these bills yet.</p><p class="hr-more">${btn('Mark stand', { kind: 'text', sm: true, icon: 'pencil', href: billRoute(lead, 'committees') })}</p>` : '';
   const key = h.id + '|m', open = rows.length <= FOLD + 2 || S.hrMore?.has(key);
   return section('hr-s-mem', 'Committee members', `${hint}<div class="v6-list" role="list" aria-label="Committee members">${(open ? rows : rows.slice(0, FOLD)).join('')}</div>${open ? '' : `<p class="hr-more">${showAllBtn(rows.length, { 'data-hrmore': key }, { what: 'members' })}</p>`}`);
 }

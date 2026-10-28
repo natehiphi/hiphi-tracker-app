@@ -12,57 +12,58 @@
 //   A to Z: one continuous grid, the first card of each letter wearing the letter (Everyone's A to Z).
 //   By next deadline: R-272's order and groups (issuestand.js deadlineGroups: This week, Next deadlines, Safe for now, and
 //     the folds for what is not moving and what has no bills), the old default, kept for the season's work.
-// Each card (C-14 on v6: a name and one short line, here two): the topic's icon on its tint, the issue's name (18px, 500),
-// one line of its description cut at a word (the whole of it in the title and on the issue's page), and ONE status line
-// in words with an icon (A-5: never colour alone): "At risk: SB 11 needs a hearing by Thu 3/19", "Your step: testimony due
-// today 9:30 AM", "2 bills alive · House and Senate", "No bills this session". At most four facts a card (spec 8).
+// Each card (C-14 on v6; R-352, Nate 27 Oct: "keep the issue cards, but calmer"): the issue's name with its own small icon
+// beside it (what tells the issues apart at a glance, Nate's "clearly distinguished"; no coloured band or big tile), how it
+// stands in one word with its shape (verbs.js STATES.issue: At risk, On track, Stopped, Won, No bills yet), and its next
+// step and date in one line ("HB 1779 needs a hearing by Mon 3/30", "SB 3234 testimony: Writing, due today 9:30 AM, in
+// 59 min"). No description on the card (cut short it said little; it is the card's title and leads the issue's page), no
+// topic chip (the topic is the heading). At most four facts a card (spec 8). Inside a topic the most urgent issue comes
+// first (issuestand.js byUrgency: at risk, then the nearest hearing or deadline).
 // The find box is R-272's (issuestand.js searcher: words in any order, bill numbers with or without the space).
 import { S, SESSION_OVER, esc } from './data.js';
-import { whenAt, lateLine } from './model.js';
+import { whenAt } from './model.js';
 import { icon, iconBtn, btn, pickerSheet } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
-import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb } from './issuestand.js';
-import { nw } from './steps.js';
-import { STATES, issueKey } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape (Decision 4)
+import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb, byUrgency } from './issuestand.js';
+import { nw, shownStatus } from './steps.js';
+import { issueKey, stateMark } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape and its word (Decision 4)
 
-// ---- the picture: an icon on a soft tint ----
+// ---- the tints and the icons ----
 // Six tints, in the topics' order (tokens in issues.css .ig6-tint1..6, each a wash of one hue with a darker ink of the same
-// hue for the icon). A topic takes its tint by its place in its list, so a seventh wraps round. Coalitions take the neutral
-// wash (tint null): a topic's tint means that topic, never a coalition (the critic).
+// hue). The cards no longer wear them (R-352); Today's issue line, the bill page's issue card and the issue page still do.
+// A topic takes its tint by its place in its list, so a seventh wraps round; null is the neutral wash.
 export const TINTS = 6;
-export const tintOf = n => n == null ? 'ig6-tint0' : `ig6-tint${(((n % TINTS) + TINTS) % TINTS) + 1}`;   // null: the neutral wash
+export const tintOf = n => n == null ? 'ig6-tint0' : `ig6-tint${(((n % TINTS) + TINTS) % TINTS) + 1}`;
 // The apple stays a salad on Staff until Nate picks Food's new icon on R-339's round-2 sheet (bills.js STAFF_TOPIC_IC).
 const STAFF_IC = { apple: 'salad' };
 export const staffIcon = name => { const n = STAFF_IC[name] || name; return ICONS[n] ? n : ''; };
-// The icons the topics wear, as Staff shows them: a coalition whose icon is one of these takes a monogram instead, so a
-// picture keeps one meaning (HEAL's salad is Food's on Staff, CTFH's crossed-out cigarette is Tobacco's).
+// The icons the topics wear, as Staff shows them: a coalition whose icon is one of these shows none, so a picture keeps one
+// meaning (HEAL's salad is Food's on Staff, CTFH's crossed-out cigarette is Tobacco's).
 export const topicIcons = () => new Set((S.categories || []).flatMap(c => [c.icon, staffIcon(c.icon)]).filter(Boolean));
 const catOf = k => (S.categories || []).find(c => c.key === k) || null;
-const catIndex = k => (S.categories || []).findIndex(c => c.key === k);
 // An issue's picture wherever an issue is shown (R-339): its own icon (issues.icon, migration 188; Nate's picks) when that
-// name is drawn in ICONS, else its topic's, else the tag. Topic headings keep the topic's icon.
+// name is drawn in ICONS, else its topic's, else the tag.
 export const issueIcon = i => staffIcon(i?.icon || '') || staffIcon(catOf(i?.category)?.icon || '') || 'tag';
-// The picture: the icon, or a monogram ("FS" for Farm to School) when there is none. Decorative: the card's name says it,
-// so the monogram is drawn by CSS (issues.css .ig6-mono::before), as Everyone draws a missing photo's initial, and is not
-// read as one more fact of the card.
-export const picHTML = ({ ic = '', mono = '', tint = 0, small = false } = {}) =>
-  `<span class="ig6-pic ${tintOf(tint)}${small ? ' ig6-pic-sm' : ''}" aria-hidden="true">${ic ? icon(ic) : `<span class="ig6-mono" data-m="${esc(mono)}"></span>`}</span>`;
-export const monogram = name => { const w = String(name || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
-  return (w.length > 1 && !/^[A-Z]{2,}$/.test(w[0]) ? w.slice(0, 2).map(x => x[0]) : [w[0]?.slice(0, 2) || '?']).join('').toUpperCase(); };
+// The small icon beside a card's name (R-352: no band, no tile, no monogram). Decorative: the name says it.
+export const picHTML = ({ ic = '' } = {}) => ic ? `<span class="ig6-ic" aria-hidden="true">${icon(ic)}</span>` : '';
 
 // ---- a card ----
-// The whole card is one link (rule 10: focus ring on it, Back puts the focus on it again). `foot`: a control that sits on the
-// card outside the link (the Coalitions tab's I help); `after`: a short name after the name, small and muted (a coalition's
-// "· CHW"); `letter`: A to Z's corner badge; `lines`: [html, cls, fit] (fit: the
-// words fitLines fits to the line's box).
-export function cardHTML({ key, href, name, after = '', title = '', pic, lines = [], foot = '', letter = '', anchor = '', cls = '' }) {
+// The whole card is one link (rule 10: focus ring on it, Back puts the focus on it again). `pic`: the small icon (picHTML);
+// `foot`: a control that sits on the card outside the link (the Coalitions tab's I help); `after`: a short name after the
+// name, small and muted (a coalition's "· CHW"); `lines`: [html, cls], each one line under the name.
+export function cardHTML({ key, href, name, after = '', title = '', pic = '', lines = [], foot = '', anchor = '', cls = '' }) {
   return `<div class="ig6-cell${cls ? ' ' + cls : ''}" role="listitem" data-igcard="${esc(key)}"${anchor ? ` id="${esc(anchor)}"` : ''}><div class="ig6-card${foot ? ' has-foot' : ''}">
-    <a class="ig6-link" href="${esc(href)}"${title ? ` title="${esc(title)}"` : ''}>${pic}${letter ? `<span class="ig6-badge" aria-hidden="true">${esc(letter)}</span>` : ''}<span class="ig6-body"><span class="ig6-name">${esc(name)}${after ? `<span class="ig6-after"> · ${esc(after)}</span>` : ''}</span>${lines.filter(l => l && l[0]).map(([h, c, fit]) => `<span class="${c}"${fit ? ` data-fit="${esc(fit)}"` : ''}>${h}</span>`).join('')}</span></a>
+    <a class="ig6-link" href="${esc(href)}"${title ? ` title="${esc(title)}"` : ''}><span class="ig6-top">${pic}<span class="ig6-name">${esc(name)}${after ? `<span class="ig6-after"> · ${esc(after)}</span>` : ''}</span></span><span class="ig6-lines">${lines.filter(l => l && l[0]).map(([h, c]) => `<span class="${c}">${h}</span>`).join('')}</span></a>
     ${foot ? `<div class="ig6-foot">${foot}</div>` : ''}</div></div>`;
 }
 export const gridHTML = (inner, label) => `<div class="ig6-grid" role="list" aria-label="${esc(label)}">${inner}</div>`;
-// A group: its heading (22px) with a small picture and its count, a target for its chip; then its grid.
+// A topic heading's picture (R-352 FIX-3, Nate 28 Oct: "keep ... the colored icons as issue headings"): the topic's icon on
+// its own soft tint, one tile a topic, so the six topics read apart as the page scrolls and each heading welcomes you into
+// its issues. The cards under it stay calm (their small icon only). A rounded square, never a circle, so it is never taken
+// for a person's initials (A-5 on v6: person tints are round). Decorative: the heading says the topic.
+export const headTile = (ic, tint = null) => `<span class="ig6-htile ${tintOf(tint)}" aria-hidden="true">${icon(ic || 'tag')}</span>`;
+// A group: its heading (22px) with its topic's tile when it has one (g.pic), and its count, a target for its chip; then its grid.
 export const groupHTML = g => `<section class="ig6-sec" aria-labelledby="${esc(g.id)}"><div class="ig6-sh">${g.pic || ''}<h2 id="${esc(g.id)}" tabindex="-1">${esc(g.title)}</h2>${g.count ? `<span class="ig6-sn">${esc(g.count)}</span>` : ''}</div>${g.body || gridHTML(g.inner, g.title)}</section>`;
 // The jump chips: Everyone's (legislators.css .lg6-jump), one per group, each bringing its heading to the top.
 export const jumpHTML = (gs, label) => gs.length < 2 ? '' : `<nav class="lg6-jump ig6-jump" aria-label="${esc(label)}"><div class="lg6-jrow">${gs.map(g =>
@@ -78,30 +79,11 @@ export function wireJump(root) {
     (h.closest('section, details') || h).scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
     (h.matches('h2, summary') ? h : h.querySelector('a'))?.focus({ preventScroll: true });
   });
-  // A fold's cards have no size while it is closed: they are fitted when it opens.
-  root.querySelectorAll('details.ig6-fold').forEach(d => d.addEventListener('toggle', () => { if (d.open) fitLines(d); }));
   const r = root.querySelector('.ig6-jump .lg6-jrow'); if (!r) return;
   const set = () => { const over = r.scrollWidth > r.clientWidth + 1; r.classList.toggle('ovf', over); r.classList.toggle('atstart', r.scrollLeft <= 1); r.classList.toggle('atend', r.scrollLeft + r.clientWidth >= r.scrollWidth - 1); };
   r.scrollLeft = 0;   // a phone's chip row starts at its first chip
   set(); r.addEventListener('scroll', set, { passive: true });
 }
-// Fits each description to its two lines: drops whole words from the end, then adds "…", until the line box holds it.
-// Chromium sometimes measures a changed line one frame late (a line that ends exactly at the box's edge), so what still runs
-// over a moment later is trimmed again from where it stopped.
-const over = e => e.scrollHeight > e.clientHeight + 2;
-function trim(e, words) {
-  const ws = words.replace(/…$/, '').split(' ');
-  while (ws.length > 2 && over(e)) { ws.pop(); e.textContent = ws.join(' ').replace(/[\s,;:–—-]+$/, '') + '…'; }
-}
-export function fitLines(root = document) {
-  // Lato arrives after the first draw and is narrower or wider than the stand-in: fit again once it has.
-  try { if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => fitLines(root)); } catch { /* old browser */ }
-  const els = [...root.querySelectorAll('.ig6-desc[data-fit]')];
-  for (const e of els) { const full = e.dataset.fit; if (e.textContent !== full) e.textContent = full; if (over(e)) trim(e, full); }
-  setTimeout(() => { for (const e of els) if (e.isConnected && over(e)) trim(e, e.textContent); }, 80);
-}
-let fitT = 0;
-try { addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => fitLines(), 120); }); } catch { /* not a browser */ }
 // Rule 10: Back from an issue or a coalition puts the focus on the card it was opened from (issuestand.js rememberRow sets
 // S.i6Back on that page; this is restoreRow for cards).
 let popAt = 0;
@@ -118,81 +100,58 @@ export function restoreCard(root) {
 const narrow = () => { try { return matchMedia('(max-width: 767px)').matches; } catch { return false; } };
 
 // ---- an issue's words ----
-// The description's line: its first sentence, cut at a word to what two lines of the card hold. The card's width changes
-// with the window (about 114 to 200px), so the words are first cut generously here and then fitted in the page (fitLines,
-// after each draw and on resize): whole words only, then "…", never a word cut by the box. The whole description is the
-// card's title and leads the issue's page.
-export function cutWords(t, max) {
-  t = String(t || '').trim().replace(/\s+/g, ' '); if (!t) return '';
-  const first = (/^(.+?[.!?])(\s|$)/.exec(t) || [, t])[1].replace(/\.$/, '');
-  if (first.length <= max) return first;
-  const cut = first.slice(0, max + 1), at = Math.max(cut.lastIndexOf(' '), 0);
-  return (at > max * 0.5 ? cut.slice(0, at) : cut.slice(0, max)).replace(/[\s,;:–—-]+$/, '') + '…';
-}
-// Where its live bills started, as the issue's page and My issues count it: "House and Senate" is a House bill (HB) and a
-// Senate bill (SB) alive; one chamber alone is "House bills" or "a Senate bill".
-function whereWords(bills) {
-  const n = { H: 0, S: 0 };
-  for (const b of bills) { const m = /^\s*(H|S)/i.exec(b.bill_number || ''); if (m) n[m[1].toUpperCase()]++; }
-  if (n.H && n.S) return 'House and Senate';
-  const k = n.H ? 'House' : n.S ? 'Senate' : '', c = n.H || n.S;
-  return k ? (c === 1 ? `a ${k} bill` : `${k} bills`) : '';
-}
-const aliveWords = x => { const n = x.going.length, w = whereWords(x.going); return `${plural(n, 'bill')} alive${w ? ` · ${w}` : ''}`; };
-// The hearing that leads, in words: the viewer's own step says so; the testimony states are those of steps.js.
-function hearWords(x) {
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const lower = s => s ? s[0].toLowerCase() + s.slice(1) : s;
+// A mark's words after its own label ("At risk: HB 1779 needs a hearing by Mon 3/30" -> "HB 1779 needs a hearing by Mon
+// 3/30"): the label is the stand line's, so the next-step line does not say it again (A-14). A time's colon ("9:30") is
+// never a label's: a label's colon is followed by a space.
+const afterLabel = t => String(t || '').replace(/^[^:]+:\s/, '');
+// The hearing that leads, as the next step: the testimony's state and its time in status()'s words (steps.js, the one
+// wording: "Due today 10:00 AM, in 59 min", "Late, still accepted until 1:10 PM today"); the viewer's own late or overdue
+// step keeps its colour (shownStatus), anyone else's is neutral. Due today is plain with a clock and its time in bold.
+function hearNext(x) {
   const hp = hearPart(x); if (!hp) return null;
-  const { h } = x.hear, s = hp.s;
-  if (!s?.state) return { ic: 'calendar-days', text: `Hearing ${whenAt(h.scheduled_at)}` };
+  const s = hp.s, n = numNb(x.hear.b);
+  if (!s?.state) return { text: hp.text };
   const k = s.state.key;
-  if (k === 'filed') return { ic: 'circle-check', text: `Testimony filed, hearing ${whenAt(h.scheduled_at)}` };
-  if (k === 'missed') return { ic: 'circle-x', text: 'Testimony missed' };
-  const who = hp.you ? 'Your step: testimony' : 'Testimony';
-  if (hp.late) return { ic: hp.tone ? hp.ic : 'alarm-clock', tone: hp.tone, text: `${who} ${lateLine(s.until, { lower: true })}` };
-  if (s.due != null) return { ic: hp.tone ? hp.ic : 'clock', tone: hp.tone, soon: hp.soon, text: `${who} due ${whenAt(s.due)}` };
-  return { ic: 'calendar-days', text: `Hearing ${whenAt(h.scheduled_at)}` };
+  if (k === 'filed' || k === 'missed') return { text: hp.text };
+  const sh = shownStatus(s) || {}, lead = `${n} testimony: ${s.state.word}${s.state.sentBack ? ', sent back' : ''}`;
+  const when = sh.words ? lower(sh.words) : s.due != null ? `due ${whenAt(s.due)}` : '';
+  const tone = ['late', 'overdue', 'today'].includes(sh.tone) ? sh.tone : '';
+  return { text: `${lead}${when ? `, ${when}` : ''}`, tone, ic: tone ? sh.icon || '' : '' };
 }
-// The card's one status line. At risk and a dying bill lead (Nate, R-272: "see what issues are at risk of dying"), then the
-// hearing, then a bill that needs a hearing by the next deadline, then how many bills are alive and where.
-export function statusOf(x) {
+// The card's next step and its date, one line, or none when there is none (stopped, no bills). At risk and a dying bill lead
+// (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.
+export function nextOf(x) {
   const m = markOf(x);
-  if (['risk', 'dying'].includes(x.state)) return { ic: m.ic, text: m.text };
-  const hw = hearWords(x); if (hw) return hw;
+  if (['risk', 'dying'].includes(x.state) && m) return { text: afterLabel(m.text) };
+  const hn = hearNext(x); if (hn) return hn;
   switch (x.state) {
-    case 'none': return { ic: 'circle-dashed', text: 'No bills this session' };
-    case 'off': case 'stopped': return m ? { ic: m.ic || 'circle-minus', text: m.text } : null;
-    case 'oppose': return { ic: 'thumbs-down', text: `HIPHI opposes it · ${plural(x.going.length, 'bill')} alive` };   // the stance's shape (Rule 5: circle-x is Missed)
-    case 'ahead': if (x.facing?.length && m) return { ic: m.ic, text: m.text };
+    case 'none': case 'stopped': return null;
+    case 'off': return m?.text ? { text: m.text } : null;
+    case 'oppose': case 'safe': return m?.text ? { text: cap(afterLabel(m.text)) } : null;
+    case 'ahead': return m?.text ? { text: m.text } : null;
   }
-  return x.going.length ? { ic: x.state === 'safe' ? 'shield-check' : 'circle-dot', text: aliveWords(x) } : null;
+  return null;
 }
-const statusHTML = st => !st ? null : [`${icon(st.ic || 'circle-dot')}<span>${nw(esc(st.text))}</span>`, `ig6-stat${st.tone && st.tone !== 'neutral' ? ' t-' + st.tone : ''}${st.soon ? ' soon' : ''}`];
+const nextHTML = nx => !nx ? null : [`${nx.ic ? icon(nx.ic) : ''}<span>${nw(esc(nx.text))}</span>`, `ig6-next${nx.tone ? ' t-' + nx.tone : ''}`];
 
-// One issue's card. `why`: the bill a search found it by, said on the status line when the line does not name it already.
-function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) {
-  const { i } = x, c = catOf(i.category);
-  let st = statusOf(x);
+// One issue's card. `why`: the bill a search found it by, said on the next-step line when that line does not name it.
+// `tags`: a quiet tag ("Not public yet") said after the stand's word.
+function issueCard(x, { tags = [], why = null, anchor = '' } = {}) {
+  const { i } = x;
+  let nx = nextOf(x);
   // A search that found it by a bill says which, unless the line names that bill already (numbers carry a no-break space).
-  const sp = s => String(s || '').replace(/\u00a0/g, ' '), nb = why ? numNb(why) : '';
-  if (why && !sp(st?.text).includes(sp(nb))) st = { ic: 'search', text: `Found by its bill ${sp(nb)}` };
-  const desc = cutWords(i.description, 96);
-  // A quiet tag ("Not public yet") takes the description's line: it is what staff need to know about that issue, and the
-  // card stays four facts and the same height (the description is still the title). "Not in the first visit" is a setting
-  // of the public first visit (issues.js, 066), not a fact about the issue: it put a setting's words where the description
-  // goes (R-344 D10, "Legal adult-use cannabis"), so it stays on the issue's own page with its switch.
+  const sp = s => String(s || '').replace(/ /g, ' '), nb = why ? numNb(why) : '';
+  if (why && !sp(nx?.text).includes(sp(nb))) nx = { text: `Found by its bill ${sp(nb)}` };
+  // "Not in the first visit" is a setting of the public first visit (issues.js, 066), not a fact about the issue: it stays on
+  // the issue's own page with its switch (R-344 D10).
   const shown = tags.filter(t => !/first visit/i.test(t));
-  const line = shown.length ? [esc(shown.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
-  // R-344 Rule 2, Decision 4: how the issue is doing is the status line's own picture, one shape per state (On track's
-  // tick, At risk's triangle, Stopped's minus, Won's trophy, No bills' dashed ring), neutral, no tint; its word is read
-  // with it and is in the card's title. A line of its own with the word and the House and Senate dots took the card to
-  // seven facts against spec 8's four (the budget test), and the status line already says the chambers in words.
-  const key = issueKey(x), sw = STATES.issue[key];
-  const stH = st ? statusHTML(st) : null;
-  const shaped = stH ? [stH[0].replace(/^<svg[\s\S]*?<\/svg>/, `<span class="ig6-sic" data-state="issue:${key}" role="img" aria-label="${esc(sw.word)}" title="${esc(sw.word)}">${icon(sw.icon)}</span>`), stH[1]] : null;
-  return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
-    // The issue's own icon (Nate's R-339 picks), else its topic's.
-    pic: picHTML({ ic: issueIcon(i), tint: Math.max(catIndex(i.category), 0) }),
-    lines: [line, shaped] });
+  // How the issue stands: its shape and its word, neutral, no tint (R-344 Decision 4; A-5: never colour alone).
+  const stand = `${stateMark('issue', issueKey(x), { size: 18, cls: 'ig6-sic' })}${shown.length ? `<span class="ig6-tag"> · ${esc(shown.join(', '))}</span>` : ''}`;
+  return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', anchor, cls: 'ig6-issue',
+    pic: picHTML({ ic: issueIcon(i) }),   // the issue's own icon (Nate's R-339 picks), else its topic's
+    lines: [[stand, 'ig6-stat'], nextHTML(nx)] });
 }
 
 // ---- the sorts ----
@@ -211,19 +170,28 @@ const atRisk = l => l.filter(x => x.state === 'risk').length, hearWeek = l => l.
 // number, so the heading does not say it again (A-14).
 const countWords = l => [atRisk(l) ? `${atRisk(l)} at risk` : '', hearWeek(l) ? `${hearWeek(l)} with a hearing this week` : ''].filter(Boolean).join(', ');
 
+// By topic: the most urgent first inside each topic (R-352, Nate 27 Oct): at risk, then the nearest hearing or deadline, then
+// the rest by name (issuestand.js byUrgency); the topics stay the grouping (spec 2, R-272).
+// The issues with nothing moving (every bill stopped, or none this session) wait in a fold at the end of their topic, as By
+// next deadline folds them: details wait until asked for (V6-SPEC), and the topic leads with what can still move.
+const urgent = (a, b) => byUrgency(a, b) || byName(a, b);
+const quiet = x => ['stopped', 'none'].includes(x.state) && issueKey(x) !== 'won';
+function topicBody(c, l, o) {
+  const live = l.filter(x => !quiet(x)), rest = l.filter(quiet), card = x => issueCard(x, { tags: o.tagsOf(x) });
+  return `${live.length ? gridHTML(live.map(card).join(''), c.name) : ''}${rest.length ? `<details class="i6-fold ig6-fold ig6-rest" data-fold="ig6-r-${esc(c.key)}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Not moving this session (${rest.length})</span></summary>${gridHTML(rest.map(card).join(''), `${c.name}: not moving this session`)}</details>` : ''}`;
+}
 function topicGroups(list, o) {
-  return (S.categories || []).map((c, k) => { const l = list.filter(x => x.i.category === c.key).sort(byName); if (!l.length) return null;
-    return { id: `ig6-g-${c.key}`, title: c.name, chip: c.name, n: l.length, count: countWords(l), pic: picHTML({ ic: staffIcon(c.icon) || 'tag', tint: k, small: true }),
-      inner: l.map(x => issueCard(x, { tags: o.tagsOf(x) })).join('') }; }).filter(Boolean)
+  return (S.categories || []).map((c, k) => { const l = list.filter(x => x.i.category === c.key).sort(urgent); if (!l.length) return null;
+    return { id: `ig6-g-${c.key}`, title: c.name, chip: c.name, n: l.length, count: countWords(l), pic: headTile(staffIcon(c.icon) || 'tag', k), body: topicBody(c, l, o) }; }).filter(Boolean)
     // An issue whose topic is not one of the six (a new key) still shows, last, rather than vanishing.
-    .concat((() => { const keys = new Set((S.categories || []).map(c => c.key)), l = list.filter(x => !keys.has(x.i.category)).sort(byName);
-      return l.length ? [{ id: 'ig6-g-other', title: 'No topic yet', chip: 'No topic', n: l.length, count: plural(l.length, 'issue'), inner: l.map(x => issueCard(x, { tags: o.tagsOf(x) })).join('') }] : []; })());
+    .concat((() => { const keys = new Set((S.categories || []).map(c => c.key)), l = list.filter(x => !keys.has(x.i.category)).sort(urgent);
+      return l.length ? [{ id: 'ig6-g-other', title: 'No topic yet', chip: 'No topic', n: l.length, count: plural(l.length, 'issue'), pic: headTile('tag'), body: topicBody({ key: 'other', name: 'No topic yet' }, l, o) }] : []; })());
 }
 function letterGroups(list, o) {
   const by = new Map();
   for (const x of list.slice().sort(byName)) { const k = (x.i.name.normalize('NFD').replace(/[^\p{L}\p{N}]/gu, '')[0] || '#').toUpperCase(); if (!by.has(k)) by.set(k, []); by.get(k).push(x); }
   return [...by].map(([k, l]) => ({ id: `ig6-l-${/[A-Z0-9]/.test(k) ? k : 'x'}`, title: k, chip: k, flow: true,
-    inner: l.map((x, n) => issueCard(x, { tags: o.tagsOf(x), letter: n ? '' : k, anchor: n ? '' : `ig6-l-${/[A-Z0-9]/.test(k) ? k : 'x'}` })).join('') }));
+    inner: l.map((x, n) => issueCard(x, { tags: o.tagsOf(x), anchor: n ? '' : `ig6-l-${/[A-Z0-9]/.test(k) ? k : 'x'}` })).join('') }));
 }
 function deadlineGroupsOf(list, o) {
   return deadlineGroups(list).map(([k, title, l, folded]) => {

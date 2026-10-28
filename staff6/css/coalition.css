@@ -182,13 +182,13 @@ body.staff6 .co6-help[aria-pressed="true"] .ic { color: var(--v6-leaf); }
 body.staff6 .co6-page .co6-card.co6-slot { margin-top: var(--s16); }
 
 /* ---- the Coalitions tab as cards (R-336 walk 3, Nate: "Maybe a similar card and image sorting as well here") ----
-   All issues' card (issues.css .ig6-*): the coalition's icon on the neutral wash (a monogram when it has none or its icon is a
-   topic's), its full name with the short name after it, its owner, and its week on the status line. The I help button sits on the card under its link, the
+   All issues' calm card (issues.css .ig6-*, R-352): the coalition's small icon beside its name (none when it has none or its
+   icon is a topic's), its full name with the short name after it, its owner, and its week. The I help button sits on the card under its link, the
    card's one button (D16); pressed, it reads as a quiet "on" with a leaf check, as on the rows it replaces. */
 body.staff6 .co6-groups { margin-top: 0; }
 body.staff6 .co6-groups .co6-own { max-height: var(--v6-lh16); }
 body.staff6 .ig6-foot { display: flex; padding: 0 16px 16px; }
 body.staff6 .ig6-foot .co6-help { flex: none; }
 body.staff6 .ig6-foot .co6-help[aria-pressed="true"] { background: var(--v6-wash); color: var(--v6-ink); font-weight: 700; }
-/* A phone: the compact card, I help under the words (lined up with them, past the disc). */
-@media (max-width: 767px) { body.staff6 .ig6-foot { padding: 0 16px 12px 68px; } }
+/* A phone: a row of the list card, I help under the words. */
+@media (max-width: 767px) { body.staff6 .ig6-foot { padding: 0 16px 12px; } }

@@ -1,0 +1,36 @@
+/* Staff v6: an issue's page, what R-352 part 5 added (staff6/issuepage.js). The page's older rules stay in issues.css
+   (the All issues builder's file); these are the next step's way to act, the quiet lines and related issues' line. */
+
+/* The next step's way to act: a standalone link, teal with "›" and no underline (the wave-2 rule for links), under its row. */
+body.staff6 .ip6-next .ip6-go { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .ip6-page .ip6-go .ip6-golink { color: var(--v6-action); text-decoration: none; white-space: nowrap; }
+body.staff6 .ip6-page .ip6-go .ip6-golink:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+body.staff6 .ip6-go .btn.ip6-golink { display: inline; min-height: 0; padding: 0; font: inherit; vertical-align: baseline; }
+body.staff6 .ip6-next .ip6-go .btn.ip6-golink::after { content: ' ›'; }
+body.staff6 .ip6-next .ip6-h3 { margin-top: var(--s24); }
+
+/* Where legislators stand (until a stance is known) and the public page: quiet lines, no heading, after Who. */
+body.staff6 .ip6-page .ip6-lines { margin-top: var(--s16); }
+body.staff6 .ip6-lines > * { margin: 0; }
+body.staff6 .ip6-lines > * + * { margin-top: var(--s12); }
+body.staff6 .ip6-lines .ip6-legs .ip6-pl { margin: 0; }
+body.staff6 .ip6-lines .ip6-legs.is-rows .ip6-h3 { margin-top: 0; }
+
+/* Three folds of one weight, then related issues in one line with its Edit at the end. */
+body.staff6 .ip6-page .ip6-folds { margin-top: var(--s24); }
+body.staff6 .ip6-page .ip6-folds .ip6-sf > summary { min-height: 48px; padding-top: 10px; padding-bottom: 10px; }
+body.staff6 .ip6-page p.ip6-rel { align-items: center; margin-top: var(--s16); }
+body.staff6 .ip6-rel > span { flex: 1 1 auto; min-width: 0; }
+body.staff6 .ip6-rel .ip6-reledit { flex: none; }
+body.staff6 section.ip6-rel { margin-top: var(--s24); }
+
+/* R-352 FIX-3 (Nate 28 Oct, "rethink how colored icons can be a warm welcome into the issue"): the issue's own icon on its
+   topic's tint, one tile at the top beside its name, larger than any list's, so the page opens on the picture the topic
+   heading on All issues showed. A rounded square (person initials are round: A-5 on v6). The tint and ink are the topic's
+   (css/myissues.css .mi-c-*). On a phone it stays, 40px, beside the name. */
+body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] { width: 64px; height: 64px; margin-top: 0; border-radius: var(--v6-r20); }
+body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] .ic { width: 34px; height: 34px; stroke-width: 1.75; }
+@media (max-width: 599px) {
+  body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] { display: inline-flex; width: 40px; height: 40px; border-radius: var(--v6-r12); }
+  body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] .ic { width: 22px; height: 22px; }
+}

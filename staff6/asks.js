@@ -14,7 +14,7 @@
 // The rallier, with no migration (spec 6 and addendum 6): Saya on CTFH, else the coalition's owner, else the bill's owner.
 // TODAY may import rallierOf() and askDueAt() to put the ask on the rallier's Today two days before it is due.
 import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO } from './data.js';
-import { sharePageUrl, liveAsk, billRoute, whenAt, hstDayOf, publicResponse, billById, spanOf } from './model.js';
+import { sharePageUrl, liveAsk, billRoute, whenAt, timeFirst, hstDayOf, publicResponse, billById, spanOf } from './model.js';
 import { icon, btn, empty, toast, sectionNav, whoseSeg } from './ui.js';
 import { pageHead } from './lists.js';
 import { nameWords, numWords, committeeName, statusTile, nw } from './steps.js';
@@ -199,7 +199,7 @@ function ownTile(d) {
 function otherWords(d) {
   if (!d.strong) return optionalWords();
   if (d.past) return `No ask yet · was due ${whenAt(d.due)}`;
-  return d.who ? `No ask yet · ${d.who} writes it by ${whenAt(d.due)}` : `No ask yet · due ${whenAt(d.due)}`;
+  return d.who ? `No ask yet · ${d.who} writes it by ${timeFirst(d.due)}` : `No ask yet · due ${whenAt(d.due)}`;
 }
 // The clock goes with a time; "a post still helps" has none, so it stands alone.
 const noAskLine = w => w === optionalWords() ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;

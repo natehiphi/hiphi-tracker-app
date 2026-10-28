@@ -3,9 +3,9 @@
 #   Rule 4, faces: every staff member's initials circle has a soft colour of their own (decision 3), different between
 #     people and the same for one person on every screen and whoever is looking; the viewer's own carries a ring; faces lead
 #     the rows of People, Team and Inbox, and the hearing page's committee members show their photo (or its initial).
-#   Rule 3, time left: the colour of time (decision 2, A-5 on v6 as amended 27 Oct 2026): amber for due today (and while
-#     late testimony is still accepted), red only once the deadline has passed, neutral further out, with the distance in
-#     words (ui.js timeTone, countdown, urgentMark).
+#   Rule 3, time left: the colour of time (R-352, Nate 27 Oct, amending decision 2; A-5 on v6): due today plain, with a
+#     clock and the distance in words; amber with the alarm clock only for late testimony
+#     still accepted; red with the alert and "overdue" once the deadline has passed; neutral further out, with the distance in words (ui.js timeTone, countdown, urgentMark).
 #   Rule 5, one picture one meaning: the Inbox is the tray with its number on a phone too (no bell); Mark read is not a
 #     check mark; a legislator's "where they stand" is the thumbs-up; the Capitol building is Legislators only; Session
 #     setup's Blocking is not the circle-x of Missed; More tools' people icons are not used four ways.
@@ -41,11 +41,16 @@ def main():
     check('People: no colour is shared by more than 3 people', max([sum(1 for x in ppl if x['bg'] == t) for t in tints] or [99]) <= 3, '')
     check('People: no face uses status amber, red or green, or the action teal', not tints & {AMBER, RED, 'rgb(46, 118, 80)', 'rgb(0, 105, 142)', 'rgb(251, 239, 217)', 'rgb(251, 233, 229)'}, sorted(tints))
     # the fresh-eyes review (27 Oct): no face in an action tile's hue (verbs.js: write, approve, file, chair, rally, take), so
-    # a face never reads as a job; and at most two letters in a circle (Julie's "JMM" spilt out of hers)
+    # a face never reads as a job; and every face's letters are its own (R-352 FIX-2: James and Julie both showed "JM"): two
+    # letters, three only where two would match a teammate's, drawn smaller so they stay inside the circle
     hues = p.evaluate("""() => ['write', 'approve', 'file', 'chair', 'rally', 'take'].map(k => { const d = document.createElement('span'); d.className = 'v6-at h-' + k; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })""")
     check('People: no face uses an action tile\'s colour', not tints & set(hues), sorted(tints & set(hues)))
     ini = p.evaluate("[...document.querySelectorAll('.v6-row-lead .sv-av')].map(a => (getComputedStyle(a, '::before').content || '').replace(/[\"']/g, '') || a.innerText.trim())")
-    check('People: at most two letters in every face', ini and all(len(x) <= 2 for x in ini), [x for x in ini if len(x) > 2])
+    check('People: no two faces share their letters', ini and len(set(ini)) == len(ini), sorted(x for x in ini if ini.count(x) > 1))
+    three = [x for x in ini if len(x) > 2]
+    check('People: three letters only where two would match a teammate\'s', all(x[0] + x[-1] in ini for x in three) and all(len(x) <= 3 for x in ini), three)
+    fits = p.evaluate("[...document.querySelectorAll('.v6-row-lead .sv-av.ini3')].map(a => { const r = a.getBoundingClientRect(), s = document.createElement('span'), cs = getComputedStyle(a); s.textContent = getComputedStyle(a, '::before').content.replace(/[\"']/g, ''); s.style.cssText = `font:${cs.font};letter-spacing:${cs.letterSpacing};position:absolute;visibility:hidden`; document.body.append(s); const w = s.getBoundingClientRect().width; s.remove(); return [Math.round(w), Math.round(r.width), parseFloat(cs.fontSize)]; })")
+    check('People: three letters fit inside their circle at 10px or more', all(w <= cw - 4 and fs >= 10 for w, cw, fs in fits), fits)
     check('People: Nate and Kevin look different', by.get('Nate', {}).get('bg') != by.get('Kevin', {}).get('bg'), (by.get('Nate', {}).get('bg'), by.get('Kevin', {}).get('bg')))
     check('People: only your own face has the ring', [x['name'] for x in ppl if x['ring']] == ['Nate'], [x['name'] for x in ppl if x['ring']])
     contrast = p.evaluate("""() => { const lum = c => { const v = c.match(/\\d+/g).slice(0, 3).map(n => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
@@ -60,8 +65,9 @@ def main():
       if (was) document.documentElement.dataset.palette = was; else delete document.documentElement.dataset.palette; return out; }""")
     check("Every palette (all 25): Kevin keeps his colour", pals and len(pals) >= 25 and set(pals.values()) == {kevin}, {k: v for k, v in pals.items() if v != kevin})
     # the same colour on Team's Who is on what and in the Inbox
-    pg.nav('/team'); p.click('details[data-tmfold="who"] > summary'); p.wait_for_timeout(250)
-    team = p.evaluate("""() => Object.fromEntries([...document.querySelectorAll('details[data-tmfold="who"] .tm6-load')].map(a => [a.querySelector('.tm6-ln')?.textContent.trim(), getComputedStyle(a.querySelector('.sv-av')).backgroundColor]))""")
+    # R-352 part 9: Who is on what is an open block now, no fold to click
+    pg.nav('/team')
+    team = p.evaluate("""() => Object.fromEntries([...document.querySelectorAll('[data-block="who"] .tm6-load')].map(a => [a.querySelector('.tm6-ln')?.textContent.trim(), getComputedStyle(a.querySelector('.sv-av')).backgroundColor]))""")
     check("Team: Kevin's face is his People colour (stable by person)", team.get('Kevin') == kevin, (team.get('Kevin'), kevin))
     slip = p.evaluate("() => [...document.querySelectorAll('[data-block=\"slip\"] .v6-row')].map(r => !!r.querySelector('.v6-row-lead .sv-av'))")
     check("Team: each of Slipping's rows leads with whose it is (a face, or the dashed No owner circle)", slip and all(slip), slip)
@@ -111,9 +117,9 @@ def main():
         out[k] = { tone: ui.timeTone(a, { until: until || null }), cls: c.className, color: getComputedStyle(c).color, text: c.textContent, ucls: u.className, ucolor: getComputedStyle(u).color, icons: [...box.querySelectorAll('svg.ic')].map(s => [...s.classList].find(x => x.startsWith('ic-') && x !== 'ic')) };
       }
       box.remove(); return out; }""")
-    check('Time: due later today is amber, with a clock', t['today']['tone'] == 'today' and t['today']['color'] == AMBER and t['today']['ucolor'] == AMBER and 'ic-clock' in t['today']['icons'], t['today'])
+    check('Time: due later today is plain (never amber or red), with a clock (R-352)', t['today']['tone'] == 'today' and t['today']['color'] not in (AMBER, RED) and t['today']['ucolor'] not in (AMBER, RED) and 'ic-clock' in t['today']['icons'], t['today'])
     check('Time: due today says the time and the distance ("11:00 AM today · in 2 hours")', re.search(r'\d:\d\d [AP]M today · in \d+ hours?', t['today']['text']), t['today']['text'])
-    check('Time: passed is red, with the alert and "overdue"', t['late']['tone'] == 'late' and t['late']['color'] == RED and t['late']['ucolor'] == RED and 'ic-circle-alert' in t['late']['icons'] and 'overdue' in t['late']['text'], t['late'])
+    check('Time: passed is red, with the alert and "overdue", never amber or the alarm clock', t['late']['tone'] == 'late' and t['late']['color'] == RED and t['late']['ucolor'] == RED and 'ic-circle-alert' in t['late']['icons'] and 'ic-alarm-clock' not in t['late']['icons'] and 'overdue' in t['late']['text'], t['late'])
     check('Time: late testimony still accepted stays amber', t['lateok']['tone'] == 'lateok' and t['lateok']['color'] == AMBER and 'still accepted' in t['lateok']['text'], t['lateok'])
     check('Time: three days out is neutral, the date and "in 3 days" beside it', t['later']['tone'] == '' and t['later']['color'] not in (AMBER, RED) and re.search(r'\w{3} \d+/\d+, .* · in 3 days', t['later']['text']), t['later'])
     check('Time: tomorrow morning is neutral, though under 24 hours away', t['tomorrow']['tone'] == '' and t['tomorrow']['color'] not in (AMBER, RED) and 'tomorrow' in t['tomorrow']['text'], t['tomorrow'])
@@ -133,8 +139,11 @@ def main():
     check('390: Inbox, no sideways scroll', pp.evaluate(OVER) <= 0, pp.evaluate(OVER)); ph.close()
 
     pg = b.page('NT', 1440, 900); pg.open(f'/legislator/{L.LEGISLATOR}'); p = pg.page
-    st = p.evaluate(ICONS_IN, '.lg6-standb')
-    check("Legislator: where they stand is the thumbs-up, not the pencil", st and set(st) == {'ic-thumbs-up'}, sorted(set(st)))
+    # R-352 part 8b (A-18, one picture one meaning): an unknown stand is the words "Mark stand", no thumbs-up (the thumbs-up
+    # means a yes); its spoken name says whose stand on which bill
+    st = p.evaluate("() => [...document.querySelectorAll('.lg6-standb')].map(e => [e.innerText.trim(), e.querySelectorAll('svg.ic-thumbs-up').length, e.getAttribute('aria-label') || ''])")
+    check('Legislator: an unknown stand reads "Mark stand", with no thumbs-up', st and all(x[0] == 'Mark stand' and x[1] == 0 for x in st), st[:3])
+    check('Legislator: each "Mark stand" says whose stand on which bill to a screen reader', st and all(x[2].startswith('Mark stand: where ') for x in st), [x[2] for x in st][:2])
     check('Legislator: their Capitol page link is not the Capitol building (Legislators place only)', 'ic-landmark' not in p.evaluate(ICONS_IN, 'main .lg6-page ul'), '')
     pg.nav('/tools')
     rows = p.evaluate("() => [...document.querySelectorAll('main .v6-more-row')].map(r => [r.querySelector('.v6-more-nm')?.textContent.trim(), [...(r.querySelector('.v6-more-ic svg')?.classList || [])].find(c => c.startsWith('ic-') && c !== 'ic')])")

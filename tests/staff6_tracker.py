@@ -3,9 +3,9 @@
 #   1. HB 1562 on a laptop: the stops in order (House committees, House vote, Senate committees, Senate vote, Conference,
 #      Governor), done / now / still to come, the House | Senate | Final steps heading; the header's old "where" line gone.
 #   2. The flags: only deadlines still ahead and not yet beaten, each a line under the last stop it needs passed ("by 4/10");
-#      the next one in bold; the caption's line is the one that names it and says what it asks (the bar names it only when
-#      a chair ask's card took the caption's line). Patti (no bills of her own) reads the day without the Capitol's name
-#      (C-15).
+#      the next one in bold; the caption says what it asks by its day, never its Capitol name, for everyone (C-15, R-352
+#      part 6: "Step 4 of 8 · in Senate Health and Human Services · must pass it by Mon 3/30"); the bar names it only when a
+#      chair ask's card took the caption's line.
 #   3. The phone: the slim bar, "Step 4 of 8", the next deadline, See every step opening the list; the step card's title
 #      still on the first screen; no sideways scroll at 390 and 320.
 #   4. A Senate bill starts with the Senate; a bill in conference; a budget bill's own deadlines (replaces).
@@ -62,18 +62,27 @@ with L.browser() as B:
           [f['at'] for f in fl] == [3, 4, 5, 6], [(f['at'], f['stop']) for f in fl])
   R.check('flags: each a line under its stop\'s label, inside the stop', all(f['below'] and f['inside'] for f in fl), [(f['stop'], f['below'], f['inside']) for f in fl])
   cap = s['caption']
-  R.check('caption: where it is, in words, naming the committee (R-344 D2)', cap[0] == 'Now: in Health and Human Services, Senate committee 1 of 2.', cap)
-  R.check('caption: the next deadline and what it asks', any(c == 'Next deadline Second lateral, Mon 3/30: must pass the committee it is in now.' for c in cap), cap)
-  R.check('the step card still leads with its title, and the hearing is said once', pg.text().count('today 1:10 PM') == 1, pg.text().count('today 1:10 PM'))
+  # Beside the right column (R-346) the bar takes its slim form, and the caption is one line (R-352 part 6, C-15): where
+  # it is, naming the committee (R-344 D2), and what the next deadline asks by its day, never its Capitol name.
+  R.check('caption: one line, where it is and what the next deadline asks by its day (R-352, C-15)', cap == ['Step 4 of 8 · in Senate Health and Human Services · must pass it by Mon 3/30'], cap)
+  R.check('caption: the deadline\'s Capitol name only in the bar (its title)', 'lateral' not in ' '.join(cap) and fl[0]['title'].startswith('Second lateral'), cap)
+  R.check('the hearing is said once, in the right column\'s first card', pg.page.evaluate("document.querySelector('.bw-side > .bw-scard')?.classList.contains('bw-hside')") and pg.text().count('1:10 PM · Room') == 1, pg.text().count('1:10 PM · Room'))
   R.check('no page errors', not pg.errors, pg.errors[:2]); pg.close()
   # Team talk has no step card: the caption names the committee and its hearing.
   pg = B.page('NT', 1440, 900); pg.open('/bill/HB1562/talk'); s = pg.page.evaluate(STATE)
-  R.check('Team talk: the tracker is there too, naming the committee and its hearing', s and s['caption'][0] == 'Now: Senate Health and Human Services, hearing today 1:10 PM.', s and s['caption'])
+  R.check('Team talk: the tracker is there too, naming the committee and the deadline', s and s['caption'] == ['Step 4 of 8 · in Senate Health and Human Services · must pass it by Mon 3/30'], s and s['caption'])
   pg.close()
   # Patti owns no bills and is not an admin: the deadline as its day and what it asks, not the Capitol's name (C-15).
   pg = B.page('PH', 1440, 900); pg.open('/bill/HB1562/talk'); s = pg.page.evaluate(STATE)
-  nxt = [c for c in s['caption'] if c.startswith('Next deadline')]
-  R.check('Patti: "Next deadline Mon 3/30: must pass ...", no Capitol name', nxt and nxt[0].startswith('Next deadline Mon 3/30: must pass') and 'lateral' not in ' '.join(s['caption']), s['caption'])
+  R.check('Patti: the same words, the day and what it asks, no Capitol name', s['caption'] == ['Step 4 of 8 · in Senate Health and Human Services · must pass it by Mon 3/30'], s['caption'])
+  pg.close()
+
+  # The named bar's own caption (a tracker 600px wide or more: one column with the sidebar folded) says the deadline as a
+  # sentence of its own: "Must pass Senate Health and Human Services by Mon 3/30." (beside the right column the bar is at
+  # most 712px, so it is drawn but not shown at these sizes; its words are read from the page)
+  pg = B.page('NT', 1440, 900); pg.open('/bill/HB1562/talk')
+  nx = pg.page.evaluate("document.querySelector('.tk-next')?.textContent.replace(/\\s+/g, ' ').trim()")
+  R.check('the named bar\'s caption: "Must pass Senate Health and Human Services by Mon 3/30."', nx == 'Must pass Senate Health and Human Services by Mon 3/30.', nx)
   pg.close()
 
   # ---- 3. the phone ----
@@ -81,7 +90,8 @@ with L.browser() as B:
     pg = B.page('NT', w, h); pg.open('/bill/HB1562'); s = pg.page.evaluate(STATE)
     R.check(f'{w}: the slim bar only (no labels), 8 segments, the 4th now', not s['wide'] and s['slimShown'] and s['slim'] == ['done'] * 3 + ['now'] + ['next'] * 4, s['slim'])
     # at 320 the words after the step number give way on Next step (the card names the committee)
-    R.check(f'{w}: "Step 4 of 8 · in Senate Health and Human Services" and the next deadline', (s['caption'][0] == 'Step 4 of 8 · in Senate Health and Human Services' if w > 320 else s['caption'][0] == 'Step 4 of 8') and any(c.startswith('Next deadline Second lateral, Mon 3/30') for c in s['caption']), s['caption'])
+    # at 320 the place gives way on Next step (the card names the committee), so the deadline names it instead
+    R.check(f'{w}: one line, "Step 4 of 8 · in Senate Health and Human Services · must pass it by Mon 3/30"', s['caption'] == (['Step 4 of 8 · in Senate Health and Human Services · must pass it by Mon 3/30'] if w > 320 else ['Step 4 of 8 · must pass Senate Health and Human Services by Mon 3/30']), s['caption'])
     top = pg.page.evaluate("document.querySelector('.v6-step-what').getBoundingClientRect().bottom")
     R.check(f'{w}: the step card\'s title is still on the first screen', top <= h - 56, round(top))
     R.check(f'{w}: See every step is shown, the list folded', s['more'] and pg.page.evaluate("document.getElementById('tk-list').hidden"))
@@ -100,12 +110,12 @@ with L.browser() as B:
   R.check('SB 1250: the Senate first', s['groups'] == ['Senate', 'House', 'Final steps'] and [x[0] for x in s['stops']][:3] == ['AEN', 'WAM', 'Vote'], (s['groups'], [x[0] for x in s['stops']]))
   R.check('SB 1250: now in House Finance, its next deadline Second decking', [x[0] for x in s['stops'] if x[1] == 'now'] == ['FIN'] and s['flags'][0]['stop'] == 'FIN', (s['stops'], s['flags'][:1]))
   R.check('SB 1250: with no caption line for it, the bar\'s next deadline keeps its name', s['flags'][0]['text'] == 'Second decking 4/10', s['flags'][:1])
-  R.check('SB 1250: the chair ask\'s card says the deadline, so the caption does not repeat it (A-14)', not any(c.startswith('Next deadline') for c in s['caption']) and 'It must clear its last committee by Fri 4/10' in pg.text(), s['caption'])
+  R.check('SB 1250: the chair ask\'s card says the deadline, so the caption does not repeat it (A-14)', not any('must' in c for c in s['caption']) and 'It must clear its last committee by Fri 4/10' in pg.text(), s['caption'])
   pg.close()
   pg = B.page('NT', 1440, 900); pg.open('/bill/HB244'); s = pg.page.evaluate(STATE)
   R.check('HB 244: in conference, all before it done', [x[1] for x in s['stops']] == ['done'] * 6 + ['now', 'next'], [x[1] for x in s['stops']])
   R.check('HB 244: one flag, Fiscal (it went to FIN), after conference', [(f['text'], f['stop'], f['title']) for f in s['flags']] == [('by 5/1', 'Conference', 'Fiscal Fri 5/1')], s['flags'])
-  R.check('HB 244: the caption says conference and what the deadline asks', s['caption'][0].startswith('Now: in conference') and 'must be agreed by the House and Senate' in s['caption'][-1], s['caption'])
+  R.check('HB 244: the caption says conference and what the deadline asks', s['caption'] == ['Step 7 of 8 · in conference · must be agreed on by Fri 5/1'], s['caption'])
   pg.close()
   pg = variant(B, 1440, 900, 'HB1562', {'stage': 'first_decking', 'referrals': ['FIN'], 'origin_stops': 1, 'second_stops': 0}, 'HB1800'); s = pg.page.evaluate(STATE)
   R.check('a budget bill: its own decking and crossover (replaces), Budget decking today is next',
@@ -126,7 +136,7 @@ with L.browser() as B:
   cases = [
     ('a law', 'HB244', {'stage': 'enacted'}, None, lambda s: all(x[1] == 'done' for x in s['stops']) and s['caption'] == ['Signed into law.'] and not s['flags']),
     ('a veto', 'HB244', {'stage': 'vetoed'}, None, lambda s: [x[1] for x in s['stops']][-2:] == ['done', 'stopped'] and s['caption'] == ['Vetoed by the Governor.'] and not s['flags']),
-    ('on the Governor\'s desk', 'HB244', {'stage': 'governor'}, None, lambda s: [x[1] for x in s['stops']][-1] == 'now' and s['caption'][0] == 'Now: on the Governor’s desk.' and not s['flags']),
+    ('on the Governor\'s desk', 'HB244', {'stage': 'governor'}, None, lambda s: [x[1] for x in s['stops']][-1] == 'now' and s['caption'][0] == 'Step 8 of 8 · on the Governor’s desk' and not s['flags']),
     ('a concurrent resolution adopted', 'HB1562', {'stage': 'enacted'}, 'HCR6', lambda s: [x[0] for x in s['stops']] == ['HLT/HSH', 'FIN', 'Vote', 'HHS', 'WAM', 'Vote'] and s['caption'] == ['Adopted.'] and s['groups'] == ['House', 'Senate']),
     ('a House resolution: one chamber, no flags', 'HB1562', {'referrals': ['HLT'], 'origin_stops': 1, 'second_stops': 0, 'stage': 'first_lateral'}, 'HR7', lambda s: [x[0] for x in s['stops']] == ['HLT', 'Vote'] and not s['flags']),
     ('stopped with no record of where: no stop marked', 'HB1084', {'died_at_stage': None}, None, lambda s: all(x[1] == 'next' for x in s['stops']) and s['caption'][0].startswith('Stopped: ')),

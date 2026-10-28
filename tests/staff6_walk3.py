@@ -4,7 +4,7 @@
 #     some asked already       -> "3 of your bills need a hearing · 2 still to ask" (this deadline's bills only, never a share
 #                                 of the tab's total: "12 of the 20 still to ask" mixed two totals, the critic)
 #   On a phone the "·" before the Bills That Need Hearings link goes with the link, never left at a line's end.
-#   Today, Bills and Hearings keep their one top line, "20 to ask · first by Mon 3/23", and its number is the board's to-ask
+#   Today, Bills and Hearings keep their one top line, "20 bills need a hearing · ask the chairs, first by Mon 3/23", and its number is the board's to-ask
 #   bills added up over the deadlines, so no two screens give two numbers for one pile.
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_walk3.py     exits 1 when a check fails
@@ -14,7 +14,7 @@ import staff6_lib as L
 
 R = L.Results()
 LINE = re.compile(r'^(\d+) of (?:your|your coalitions’|the team’s|[A-Z][a-z]+’s) bills? needs? a hearing · (none asked yet|(\d+) still to ask)(?: · |$)')
-TOP = re.compile(r'(\d+) to ask · first by (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+')
+TOP = re.compile(r'(\d+) bills? needs? a hearing · ask the chairs?(?:, first)? by (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+')
 def dls(pg): return pg.page.evaluate("[...document.querySelectorAll('.hg-dlh .hg-dls:not(.hg-dld)')].map(e => e.innerText.replace(/\\s+/g, ' ').trim())")
 def toask(lines):
   # the board's to-ask bills over every deadline: "none asked yet" counts them all
@@ -47,7 +47,7 @@ with L.browser() as B:
     for route in ['/', '/bills', '/hearings']:
       pg = B.page(who, 1440, 900); pg.open(route)
       m = TOP.search(pg.text('body'))
-      if m: tops[route] = int(m.group(1))
+      if m: tops[route] = int(m.group(1)); seen['top'] = seen.get('top', 0) + 1
       pg.close()
     if '/hearings' in tops:
       pg = B.page(who, 1440, 900); pg.open('/hearings/ask')
@@ -57,6 +57,7 @@ with L.browser() as B:
       R.check(f'{who}: Hearings\' "{tops["/hearings"]} to ask" is the board\'s to-ask bills added up', n == tops['/hearings'], (n, tops))
       R.check(f'{who}: Today and Bills say the same count as Hearings', all(v == tops['/hearings'] for k, v in tops.items() if k in ('/', '/bills')), tops)
 
+R.check('the top line ("N bills need a hearing · ask the chairs, first by <day>") is found on Today, Bills or Hearings', seen.get('top', 0) > 0, seen)
 R.check('someone\'s board says "none asked yet"', seen['none'] > 0, seen)
 R.check('someone\'s board says "still to ask"', seen['still'] > 0, seen)
 

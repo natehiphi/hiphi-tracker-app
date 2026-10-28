@@ -16,8 +16,8 @@
 // the ones they help on as rows, then the others, each with an I help switch (coalition.js).
 // v6 walk 3 (Nate 25 Oct, twelve mockups): the list is handed to myviews.js, which draws its views behind one remembered
 // switch. Walk 4 (Nate, the same day): the default is Deadlines, each issue under the deadline it must beat next with its
-// From the House | From the Senate cells (walk 3's Coverage and the column board folded into it), then Status, Topics and
-// Spreadsheet. This file keeps the page: the head, the lines above, the filter, the prep list and the coalition fallback.
+// House | Senate cells (walk 3's Coverage and the column board folded into it), then Status, Topics and Spreadsheet (R-352
+// FIX-3, Nate 28 Oct: "keep the topics and spreadsheet tabs"). This file keeps the page: the head, the lines above, the filter, the prep list and the coalition fallback.
 import { S, DB, DEADLINES, SESSION_OVER, hooks, esc, myIssueIds } from './data.js';
 import { diedish } from './model.js';
 import { icon, btn, empty, toast, openSheet, closeSheet } from './ui.js';

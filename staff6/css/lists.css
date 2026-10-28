@@ -132,7 +132,7 @@
 .le-cmp .le-rgroup + .le-rgroup { margin-top: var(--s16); }
 .le-cmp .le-rh { margin: 0 0 6px var(--s4); font: 700 var(--t14)/1.3 var(--font); color: var(--n500); letter-spacing: 0; }
 .le-cmp .le-opt { min-height: 60px; }
-.le-cmp .le-opt .title { font-weight: 400; color: var(--n700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.le-cmp .le-opt .title { font-weight: 500; color: var(--v6-ink, var(--n700)); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .le-cmp .le-opt .title b { font-weight: 700; color: var(--n900); }
 .le-cmp .le-who { display: flex; align-items: center; gap: var(--s12); padding: var(--s12) var(--s8) var(--s12) var(--s16); }
 .le-cmp .le-who .lead { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; }
@@ -387,7 +387,7 @@
   .le-two .le-formbar .le-savest { margin-left: auto; padding-left: var(--s8); }
   .le-two .le-prevpane { gap: var(--s8); top: calc(var(--header) + var(--s16)); }
   .le-two .le-prevhead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s8); min-height: 28px; }
-  .le-two .le-prevhead h2 { font-size: var(--t16); }
+  .le-two .le-prevhead h2 { font-size: var(--t18); }
   .le-two .le-noprev { display: flex; flex-direction: column; align-items: center; gap: var(--s8); padding: var(--s48) var(--s24); border: 1px dashed var(--n300); border-radius: var(--r16); color: var(--n500); text-align: center; font-size: var(--t14); }
   .le-two .le-noprev .ic { width: 28px; height: 28px; color: var(--n400); }
   .le-two .le-checks { list-style: none; margin: var(--s12) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }

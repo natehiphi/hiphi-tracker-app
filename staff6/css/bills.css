@@ -7,19 +7,17 @@
 .bl-page, .bl-memopage { --bl-top0: var(--header); --bl-sh: 0px; }
 .bl-page { min-width: 0; }
 
-/* ---- the head: "Bills" with the whose switch at its right (as v5 had it beside the title), the page tabs on their own
-   row under them (staff.css .sv-phead). The switch used to take a 56px row of its own under the tabs, which put the first
-   bill 444px down Nate's laptop (A-1: 400); at the title's right it keeps its own track, apart from the tabs. ---- */
-@media (min-width: 768px) {
-  body.staff6 main .bl-head.sv-phead:has(.sv-secnav) .sv-phr > .sv-seg.sv-whose { order: 1; }   /* outranks staff.css's order: 3 */
-  body.staff6 main .bl-head { margin-bottom: var(--s16); }
-}
-/* A phone: the tabs, then the switch across the column; 12px between them, not 20 (the first bill 490px down, A-1). */
+/* ---- the head: "Bills" and the page tabs; Mine | Team leads the toolbar row under them (R-352 D: the same place as
+   Hearings' and Legislators', at the left), so it costs no row of its own on a laptop. ---- */
+@media (min-width: 768px) { body.staff6 main .bl-head { margin-bottom: var(--s16); } }
+@media (max-width: 767px) { body.staff6 main .bl-head { margin: 0 0 var(--s12); } body.staff6 main .bl-head .sv-secnav { margin-bottom: 0; } }
+.bl-whose { flex: none; display: flex; }
+/* a phone: the switch on a row of its own at its compact width (as Legislators' and Hearings'), the box and Filter under it */
 @media (max-width: 767px) {
-  body.staff6 main .bl-head { display: flex; flex-wrap: wrap; gap: var(--s12) 0; margin: 0 0 var(--s12); }
-  body.staff6 main .bl-head .sv-secnav { margin-bottom: 0; }
-  body.staff6 main .bl-head .sv-seg { flex: 1 1 100%; display: flex; }
-  body.staff6 main .bl-head .sv-seg button { flex: 1 1 auto; padding: 0 10px; white-space: nowrap; }
+  .bl-page .bl-tools { flex-wrap: wrap; }
+  .bl-whose { flex: 1 0 100%; }
+  .bl-whose .sv-seg { padding: 2px; }
+  .bl-page .bl-tools .bl-search { flex: 1 1 0; }
 }
 
 /* ---- the deadline line (F95): one sentence, 16px, its count a link to those bills, then Get hearings. A phone has the
@@ -29,7 +27,6 @@
 .bl-dls b { color: var(--v6-ink); }
 /* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
 .bl-dls .bl-dlk { font: inherit; font-weight: 400; text-align: left; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* (one line at every width now, in Get hearings' words: "20 to ask; 16 face the Mon 3/30 deadline · Get hearings") */
 @media (max-width: 767px) {
   .bl-dls { margin-bottom: var(--s8); }
@@ -87,8 +84,6 @@
   .bl-tools { margin-bottom: var(--s8); }
   .bl-search .input { box-sizing: border-box; height: 44px; }
   .bl-search .input:placeholder-shown { padding-right: 12px; }   /* no clear button while empty: the words get its room */
-  /* the switch: 48px, not 52 (its buttons stay 44px targets) */
-  body.staff6 main .bl-head .sv-seg { padding: 2px; }
 }
 
 /* ---- filters that are on: chips that come off with a click, then Clear all ---- */
@@ -101,9 +96,10 @@
 #bl-chips:empty { display: none; }
 .bl-selhead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); font-size: var(--v6-t16); color: var(--v6-body); margin: 0 0 var(--s12); }
 
-/* ---- rows (the default): one card per group, its heading above it; the picked bill beside the list from 1100px ---- */
+/* ---- rows (the default): each group's heading over its bills, one soft card a bill (R-352 D, below); the picked bill
+   beside the list from 1100px ---- */
 .bl-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s24); min-width: 0; }
-/* listDetail's list box is a card; with groups, each group's list is the card instead */
+/* listDetail's list box is a card; with groups, each bill's row is the card instead */
 body.staff6 .bl-page .v6-ld-list.bl-groups { padding: 0; background: none; box-shadow: none; border-radius: 0; }
 .bl-grp { min-width: 0; }
 .bl-gh { display: flex; align-items: baseline; gap: var(--s8); min-height: 44px; margin: 0 0 var(--s8); padding-top: 8px; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); letter-spacing: -.005em; }
@@ -119,10 +115,32 @@ body.staff6 .bl-page .v6-ld-list.bl-groups { padding: 0; background: none; box-s
    steps.css to do the same in every list. */
 body.staff6 .bl-page .v6-row-line.soon { font-weight: 400; }
 body.staff6 .bl-page .v6-row-line.soon .v6-tm { font-weight: 700; }   /* the time only, never a day or a room */
+/* R-352 (A-18, spec 8): a row is the name, the number small and one line, with no bar under it, so it is about 40% shorter
+   and 7 bills fit Nate's first laptop screen as cards (5 with the bar). Each row stays a 44px-plus target. */
+body.staff6 .bl-page .v6-row { min-height: 56px; }
+body.staff6 .bl-page .v6-row-main { padding: 6px 8px; gap: 0; }
+@media (max-width: 767px) { body.staff6 .bl-page .v6-row { min-height: 64px; } body.staff6 .bl-page .v6-row-main { padding: 8px; } }
+/* a twin is part of the number, said in the number's own grey ("HB 1591 · twin of SB 3202"), not a tag: one quiet fact
+   that tells two same-named bills apart (D3), the bill's page names it in full */
+body.staff6 .bl-page .v6-twin { margin-left: 0; padding: 0; background: none; font-size: inherit; line-height: inherit; color: inherit; }
+body.staff6 .bl-page .v6-twin::before { content: '· '; }
 /* the row the keys are on: a bar at its left (never colour alone: the focus is on it too) */
 body.staff6 .bl-page .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action); }
 /* phones: the rows are a press-and-hold away from picking, so a long press does not open the browser's menu */
 .bl-page .v6-ld-list .v6-row-main { -webkit-touch-callout: none; }
+/* R-352 D (Nate 28 Oct: with only words and hairlines "they all blur together"; he picked D of five tried): each row is its
+   own soft card on the page grey, 8px apart (the group's one card goes), led by its issue's icon on its topic's tint (the
+   32px tile All issues uses: myissues.css .i6-lead, .mi-c-*; A-5 on v6, topic tints only). A bill on no issue keeps an
+   empty slot. Bills' rows and select mode only (.bl-rowsv); Muted and the spreadsheet keep their own look. */
+body.staff6 .bl-rowsv .bl-groups .v6-list { row-gap: 8px; padding: 0; background: none; box-shadow: none; border-radius: 0; }
+body.staff6 .bl-rowsv .bl-groups .v6-row { background: var(--v6-card); box-shadow: var(--v6-sh1); border-radius: var(--v6-r12); }
+body.staff6 .bl-rowsv .bl-groups .v6-row + .v6-row::before { display: none; }
+body.staff6 .bl-rowsv .bl-groups .v6-row.sel { background: var(--v6-action-wash); }
+body.staff6 .bl-rowsv .bl-groups .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action), var(--v6-sh1); }
+body.staff6 .bl-rowsv .bl-groups .v6-row-main { padding: 8px; }
+body.staff6 .bl-rowsv .v6-row-main.has-lead:has(> .i6-lead) { column-gap: 12px; }
+body.staff6 .bl-rowsv .v6-row-lead.i6-lead { margin-top: 2px; }
+body.staff6 .bl-rowsv .v6-row-lead.bl-noiss { background: none; }
 /* the open bill: the panel beside the list (steps.css .v6-ld); below 1100px it is its own page, so the list's head steps
    aside with the list and Back to the bills is the first thing */
 .bl-page .v6-ld-detail { padding: 0; }

@@ -69,12 +69,12 @@ const TOPICS = [
         ['A new version', 'If the bill changes (House draft 1 to House draft 2) after the draft was written, the writer’s Today says “The bill changed: check your testimony”.']]; } },
   { id: 'tabs', title: 'What each place is for', also: 'places sidebar map where', icon: 'list-todo', sub: () => 'Today, Hearings, Testimony, Outreach, Bills and the rest',
     items: () => [['Today', 'Your next step first, then what to do today, what is coming up, and one line for what waits on others. Each step is its own row; the one you pick opens beside the list on a laptop, with its button. A question a teammate asked you is a row too, until you answer it. On a phone on a hearing day, your hearing comes first, with its time and room.'],
-      ['Hearings', '<b>This week</b>: every sitting with our bills, day by day, who is going (<b>I’m going</b> is on each card) and where each bill’s testimony stands. <b>' + ASK_TAB + '</b>: the bills still waiting for a hearing, grouped by chair, soonest notice first, with Email the chair.'],
+      ['Hearings', '<b>This week</b>: every sitting with our bills, day by day, who is going (<b>I’m going</b> is on each card) and where each bill’s testimony stands. <b>See as calendar</b> shows the same week as a calendar, and <b>All issues</b> narrows it to one issue. <b>' + ASK_TAB + '</b>: the bills still waiting for a hearing, grouped by chair, soonest notice first, with Email the chair.'],
       ['Testimony', 'Every draft by where it stands: <b>To write</b>, <b>To approve</b>, <b>Sent back</b>, <b>Ready to file</b> and <b>Filed</b>. Approvers open Review from To approve, one draft at a time.'],
       ['Outreach', 'Rallying the public and partners: <b>This week’s asks</b> (each bill’s ask, its deadline and the words to copy), <b>Partner update</b>, <b>Emails</b> to supporters, <b>Supporters</b> and <b>Lists</b>.'],
       ['Bills', 'Every tracked bill, grouped by where it stands, or as a spreadsheet; filter it, or select several to change at once. <b>Sort new bills</b> (in the opening weeks) and <b>Muted</b> are its other tabs. A bill’s page has three tabs: <b>Next step</b> (What’s next for you), <b>Team talk</b> (messages, notes and talks with legislators) and <b>Public</b>.'],
       ['Legislators', '<b>Who to ask</b> (the chairs who hold our bills), <b>Everyone</b> (find anyone by name, town, district or committee) and <b>Holding our bills</b>. A legislator’s page starts with Email, Call and Log a talk.'],
-      ['My issues', 'The issues you own or help on, by deadline; between sessions, your issues for 2027. <b>Coalitions</b> lists each coalition, with its I help on switch; <b>All issues</b> is every issue, by category.'],
+      ['My issues', 'The issues you own or help on, four ways: <b>Deadlines</b> (each under the deadline it must beat next), <b>Status</b>, <b>Topics</b> and <b>Spreadsheet</b>; between sessions, your issues for 2027. <b>Coalitions</b> lists each coalition, with its I help on switch; <b>All issues</b> is every issue, by topic; <b>Calendar</b> is the team’s week with each bill’s issue, the same calendar as Hearings’.'],
       ['Inbox', '<b>Messages</b>: what teammates wrote to you or about your bills, and the tracker’s notes to you. <b>Updates</b>: what changed on your bills since yesterday, since your last visit or in the last 7 days. The number beside Inbox counts the unread messages.'],
       ['More tools', 'Every tool used now and then, grouped by job: Holding our bills, the session calendar, earlier testimony, lists, a link or QR code, first visit numbers, sorting and muting bills, saved views, bulk change, export, and the guides for learning.'],
       ['You', 'At the foot of the sidebar (on a phone, the last rows of <b>More</b>): <b>My settings</b> and Sign out.'],
@@ -108,7 +108,7 @@ const TOPICS = [
     items: () => [['1. Open their page', 'Legislators, then <b>Everyone</b> (type a name, a town or a district), or a name on a bill’s Committees.'],
       ['2. Log a talk', 'Press <b>Log a talk</b> at the top of their page. A bill’s Team talk box logs one too, already filed under that bill.'],
       ['3. Fill it in', '<b>Filed under</b>: the issue, and the bill if it was about one. <b>When</b>: the day. <b>What was said</b>: what they said, what they asked for, what we promised. Met several legislators at once? Add each one: it is one record on each of their pages.'],
-      ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or with Mark where they stand beside the bill on their page.'],
+      ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or with <b>Mark stand</b> beside the bill on their page.'],
       ['Who sees it', 'The whole team: on the legislator’s page, on the issue’s page and on every bill of that issue. You can correct or delete your own entry for ten minutes.']] },
   { id: 'calendar', gate: HOW_TO, title: 'Session calendar', also: 'deadlines dates calendar days left lateral decking crossover legislative day', icon: 'calendar-clock', sub: () => { const g = sessionGates(S.bills).find(x => x.next); return g ? `Next: ${g.name}, ${mdDay(g.date)}` : 'Every deadline of the session'; },
     items: () => calendarItems() },
@@ -258,7 +258,7 @@ const go = (label, href) => `<a href="${esc(href)}">${esc(label)}</a>`;
 // about a place the viewer's role does not have is left out (spec 0: less on every screen).
 const MOVED_ALL = () => [
   ['Today', [
-    ['Today’s This week switch', `${go('Hearings', '#/hearings')}, under This week: every sitting, day by day, with I’m going on each card.`],
+    ['Today’s This week switch, and Today’s week calendar', `${go('Hearings', '#/hearings')}, under This week: every sitting, day by day, with I’m going on each card. <b>See as calendar</b> there shows the week as a calendar (Today’s own calendar is gone; Coming up ends with “See the week on Hearings”).`],
     ['The deadline box (bills that still need a hearing)', `${go(ASK_TAB, '#/hearings/ask')}, on Hearings: one board, grouped by chair, soonest notice first.`],
     ['Mark asked', `${go(ASK_TAB, '#/hearings/ask')}: after you press <b>Email the chair</b>, it asks <b>Did you send it?</b> Asked by phone or in person? Press <b>Log a talk</b> beside that chair, on the same board.`],
     ['The asked chip, to record what the chair said', `${go(ASK_TAB, '#/hearings/ask')}: <b>They replied</b>, on the ask that waits for a reply. Legislators’ Who to ask shows the same board.`],
@@ -308,7 +308,7 @@ const MOVED_ALL = () => [
     ['The phone’s House, Senate and All chips', `${go('Legislators', '#/legislators?view=everyone')}, under Everyone: Filter, then House or Senate.`],
     ['Holding our bills (it had no address)', `${go('Legislators', '#/legislators?view=holding')}, under Holding our bills, and in More tools.`],
     ['Log a conversation', 'A legislator’s page: <b>Log a talk</b>. A bill’s Team talk box logs one too. Tick “This was an ask for a hearing” when it was one.'],
-    ['Mark where they stand, on a legislator’s page', 'The same page, beside each of our bills in their committees: <b>Mark where they stand</b> (once set, the stance itself, such as Leaning yes). The bill’s Committees door has it too.']]],
+    ['Mark where they stand, on a legislator’s page', 'The same page, beside each of our bills in their committees: <b>Mark stand</b> (once set, the stance itself, such as Leaning yes). The bill’s Committees door has it too.']]],
   ['Outreach and My issues', [
     ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More tools', '#/tools')} has First visit numbers and Make a link or QR code.`],
     ['Your issues for 2027 (the prep list)', `${go('My issues', '#/my-issues')} itself, between sessions.`],
@@ -342,7 +342,7 @@ const approves = () => !!S.me && (S.me.is_admin || S.me.can_approve || S.me.is_r
 const MOVED = () => MOVED_ALL().map(([h, rows]) => [h, rows.filter(r => !r[2] || r[2]())]).filter(([, rows]) => rows.length);
 // What moved opens with the changes everyone meets (Julie read 70 rows over 11 phone screens); the rest wait in one fold per
 // v5 place. A search hit on a folded row opens with its fold open and the row marked (?w=, as Capitol words do).
-const TOP_MOVED = ['Today’s This week switch', 'The deadline box (bills that still need a hearing)', 'The Mine and Team switch, and the person picker',
+const TOP_MOVED = ['Today’s This week switch, and Today’s week calendar', 'The deadline box (bills that still need a hearing)', 'The Mine and Team switch, and the person picker',
   'What changed since yesterday', 'Messages from teammates, and the tracker’s notes', 'Getting started (New here?)', 'A row’s menu (the three dots)'];
 const movedHTML = (route = {}) => { const groups = MOVED(), all = groups.flatMap(([, rows]) => rows), mark = markOf(route), lc = s => String(s || '').toLowerCase();
   const top = TOP_MOVED.map(l => all.find(r => r[0] === l)).filter(Boolean), rows = rs => dl(rs.map(([a, b]) => [esc(a), b]), mark, 'hp-moved');

@@ -13,6 +13,7 @@ body.staff6 .v6-status svg { width: 16px; height: 16px; flex: none; }
    these tiles among the bill page's bold); done's words are in body text on its leaf wash, the icon in leaf, so a
    screen of filed rows adds no sixth text colour (spec 8: at most 5) */
 body.staff6 .v6-status.late { background: var(--v6-late-wash); color: var(--v6-late); }
+/* A-5 on v6 (R-352): amber is late, still accepted; red is a step still to do past its own deadline ("2 hours overdue") */
 body.staff6 .v6-status.overdue { background: var(--v6-bad-wash); color: var(--v6-bad); }
 body.staff6 .v6-status.done { background: var(--v6-leaf-wash); color: var(--v6-body); }
 body.staff6 .v6-status.done svg { color: var(--v6-leaf); }
@@ -52,9 +53,9 @@ body.staff6 .v6-step-what { margin: 0; font-family: Poppins, system-ui, sans-ser
   line-height: var(--v6-lh18, 24px); color: var(--v6-ink); letter-spacing: -.005em; }
 /* the bill named for screen readers inside the heading has no visual weight (it is not seen) */
 body.staff6 .v6-step-what .sr { font-weight: 400; }
-body.staff6 .v6-step.big .v6-step-what, body.staff6 .v6-step.w-today .v6-step-what { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
+body.staff6 .v6-step.big .v6-step-what { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
 /* under the bill's name, the step is the sentence (Poppins 16 at 500), so the card has one name and one heading size */
-body.staff6 .v6-step.named:not(.w-today):not(.big) .v6-step-what { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 500; letter-spacing: 0; }
+body.staff6 .v6-step.named:not(.w-today):not(.big) .v6-step-what { font-weight: 500; letter-spacing: 0; }
 body.staff6 .v6-step.named .v6-step-bill + .v6-step-what { margin-top: -6px; }
 /* Option E (Nate 10/26): a named card's sentence holds the bill, "Ask for a hearing on <bill>". Above it one quiet line
    says the kind of step, the number and the issue link; under it the chair's line. The three sit close (4px, 4px) as one
@@ -218,7 +219,7 @@ body.staff6 .v6-hcard-watchin svg { width: 18px; height: 18px; }
 @media (max-width: 379.98px) { body.staff6 .v6-hcard.week .v6-hcard-going > .btn { grid-column: 1 / -1; justify-self: end; } }
 /* the phone's hearing-day card: time and room large, 56px+ rows (V14) */
 body.staff6 .v6-hcard.big .v6-hcard-time { font-size: var(--v6-t28); line-height: var(--v6-lh28, 34px); }
-body.staff6 .v6-hcard.big .v6-hcard-day { font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
+body.staff6 .v6-hcard.big .v6-hcard-day { color: var(--v6-ink); }
 body.staff6 .v6-hcard.big .v6-hcard-bill { min-height: 56px; }
 
 /* ---- rows: a name, the bill number small, one line (V04, D15, D16) ---- */
@@ -290,6 +291,11 @@ body.staff6 .v6-ld-back svg { width: 20px; height: 20px; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar-track { background: transparent; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar-thumb { background: var(--v6-field); border-radius: 5px; border: 3px solid var(--v6-page); }
   body.staff6 .v6-ld-back { display: none; }
+  /* Nothing picked yet: the list takes the whole width and the panel opens beside it when a row is picked (A-24 on v6,
+     R-352 FIX-2: an empty grey "Pick one to see its steps" took a third of Bills and Testimony at 1440). A screen whose
+     side column holds something of its own while nothing is picked (Today's) keeps it. */
+  body.staff6 .v6-ld:not(.open):has(> .v6-ld-detail > .v6-ld-empty) { grid-template-columns: minmax(0, 1fr); }
+  body.staff6 .v6-ld:not(.open) > .v6-ld-detail:has(> .v6-ld-empty) { display: none; }
 }
 @media (max-width: 1099.98px) {
   body.staff6 .v6-ld:not(.open) .v6-ld-detail { display: none; }
@@ -444,17 +450,11 @@ body.staff6 .v6-row-main.has-lead > :not(.v6-row-lead) { grid-column: 2; }
 body.staff6 .v6-row-lead { grid-column: 1; grid-row: 1 / span 2; display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 24px; color: var(--v6-muted); }
 body.staff6 .v6-row-lead svg { width: 20px; height: 20px; }
-body.staff6 .bl-gh .bl-ghic { display: inline-flex; align-self: center; color: var(--v6-muted); }
-body.staff6 .bl-gh .bl-ghic svg { width: 24px; height: 24px; }   /* A-18: 24px beside the 22px heading */
 /* Fix 4 (Nate 10/25): no row icon below 600px. A phone's bill names need the 32px the icon and its gap take. */
 @media (max-width: 599.98px) {
   body.staff6 .v6-row-main.has-lead { display: flex; }
   body.staff6 .v6-row-main.has-lead > .v6-row-lead { display: none; }
 }
-/* Fix 5 (Nate 10/25): the heading's icon lines up with the card below it. A Lucide glyph draws 2px inside its 24px box, so
-   the box steps 2px left to put the drawn line on the card's edge. Centred in the 44px heading it sat 6px under the words'
-   middle; a 5px nudge up (position, so the heading's words do not move) puts it level with them. */
-body.staff6 .bl-gh .bl-ghic { position: relative; top: -5px; margin-left: -2px; margin-right: -2px; }
 
 /* ==== R-344 (the five picture rules, R-336's at-a-glance review; Nate's decisions of 26 Oct): staff6/verbs.js's pictures ==== */
 /* The action hues (Decision 1, soft filled): one per family of jobs, never the amber, red or green of status (A-5 on v6).
@@ -526,22 +526,6 @@ body.staff6 .v6-tt-w { overflow: hidden; text-overflow: ellipsis; }
   body.staff6 .v6-tt li + li::before { margin: 0 6px; }
 }
 
-/* ---- the bill's own picture on a row (tracker.js slimBarHTML): the slim bar, a Now pin, the trophy at Law ---- */
-body.staff6 .v6-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 6px; margin-top: 4px; width: 100%; max-width: 420px; min-width: 0; align-self: stretch; }
-body.staff6 .v6-bar-segs { position: relative; display: grid; column-gap: 3px; padding-top: 17px; min-width: 0; }
-body.staff6 .v6-bar-segs > i { display: block; height: 6px; border-radius: var(--v6-pill); background: var(--v6-hair); }
-body.staff6 .v6-bar-segs > i.is-done { background: var(--v6-leaf); }
-body.staff6 .v6-bar-segs > i.is-now { background: var(--v6-action); }
-body.staff6 .v6-bar-segs > i.is-stopped { background: repeating-linear-gradient(135deg, var(--v6-muted) 0 3px, var(--v6-field) 3px 6px); }
-/* "Now" over the stop it is at: a pin and the word, 14px, kept inside the bar's ends */
-body.staff6 .v6-bar-now { position: absolute; top: 0; display: inline-flex; align-items: center; gap: 2px; transform: translateX(-50%);
-  font-size: var(--v6-t14); line-height: 16px; color: var(--v6-action); font-weight: 400; white-space: nowrap; }
-body.staff6 .v6-bar-now svg { width: 14px; height: 14px; }
-body.staff6 .v6-bar-now::after { content: 'Now'; }
-body.staff6 .v6-bar-now.at-start { transform: none; } body.staff6 .v6-bar-now.at-end { transform: translateX(-100%); }
-body.staff6 .v6-bar-end { display: inline-flex; align-items: center; color: var(--v6-field); line-height: 0; }
-body.staff6 .v6-bar-end svg { width: 16px; height: 16px; }
-body.staff6 .v6-bar.is-law .v6-bar-end { color: var(--v6-leaf); }
 /* a twin bill's chamber (HB 2121 and SB 2175 share a name): a small tag beside the number */
 body.staff6 .v6-twin { display: inline; margin-left: 4px; padding: 1px 8px; border-radius: var(--v6-pill); background: var(--v6-wash);
   font-size: var(--v6-t14); line-height: 22px; color: var(--v6-body); white-space: nowrap; }
@@ -549,17 +533,32 @@ body.staff6 .v6-twin svg { width: 14px; height: 14px; }
 /* HIPHI's stance beside the number: its shape and one word, quiet */
 body.staff6 .v6-row-top .v6-sm { flex: none; }
 
-/* ---- R-344 Rule 3 (Decision 2): due today is amber, its clock and words; red only once passed ---- */
-body.staff6 .v6-status.today { background: var(--v6-late-wash); color: var(--v6-late); }
-body.staff6 .v6-row-line.t-today, body.staff6 .t6-jsub.t-today, body.staff6 .ig6-stat.t-today { color: var(--v6-late); }
-body.staff6 .v6-row-line.t-today .v6-nw, body.staff6 .v6-row-line.t-today .v6-tm { color: inherit; font-weight: 400; }
-body.staff6 .ig6-stat.t-today svg { color: inherit; }
+/* ---- R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): due today is plain. The body colour and the neutral
+   tile, a plain clock, and only its time in bold (.v6-tm, steps.js nw), with the time left in words under 3 hours
+   ("in 1 hour"); the screens put it first. On a busy day every row is due today, so amber there hid the one late item.
+   Amber is late, still accepted alone; red is overdue. ---- */
+body.staff6 .v6-status.today { background: var(--v6-wash); color: var(--v6-body); }
+body.staff6 .v6-row-line.t-today, body.staff6 .t6-jsub.t-today, body.staff6 .ig6-stat.t-today { color: var(--v6-body); }
+body.staff6 .v6-row-line.t-today .v6-nw { color: inherit; }
+/* the first time only: a second ("Capitol deadline 9:30 AM") stays plain, so one time per step reads as the one to act by */
+body.staff6 .v6-status.today .v6-tm:first-of-type, body.staff6 .v6-row-line.t-today .v6-tm:first-of-type, body.staff6 .t6-jsub.t-today .v6-tm:first-of-type { color: var(--v6-ink); font-weight: 700; }
+body.staff6 .v6-row-line.t-today svg, body.staff6 .t6-jsub.t-today svg, body.staff6 .ig6-stat.t-today svg { color: var(--v6-body); }
 /* who is going: their faces (Rule 4), overlapped a little, before the words that name them */
 body.staff6 .v6-gofaces { display: inline-flex; flex: none; align-items: center; }
 body.staff6 .v6-gofaces .sv-av { --av: 24px; box-shadow: 0 0 0 2px var(--v6-card); }
 body.staff6 .v6-gofaces .sv-av + .sv-av { margin-left: -6px; }
-/* a step card's job tile at the head of its quiet line (Rule 1) */
-body.staff6 .v6-step-eyebrow > .v6-at { margin-right: 8px; vertical-align: middle; }
 /* R-344: a late window that is the viewer's own says so in amber (Today's next-step card was grey beside amber rows) */
 body.staff6 .v6-hcard-note.v6-hcard-late.t-late { color: var(--v6-late); }
 body.staff6 .v6-hcard-note.v6-hcard-late.t-late svg { color: inherit; }
+
+/* R-352 (C-15, A-14): on Today's next-step card the time is a plain clock line, not a grey pill; late and overdue keep their
+   wash, since there the colour is the message */
+body.staff6 .v6-step.w-today .v6-status.neutral, body.staff6 .v6-step.w-today .v6-status.today { background: none; padding-left: 0; padding-right: 0; }
+/* the bill's number after its name inside a card's sentence (steps.js billNumHTML): small and quiet, as on a row */
+body.staff6 .v6-step-num { font: 400 var(--v6-t14)/1 Lato, system-ui, sans-serif; color: var(--v6-muted); white-space: nowrap; }
+
+/* The way to Bills That Need Hearings (push.js askTabGo / askTabWords), one look everywhere (R-352 E, A-12): teal, its own
+   "›", no underline until hover, kept on one line */
+body.staff6 .v6-asktab { color: var(--v6-action); font-weight: 400; text-decoration: none; white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.v6-asktab:hover, body.staff6 a:hover > * > .v6-asktab, body.staff6 a:hover > .v6-asktab { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; } }
+body.staff6 a.v6-asktab:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }

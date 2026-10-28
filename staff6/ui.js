@@ -74,6 +74,27 @@ export function tintOf(id) {
   let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // someone not on the team list (a removed author)
   return h % PERSON_TINTS;
 }
+// The letters in a person's circle, unique among the team (R-352 FIX-2: James and Julie both showed "JM"). Two letters
+// where they are enough: stored initials of two, or the first and last of longer ones (Julie's "JMM" spilt out of her
+// circle as three). When those two would match someone else's, the person's own stored initials (three letters, drawn a
+// size smaller, staff.css .sv-av.ini3), else the first two letters of the first name and the last initial ("JUM").
+let lettersFrom = null, lettersOf = null;
+const twoOf = a => { const raw = String(a.initials || a.full_name?.[0] || '?').toUpperCase(); return raw.length > 2 ? raw[0] + raw[raw.length - 1] : raw; };
+export function faceLetters(adv) {
+  if (lettersFrom !== S.advocates) {
+    lettersFrom = S.advocates; lettersOf = new Map();
+    const all = S.advocates || [], count = new Map();
+    for (const a of all) { const k = twoOf(a); count.set(k, (count.get(k) || 0) + 1); }
+    // Someone whose stored initials are the two letters keeps them; the people whose shortened ones collide take three.
+    for (const a of all) {
+      const raw = String(a.initials || '').toUpperCase(), two = twoOf(a);
+      if (count.get(two) < 2 || raw === two) { lettersOf.set(String(a.id), two); continue; }
+      const first = String(a.full_name || '').trim().split(/\s+/)[0] || '';
+      lettersOf.set(String(a.id), raw.length > 2 ? raw : (first.slice(0, 2) + raw.slice(-1)).toUpperCase());
+    }
+  }
+  return lettersOf.get(String(adv.id)) || twoOf(adv);
+}
 // The viewer keeps their own tint everywhere (the colour others see them by) plus an action-coloured ring, so "you" is
 // found at a glance without being a different colour on your screen than on a teammate's.
 // `deco`: a face beside words that already name the person (faceLead, a hearing card's owner): no name of its own for a
@@ -82,10 +103,8 @@ export function tintOf(id) {
 export function avatar(adv, size = 24, { deco = false } = {}) {
   if (!adv) return deco ? `<span class="sv-av none" style="--av:${size}px"></span>` : `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
   const me = S.me && adv.id === S.me.id, t = tintOf(adv.id);
-  // At most two letters (the review: Julie's "JMM" spilt out of her circle): the first and the last ("JM"); the full name is
-  // in the title and, where the face is not decoration, read aloud.
-  const raw = String(adv.initials || adv.full_name?.[0] || '?'), ini = raw.length > 2 ? raw[0] + raw[raw.length - 1] : raw;
-  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}`;
+  const ini = faceLetters(adv);
+  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}`;
   if (deco) return `<span class="${cls}" style="--av:${size}px" data-ini="${esc(ini)}"></span>`;
   return `<span class="${cls}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(ini)}</span>`;
 }
@@ -111,10 +130,12 @@ export const undoFiledLink = (a = {}) => `<button type="button" class="linkbtn s
 // v3 (R-264, A-5 as amended by R-250): a testimony deadline that has passed while the Capitol still takes late testimony
 // (before the hearing starts) is amber "late testimony until 1:10 PM", not red "overdue". Pass the hearing's start as \`until\`.
 const lateUntil = (iso, until) => { const now = Date.now(); return !!until && new Date(iso) <= now && new Date(until) > now; };
-// R-344 rule 3, time left (Nate 26 Oct, decision 2): the colour of time. Amber once a deadline falls today (the same
-// calendar day in Hawaiʻi, not yet passed) and while late testimony is still accepted; red only once it has passed;
-// anything further out neutral, with the distance in words. One function, so every countdown and tile agrees.
-//   'late' (red, passed) · 'lateok' (amber, late but accepted) · 'today' (amber, due today) · '' (neutral, later)
+// The colour of time (R-352, Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): amber only when late. A deadline that
+// falls today (the same calendar day in Hawaiʻi, not yet passed) is 'today', drawn plain: a neutral clock, its time in
+// bold, the time left in words. Late testimony still accepted is amber with the alarm clock; a step past its deadline
+// still to do is red with the alert and "overdue". Anything further out neutral, with the distance in words. One function, so every countdown agrees
+// (v6's rows and tiles take the same rule from steps.js status()).
+//   'late' (red, passed, still to do) · 'lateok' (amber) (late but accepted) · 'today' (due today, plain) · '' (neutral, later)
 export function timeTone(iso, { until = null } = {}) {
   if (!iso) return '';
   if (lateUntil(iso, until)) return 'lateok';
@@ -292,7 +313,7 @@ export function urgentMark(iso, { done = false, until = null, act = null } = {})
   if (tone === 'lateok') { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}">${icon('alarm-clock')}<b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
   const word = tone === 'late' ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
-  // R-344 rule 3: amber with a clock when due today, red with the alert once passed, neutral further out.
+  // R-352: a plain clock when due today, the alert once passed, neutral further out; the words say which (WCAG 1.4.1).
   return `<span class="sv-urg${tone ? ' ' + tone : ''}" role="img" aria-label="${esc(`${big} ${word}${tone === 'today' ? ', due today' : ''}`)}">${tone === 'late' ? icon('circle-alert') : tone === 'today' ? icon('clock') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
 }
 
@@ -526,8 +547,10 @@ const SECTIONS = {
   bills: ['Bills', [['bills', '#/bills', 'Bills'], ['new', '#/bills/new', 'Sort new bills'], ['muted', '#/bills/muted', 'Muted']]],
   // Who to ask names its view too: between sessions the bare #/legislators opens Everyone (spec 3.3).
   legislators: ['Legislators', [['ask', '#/legislators?view=ask', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
-  // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order).
-  issues: ['My issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all?view=list', 'All issues'], ['cal', '#/my-issues/all?view=cal', 'Calendar']]],   // Calendar: R-342 (hearings.js CAL_WAYS)
+  // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order), then every issue's
+  // week as a calendar (R-342; R-352 FIX-3, Nate 28 Oct: "keep the calendar view"). The tab is All issues' one way to its
+  // calendar (A-12 on v6: no switch beside it); the calendar's other home is Hearings (B-13 on v6).
+  issues: ['Issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues'], ['cal', '#/my-issues/all?view=cal', 'Calendar']]],
   inbox: ['Inbox', [['messages', '#/inbox', 'Messages'], ['updates', '#/inbox?view=updates', 'Updates']]],
 };
 export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, href, label]) => ({ key: k, href, label }));

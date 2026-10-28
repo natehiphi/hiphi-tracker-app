@@ -51,9 +51,9 @@ body.staff6 .sp-table { width: 100%; table-layout: fixed; border-collapse: separ
   box-shadow: var(--v6-sh1); font-size: var(--v6-t16); }
 body.staff6 .sp-table thead th { height: 48px; padding: 0 var(--s12); text-align: left; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); white-space: nowrap; }
 body.staff6 .sp-table th.c-cb { width: 52px; }
-body.staff6 .sp-table th.c-name { width: 30%; }
+body.staff6 .sp-table th.c-name { width: 27%; }
 body.staff6 .sp-table th.c-where { width: 30%; }
-body.staff6 .sp-table th.c-active { width: 128px; }
+body.staff6 .sp-table th.c-active { width: 112px; }
 body.staff6 .sp-table td { height: 64px; padding: 8px var(--s12); color: var(--v6-body); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   background-image: linear-gradient(var(--v6-hair), var(--v6-hair)); background-size: 100% 1px; background-repeat: no-repeat; background-position: top; }
 body.staff6 .sp-table tbody tr { cursor: pointer; }
@@ -62,14 +62,12 @@ body.staff6 .sp-table tbody tr.sel td { background-color: var(--v6-action-wash);
 body.staff6 .sp-table th.c-cb, body.staff6 .sp-table td.c-cb { padding: 0; text-align: center; }
 body.staff6 .sp-cbl { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: 0 auto; cursor: pointer; }
 body.staff6 .sp-cbl input { width: 20px; height: 20px; margin: 0; accent-color: var(--v6-action); cursor: pointer; }
-body.staff6 .sp-table td.c-name, body.staff6 .sp-table td.c-where { white-space: normal; }
-body.staff6 .sp-nm { display: block; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* R-352: every row one line tall; a long place or name ends in "…" and says itself in full on hover (title) and on their page */
+body.staff6 .sp-nml { display: flex; align-items: baseline; gap: var(--s8); min-width: 0; }
+body.staff6 .sp-nm { display: block; min-width: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.staff6 .sp-table tr:hover .sp-nm, body.staff6 .sp-nm:hover { color: var(--v6-action); text-decoration: underline; }
-body.staff6 .sp-flag { display: block; font-size: var(--v6-t16); color: var(--v6-ink); }
-body.staff6 .sp-tagt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* R-343: whether email reaches them, quiet (muted) unless it is trouble (bounced, unsubscribed); what they have done */
-body.staff6 .sp-flag.quiet { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
-body.staff6 .sp-table td.c-done { white-space: normal; }   /* wraps only between its facts (doneText keeps each whole) */
+/* Email trouble only (bounced, unsubscribed), on the name's line; whether supporter emails reach them is on their page */
+body.staff6 .sp-flag { flex: none; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-ink); }
 /* A saved group's bar: "In this group:" and its filters as removable chips (A-14: the count is on the group's chip) */
 body.staff6 .sp-rn .sp-rnw { color: var(--v6-muted); margin-right: var(--s4); }
 body.staff6 .sp-rn .sp-fchip { margin: 2px var(--s4) 2px 0; vertical-align: middle; }
@@ -78,7 +76,6 @@ body.staff6 .sp-rn .sp-fchip { margin: 2px var(--s4) 2px 0; vertical-align: midd
 body.staff6 .sp-sheet .sp-egnote, body.staff6 .sp-sheet .sp-egdel .meta { margin: var(--s8) 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); }
 body.staff6 .sp-rwho { width: 100%; margin: 0 0 var(--s8); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
 body.staff6 .sp-dash { color: var(--v6-muted); }
-@container sptable (max-width: 620px) { body.staff6 .sp-table .c-tags { display: none; } }
 /* For admins: Import CSV and Export, in plain sight at the foot (F177) */
 body.staff6 .sp-admin { margin-top: var(--v6-gap); }
 body.staff6 .sp-adminb { display: flex; flex-wrap: wrap; gap: var(--s8); }
@@ -465,8 +462,9 @@ body.staff6 .ot-part .ot-mcopy { flex: 1 1 100%; display: flex; gap: var(--s8); 
 body.staff6 .sp-team > section { border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); padding: var(--s16); margin: 0 0 var(--s16); }
 body.staff6 .sp-th { margin: 0 0 4px; font: 600 var(--v6-t18)/1.3 var(--font); color: var(--v6-ink); }
 body.staff6 .sp-team p { margin: 0; font-size: var(--v6-t16); line-height: 1.5; color: var(--v6-body); }
-body.staff6 .sp-tlock { display: flex; gap: var(--s12); align-items: flex-start; }
-body.staff6 .sp-tlock > .ic { flex: none; width: 24px; height: 24px; margin-top: 2px; color: var(--v6-muted); }
+/* R-352: who holds the names is one quiet line with the lock, not a card */
+body.staff6 .sp-team p.sp-tlock { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s8) 0 0; color: var(--v6-muted); }
+body.staff6 .sp-tlock > .ic { flex: none; width: 18px; height: 18px; margin-top: 3px; color: var(--v6-muted); }
 body.staff6 .sp-tadd { display: flex; flex-wrap: wrap; gap: var(--s12); align-items: center; justify-content: space-between; }
 body.staff6 .sp-tadd > div { flex: 1 1 260px; }
 body.staff6 .sp-tglist { list-style: none; margin: var(--s8) 0 var(--s12); padding: 0; }
@@ -476,3 +474,10 @@ body.staff6 .sp-tgname { display: flex; gap: var(--s8); align-items: flex-start;
 body.staff6 .sp-tgname > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--v6-muted); }
 body.staff6 .sp-tgname > span { display: flex; flex-direction: column; }
 body.staff6 .sp-team .sp-roll { margin-top: 0; }
+/* A narrow table (a 1024px laptop with the sidebar open): the place takes the room "Done so far" can spare, so
+   "Oʻahu, Senate 18, House 34" stays whole on its one line */
+@container sptable (max-width: 760px) {
+  body.staff6 .sp-table th.c-name { width: 25%; }
+  body.staff6 .sp-table th.c-where { width: 37%; }
+  body.staff6 .sp-table th.c-active { width: 96px; }
+}

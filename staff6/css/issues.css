@@ -635,7 +635,7 @@ body.staff6 .is6-meta { display: flex; flex-wrap: wrap; align-items: center; gap
 body.staff6 .is6-stl { color: var(--v6-muted); }
 body.staff6 .is6-cat { color: var(--v6-muted); }
 body.staff6 .is6-hacts { display: flex; align-items: center; gap: var(--s4); flex: none; }
-@media (max-width: 599px) { body.staff6 .is6-icon { display: none; } body.staff6 main .is6-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); } }
+@media (max-width: 599px) { body.staff6 .is6-icon { display: none; } }
 body.staff6 .is6-card { margin-top: var(--s24); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .is6-side .is6-card:first-child { margin-top: 0; }
 body.staff6 .is6-card h2, body.staff6 .co6-card h2 { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
@@ -747,16 +747,14 @@ body.staff6 .is6-stw { display: inline-flex; align-items: center; gap: 6px; colo
 body.staff6 .is6-stw .ic { width: 18px; height: 18px; color: var(--v6-muted); }
 
 /* ---- All issues as cards (R-336 walk 3, issuegrid.js; the Coalitions tab's cards share these, coalition.css) ----
-   Nate: "organized like the legislator list ... Each issue has it's own image with a description ... very warm and
-   welcoming." Built as Legislators > Everyone's grid (legislators.css .lg6-grid, .lg6-card; the jump chips are Everyone's
-   own .lg6-jump): about five cards a row in a 1440 laptop's column, two on a 390 phone. A card is the card ground and the
-   resting shadow, no border, radius 20 (A-8 on v6); its picture is a band of the topic's tint across the top with the
-   topic's icon large in it (Nate's pick), clipped by the card's corners, so it adds no radius. Under it the name at 18px
-   (500, A-4 on v6), one muted line of the description and one status line at 16px. Every card is one link; the ring shows on
-   the whole card (rule 10). */
-/* The six tints: a wash of one hue for the band and a darker ink of the same hue for the icon (decorative: the name says
-   it). None is amber or red (A-5 on v6: those are only for late and overdue); each ink is 4.5:1 or more on its wash. */
-body.staff6 .ig6-tint0 { --ig-wash: var(--v6-wash); --ig-ink: var(--v6-body); }   /* coalitions: the neutral wash */
+   R-352 (Nate 27 Oct: "keep the issue cards, but calmer"): a card is the card ground and the resting shadow, no border,
+   radius 20 (A-8 on v6), and only words: the issue's small icon beside its name (it tells the issues apart, A-18 on v6), how
+   it stands (one shape and its word) and its next step with its date. No tinted band, no big tile, no description. Four a
+   row in a 1440 laptop's column; on a phone each topic is one list card of rows (the Hearings list's shape). Every card is
+   one link; the ring shows on the whole card (rule 10). */
+/* The six tints: a wash of one hue and a darker ink of the same hue (the topic headings here, Today's issue line, the bill
+   page's issue card and the issue page wear them; the cards here do not). None is amber or red (A-5 on v6); each ink is 4.5:1 or more on its wash. */
+body.staff6 .ig6-tint0 { --ig-wash: var(--v6-wash); --ig-ink: var(--v6-body); }   /* the neutral wash */
 body.staff6 .ig6-tint1 { --ig-wash: #FCEBDD; --ig-ink: #8A4F2A; }   /* Food & Nutrition: peach */
 body.staff6 .ig6-tint2 { --ig-wash: #ECE7F7; --ig-ink: #5A4A8F; }   /* Tobacco, Nicotine & Alcohol: lavender */
 body.staff6 .ig6-tint3 { --ig-wash: #DFEEF2; --ig-ink: #1F6478; }   /* Health Care & Rights: lagoon */
@@ -764,49 +762,57 @@ body.staff6 .ig6-tint4 { --ig-wash: #F7EFD5; --ig-ink: #6B5A24; }   /* Family & 
 body.staff6 .ig6-tint5 { --ig-wash: #E2ECF8; --ig-ink: #2D5A8A; }   /* Getting Around Safely: sky */
 body.staff6 .ig6-tint6 { --ig-wash: #E3F0E3; --ig-ink: #2F6B3A; }   /* Climate & Environment: leaf */
 body.staff6 .is6-index { max-width: 1120px; }
-body.staff6 .ig6-groups { display: flex; flex-direction: column; gap: 32px; margin-top: 8px; }
-body.staff6 .ig6-sh { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 12px; }
+body.staff6 .ig6-groups { display: flex; flex-direction: column; gap: 28px; margin-top: 8px; }
+body.staff6 .ig6-sh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
 body.staff6 .ig6-sh h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .ig6-sh h2:focus { outline: none; }
 body.staff6 .ig6-sh h2:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 body.staff6 .ig6-sn { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+/* R-352 FIX-3 (Nate 28 Oct): a topic heading's tile, the topic's icon in its ink on its wash (issuegrid.js headTile), a
+   rounded square so it never reads as a person's round initials (A-5 on v6). The heading's words line up with its middle. */
+body.staff6 .ig6-sh:has(> .ig6-htile) { align-items: center; }
+body.staff6 .ig6-htile { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: var(--v6-r12);
+  background: var(--ig-wash, var(--v6-wash)); color: var(--ig-ink, var(--v6-body)); }
+body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 24px; height: 24px; stroke-width: 1.75; }
 body.staff6 .ig6-sec, body.staff6 .ig6-fold, body.staff6 .ig6-cell[id], body.staff6 .i6-weekq[id] { scroll-margin-top: 40px; }
 body.staff6 .ig6-fold > .ig6-grid { margin-top: 12px; }
 body.staff6 .ig6-jump { margin: 0 0 16px; }
-/* Four columns on a 1440 laptop (the critic: names on one or two lines, a whole clause of the description). */
-body.staff6 .ig6-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+body.staff6 .ig6-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 body.staff6 .ig6-cell { display: flex; flex-direction: column; min-width: 0; }
-body.staff6 .ig6-card { position: relative; flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+body.staff6 .ig6-card { position: relative; flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0;
   border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); transition: box-shadow .15s ease-out; }
 body.staff6 .ig6-card:has(.ig6-link:focus-visible) { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .ig6-link { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; color: inherit; text-decoration: none; }
+body.staff6 .ig6-link { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 16px; color: inherit; text-decoration: none; }
 body.staff6 .ig6-link:focus-visible { outline: none; }
-/* The picture: the tint across the card's top, the icon large in it. A small one heads a topic's group (a disc). */
-body.staff6 .ig6-pic { display: flex; align-items: center; justify-content: center; flex: none; height: 56px; background: var(--ig-wash, var(--v6-wash)); color: var(--ig-ink, var(--v6-body)); }
-body.staff6 .ig6-pic .ic, body.staff6 .ig6-pic svg { width: 32px; height: 32px; stroke-width: 1.75; }
-body.staff6 .ig6-mono { font: 500 24px/1 Poppins, system-ui, sans-serif; letter-spacing: .02em; }
-body.staff6 .ig6-mono::before { content: attr(data-m); }
+/* The name with its small icon before it, in the muted ink (decorative: the name says it). */
+body.staff6 .ig6-top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+body.staff6 .ig6-ic { display: inline-flex; flex: none; margin-top: 3px; color: var(--v6-muted); }
+body.staff6 .ig6-ic .ic, body.staff6 .ig6-ic svg { width: 18px; height: 18px; }
+body.staff6 .ig6-name { min-width: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
 /* A coalition's short name after its full name: small and muted ("Community Health Workers · CHW"). */
 body.staff6 .ig6-after { font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-muted); white-space: nowrap; }   /* the dot stays with the short name */
-body.staff6 .ig6-pic.ig6-pic-sm { width: 40px; height: 40px; border-radius: 50%; }
-body.staff6 .ig6-pic.ig6-pic-sm .ic, body.staff6 .ig6-pic.ig6-pic-sm svg { width: 22px; height: 22px; stroke-width: 2; }
-/* A to Z: the letter in the band's corner on the first card of each letter (Everyone's badge). */
-body.staff6 .ig6-badge { position: absolute; top: 8px; left: 14px; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
-body.staff6 .ig6-body { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; padding: 12px 16px 16px; min-width: 0; }
-body.staff6 .ig6-name { font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-/* Two lines at most: a plain block of two lines' height (issuegrid.js fitLines fits whole words into it; a line-clamp box
-   measured its own height unreliably while the words changed). */
-body.staff6 .ig6-desc { display: block; max-height: calc(2 * var(--v6-lh16)); overflow: hidden; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-body.staff6 .ig6-desc.ig6-tag { color: var(--v6-body); font-style: italic; }
-/* The status line sits at the card's foot, so the lines of a row of cards line up. */
-body.staff6 .ig6-stat { display: flex; align-items: flex-start; gap: 6px; margin-top: auto; padding-top: 6px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-body.staff6 .ig6-stat .ic, body.staff6 .ig6-stat svg { flex: none; width: 18px; height: 18px; margin-top: 3px; color: var(--v6-muted); }
-body.staff6 .ig6-stat.t-late { color: var(--v6-late); }
-body.staff6 .ig6-stat.t-overdue { color: var(--v6-bad); }
-body.staff6 .ig6-stat.t-late svg, body.staff6 .ig6-stat.t-overdue svg { color: inherit; }
-body.staff6 .ig6-stat.t-done svg { color: var(--v6-leaf); }
-body.staff6 .ig6-stat .v6-nw { white-space: normal; }
+body.staff6 .ig6-desc { display: block; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+/* How it stands: the shape in ink with no disc, its word in the body colour. */
+body.staff6 .ig6-stat { display: flex; flex-wrap: wrap; align-items: center; gap: 0 6px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .ig6-stat .v6-sm { font-size: inherit; line-height: inherit; color: inherit; gap: 6px; }
+body.staff6 .ig6-stat .v6-sm-ic { width: 18px; height: 18px; background: none; color: var(--v6-ink); }
+body.staff6 .ig6-stat .v6-sm-ic svg { width: 18px; height: 18px; }
+body.staff6 .ig6-stat .v6-sm[data-state="issue:risk"] { color: var(--v6-ink); font-weight: 700; }
+body.staff6 .ig6-stat .v6-sm.t-done .v6-sm-ic { background: none; color: var(--v6-leaf); }
+body.staff6 .ig6-tag { color: var(--v6-muted); }
+/* On track is the usual state: its word without the tick (a tick reads as done, Nate 27 Oct); the other shapes stay. */
+body.staff6 .ig6-stat .v6-sm[data-state="issue:ontrack"] .v6-sm-ic { display: none; }
+body.staff6 .ig6-lines { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+body.staff6 .ig6-rest { margin-top: 12px; }
+body.staff6 .ig6-stat > svg { flex: none; width: 18px; height: 18px; color: var(--v6-muted); }
+/* The next step and its date: plain words; a clock and the time in bold when due today (A-5 on v6), amber only for the
+   viewer's own late step, red for their overdue one. */
+body.staff6 .ig6-next { display: flex; align-items: flex-start; gap: 6px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .ig6-next svg { flex: none; width: 18px; height: 18px; margin-top: 3px; color: inherit; }
+body.staff6 .ig6-next .v6-nw { white-space: nowrap; }
+body.staff6 .ig6-next.t-today .v6-tm:first-of-type { color: var(--v6-ink); font-weight: 700; }
+body.staff6 .ig6-next.t-late { color: var(--v6-late); }
+body.staff6 .ig6-next.t-overdue { color: var(--v6-bad); }
 /* The tools: the find box and Sort side by side, New issue at the end on a phone. */
 body.staff6 .ig6-tools { flex-wrap: nowrap; }
 body.staff6 .ig6-tools .i6-find { flex: 1 1 280px; }
@@ -820,21 +826,29 @@ body.staff6 .ig6-tools .ig6-sortb[hidden] { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { body.staff6 .ig6-card { transition: none; } }
 @media (max-width: 767px) {
-  body.staff6 .ig6-groups { gap: 24px; }
-  /* A phone: a compact card a row (the critic), about 90px: the icon as a 40px tinted disc on the left, the name and the
-     status line beside it; the description waits on the issue's page. */
-  body.staff6 .ig6-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  body.staff6 .ig6-link { flex-direction: row; align-items: flex-start; gap: 12px; padding: 12px 16px; min-height: 88px; }
-  body.staff6 .ig6-pic { width: 40px; height: 40px; border-radius: 50%; margin-top: 2px; }
-  body.staff6 .ig6-pic .ic, body.staff6 .ig6-pic svg { width: 22px; height: 22px; stroke-width: 2; }
-  body.staff6 .ig6-mono { font-size: 15px; }
-  body.staff6 .ig6-body { padding: 0; gap: 2px; }
-  body.staff6 .ig6-issue .ig6-desc:not(.ig6-tag) { display: none; }
-  body.staff6 .ig6-stat { padding-top: 2px; }
-  body.staff6 .ig6-badge { display: none; }   /* the letter chips carry A to Z on a phone */
-  /* A group's heading stays under the top bar while its cards pass (Everyone's rule on a phone). */
-  body.staff6 .ig6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 8px; padding: 8px 16px; background: var(--v6-page); }
-  body.staff6 .ig6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
+  body.staff6 .ig6-groups { gap: 16px; }
+  /* A phone: each topic one list card, its issues rows with a hairline between (the Hearings list's shape, A-8 on v6). */
+  body.staff6 .ig6-grid { display: block; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+  body.staff6 .ig6-card { border-radius: 0; background: none; box-shadow: none; }
+  body.staff6 .ig6-cell + .ig6-cell .ig6-card { border-top: 1px solid rgba(var(--v6-ink-rgb), .1); }
+  body.staff6 .ig6-cell:first-child .ig6-card { border-radius: var(--v6-r20) var(--v6-r20) 0 0; }
+  body.staff6 .ig6-cell:last-child .ig6-card { border-radius: 0 0 var(--v6-r20) var(--v6-r20); }
+  body.staff6 .ig6-cell:only-child .ig6-card { border-radius: var(--v6-r20); }
+  body.staff6 .ig6-link { gap: 2px; padding: 8px 16px; }
+  /* How it stands and the next step run on as one line of words ("On track · HB 1779 needs a hearing by Mon 3/30"). */
+  body.staff6 .ig6-lines { display: block; }
+  body.staff6 .ig6-lines > .ig6-stat, body.staff6 .ig6-lines > .ig6-next { display: inline; }
+  body.staff6 .ig6-lines > .ig6-stat .v6-sm, body.staff6 .ig6-lines > .ig6-stat .v6-sm-ic { display: inline-flex; vertical-align: -3px; }
+  /* On a phone the usual state is said only to a screen reader when a next step follows (status by exception, D3): the
+     row's line is then its next step alone, and At risk, Stopped and Won still lead in words. */
+  body.staff6 .ig6-lines > .ig6-stat:has(.v6-sm[data-state="issue:ontrack"]):not(:has(.ig6-tag)):has(+ .ig6-next) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body.staff6 .ig6-lines > .ig6-stat:has(.v6-sm[data-state="issue:ontrack"]):not(:has(.ig6-tag)) + .ig6-next::before { content: none; }
+  body.staff6 .ig6-lines > .ig6-stat + .ig6-next::before { content: " \00B7  "; color: var(--v6-muted); }
+  body.staff6 .ig6-lines > .ig6-next svg { display: inline; vertical-align: -3px; margin: 0 4px 0 0; }
+  /* A group's heading stays under the top bar while its rows pass (Everyone's rule on a phone). */
+  body.staff6 .ig6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 2px; padding: 6px 16px; background: var(--v6-page); }
+  body.staff6 .ig6-rest { margin-top: 4px; }
+  body.staff6 .ig6-htile { width: 28px; height: 28px; } body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 18px; height: 18px; }
   body.staff6 .ig6-sec, body.staff6 .ig6-cell[id] { scroll-margin-top: 0; }
   /* The box on its own line; Sort (which names its order) and New share the next. */
   body.staff6 .ig6-tools, body.staff6 .ig6-tools.open { flex-wrap: wrap; gap: 8px; }
@@ -850,9 +864,9 @@ body.staff6 .ip6-page .ip6-head { margin-bottom: 0; }
 body.staff6 .ip6-page .is6-desc { margin-top: var(--s4); }
 body.staff6 .ip6-page .is6-meta { margin-top: var(--s8); }
 body.staff6 .ip6-health { margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); }
-body.staff6 .ip6-hs { display: flex; align-items: flex-start; gap: var(--s12); margin: 0; font-size: var(--v6-t18); line-height: 28px; color: var(--v6-ink); }
-body.staff6 .ip6-hs > .ic { width: 22px; height: 22px; margin-top: 3px; flex: none; color: var(--v6-ink); }
-body.staff6 .ip6-hs b { font-weight: 600; }
+body.staff6 .ip6-hs { display: flex; align-items: flex-start; gap: var(--s12); margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .ip6-hs > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-ink); }
+body.staff6 .ip6-hs b { font-weight: 700; }
 body.staff6 .ip6-hn { display: block; color: var(--v6-body); }   /* Next: on a line of its own, so the tile reads in two parts */
 body.staff6 .ip6-sec { margin-top: var(--s32); }
 body.staff6 .ip6-h { margin: 0 0 var(--s12); font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; letter-spacing: -.01em; color: var(--v6-ink); }
@@ -985,9 +999,6 @@ body.staff6 .ip6-stories li:first-child { border-top: 0; padding-top: 0; }
 body.staff6 .ip6-stories q { display: block; font-size: var(--v6-t16); line-height: 1.5; color: var(--v6-ink); }
 body.staff6 .ip6-stories .meta { display: block; margin-top: 4px; }
 
-/* ---- R-344 Rule 2, Decision 4: how an issue is doing is its status line's picture (issuegrid.js issueCard), in ink ---- */
-body.staff6 .ig6-stat .ig6-sic { display: inline-flex; flex: none; }
-body.staff6 .ig6-stat .ig6-sic svg { color: var(--v6-ink); }
 /* the House and Senate dots (verbs.js chamberDots), for the places that still draw them */
 body.staff6 .v6-chdots { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 body.staff6 .v6-chd { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }

@@ -6,7 +6,8 @@
 # live path on a fake database (staff_live.py) and its flows in the sandbox (staff_flows.py, R-152). The live
 # half reads production as the public does, with the privacy signal set, so no visit is counted. A red run emails whoever
 # pushed. Since R-278 every step runs even after one fails (the run is still red), so one run lists every stale check. Since
-# R-345 the steps run on eight machines at once (the job below); Staff v3 and v4 are frozen and their checks retired. The
+# R-345 the steps run on eight machines at once (the job below); Staff v3 and v4 are frozen and their checks retired. Since
+# R-352 Staff v6's own tests run here too (two of them, the budget and the journeys, only warn until its cleanup lands). The
 # share-pages commits (b/, i/ and cal/ only; hourly from January to June) do not run it.
 name: Tests
 on:
@@ -116,6 +117,29 @@ jobs:
       - name: "Staff v5: search finds conversations with legislators and the asks to chairs (R-316 H-15)"
         if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/staff5_conv_search.py
+      # Staff v6 (R-352 groundwork, 27 Oct): none of its tests ran on a push, so the drift between 23 and 27 Oct (22 budget
+      # misses) went unseen. Its own unmerged workflow (build/R-336-switch, staff6.yml) is replaced by these steps here,
+      # each on one machine. APP defaults to staff6 and HOST to this server, so no prefix is needed.
+      - name: "Staff v6: one word per step and testimony state, no browser (spec 5, D15)"
+        if: ${{ !cancelled() && matrix.shard == 4 }}
+        run: node tests/staff6_steps_test.mjs
+      - name: "Staff v6: an issue found by its bill number (D15)"
+        if: ${{ !cancelled() && matrix.shard == 4 }}
+        run: node tests/staff6_issues_test.mjs
+      - name: "Staff v6: every old address opens the right place, and sign-in links arrive whole (spec 3.4, V36, D7)"
+        if: ${{ !cancelled() && matrix.shard == 6 }}
+        run: python3 tests/staff6_links.py
+      - name: "Staff v6: one wording per testimony state, one name per act, no codes or \"vape\" (spec 5, 7.6)"
+        if: ${{ !cancelled() && matrix.shard == 1 }}
+        run: python3 tests/staff6_words.py
+      - name: "Staff v6: the journeys in clicks, by keyboard, focus after Back, the Undo toast, 200% zoom (spec 8, DESIGN B-2 on v6)"
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        # R-352 (28 Oct): a hard gate since the cleanup landed (B-2 on v6)
+        run: python3 tests/staff6_journeys.py
+      - name: "Staff v6: how much is on each screen, the quick run (1440 and 390, the busy day, Nate, Kevin, Patti; A-24 on v6, spec 8)"
+        if: ${{ !cancelled() && matrix.shard == 3 }}
+        # R-352 (28 Oct): a hard gate since the cleanup landed (0 misses on 263 screens)
+        run: python3 tests/staff6_budget.py --quick
       - name: Year-proof bill links
         if: ${{ !cancelled() && matrix.shard == 6 }}
         run: python3 tests/year_links.py

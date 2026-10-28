@@ -12,17 +12,20 @@
 // Both have the same visible scope switch: Mine · My coalitions · Team (?scope=, remembered per person).
 // #/hearings with no tab opens Get hearings when the person has a bill waiting for a hearing and no hearing this week,
 // else This week (spec 3.3). Old addresses arrive here: #/?view=week&w=1 is #/hearings?w=1 (app.js).
+// The calendar has one home, here (B-13 on v6, R-352): This week shows as a list or as a calendar (#/hearings/week?view=cal),
+// with an issue filter (?issue=<id>, the job All issues' calendar did). Today's old week addresses (#/?view=cal&who=team&w=1
+// &day=2026-03-18) and All issues' (#/my-issues/all?view=cal) are sent here by app.js; this page reads `who` as `scope`
+// and `day` as the phone's day, so those links keep whose week, which week and which day.
 // What it replaces (A-25, rule 7.8): v5's This week grid (testimony-deadline cards, hearing blocks, Other to-dos: the
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
 import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
-import { issueIcon } from './issuegrid.js';   // an issue's own icon, else its topic's (R-339), on each calendar entry (R-346)
-import { icon, btn, iconBtn, toast, segmented, menuSheet, ASK_TAB } from './ui.js';
+import { icon, btn, iconBtn, toast, segmented, pickerChip, pickerSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
 import { todayItems } from './today5.js';   // the person's own to-dos and follow-ups, as Today reads them
-import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope, toAskWords, decideWords, nwParts } from './push.js';
+import { askBoard, askSummary, scopesFor, defaultScope, scopeOk, whoseWords, coalOf, SCOPES, freshScope, toAskWords, decideWords, nwParts, askTabWords } from './push.js';
 import { movedAskHTML, wireMoved, oldSitting, seedMoved } from './moved.js';
 
 const HR = 36e5, DAY = 864e5;
@@ -45,10 +48,36 @@ async function remember(v) {
   try { await DB.patchPrefs({ hscope: v }); } catch { /* the address keeps it for this visit */ }
 }
 function scopeOf(route) {
-  const ok = scopesFor().map(x => x[0]), want = [route?.q?.scope, S.me?.prefs?.hscope, remembered()].find(x => x && ok.includes(x));
+  const ok = scopesFor().map(x => x[0]), want = [route?.q?.scope, route?.q?.who, S.me?.prefs?.hscope, remembered()].find(x => x && ok.includes(x));
   return want || defaultScope();
 }
 const switcher = scope => segmented('hscope', scopesFor(), scope, 'Whose hearings');
+
+// ---- one issue's hearings (R-352: the job All issues' calendar did, now here) ----
+// The address holds the pick (?issue=<id>), nothing else does: a filter kept out of sight would hide hearings from someone
+// who forgot it was on, so a link or Back opens the same week and a fresh visit opens on All issues. The picker is the
+// app's plain picker chip ("All issues ▾", A-12: it opens a list of choices, so it looks like one), never a second switch.
+let ISS = '';   // the issue this draw is filtered to ('' is every issue); set by render, cleared for the other screens' calls
+const issBills = id => new Set((S.billIssues || []).filter(x => String(x.issue_id) === id).map(x => x.bill_id));
+const issueOf = route => { const id = route?.q?.issue || ''; return id && (S.issues || []).some(i => String(i.id) === id) ? id : ''; };
+// The scope's bills, narrowed to the issue when one is picked.
+function okFor(scope) {
+  const ok = scopeOk(scope); if (!ISS) return ok;
+  const ids = issBills(ISS); return b => ok(b) && ids.has(b.id);
+}
+// The issues that hold at least one of the scope's bills, by name (an issue with none of them would only show an empty week).
+function issueOpts(scope) {
+  const ok = scopeOk(scope), have = new Set((S.bills || []).filter(ok).map(b => b.id));
+  const ids = new Set((S.billIssues || []).filter(x => have.has(x.bill_id)).map(x => x.issue_id));
+  return (S.issues || []).filter(i => ids.has(i.id) || String(i.id) === ISS).sort((x, y) => String(x.name).localeCompare(String(y.name)));
+}
+// "No hearings on your bills on Tobacco this week": the empty words name the picked issue, so an empty week says why.
+const issWords = w => { const i = ISS && (S.issues || []).find(x => String(x.id) === ISS); return i ? `${w} on ${i.name}` : w; };
+function issuePick(scope) {
+  const opts = issueOpts(scope); if (!opts.length && !ISS) return '';
+  const on = (S.issues || []).find(i => String(i.id) === ISS);
+  return pickerChip(on ? on.name : 'All issues', { 'data-hwiss': '1', 'aria-haspopup': 'dialog', 'aria-label': `Issue: ${on ? on.name : 'all issues'}. Change` });
+}
 
 // ---- This week: the sittings, day by day ----
 // A sitting is every hearing row with one committee and start time (hearing.js sittingOf); it is in a view when one of
@@ -57,7 +86,7 @@ const sitKey = h => `${h.committee}|${h.scheduled_at}`;
 const goingTo = rows => !!S.me && rows.some(r => (S.attend?.[r.id] || []).includes(S.me.id));
 const isMon = b => !b?.position || b.position === 'monitor';
 function weekSittings(scope, mon) {
-  const ok = scopeOk(scope), t0 = ms(mon + 'T00:00:00-10:00'), t1 = ms(addDays(mon, 6) + 'T23:59:59.999-10:00'), by = new Map();
+  const ok = okFor(scope), t0 = ms(mon + 'T00:00:00-10:00'), t1 = ms(addDays(mon, 6) + 'T23:59:59.999-10:00'), by = new Map();
   for (const h of S.hearings || []) {
     const t = ms(h.scheduled_at); if (!(t >= t0 && t <= t1)) continue;
     const k = sitKey(h); if (!by.has(k)) by.set(k, []); by.get(k).push(h);
@@ -67,7 +96,8 @@ function weekSittings(scope, mon) {
     const live = rows.filter(r => r.status !== 'cancelled'), going = goingTo(rows);
     const bills = (live.length ? live : rows).map(r => billById(r.bill_id)).filter(b => b && b.tracked !== false);
     const mine = bills.filter(ok);
-    if (!mine.length && !going) continue;
+    // (one issue picked: only sittings that hear its bills, even one the person is going to)
+    if (!mine.length && (!going || ISS)) continue;
     // A cancelled sitting is shown only to someone still down for it and only while it has no new date (W53 asks them
     // on the new one instead).
     if (!live.length) { if (!going || rows.some(r => (S.hearings || []).some(n => n.status !== 'cancelled' && oldSitting(n)?.id === r.id))) continue; }
@@ -107,7 +137,7 @@ const slot = x => `<div class="hw-slot">${movedAskHTML(x.h, btn)}${weekCard(x.h)
 // The Capitol's deadlines that fall in the week, on their day, in a few plain words (v5's grid marked them; F77). Only the
 // ones that apply to this view's bills (a deadline that names its own bills, like the budget's, only for those).
 function capDays(scope, mon) {
-  const sun = addDays(mon, 6), list = (S.bills || []).filter(scopeOk(scope)), out = new Map();
+  const sun = addDays(mon, 6), list = (S.bills || []).filter(okFor(scope)), out = new Map();
   for (const d of deadlineCalendar()) if (d.date >= mon && d.date <= sun && gateApplies(d, list)) { if (!out.has(d.date)) out.set(d.date, []); out.get(d.date).push(d); }
   return out;
 }
@@ -130,7 +160,7 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 function askLine(s, scope) {
   const t = SESSION_OVER ? '' : toAskWords(s) || decideWords(s?.decide || 0); if (!t || !tabCounts()) return '';
   const href = `#/hearings/ask${scope !== defaultScope() ? `?scope=${scope}` : ''}`;
-  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">${ASK_TAB}${icon('chevron-right', { cls: 'v6-chev' })}</span></a>`;
+  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">${askTabWords()}</span></a>`;
 }
 // Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
 // (Nate's walk: Patti's Get hearings showed Lauren's 15 on every visit; D4's door on Today is the way to help).
@@ -145,7 +175,7 @@ let SUGS = new Map();
 function suggList(scope) {
   SUGS = new Map();
   if (scope !== 'mine' || SESSION_OVER) return [];
-  const list = suggestions((S.bills || []).filter(scopeOk('mine')), { cap: Infinity }).filter(s => s.kind !== 'chair').slice(0, SUGGEST_CAP);
+  const list = suggestions((S.bills || []).filter(okFor('mine')), { cap: Infinity }).filter(s => s.kind !== 'chair').slice(0, SUGGEST_CAP);
   for (const s of list) SUGS.set(s.key, s);
   return list;
 }
@@ -178,13 +208,18 @@ async function answerSugg(key, state) {
 }
 
 // The week's dates and Previous / Next, on the scope switch's line (critic A-1: one line, not two, over the first card).
-// This week's own dates say only "Mar 16 to 22" (the tab says "This week", A-14); on a phone they go, since each day's
-// heading has its date. Another week says which ("Next week · Mar 23 to 29") everywhere.
-function weekNav(route) {
+// This week's own dates say only "Mar 16 to 22" (the tab says "This week", A-14). Another week says which ("Next week ·
+// Mar 23 to 29") everywhere.
+// The way to see the same week the other way is one plain link after the dates, "See as calendar" / "See as list" (R-352,
+// A-12 on v6: the List | Calendar pill beside Mine | Team looked the same as it and meant something else; a link that goes
+// to the other view looks like what it does). `mode` is '' on the other screens' calendars, which draw no link.
+function weekNav(route, mode = '') {
   const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), sun = addDays(mon, 6);
   const range = `${fmt(mon, { month: 'short', day: 'numeric' })} to ${fmt(sun, fmt(mon, { month: 'short' }) === fmt(sun, { month: 'short' }) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
   const words = off === 0 ? range : off === 1 ? `Next week · ${range}` : off === -1 ? `Last week · ${range}` : range;
-  return `<div class="hw-nav${off === 0 ? ' now' : ''}"><p class="hw-range">${esc(words)}</p>
+  const other = mode === 'cal' ? 'list' : 'cal', q = viewQuery(route, { view: other });
+  const swap = mode ? `<a class="hw-view" href="#/hearings/week?${esc(q)}" data-hwview="${other}">${other === 'cal' ? 'See as calendar' : 'See as list'}${icon('chevron-right', { cls: 'v6-chev' })}</a>` : '';
+  return `<div class="hw-nav${off === 0 ? ' now' : ''}"><p class="hw-range">${esc(words)}</p>${swap}
     <div class="hw-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-hweek': off - 1 })}${off ? btn('This week', { kind: 'text', sm: true, attrs: { 'data-hweek': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-hweek': off + 1 })}</div></div>`;
 }
 // On a phone, this week's Previous and Next sit under the days instead (the first hearing comes first, critic A-1; a
@@ -208,7 +243,7 @@ function weekHTML(route, scope, sum) {
   const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${capLine(caps.get(d))}${shown.filter(x => x.day === d).map(slot).join('')}${monLine(d)}</section>`;
   const n = d => shown.filter(x => x.day === d).length, np = past.reduce((k, d) => k + n(d), 0);
   const earlier = past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>${esc(np ? `Earlier this week: ${plural(np, 'hearing')} held` : 'Earlier this week')}</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(dayHTML).join('')}</details>` : '';
-  const whose = scope === 'team' ? 'the team’s bills' : whoseWords(scope);
+  const whose = issWords(scope === 'team' ? 'the team’s bills' : whoseWords(scope));
   const when = off === 0 ? 'this week' : off === 1 ? 'next week' : off === -1 ? 'last week' : 'that week';
   const anyAhead = ahead.some(d => n(d)), monAhead = ahead.some(d => monDay(d).length);
   // Between sessions, said so, with what to do meanwhile (Nate's walk: "No hearings on HEAL bills this week" in November).
@@ -220,8 +255,8 @@ function weekHTML(route, scope, sum) {
 
 // ---- This week as a calendar (Nate 25 Oct walk 1: "There still needs to be a calendar view that's easily apparent and
 // accessible") ----
-// A List | Calendar switch on This week, beside Mine | Team, remembered per person as the scope is (prefs.hview, and this
-// browser's copy), and an address of its own (#/hearings/week?view=cal). List stays everyone's default until they pick.
+// "See as calendar" on This week's date line, remembered per person as the scope is (prefs.hview, and this browser's copy),
+// and an address of its own (#/hearings/week?view=cal). List stays everyone's default until they pick.
 // The calendar is the same week as the list: the same sittings (weekSittings, monitor-only ones hidden unless shown), the
 // same Capitol deadlines (capDays) and the same empty and between-sessions words, laid out Monday to Friday as columns,
 // Saturday and Sunday in one Weekend strip below (only when it has something), in time order inside each day. To that it
@@ -230,6 +265,7 @@ function weekHTML(route, scope, sum) {
 // It replaces nothing on a daily screen (A-25): it is the list shown another way, and the list is one tap back.
 // v5's grid (today5.js weekView) was the model; this one is calm (A-8, A-24): one quiet line per entry, only the hearing a
 // soft card, tokens only.
+// (R-352: the view is picked by the date line's "See as calendar" link, no longer by a second pill switch)
 const VKEY = () => `hiphi6_hview_${S.me?.id || ''}`;
 const viewSaved = () => { try { return localStorage.getItem(VKEY()) || ''; } catch { return ''; } };
 async function rememberView(v) {
@@ -237,7 +273,11 @@ async function rememberView(v) {
   try { await DB.patchPrefs({ hview: v }); } catch { /* the address keeps it for this visit */ }
 }
 const modeOf = route => [route?.q?.view, S.me?.prefs?.hview, viewSaved()].find(x => x === 'cal' || x === 'list') || 'list';
-const modeSwitch = mode => segmented('hview', [['list', 'List'], ['cal', 'Calendar']], mode, 'Show the week as');
+// This week's address with the page's own picks (whose, which week, the issue, the view), changed by `o`.
+function viewQuery(route, o = {}) {
+  const q = { scope: route?.q?.scope || route?.q?.who || '', w: weekOff(route) ? String(weekOff(route)) : '', issue: ISS, view: route?.q?.view || '', ...o };
+  return new URLSearchParams(Object.entries(q).filter(([, x]) => x && x !== '0')).toString();
+}
 const isPosB = b => !!b && b.tracked !== false && !isMon(b);
 const weekdayLong = t => new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'long' });
 // Whether Today's steps hold the person's own step on this bill for this sitting (sitKey `k`; a step with no sitting, any).
@@ -251,7 +291,7 @@ function stepOfB(h, b) {
 }
 // Everything the calendar draws for one week: { day: [entries in time order] } and each day's Capitol deadlines.
 function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
-  const sun = addDays(mon, 6), t0 = ms(mon + 'T00:00:00-10:00'), t1 = ms(sun + 'T23:59:59.999-10:00'), ok = scopeOk(scope), now = Date.now();
+  const sun = addDays(mon, 6), t0 = ms(mon + 'T00:00:00-10:00'), t1 = ms(sun + 'T23:59:59.999-10:00'), ok = okFor(scope), now = Date.now();
   const days = new Map([0, 1, 2, 3, 4, 5, 6].map(i => [addDays(mon, i), []]));
   const put = (t, e) => { const d = days.get(hst(t)); if (d) d.push({ t, ...e }); };
   const all = weekSittings(scope, mon), shown = all.filter(x => !x.mon || monOn());
@@ -312,36 +352,40 @@ const capCal = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 // One entry, one shape (R-346 finding D, Nate 27 Oct): every entry on every calendar (Today, Hearings > This week, All
 // issues) is the same four parts, top to bottom: the time and what kind of entry it is ("1:10 PM · Hearing"), the job (the
 // committee and room, "For Friday's Senate Health and Human Services hearing", the person's own step in Today's words, the
-// to-do), the bill or bills with where each stands, and the issue (its icon and name, in its topic's tint). Names are said
+// to-do), the bill or bills (name first, number small) with where each stands, and the issue by name. Names are said
 // whole, never cut (the mock's "Senate HHS" and "Let people cross…" read as different things). The job is the entry's link
-// (the hearing, the bill, the person); each bill number and each issue is a link of its own, so no link sits in another.
+// (the hearing, the bill, the person); each bill and each issue is a link of its own, so no link sits in another.
 // A hearing is the one soft card in a day; testimony due carries a thin action rule (critic, R-342).
 function issuesOfB(b) {
   const ids = new Set((S.billIssues || []).filter(x => x.bill_id === b?.id).map(x => x.issue_id));
   return (S.issues || []).filter(i => ids.has(i.id));
 }
-// The issues of an entry's bills, each once, as one quiet line: the first issue's small icon and whole name in the muted
-// text colour (no pastel fill: the fresh-eyes review, A-5's five text colours), "+1" when there are more. An issue named as
-// its bill, when the entry's job already says that name ("File the testimony on Youth mental health app pilot"), is its
-// icon alone; the link keeps the name for screen readers (A-14).
-function issueTags(bills, said = '') {
+// The issues of an entry's bills, each once, as one quiet line: the first issue's whole name in the muted text colour (no
+// pastel fill: the fresh-eyes review, A-5's five text colours; no icon, A-18 on v6), "+1" when there are more. An issue
+// named as its only bill is left out: the bill line above already says that name (A-14).
+function issueTags(bills) {
   const seen = new Map();
   for (const b of bills || []) for (const i of issuesOfB(b)) if (!seen.has(i.id)) seen.set(i.id, i);
   const iss = [...seen.values()].sort((x, y) => String(x.name).localeCompare(String(y.name)));
   if (!iss.length) return '';
   const i = iss[0], nm = String(i.name || '').trim().toLowerCase();
-  const same = !!nm && String(said || '').toLowerCase().includes(nm) && (bills || []).some(b => String(b?.nickname || '').trim().toLowerCase() === nm);
-  return `<p class="hc-isl"><a class="hc-iss" href="#/issue/${encodeURIComponent(i.id)}" aria-label="${esc(`Issue: ${i.name}`)}"${same ? ` title="${esc(i.name)}"` : ''}>${icon(issueIcon(i))}${same ? '' : `<span>${esc(i.name)}</span>`}</a>${iss.length > 1 ? `<span class="hc-issn">+${iss.length - 1}</span>` : ''}</p>`;
+  const same = !!nm && (bills || []).some(b => String(b?.nickname || '').trim().toLowerCase() === nm);
+  // R-352 (A-18 on v6): words only, no icon; the cell's bill line now leads with the bill's name, so an issue named as its
+  // only bill is not said again
+  if (same && iss.length === 1) return '';
+  return `<p class="hc-isl"><a class="hc-iss" href="#/issue/${encodeURIComponent(i.id)}" aria-label="${esc(`Issue: ${i.name}`)}"><span>${esc(i.name)}</span></a>${iss.length > 1 ? `<span class="hc-issn">+${iss.length - 1}</span>` : ''}</p>`;
 }
-// R-344 (the colour of time, one rule on every screen): late but still accepted leads with "Late" and the alarm clock, in
-// amber; due today is amber with the clock and says "due today"; passed is red. Someone else's step stays neutral
-// (steps.js shownStatus).
-const ST_TIME = { late: ['alarm-clock', w => `Late · ${w}`], today: ['clock', w => `${w} · due today`], overdue: ['circle-alert', w => `${w} · overdue`] };
+// The colour of time (A-5 on v6, R-352; steps.js status): late but still accepted leads with "Late" and the alarm clock, in
+// amber; due today is plain, with the clock and "due today" in words; a step still to do whose deadline passed is red with
+// the alert icon and "overdue". Someone else's step stays neutral (steps.js shownStatus).
+// R-352 (C-15): the state first, then the time's word, as on Hearings' list ("Ready to file · late"), not bold.
+const ST_TIME = { late: ['alarm-clock', w => `${w} · late`], today: ['clock', w => `${w} · due today`], overdue: ['circle-alert', w => `${w} · overdue`] };
 const stWords = st => { if (!st.word) return ''; const t = ST_TIME[st.tone];
   return `<span class="hc-st${t ? ' ' + st.tone : ''}">${t ? icon(t[0]) : ''}${esc(t ? t[1](st.word) : st.word)}</span>`; };
-// One bill on an entry: its number (a link to it), then where it stands, or the person's own step on it when Today folded
-// that step into this entry (one entry per job, finding C).
-const billLi = (b, st, mine = '') => `<li><a class="hc-bl" href="${esc(billRoute(b))}" aria-label="${esc(sayWords(b))}">${esc(numWords(b))}</a>${mine ? `<span class="hc-st hc-mine">${icon('circle-check')}${esc(`Your step: ${mine}`)}</span>` : stWords(st)}</li>`;
+// One bill on an entry: its name first, the link to the bill (R-352: as every row; the teal number first read as a code),
+// then its number small and plain and where it stands on one line, or the person's own step on it when Today folded that step
+// into this entry (one entry per job, finding C).
+const billLi = (b, st, mine = '') => `<li><a class="hc-bl" href="${esc(billRoute(b))}" aria-label="${esc(sayWords(b))}">${esc(nameWords(b))}</a><span class="hc-bnum">${esc(numWords(b))}</span>${mine ? `<span class="hc-st hc-mine">${icon('circle-check')}${esc(`Your step: ${mine}`)}</span>` : stWords(st)}</li>`;
 function calEntry(e, { wkend = false } = {}) {
   const when = `${wkend ? `${new Date(e.t).toLocaleDateString('en-US', { ...HST, weekday: 'short' })} ` : ''}${timeWords(e.t)}`;
   const head = (ic, kind, more = '') => `<p class="hc-eh"><span class="hc-t">${esc(when)}</span><span class="hc-ek">${icon(ic)}${esc(kind)}</span>${more}</p>`;
@@ -360,9 +404,9 @@ function calEntry(e, { wkend = false } = {}) {
     const bills = e.bills.map(y => billLi(y.b, y)).join('');
     return `<li class="hc-e hc-due${e.late ? ' past' : ''}">${head('file-text', 'Testimony due')}${job(`#/hearing/${encodeURIComponent(h.id)}?from=week`, what)}${list(bills)}${issueTags(e.bills.map(y => y.b))}</li>`;
   }
-  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step">${head('circle-check', 'Your step')}${job(e.href, e.words)}${list(billLi(e.b, {}))}${issueTags([e.b], e.words)}</li>`;
+  if (e.k === 'step') return `<li class="hc-e hc-todo hc-step">${head('circle-check', 'Your step')}${job(e.href, e.words)}${list(billLi(e.b, {}))}${issueTags([e.b])}</li>`;
   if (e.k === 'fu') return `<li class="hc-e hc-todo hc-fu">${head('phone', 'Follow-up')}${job(e.href, e.words)}${e.sub || e.who ? `<p class="hc-es">${esc([e.sub, e.who ? `For ${e.who === 'You' ? 'you' : e.who}` : ''].filter(Boolean).join(' · '))}</p>` : ''}</li>`;
-  return `<li class="hc-e hc-todo">${head('list-todo', 'To-do')}${job(e.href, e.words)}${e.who ? `<p class="hc-es">${esc(`For ${e.who === 'You' ? 'you' : e.who}`)}</p>` : ''}${e.b ? list(billLi(e.b, {})) + issueTags([e.b], e.words) : ''}</li>`;
+  return `<li class="hc-e hc-todo">${head('list-todo', 'To-do')}${job(e.href, e.words)}${e.who ? `<p class="hc-es">${esc(`For ${e.who === 'You' ? 'you' : e.who}`)}</p>` : ''}${e.b ? list(billLi(e.b, {})) + issueTags([e.b]) : ''}</li>`;
 }
 const dayShort = d => fmt(d, { weekday: 'short' }), dateShort = d => fmt(d, { month: 'numeric', day: 'numeric' });
 function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', steps = null } = {}) {
@@ -371,7 +415,7 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
   const wd = [0, 1, 2, 3, 4].map(i => addDays(mon, i)), we = [addDays(mon, 5), addDays(mon, 6)];
   const has = d => (cw.days.get(d) || []).length > 0 || (cw.caps.get(d) || []).length > 0;
   const any = [...wd, ...we].some(has), anyH = [...cw.days.values()].some(l => l.some(e => e.k === 'h'));
-  const whose = scope === 'team' ? 'the team’s bills' : whoseWords(scope), when = off === 0 ? 'this week' : off === 1 ? 'next week' : off === -1 ? 'last week' : 'that week';
+  const whose = issWords(scope === 'team' ? 'the team’s bills' : whoseWords(scope)), when = off === 0 ? 'this week' : off === 1 ? 'next week' : off === -1 ? 'last week' : 'that week';
   const who = scope === 'team' ? 'the team monitors' : 'you monitor';
   // the list's own empty words (weekHTML), and between sessions its line
   if (SESSION_OVER && !anyH) return `<p class="hw-none">${icon('calendar')}<span>The Legislature is between sessions. Hearings start after opening day, ${esc(dayWords(openingDay()))}. Until then: <a href="#/my-issues">get your issues ready</a>.</span></p>`;
@@ -392,29 +436,16 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
   return `<div class="hc-cal">${btns}<div class="hc-grid">${wd.map(dayCol).join('')}</div>${weekend}</div>${monLine}${askL()}`;
 }
 
-// ---- The same week calendar on All issues and on Today (R-342, Nate 26 Oct: "Can there be a calendar view for all
-// issues, and for the today page?") ----
-// One calendar, drawn here, so the three never drift: All issues shows the team's week with each bill's issue in its
-// tint (tag); Today shows the person's week or the team's (tasks: 'mine' | 'team'). The week arrows and the phone's day
-// buttons work as on Hearings; `href(w)` is the page's own address for week w, so Back and a shared link keep the week.
-// Nate asked for both ways in (a List | Calendar switch and a Calendar tab) "for now, then we can adjust": each page draws
-// both from CAL_WAYS, so dropping one later is one word.
-export const CAL_WAYS = { tab: true, swap: true };
+// ---- The same week calendar on All issues (R-342, Nate 26 Oct; R-352 FIX-3, Nate 28 Oct: "keep the calendar view") ----
+// One calendar, drawn here (calHTML), so Hearings and All issues never drift: the same entries, the same colour of time and
+// the same words for each state. All issues shows the team's week (All issues is everyone's), each entry with its issue's
+// name; its one way in is the Calendar tab (ui.js SECTIONS, A-12 on v6). The week arrows and the phone's day buttons work
+// as on Hearings; `href(w)` is the page's own address for week w, so Back and a shared link keep the week. Today's week
+// (weekGlance) stays gone: Today's Coming up ends with "See the week on Hearings".
 export const calWeekBar = route => weekNav(route);
-export function weekCalHTML(route, { scope = 'team', tag = false, tasks = 'mine', steps = null } = {}) {
-  seedMoved(); freshScope();
-  return calHTML(route, scope, null, { ask: false, tag, tasks, steps });
-}
-// Today's week at a glance (R-346, the moderate mock's "This week"): this week's Monday to Friday, each with how many
-// hearings the calendar shows in this scope, how many entries are the person's own (steps, to-dos, follow-ups, testimony
-// due), and the Capitol's deadline that day, from the same calWeek, so the strip and the calendar under it never disagree.
-export function weekGlance({ scope = 'mine', steps = null } = {}) {
-  seedMoved(); freshScope();
-  const now = Date.now(), mon = mondayOf(now), today = hst(now), cw = calWeek(scope, mon, { tasks: 'mine', steps });
-  return [0, 1, 2, 3, 4].map(i => { const d = addDays(mon, i), list = cw.days.get(d) || [];
-    return { d, day: fmt(d, { weekday: 'short' }), long: fmt(d, { weekday: 'long', month: 'long', day: 'numeric' }), today: d === today, past: d < today,
-      h: list.filter(e => e.k === 'h' && !e.cancelled).length, own: list.filter(e => e.k !== 'h').length,
-      caps: (cw.caps.get(d) || []).map(c => c.label) }; });
+export function weekCalHTML(route, { scope = 'team' } = {}) {
+  seedMoved(); freshScope(); ISS = '';   // Hearings' issue pick is its own
+  return calHTML(route, scope, null, { ask: false });
 }
 export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
   root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {
@@ -431,13 +462,6 @@ export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
     S.hcRefocus = '[data-hwmon]'; redraw();
   });
   if (S.hcRefocus) { const f = root.querySelector(S.hcRefocus); S.hcRefocus = null; f?.focus({ preventScroll: true }); }
-}
-// A page's List | Calendar pick, remembered per person in their settings (and this browser's copy), as Hearings' is.
-export function calPick(key, route) {
-  const lk = `hiphi6_${key}_${S.me?.id || ''}`;
-  let saved = ''; try { saved = localStorage.getItem(lk) || ''; } catch { /* private window */ }
-  const mode = [route?.q?.view, S.me?.prefs?.[key], saved].find(x => x === 'cal' || x === 'list') || 'list';
-  return { mode, async save(v) { try { localStorage.setItem(lk, v); } catch { /* this visit only */ } try { await DB.patchPrefs({ [key]: v }); } catch { /* the address keeps it */ } } };
 }
 
 // The next session's opening day: the calendar's, else the third Wednesday in January (the Hawaiʻi Constitution's day).
@@ -479,11 +503,14 @@ export default {
     if (!S.me) return `<h1 class="v6-ptitle sv-h1">Hearings</h1><p class="hw-none">${icon('info')}<span>You are signed in, but the tracker does not know who you are yet. Ask your admin to add you.</span></p>`;
     seedMoved();   // the practice copy's moved sittings have someone down for the old date (W53), as Today's
     freshScope();   // who has a step on which bill is worked out again for this draw (push.js scopeOk)
+    ISS = issueOf(route);
     const scope = scopeOf(route), view = viewOf(route, scope), sum = SESSION_OVER ? null : askSummary({ scope }), mode = modeOf(route);
+    // An old Today link to one day of its week (#/?view=cal&day=2026-03-18, sent here by app.js) opens on that day, once.
+    if (route.q?.day && S.hcDayAt !== location.hash) { S.hcDayAt = location.hash; S.hcDay = route.q.day; }
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
       <h1 class="v6-ptitle sv-h1">Hearings</h1>
       ${tabs(view, sum)}
-      <div class="hw-bar">${switcher(scope)}${view === 'week' ? modeSwitch(mode) + weekNav(route) : ''}</div>
+      <div class="hw-bar"><div class="hw-picks">${switcher(scope)}${view === 'week' ? issuePick(scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
   },
@@ -494,19 +521,26 @@ export default {
     const here = () => { const v = route.view === 'ask' || route.view === 'week' ? route.view : page.classList.contains('v-ask') ? 'ask' : 'week'; return `#/hearings/${v}`; };
     page.querySelectorAll('[data-seg="hscope"]').forEach(el => el.onclick = async () => {
       const v = el.dataset.val; await remember(v); S.hwRefocus = `[data-seg="hscope"][data-val="${v}"]`;
-      const w = weekOff(route), vw = route.q?.view ? `&view=${route.q.view}` : ''; S.go(`${here()}?scope=${v}${w ? `&w=${w}` : ''}${vw}`, { replace: true, keepScroll: true });
+      S.go(`${here()}?${here() === '#/hearings/ask' ? `scope=${v}` : viewQuery(route, { scope: v })}`, { replace: true, keepScroll: true });
     });
     page.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {
-      const w = +el.dataset.hweek || 0, sc = route.q?.scope ? `scope=${route.q.scope}` : '', vw = route.q?.view ? `view=${route.q.view}` : '';
+      const w = +el.dataset.hweek || 0;
       S.hwRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.hcDay = null;   // another week opens on its own first day
-      const q = [w ? `w=${w}` : '', sc, vw].filter(Boolean).join('&');
+      const q = viewQuery(route, { w: String(w) });
       S.go(`#/hearings/week${q ? `?${q}` : ''}`, { replace: true, keepScroll: true });
     });
-    // List | Calendar: remembered for the person, and said in the address so a link or Back opens the same view
-    page.querySelectorAll('[data-seg="hview"]').forEach(el => el.onclick = async () => {
-      const v = el.dataset.val; await rememberView(v); S.hwRefocus = `[data-seg="hview"][data-val="${v}"]`;
-      const q = [route.q?.scope ? `scope=${route.q.scope}` : '', weekOff(route) ? `w=${weekOff(route)}` : '', `view=${v}`].filter(Boolean).join('&');
-      S.go(`#/hearings/week?${q}`, { replace: true, keepScroll: true });
+    // See as calendar / See as list: remembered for the person, and said in the address so a link or Back opens the same
+    // view (a modified click opens the link as it is)
+    page.querySelector('[data-hwview]')?.addEventListener('click', async e => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault();
+      const v = e.currentTarget.dataset.hwview, href = e.currentTarget.getAttribute('href'); await rememberView(v); S.hwRefocus = '[data-hwview]';
+      S.go(href, { replace: true, keepScroll: true });
+    });
+    // One issue's hearings: the plain picker; the pick lives in the address only (see issueOf)
+    page.querySelector('[data-hwiss]')?.addEventListener('click', () => {
+      const scope = scopeOf(route);
+      pickerSheet({ title: 'Show hearings on', value: ISS || 'all', options: [['all', 'All issues'], ...issueOpts(scope).map(i => [String(i.id), i.name])],
+        onPick: v => { S.hwRefocus = '[data-hwiss]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, { issue: v === 'all' ? '' : v })}`, { replace: true, keepScroll: true }); } });
     });
     // A phone's day buttons show one day at a time; no redraw, so the focus stays on the button pressed
     page.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {

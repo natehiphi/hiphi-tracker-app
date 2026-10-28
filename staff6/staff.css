@@ -431,6 +431,8 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
 .sv-av.me { box-shadow: 0 0 0 2px var(--v6-card), 0 0 0 3.5px var(--v6-action); }
 .sv-av.sv-avmore { background: var(--v6-wash); color: var(--v6-muted); font-weight: 400; }
 .sv-av[data-ini]::before { content: attr(data-ini); }   /* a decorative face's initials: drawn, not text (ui.js avatar deco) */
+/* Three letters (ui.js faceLetters: two people would share two) fit the circle a size smaller, whatever size it is drawn at */
+body.staff6 .sv-av.ini3, .sv-av.ini3 { font-size: max(10px, calc(var(--av, 24px) * .38)) !important; letter-spacing: -.03em; }
 /* A row's face (ui.js faceLead) or soft tile (tileLead) in steps.js's lead slot: 32px beside an 18px name and a 16px line,
    in the first column so every name still starts at one edge, and kept on a phone (the R-339 icon trial hides its 20px
    glyph below 600px; a face is the "whose" a phone needs most). */
@@ -459,7 +461,8 @@ body.staff6 .v6-row-lead.sv-tile svg { width: 18px; height: 18px; }
 .sv-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); font-weight: 400; color: var(--v6-body); white-space: nowrap; }
 .sv-count .ic { width: 16px; height: 16px; }
 .sv-count.soon { color: var(--v6-ink); font-weight: 700; }
-.sv-count.today { color: var(--v6-late); font-weight: 700; }
+/* R-352 (Nate 27 Oct, A-5 on v6): due today plain, its words bold; amber only late, still accepted; red once passed */
+.sv-count.today { color: var(--v6-ink); font-weight: 700; }
 .sv-count.lateok { color: var(--v6-late); font-weight: 700; }
 .sv-count.late { color: var(--v6-bad); font-weight: 700; }
 .sv-posic { display: inline-flex; color: var(--v6-muted); }
@@ -697,8 +700,7 @@ body.staff6 main.sv-login, body.staff6 main.sv-load { width: 100%; max-width: 44
 .sv-urg span { font-size: var(--v6-t14); text-transform: lowercase; color: var(--v6-muted); }
 .sv-urg .ic { width: 14px; height: 14px; margin-bottom: 1px; }
 .sv-urg.soon { background: var(--v6-wash); color: var(--v6-ink); }
-.sv-urg.today { background: var(--v6-late-wash); color: var(--v6-late); }
-.sv-urg.today span { color: var(--v6-late); }
+.sv-urg.today { background: var(--v6-wash); color: var(--v6-ink); }
 .sv-urg.lateok { background: var(--v6-late-wash); color: var(--v6-late); }
 .sv-urg.lateok span { color: var(--v6-late); }
 .sv-urg.late { background: var(--v6-bad-wash); color: var(--v6-bad); box-shadow: none; }

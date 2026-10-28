@@ -145,10 +145,9 @@ TOAST = lambda rx_: (lambda pg: bool(re.search(rx_, pg.page.evaluate("() => docu
 # bare "Approve" are older names, tried after it.
 REVIEW6 = (r'^\s*Review\s*$', r'^\s*Review and approve\s*$', r'^\s*(Review|Approve)\b')
 # Kevin's HB 2121 filing on Today: a Coming up row with no button of its own (spec 11.1, 12.7), found by its words.
-# R-346: Today's rows lead with the job ("Wed 3/18: File the testimony on Disposable e-cigarette ban at the Capitol. File by
-# Wed 3/18, 7:30 AM"), the bill named inside the sentence (option E), so the row is found by the job and the bill.
-# R-344 (A-25): the row's tile and button say "File", so its quiet line is "By Wed 3/18, 7:30 AM", not "File by ..."
-FILE_ROW = rx(r'\bFile the testimony on (Disposable e-cigarette ban|HB ?2121)\b.*\b(File by|By)\b')
+# R-352: Today's rows are a name and one line again, the job first ("File testimony · Disposable e-cigarette ban HB 2121",
+# then "By Wed 3/18, 7:30 AM"), so the row is found by the job and the bill, and its line by the time (A-25: no "File by").
+FILE_ROW = rx(r'\bFile testimony · (Disposable e-cigarette ban|HB ?2121)\b.*\b(File by|By)\b')
 # The open item's filing button, in the app's words (23 Oct: the step card says "File the testimony at the Capitol" and
 # its button "File", which opens the filing card; its step 4 is "Mark filed"). A button only: a link to the Capitol's site
 # would leave the app, and is not an in-app step. When the open item carries Mark filed itself, this step is skipped.

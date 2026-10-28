@@ -17,8 +17,14 @@ import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords,
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
-import { photo } from './pathway.js';   // the chair's photo on the card's header (R-336 walk 2: Nate, "include photos of legislators")
+import { ACTS as PIC } from './verbs.js';   // one icon per action: Follow up is the mail, as on Today (R-352 FIX-2)
+const PIC_FOLLOW = PIC.follow.btnIcon;
 
+// The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Who to ask, Hearings' week line,
+// Today's At the Capitol): Nate's words for the tab, teal, with "›" and no underline until hover (A-12: a standalone way
+// on), no icon of its own. askTabGo is the link; askTabWords the same words inside a row that is already the link.
+export const askTabWords = () => `<span class="v6-asktab">${ASK_TAB}<span aria-hidden="true">&nbsp;›</span></span>`;
+export const askTabGo = (href, cls = '') => `<a class="v6-asktab${cls ? ' ' + cls : ''}" href="${esc(href)}">${ASK_TAB}<span aria-hidden="true">&nbsp;›</span></a>`;
 export const PUSH_BOARD = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 export const GIVE_ASK = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 
@@ -282,11 +288,14 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
 }
 // One count and one wording for the bills still to ask for a hearing, on Today, Bills and Hearings alike (rule 6, A-14;
 // Nate's walk: "20 of your bills to ask", "16 of your bills with no hearing yet", "No hearing yet 20" and "Get hearings 20"
-// for one pile): "20 to ask · first by Mon 3/23", the day being the first chair's ask-by day (never a Capitol deadline's:
+// for one pile): "20 bills need a hearing · ask the chairs, first by Mon 3/23", the day being the first chair's ask-by day (never a Capitol deadline's:
 // the critic read "16 by Mon 3/30" as "ask 16 by Mon 3/30", a week late). '' when nothing is left to ask.
 export function toAskWords(sum) {
   const n = sum?.toAsk || 0; if (!n) return '';
-  return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
+  // Said as what it is (R-352 FIX-2: "20 to ask" did not say to ask whom, or for what): "20 bills need a hearing · ask the
+  // chairs, first by Mon 3/23"; one: "1 bill needs a hearing · ask the chair by Mon 3/23".
+  const one = n === 1;
+  return `${plural(n, 'bill')} ${one ? 'needs' : 'need'} a hearing · ask the chair${one ? '' : 's'}${sum.firstDay ? `${one ? '' : ', first'} by ${sum.firstDay}` : ''}`;
 }
 
 // One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
@@ -389,7 +398,7 @@ function rowButton(it, v, scope) {
     const r = chairAskMail(code, [b], { dl: a.st.deadline, heardAt: a.st.hearing?.scheduled_at || new Date().toISOString() });
     return r ? mailBtn(r.m.n > 1 ? 'Email the chairs' : 'Email the chair', r.href, 'secondary', `Email ${r.m.who} to schedule a vote on ${name}`) : ''; }
   // The asker's Follow up holds both ways on (spec 8, F136: the reply in 2 clicks): the mail again, or the chair's reply.
-  if (k === 'follow' && a.asker === v.id) return btn('Follow up', { kind: 'secondary', sm: true, icon: 'clock', attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${name}` } });
+  if (k === 'follow' && a.asker === v.id) return btn('Follow up', { kind: 'secondary', sm: true, icon: PIC_FOLLOW, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${name}` } });
   if (['waiting', 'follow'].includes(k)) return btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': code, 'aria-haspopup': 'dialog', 'aria-label': `They replied: ${name}` } });
   if ((k === 'ask' && !it.left?.length || k === 'later') && ownsBill(b, v)) return iconBtn('ellipsis', `More for ${name}`, { 'data-hgact': 'row', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog' }, 'hg-more');
   // Someone else's bill still to ask: the take-over is on its own row (the chair's line keeps Email the chair and Give this
@@ -459,13 +468,13 @@ function groupHTML(g, v, scope, { primary, shared }) {
   const rows = g.rows.map(x => { const [line, ic] = rowLine(x, v, scope, { shared, hdrDay }), mine = ['follow', 'giving'].includes(x.k) && (x.a.asker === v?.id || x.a.todo?.assignee_id === v?.id);
     return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: ic, tone: x.k === 'scheduled' ? 'done' : '', bold: mine, href: billRoute(x.b), button: rowButton(x, v, scope), cls: `hg-r k-${x.k}` }); }).join('');
   const when = mineDue ? `you ask by ${hdrDay}` : day ? `ask by ${day}` : g.rows.every(x => x.k === 'scheduled') ? 'scheduled' : '';
-  // The chair's photo (both, overlapped, for a joint referral), falling back to an initial; decoration, the name says who.
-  const faces = chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean).slice(0, 2);
-  // R-344 (the review's B4): the photo is what people try to tap, so each one opens that legislator's page (a link with the
-  // chair's name for screen readers; the heading beside it still says who).
-  const ph = faces.length ? `<span class="hg-cph${faces.length > 1 ? ' two' : ''}">${faces.map(l => `<a class="hg-cphl" href="#/legislator/${encodeURIComponent(l.id)}" aria-label="${esc(`Open ${chairWho(l.id)}’s page`)}" title="${esc(chairWho(l.id))}">${photo(l, 40)}</a>`).join('')}</span>` : '';
+  // R-352 (A-18 on v6: no letter bubbles): the card starts with the chair's name, and each name is the link to that
+  // legislator's page (R-344's B4: people tapped the photo to get there; the photo was mostly a letter). Teal, no underline
+  // on a standalone link (one link style); a joint referral names each chair, each its own link.
+  const chairs = m ? chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean) : [];
+  const whoHTML = chairs.length ? andWords(chairs.map(l => `<a class="hg-cnl" href="#/legislator/${encodeURIComponent(l.id)}">${esc(chairWho(l.id))}</a>`)) : esc(who);
   return `<section class="hg-chair" aria-labelledby="hg-c-${esc(g.id)}">
-    <div class="hg-chead">${ph}<div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${esc(who)}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
+    <div class="hg-chead"><div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${whoHTML}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
     <div class="v6-list hg-list" role="list" aria-label="${esc(`Bills for ${who}`)}">${rows}</div>${foot}</section>`;
 }
 // askBoard({ scope, bills, viewer, primary, id, empty }) -> the board's HTML: under each deadline (soonest first) in words,
@@ -516,7 +525,7 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const nwd = needWords(d.items, { scope, viewer: v, day: false }), cn = nwd.c, total = cn.total, nw0 = cn.need;
     const shared = !!nwd.only;   // every bill here one teammate's: said once on this line, not on every row (A-14)
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
-    const door = fold && di === 0 ? ` ·&nbsp;<a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">${ASK_TAB}</a>` : '';
+    const door = fold && di === 0 ? ` ·&nbsp;${askTabGo(`#/hearings/ask?scope=${scope}`, 'hg-dlgo')}` : '';
     // The ask part never repeats the count before it (Nate's walk 3: "16 of your bills need a hearing · 16 to ask"): when
     // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask". Only
     // this deadline's bills, never a share of the tab's total ("12 of the 20" mixed two totals: the critic, walk 3, A-14).

@@ -125,6 +125,10 @@ export const gateGloss = label => gateWords(label)?.[2] || '';
 // what it asks, "Bills must reach their last committee by Mon 3/30", not "Second lateral"; Help keeps the names.
 export const plainDeadlines = () => !S.me?.is_admin && !(S.bills || []).some(b => (S.assignments?.[b.id] || []).includes(S.me?.id));
 export const plainGate = (label, day) => `Bills must ${gateNeed(label, 2)} by ${day}`;
+// A deadline as a heading in the staff screens, the one wording (R-352 FIX-2: My issues said "Must clear Second lateral",
+// Who to ask "Must reach their last committee by Mon 3/30", All issues "past second lateral"): what it asks, with its day,
+// "Must reach their last committee by Mon 3/30". The Capitol's name stays in the chair email, Help and the bar's tooltip.
+export const gateHead = (label, day) => { const w = gateWords(label); return w && w[1] ? `Must ${w[1](false)} by ${day}` : `${w?.[2] ? w[2][0].toUpperCase() + w[2].slice(1) : label}, ${day}`; };
 // A bill's own deadline by its full name: { key: 'second_lateral', label: 'Lateral' } -> "Second lateral".
 export const deadlineName = d => d ? gateName({ phase: d.key || '', label: d.label }) : '';
 export const gateName = g => /^(first|second)_/.test(g.phase) && /^(Lateral|Decking|Triple filing)$/.test(g.label) ? `${g.phase.startsWith('first') ? 'First' : 'Second'} ${g.label.toLowerCase()}` : g.label;
@@ -200,8 +204,10 @@ export const clockDay = t => whenAt(t).replace(/^today /, '');
 // R-277 ui-critic (W-6): testimony past its written deadline that the Capitol still takes, said once, one way, without the
 // missed deadline beside it ("Testimony was due yesterday 2:00 PM" next to "4h to file" read as a contradiction):
 // "Late, still accepted until 2:00 PM today" / "... until 9:30 AM tomorrow" / "... until Fri 3/20, 9:30 AM".
-export const lateLine = (until, { lower = false } = {}) => { const w = whenAt(until), m = /^(today|tomorrow) (.+)$/.exec(w);
-  return `${lower ? 'late' : 'Late'}, still accepted until ${m ? `${m[2]} ${m[1]}` : w}`; };
+export const lateLine = (until, { lower = false } = {}) => `${lower ? 'late' : 'Late'}, still accepted until ${timeFirst(until)}`;
+// A time after "by" or "until", its clock first on the near days, the one helper for it (R-352 FIX-2: "By today 4:00 PM"
+// beside "until 1:10 PM today"): "4:00 PM today", "9:30 AM tomorrow", "Fri 3/20, 9:30 AM".
+export function timeFirst(t) { const w = whenAt(t), m = /^(today|tomorrow|yesterday) (.+)$/.exec(w); return m ? `${m[2]} ${m[1]}` : w; }
 // The time between now and `t`, rounded down: "28 min" / "4 hours" / "3 days" (short: "28m" / "4h" / "3d").
 export function spanOf(t, { short = false } = {}) {
   const ms = Math.abs(new Date(t).getTime() - Date.now()), h = ms / 36e5;

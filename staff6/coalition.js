@@ -24,7 +24,7 @@ import { issuesOfBill } from './issues.js';
 import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile } from './issuestand.js';
 import { isPos, byPri, waitingOfBills } from './standing.js';
 import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
-import { cardHTML, picHTML, monogram, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
+import { cardHTML, picHTML, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
 import { ICONS } from '../icons.js';
 
 const WEEK = 7 * 864e5, FOLD = 6;
@@ -154,23 +154,23 @@ export function helpLineHTML() {
   return `<p class="i6-line">${icon('users')}<span>${l.length === 1 ? 'Your coalition' : 'Your coalitions'}: ${l.map(one).join('; ')}</span></p>`;
 }
 // ---- the index as cards (R-336 walk 3, Nate: "Maybe a similar card and image sorting as well here") ----
-// The same card as All issues (issuegrid.js): the coalition's icon (campaigns.icon, set in Session setup; lists.js iconName
-// reads an emoji left from v5 too) on a soft tint, or a monogram when it has none; its short name; its full name, which
-// says what it is (X25: "HEAL" alone said nothing to Patti); its owner; and one line of its week, "6 live bills, 2 hearings
+// The same calm card as All issues (issuegrid.js, R-352): the coalition's small icon beside its name (campaigns.icon, set in
+// Session setup; lists.js iconName reads an emoji left from v5 too), none when it has none (no monogram, no band); its short
+// name; its full name, which says what it is (X25: "HEAL" alone said nothing to Patti); its owner; and one line of its week, "6 live bills, 2 hearings
 // this week". The I help button stays on the card, outside its link (D16: the one button a card may carry), and the card is
 // otherwise one link to the coalition. Your coalitions first, then the others, in Session setup's order: with nine
 // coalitions a sort would add a control and find nothing faster (A-25), so there is none.
 const ownerLine = c => { const o = advocate(c.owner_id); return o ? (o.id === S.me?.id ? 'You own it' : `Owner: ${ownerFirst(o)}`) : 'No owner yet'; };
 const weekWords = c => { const f = facts(c); return `${f.live ? plural(f.live, 'live bill') : 'No live bills'}, ${hearWords(f.hear)}`; };
 function coalCard(c) {
-  // An icon Lucide has, or an emoji v5 kept that iconName knows; anything else gets the monogram, not iconName's stand-in.
-  // A topic's icon (HEAL's salad, CTFH's crossed-out cigarette) means that topic on All issues, so here it is a monogram.
+  // An icon Lucide has, or an emoji v5 kept that iconName knows; anything else gets none, not iconName's stand-in. A topic's
+  // icon (HEAL's salad, CTFH's crossed-out cigarette) means that topic on All issues, so here it gets none either.
   const has = !!c.icon && (!!ICONS[c.icon] || iconName(c.icon) !== 'heart-pulse'), ic = has && !topicIcons().has(iconName(c.icon)) ? iconName(c.icon) : '';
   // The full name leads ("Community Health Workers"), the short name after it, small (the critic: "CHW" alone says nothing).
   const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''), full = c.public_name || c.name, short = words(full) !== words(c.name) ? c.name : '';
   return cardHTML({ key: c.id, href: coalHref(c), name: full, after: short, title: c.description || '', cls: 'co6-cell',
-    pic: picHTML({ ic, mono: monogram(full), tint: null }),
-    lines: [[esc(ownerLine(c)), 'ig6-desc co6-own'], [`${icon('calendar-days')}<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']],
+    pic: picHTML({ ic }),
+    lines: [[esc(ownerLine(c)), 'ig6-desc co6-own'], [`<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']],
     foot: ownsCoal(c) ? '' : helpBtn(c) });
 }
 export function coalCardsHTML({ yoursTitle = '' } = {}) {

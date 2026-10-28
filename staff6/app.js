@@ -103,6 +103,7 @@ export function parseRoute(h = location.hash) {
     case undefined:
       // v5's Today | This week and Mine | Team switches: This week is Hearings, Team is Team (spec 6, Today; 3.4). The week
       // paged to (w=) and Team (scope=team) go along, so v5's week grid keeps its place inside Hearings until HEARINGS lands.
+      if (q.view === 'cal') return { name: 'hearings', view: 'week', q: {}, redirect: to('#/hearings/week') };   // R-352: Today's old week (who=, w=, day= go along)
       if (q.view === 'week' || q.view === 'ahead') return { name: 'hearings', view: '', q: {}, redirect: to('#/hearings', ['view']) };
       if (q.scope === 'team') return { name: 'team', who: '', q: {}, redirect: to('#/team', ['scope']), leads: true };
       return { name: 'today', q };
@@ -113,7 +114,9 @@ export function parseRoute(h = location.hash) {
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', view: q.view || '', q };
     // My issues (R-263) with its tabs Coalitions and All issues (spec 3.3): v5's #/coalition and #/outreach/issues move here.
-    case 'my-issues': return seg[1] === 'coalitions' ? { name: 'coalition', id: '', q } : seg[1] === 'all' ? { name: 'issues', q } : { name: 'myissues', q };
+    // #/my-issues/all?view=cal is All issues' week calendar (R-342; R-352 FIX-3, Nate 28 Oct: kept), drawn by issues.js.
+    case 'my-issues':
+      return seg[1] === 'coalitions' ? { name: 'coalition', id: '', q } : seg[1] === 'all' ? { name: 'issues', q } : { name: 'myissues', q };
     case 'coalition': return seg[1] ? { name: 'coalition', id: seg[1], q } : { name: 'coalition', id: '', q, redirect: to('#/my-issues/coalitions') };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };
     case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'partners', q, redirect: to('#/outreach/partners') } : { name: 'bills', muted: seg[1] === 'muted', q };
