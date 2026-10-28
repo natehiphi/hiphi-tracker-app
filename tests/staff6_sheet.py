@@ -1,7 +1,8 @@
 # Staff v6: Bills' two fixes and the spreadsheet (R-336, Nate 25 Oct). On the practice copy (Mon 16 Mar 2026).
 #   a. A group never folds away 3 bills or fewer: "No hearing yet" showed 19 of 20 and then "Show all 20 bills" for one.
-#   b. The line over the list says what Today and Hearings say: "20 to ask · first by Mon 3/23 · Bills That Need Hearings",
-#      the tab's name a link to it on the list's scope; no "Get hearings" left on Bills.
+#   b. The line over the list says what Today and Hearings say: "20 to ask · first by Mon 3/23 · Bills That Need Hearings ›",
+#      the tab's name a link to it on the list's scope, drawn as a way on (a chevron, no underline at rest: R-352); no
+#      "Get hearings" left on Bills.
 #   c. The spreadsheet (Nate: "We also need a spreadsheet view of bills somewhere"): Rows | Spreadsheet, remembered; every
 #      column sorts by its header; a team cell opens its picker (Enter opens, Escape closes) and saves with Undo; Copy for
 #      Google Sheets puts the rows and columns shown on the clipboard as tab-separated text; chosen columns are remembered.
@@ -20,7 +21,7 @@ GROUPS = """[...document.querySelectorAll('.bl-grp, tbody.bl-tg')].map(g => {
   const h = g.querySelector('.bl-gh, .bl-grb'), n = +(h?.querySelector('.bl-gn, .n')?.textContent || 0);
   return { name: (h?.querySelector('span:not(.bl-gn):not(.n):not(.bl-ghic)')?.textContent || '').trim(), n,
     shown: g.querySelectorAll('.v6-row, tr[data-row]').length, open: !!g.querySelector('.v6-list, tr[data-row]'), more: !!g.querySelector('[data-full]') }; })"""
-LEAD = r'^\d+ to ask · first by (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+ · Bills That Need Hearings$'
+LEAD = r'^\d+ to ask · first by (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+ · Bills That Need Hearings ›$'
 def toast(pg): return pg.page.evaluate("[...document.querySelectorAll('.toastmsg')].map(t => t.innerText.trim()).join(' | ')")
 def wait_toast(pg, rx, ms=2000):
   for _ in range(ms // 100):
@@ -62,6 +63,8 @@ with L.browser() as B:
     R.check(f'{who}: the same words as Hearings ({hw})', hw and lead.startswith(hw), [lead, hw])
     href = pg.page.evaluate("document.querySelector('#bl-lead a')?.getAttribute('href')")
     R.check(f'{who}: the tab name links to Bills That Need Hearings on My bills', href == '#/hearings/ask?scope=mine', href)
+    deco = pg.page.evaluate("(() => { const a = document.querySelector('#bl-lead a'); return a ? getComputedStyle(a).textDecorationLine : '' })()")
+    R.check(f'{who}: the link is a way on, not underlined at rest (R-352)', deco == 'none', deco)
     R.check(f'{who}: no "Get hearings" anywhere on Bills', 'Get hearings' not in pg.text(), '')
     if who == 'NT':
       pg.page.click('[data-seg="blscope"][data-val="all"]'); pg.ready(); pg.page.wait_for_timeout(200)
