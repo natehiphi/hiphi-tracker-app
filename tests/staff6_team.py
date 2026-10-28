@@ -1,8 +1,10 @@
 # Staff v6 Team (#/team), Nate's walk 4 (R-336): "It's still too crowded. This needs to be more calm and roomy. I'm not
-# sure where I'm supposed to look." His pick, "One list, top 3": one reading column; Slipping and Hearings at risk as one
-# ranked list with its three most urgent rows shown, each with its one action, and "See all N" opening the N; the schedule,
-# Who is on what and the bills with no owner as quiet lines that open in place, each count the number of rows it opens
-# (A-14); red only on a step whose deadline passed (A-5 on v6); the same order on a phone, no sideways scroll.
+# sure where I'm supposed to look." His pick, "One list, top 3": Slipping and Hearings at risk as one ranked list with its
+# three most urgent rows shown, each with its one action, and "See all N" opening the N. R-352 (Nate 27 Oct): the lead's own
+# steps are on their Today, so Slipping leaves them out and says how many in one quiet line; the bills with no owner are a
+# card, never a fold (B-14 on v6), the soonest 3 with their button and "All N bills with no owner ›"; Who is on what is
+# read-only, faces and counts, in the column beside the lists at 1440 (23 Oct's layout), with the Partners line under it;
+# one column on a phone. Red only on a step whose deadline passed (A-5 on v6); 12 controls on the first screen (A-2 on v6).
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_team.py      (otherwise HOST, :8832)
 import os, re, sys
@@ -23,27 +25,48 @@ def main():
     # ---- laptop, 1440 ----
     pg = b.page('NT', 1440, 900); pg.open('/team')
     p = pg.page
-    col = p.evaluate("""() => { const r = document.querySelector('.tm6-root'); if (!r) return null;
-      const kids = [...r.querySelectorAll(':scope > [data-block], :scope > .tm6-lines')].map(e => e.getBoundingClientRect());
-      return { w: Math.round(r.getBoundingClientRect().width), lefts: [...new Set(kids.map(k => Math.round(k.left)))], n: kids.length }; }""")
-    check('1440: one reading column, 760px at most', col and col['w'] <= 760 and len(col['lefts']) == 1 and col['n'] >= 2, col)
+    col = p.evaluate("""() => { const m = document.querySelector('.tm6-main'), a = document.querySelector('.tm6-side'); if (!m || !a) return null;
+      const r = m.getBoundingClientRect(), q = a.getBoundingClientRect(); return { w: Math.round(r.width), right: Math.round(r.right), side: Math.round(q.left), sideTop: Math.round(q.top), top: Math.round(r.top) }; }""")
+    check('1440: the lists at most 760px, Who is on what in the column beside them (23 Oct)', col and col['w'] <= 760 and col['side'] > col['right'] and abs(col['sideTop'] - col['top']) < 4, col)
+    check('1440: Who is on what is in the side column', bool(p.query_selector('.tm6-side [data-block="who"]')), '')
     head = p.inner_text('[data-block="slip"] h2')
     n = num(r'(\d+)', head, 0)
     top = p.evaluate("""() => [...document.querySelectorAll('[data-block="slip"] .v6-list > *')].filter(e => e.getClientRects().length)
-      .map(e => ({ t: e.innerText.split('\\n').slice(0, 3).join(' | '), btn: !!e.querySelector('button, .btn'), y: Math.round(e.getBoundingClientRect().bottom) }))""")
+      .map(e => ({ t: e.innerText.split('\\n').slice(0, 3).join(' | '), btn: !!e.querySelector('button, .btn'), b: (e.querySelector('.v6-row-act') || {}).innerText || '', y: Math.round(e.getBoundingClientRect().bottom) }))""")
     check('1440: Slipping shows its 3 most urgent rows', len(top) == min(3, n), f'{len(top)} of {n}')
     check('1440: each of the 3 has its one action', top and all(r['btn'] for r in top), [r['t'][:50] for r in top if not r['btn']])
     check('1440: the 3 are on the first screen', top and max(r['y'] for r in top) <= 900, [r['y'] for r in top])
-    check('1440: overdue first, then late, then the rest', top and 'Overdue' in top[0]['t'] and (len(top) < 2 or re.search(r'(?i)late, still accepted', top[1]['t'])), [r['t'][:60] for r in top])
+    check('1440: overdue first, then late, then the rest', top and re.search(r'(?i)overdue', top[0]['t']), [r['t'][:60] for r in top])
+    # R-352: none of the lead's own steps (their button would be the step's own verb, File or Review); the quiet line says how many
+    own = [r['b'] for r in top if r['b'] and not re.match(r'(?i)(Alert|Alerted|Give to|Take it)', r['b'].strip())]
+    check("1440: none of the lead's own steps in Slipping (they are Today's)", not own, own)
+    yours = p.inner_text('[data-block="slip"] .tm6-yours') if p.query_selector('[data-block="slip"] .tm6-yours') else ''
+    check("1440: one quiet line says how many of the lead's own are on Today, not a link", re.search(r'Your own (one|\d+) (is|are) on your Today', yours) and not p.query_selector('.tm6-yours a'), yours)
     m = pg.measure()
     check('1440: at most 12 controls on the first screen (A-2 on v6)', m['controls'] <= 12, m['controls'])
-    check('1440: fewer words on the first screen than before (246)', m['words'] < 200, m['words'])
-    # the quiet lines: closed, each a count
-    lines = p.evaluate("""() => [...document.querySelectorAll('.tm6-lines > details')].map(d => ({ id: d.dataset.tmfold, open: d.open, t: d.querySelector('summary').innerText }))""")
-    check('1440: Hearings, Who is on what and No owner are quiet lines, closed', [l['id'] for l in lines] == ['sched', 'who', 'noown'] and not any(l['open'] for l in lines), lines)
+    check('1440: fewer words on the first screen than before R-336 (246)', m['words'] < 200, m['words'])
+    # the Hearings line: closed, a count; nothing a lead must do is in a fold (B-14 on v6)
+    lines = p.evaluate("""() => [...document.querySelectorAll('.tm6-root details')].map(d => ({ id: d.dataset.tmfold, open: d.open }))""")
+    check('1440: Hearings is the one quiet line that opens in place, closed', [l['id'] for l in lines] == ['sched'] and not any(l['open'] for l in lines), lines)
     red = p.evaluate(f"""() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && e.childElementCount === 0 && e.textContent.trim() && getComputedStyle(e).color === '{BAD}')
       .map(e => (e.closest('.v6-row-line') || e).innerText.trim()).filter((t, i, a) => a.indexOf(t) === i)""")
-    check('1440: red only on an overdue step', all(t.startswith('Overdue') for t in red), red[:3])
+    check('1440: red only on an overdue step', all(re.search(r'(?i)overdue', t) for t in red), red[:3])
+    # No owner: a card, the soonest 3 not already in Slipping, each with its button, then the whole list
+    nc = num(r'(\d+)', p.inner_text('[data-block="noown"] h2'), 0) if p.query_selector('[data-block="noown"]') else 0
+    nrows = p.evaluate("""() => [...document.querySelectorAll('[data-block="noown"] .v6-list > *')].map(e => ({ n: (e.querySelector('.v6-row-num') || {}).innerText, btn: !!e.querySelector('.v6-row-act :is(button, .btn)') }))""")
+    slipnums = p.evaluate("""() => [...document.querySelectorAll('[data-block="slip"] .v6-list > * .v6-row-num')].map(e => e.innerText)""")
+    check('1440: No owner is a card, not a fold (B-14 on v6), its soonest 3 shown', nc > 0 and 0 < len(nrows) <= 3 and not p.query_selector('details [data-block="noown"], details[data-block="noown"]'), f'{len(nrows)} rows of {nc}')
+    check('1440: each No owner row has its one button (Give to… for an admin)', nrows and all(r['btn'] for r in nrows), nrows)
+    check('1440: a bill is said once: No owner leaves out the rows Slipping shows', not set(r['n'] for r in nrows) & set(slipnums), [r['n'] for r in nrows])
+    allA = p.query_selector('[data-block="noown"] a[href="#/team?who=none"]')
+    at = allA.inner_text() if allA else ''
+    check('1440: "All N bills with no owner ›" says the card\'s count', num(r'All (\d+) bills?', at) == nc, f'"{at}" vs {nc}')
+    # Who is on what: read-only, its count the rows it shows
+    wsub = p.inner_text('[data-block="who"] .tm6-sub')
+    bars = p.evaluate(ROWS, '[data-block="who"] .tm6-load:not(.tm6-helps)')
+    check('1440: Who is on what counts the people it shows', num(r'(\d+) (?:people|person)', wsub) == bars, f'"{wsub}" vs {bars} bars')
+    check('1440: Who is on what is read-only (no links or buttons) and has no No owner bar', not p.query_selector('[data-block="who"] :is(a, button)'), '')
+    check('1440: the Partners line is in the side column, under Who is on what', not p.query_selector('.tm6-main a[href^="#/partners"]') and (not p.query_selector('a[href^="#/partners"]') or bool(p.query_selector('.tm6-side a[href^="#/partners"]'))), '')
     # Today's "N slipping" door and Team's heading say one number (walk 4 critic: 7 on Today opened "Slipping 8")
     pg.nav('/'); today = num(r'(\d+)\s+slipping', pg.text('main'))
     pg.nav('/team')
@@ -64,37 +87,26 @@ def main():
       if fewer.count(): fewer.click(); pg.ready()
       check('1440: Show fewer goes back to 3', p.evaluate(ROWS, '[data-block="slip"] .v6-list > *') == min(3, n), '')
       pg.shot(os.path.join(os.environ.get('SHOTS', '/tmp'), 'team-1440-see-all.png'), full=True) if os.environ.get('SHOTS') else None
-    # each quiet line opens what it counts
-    def open_fold(fid):
-      p.click(f'details[data-tmfold="{fid}"] > summary'); p.wait_for_timeout(250)
-      return p.inner_text(f'details[data-tmfold="{fid}"] > summary')
-    t = open_fold('sched')
+    # the Hearings line opens the sittings it counts
+    p.click('details[data-tmfold="sched"] > summary'); p.wait_for_timeout(250)
+    t = p.inner_text('details[data-tmfold="sched"] > summary')
     days = p.evaluate("""() => [...document.querySelectorAll('details[data-tmfold="sched"] h3')].map(h => { let e = h.nextElementSibling; return [h.innerText, e ? e.children.length : 0]; })""")
     got = {d: c for d, c in days}
     check('1440: Hearings opens the sittings it counts', num(r'(\d+) today', t, 0) == got.get('Today', 0) and num(r'(\d+) tomorrow', t, 0) == got.get('Tomorrow', 0), f'"{t}" vs {got}')
-    t = open_fold('who')
-    bars = p.evaluate(ROWS, 'details[data-tmfold="who"] .tm6-load:not(.tm6-helps):not([href*="who=none"])')
-    check('1440: Who is on what opens the people it counts', num(r'(\d+) (?:people|person)', t) == bars, f'"{t}" vs {bars} bars')
-    t = open_fold('noown')
-    nob = p.evaluate(ROWS, 'details[data-tmfold="noown"] .v6-list > *')
-    nbtn = p.evaluate(ROWS, 'details[data-tmfold="noown"] .v6-list > * :is(button, .btn)')
-    check('1440: No owner opens the bills it counts', num(r'(\d+) bills?', t) == nob, f'"{t}" vs {nob} rows')
-    check('1440: No owner: a button only on a step due within a day (A-3 on v6), the rest on its page', nbtn == p.evaluate("() => [...document.querySelectorAll('details[data-tmfold=\"noown\"] .v6-list > *')].filter(e => /\\b(today|tomorrow)\\b/i.test(e.innerText)).length") and p.query_selector('details[data-tmfold="noown"] a[href="#/team?who=none"]'), f'{nbtn} buttons on {nob} rows')
-    check('1440: Who is on what has no No owner bar (said once, A-14)', not p.query_selector('details[data-tmfold="who"] a[href*="who=none"]'), '')
     # the same count as its own page
     pg.nav('/team?who=none'); whole = num(r'(\d+) bills? with a position', pg.text('main'))
-    check('1440: No owner\'s count is its page\'s', whole == nob, f'{whole} vs {nob}')
+    check('1440: No owner\'s count is its page\'s', whole == nc, f'{whole} vs {nc}')
     pg.nav('/team')
-    check('1440: an opened line stays open after a redraw', p.evaluate("() => document.querySelector('details[data-tmfold=\"noown\"]')?.open") is True, '')
+    check('1440: an opened line stays open after a redraw', p.evaluate("() => document.querySelector('details[data-tmfold=\"sched\"]')?.open") is True, '')
     check('1440: no page errors', not pg.errors, pg.errors[:1]); pg.close()
 
     # ---- phone, 390 ----
     pg = b.page('NT', 390, 844); pg.open('/team'); p = pg.page
     order = p.evaluate("() => [...document.querySelectorAll('.tm6-root [data-block]')].map(e => [e.dataset.block, Math.round(e.getBoundingClientRect().top)])")
     ids = [o[0] for o in order]; ys = [o[1] for o in order]
-    check('390: the same order (Slipping, Hearings, Who is on what, No owner)', ids[:4] == ['slip', 'sched', 'who', 'noown'] and ys == sorted(ys), order)
+    check('390: one column: Slipping, Hearings, No owner, then Who is on what', ids[:4] == ['slip', 'sched', 'noown', 'who'] and ys == sorted(ys), order)
     check('390: the 3 most urgent with their actions', p.evaluate(ROWS, '[data-block="slip"] .v6-list > *') == 3 and p.evaluate(ROWS, '[data-block="slip"] .v6-list > * :is(button, .btn)') == 3, '')
-    for fid in ('sched', 'who', 'noown'): p.click(f'details[data-tmfold="{fid}"] > summary'); p.wait_for_timeout(200)
+    p.click('details[data-tmfold="sched"] > summary'); p.wait_for_timeout(200)
     see = p.get_by_role('button', name=re.compile(r'^See all \d+'))
     if see.count(): see.click(); pg.ready()
     hs = p.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
