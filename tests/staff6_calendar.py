@@ -37,7 +37,9 @@ with L.browser() as B:
   R.check('a testimony due entry, with its state', bool(pg.page.query_selector('.hc-due')) and re.search(r'\d{1,2}:\d{2} [AP]M\s*Testimony due', pg.text('.hc-cal')) is not None and re.search(r'Writing|With an approver|Second look|Ready to file', pg.text('.hc-cal')) is not None)
   R.check('the hearing block opens the sitting', bool(pg.page.query_selector(".hc-day[data-hcday='2026-03-16'] .hc-h a.hc-job[href^='#/hearing/']")))
   R.check('every entry has one shape: time, kind, job (R-346 D)', pg.page.evaluate("[...document.querySelectorAll('.hc-cal .hc-e')].every(e => e.querySelector('.hc-t') && e.querySelector('.hc-ek') && e.querySelector('a.hc-job'))"))
-  R.check('each bill on an entry says its issue: icon and whole name (R-346 D, E)', pg.page.evaluate("[...document.querySelectorAll('.hc-cal .hc-iss')].length > 0 && [...document.querySelectorAll('.hc-cal .hc-iss')].every(c => c.querySelector('svg') && !/…$/.test(c.textContent.trim()))"))
+  # R-352 (H, A-18 on v6): the issue line is its whole name in words, no icon; a cell's bill leads with its name, number small
+  R.check('each bill on an entry says its issue: its whole name, no icon (R-346 D, E; R-352)', pg.page.evaluate("[...document.querySelectorAll('.hc-cal .hc-iss')].length > 0 && [...document.querySelectorAll('.hc-cal .hc-iss')].every(c => !c.querySelector('svg') && c.textContent.trim() && !/…$/.test(c.textContent.trim()))"))
+  R.check('a cell\'s bill leads with its name, its number small after it (R-352)', pg.page.evaluate("[...document.querySelectorAll('.hc-cal .hc-bills li')].length > 0 && [...document.querySelectorAll('.hc-cal .hc-bills li')].every(li => { const a = li.querySelector('a.hc-bl'), n = li.querySelector('.hc-bnum'); return a && n && !/^[HS][BRC]+ \\d/.test(a.textContent.trim()) && a.compareDocumentPosition(n) & 4; })"))
   R.check('no link inside a link', pg.page.evaluate("document.querySelectorAll('a a').length") == 0)
   thu = day_text(pg, '2026-03-19')
   R.check('Capitol deadline Triple filing on Thu 3/19', 'Triple filing' in thu, thu[:120])
