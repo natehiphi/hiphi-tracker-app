@@ -24,7 +24,7 @@ SCREENS = [('Today', '/'), ('Hearings', '/hearings'), ('Hearings, This week', '/
   ('An issue', f'/issue/{L.ISSUE}'), ('Bills', '/bills'), ('A bill', '/bill/HB10'), ('Legislators', '/legislators'),
   ('A legislator', f'/legislator/{L.LEGISLATOR}'), ('Outreach', '/outreach'), ('Outreach, Partners', '/outreach/partners'),
   ('A supporter', f'/person/{L.SUPPORTER}'), ('Search', '/search?q=school'), ('Team', '/team'), ('Partners', '/partners'), ('Review', '/review')]
-MY_VIEWS = ['deadlines', 'status', 'topics', 'sheet']
+MY_VIEWS = ['deadlines', 'status']   # R-352: My issues has two views (topics and the spreadsheet are gone)
 
 # Names and icons come from the app's own data, so a new issue or icon needs no change here.
 SETUP = """import('./staff6/data.js').then(m => {
@@ -74,7 +74,7 @@ with L.browser() as B:
       pg.open(route); pg.page.evaluate(SETUP); check(pg, label, w)
     pg.open('/my-issues'); pg.page.evaluate(SETUP)
     for v in MY_VIEWS:
-      pg.page.click(f'[data-miview="{v}"]' if w >= 768 else 'body', timeout=3000) if w >= 768 else pg.page.select_option('[data-misel]', v)
+      pg.page.click(f'[data-miview="{v}"]', timeout=3000)   # the same two-button switch at every width (no phone picker)
       pg.page.wait_for_timeout(600); pg.ready()
       pg.page.evaluate("document.querySelectorAll('#mi-g-stopped, .mi-stopped').forEach(d => d.open = true)")
       check(pg, f'My issues, {v}', w)
