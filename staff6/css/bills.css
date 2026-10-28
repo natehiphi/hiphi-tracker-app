@@ -29,7 +29,8 @@
 .bl-dls b { color: var(--v6-ink); }
 /* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
 .bl-dls .bl-dlk { font: inherit; font-weight: 400; text-align: left; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: none; }
+.bl-dls .bl-dlgo:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* (one line at every width now, in Get hearings' words: "20 to ask; 16 face the Mon 3/30 deadline · Get hearings") */
 @media (max-width: 767px) {
   .bl-dls { margin-bottom: var(--s8); }
@@ -119,6 +120,15 @@ body.staff6 .bl-page .v6-ld-list.bl-groups { padding: 0; background: none; box-s
    steps.css to do the same in every list. */
 body.staff6 .bl-page .v6-row-line.soon { font-weight: 400; }
 body.staff6 .bl-page .v6-row-line.soon .v6-tm { font-weight: 700; }   /* the time only, never a day or a room */
+/* R-352 (A-18, spec 8): a row is the name, the number small and one line, with no bar under it, so it is about 40% shorter
+   and about 8 bills fit Nate's first laptop screen (5 with the bar). Each row stays a 44px-plus target. */
+body.staff6 .bl-page .v6-row { min-height: 56px; }
+body.staff6 .bl-page .v6-row-main { padding: 6px 8px; gap: 0; }
+@media (max-width: 767px) { body.staff6 .bl-page .v6-row { min-height: 64px; } body.staff6 .bl-page .v6-row-main { padding: 8px; } }
+/* a twin is part of the number, said in the number's own grey ("HB 1591 · twin of SB 3202"), not a tag: one quiet fact
+   that tells two same-named bills apart (D3), the bill's page names it in full */
+body.staff6 .bl-page .v6-twin { margin-left: 0; padding: 0; background: none; font-size: inherit; line-height: inherit; color: inherit; }
+body.staff6 .bl-page .v6-twin::before { content: '· '; }
 /* the row the keys are on: a bar at its left (never colour alone: the focus is on it too) */
 body.staff6 .bl-page .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action); }
 /* phones: the rows are a press-and-hold away from picking, so a long press does not open the browser's menu */

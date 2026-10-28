@@ -5,14 +5,15 @@
 //   - the place head: "Bills" with one whose switch at its right, Mine | My coalitions | Team (owners open on Mine, people
 //     who own none on My coalitions, people with nothing in Mine and no coalition on Team), and the page tabs under it
 //     (Bills · Sort new bills · Muted, billshead.js);
-//   - over the whole list only, one line about the next deadline ("By Mon 3/30, 16 of your bills with no hearing yet must
-//     reach their last committee · Get hearings"; a phone's is shorter), the count a link to exactly those bills (F95);
+//   - over the whole list only, one line about the bills still to ask for a hearing ("20 to ask · first by Mon 3/23 · Bills
+//     That Need Hearings ›", Today's and Hearings' words; leadLine below);
 //   - the list's toolbar: one box that filters this list ("Filter these bills", V32; the header's box searches everything),
 //     the one Filter sheet (filters.js: 4 groups, More filters, presets in place of the quick pills, saved views), a visible
 //     Select (bulk.js; on a phone at the right of the first group's heading), and Rows | Spreadsheet (D9: anyone may pick
 //     the spreadsheet; it is remembered for the person). The spreadsheet adds Columns, Export and Copy for Google Sheets on a
 //     line of their own (F88, F92; R-336);
-//   - the rows (default): roomy two-line rows (steps.js billRow: the name, the bill number small, one plain line, D15; no
+//   - the rows (default): two-line rows (steps.js billRow: the name, the bill number small, one plain line, D15; no bar,
+//     job tile or topic icon since R-352, A-18: a list of one kind; no
 //     step buttons, spec 11 settled 1) grouped by where they stand, with Monitoring and Did not advance folded and the
 //     viewer's own steps never behind "Show all", and the picked bill open beside the list (steps.js listDetail +
 //     billpane.js openItem, V17): from 1100px the panel waits beside the list ("Pick a bill to see its next step");
@@ -24,7 +25,6 @@
 import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, sessionClock, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
-import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn, ASK_TAB } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
   views, curView, viewName, openEditViews, scopeOpts, posWord, openCoalition, viewState } from './filters.js';
@@ -183,7 +183,8 @@ function scopeSwitch() {
 // heard but not voted on (decideWords), else the asked ones still waiting (askSummary's own words). Nothing is amber: a
 // deadline coming is not late (D3). It is drawn only over the whole list (the caller leaves it out under a search or a
 // filter, P-5). It names the ask pile, not a group's bills, so it no longer stands aside for the group under it. A phone's wraps at
-// its dots, each part kept whole (push.js nwParts), so the first bill stays in view (A-1).
+// its dots, each part kept whole (push.js nwParts), so the first bill stays in view (A-1). The link is the line's one way
+// on, drawn as a way on ("Bills That Need Hearings ›", no underline: R-352), in Nate's words for the tab (10/25).
 const ASK_SCOPE = { me: 'mine', coal: 'coal', all: 'team' };
 function leadLine(list) {
   const c = sessionClock(list); if (!c) return '';
@@ -193,7 +194,7 @@ function leadLine(list) {
   let sm = null; try { sm = askSummary({ scope }); } catch { sm = null; }
   const t = toAskWords(sm) || decideWords(sm?.decide || 0) || sm?.words || ''; if (!t) return '';
   const said = t.split(' · ').map((p, i) => i ? esc(p) : `<b>${esc(p)}</b>`).join(' · ');
-  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${nwParts(said)} · <a class="bl-dlgo" href="#/hearings/ask?scope=${scope}">${ASK_TAB}</a></span></p>`;
+  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${nwParts(said)} · <a class="bl-dlgo" href="#/hearings/ask?scope=${scope}">${ASK_TAB}<span aria-hidden="true"> ›</span></a></span></p>`;
 }
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
@@ -252,49 +253,6 @@ function selRow(b) {
   return `<div class="v6-row bl-selrow${on ? ' sel' : ''}${v.cur === b.id ? ' bl-cur' : ''}" role="listitem" data-v6row="${esc(b.id)}"><button type="button" class="v6-row-main bl-selmain" data-blsel="${esc(b.id)}" aria-pressed="${on}">
     <span class="bl-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span><span class="bl-seltx"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${s?.line ? `<span class="v6-row-line"><span>${nw(esc(s.line))}</span></span>` : ''}</span></button></div>`;
 }
-// ---- R-339 (Nate 10/25 trial; on by default since R-344, Nate's go of 26 Oct): icons to soften a long list of words ----
-// ?icons=0 turns them off again, for a side-by-side.
-// A heading gets its stage's icon; on Team a row gets one quiet topic icon (its issues' category, the same icon Issues
-// uses) in the row's leading slot. No chips (Nate 10/13: chips made Today's rows too dense). Neutral ink only: colour stays
-// urgency (A-5). The icons are guesses until the team uses them; a side-by-side settles the look. Nate's five fixes (10/25):
-// rows on Team only (Mine is mostly one topic, so one picture repeated; its headings carry the landmark), no icon when a
-// bill's issues span two topics, three staff-only swaps for glyphs that are unclear at 20px, none below 600px (CSS), and the
-// heading icon on the card's left edge on phones (CSS).
-const ICONS_ON = (() => { try { return !/[?&]icons=0\b/.test(location.search); } catch { return true; } })();
-// Each heading's icon keeps one meaning (Rule 5, verbs.js ICON_MEANS): At risk's triangle, a hearing coming, waiting, through,
-// the trophy for law (the landmark is Legislators'), Monitor's eye, and stopped (the circle-x is Missed testimony's).
-const STAGE_IC = { risk: 'triangle-alert', hear: 'calendar-check', wait: 'hourglass', thru: 'route', done: 'trophy', mon: 'eye', dead: 'circle-minus' };
-// Staff-only swaps (fix 3) for glyphs unclear at 20px. Nate's picks of 10/25 are in the categories table itself
-// (cigarette-off and stethoscope since migration 187; Food's lunch tray and Climate's earth since 188), so Staff and the
-// public show the same icons; an apple left in the data (before 188 is applied) still shows as the salad (R-339).
-const STAFF_TOPIC_IC = { apple: 'salad' };
-const ghIcon = k => ICONS_ON && STAGE_IC[k] ? `<span class="bl-ghic" aria-hidden="true">${icon(STAGE_IC[k])}</span>` : '';
-// The one category of a bill's live issues; none when it has no issue, or issues in two categories (fix 2: a picture that is
-// right for one of two topics is wrong for the bill).
-function topicOf(b) {
-  const on = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id));
-  const keys = new Set((S.issues || []).filter(i => on.has(i.id) && !i.archived_at && i.category).map(i => i.category));
-  if (keys.size !== 1) return null;
-  const [k] = keys;
-  return (S.categories || []).find(c => c.key === k) || null;
-}
-// The icon its live issues share, when every one has the same icon of its own (issues.icon, migration 188); else none.
-// Its label is the issue's name (or the topic's, when two issues share the icon).
-function issueIconOf(b) {
-  const on = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id));
-  const iss = (S.issues || []).filter(i => on.has(i.id) && !i.archived_at);
-  const own = new Set(iss.map(i => (i.icon && ICONS[i.icon]) ? i.icon : ''));
-  return own.size === 1 && [...own][0] ? { ic: [...own][0], name: iss.length === 1 ? iss[0].name : '' } : null;
-}
-// Team only (fix 1). A bill with no single topic keeps the slot empty, so every name starts at the same place. The
-// picture is its issue's own icon when its issues share one (Nate's issue picks, R-339), else the topic's.
-function topicLead(b) {
-  if (!ICONS_ON || bl().scope !== 'all') return '';
-  const c = topicOf(b);
-  if (!c) return '<span class="v6-row-lead none" aria-hidden="true"></span>';
-  const own = issueIconOf(b), ic = own?.ic || STAFF_TOPIC_IC[c.icon] || c.icon || 'tag', name = own?.name || c.name;
-  return `<span class="v6-row-lead" title="${esc(name)}">${icon(ic)}<span class="sr">${esc(name)}: </span></span>`;
-}
 // ---- R-344 (the at-a-glance review's "the bill's own picture", Rules 1 and 2): what a row shows at a glance ----
 // glanceRow(html, b, { step, stance, twins }) adds to a steps.js billRow, without changing it:
 //   - a twin: when another bill in the same list goes by the same name (HB 2121 and SB 2175, "Disposable e-cigarette ban"),
@@ -303,7 +261,8 @@ function topicLead(b) {
 //   - (HIPHI's stance as its shape and one word, D1, only with `stance: true`: see below);
 //   - the viewer's own step's job as its small tile at the start of the line (Rule 1: the row says what kind of job it is);
 //   - the slim progress bar under the line, with Now and Law (tracker.js slimBarHTML, D2).
-// Search results use the same (search.js).
+// Search results use all of it (search.js). Bills' own rows take the twin only (R-352, A-18: Bills is a list of one kind, so
+// no job tile, and its verb stays: "File now · due today 10:00 AM"; the bar, pin and trophy wait on the bill's page).
 export function glanceRow(html, b, { step = null, stance = false, bar = true, twins = null } = {}) {
   if (!html || !b) return html;
   const tw = twins?.get(b.id);
@@ -330,14 +289,14 @@ export function twinsAmong(bills) {
   return out;
 }
 const groupHead = g => FOLDED.has(g.k)
-  ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
-  : `<h2 class="bl-gh" id="bl-g-${g.k}">${ghIcon(g.k)}<span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
+  ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
+  : `<h2 class="bl-gh" id="bl-g-${g.k}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
 function rowsView(groups) {
   const v = bl(), pick = !v.selecting;
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
-  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: topicLead(b) }), b, { step: stepOf(b), twins });
+  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' }), b, { twins, bar: false });
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
   const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
