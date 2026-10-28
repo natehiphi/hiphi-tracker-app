@@ -134,14 +134,11 @@ jobs:
         run: python3 tests/staff6_words.py
       - name: "Staff v6: the journeys in clicks, by keyboard, focus after Back, the Undo toast, 200% zoom (spec 8, DESIGN B-2 on v6)"
         if: ${{ !cancelled() && matrix.shard == 2 }}
-        # R-352: becomes a hard gate when the cleanup lands (on 6691bda4 one check misses: Kevin's Email the chair is not on
-        # Today's first screen, B-2 on v6; 108 of 110 met)
-        continue-on-error: true
+        # R-352 (28 Oct): a hard gate since the cleanup landed (B-2 on v6)
         run: python3 tests/staff6_journeys.py
       - name: "Staff v6: how much is on each screen, the quick run (1440 and 390, the busy day, Nate, Kevin, Patti; A-24 on v6, spec 8)"
         if: ${{ !cancelled() && matrix.shard == 3 }}
-        # R-352: becomes a hard gate when the cleanup lands (it has 22 misses on 6691bda4, 0 on 23 Oct)
-        continue-on-error: true
+        # R-352 (28 Oct): a hard gate since the cleanup landed (0 misses on 263 screens)
         run: python3 tests/staff6_budget.py --quick
       - name: Year-proof bill links
         if: ${{ !cancelled() && matrix.shard == 6 }}
