@@ -127,6 +127,39 @@ body.staff6 .bl-page .v6-twin::before { content: '· '; }
 body.staff6 .bl-page .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action); }
 /* phones: the rows are a press-and-hold away from picking, so a long press does not open the browser's menu */
 .bl-page .v6-ld-list .v6-row-main { -webkit-touch-callout: none; }
+/* ---- R-352 Bills options (Nate 28 Oct: "they all blur together"), a practice switch ?bills=a|b|c (bills.js BX) until he
+   picks one. Tokens only: the topic tints are My issues' (myissues.css .mi-c-*, A-5 on v6), nothing else gains a colour. ---- */
+/* a: the issue's icon on its topic's tint leads each row (the 32px tile All issues uses, so it reads as "the issue"), and
+   rows part by 4px of space instead of a hairline; a bill on no issue keeps an empty slot so the names line up. */
+body.staff6 .bl-x-a .v6-list { row-gap: 4px; }
+body.staff6 .bl-x-a .v6-row + .v6-row::before { background: transparent; }
+body.staff6 .bl-x-a .v6-row-lead.bl-x-none { background: none; }
+body.staff6 .bl-x-a .v6-row-main.has-lead:has(> .i6-lead) { column-gap: 12px; }
+body.staff6 .bl-x-a .v6-row-lead.i6-lead { margin-top: 2px; }
+/* b: each row is its own soft card on the page grey (the group's card goes), 8px apart, and the slim stage bar sits under
+   the line in muted ink: done steps muted, the one it is at in body ink, the rest hairline; no Now pin, no trophy. */
+body.staff6 .bl-x-b .v6-list { row-gap: 8px; padding: 0; background: none; box-shadow: none; border-radius: 0; }
+body.staff6 .bl-x-b .v6-row { background: var(--v6-card); box-shadow: var(--v6-sh1); border-radius: var(--v6-r12); }
+body.staff6 .bl-x-b .v6-row + .v6-row::before { display: none; }
+body.staff6 .bl-x-b .v6-row.sel { background: var(--v6-action-wash); }
+body.staff6 .bl-x-b .v6-row.bl-cur { box-shadow: inset 3px 0 0 var(--v6-action), var(--v6-sh1); }
+body.staff6 .bl-x-b .v6-row-main { padding: 8px; }
+.bl-x-bar { display: block; width: 100%; max-width: 280px; margin-top: 6px; }
+body.staff6 .bl-x-bar .v6-bar { display: block; }
+body.staff6 .bl-x-bar .v6-bar-segs { display: grid; column-gap: 3px; }
+body.staff6 .bl-x-bar .v6-bar-segs > i { display: block; height: 4px; border-radius: var(--v6-pill); background: var(--v6-hair); }
+body.staff6 .bl-x-bar .v6-bar-segs > i.is-done { background: var(--v6-field); }
+body.staff6 .bl-x-bar .v6-bar-segs > i.is-now { background: var(--v6-body); }
+body.staff6 .bl-x-bar .v6-bar-segs > i.is-stopped { background: repeating-linear-gradient(135deg, var(--v6-field) 0 3px, var(--v6-card) 3px 6px); }
+body.staff6 .bl-x-bar .v6-bar-now, body.staff6 .bl-x-bar .v6-bar-end { display: none; }
+/* c: inside each stage group's card, the bills sit under their topic's name with its 24px coloured icon; the rows stay as
+   today's, and a hairline parts one topic's run from the next. */
+body.staff6 .bl-x-subs { padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
+body.staff6 .bl-x-sub + .bl-x-sub { margin-top: 8px; padding-top: 8px; box-shadow: inset 0 1px 0 var(--v6-hair); }
+body.staff6 .bl-x-sub > .v6-list { padding: 0; background: none; box-shadow: none; border-radius: 0; }
+.bl-x-sh { display: flex; align-items: center; gap: var(--s8); margin: 0; padding: 6px 8px 2px; font: 700 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); }
+.bl-x-sh > span:not(.mi-tic) { min-width: 0; }
+.bl-x-sh .bl-gn { font-size: var(--v6-t14); font-weight: 400; }
 /* the open bill: the panel beside the list (steps.css .v6-ld); below 1100px it is its own page, so the list's head steps
    aside with the list and Back to the bills is the first thing */
 .bl-page .v6-ld-detail { padding: 0; }

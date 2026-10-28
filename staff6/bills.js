@@ -35,6 +35,9 @@ import { GROUPS, groupKey, stanceMark } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
+import { issuesOfBill } from './issues.js';
+import { issueLead, issueTile } from './issuestand.js';
+import { slimBarHTML } from './tracker.js';
 import { askSummary, toAskWords, decideWords, nwParts, askTabGo } from './push.js';   // the bills still to ask, in Today's and Hearings' words (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
@@ -115,6 +118,7 @@ function build() {
     let folded = g.rows.length > cap && !g.flat ? g.rows.filter(b => ownStep(b) || k++ < cap) : g.rows;
     if (g.rows.length - folded.length <= 3) folded = g.rows;
     g.hides = g.rows.length - folded.length; g.shown = g.hides && !(v.full ??= {})[g.k] ? folded : g.rows; }
+  if (BX === 'c' && !hold) for (const g of groups) g.shown = byTopic(g.shown).flatMap(r => r.rows);
   NAV = groups.filter(g => g.open).flatMap(g => g.shown.map(b => b.id));
   return { list, groups };
 }
@@ -279,6 +283,31 @@ export function twinsAmong(bills) {
   for (const list of by.values()) if (list.length > 1) for (const x of list) out.set(x.id, list.find(y => y.id !== x.id));
   return out;
 }
+// ---- R-352 Bills options (Nate 28 Oct: "they all blur together"): a practice switch, ?bills=a|b|c, until he picks one.
+// No switch keeps today's rows. Each option is one small path here and a few lines in css/bills.css (.bl-x-a/b/c):
+//   a: each row leads with its issue's icon on the topic's soft tint (All issues' tile, A-5's topic tints), rows parted by
+//      a little space, not hairlines;
+//   b: each row its own soft white card on the page grey, with the slim stage bar back under its line in muted ink (no Now
+//      pin, no trophy: the bar only says how far it has come);
+//   c: inside each stage group, the bills sit under their topic's name (Health care, Food, ...) with its coloured icon; the
+//      rows stay plain. (By issue it was one heading a bill: nearly every practice bill has an issue of its own.)
+// A bill on several issues counts under one: the viewer's own issue first, else the first by name.
+const BX = (() => { try { const x = new URLSearchParams(location.search).get('bills'); return /^[abc]$/.test(x || '') ? x : ''; } catch { return ''; } })();
+const issueOfBill = b => myIssuesOf(b)[0] || issuesOfBill(b.id)[0] || null;
+// a: the tile, or an empty slot of the same width so every name starts at one edge
+const xLead = b => { const i = issueOfBill(b); return i ? issueLead(i) : '<span class="v6-row-lead i6-lead bl-x-none" aria-hidden="true"></span>'; };
+// b: the bar goes inside the row's link, under its line (decorative: the bar's own label says "Step 4 of 9")
+const xBar = (html, b) => { const bar = slimBarHTML(b); return bar ? html.replace(/(<\/(?:a|button)>)(?![\s\S]*<\/(?:a|button)>)/, `<span class="bl-x-bar">${bar}</span>$1`) : html; };
+// c: a group's shown bills in runs by topic, each topic where its most pressing bill stood (the group's own order kept inside)
+const topicOf = b => { const k = issueOfBill(b)?.category || ''; return (S.categories || []).find(c => c.key === k) || null; };
+function byTopic(rows) {
+  const runs = new Map();
+  for (const b of rows) { const c = topicOf(b), k = c ? c.key : ''; (runs.get(k) || runs.set(k, { c, rows: [] }).get(k)).rows.push(b); }
+  const none = runs.get(''); runs.delete('');
+  return [...runs.values(), ...(none ? [none] : [])];
+}
+const topicName = c => c ? c.name : 'No issue yet';
+const subHead = (c, n) => `<h3 class="bl-x-sh">${c ? issueTile({ category: c.key }, 'xs') : ''}<span>${esc(topicName(c))}</span><span class="bl-gn">${n}</span></h3>`;
 const groupHead = g => FOLDED.has(g.k)
   ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
   : `<h2 class="bl-gh" id="bl-g-${g.k}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
@@ -287,11 +316,16 @@ function rowsView(groups) {
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
-  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' }), b, { twins });
+  const rowOf = (b, g) => { if (v.selecting) return selRow(b);
+    const html = glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: BX === 'a' ? xLead(b) : '' }), b, { twins });
+    return BX === 'b' ? xBar(html, b) : html; };
+  // c: one card per stage group, its topics' runs inside it, each run its own list under the issue's name
+  const listOf = g => BX === 'c' && !v.selecting ? `<div class="bl-x-subs">${byTopic(g.shown).map(r => `<div class="bl-x-sub">${subHead(r.c, r.rows.length)}<div class="v6-list" role="list" aria-label="${esc(topicName(r.c))}">${r.rows.map(b => rowOf(b, g)).join('')}</div></div>`).join('')}</div>`
+    : `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(b => rowOf(b, g)).join('')}</div>`;
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
   const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
-  const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(b => rowOf(b, g)).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
+  const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `${listOf(g)}${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
   if (!pick) return `<div class="bl-groups bl-selecting">${html}</div>${keysHint()}`;
   const b = v.look ? S.bills.find(x => x.id === v.look) : null;
   // listDetail's one list becomes one card per group, so the list box itself carries no role (each group's card is the list).
@@ -866,7 +900,7 @@ export default {
     v.lastMuted = false;
     this._after = arrival(route);
     const p = parts();
-    return `<div class="bl-page ${tableOn() ? 'bl-tablev' : 'bl-rowsv'}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
+    return `<div class="bl-page ${tableOn() ? 'bl-tablev' : `bl-rowsv${BX ? ' bl-x-' + BX : ''}`}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
       <div class="bl-stick">${toolbar()}<div id="bl-chips">${p.chips}</div></div><div id="bl-dyn">${p.body}</div></div>`;
   },
   bar(route) {
