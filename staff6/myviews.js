@@ -8,11 +8,13 @@
 //     ("Must clear Second lateral · Mon 3/30 · in 14 days · 14 issues"), each issue under the deadline it must beat next
 //     with its next step and walk 3's House | Senate cells, read against the heading. Stopped issues last, folded.
 //   Status (mockups 7 and 8 together): Needs you · On track · Stopped, each row saying Cleared, At risk or Not yet.
-// R-352 part 4 (Nate 27 Oct, "keep the cards, calmer"; A-14, A-18, C-14 on v6): two views only. Topics went (All issues
-// shows issues by topic) and so did the issue Spreadsheet (a second spreadsheet beside Bills'); a saved "topics", "sheet"
-// or walk 3's "cover" opens Deadlines. Each issue is said once: those due today stand under "Needs you today" and nowhere
-// below; no "Needs you" chip (it was on 25 of 26 cards); each cell says one short thing ("House: hearing today"); no
-// counts line; one small icon beside the name, no tiles or tinted bands.
+//   Topics (mockup 9): shelves by topic, each headed by its icon on its soft tint, with jump chips.
+//   Spreadsheet (mockup 12): one row per issue, sortable headers, Copy for Google Sheets (as Bills' spreadsheet).
+// R-352 part 4 (Nate 27 Oct, "keep the cards, calmer"; A-14, A-18, C-14 on v6): each issue is said once (those due today
+// stand under "Needs you today" and nowhere below); no "Needs you" chip (it was on 25 of 26 cards); each cell says one
+// short thing ("House: hearing today"); no counts line; one small icon beside the name on the Deadlines and Status rows.
+// R-352 FIX-3 (Nate 28 Oct, "Yes, but keep the topics and spreadsheet tabs"): Topics and Spreadsheet are back beside
+// Deadlines and Status, four views as on live; a saved "topics" or "sheet" opens them again, walk 3's "cover" opens Deadlines.
 // The switch is remembered for the person (prefs.myIssuesView, with this browser's copy for a first paint), as Bills'
 // Rows | Spreadsheet is (bills.js setMode).
 //
@@ -39,9 +41,9 @@
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
 import { S, DB, DEMO, esc } from './data.js';
 import { stopOf, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
-import { icon, iconBtn } from './ui.js';
+import { icon, iconBtn, toast } from './ui.js';
 import { plural } from './lists.js';
-import { numWords, dayWords, nw } from './steps.js';
+import { numWords, dayWords, committeeName, nw } from './steps.js';
 import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW } from './issuestand.js';
 import { ICONS } from '../icons.js';
 import { issueIcon } from './issuegrid.js';
@@ -67,7 +69,7 @@ export const glossOf = D => { const g = D ? gateGloss(D.label) : ''; return g ? 
 // ---- one issue, judged for these views ----
 // x: issuestand.js standOf(i) with `own`. Returns what every view draws from, so they all say the same thing.
 export function judge(x) {
-  const { i, going = [] } = x;
+  const { i, going = [], gone = [] } = x;
   let side = going.filter(b => b.position && b.position !== 'monitor' && !AGAINST.has(b.position));
   if (!side.length) side = going.filter(b => !AGAINST.has(b.position));
   const oppose = i.stance === 'oppose';
@@ -78,6 +80,7 @@ export function judge(x) {
   const bills = side.map(b => { const s = st.get(b.id), d = dlOf(b);
     return { b, st: s, ch: origin(b), dl: d, past: D ? (d ? d.date > D.date : THROUGH.has(s.phase)) : THROUGH.has(s.phase) }; });
   const H = bills.filter(y => y.ch === 'H'), Sn = bills.filter(y => y.ch === 'S');
+  const goneOf = c => gone.filter(b => origin(b) === c && b.tracked !== false);   // the Spreadsheet's "none · 2 stopped"
   const alive = !['stopped', 'none', 'off'].includes(x.state) && bills.length > 0;
   const kind = !alive ? 'stopped' : oppose ? 'oppose' : H.length && Sn.length ? 'both' : 'one';
   const cleared = bills.filter(y => y.past);
@@ -96,7 +99,7 @@ export function judge(x) {
   const needs = alive && !oppose && ((open && soon) || dstate === 'risk');
   // When it is due, for "Needs you today": the testimony's due time (late: now), else the end of an At risk deadline's day.
   const dueAt = !needs ? null : open && soon ? (hp.late ? Date.now() : new Date(hp.s.due ?? x.hear.h.scheduled_at).getTime()) : endOf(D.date);
-  const j = { x, i, own: x.own, D, bills, H, S: Sn, alive, kind, cleared, dstate, ask, hp, needs, dueAt };
+  const j = { x, i, own: x.own, D, bills, H, S: Sn, goneH: goneOf('H'), goneS: goneOf('S'), alive, kind, cleared, dstate, ask, hp, needs, dueAt };
   j.health = healthOf(j); j.next = nextOf(j); j.dline = deadlineLine(j);
   if (D) { j.health.title = glossOf(D); if (j.dline) j.dline.title = glossOf(D); }
   return j;
@@ -144,24 +147,34 @@ function deadlineLine(j) {
   return dstate === 'risk' ? { ic: 'triangle-alert', word: 'At risk', text: `At risk: no bill past ${dn(D)} yet${dayTail(D)}; ${why}` }
     : { ic: 'clock', word: 'Not yet', text: `Not yet: no bill past ${dn(D)}${dayTail(D)}; ${why}` };
 }
+// Where a bill is now, in words (C-15: committees by name, never a code): the Spreadsheet's chamber columns.
+function whereNow(st) {
+  if (st.phase === 'committee') return st.committee ? `now in ${committeeName(st.committee)}` : `waiting for a ${CH[st.chamber]} committee`;
+  if (st.phase === 'floor') return `on the ${CH[st.chamber]} floor`;
+  if (st.phase === 'conference') return 'in conference';
+  if (st.phase === 'governor') return 'on the Governor’s desk';
+  if (st.phase === 'law') return 'law';
+  return '';
+}
 const lineSpan = (p, cls = 'mi-ln') => p ? `<span class="${cls}${p.tone ? ' t-' + p.tone : ''}${p.quiet ? ' q' : ''}"${p.title ? ` title="${esc(p.title)}"` : ''}>${p.ic && ICONS[p.ic] ? icon(p.ic) : ''}<span>${p.html || nw(esc(p.text))}</span></span>` : '';
 const tagsOf = j => [j.own ? '' : 'You help', !j.needs && j.next?.you ? 'Your step' : ''].filter(Boolean);
 // No "Needs you" chip (R-352, A-14): it stood on 25 of Nate's 26 cards, so it told nothing; the section an issue stands in
 // and its step line say it. The small grey tags stay ("You help", "Your step").
 const tagHTML = j => tagsOf(j).map(t => `<span class="mi-tag">${esc(t)}</span>`).join('');
 // The issue's own icon, else its topic's (issuegrid.js issueIcon, R-339): one small drawing in the topic's ink beside the
-// name, no tile (R-352, A-18 on v6).
+// name, no tile (R-352, A-18 on v6). Topics' shelves keep their headings' tinted tiles (FIX-3: the topic is what they sort by).
 const topicIc = i => `<span class="mi-ic mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>`;
 
 // ---- the switch (remembered for the person) ----
-// Two views (R-352): Deadlines (the default) and Status. A saved walk 3 "cover", or a dropped "topics" or "sheet", opens
-// Deadlines: any value not in VIEWS does.
-export const VIEWS = [['deadlines', 'Deadlines'], ['status', 'Status']];
+// Four views (R-352 FIX-3, Nate 28 Oct): Deadlines (the default), Status, Topics and Spreadsheet, as words (no tab icons,
+// A-18 on v6). A saved walk 3 "cover" opens Deadlines (OLD); any other value not in VIEWS does too.
+export const VIEWS = [['deadlines', 'Deadlines'], ['status', 'Status'], ['topics', 'Topics'], ['sheet', 'Spreadsheet']];
+const OLD = { cover: 'deadlines' };
 const VKEY = () => `hiphi6_miview_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
 export function viewNow() {
   const who = S.me?.id || '', st = (S.miView ??= {});
   if (st.for !== who) { let m = S.me?.prefs?.myIssuesView; if (!m) { try { m = localStorage.getItem(VKEY()); } catch { m = null; } }
-    st.v = VIEWS.some(([k]) => k === m) ? m : 'deadlines'; st.for = who; }
+    m = OLD[m] || m; st.v = VIEWS.some(([k]) => k === m) ? m : 'deadlines'; st.for = who; }
   return st.v;
 }
 export function setViewNow(m) {
@@ -171,8 +184,8 @@ export function setViewNow(m) {
   if (S.me) S.me.prefs = { ...(S.me.prefs || {}), myIssuesView: m };
   DB.patchPrefs?.({ myIssuesView: m })?.catch?.(() => { /* kept in this browser */ });
 }
-// The filter box (issuestand.js's, wired by its wireTools) and the two-button switch, on a phone too (two words fit; no
-// tab icons, A-18 on v6). A short list (under 6 issues) needs no filter, but keeps the switch.
+// The filter box (issuestand.js's, wired by its wireTools) and the four-button switch, on a phone too (its own row there,
+// css/myissues.css; no tab icons, A-18 on v6). A short list (under 6 issues) needs no filter, but keeps the switch.
 export function toolsHTML(q, count) {
   const v = viewNow(), filter = count >= FEW || q;
   const FI = ICONS['list-filter'] ? 'list-filter' : 'sliders-horizontal';
@@ -187,7 +200,12 @@ export function toolsHTML(q, count) {
 export function bodyHTML(list, { q = '', opts = {} } = {}) {
   if (q.trim()) return searchHTML(list, q, opts);
   const js = list.map(judge);
-  return viewNow() === 'status' ? statusHTML(js, opts) : deadlinesHTML(js, opts);
+  switch (viewNow()) {
+    case 'status': return statusHTML(js, opts);
+    case 'topics': return topicsHTML(js);
+    case 'sheet': return sheetHTML(js);
+    default: return deadlinesHTML(js, opts);
+  }
 }
 const sortUrgent = l => [...l].sort((a, b) => (a.needs ? 0 : 1) - (b.needs ? 0 : 1) || byUrgency(a.x, b.x));
 const stoppedFold = (l, opts, title) => l.length ? `<details class="i6-fold mi-stopped" id="mi-g-stopped" data-fold="mi-stopped"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(title)}</span></summary>
@@ -309,7 +327,85 @@ function statusHTML(js, opts) {
     </div>`;
 }
 
-// ---- wiring ----
+// ---- Topics: shelves by topic, each headed by its icon on its soft tint (mockup 9) ----
+// The shelf heading carries the topic's tile (it is what this view sorts by); the cards stay calm: the issue's small
+// drawing beside its name, its tags and one line, no tinted band (R-352, A-18 on v6). Which chambers are alive is said in
+// words under the line, as the Deadlines cells say it ("Both chambers", "One chamber").
+const KIND = { both: 'Alive in both chambers', one: 'Alive in one chamber', oppose: 'HIPHI opposes', stopped: 'Stopped' };
+function topicsHTML(js) {
+  const cats = (S.categories || []).map(c => ({ c, l: js.filter(j => j.i.category === c.key) })).filter(g => g.l.length);
+  const other = js.filter(j => !cats.some(g => g.c.key === j.i.category));
+  if (other.length) cats.push({ c: { key: 'none', name: 'Other', icon: 'tag' }, l: other });
+  const card = j => `<a class="mi-tcard${j.alive ? '' : ' off'}" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">
+    <span class="mi-name">${topicIc(j.i)}<span class="mi-nm">${esc(j.i.name)}</span>${tagHTML(j)}</span>${lineSpan(j.alive ? j.next || j.health : j.health)}<span class="mi-kind">${esc(KIND[j.kind] || '')}</span></a>`;
+  return `${cats.length > 1 ? `<div class="mi-jump" role="group" aria-label="Jump to a topic">${cats.map(g => `<button type="button" data-mijump="${esc(g.c.key)}"><span class="mi-jic mi-c-${esc(g.c.key)}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>${esc(g.c.name)} <span class="mi-q">${g.l.length}</span></button>`).join('')}</div>` : ''}
+    ${cats.map(g => { const live = g.l.filter(j => j.alive).length, l = [...g.l].sort((a, b) => (a.alive ? 0 : 1) - (b.alive ? 0 : 1) || byUrgency(a.x, b.x));
+      return `<section class="i6-sec mi-shelf" id="mi-t-${esc(g.c.key)}" aria-labelledby="mi-th-${esc(g.c.key)}"><div class="mi-shead"><span class="mi-sic mi-c-${esc(g.c.key)}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>
+        <div><h2 class="i6-h" id="mi-th-${esc(g.c.key)}">${esc(g.c.name)}</h2><p class="mi-sub">${esc(`${plural(g.l.length, 'issue')} · ${live} still alive`)}</p></div></div>
+        <div class="mi-tgrid">${l.map(card).join('')}</div></section>`; }).join('')}`;
+}
+
+// ---- Spreadsheet: one row per issue, sortable, Copy for Google Sheets (mockup 12) ----
+const ownerName = i => i.owner_id && i.owner_id === S.me?.id ? 'You' : (S.advocates || []).find(a => a.id === i.owner_id)?.full_name || 'No owner yet';
+const DSTATE = { cleared: 'Cleared', risk: 'At risk', notyet: 'Not yet' };
+// The next deadline in the Deadlines headings' own words ("Must reach their last committee by Mon 3/30": model.js gateHead,
+// one name for one deadline, R-352 FIX-2, C-15 on v6).
+const dlWords = j => j.D && j.alive ? gateHead(j.D.label, dayWords(j.D.date)) : '';
+const COLS = [
+  ['issue', 'Issue', j => j.i.name],
+  ['house', 'House-started', j => j.H.length ? j.H.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneH.length ? ` · ${j.goneH.length} stopped` : ''}`],
+  ['senate', 'Senate-started', j => j.S.length ? j.S.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneS.length ? ` · ${j.goneS.length} stopped` : ''}`],
+  ['deadline', 'Next deadline', dlWords],
+  ['state', 'Cleared', j => j.alive ? (j.kind === 'oppose' ? 'HIPHI opposes' : DSTATE[j.dstate] || '') : 'Stopped'],
+  ['next', 'Next step', j => j.next?.text || j.health.text],
+  ['owner', 'Owner', j => ownerName(j.i)],
+];
+const SORTV = { deadline: j => j.D && j.alive ? j.D.date : '9', state: j => ({ risk: 0, notyet: 1, cleared: 2 })[j.dstate] ?? 3 };
+function sorted(js) {
+  const s = S.miSort; if (!s) return [...js].sort((a, b) => (a.alive ? 0 : 1) - (b.alive ? 0 : 1) || (a.needs ? 0 : 1) - (b.needs ? 0 : 1) || byUrgency(a.x, b.x));
+  const c = COLS.find(x => x[0] === s[0]), val = SORTV[s[0]] || c[2];
+  return [...js].sort((a, b) => String(val(a)).localeCompare(String(val(b)), 'en', { numeric: true }) * s[1] || a.i.name.localeCompare(b.i.name));
+}
+// Lucide's arrow-up-down, as Bills' spreadsheet draws it (bills.js UPDOWN), so icons.js stays as it is.
+const UPDOWN = '<svg class="ic ic-arrow-up-down" width="1.25em" height="1.25em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>';
+let LAST = [];
+function sheetHTML(js) {
+  const s = S.miSort, rows = sorted(js); LAST = rows;
+  const cell = (k, j) => {
+    if (k === 'issue') return `<a class="mi-tlink" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">${topicIc(j.i)}<span>${esc(j.i.name)}</span></a>${tagsOf(j).length ? `<span class="mi-q mi-ttag">${esc(tagsOf(j).join(', '))}</span>` : ''}`;
+    if (k === 'state') { const t = COLS[4][2](j), ic = { Cleared: 'circle-check', 'At risk': 'triangle-alert', 'Not yet': 'clock', Stopped: 'circle-minus', 'HIPHI opposes': 'circle-x' }[t];
+      return t ? `<span class="mi-st${t === 'Cleared' ? ' t-done' : ''}">${ic ? icon(ic) : ''}${esc(t)}</span>` : ''; }
+    if (k === 'next') return j.next ? `<span class="mi-tnext">${j.next.html}</span>` : esc(j.health.text);
+    if (k === 'deadline') return j.D && j.alive ? `<span title="${esc(glossOf(j.D))}">${esc(dlWords(j))}</span>` : '';
+    const col = COLS.find(x => x[0] === k); return esc(col[2](j));
+  };
+  return `<div class="mi-sheetbar"><p class="mi-sub">${esc(plural(rows.length, 'issue'))}. Press a heading to sort.</p><button type="button" class="btn text sm mi-copy" data-micopy>${icon('copy')}<span>Copy for Google Sheets</span></button></div>
+    <div class="mi-tblbox"><table class="mi-tbl"><caption class="sr">Your issues, one row each</caption><thead><tr>${COLS.map(([k, l]) => { const on = s && s[0] === k;
+      return `<th scope="col" class="mi-th-${k}" aria-sort="${on ? (s[1] > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="mi-sort${on ? ' on' : ''}" data-misort="${k}"><span>${esc(l)}</span>${on ? icon(s[1] > 0 ? 'move-up' : 'move-down') : UPDOWN}</button></th>`; }).join('')}</tr></thead>
+    <tbody>${rows.map(j => `<tr class="${j.alive ? '' : 'off'}">${COLS.map(([k]) => k === 'issue' ? `<th scope="row" class="mi-td-issue">${cell(k, j)}</th>` : `<td class="mi-td-${k}">${cell(k, j)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+export function sheetText(rows = LAST) {
+  const clean = t => String(t ?? '').replace(/[\t\r\n]+/g, ' ').replace(/\u00a0/g, ' ').trim();
+  return [COLS.map(c => c[1]), ...rows.map(j => COLS.map(c => clean(c[2](j))))].map(r => r.join('\t')).join('\n');
+}
+async function copySheet() {
+  const n = LAST.length; if (!n) return toast('No issues are shown, so there is nothing to copy.');
+  const text = sheetText(); let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch { /* below: the older way */ }
+  if (!ok) { const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;left:-9999px;top:0';
+    document.body.appendChild(t); t.select(); try { ok = document.execCommand('copy'); } catch { ok = false; } t.remove(); }
+  toast(ok ? `Copied ${plural(n, 'issue')}. Paste into Google Sheets or Excel.` : 'This browser would not copy. Select the table and copy it by hand.', ok ? { ok: true } : { err: true });
+}
+
+// ---- wiring: everything inside the body is wired again after each paint ----
+export function wireBody(root, { paint }) {
+  const body = root.querySelector('#mi-q-body'); if (!body) return;
+  body.querySelectorAll('[data-misort]').forEach(b => b.onclick = () => { const k = b.dataset.misort, s = S.miSort;
+    S.miSort = s && s[0] === k ? (s[1] > 0 ? [k, -1] : null) : [k, 1]; paint(); root.querySelector(`[data-misort="${k}"]`)?.focus(); });
+  body.querySelector('[data-micopy]')?.addEventListener('click', copySheet);
+  body.querySelectorAll('[data-mijump]').forEach(b => b.onclick = () => { const t = body.querySelector(`#mi-t-${CSS.escape(b.dataset.mijump)}`);
+    if (t) { t.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); t.querySelector('h2')?.setAttribute('tabindex', '-1'); t.querySelector('h2')?.focus({ preventScroll: true }); } });
+}
 export function wireSwitch(root, { paint }) {
   const pick = v => { setViewNow(v); root.querySelectorAll('[data-miview]').forEach(o => o.setAttribute('aria-pressed', String(o.dataset.miview === v))); paint(); };
   root.querySelectorAll('[data-miview]').forEach(b => b.onclick = () => pick(b.dataset.miview));

@@ -1176,9 +1176,12 @@ none covered chair asks, filing or covering for someone.
 - **Places a role never uses are left out**, with D8's one quiet line saying they exist ("Admins also have: Session setup,
   People. Ask Nate.").
 - Sub-pages are one row of page tabs at the top of the page, never in the sidebar as well (D12).
-- **The calendar has one home: Hearings** (List | Calendar), with a filter by issue (the job All issues' calendar did); old
-  calendar addresses open it. **Today has no week grid and no day strip**; its Coming up ends with one quiet line, "See the
-  week on Hearings". All issues has no calendar view (R-352, Nate 27 Oct; reverses R-342's and R-346's week on Today).
+- **The calendar has two homes, each with one way in (A-12): Hearings** (This week's "See as calendar", with a filter by
+  issue) **and All issues' Calendar tab** (Issues > Calendar, `#/my-issues/all?view=cal`: the team's week, each entry with
+  its bill's issue). Both are the one calendar (hearings.js calHTML), so they show the same entries in the same colour of
+  time (A-5) and the same words for each state. **Today has no week grid and no day strip**; its Coming up ends with one
+  quiet line, "See the week on Hearings" (R-352, Nate 27 Oct; reverses R-346's week on Today). All issues' calendar is
+  R-342's, kept by R-352 FIX-3 (Nate 28 Oct: "keep the calendar view").
 
 *Reason.* Under v5's rule the Inbox sat only in the initials menu, Review had no door but Today's card, Sort new bills was
 behind Bills' "…", and four places moved into the initials menu below 1100px. Nate: "ease of navigation [is] extremely
@@ -1188,7 +1191,9 @@ features are kept for everyone and shown by role.
 or grid on Today), which is the "too many things in too many places" of R-336, and A-12's two ways into one thing; Today's
 grid also added to its length (Nate's Today grew from about 2 laptop screens on 23 Oct to over 4 by 27 Oct). Nate chose Hearings as its one
 home. The issue filter keeps what All issues' calendar was for, and the line on Today keeps the week one visible, labelled
-click away.
+click away. *Reason for All issues' calendar (R-352 FIX-3).* Reviewing the result on 28 Oct, Nate kept it: "keep the
+calendar view". It is reached one way only, the Calendar tab, as live had it (R-342's second way in, a Cards | Calendar
+switch beside the tab, was A-12's two doors to one room), and it is drawn by Hearings' code, so the two never drift.
 
 ### B-14 on v6: things to do are never folded away
 

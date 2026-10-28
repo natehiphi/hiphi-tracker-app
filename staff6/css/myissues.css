@@ -1,13 +1,22 @@
-/* My issues' two views (R-336 walks 3 and 4, Nate 25 Oct; R-352 part 4, Nate 27 Oct: "keep the cards, calmer";
-   staff6/myviews.js). From the tokens only, with three radii (12 tiles and cells, 20 cards and panels, pill for buttons and
+/* My issues' four views (R-336 walks 3 and 4, Nate 25 Oct; R-352 part 4, Nate 27 Oct: "keep the cards, calmer"; FIX-3,
+   Nate 28 Oct: "keep the topics and spreadsheet tabs"; staff6/myviews.js). From the tokens only, with three radii (12 tiles and cells, 20 cards and panels, pill for buttons and
    chips: A-8 on v6), warm shadows and no border lines, names at Poppins 500 (bold stays for headings: A-4 on v6), labels at
-   14. Done is leaf green with its check (A-5), nothing amber or red here. No tinted bands and no icon tiles on this screen
-   (A-18 on v6): one small drawing beside an issue's name, in its topic's ink. */
+   14. Done is leaf green with its check (A-5), nothing amber or red here. No tinted bands and no icon tiles on the issues
+   themselves (A-18 on v6): one small drawing beside an issue's name, in its topic's ink; only Topics' shelf headings and
+   jump chips carry the topic's tile, as the topic headings on All issues do. */
 
-/* ---- the switch: Deadlines | Status, two buttons on every width ---- */
+/* ---- the switch: Deadlines | Status | Topics | Spreadsheet, four buttons on every width ---- */
 body.staff6 .mi-seg { flex-wrap: wrap; max-width: 100%; }
 body.staff6 .mi-seg button { padding: 0 14px; white-space: nowrap; }
-@media (max-width: 599px) { body.staff6 .mi-tools.open .mi-seg { flex-basis: 100%; } }
+/* on a phone the four share the Filter button's line, each as wide as its word (14px, a label size) so "Spreadsheet" fits;
+   on a 320 phone, or with the filter box open, they take a line of their own; nothing scrolls sideways (spec 7.10) */
+@media (max-width: 599px) {
+  body.staff6 .mi-tools { flex-wrap: wrap; }
+  body.staff6 .mi-seg { flex: 1 1 auto; flex-wrap: nowrap; min-width: 0; }
+  body.staff6 .mi-seg button { flex: 1 1 auto; min-width: 0; padding: 0 6px; font-size: var(--v6-t14); }
+  body.staff6 .mi-tools.open .mi-seg { flex-basis: 100%; }
+}
+@media (max-width: 359px) { body.staff6 .mi-seg { flex-basis: 100%; } body.staff6 .mi-seg button { padding: 0 4px; } }
 
 /* ---- shared pieces ---- */
 body.staff6 .mi-body { margin-top: var(--s8); }
@@ -73,6 +82,72 @@ body.staff6 .mi-srow .v6-row-line > svg { width: 18px; height: 18px; margin-top:
 body.staff6 .mi-srow .mi-dl.t-done > svg { color: var(--v6-leaf); }
 body.staff6 .mi-status .mi-stopped { margin-top: 0; }
 @media (max-width: 1100px) { body.staff6 .mi-status { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- Topics (FIX-3): shelves by topic, each headed by its icon on its soft tint; the cards stay calm ---- */
+body.staff6 .mi-q { color: var(--v6-muted); font-weight: 400; }
+body.staff6 .mi-jump { display: flex; flex-wrap: wrap; gap: var(--s8); margin: 0 0 var(--s24); }
+body.staff6 .mi-jump button { display: inline-flex; align-items: center; gap: var(--s8); min-height: 40px; padding: 0 14px 0 6px; border: 0; border-radius: var(--v6-pill); background: var(--v6-card); box-shadow: var(--v6-sh1); font: 400 var(--v6-t16)/1.2 var(--font); color: var(--v6-ink); cursor: pointer; }
+body.staff6 .mi-jump button:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .mi-jic { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--v6-pill); background: var(--mi-tint, var(--v6-wash)); color: var(--mi-ink, var(--v6-body)); }
+body.staff6 .mi-jic .ic { width: 16px; height: 16px; }
+body.staff6 .mi-shelf { margin-top: var(--v6-gap); scroll-margin-top: var(--s16); }
+body.staff6 .mi-jump + .mi-shelf { margin-top: 0; }
+body.staff6 .mi-shead { display: flex; align-items: center; gap: var(--s16); margin-bottom: var(--s16); }
+body.staff6 .mi-shead .i6-h { margin: 0; }
+body.staff6 .mi-shead .mi-sub { margin: 0; }
+body.staff6 .mi-shead h2:focus { outline: none; }
+body.staff6 .mi-sic { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: var(--v6-r20); background: var(--mi-tint, var(--v6-wash)); color: var(--mi-ink, var(--v6-body)); flex: none; }
+body.staff6 .mi-sic .ic { width: 30px; height: 30px; }
+body.staff6 .mi-tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s16); }
+body.staff6 a.mi-tcard { display: flex; flex-direction: column; padding: var(--s16); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); color: inherit; text-decoration: none; }
+body.staff6 a.mi-tcard:focus-visible, body.staff6 .mi-tlink:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.mi-tcard:hover { box-shadow: var(--v6-sh2); } body.staff6 a.mi-tcard:hover .mi-nm { color: var(--v6-action); } }
+/* the name as one wrapping line, its drawing inline before it, so a long name wraps under itself, never below the drawing */
+body.staff6 .mi-tcard .mi-name > .mi-ic { margin-right: var(--s8); vertical-align: -3px; }
+body.staff6 .mi-kind { display: block; margin-top: var(--s8); font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .mi-tcard.off .mi-nm { color: var(--v6-body); }
+@media (max-width: 599px) {
+  body.staff6 .mi-jump { flex-wrap: nowrap; overflow-x: auto; margin: 0 calc(-1 * var(--v6-gutter, 16px)) var(--s16); padding: 2px var(--v6-gutter, 16px) 4px; scrollbar-width: none; }
+  body.staff6 .mi-jump::-webkit-scrollbar { display: none; }
+  body.staff6 .mi-jump button { flex: none; min-height: 44px; white-space: nowrap; }
+  body.staff6 .mi-sic { width: 44px; height: 44px; } body.staff6 .mi-sic .ic { width: 24px; height: 24px; }
+  body.staff6 .mi-tgrid { grid-template-columns: minmax(0, 1fr); gap: var(--s12); }
+  body.staff6 a.mi-tcard { padding: var(--s12); }
+  body.staff6 .mi-tcard .mi-name { font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+}
+
+/* ---- Spreadsheet (FIX-3): one row per issue, sortable, Copy for Google Sheets ---- */
+body.staff6 .mi-sheetbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin: 0 0 var(--s8); }
+body.staff6 .mi-sheetbar .mi-sub { margin: 0; }
+body.staff6 .mi-copy { min-height: 40px; }
+body.staff6 .mi-tblbox { overflow-x: auto; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+body.staff6 .mi-tbl { width: 100%; min-width: 980px; border-collapse: separate; border-spacing: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .mi-tbl thead th { height: 48px; padding: 0 12px; text-align: left; vertical-align: middle; box-shadow: inset 0 -1px 0 var(--v6-hair); font-weight: 500; }
+body.staff6 .mi-sort { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; margin: 0 -6px; padding: 0 6px; border: 0; border-radius: var(--v6-r12); background: none; font: 500 var(--v6-t14)/1.15 var(--font); color: var(--v6-muted); text-align: left; cursor: pointer; }
+body.staff6 .mi-sort .ic { width: 14px; height: 14px; opacity: .5; flex: none; }
+body.staff6 .mi-sort.on { color: var(--v6-ink); } body.staff6 .mi-sort.on .ic { opacity: 1; color: var(--v6-action); }
+@media (hover: hover) and (pointer: fine) { body.staff6 .mi-sort:hover { background: var(--v6-wash); color: var(--v6-ink); } }
+body.staff6 .mi-sort:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .mi-tbl tbody th, body.staff6 .mi-tbl td { padding: 12px; text-align: left; vertical-align: top; font-weight: 400; }
+body.staff6 .mi-tbl tbody tr + tr > * { box-shadow: inset 0 1px 0 var(--v6-hair); }
+body.staff6 .mi-tbl tbody tr.off > * { color: var(--v6-muted); }
+body.staff6 .mi-td-issue { width: 22%; }
+body.staff6 .mi-tlink { display: inline-flex; align-items: flex-start; gap: var(--s8); min-height: 40px; padding-top: 8px; font: 500 var(--v6-t16)/var(--v6-lh16) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; }
+body.staff6 .mi-tlink > .mi-ic { margin-top: 3px; }
+body.staff6 .mi-tlink:hover { color: var(--v6-action); text-decoration: underline; }
+body.staff6 .mi-tbl tr.off .mi-tlink { color: var(--v6-body); }
+body.staff6 .mi-ttag { display: block; font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+@media (min-width: 600px) { body.staff6 .mi-td-issue .mi-ttag { padding-left: 26px; } }   /* the tag lines up under the name, not the drawing */
+body.staff6 .mi-st { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+body.staff6 .mi-st .ic { width: 18px; height: 18px; color: var(--v6-muted); }
+body.staff6 .mi-st.t-done .ic { color: var(--v6-leaf); }
+body.staff6 .mi-tnext .i6-time { font-weight: 500; }
+@media (max-width: 767px) {
+  body.staff6 .mi-tbl { min-width: 860px; }
+  body.staff6 .mi-tbl tbody th { position: sticky; left: 0; z-index: 1; background: var(--v6-card); min-width: 160px; }
+  body.staff6 .mi-tlink, body.staff6 .mi-sort { min-height: 44px; }
+}
+@media (max-width: 599.98px) { body.staff6 .mi-tlink > .mi-ic { display: none; } }   /* the name column is narrow there */
 
 /* ---- issue pictures shared with other screens (issuestand.js issueLead and issueTile: All issues, the issue page,
    Coalitions, Testimony). Kept here, where they began (R-339), so those screens look as they did; My issues itself no

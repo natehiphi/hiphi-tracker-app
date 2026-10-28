@@ -9,7 +9,7 @@
 #   3. Partners, Words to approve: every row starts with the partner tile; Approve carries its icon.
 #   4. Bills (Team) (R-352 part 7): a row is a name, its number and one line: no bar, no job tile, no topic icon, no icon
 #      beside a group heading; two shown bills that share a name say whose twin; no row passes spec 8's four facts. Search:
-#      the twins name each other, no line drawn past its box.
+#      the twins name each other, each bill result keeps its slim progress bar (R-352 FIX-3), no line drawn past its box.
 #   5. All issues: each card says how the issue is doing as one shape and word (no tint), with the House and Senate dots.
 #   6. No sideways scroll, no page errors.
 #   Part 2 (the files R-346 held): Today's rows (R-352 part 2) lead with one small neutral kind-of-job icon, not a coloured
@@ -139,13 +139,16 @@ with L.browser() as B:
     shot(pg, 'bills-team')
     pg.nav('/search?q=e-cigarette')
     s = pg.page.evaluate("""(() => { const rows = [...document.querySelectorAll('.sr-page .v6-row[data-bill], .sr-page .v6-row')].filter(r => r.querySelector('.v6-row-main[data-bill]'));
-      return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar, .v6-act-lead, .v6-at')).length,
+      return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar')).length, tile: rows.filter(r => r.querySelector('.v6-act-lead, .v6-at')).length,
+        barIn: rows.filter(r => r.querySelector('.v6-row-main .v6-bar[role="img"][aria-label]')).length,
         over: rows.filter(r => { const l = r.querySelector('.v6-row-line > span'); return l && l.scrollHeight > l.clientHeight + 2; }).length,
         twins: Object.fromEntries(rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').firstChild.textContent.trim(), r.querySelector('.v6-twin').innerText.trim()])) }; })()""")
     R.check(f'{w} Search: the twins HB 2121 and SB 2175 ("Disposable e-cigarette ban") name each other', s['twins'].get('HB 2121') == 'twin of SB 2175' and s['twins'].get('SB 2175') == 'twin of HB 2121', s['twins'])
     R.check(f'{w} Search: only bills with a shown twin are tagged (not every result)', len(s['twins']) < s['n'], (len(s['twins']), s['n']))
-    # R-352 (A-18 on v6): the bill results are one kind under their own heading, as Bills' rows: no bar, no job tile
-    R.check(f'{w} Search: no bill result draws the bar or a job tile (as Bills)', s['n'] > 0 and s['bar'] == 0, s)
+    # R-352 FIX-3 (Nate 28 Oct, "keep the bill progress bar there"): each bill result draws its slim bar (Now, Law) inside its
+    # link, said in one short sentence to a screen reader; no job tile (A-18 on v6: one kind under its own heading)
+    R.check(f'{w} Search: every bill result draws its slim progress bar', s['n'] > 0 and s['bar'] == s['n'] and s['barIn'] == s['n'], s)
+    R.check(f'{w} Search: no bill result wears a job tile', s['tile'] == 0, s)
     R.check(f'{w} Search: no result line is drawn past its box (the old clamp)', s['over'] == 0, s)
     fs = pg.measure(full=True)
     R.check(f'{w} Search: the pictures add no fact to a result (spec 8: four at most)', fs['facts_max'] <= 4, (fs['facts_max'], fs['worst_row']))

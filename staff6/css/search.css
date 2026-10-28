@@ -71,3 +71,21 @@ body.staff6 .sr-page .v6-row .v6-row-name, body.staff6 .sr-page .v6-row .v6-row-
 /* R-344: "nothing cut" meant the whole line, but the shared two-line clamp stayed on, so its third line was drawn over the
    next result (and now the bill's bar): the clamp goes too, and the line is read whole. */
 body.staff6 .sr-page .v6-row .v6-row-line > span { display: block; -webkit-line-clamp: none; line-clamp: none; }
+
+/* ---- R-352 FIX-3 (Nate 28 Oct, "keep the bill progress bar there"): a bill result's own picture (tracker.js slimBarHTML),
+   the slim bar, a Now pin, the trophy at Law; as live (6691bda4 steps.css), now only Search draws it ---- */
+body.staff6 .sr-page .v6-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; column-gap: 6px; margin-top: 4px; width: 100%; max-width: 420px; min-width: 0; align-self: stretch; }
+body.staff6 .sr-page .v6-bar-segs { position: relative; display: grid; column-gap: 3px; padding-top: 17px; min-width: 0; }
+body.staff6 .sr-page .v6-bar-segs > i { display: block; height: 6px; border-radius: var(--v6-pill); background: var(--v6-hair); }
+body.staff6 .sr-page .v6-bar-segs > i.is-done { background: var(--v6-leaf); }
+body.staff6 .sr-page .v6-bar-segs > i.is-now { background: var(--v6-action); }
+body.staff6 .sr-page .v6-bar-segs > i.is-stopped { background: repeating-linear-gradient(135deg, var(--v6-muted) 0 3px, var(--v6-field) 3px 6px); }
+/* "Now" over the stop it is at: a pin and the word, 14px, kept inside the bar's ends */
+body.staff6 .sr-page .v6-bar-now { position: absolute; top: 0; display: inline-flex; align-items: center; gap: 2px; transform: translateX(-50%);
+  font-size: var(--v6-t14); line-height: 16px; color: var(--v6-action); font-weight: 400; white-space: nowrap; }
+body.staff6 .sr-page .v6-bar-now svg { width: 14px; height: 14px; }
+body.staff6 .sr-page .v6-bar-now::after { content: 'Now'; }
+body.staff6 .sr-page .v6-bar-now.at-start { transform: none; } body.staff6 .sr-page .v6-bar-now.at-end { transform: translateX(-100%); }
+body.staff6 .sr-page .v6-bar-end { display: inline-flex; align-items: center; color: var(--v6-field); line-height: 0; }
+body.staff6 .sr-page .v6-bar-end svg { width: 16px; height: 16px; }
+body.staff6 .sr-page .v6-bar.is-law .v6-bar-end { color: var(--v6-leaf); }

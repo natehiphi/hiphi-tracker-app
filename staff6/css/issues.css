@@ -752,8 +752,8 @@ body.staff6 .is6-stw .ic { width: 18px; height: 18px; color: var(--v6-muted); }
    it stands (one shape and its word) and its next step with its date. No tinted band, no big tile, no description. Four a
    row in a 1440 laptop's column; on a phone each topic is one list card of rows (the Hearings list's shape). Every card is
    one link; the ring shows on the whole card (rule 10). */
-/* The six tints: a wash of one hue and a darker ink of the same hue (Today's issue line, the bill page's issue card and the
-   issue page wear them; the cards here do not). None is amber or red (A-5 on v6); each ink is 4.5:1 or more on its wash. */
+/* The six tints: a wash of one hue and a darker ink of the same hue (the topic headings here, Today's issue line, the bill
+   page's issue card and the issue page wear them; the cards here do not). None is amber or red (A-5 on v6); each ink is 4.5:1 or more on its wash. */
 body.staff6 .ig6-tint0 { --ig-wash: var(--v6-wash); --ig-ink: var(--v6-body); }   /* the neutral wash */
 body.staff6 .ig6-tint1 { --ig-wash: #FCEBDD; --ig-ink: #8A4F2A; }   /* Food & Nutrition: peach */
 body.staff6 .ig6-tint2 { --ig-wash: #ECE7F7; --ig-ink: #5A4A8F; }   /* Tobacco, Nicotine & Alcohol: lavender */
@@ -768,6 +768,12 @@ body.staff6 .ig6-sh h2 { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppi
 body.staff6 .ig6-sh h2:focus { outline: none; }
 body.staff6 .ig6-sh h2:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 body.staff6 .ig6-sn { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
+/* R-352 FIX-3 (Nate 28 Oct): a topic heading's tile, the topic's icon in its ink on its wash (issuegrid.js headTile), a
+   rounded square so it never reads as a person's round initials (A-5 on v6). The heading's words line up with its middle. */
+body.staff6 .ig6-sh:has(> .ig6-htile) { align-items: center; }
+body.staff6 .ig6-htile { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; border-radius: var(--v6-r12);
+  background: var(--ig-wash, var(--v6-wash)); color: var(--ig-ink, var(--v6-body)); }
+body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 24px; height: 24px; stroke-width: 1.75; }
 body.staff6 .ig6-sec, body.staff6 .ig6-fold, body.staff6 .ig6-cell[id], body.staff6 .i6-weekq[id] { scroll-margin-top: 40px; }
 body.staff6 .ig6-fold > .ig6-grid { margin-top: 12px; }
 body.staff6 .ig6-jump { margin: 0 0 16px; }
@@ -843,6 +849,7 @@ body.staff6 .ig6-tools .ig6-sortb[hidden] { display: none; }
   body.staff6 .ig6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 2px; padding: 6px 16px; background: var(--v6-page); }
   body.staff6 .ig6-rest { margin-top: 4px; }
   body.staff6 .ig6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
+  body.staff6 .ig6-htile { width: 28px; height: 28px; } body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 18px; height: 18px; }
   body.staff6 .ig6-sec, body.staff6 .ig6-cell[id] { scroll-margin-top: 0; }
   /* The box on its own line; Sort (which names its order) and New share the next. */
   body.staff6 .ig6-tools, body.staff6 .ig6-tools.open { flex-wrap: wrap; gap: 8px; }

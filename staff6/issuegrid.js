@@ -58,8 +58,13 @@ export function cardHTML({ key, href, name, after = '', title = '', pic = '', li
     ${foot ? `<div class="ig6-foot">${foot}</div>` : ''}</div></div>`;
 }
 export const gridHTML = (inner, label) => `<div class="ig6-grid" role="list" aria-label="${esc(label)}">${inner}</div>`;
-// A group: its heading (22px) and its count, a target for its chip; then its grid. No picture: the word is the heading.
-export const groupHTML = g => `<section class="ig6-sec" aria-labelledby="${esc(g.id)}"><div class="ig6-sh"><h2 id="${esc(g.id)}" tabindex="-1">${esc(g.title)}</h2>${g.count ? `<span class="ig6-sn">${esc(g.count)}</span>` : ''}</div>${g.body || gridHTML(g.inner, g.title)}</section>`;
+// A topic heading's picture (R-352 FIX-3, Nate 28 Oct: "keep ... the colored icons as issue headings"): the topic's icon on
+// its own soft tint, one tile a topic, so the six topics read apart as the page scrolls and each heading welcomes you into
+// its issues. The cards under it stay calm (their small icon only). A rounded square, never a circle, so it is never taken
+// for a person's initials (A-5 on v6: person tints are round). Decorative: the heading says the topic.
+export const headTile = (ic, tint = null) => `<span class="ig6-htile ${tintOf(tint)}" aria-hidden="true">${icon(ic || 'tag')}</span>`;
+// A group: its heading (22px) with its topic's tile when it has one (g.pic), and its count, a target for its chip; then its grid.
+export const groupHTML = g => `<section class="ig6-sec" aria-labelledby="${esc(g.id)}"><div class="ig6-sh">${g.pic || ''}<h2 id="${esc(g.id)}" tabindex="-1">${esc(g.title)}</h2>${g.count ? `<span class="ig6-sn">${esc(g.count)}</span>` : ''}</div>${g.body || gridHTML(g.inner, g.title)}</section>`;
 // The jump chips: Everyone's (legislators.css .lg6-jump), one per group, each bringing its heading to the top.
 export const jumpHTML = (gs, label) => gs.length < 2 ? '' : `<nav class="lg6-jump ig6-jump" aria-label="${esc(label)}"><div class="lg6-jrow">${gs.map(g =>
   `<button type="button" class="lg6-jchip" data-igjump="${esc(g.id)}">${esc(g.chip || g.title)}${g.n != null ? ` <span class="lg6-jn">${g.n}</span>` : ''}</button>`).join('')}</div></nav>`;
@@ -176,11 +181,11 @@ function topicBody(c, l, o) {
   return `${live.length ? gridHTML(live.map(card).join(''), c.name) : ''}${rest.length ? `<details class="i6-fold ig6-fold ig6-rest" data-fold="ig6-r-${esc(c.key)}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Not moving this session (${rest.length})</span></summary>${gridHTML(rest.map(card).join(''), `${c.name}: not moving this session`)}</details>` : ''}`;
 }
 function topicGroups(list, o) {
-  return (S.categories || []).map(c => { const l = list.filter(x => x.i.category === c.key).sort(urgent); if (!l.length) return null;
-    return { id: `ig6-g-${c.key}`, title: c.name, chip: c.name, n: l.length, count: countWords(l), body: topicBody(c, l, o) }; }).filter(Boolean)
+  return (S.categories || []).map((c, k) => { const l = list.filter(x => x.i.category === c.key).sort(urgent); if (!l.length) return null;
+    return { id: `ig6-g-${c.key}`, title: c.name, chip: c.name, n: l.length, count: countWords(l), pic: headTile(staffIcon(c.icon) || 'tag', k), body: topicBody(c, l, o) }; }).filter(Boolean)
     // An issue whose topic is not one of the six (a new key) still shows, last, rather than vanishing.
     .concat((() => { const keys = new Set((S.categories || []).map(c => c.key)), l = list.filter(x => !keys.has(x.i.category)).sort(urgent);
-      return l.length ? [{ id: 'ig6-g-other', title: 'No topic yet', chip: 'No topic', n: l.length, count: plural(l.length, 'issue'), body: topicBody({ key: 'other', name: 'No topic yet' }, l, o) }] : []; })());
+      return l.length ? [{ id: 'ig6-g-other', title: 'No topic yet', chip: 'No topic', n: l.length, count: plural(l.length, 'issue'), pic: headTile('tag'), body: topicBody({ key: 'other', name: 'No topic yet' }, l, o) }] : []; })());
 }
 function letterGroups(list, o) {
   const by = new Map();
