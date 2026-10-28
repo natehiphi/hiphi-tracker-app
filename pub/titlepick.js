@@ -10,7 +10,7 @@
 // titles to add, so a tap there never takes a title off the profile; `pendingTitle(st)` lets a host keep words typed but
 // not added when the person saves.
 import { esc, icon } from './core.js';
-import { FIRST, GROUPS, inGroup, titleLabel, findTitles, ownKey, tidyOwn, ownOver, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
+import { FIRST, GROUPS, inGroup, allInGroup, titleLabel, findTitles, ownKey, tidyOwn, ownOver, listKeyFor, TITLES_MAX, OWN_MAX } from './titles.js';
 
 const chip = (k, on, label = titleLabel(k)) => `<button type="button" class="chip tp-c" data-tp="${esc(k)}" aria-pressed="${on}">${on ? icon('check') : ''}<span>${esc(label)}</span></button>`;
 
@@ -42,19 +42,27 @@ export function pendingTitle(st) {
   return pre ? pre.k : ownKey(q);
 }
 
-// o: { legend, hint, addOnly }.
+// o: { legend, hint, addOnly, suggest, quietLegend }.
+// suggest (R-304, Your voice under ?rec=1): the keys to show first in place of today's eight (titles.js suggestTitles: the
+// person's own titles, then the ones that fit the issues they follow, six in all); "More titles" then holds every other
+// title, the first ones too. quietLegend: the page's own heading names the picker, so the legend is for screen readers
+// only and the hint is a line under it (A-14: "I'm a..." once on the screen). The walkthrough (helper.js) passes neither.
 export function pickerHTML(pfx, st, o) {
-  const { legend = 'I’m a…', hint = 'Pick any, or none.', addOnly = false } = st.opts = o || st.opts || {};
+  const { legend = 'I’m a…', hint = 'Pick any, or none.', addOnly = false, suggest = null, quietLegend = false } = st.opts = o || st.opts || {};
   const full = st.chosen.length >= TITLES_MAX, q = st.q || '';
   // Every title stays where it is, ticked when picked, so a tap never makes a chip jump out of sight (the review of R-165:
   // a title tapped in "More titles" vanished to the top). After the first ones: titles shown nowhere else, their own words and,
   // with More titles closed, the ones picked from it. Adding only (the letter's "Add a title"): just the ones to add.
   const on = k => st.chosen.includes(k), show = t => addOnly ? !on(t.k) : !full || on(t.k);
-  const inMore = new Set(GROUPS.flatMap(([g]) => inGroup(g).map(t => t.k))), isFirst = new Set(FIRST.map(t => t.k));
+  const shown = suggest ? suggest : FIRST.map(t => t.k), isFirst = new Set(shown);
+  const group = g => suggest ? allInGroup(g).filter(t => !isFirst.has(t.k)) : inGroup(g);
+  const inMore = new Set(GROUPS.flatMap(([g]) => group(g).map(t => t.k)));
   const mine = addOnly ? '' : st.chosen.filter(k => !isFirst.has(k) && !(st.more && !full && inMore.has(k))).map(k => chip(k, true)).join('');
-  const firsts = FIRST.filter(show).map(t => chip(t.k, on(t.k))).join('');
-  const more = st.more ? `<div class="tp-more" id="${pfx}-tpm">${GROUPS.map(([g, name]) => { const ts = inGroup(g).filter(show); return ts.length ? `<div class="tp-g"><p class="tp-gh">${esc(name)}</p><div class="chips">${ts.map(t => chip(t.k, on(t.k))).join('')}</div></div>` : ''; }).join('')}</div>` : '';
-  return `<fieldset class="tp${addOnly ? ' tp-addonly' : ''}" id="${pfx}-tp"><legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>
+  const firsts = shown.filter(k => show({ k })).map(k => chip(k, on(k))).join('');
+  const more = st.more ? `<div class="tp-more" id="${pfx}-tpm">${GROUPS.map(([g, name]) => { const ts = group(g).filter(show); return ts.length ? `<div class="tp-g"><p class="tp-gh">${esc(name)}</p><div class="chips">${ts.map(t => chip(t.k, on(t.k))).join('')}</div></div>` : ''; }).join('')}</div>` : '';
+  const leg = quietLegend ? `<legend class="tp-leg sr">${esc(legend)}</legend><p class="small muted tp-lede">${esc(hint)}</p>`
+    : `<legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>`;
+  return `<fieldset class="tp${addOnly ? ' tp-addonly' : ''}${suggest ? ' tp-six' : ''}" id="${pfx}-tp">${leg}
     <div class="chips tp-chips">${firsts}${mine}</div>
     ${full ? `<p class="small muted">${icon('info')} You can pick up to ${TITLES_MAX}.${addOnly ? '' : ' Tap one to take it off.'}</p>` : `
     <button type="button" class="explain tp-morebtn" data-tp-more aria-expanded="${!!st.more}" aria-controls="${pfx}-tpm">${icon(st.more ? 'chevron-up' : 'chevron-down')}<span>${st.more ? 'Fewer titles' : 'More titles'}</span></button>${more}

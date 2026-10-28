@@ -136,6 +136,19 @@ export function findTitles(q, have = []) {
     .sort((a, b) => (b.first ? 1 : 0) - (a.first ? 1 : 0)).slice(0, 6);
 }
 export const FIRST = TITLES.filter(t => t.first);
+// The six chips Your voice shows first (R-304, Nate 28 Oct: "fewer shown first, about 6", suggested "from the issues
+// followed"). Each title is scored with the fitScore a letter uses, summed over the issues the person follows, so the chips
+// are the ones their letters would open with; a tie goes to today's first titles, then to the list's order. Titles they
+// already chose always show, first, so nothing they picked hides behind "More titles".
+// about: [{ cats, text }], one per followed issue (none: today's first titles, in order).
+export function suggestTitles(about = [], chosen = [], n = 6) {
+  const have = cleanTitles(chosen), on = new Set(have);
+  const ranked = TITLES.filter(t => !t.pick && !on.has(t.k)).map((t, i) => ({ k: t.k, i, f: t.first ? 1 : 0, s: about.reduce((sum, a) => sum + fitScore(t.k, a), 0) }))
+    .sort((a, b) => b.s - a.s || b.f - a.f || a.i - b.i).map(x => x.k);
+  return [...have, ...ranked].slice(0, Math.max(n, have.length));
+}
+// Every title in a group, the first ones too (R-304: with six suggested chips, "More titles" holds all the rest).
+export const allInGroup = g => TITLES.filter(t => t.group === g && !t.pick);
 // The two kinds of student are shown first as plain titles (R-165: the "student" choice that opened two more was clunky),
 // so "More titles" does not list them again (A-14).
 export const inGroup = g => TITLES.filter(t => t.group === g && !t.first && !t.pick && !/^student-/.test(t.k));
