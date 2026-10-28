@@ -145,7 +145,9 @@ TOAST = lambda rx_: (lambda pg: bool(re.search(rx_, pg.page.evaluate("() => docu
 # bare "Approve" are older names, tried after it.
 REVIEW6 = (r'^\s*Review\s*$', r'^\s*Review and approve\s*$', r'^\s*(Review|Approve)\b')
 # Kevin's HB 2121 filing on Today: a Coming up row with no button of its own (spec 11.1, 12.7), found by its words.
-FILE_ROW = rx(r'^\s*(Disposable e-cigarette ban|HB ?2121)\b.*\bFile by\b')
+# R-346: Today's rows lead with the job ("Wed 3/18: File the testimony on Disposable e-cigarette ban at the Capitol. File by
+# Wed 3/18, 7:30 AM"), the bill named inside the sentence (option E), so the row is found by the job and the bill.
+FILE_ROW = rx(r'\bFile the testimony on (Disposable e-cigarette ban|HB ?2121)\b.*\bFile by\b')
 # The open item's filing button, in the app's words (23 Oct: the step card says "File the testimony at the Capitol" and
 # its button "File", which opens the filing card; its step 4 is "Mark filed"). A button only: a link to the Capitol's site
 # would leave the app, and is not an in-app step. When the open item carries Mark filed itself, this step is skipped.
@@ -484,8 +486,14 @@ def zoom(b, R, only):
     c = pg.page.evaluate(CUT)
     # a control may move into the frame at 200% (the phone's top bar or tab bar), so look for it on the whole page
     zoomed = pg.page.evaluate(CONTROLS.replace("main a[href], main button, main input:not([type=hidden]), main select, main textarea, main [role=tab], main [role=switch]", "a[href], button, input:not([type=hidden]), select, textarea, [role=tab], [role=switch]"))
+    # The week calendar's other days at 640px (R-342's phone view, one day at a time, on Today's page since R-346): their
+    # controls are one tap away on the day buttons ([data-hcpick]), as a day is on Hearings, so they count as on the page.
+    zoomed += pg.page.evaluate(CONTROLS.replace("main a[href], main button, main input:not([type=hidden]), main select, main textarea, main [role=tab], main [role=switch]", ".hc-cal:has([data-hcpick]) .hc-day:not(.on) a[href]").replace("e.getClientRects().length && ", ""))
     back = pg.page.evaluate("() => !![...document.querySelectorAll('a[data-back], .sv-back')].find(e => e.getClientRects().length)")
     heads = pg.page.evaluate(HEADS)
+    # Today's week strip (R-346, the side column from 1100px): each day goes to its column in the week section of the
+    # same page; at 640px that section is in the one column, so the place each opens is on the page.
+    if pg.page.query_selector('#t6-week'): zoomed += [['', c[1], '', ''] for c in full if frag(c[1]).startswith('#/?view=cal')]
     lost = sorted({c[0] or c[1] for c in full if not kept(c, zoomed, back, heads) and len(c[0] or c[1]) > 1})
     out[key] = {'cut': c['n'], 'hscroll': c['hscroll'], 'lost': len(lost)}
     ok = not c['hscroll'] and not c['cut'] and not lost and not pg.errors

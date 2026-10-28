@@ -190,7 +190,7 @@ with sync_playwright() as p:
     # The big push's link: the bill's own page, ?via=text.
     pg.goto(BASE + f'track.html?demo=1&via=text#/bill/2026/{NUM}'); pg.reload(); ready(pg); pg.wait_for_timeout(900)
     line = pg.locator('.bl-iband')
-    ok(line.count() == 1 and 'Texts: Big moments only' in line.inner_text() and line.inner_text().count(CROSS['name']) <= 1, f'X1: the "Part of" line says "Texts: Big moments only", the issue named at most once (R-340: "of the same name") ({line.inner_text() if line.count() else None!r})')
+    ok(line.count() == 1 and 'Texts: Big moments only' in line.inner_text() and line.inner_text().count(CROSS['name']) <= 1, f'X1: the band says "Texts: Big moments only", the issue named once ("Its issue:", R-346) ({line.inner_text() if line.count() else None!r})')
     ch = pg.locator('.bl-iband [data-lvl-toggle]'); ok(ch.count() == 1 and ch.inner_text().strip() == 'Change' and ch.get_attribute('aria-expanded') == 'false', 'X1: with Change beside it')
     ch.click(); pg.wait_for_timeout(600)
     ok(pg.locator('#bl-lvl-box .lvl input[type="radio"][data-lvl]').count() == 3 and pg.locator('.bl-iband .lvl-line').inner_text().startswith('Alerts about this issue') and pg.locator('.bl-iband [data-lvl-toggle]').get_attribute('aria-expanded') == 'true', 'X1: Change opens "Alerts about this issue" in place')
