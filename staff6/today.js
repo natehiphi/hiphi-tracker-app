@@ -380,9 +380,7 @@ function dueTone(it, ro) {
   if (st.tone === 'today') return { tone: 'today', icon: 'clock', bold: false };   // R-344 Rule 3: amber for due today
   return { tone: st.tone, icon: st.icon, bold: false };
 }
-// ---- a hearing day's next step (stepFirst): the step's sentence, its bill a link, above the sitting ----
-// The next-step card's head on a hearing day says the job as a sentence (option E, R-346), the part of R-346 the critics
-// kept (R-352 item 3). Today's rows no longer use it (jobRow below: a name and one line).
+// ---- a row's words: the job as a sentence, its bill a link (option E, R-346; R-352 item 3) ----
 const billInA = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(fullName(b))}</a>`;
 function issueChip(b) {
   const i = b?.id ? issuesOfBill(b.id)[0] : null; if (!i) return '';
@@ -854,7 +852,9 @@ function theirsOn(h, v) {
 function sittingCard(h, { v = S.me, big = false, id = '', drop = null, lead = null, own = null } = {}) {
   // No "Watch it live" here: a detail of the sitting (its page and Hearings › This week keep it), so Today keeps to the
   // person's own work (integrator: trim what is not the person's own row; Nate's Today was 32 controls against 30).
-  let html = hearingCard(h, { viewer: v, big, from: 'today', id, watchLink: false });
+  // `omit`: the card's own words (its late line, "Also heard") count only the bills it still lists (R-352 FIX-2: Lauren's
+  // card said "Late, still accepted" over no bill, her late step being on the next-step card).
+  let html = hearingCard(h, { viewer: v, big, from: 'today', id, watchLink: false, omit: drop });
   const hrefOf = b => esc(billRoute(b)), ids = x => new Set([...(x || [])].map(i => billById(i)).filter(Boolean).map(hrefOf));
   const gone = ids(drop), mine = ids(own ? [...own, ...theirsOn(h, v)] : null);
   const leadHref = lead?.b ? hrefOf(lead.b) : null, tone = lead?.s?.status?.tone;
@@ -1116,17 +1116,19 @@ function clearCard(v, w, ro, n = '') {
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
 }
 // What a draw of Today is made of, worked out once (render, and the side column when a picked item closes).
-// Each own step on today's sittings is said once (A-14; the critic's 3 and 4). When the next step is on one of today's
-// sittings, that sitting's card is the next step, at every width (the critic's 4 and 11: one next-step rule for laptop and
-// phone): its row first with the screen's one filled button, the card's time, room and I'm going around it, under "Your
-// next step" (a phone's big card has no heading: its time leads the screen). The person's other own steps on a sitting
-// are their rows in the list (a phone keeps them inside the big card, where the team's rows fold).
+// Each own step on today's sittings is said once (A-14; the critic's 3 and 4): the next step on its step card, the
+// person's other own steps as their rows in the list (a phone keeps them inside the big card, where the team's rows fold).
 function plan(v = S.me) {
   const w = work(v), g = groupsOf(w), next = g.next, sits = sittingsToday(v, w), phone = PHONE();
   const onSit = new Set(sits.map(sitKey)), onCard = i => !!(i && i.b && i.h && isPos(i.b) && onSit.has(sitKey(i.h)));
   const phoneDay = phone && sits.length > 0;
-  // Only when the card can carry the step's own button (D16), so the filled button is never lost.
-  const nextSit = onCard(next) && next.s && rowButtonOK(next.s) ? sits.find(h => sitKey(h) === sitKey(next.h)) || null : null;
+  // R-352 FIX-2 (M5): the next step is always the step card under "Your next step", at every width and on a hearing day
+  // too (the whole-app check: Nate's hearing-day card had a time column and a hearing section, Kevin's the time in the
+  // line and a gavel row, and the phone's big card dropped the heading). The day's sittings are their own cards beside it
+  // (from 1100px) or under it (below). A phone's hearing day keeps V14's big card as the step's home (its time and room at
+  // a glance: spec 10, Kris's and Lauren's phones), the step's sentence and filled button leading it, under the same
+  // "Your next step" heading (it had none).
+  const nextSit = phone && onCard(next) && next.s && rowButtonOK(next.s) ? sits.find(h => sitKey(h) === sitKey(next.h)) || null : null;
   const drop = h => new Set(w.own.filter(i => onCard(i) && sitKey(i.h) === sitKey(h)).map(i => i.b.id));
   // The sitting the next step (or, with nothing to do, the quiet card) already names, so the season card does not.
   const nh = next ? null : nextHearing(v, w), skipH = next?.h ? sitKey(next.h) : nh ? sitKey(nh) : null;
@@ -1135,12 +1137,7 @@ function plan(v = S.me) {
   // A-13, P-2; from 1100px it had sat in the side column under a quiet label, read after "Do today"). On a hearing day the
   // person's other sittings are the side column's season card from 1100px.
   const others = nextSit ? sits.filter(h => h !== nextSit) : sits;
-  return { w, g, next, sits, others, phone, phoneDay, onCard, nextSit, nextOnCard: !!nextSit, drop, skipH, rows, hideHear: !!(next && onCard(next)) };
-}
-// "Your next step": the step card, or on a hearing day the sitting's card with the step's row leading it.
-function nextSec(P, L, n = '', v = S.me) {
-  if (!P.nextSit) return L.nextH(n);
-  return `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">Your next step</h2>${stepFirst(sittingCard(P.nextSit, { v, id: `t6-hcn${n}`, lead: P.next, drop: P.drop(P.nextSit) }), P.next, v)}</section>`;
+  return { w, g, next, sits, others, phone, phoneDay, onCard, nextSit, drop, skipH, rows, hideHear: !!(next && onCard(next)) };
 }
 // On a hearing day the next step's card is its sitting's (V14), and it reads as a step, as every other next-step card does
 // (the fresh-eyes review: Nate's card led with the committee, Kevin's with the job): the quiet line and the step's sentence
@@ -1182,7 +1179,11 @@ function render(route) {
   if (picked != null && !item) S.v6ld.today.key = null;
   // A phone's hearing day (V14): one big card per sitting first (time and room at a glance), the person's own step inside
   // it with the filled button, the team's rows folded; the next-step card only when the next step is not on a sitting.
-  const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${sits.map((h, i) => { const c = sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.nextSit === h ? P.next : null, own: P.drop(h) }); return P.nextSit === h ? stepFirst(c, P.next, v) : c; }).join('')}</section>` : '';
+  const nextOn = h => P.next?.b && P.onCard(P.next) && sitKey(P.next.h) === sitKey(h) ? [P.next.b.id] : null;
+  // The sitting holding the next step leads, under "Your next step"; the day's other sittings follow, without the step's row.
+  const bigOf = (h, i) => P.nextSit === h ? `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-tb"><h2 class="t6-nexth" id="t6-next-tb">Your next step</h2>${stepFirst(sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.next, own: P.drop(h) }), P.next, v)}</section>`
+    : sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, drop: nextOn(h), own: P.drop(h) });
+  const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${[...sits].sort((a, b) => (b === P.nextSit) - (a === P.nextSit)).map(bigOf).join('')}</section>` : '';
   // Below 1100px (not a phone) the day's other sittings come right under the next step; from 1100px they are in the side
   // column. Any other season card closes the column below 1100px, beside the doors from 768px.
   const seasonCol = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: P.others, drop: P.drop, skipH: P.skipH });
@@ -1198,7 +1199,7 @@ function render(route) {
     <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}</header>
     <div class="v6-ld t6-ld${item ? ' open' : ''}" data-v6ld="today">
       <div class="t6-col">
-        ${big}${phoneDay && P.nextSit ? '' : `<div class="t6-nextcol">${nextSec(P, L, '', v)}</div>`}${start ? `<div class="t6-startcol">${start}</div>` : ''}
+        ${P.nextSit ? big : `<div class="t6-nextcol">${L.nextH('')}</div>${big}`}${start ? `<div class="t6-startcol">${start}</div>` : ''}
         ${L.groups}${hday && seasonCol ? `<div class="t6-colonly">${seasonCol}</div>` : ''}${edge}${done}
       </div>
       <aside class="v6-ld-detail t6-aside" aria-label="${item ? 'The item you picked' : 'Your season'}">${item ? `<button type="button" class="v6-ld-back" data-v6ldback>${icon('chevron-left')}<span>Back to the list</span></button>${item}`

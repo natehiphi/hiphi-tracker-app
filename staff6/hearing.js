@@ -154,6 +154,9 @@ function dueHTML(c, card = '') {
   const past = new Date(due) <= Date.now();
   const lines = (card.match(/<ul class="v6-hcard-bills">[\s\S]*?<\/ul>/)?.[0] || '').replace(/<[^>]+>/g, '');
   if (lines.includes(timeWords(past ? c.h.scheduled_at : due))) return '';
+  // Past the deadline the card itself says "Late, still accepted until 9:30 AM today" (steps.js hearingCard): once (A-14,
+  // R-352 FIX-2: Lauren's card said late twice).
+  if (past && /v6-hcard-late/.test(card)) return '';
   // R-344 rule 3: the Capitol's deadline with how long is left in words beside it ("· in 2 days"); on its day it is plain,
   // its time in bold (A-5 on v6, R-352: amber is late's alone).
   // It names whose deadline it is (the Capitol's), so it never reads as a second time for a teammate's hand-on step.

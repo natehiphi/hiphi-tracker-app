@@ -178,7 +178,7 @@ with L.browser() as B:
         todayLook: [...document.querySelectorAll('.t6-list .v6-row-line.soon')].map(e => { const tm = e.querySelector('.v6-tm');
           return [getComputedStyle(e).color, tm ? getComputedStyle(tm).fontWeight : '', !!e.querySelector('svg.ic-clock'), /\\btoday\\b/i.test(e.innerText)]; }),
         landmark: document.querySelectorAll('.v6-step-hl svg.ic-landmark, .t6-line svg.ic-landmark, .t6-list svg.ic-landmark').length,
-        late: [...document.querySelectorAll('.v6-hcard-late, .t6-list .v6-row-line.t-late')].map(e => [getComputedStyle(e).color, !!e.querySelector('svg.ic-alarm-clock'), /^\\s*Late\\b/.test(e.innerText)]) }; })()""")
+        late: [...document.querySelectorAll('.v6-hcard-late, .t6-list .v6-row-line.t-late, .t6-next .v6-step-meta .v6-status.late')].map(e => [getComputedStyle(e).color, !!e.querySelector('svg.ic-alarm-clock'), /^\\s*Late\\b/.test(e.innerText)]) }; })()""")
     # R-352 part 2 (A-18 on v6): Today's list mixes kinds of job, so each row leads with one small neutral kind icon, not the
     # coloured job tile; the filled button keeps its icon
     R.check(f'{w} Today: every row leads with one small kind-of-job icon (A-18 on v6)', t6['n'] > 0 and t6['kind'] == t6['n'], (t6['kind'], t6['n']))

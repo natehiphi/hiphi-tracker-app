@@ -1230,3 +1230,8 @@ body.staff6 .t6-weekln > a { display: inline-flex; align-items: center; min-heig
 body.staff6 .t6-weekln > a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .t6-weekln > a:hover { color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; } }
 body.staff6 .t6-nexth, body.staff6 .t6-ghd { margin-bottom: 8px; }   /* R-352: 8 under each heading at every width (see .t6-col) */
+/* R-352 FIX-2 (M8): from 1100px the side column's first card lines up with the next-step card, not with its heading
+   (it started 36px higher: 166 against 202 at 1440): the heading's line and the 8px under it. */
+@media (min-width: 1100px) {
+  body.staff6 .t6-ld:not(.open):has(> .t6-col > .t6-nextcol > .t6-next) > .t6-aside { padding-top: calc(var(--v6-lh22, 28px) + 8px); }
+}

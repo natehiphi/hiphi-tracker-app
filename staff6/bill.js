@@ -905,7 +905,7 @@ function hearingSide(b, s) {
   </section>`;
 }
 // The issue card (R-346 kept; R-352 part 6): a white card like the other two, three lines: "Its issue", the issue's name
-// (or "Same name as this bill" when the bill is called what its issue is), and where the issue stands in one short line
+// (none when the bill is called what its issue is: the page title says it; R-352 FIX-2 dropped "Same name as this bill"), and where the issue stands in one short line
 // ("At risk: the only bill still alive"), then "Open the issue ›". The bill rows, the paragraph and the black "This bill"
 // tag went: the tag was the heaviest thing on the page and the tint read as selected. How the issue stands is the issue
 // page's own judgement (issuepage.js issueHealth), so the two agree.
@@ -922,17 +922,20 @@ function issueSide(i, b) {
   const same = plain(i.name || '') === plain(billName(b));
   return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
     <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
-    ${same ? '<p class="bw-ic-same">Same name as this bill</p>' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
+    ${same ? '' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
     <p class="bw-ic-s"><span class="bw-if-pill is-${esc(k)}" data-state="issue:${esc(k)}">${icon(st.icon)}<span>${esc(k === 'none' ? cap1(says) : `${st.word}: ${says}`)}</span></span></p>
     ${href ? `<p><a class="bw-go bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></p>` : ''}
   </section>`;
 }
-// Who is on it: who follows the bill and its coalitions (moved here from About this bill, said once: A-14). The owner is
-// the header's own line, with its picker. Edit sits on the heading's row, where it says what it changes.
+// Who is on it: who owns the bill, who follows it and its coalitions (moved here from About this bill, said once: A-14).
+// The owner leads (R-352 FIX-2: "Teammates following: no one yet" sat beside the header's "Lauren owns it" and read as
+// nobody on it); the header keeps the picker. Edit sits on the heading's row, where it says what it changes.
 function whoSide(b) {
   const coal = (S.billCampaigns[b.id] || []).map(id => S.campaigns.find(c => c.id === id)).filter(Boolean), f = followText(b);
+  const owners = (S.assignments?.[b.id] || []).map(id => advocate(id)).filter(Boolean).map(a => a.id === S.me?.id ? 'You' : String(a.full_name || '').split(' ')[0]);
   return `<section class="bw-scard bw-wside" aria-labelledby="bw-ws-h">
     <div class="bw-shrow"><h2 class="bw-sh" id="bw-ws-h">Who is on it</h2>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</div>
+    <p class="bw-ws-own"><span class="bw-ws-k">${owners.length > 1 ? 'Owners' : 'Owner'}:</span> ${owners.length ? esc(owners.join(' and ')) : '<span class="bw-quiet">no one yet</span>'}</p>
     <p><span class="bw-ws-k">Teammates following:</span> ${f ? esc(f) : '<span class="bw-quiet">no one yet</span>'}</p>
     <p class="bw-ws-coal"><span class="bw-ws-k">${coal.length === 1 ? 'Coalition' : 'Coalitions'}:</span> ${coal.length ? coal.map(c => `<a class="bw-ws-a" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">none</span>'}</p>
   </section>`;

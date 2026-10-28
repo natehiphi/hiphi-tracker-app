@@ -291,6 +291,11 @@ body.staff6 .v6-ld-back svg { width: 20px; height: 20px; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar-track { background: transparent; }
   body.staff6 .v6-ld-detail::-webkit-scrollbar-thumb { background: var(--v6-field); border-radius: 5px; border: 3px solid var(--v6-page); }
   body.staff6 .v6-ld-back { display: none; }
+  /* Nothing picked yet: the list takes the whole width and the panel opens beside it when a row is picked (A-24 on v6,
+     R-352 FIX-2: an empty grey "Pick one to see its steps" took a third of Bills and Testimony at 1440). A screen whose
+     side column holds something of its own while nothing is picked (Today's) keeps it. */
+  body.staff6 .v6-ld:not(.open):has(> .v6-ld-detail > .v6-ld-empty) { grid-template-columns: minmax(0, 1fr); }
+  body.staff6 .v6-ld:not(.open) > .v6-ld-detail:has(> .v6-ld-empty) { display: none; }
 }
 @media (max-width: 1099.98px) {
   body.staff6 .v6-ld:not(.open) .v6-ld-detail { display: none; }

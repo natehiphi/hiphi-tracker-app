@@ -25,7 +25,7 @@
 import { S, DB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js';
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
-  whenAt, clockDay, lateLine, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
+  whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
   streamOf, billById, offTag, legById, askReply, billRef } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
@@ -216,12 +216,12 @@ export function actBy(step) {
   const hours = HAND[kind];
   if (hours) {
     const at = handTime(due, hours);
-    if (at > now) return { kind: 'hand', at, due, until, verb, time: whenAt(at), words: `${verb} by ${whenAt(at)}${leftSoon(at)}` };
+    if (at > now) return { kind: 'hand', at, due, until, verb, time: whenAt(at), words: `${verb} by ${timeFirst(at)}${leftSoon(at)}` };
     // The hand-on time is gone and the deadline is still ahead: "File now · due today 10:00 AM", the same words on the row
     // and the card (V19).
     return { kind: 'now', at: due, due, until, verb, time: whenAt(due), words: `${verb} now · due ${whenAt(due)}${leftSoon(due)}` };
   }
-  return { kind: 'due', at: due, due, until, verb, time: whenAt(due), words: `${verb === 'Due' ? 'Due' : `${verb} by`} ${whenAt(due)}${leftSoon(due)}` };
+  return { kind: 'due', at: due, due, until, verb, time: whenAt(due), words: `${verb === 'Due' ? `Due ${whenAt(due)}` : `${verb} by ${timeFirst(due)}`}${leftSoon(due)}` };
 }
 
 // ---- status by exception (D3, V08) ----
@@ -528,7 +528,7 @@ function rowLine(s, v) {
   // his own "File by Wed 3/18, 7:30 AM"), as Testimony's rows do (testimonyplace.js lineOf); the open card says the
   // Capitol's later deadline. "by" is the team's time, "due" the Capitol's, shown only where no team time is still ahead.
   const hand = s.act?.kind === 'hand' && s.act.at > Date.now();
-  const when = late ? lateLine(s.until, { lower: true }) : s.status.tone === 'overdue' ? `was due ${whenAt(s.due)}` : hand ? `by ${whenAt(s.act.at)}` : s.due != null ? `due ${whenAt(s.due)}` : '';
+  const when = late ? lateLine(s.until, { lower: true }) : s.status.tone === 'overdue' ? `was due ${whenAt(s.due)}` : hand ? `by ${timeFirst(s.act.at)}` : s.due != null ? `due ${whenAt(s.due)}` : '';
   return [othersWords(s), when].filter(Boolean).join(' · ');
 }
 const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
@@ -553,7 +553,7 @@ function chairLine(s, v) {
 // late, still accepted until 9:30 AM today"): on a hearing day those are the people to nudge, so the person is never
 // dropped. The flags of Writing replace the who ("not started"; "sent back, due today 2:00 PM", the time Testimony says
 // too); the card's own time says when the sitting is (A-14). Four facts: name, number, state, one more part (spec 8).
-// `lateSaid`: the card says the late window once over its rows ("Late, still accepted until the hearing starts"), so a
+// `lateSaid`: the card says the late window once over its rows ("Late, still accepted until 9:30 AM today"), so a
 // late row gives only its state and step ("With an approver · you approve", "Ready to file · Kevin files it"): Kris's
 // 9:30 AM card said "late, still accepted until 9:30 AM today" on three rows under a heading that already said 9:30 AM
 // (the fresh-eyes check, A-14). The viewer's own draft that came back carries the flag in its own lower-case words, as
@@ -640,7 +640,8 @@ const telOf = ph => `tel:${String(ph).replace(/[^\d+]/g, '')}`;
 // (`primary`), else tonal; the rest tonal or text (spec section 4: at most 4 looks).
 function stepButtons(s, v, primary) {
   const k = primary ? 'primary' : 'secondary', out = [], d = s.d;
-  const doc = (kind = 'secondary') => d?.doc_url ? docBtn(d.doc_url, { kind, attrs: { 'data-v6doc': d.id } }) : '';
+  // Open Doc is a plain link beside the step's button everywhere (R-352 FIX-2, A-3 on v6: one tonal button per row).
+  const doc = (kind = 'text') => d?.doc_url ? docBtn(d.doc_url, { kind, attrs: { 'data-v6doc': d.id } }) : '';
   switch (s.kind) {
     case 'nodraft': out.push(btn(S.draftAsked?.[s.h.id] ? 'Making the draft…' : 'Make the draft', { kind: k, icon: PIC.nodraft.btnIcon, attrs: A('draftnow', s) })); break;
     case 'write': case 'submit': out.push(btn('Send for approval', { kind: k, icon: 'send', attrs: A('submit', s) }), doc()); break;
@@ -830,9 +831,12 @@ function coverButtons(s, v, where) {
   const home = ['pane', 'bill', 'testimony'].includes(where), first = id => cap(firstWords(id, v)), mate = (s.whose.ids || []).find(id => id !== v?.id);
   if (home && mate && covers(v) && s.kind === 'file')
     out.push(btn(`File it for ${first(mate)}`, { kind: 'secondary', icon: 'clipboard-check', attrs: A('filed', s, { 'aria-haspopup': 'dialog' }) }));
+  // Two writers share it ("Patti or Lauren revises the testimony", said once in the card's sentence): the button and the
+  // line say no one name (R-352 FIX-2: "Resubmit for Patti" under "Patti or Lauren" named the writer twice, differently).
+  const mates = (s.whose.ids || []).filter(id => id !== v?.id), forW = mates.length === 1 ? ` for ${first(mate)}` : '';
   if (home && mate && coversRevise(v, s.b) && s.kind === 'revise' && d.status === 'draft') {
-    out.push(btn(`Resubmit for ${first(mate)}`, { kind: 'secondary', icon: 'send', attrs: A('submit', s) }));
-    who = `If you resubmit it for ${first(mate)}, you file it once it is approved.`;
+    out.push(btn(`Resubmit${forW}`, { kind: 'secondary', icon: 'send', attrs: A('submit', s) }));
+    who = `If you resubmit it${forW}, you file it once it is approved.`;
   }
   if (d.doc_url && s.state.key !== 'filed') out.push(docBtn(d.doc_url, { kind: 'text', attrs: { 'data-v6doc': d.id } }));
   return { html: out.join(''), who };
@@ -913,7 +917,8 @@ function testimonyCard(s, v, own, x = '') {
   if (s.off) when = 'The hearing was cancelled; no new date yet.';
   // R-344 Rule 3, one time per step: the tile says the team's time to act ("File by today 7:30 AM"); this line says whose the
   // other time is, the Capitol's, so the two never read as two deadlines for one step.
-  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `The Capitol’s deadline: ${whenAt(s.due)}.`;
+  // With the time left, as every other time on the screen (R-352 FIX-2: "today 9:30 AM, in 1 hour").
+  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `The Capitol’s deadline: ${whenAt(s.due)}${s.due > Date.now() ? `, in ${spanOf(s.due)}` : ''}.`;
   let note = '';
   // Headed with words that are not a state: a capitalised "Sent back" over the note read as a sixth state beside the tile's
   // "Writing · sent back" (spec 12.6: "sent back", lower case, is the flag on Writing; C-15).
@@ -1040,14 +1045,18 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     const ok = rowButtonOK(s), home = (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
     const sbOn = s.you && s.kind === 'revise' && !!s.state?.sentBack && !!s.d?.review_note && (home || ok);
     const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">${NOTE_HEAD}:</span> ${esc(s.d.review_note)}</p>` : '';
-    // Open Doc in the step card's own look beside Resubmit (tonal: the Doc is where the writer revises; Patti's finding)
-    const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'secondary', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
+    // Open Doc beside Resubmit (the Doc is where the writer revises; Patti's finding), a plain link as on the step card:
+    // one tonal button per row (A-3 on v6, R-352 FIX-2: Resubmit and Open Doc were two tonal buttons side by side).
+    const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'text', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
     const own = ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s);
     const btnHtml = own + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
     return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
       <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late', button: ok && !!own })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
-  const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
+  // I'm going is the card's tonal button only on a hearing that is today or where the viewer owns a step (theirs to do, or
+  // their bill); elsewhere it is a quiet link, so This week is not a column of the same button (A-3, A-2 on v6; R-352 FIX-2).
+  const owns = pos.some(x => { const s = stepOf(x); return !!s && (s.you || s.mine); });
+  const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: today || owns ? 'secondary' : 'text', sm: !big });
   // The lead bill (the viewer's own step, Today's hearing day) in a list of its own, so the narrowest phones can draw it
   // right under the committee, before Going: at 320x640 Kris's Review sat under the bottom bar (steps.css, below 380px).
   const first1 = lead != null && pos.length && String(pos[0].b.id) === String(lead) ? pos[0] : null, rest = first1 ? pos.slice(1) : pos;
@@ -1066,7 +1075,7 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     <div class="v6-hcard-body">
       ${head}
       ${cancelled ? '<p class="v6-hcard-note">Cancelled, no new date yet</p>' : moved ? `<p class="v6-hcard-note">${icon('clock')}<span>Moved from ${nw(esc(moved))}</span></p>` : ''}
-      ${lateAny ? `<p class="v6-hcard-note v6-hcard-late${lateMine ? ' t-late' : ''}">${icon('alarm-clock')}<span>Late, still accepted until the hearing starts</span></p>` : ''}
+      ${lateAny ? `<p class="v6-hcard-note v6-hcard-late${lateMine ? ' t-late' : ''}">${icon('alarm-clock')}<span>${nw(esc(lateLine(h.scheduled_at)))}</span></p>` : ''}
       ${cancelled ? '' : `<p class="v6-hcard-going">${goingPic(h)}<span>${esc(goingWords(h, { viewer: v }))}${week && watch ? ` <span class="v6-hcard-watchin"><span class="v6-hcard-wdot">· </span>${watch}</span>` : ''}</span> ${going}</p>`}
       ${first1 ? `<ul class="v6-hcard-bills v6-hcard-lead1">${bill(first1)}</ul>` : ''}${rest.length ? `<ul class="v6-hcard-bills">${rest.map(bill).join('')}</ul>` : ''}
       ${mon.length && !self ? `<a class="v6-hcard-mon" href="${esc(href)}"><span>${pos.length ? 'Also heard: ' : ''}${mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`}</span>${icon('chevron-right', { cls: 'v6-chev' })}</a>` : ''}
@@ -1319,7 +1328,7 @@ let approvedAt = -1e4;
 // card's own Resubmit, with the note above it, sends at once.
 function confirmResubmit(el, b, d) {
   openSheet({ title: 'Did you make the changes?', size: 'auto',
-    body: `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'secondary', attrs: { 'data-v6doc': d.id } })}</p>` : ''}`,
+    body: `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'text', attrs: { 'data-v6doc': d.id } })}</p>` : ''}`,
     foot: btn('Resubmit', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1' } }),
     wire: dlg => { dlg.querySelector('[data-go]').onclick = () => { closeSheet({ silent: true }); delete el.dataset.v6confirm; ACTS.submit(el, b, d); }; } });
 }

@@ -121,7 +121,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
 {
   const due = iso => hst(iso), h = until => ({ status: 'scheduled', scheduled_at: until });
   const w1 = X.actBy({ kind: 'write', due: due('2026-03-17T09:30:00-10:00'), h: h('2026-03-18T09:30:00-10:00') });
-  ok(w1.kind === 'hand' && w1.at === due('2026-03-16T16:00:00-10:00') && w1.words === 'Send for approval by today 4:00 PM', `12 hours before 9:30 AM is 9:30 PM, overnight, so 4:00 PM the day before: "${w1.words}"`);
+  ok(w1.kind === 'hand' && w1.at === due('2026-03-16T16:00:00-10:00') && w1.words === 'Send for approval by 4:00 PM today', `12 hours before 9:30 AM is 9:30 PM, overnight, so 4:00 PM the day before: "${w1.words}"`);
   const w2 = X.actBy({ kind: 'write', due: due('2026-03-17T20:00:00-10:00') });
   ok(w2.at === due('2026-03-17T08:00:00-10:00'), 'due 8:00 PM: 12 hours before is 8:00 AM, inside the day, so 8:00 AM');
   const w3 = X.actBy({ kind: 'submit', due: due('2026-03-17T04:00:00-10:00') });
@@ -131,9 +131,9 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const w5 = X.actBy({ kind: 'write', due: due('2026-03-17T18:30:00-10:00') });
   ok(w5.at === due('2026-03-16T16:00:00-10:00'), 'due 6:30 PM: 12 hours before is 6:30 AM, before 8:00 AM, so 4:00 PM the day before');
   const r = X.actBy({ kind: 'revise', due: due('2026-03-18T15:00:00-10:00') });
-  ok(r.at === due('2026-03-17T16:00:00-10:00') && r.words === 'Resubmit by tomorrow 4:00 PM', `after a send-back the verb is Resubmit, same times: "${r.words}"`);
+  ok(r.at === due('2026-03-17T16:00:00-10:00') && r.words === 'Resubmit by 4:00 PM tomorrow', `after a send-back the verb is Resubmit, same times: "${r.words}"`);
   const f = X.actBy({ kind: 'file', due: due('2026-03-16T13:10:00-10:00'), h: h('2026-03-17T13:10:00-10:00') });
-  ok(f.kind === 'hand' && f.at === due('2026-03-16T11:10:00-10:00') && f.words === 'File by today 11:10 AM, in 2 hours', `File by is 2 hours before: "${f.words}"`);
+  ok(f.kind === 'hand' && f.at === due('2026-03-16T11:10:00-10:00') && f.words === 'File by 11:10 AM today, in 2 hours', `File by is 2 hours before: "${f.words}"`);
   const now = X.actBy({ kind: 'file', due: due('2026-03-16T10:00:00-10:00'), h: h('2026-03-17T10:00:00-10:00') });
   ok(now.kind === 'now' && now.words === 'File now · due today 10:00 AM, in 1 hour', `the hand-on time gone and the deadline ahead, the row's and the card's one wording: "${now.words}"`);
   const late = X.actBy({ kind: 'file', due: due('2026-03-15T13:10:00-10:00'), h: h('2026-03-16T13:10:00-10:00') });
@@ -143,7 +143,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // Approvals sit between the writer's time and the filer's, so an approver on time never makes the filing late.
   const ap = X.actBy({ kind: 'approve', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
   const fb = X.actBy({ kind: 'file', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
-  ok(ap.kind === 'hand' && ap.words === 'Approve by today 11:00 AM, in 2 hours' && ap.at < fb.at, `the first approval is 4 hours before the deadline, before File by (${fb.time}): "${ap.words}"`);
+  ok(ap.kind === 'hand' && ap.words === 'Approve by 11:00 AM today, in 2 hours' && ap.at < fb.at, `the first approval is 4 hours before the deadline, before File by (${fb.time}): "${ap.words}"`);
   const sl = X.actBy({ kind: 'second', due: due('2026-03-16T15:00:00-10:00') });
   ok(sl.at === due('2026-03-16T12:00:00-10:00') && sl.at > ap.at && sl.at < fb.at, `the second look is 3 hours before: "${sl.words}"`);
   ok(X.actBy({ kind: 'review', due: due('2026-03-16T15:00:00-10:00') }).at === ap.at, 'v5 Today\'s review task has the same time');
@@ -304,7 +304,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   for (const who of people) for (const b of S.bills) { const s = X.billStep(b, { viewer: who }); if (s && s.line && s.line.split(' · ').length > 2) long.push(`${who.initials} ${b.bill_number}: ${s.line}`); }
   ok(!long.length, `every row line (six people, every bill) has two parts at most${long.length ? '; e.g. ' + long.slice(0, 3).join(' | ') : ''}`);
   // Someone else's step says who does what, then when (spec 6's "Kris approves · due today 3:00 PM"); R-352: the team's
-  // time where one is still ahead, "by", the same time its owner sees ("Kris approves it · by today 11:00 AM").
+  // time where one is still ahead, "by", the same time its owner sees ("Kris approves it · by 11:00 AM today"; R-352 FIX-2: the clock first, as "until 1:10 PM today").
   const oth = S.bills.map(b => X.billStep(b, { viewer: JMM })).find(s => s && s.kind === 'approve' && !s.you);
   ok(!!oth && /^[A-Z][\w ,]* approves it · (by|due|late)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
   // Hearing cards: every one of our bills on every sitting says where its testimony stands, in two parts.
@@ -369,7 +369,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     ok((c.match(/btn primary/g) || []).length === 1, `Lauren's hearing day: her own step leads the card with the one filled button (${lrS.b.bill_number})`);
     ok(STATE.test(strip(c)) && /430/.test(strip(c)), `her card says the room and where the testimony stands: "${strip(c).slice(0, 90)}"`);
     // The late window is said once, over the rows, never on each row under a heading that gives the same time (A-14).
-    if (lrS.s.status?.tone === 'late') ok((strip(c).match(/still accepted/g) || []).length === 1 && /Late, still accepted until the hearing starts/.test(strip(c)), `her card says the late window once: "${strip(c).slice(0, 160)}"`); }
+    if (lrS.s.status?.tone === 'late') ok((strip(c).match(/still accepted/g) || []).length === 1 && /Late, still accepted until 9:30 AM today/.test(strip(c)), `her card says the late window once: "${strip(c).slice(0, 160)}"`); }
   // Her sent-back testimony on that card (the critic's high): the approver's note, Open Doc beside Resubmit, and "sent
   // back" said, whether Today passes `lead` or draws the big card and moves the row itself.
   const sb = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: LR }) })).find(x => x.s.you && x.s.kind === 'revise' && x.s.h && x.s.d?.review_note);
