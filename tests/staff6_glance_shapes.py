@@ -7,8 +7,9 @@
 #      button keeps its icon; a sent-back draft's row says Revise or Resubmit, a new draft's never does. The open item's
 #      step picture has 20px dots and stays on one line, "Second look" included (C5).
 #   3. Partners, Words to approve: every row starts with the partner tile; Approve carries its icon.
-#   4. Bills (Team) (R-352 part 7): a row is a name, its number and one line: no bar, no job tile, no topic icon, no icon
-#      beside a group heading; two shown bills that share a name say whose twin; no row passes spec 8's four facts. Search:
+#   4. Bills (Team) (R-352 part 7, and D, Nate 28 Oct): a row is its own soft card led by its issue's tile on the topic's
+#      tint (or an empty slot), then a name, its number and one line: no bar, no job tile, no icon beside a group heading;
+#      two shown bills that share a name say whose twin; no row passes spec 8's four facts. Search:
 #      the twins name each other, each bill result keeps its slim progress bar (R-352 FIX-3), no line drawn past its box.
 #   5. All issues: each card says how the issue is doing as one shape and word (no tint), with the House and Senate dots.
 #   6. No sideways scroll, no page errors.
@@ -119,14 +120,21 @@ with L.browser() as B:
     except Exception: pass
     b = pg.page.evaluate("""(() => { const rows = [...document.querySelectorAll('.bl-page .v6-row[data-v6row]')];
       return { n: rows.length, bar: rows.filter(r => r.querySelector('.v6-bar')).length, act: rows.filter(r => r.querySelector('.v6-act-lead, .v6-at')).length,
-        lead: rows.filter(r => r.querySelector('.v6-row-lead')).length, lines: rows.map(r => r.querySelectorAll('.v6-row-line').length).filter(n => n !== 1).length,
+        lead: rows.filter(r => r.querySelector('.v6-row-lead')).length,
+        iss: rows.filter(r => { const l = r.querySelector('.v6-row-main > .v6-row-lead.i6-lead'); return l && (l.classList.contains('bl-noiss') || (/mi-c-/.test(l.className) && l.querySelector('svg') && getComputedStyle(l).backgroundColor !== 'rgba(0, 0, 0, 0)')); }).length,
+        card: rows.filter(r => { const s = getComputedStyle(r); return s.boxShadow !== 'none' && s.backgroundColor === 'rgb(255, 255, 255)'; }).length,
+        apart: (() => { const i = rows.findIndex((r, k) => k > 0 && r.previousElementSibling === rows[k - 1]); return i > 0 ? Math.round(rows[i].getBoundingClientRect().top - rows[i - 1].getBoundingClientRect().bottom) : null; })(),
+        lines: rows.map(r => r.querySelectorAll('.v6-row-line').length).filter(n => n !== 1).length,
         twins: rows.filter(r => r.querySelector('.v6-twin')).map(r => [r.querySelector('.v6-row-num').firstChild.textContent.trim(), r.querySelector('.v6-twin').innerText.trim()]),
         shown: rows.map(r => r.querySelector('.v6-row-num')?.firstChild?.textContent.trim()),
         ghic: document.querySelectorAll('.bl-gh .bl-ghic, .bl-gh svg:not(.chev)').length }; })()""")
     # R-352 part 7 (A-18 on v6, spec 8): a row is a name, its number and one line; the bill's page keeps the tracker
     R.check(f'{w} Bills (Team): rows to measure', b['n'] > 0, b['n'])
     R.check(f'{w} Bills (Team): no row draws the progress bar (the bill page keeps it)', b['bar'] == 0, (b['bar'], b['n']))
-    R.check(f'{w} Bills (Team): no row leads with a job tile or a topic icon (a list of one kind)', b['act'] == 0 and b['lead'] == 0, (b['act'], b['lead']))
+    # R-352 D (Nate 28 Oct, "they all blur together"): the issue's tile tells bills on different issues apart (A-18 on v6)
+    R.check(f'{w} Bills (Team): no row leads with a job tile', b['act'] == 0, b['act'])
+    R.check(f'{w} Bills (Team): every row leads with its issue tile on the topic tint, or an empty slot', b['iss'] == b['n'] == b['lead'], (b['iss'], b['lead'], b['n']))
+    R.check(f'{w} Bills (Team): every row is its own soft card, 8px apart', b['card'] == b['n'] and b['apart'] == 8, (b['card'], b['n'], b['apart']))
     R.check(f'{w} Bills (Team): every row has exactly one line', b['lines'] == 0, b['lines'])
     R.check(f'{w} Bills (Team): no icon beside a group heading (its word says it; the fold chevron stays)', b['ghic'] == 0, b['ghic'])
     tw = dict(b['twins'])
