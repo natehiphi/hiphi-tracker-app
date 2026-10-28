@@ -969,65 +969,78 @@ and heavier) only for headings, the page title and the filled button: at most 25
 made the first visit (R-174) and Home (R-295) feel warmer. Item names moved to 500 (12.1) because at 600 every row's name
 counted as bold: weight is for marking headings and the one button, and when every name is bold nothing stands out.
 
-### A-5 on v6: Palette B "Morning Reef", and status by exception
+### A-5 on v6: HIPHI Family colours, and status by exception
 
 The tokens live in `staff6/css/tokens.css`, loaded right after `pub/base.css` and before every v6 stylesheet, scoped to
-`body.staff6` (they also redefine `pub/base.css`'s names, so the CSS copied from v5 turns warm at once). Palettes A "Sand & Lagoon" and C "Golden Hour" are kept there as
-comments, so a swap is one edit (D6). Contrast is WCAG, on page / card / wash:
+`body.staff6` (they also redefine `pub/base.css`'s names, so the CSS copied from v5 takes v6's colours at once). **The
+palette is HIPHI Family** (the public site's colours: white cards, cool mist, HIPHI blue-teal), everyone's default since
+Nate's pick of 25 Oct (cf3625a6, "number 2"; Morning Reef read as too beige). Each person may pick another palette for
+themselves in My settings, Colors; the colours between `palette:start` and `palette:end` are written by
+`tools/staff6_palettes.js` from one list (also `staff6/css/palettes.css` and `staff6/palettes.js`), never by hand, and it
+refuses a palette below WCAG AA. Contrast is WCAG, on page / card / wash:
 
 | Token | Hex | Use | Contrast |
 |---|---|---|---|
-| page | #F7F3EA | the page ground (body, sidebar) | |
-| card | #FFFEFA | cards, list boxes, panels, sheets | |
-| wash | #EEE7DA | wells, tiles, selected tab ground, inputs' fill | |
-| hair | #E3DACB | inset hairlines only (decorative) | |
-| ink | #25221E | headings, names | 14.3 / 15.7 / 12.9 |
-| body | #433B33 | sentences | 9.9 / 10.9 / 8.9 |
-| muted | #685D52 | meta, times, bill numbers | 5.8 / 6.4 / 5.2 |
-| field | #8C7F70 | input borders, checkbox edges (UI) | 3.5 / 3.9 |
-| action | #0B6E73 | the filled button, links, focus ring, selection | 5.4 / 6.0 / 4.9; white on it 6.0 |
-| action-press | #095A5E | filled button hover and press | white on it 8.0 |
-| action-wash | #E2EFEE | tonal buttons, selected row, current place | action on it 5.1 |
-| leaf | #3A7533, leaf-wash #E5F0E1 | done, filed, approved (with a check icon) | 5.0 / 4.7 on its wash |
-| late | #955A00, late-wash #FBEFD9 | ONLY a deadline due today and "Late, still accepted until …" (clock icon) | 5.1 / 4.9 on its wash |
-| bad | #AF3328, bad-wash #FBE9E5 | ONLY a step still to do whose deadline passed (alert icon and the word) | 5.7 / 5.4 on its wash |
-| coral | #EE7B4F | celebration fills only, ink text on it | 5.7 |
-| band | #3B332B | the practice-copy band | sand text on it 11.2 |
+| page | #F4F7F9 | the page ground (body, sidebar) | |
+| card | #FFFFFF | cards, list boxes, panels, sheets | |
+| wash | #E9EFF2 | wells, tiles, selected tab ground, inputs' fill | |
+| hair | #E8EAEB | inset hairlines only (decorative) | |
+| ink | #142B35 | headings, names | 13.7 / 14.7 / 12.7 |
+| body | #344852 | sentences | 8.9 / 9.6 / 8.2 |
+| muted | #5B6B71 | meta, times, bill numbers | 5.2 / 5.5 / 4.8 |
+| field | #7F898E | input borders, checkbox edges (UI) | 3.3 / 3.6 / 3.1 |
+| action | #00698E | the filled button, links, focus ring, selection | 5.7 / 6.2 / 5.3; white on it 6.2 |
+| action-press | #005674 | filled button hover and press | white on it 8.1 |
+| action-wash | #E0EDF1 | tonal buttons, selected row, current place | action on it 5.1 |
+| leaf | #2E7650, leaf-wash #E6EFEA | done, filed, approved (with a check icon) | 5.5 on card / 4.7 on its wash |
+| late | #955A00, late-wash #FBEFD9 | ONLY late: "Late, still accepted until …" (alarm-clock icon) | 5.6 / 4.9 on its wash |
+| bad | #AF3328, bad-wash #FBE9E5 | ONLY a step still to do whose deadline passed (alert icon and the word) | 6.3 / 5.4 on its wash |
+| coral | #F28C28 | celebration fills only, ink text on it | 6.0 |
+| band | #132932 | the practice-copy band | page text on it 14.0 |
 
-- **The colour of time (amended 27 Oct 2026, Nate's decision via R-344, Decision 2 of the at-a-glance review):
-  amber for due today, red only once the deadline has passed.** **Amber** for a deadline that falls today (the same
-  calendar day in Hawaiʻi, not yet passed: "in 1 hour", "3:00 PM today", a clock icon) and for "Late, still accepted
-  until …" (R-250; the late-testimony amber, "late testimony until 1:10 PM", stays amber). **Red** only for a step still to
-  do whose deadline has passed (an alert icon and "overdue"). Anything further out is neutral, with how long is left in
-  words beside the date ("Fri 3/27 · in 3 days"; the words come from `model.js` `spanOf`/`timeLeft`, one way everywhere).
-  One function decides it (`ui.js` `timeTone`, used by `countdown()` and `urgentMark()`). **Missed** is said in neutral
-  with a circle-x icon, never red (spec 11.4, amending D3). **Green** only for done. **Coral** only for celebration.
-  This replaces "due today (or within 2 hours) is neutral: first in the list, the time in bold, a clock icon".
-- **A soft colour for each person (27 Oct 2026, Nate's decision 3 via R-344):** every staff member's initials circle has a
-  tint of their own, so "whose" reads before a word does. Six tints, none of them the amber, red or green of status, the
-  action teal, or any action tile's hue (indigo, violet, steel, blue, rose, slate: a face never reads as a job; R-344
-  fresh-eyes review, 27 Oct), spread far apart, the same in every palette (fixed values; each palette's card is white or
-  near it), initials at WCAG AA (A-7): apricot #FAD9C2 / #7E3A0F (6.3), aqua #C4ECE6 / #0B514B (7.2), khaki #EAE3B4 /
-  #4F450C (7.4), blush #EFD6E0 / #6A2F47 (7.3), taupe #E6D8C9 / #4F3E31 (7.3), stone #DFE1E3 / #383F44 (8.2). Dark-mode
-  pairs are worked out when A-21 is built. At most two letters in a circle (the first and the last: "JM"); the full name
-  is its title. A person's tint is their place among everyone's ids, sorted
-  (`ui.js` `tintOf`), so it is the same on every screen and device; the viewer keeps their own tint with an action-coloured
-  ring. Faces are added beside names, never instead of them (`ui.js` `faceLead`; hidden from reading, since the words name
-  the person), and where a face is added a repeated name goes (A-25). Legislators show their photo over their initial.
+Amber and red are the same in every palette (darkened only where a palette's ground needs it for contrast), green stays a
+green, and the person tints below are fixed, so a pick in My settings never changes what a colour means.
+
+- **The colour of time (amended 27 Oct 2026, Nate's answer in the R-352 cohesion review, which reverses R-344 Decision 2):
+  amber only when late.** **Due today is neutral**, and found at a glance without colour: it comes first in its list,
+  with a clock icon, the time in bold and the time left in words ("3:00 PM today · in 1 hour"). **Amber** only for "Late,
+  still accepted until …" (R-250; "late testimony until 1:10 PM"). **Red** only for a step still to do whose deadline has
+  passed (an alert icon and "overdue"). **Missed** (it can no longer be done) is said in words, in neutral, with a
+  circle-x icon, never red (spec 11.4, amending D3). Anything further out is neutral, with how long is left in words
+  beside the date ("Fri 3/27 · in 3 days"; the words come from `model.js` `spanOf`/`timeLeft`, one way everywhere). One
+  function decides it (`ui.js` `timeTone`, used by `countdown()` and `urgentMark()`). **Green** only for done. **Coral**
+  only for celebration.
+- **A soft colour for each person (Nate's pick, 26 Oct, R-344 decision 3; kept by R-352, "clearly distinguished"):**
+  every staff member's initials circle has a soft tint of their own, so "whose" reads before a word does. **A tint is
+  identity, never status:** six tints, none of them the amber, red or green of status, the action teal, or any action
+  tile's hue (indigo, violet, steel, blue, rose, slate: a face never reads as a job; R-344 fresh-eyes review, 27 Oct),
+  spread far apart, the same in every palette (fixed values; each palette's card is white or near it), initials at WCAG
+  AA (A-7): apricot #FAD9C2 / #7E3A0F (6.3), aqua #C4ECE6 / #0B514B (7.2), khaki #EAE3B4 / #4F450C (7.4), blush #EFD6E0 /
+  #6A2F47 (7.3), taupe #E6D8C9 / #4F3E31 (7.3), stone #DFE1E3 / #383F44 (8.2). Dark-mode pairs are worked out when A-21
+  is built. At most two letters in a circle (the first and the last: "JM"); the full name is its title. A person's tint
+  is their place among everyone's ids, sorted (`ui.js` `tintOf`), so it is the same on every screen and device. **"You"
+  is drawn apart:** the viewer keeps their own tint with an action-coloured ring. Faces stand only where they tell whose
+  at a glance (A-18 on v6: whose step it is on Team and on a hearing), beside names, never instead of them (`ui.js`
+  `faceLead`; hidden from reading, since the words name the person), and where a face is added a repeated name goes
+  (A-25). Legislators show their photo over their initial.
 - Every status has its icon AND its word, from one function (`steps.js` `status()`); never colour alone (WCAG 1.4.1).
 - **At most 5 text colours in view**: ink, body, muted, action and white on the filled button. Status colours are counted
-  apart, when a status is shown (spec 13).
+  apart, when a status is shown (spec 13), and so are the person tints, which are identity, not text colours or status.
 - Amber and red are measured by their real colours (the late and bad values), not by token name: the frame turned v5's
   `--warn-*` tokens neutral on purpose (12.8).
 
-*Reason.* Nate chose warm island colours, "ocean teal and leaf green", with amber and red "only when truly late" (R-336).
-In v5 every row due within a day carried an amber chip ("4h to file", "59m"), so amber was spent on half the list and
-meant nothing. Red says "act now"; a missed hearing can no longer be acted on, so it is said plainly rather than alarmed.
-Whether "due within 2 hours" should earn amber is a guess for the cold test with Kris, Patti and Julie to settle.
-*Reason for the 27 Oct amendment (R-344).* On the practice day three things were due today with no colour at all, so a
-skimmer could not find what came first (the at-a-glance review's blur test). Nate asked for "red only for due today or
-missed"; his decision keeps red rarer than that: amber for today, red once passed, so red still means "act now, it is
-late". The five-second test (no one reads amber as an emergency) settles whether this holds.
+*Reason.* Nate chose warm island colours, "ocean teal and leaf green", with amber and red "only when truly late"
+(R-336), then on 25 Oct the public site's own HIPHI Family colours, because Morning Reef read as too beige. In v5 every row
+due within a day carried an amber chip ("4h to file", "59m"), so amber was spent on half the list and meant nothing. Red
+says "act now"; a missed hearing can no longer be acted on, so it is said plainly rather than alarmed.
+*Reason for the 27 Oct amendment (R-352).* R-344 had made due today amber, because on the practice day three things due
+today had no colour and a skimmer could not find what came first. In the cohesion review Nate answered "amber only when
+late": with amber on everything due today, colour was again spent on much of Today (as in v5), and the screens drifted from
+the calm of 23 Oct. What R-344 asked for, finding today's things first, is kept without colour: first in the list, the
+clock, the time in bold and the time left in words. Person tints stay because Nate picked them (26 Oct) and asked that
+people be "clearly distinguished"; they are soft and never a status hue, so they add "whose" without competing with "how
+urgent". The five-second and blur tests and the cold test with Kris, Patti and Julie settle whether today's things are
+still found first.
 
 ### A-6 on v6: 40px on a laptop too
 
@@ -1054,9 +1067,15 @@ look at it.
 Page tabs show the open tab bold with a teal bar under it, never a pill, so they never look like the Mine | Team switch
 (spec 13). Tab rows on phones are one row that slides sideways, the open tab scrolled into view and the edge with more tabs faded (Nate 25 Oct, walk 1: Testimony's five tabs wrapped onto two lines; this replaces the earlier "tab rows wrap" rule, 12.3).
 
+Tabs carry their words only, never an icon (A-18 on v6, R-352).
+
 *Reason.* A switch shows the same list another way; a tab goes to another page (C-15's Filter row). When the two look alike
-a person cannot tell which one they are pressing, which is what A-12 forbids. A tab row that scrolls sideways hides the
-tabs past the edge, and things hidden or hard to find are Nate's worst case.
+a person cannot tell which one they are pressing, which is what A-12 forbids. *Reason for the 25 Oct change (walk 1).* The
+earlier rule wrapped tab rows on phones, so no tab sat past the edge; on Testimony's five tabs that made two lines that read
+as two rows of different things and pushed the work down. One sliding row keeps the tabs one row; the open tab scrolled into
+view and the faded edge say where you are and that more tabs follow, so none is hidden from someone looking for it, which is
+Nate's worst case ("hidden or hard to find"). Whether the faded edge is noticed is a guess for the cold test with Kris,
+Patti and Julie.
 
 ### A-18 on v6: one picture, one meaning (R-344, 27 Oct 2026)
 
@@ -1069,9 +1088,23 @@ bar as in the sidebar, with the same number. **Where a legislator stands is the 
 **Session setup's Blocking is the warning triangle**; the circle with an x is Missed. More tools' rows each carry their
 place's picture: people icons are Team (`users`) and People (`user-round`) only.
 
+**Where pictures go (R-352, Nate 27 Oct): an icon, face or tint stays only where it helps someone find their way or tell
+two things apart at a glance;** one small kind-of-job icon on lists that mix kinds (Today's Do today, Inbox, Team); none on
+lists of one kind (Testimony, Bills); the filled button keeps its icon; **no icons on tabs; no letter bubbles** (letters
+in a circle used as decoration, as on Who to ask; a teammate's initials circle stays where it says whose, A-5 on v6). Places where
+pictures help: the sidebar, issue and topic headings, an issue's card, whose step it is on Team and on a hearing. Places
+they go: tabs, row starts on lists of one kind, a button's twin of its own word, letter bubbles. An icon that goes keeps
+its spoken label where it carried one.
+
 *Reason.* The at-a-glance review (R-336, 26 Oct) found one picture meaning up to five things (the check mark: done,
 approve, support, Review and Mark read), so a picture could not be trusted without reading its words. The review's research (NN/g,
 IBM Carbon) puts a working set at about 6 to 10 status and action icons, each with one meaning.
+*Reason for the R-352 addition (27 Oct).* Between 23 and 27 Oct icons were added to tabs, row starts and buttons beside
+their own words, and letter bubbles beside names, and the screens lost the calm Nate liked on 23 Oct (spec 2 had already
+turned down "icons on rows"). Asked which pictures to keep, he answered "we want to ensure it's easy to navigate, clearly
+distinguished and intuitive": so a picture stays where it does one of those jobs (finding the way, telling kinds or people
+apart; at-a-glance rule 1, NN/g, W3C cognitive-accessibility guidance) and goes where it repeats a word or only decorates.
+Whether a mixed list reads faster with its kind icons is a guess for the five-second test and the cold test.
 
 ### A-20 on v6: "…" holds only what also lives somewhere else
 
@@ -1097,7 +1130,7 @@ panel until an item is picked, at most 5 text colours, 12 controls in view** (A-
 | Supporters, first screen | ≤25 controls, ≤15 filter choices shown |
 | Session setup | 5 groups, no part over 1.5 screens |
 | Every row | ≤4 facts |
-| Every screen | ≤30% of text at 14px or under · ≤25% bold · ≤8 bordered elements on the first screen · 3 radii · ≤5 text colours · 0 amber or red marks on a day when nothing is late or due today · 0 weekly-used pages behind a menu (a More-page destination counts as 2 taps) |
+| Every screen | ≤30% of text at 14px or under · ≤25% bold · ≤8 bordered elements on the first screen · 3 radii · ≤5 text colours · 0 amber or red marks on a day when nothing is late or overdue (due today is neutral, A-5 on v6) · 0 weekly-used pages behind a menu (a More-page destination counts as 2 taps) |
 | The sidebar | ≤11 rows for staff, ≤15 for leads; rows are the links only, not the Lead tools heading or Collapse (12.4) |
 
 **One exception (spec 13):** a person's own Today rows may run past the length target (screens and words), because R-274
@@ -1143,11 +1176,19 @@ none covered chair asks, filing or covering for someone.
 - **Places a role never uses are left out**, with D8's one quiet line saying they exist ("Admins also have: Session setup,
   People. Ask Nate.").
 - Sub-pages are one row of page tabs at the top of the page, never in the sidebar as well (D12).
+- **The calendar has one home: Hearings** (List | Calendar), with a filter by issue (the job All issues' calendar did); old
+  calendar addresses open it. **Today has no week grid and no day strip**; its Coming up ends with one quiet line, "See the
+  week on Hearings". All issues has no calendar view (R-352, Nate 27 Oct; reverses R-342's and R-346's week on Today).
 
 *Reason.* Under v5's rule the Inbox sat only in the initials menu, Review had no door but Today's card, Sort new bills was
 behind Bills' "…", and four places moved into the initials menu below 1100px. Nate: "ease of navigation [is] extremely
 important. If people are unable to find things because they are hidden or hard to find, that would be the worst"; and
 features are kept for everyone and shown by role.
+*Reason for the calendar's one home (R-352).* By 27 Oct the week was drawn in three places (Hearings, All issues and a strip
+or grid on Today), which is the "too many things in too many places" of R-336, and A-12's two ways into one thing; Today's
+grid also added to its length (Nate's Today grew from about 2 laptop screens on 23 Oct to over 4 by 27 Oct). Nate chose Hearings as its one
+home. The issue filter keeps what All issues' calendar was for, and the line on Today keeps the week one visible, labelled
+click away.
 
 ### B-14 on v6: things to do are never folded away
 
