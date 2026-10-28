@@ -307,7 +307,8 @@ MEASURE = r"""(arg) => {
     const own = [...e.childNodes].some(c => c.nodeType === 3 && c.nodeValue.trim()) || e.matches('svg');
     return (own && hot(s.color)) || hot(s.backgroundColor) || ['Top', 'Right', 'Bottom', 'Left'].some(k => parseFloat(s['border' + k + 'Width']) > 0 && hot(s['border' + k + 'Color'])); });
   const marks = marked.filter(e => !marked.some(o => o !== e && o.contains(e)));
-  const WORD = /\b(late|overdue|missed|past due|still accepted|not filed|didn.t file|failed|error|offline|could not|did not load)\b/i;
+  // R-344 (Nate's Decision 2, A-5 on v6): amber also means due today, and its word is "today".
+  const WORD = /\b(late|overdue|missed|past due|still accepted|not filed|didn.t file|failed|error|offline|could not|did not load|today)\b/i;
   const unworded = marks.filter(e => { const box = e.closest('li, tr, .row, .td-row, .v6-row, article, .card, .v6-hcard, .v6-step, [role=listitem], [role=alert], .notice') || e.parentElement || e; return !WORD.test((box.innerText || '') + ' ' + (e.getAttribute('aria-label') || '')); });
 
   // ---- the frame: sidebar rows, the phone's tab bar, sideways scroll ----

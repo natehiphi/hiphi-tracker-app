@@ -51,7 +51,11 @@ with L.browser() as B:
       where = f'{name} {w}'
       t = health(pg)
       R.check(f'{where}: the health check says it in one sentence', re.match(rx, t) is not None, t)
-      R.check(f'{where}: no colour alarm on the health check (no late or bad colour)', pg.measure()['marks'] == 0)
+      # R-344 (Decision 2): a step below it may now be amber for due today; the check is the health box's own colours.
+      alarm = pg.page.evaluate("""(() => { const h = document.querySelector('.ip6-health'); if (!h) return -1; const cs = getComputedStyle(document.body);
+        const bad = ['--v6-late', '--v6-bad', '--v6-late-wash', '--v6-bad-wash'].map(k => cs.getPropertyValue(k).trim()).filter(Boolean).map(c => { const d = document.createElement('i'); d.style.color = c; document.body.append(d); const r = getComputedStyle(d).color; d.remove(); return r; });
+        return [h, ...h.querySelectorAll('*')].filter(e => bad.includes(getComputedStyle(e).color) || bad.includes(getComputedStyle(e).backgroundColor)).length; })()""")
+      R.check(f'{where}: no colour alarm on the health check (no late or bad colour)', alarm == 0, alarm)
       cols = pg.page.evaluate("[...document.querySelectorAll('.ip6-col')].map(e => e.dataset.ipCol)")
       R.check(f'{where}: House and Senate columns, in that order', cols == ['H', 'S'], cols)
       heads = pg.page.evaluate("[...document.querySelectorAll('.ip6-colh')].map(e => e.firstChild.textContent.trim())")

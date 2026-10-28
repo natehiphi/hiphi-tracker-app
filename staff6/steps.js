@@ -558,7 +558,8 @@ export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
   if (s.you && hush) return own + lc(s.kind === 'nodraft' ? 'Make the draft' : s.act?.verb || 'act on it') + (toned ? ', late' : '');
   // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
   if (s.you) return own + lc(String(s.line || '')).replace(/ · /g, ', ');
-  const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : '';
+  // R-344: amber for due today carries its word ("due today 9:30 AM"), as late and overdue carry theirs (D3)
+  const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : tone === 'today' && s.mine && s.due != null ? `due ${whenAt(s.due)}` : '';
   if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
   if (!when && st.noDraft) return `${st.word} · not started`;
   if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}` : ''}`;
