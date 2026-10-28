@@ -1,9 +1,30 @@
 [
  {
   "img": "ask",
+  "slug": "ban-neonicotinoids",
+  "name": "Ban on neonicotinoid pesticides",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "ban-telone",
   "name": "Ban the pesticide Telone by 2030",
   "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "cap-rent-increases",
+  "name": "3% yearly cap on rent increases",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "cash-support-for-families-with-babies",
+  "name": "Cash support for families with babies",
+  "category": "family",
   "have": true
  },
  {
@@ -53,7 +74,7 @@
   "slug": "end-non-medical-vaccine-exemptions",
   "name": "End non-medical vaccine exemptions",
   "category": "care",
-  "have": false
+  "have": true
  },
  {
   "img": "ask",
@@ -74,6 +95,13 @@
   "slug": "fda-proof-to-sell-e-cigarettes",
   "name": "FDA proof required to sell e-cigarettes",
   "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "fee-on-sugary-drinks",
+  "name": "A fee on sugary drinks",
+  "category": "food",
   "have": true
  },
  {
@@ -106,6 +134,13 @@
  },
  {
   "img": "ask",
+  "slug": "free-public-transit",
+  "name": "Free public transit statewide",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "free-school-meals-for-every-student",
   "name": "Free school meals for every student",
   "category": "food",
@@ -116,6 +151,13 @@
   "slug": "free-school-meals-for-more-families",
   "name": "Free school meals for more families",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "fund-safe-routes-to-school",
+  "name": "Fund Safe Routes to School",
+  "category": "around",
   "have": true
  },
  {
@@ -141,9 +183,23 @@
  },
  {
   "img": "ask",
+  "slug": "higher-minimum-wage",
+  "name": "A higher minimum wage",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "higher-taxes-on-top-earners",
   "name": "Higher taxes on top earners",
   "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "higher-tobacco-and-e-cigarette-taxes",
+  "name": "Higher tobacco and e-cigarette taxes",
+  "category": "tobacco",
   "have": true
  },
  {
@@ -172,6 +228,13 @@
   "slug": "keep-preventive-care-covered",
   "name": "Protect preventive care and vaccines",
   "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "legal-adult-use-cannabis",
+  "name": "Legal adult-use cannabis",
+  "category": "tobacco",
   "have": true
  },
  {
@@ -211,9 +274,44 @@
  },
  {
   "img": "ask",
+  "slug": "more-snap-help",
+  "name": "More SNAP help for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "no-surge-pricing-on-snap-foods",
+  "name": "No surge pricing on SNAP and WIC foods",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "no-surveillance-pricing",
   "name": "No prices based on your personal data",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "no-tax-on-groceries",
+  "name": "No tax on groceries",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "no-tax-on-period-products",
+  "name": "No tax on period products",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "packaging-recycling",
+  "name": "Study for packaging recycling program",
+  "category": "climate",
   "have": true
  },
  {
@@ -239,9 +337,23 @@
  },
  {
   "img": "ask",
+  "slug": "plan-for-a-changing-climate",
+  "name": "Plan for a changing climate",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "poverty-is-not-neglect",
   "name": "Poverty alone is not child neglect",
   "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "protect-abortion-and-contraception",
+  "name": "Protect abortion and birth control",
+  "category": "care",
   "have": true
  },
  {
@@ -281,6 +393,20 @@
  },
  {
   "img": "ask",
+  "slug": "right-to-a-clean-environment",
+  "name": "Right to a clean environment amendment",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "rural-community-health-workers",
+  "name": "Rural community health worker pilot",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "safer-pedestrian-signals",
   "name": "Safer pedestrian signals at crossings",
   "category": "around",
@@ -309,6 +435,13 @@
  },
  {
   "img": "ask",
+  "slug": "single-payer-health-care",
+  "name": "Single-payer health care for Hawaiʻi",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "snap-before-prison-release",
   "name": "SNAP sign-up before prison release",
   "category": "food",
@@ -319,6 +452,13 @@
   "slug": "snap-nutrition-education",
   "name": "SNAP nutrition education",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "state-buys-vaccines",
+  "name": "State buys vaccines for providers",
+  "category": "care",
   "have": true
  },
  {
@@ -484,6 +624,20 @@
  },
  {
   "img": "conference-yes",
+  "slug": "cross-during-the-countdown",
+  "name": "Let people cross during the countdown",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "family-caregiver-tax-credit",
+  "name": "Tax credit for family caregivers",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
   "slug": "farm-to-families",
   "name": "Farm to Families food program",
   "category": "food",
@@ -494,6 +648,20 @@
   "slug": "funding-for-community-nonprofits",
   "name": "Funding for community nonprofits",
   "category": "family",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "keep-preventive-care-covered",
+  "name": "Protect preventive care and vaccines",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "lower-school-meal-prices",
+  "name": "Lower school meal prices",
+  "category": "food",
   "have": true
  },
  {
@@ -515,6 +683,27 @@
   "slug": "red-light-and-speed-cameras",
   "name": "More red-light and school speed cameras",
   "category": "around",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "safer-pedestrian-signals",
+  "name": "Safer pedestrian signals at crossings",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "safety-for-immigrant-families",
+  "name": "Safety for immigrant families",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "tax-credit-for-training-health-students",
+  "name": "Tax credit for training health students",
+  "category": "care",
   "have": true
  },
  {
@@ -1261,6 +1450,13 @@
  },
  {
   "img": "hold",
+  "slug": "higher-liquor-taxes",
+  "name": "Higher liquor taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "hold",
   "slug": "higher-minimum-wage",
   "name": "A higher minimum wage",
   "category": "family",
@@ -1277,6 +1473,13 @@
   "img": "hold",
   "slug": "looser-alcohol-sales-rules",
   "name": "Looser alcohol sales rules",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "hold",
+  "slug": "state-e-cigarette-maker-directory",
+  "name": "State directory of approved e-cigarette makers",
   "category": "tobacco",
   "have": true
  },
@@ -1387,9 +1590,30 @@
  },
  {
   "img": "testify",
+  "slug": "ban-neonicotinoids",
+  "name": "Ban on neonicotinoid pesticides",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "ban-telone",
   "name": "Ban the pesticide Telone by 2030",
   "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "cap-rent-increases",
+  "name": "3% yearly cap on rent increases",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "cash-support-for-families-with-babies",
+  "name": "Cash support for families with babies",
+  "category": "family",
   "have": true
  },
  {
@@ -1439,7 +1663,7 @@
   "slug": "end-non-medical-vaccine-exemptions",
   "name": "End non-medical vaccine exemptions",
   "category": "care",
-  "have": false
+  "have": true
  },
  {
   "img": "testify",
@@ -1460,6 +1684,13 @@
   "slug": "fda-proof-to-sell-e-cigarettes",
   "name": "FDA proof required to sell e-cigarettes",
   "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "fee-on-sugary-drinks",
+  "name": "A fee on sugary drinks",
+  "category": "food",
   "have": true
  },
  {
@@ -1492,6 +1723,13 @@
  },
  {
   "img": "testify",
+  "slug": "free-public-transit",
+  "name": "Free public transit statewide",
+  "category": "around",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "free-school-meals-for-every-student",
   "name": "Free school meals for every student",
   "category": "food",
@@ -1502,6 +1740,13 @@
   "slug": "free-school-meals-for-more-families",
   "name": "Free school meals for more families",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "fund-safe-routes-to-school",
+  "name": "Fund Safe Routes to School",
+  "category": "around",
   "have": true
  },
  {
@@ -1541,6 +1786,13 @@
  },
  {
   "img": "testify",
+  "slug": "higher-tobacco-and-e-cigarette-taxes",
+  "name": "Higher tobacco and e-cigarette taxes",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "homes-for-local-residents",
   "name": "Pilot to keep homes for local residents",
   "category": "family",
@@ -1565,6 +1817,13 @@
   "slug": "keep-preventive-care-covered",
   "name": "Protect preventive care and vaccines",
   "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "legal-adult-use-cannabis",
+  "name": "Legal adult-use cannabis",
+  "category": "tobacco",
   "have": true
  },
  {
@@ -1618,9 +1877,44 @@
  },
  {
   "img": "testify",
+  "slug": "more-snap-help",
+  "name": "More SNAP help for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "no-surge-pricing-on-snap-foods",
+  "name": "No surge pricing on SNAP and WIC foods",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "no-surveillance-pricing",
   "name": "No prices based on your personal data",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "no-tax-on-groceries",
+  "name": "No tax on groceries",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "no-tax-on-period-products",
+  "name": "No tax on period products",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "packaging-recycling",
+  "name": "Study for packaging recycling program",
+  "category": "climate",
   "have": true
  },
  {
@@ -1667,6 +1961,13 @@
  },
  {
   "img": "testify",
+  "slug": "protect-abortion-and-contraception",
+  "name": "Protect abortion and birth control",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "protect-gender-affirming-care",
   "name": "Protect gender-affirming care",
   "category": "care",
@@ -1709,6 +2010,20 @@
  },
  {
   "img": "testify",
+  "slug": "right-to-a-clean-environment",
+  "name": "Right to a clean environment amendment",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "rural-community-health-workers",
+  "name": "Rural community health worker pilot",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "safer-pedestrian-signals",
   "name": "Safer pedestrian signals at crossings",
   "category": "around",
@@ -1737,6 +2052,13 @@
  },
  {
   "img": "testify",
+  "slug": "single-payer-health-care",
+  "name": "Single-payer health care for Hawaiʻi",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "snap-before-prison-release",
   "name": "SNAP sign-up before prison release",
   "category": "food",
@@ -1747,6 +2069,20 @@
   "slug": "snap-nutrition-education",
   "name": "SNAP nutrition education",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "state-buys-vaccines",
+  "name": "State buys vaccines for providers",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "state-e-cigarette-maker-directory",
+  "name": "State directory of approved e-cigarette makers",
+  "category": "tobacco",
   "have": true
  },
  {
