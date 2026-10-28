@@ -12,19 +12,20 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
   LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, CONSENT_KEY, recomputeWatch } from './core.js';
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
-import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY, alertStatus } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
-import { titleLabel } from './titles.js';
+import { titleLabel, pickTitle, asWords, suggestTitles } from './titles.js';
 import { logAct } from './visitlog.js';
 import { lettersList, wireKept, wireDelete, LETTERS_LEDE, lettersWhere } from './myletters.js';   // R-212 #27, #28, #31
+import { keptLetters } from './letters.js';
 import { stopText } from './alerts.js';
 // The calm redesign (R-303), only with ?rec=1: Profile keeps one page (R-165) but its alerts get their own page, "Your
 // alerts" (#/alerts, pub/rec/alerts.js), and its first row leads there; "Your issues" goes (My issues is a tab, and its count
 // was wrong: every bill an issue carries, mine-profile-alerts.md section 3).
-import { REC } from './rec/kit.js';
+import { REC, recBack, recRows, BOX } from './rec/kit.js';
 import { youCss, youWait, backFrom, profileAlertsRow } from './rec/you.js';
 
 const $ = s => document.querySelector(s);
@@ -348,7 +349,7 @@ function profileView() {
 // story boxes added but not yet written. A draft is kept until Save or Cancel, across redraws and other pages.
 function fresh() {
   const base = savedNow();
-  Object.assign(P, { del: false, storyGone: [], made: P.made || '', hsHow: false, otherOpen: false, newStories: [], base, draft: clone(base),
+  Object.assign(P, { del: false, storyGone: [], made: P.made || '', hsHow: false, otherOpen: false, newStories: [], base, draft: clone(base), editing: null, addrOpen: false,
     tp: { chosen: [...base.titles], q: '', more: false, active: -1 },
     addr: { q: '', sd: null, hd: null, picked: false, results: [] } });
 }
@@ -358,7 +359,7 @@ function addStory(id) {
 }
 function repaintStories(focusSel) {
   const s = $('#pf-story'); if (!s) return;
-  s.innerHTML = `<h2 id="pf-story-t">Your stories</h2>${storyBody()}`; wireStories();
+  s.innerHTML = `<h2 id="pf-story-t">Your stories</h2>${onVoice() ? voiceStoryBody() : storyBody()}`; if (onVoice()) wireVoiceStories(); else wireStories();
   const f = focusSel && $(focusSel); if (f) { f.focus({ preventScroll: true }); f.scrollIntoView({ block: 'center' }); }
 }
 function wireStories() {
@@ -376,9 +377,10 @@ const lettersBody = l => `${l ? `<p class="small muted">${esc(LETTERS_LEDE)}</p>
 // Your letters, drawn again after a Delete or an Undo (R-212 #28), without redrawing the page (a draft and the keyboard stay).
 function repaintLetters(focusSel, said) {
   const s = $('#pf-letters'); if (!s) return;
-  s.innerHTML = `<h2 id="pf-letters-t" tabindex="-1">Your letters</h2>${lettersBody(lettersList())}`;
+  // Its own page under ?rec=1 (R-304): the page's h1 names it, so the list is drawn without the card's heading.
+  s.innerHTML = s.classList.contains('pfr-letters') ? lettersBody(lettersList()) : `<h2 id="pf-letters-t" tabindex="-1">Your letters</h2>${lettersBody(lettersList())}`;
   wireKept(s); wireDelete(s, repaintLetters);
-  const f = focusSel && s.querySelector(focusSel); (f || s.querySelector('h2'))?.focus?.({ preventScroll: true });
+  const f = focusSel && s.querySelector(focusSel); (f || s.querySelector('h2') || $('#pf-h'))?.focus?.({ preventScroll: true });
   if (said) announce(said);
 }
 
@@ -391,7 +393,7 @@ function wireProfile() {
   if (!landed && /[?&]to=alerts\b/.test(location.hash)) { landed = true; requestAnimationFrame(() => { const l = $('.pf-lvls') || $('#pf-email'); if (l) { l.scrollIntoView({ block: 'start' }); l.querySelector('input')?.focus({ preventScroll: true }); } }); }
   const nm = $('#pf-name');
   if (nm) { nm.oninput = () => { P.draft.name = nm.value; paintBar(); }; nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } }; }
-  wirePicker($('#pf-tp-host'), 'pf', P.tp, chosen => { P.draft.titles = [...chosen]; paintBar(); });
+  const tph = $('#pf-tp-host'); if (tph) wirePicker(tph, 'pf', P.tp, chosen => { P.draft.titles = [...chosen]; paintBar(); });   // not on R-304's sub-pages
   // A picked address finds the districts; they are kept with the rest at Save. The address itself is never kept.
   wireAddr('pf-ad', P.addr, () => {
     const a = P.addr; flash('pf-ad-st', '');
@@ -457,17 +459,225 @@ function wireProfile() {
   };
 }
 
+// ---------------- Profile as rows, and Your voice (R-304, Nate's "Yes, build it" of 28 Oct to "D, refined") ----------------
+// Only with ?rec=1 written in the address, until Nate says otherwise: REC() is everyone's since 19 Oct, so it cannot gate a
+// page that is still waiting on his look. Without it, the page above is drawn exactly as before.
+//   #/profile          the person, then five rows: Your voice, Your alerts (#/alerts, R-303), Your testimony and emails, How
+//                      you'll help, Your data and account. Kai's was 3,724px on a phone; the goal was under 1,000.
+//   #/profile/voice    Name and districts, "I'm a..." (six chips suggested from the issues they follow), how their letters
+//                      start (one line per issue, by the rule letters use), and their saved stories. Each change saves as
+//                      it is made, with a quiet "Saved" (B-7, A-16): no Save bar here, which reverses R-165 for this page.
+//   #/profile/letters  today's letters list (R-212 #27, #28, #31), Delete and Undo as before.
+//   #/profile/help, #/profile/data   today's sections, same markup and the same Save bar (Part 2 restyles them).
+// Every sub-page starts with "← Profile" (B-4): the Home Screen app has no browser Back.
+const R304 = () => new URLSearchParams(location.search).get('rec') === '1';
+const SUBS = { voice: 'Your voice', letters: 'Your testimony and emails', help: 'How you’ll help', data: 'Your data and account' };
+// #/profile?to=letters (kernel.js, R-212 #31) opens the letters' own page here.
+const subOf = route => { if (!R304() || !hasProfile()) return ''; const s = route?.sub || ''; return SUBS[s] ? s : /[?&]to=letters\b/.test(location.hash) ? 'letters' : ''; };
+const onVoice = () => !!document.querySelector('#main .pfv');
+
+// What a followed issue says to the title rule: its category and its words. A letter scores its bill (helper.js aboutBill);
+// an issue's name and description stand in for its bills here, so a line can differ from a letter on an odd bill.
+const aboutIssue = i => ({ cats: i.categories || [i.category], text: [i.name, i.description].filter(Boolean).join(' ') });
+const verb = i => i?.stance === 'oppose' ? 'I oppose…' : 'I support…';
+// The opening a letter on this issue would use: the one title that fits best (titles.js pickTitle; on a tie the one picked
+// first, which Nate chose to keep), in the letter's own words (asWords, with "writing for myself" when the letter adds it).
+function openLine(titles, i) { const a = asWords(pickTitle(titles, i ? aboutIssue(i) : {})); return a ? `${a}, ${verb(i)}` : cap(verb(i)); }
+const storyCount = () => (myStory() ? 1 : 0) + Object.keys(myStories()).length;
+// The Your voice row: each different opening across the issues they follow (“As a nurse…” · “As a parent…”), then the stories.
+function voiceSum() {
+  const t = myTitles(), iss = followedIssues(), n = storyCount();
+  const opens = [...new Set((iss.length ? iss : [null]).map(i => asWords(pickTitle(t, i ? aboutIssue(i) : {}), false)).filter(Boolean))].slice(0, 3);
+  const st = n ? `${n} ${n === 1 ? 'story' : 'stories'}` : '';
+  return opens.length ? [...opens.map(o => `“${o}…”`), st].filter(Boolean).join(' · ') : ['Add who you are, so your letters sound like you', st].filter(Boolean).join(' · ');
+}
+// "1 testimony · 1 email · the last on March 3" (the app's own month-then-day, as dateLong).
+function lettersSum() {
+  const Ls = keptLetters(); if (!Ls.length) return 'Letters and emails you send are kept here';
+  const e = Ls.filter(L => L.kind === 'email').length, t = Ls.length - e;
+  const last = Ls[0]?.sent ? new Date(Ls[0].sent).toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
+  return [t ? `${t} ${t === 1 ? 'testimony' : 'testimonies'}` : '', e ? `${e} ${e === 1 ? 'email' : 'emails'}` : '', last ? `the last on ${last}` : ''].filter(Boolean).join(' · ');
+}
+function helpSum() {
+  const on = new Set(myInterests()), gs = HELP_GROUPS.filter(([, xs]) => xs.some(([k]) => on.has(k))).map(([g]) => g);
+  return gs.length ? gs.join(' · ') : myHelpNote() ? myHelpNote() : 'Tell HIPHI how you’d like to pitch in';
+}
+const dataSum = () => signedIn() ? 'What we keep · Sign out · Delete' : 'What we keep · Delete';
+// Who this is, under the name: how they sign in; a profile kept only on this phone (a text number, R-155) says so, since
+// "Signed in" would not be true.
+function whoLine() {
+  if (signedIn()) { const n = myNumber(), e = myEmail(); return n ? `Signed in with ${masked(n)}` : e ? `Signed in with ${e}` : ''; }
+  const t = textSaved(); return t?.phone ? `Saved on this phone with ${masked(t.phone)}` : '';
+}
+function rowsView() {
+  const name = myName(), s = since(), who = whoLine();
+  // Back from a sub-page lands here with that sub-page as the page behind: Profile's own Back still names You.
+  const back = /^#\/profile\//.test(String(history.state?.prev || '')) ? recBack('#/more', 'You') : backFrom('#/more', 'You');
+  const rows = [
+    { name: 'Your voice', text: voiceSum(), href: '#/profile/voice', lead: 'mic' },
+    { name: 'Your alerts', text: alertStatus().title, href: '#/alerts', lead: 'bell' },
+    { name: 'Your testimony and emails', text: lettersSum(), href: '#/profile/letters', lead: 'mail' },
+    { name: SUBS.help, text: helpSum(), href: '#/profile/help', lead: 'users' },
+    { name: SUBS.data, text: dataSum(), href: '#/profile/data', lead: 'lock' }];
+  return `<div class="mr pf pfr yu">${back}
+    <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
+      ${who ? `<p class="meta pf-since">${esc(who)}</p>` : ''}</div></header>
+    ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
+    <p class="sr" id="pf-live" aria-live="polite"></p>
+    <nav class="pfr-rows" aria-label="Your profile">${recRows(rows, BOX)}</nav>
+    ${s ? `<p class="small muted pfr-since">Speaking up since ${esc(s)}</p>` : ''}
+    ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
+  </div>`;
+}
+const subHead = k => `${recBack('#/profile', 'Profile')}<header class="pagehead pfr-head"><h1 class="hero" id="pf-h" tabindex="-1">${esc(SUBS[k])}</h1></header><p class="sr" id="pf-live" aria-live="polite"></p>`;
+
+// Your voice. The chips suggested once per arrival, so a chip never moves under the finger while they tap.
+function voiceView() {
+  const d = P.draft, dist = d.sd && d.hd;
+  P.tp.suggest ||= suggestTitles(followedIssues().map(aboutIssue), P.base.titles);
+  const hint = followedIssues().length ? 'Tap any that fit. These come first because of the issues you follow.' : 'Tap any that fit.';
+  return `<div class="mr pf pfr pfv yu">${subHead('voice')}
+    <section class="card pf-sec" id="pf-about" aria-labelledby="pf-about-t"><h2 id="pf-about-t">Name and districts</h2>
+      <div class="field pf-f"><label for="pf-name">Name</label>
+        <input id="pf-name" type="text" value="${esc(d.name)}" maxlength="120" autocomplete="name" autocapitalize="words" enterkeyhint="done"></div>
+      <div class="pf-f pf-where">
+        ${dist && !P.addrOpen ? `<p class="pfv-dist">${icon('map-pin')}<span>Senate ${esc(d.sd)} · House ${esc(d.hd)}</span><button type="button" class="btn text sm" data-pfv-addr aria-expanded="false">Change address</button></p>`
+          : addrField('pf-ad', P.addr, { label: dist ? 'Your new address' : 'Your home address', help: '' })}
+        <p class="pf-promise">${icon('shield-check')}<span>We use your address once to find your senator and representative, then forget it. We keep only their district numbers.</span></p>
+      </div>
+      ${status('pf-about-st')}</section>
+    <section class="card pf-sec" id="pf-iam" aria-labelledby="pf-iam-t"><h2 id="pf-iam-t">I’m a…</h2>
+      <div class="pf-f" id="pf-tp-host">${pickerHTML('pf', P.tp, { legend: 'I’m a…', hint, suggest: P.tp.suggest, quietLegend: true })}</div>
+      <div class="pfv-prev"><h3 class="pfv-h3" id="pfv-lines-t">How your letters start</h3><div id="pfv-lines">${linesHTML()}</div></div>
+      ${status('pf-tp-st')}</section>
+    <section class="card pf-sec" id="pf-story" aria-labelledby="pf-story-t"><h2 id="pf-story-t">Your stories</h2>${voiceStoryBody()}</section>
+  </div>`;
+}
+// One line per followed issue, the way its letter would open (Nate's change 1 to D: "true opening lines").
+function linesHTML() {
+  const t = P.draft.titles, iss = followedIssues();
+  const xs = iss.length ? iss.map(i => [i.name, openLine(t, i)]) : [['Any letter', openLine(t, null)]];
+  return `<ul class="pfv-lines" aria-labelledby="pfv-lines-t">${xs.map(([n, l]) => `<li><span class="pfv-ln">${esc(n)}</span><q>${esc(l)}</q></li>`).join('')}</ul>
+    ${t.length ? '' : '<p class="small muted pfv-none">Tap a title above, and your letters start with it.</p>'}`;
+}
+// The saved stories as a list, each with Edit and Delete (Delete and Undo as R-212 #28). Stories are written on the letter
+// step now (Nate, 28 Oct), so there is no box to add one here.
+function voiceStoryBody() {
+  const keys = [...(P.base.story ? [''] : []), ...Object.keys(P.base.stories)];
+  return `${storyGone()}
+    ${keys.length ? `<ul class="pfv-stories">${keys.map(storyItem).join('')}</ul>` : '<p class="muted pfv-none">No stories yet.</p>'}
+    <p class="small pfv-how">You add a story when you write a letter, and it’s kept for the next one.</p>
+    <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
+    <fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>
+      <p class="small muted">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
+      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, P.draft.quote === k)).join('')}</fieldset>
+    ${status('pf-story-st')}`;
+}
+function storyItem(k) {
+  const text = k ? P.base.stories[k] : P.base.story, name = k ? storyName(k) || 'Another issue' : 'Any issue', id = k ? `pf-st-${k}` : 'pf-st-any';
+  if (P.editing === k) return `<li class="pfv-story pfv-editing"><div class="field pf-f pf-story-f" data-story="${esc(k)}"><label for="${esc(id)}">${k ? `Your story about “${esc(name)}”` : 'Your story'}</label>
+      <textarea id="${esc(id)}" rows="3" maxlength="600" autocapitalize="sentences">${esc(text)}</textarea></div>
+    <div class="pfv-stb">${btn('Done', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-pfv-stdone': k } })}</div></li>`;
+  return `<li class="pfv-story"><p class="pfv-stn">${esc(name)}</p><p class="pfv-stt">“${esc(text)}”</p>
+    <div class="pfv-stb">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pfv-stedit': k, 'aria-label': `Edit ${storyWhat(k)}` } })}${btn('Delete', { kind: 'text', sm: true, icon: 'trash-2', attrs: { 'data-pf-stdel': k, 'aria-label': `Delete ${storyWhat(k)}` } })}</div></li>`;
+}
+const lettersView = () => `<div class="mr pf pfr yu">${subHead('letters')}
+    <section class="card pf-sec pfr-letters" id="pf-letters" aria-labelledby="pf-h">${lettersBody(lettersList())}</section></div>`;
+const helpView = () => `<div class="mr pf pfr yu">${subHead('help')}
+    <section class="card pf-sec" id="pf-help" aria-labelledby="pf-h">${helpBody()}</section></div>`;
+const dataView = () => `<div class="mr pf pfr yu">${subHead('data')}${homeScreenNote()}
+    <section class="card pf-sec" id="pf-data" aria-labelledby="pf-h">${dataBody()}</section></div>`;
+const SUBVIEW = { voice: voiceView, letters: lettersView, help: helpView, data: dataView };
+
+// Saving as you go. One save at a time, in the order made, so two quick taps never land out of order on the account.
+let chain = Promise.resolve();
+function saveNow(patch, stId, after = () => {}) {
+  chain = chain.then(async () => {
+    const slow = setTimeout(() => { const el = document.getElementById(stId); if (el) { el.classList.remove('bad'); el.textContent = 'Saving…'; } }, 400);   // B-7: anything slower says it is working
+    try { await saveProfile(patch); } catch (e) { clearTimeout(slow); flash(stId, friendly(e), true); return; }
+    clearTimeout(slow); after(); flash(stId, 'Saved'); announce('Saved.');
+  });
+  return chain;
+}
+function wireVoice() {
+  const nm = $('#pf-name');
+  if (nm) {
+    const keep = () => { const v = nm.value.trim(); if (v === P.base.name) return; P.draft.name = v;
+      saveNow({ name: v }, 'pf-about-st', () => { P.base.name = v; }); };
+    nm.oninput = () => { P.draft.name = nm.value; };
+    nm.onblur = keep;
+    nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } };
+  }
+  const ch = $('[data-pfv-addr]'); if (ch) ch.onclick = () => { P.addrOpen = true; app.render(); requestAnimationFrame(() => $('#pf-ad-addr')?.focus()); };
+  // A picked address finds the districts and saves them at once; the address itself is never kept.
+  wireAddr('pf-ad', P.addr, () => {
+    const a = P.addr; flash('pf-about-st', '');
+    if (!a.picked || !a.sd) return;
+    saveNow({ house: a.hd, senate: a.sd }, 'pf-about-st', () => {
+      rememberDistricts(a.sd, a.hd, a.q);
+      Object.assign(P.base, { sd: a.sd, hd: a.hd }); Object.assign(P.draft, { sd: a.sd, hd: a.hd });
+      P.addrOpen = false; P.addr = { q: '', sd: null, hd: null, picked: false, results: [] };
+      app.render(); requestAnimationFrame(() => $('[data-pfv-addr]')?.focus({ preventScroll: true }));
+    });
+  });
+  const adb = $('#pf-ad-addr');
+  if (adb) adb.addEventListener('blur', () => setTimeout(() => {
+    if (adb.value.trim() && !P.addr.picked && document.activeElement?.closest?.('#pf-ad-sugs') == null) flash('pf-about-st', 'Pick your address from the list to find your senator and representative.', true);
+  }, 250));
+  const tph = $('#pf-tp-host');
+  if (tph) wirePicker(tph, 'pf', P.tp, chosen => {
+    const now = [...chosen]; P.draft.titles = now;
+    const l = $('#pfv-lines'); if (l) l.innerHTML = linesHTML();   // the lines follow the chips as they are tapped
+    saveNow({ titles: now }, 'pf-tp-st', () => { P.base.titles = now; });
+  });
+  wireVoiceStories();
+}
+function wireVoiceStories() {
+  document.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (!r.checked) return; const q = r.value;
+    P.draft.quote = q; saveNow({ quote: q }, 'pf-story-st', () => { P.base.quote = q; }); });
+  document.querySelectorAll('[data-pf-stdel]').forEach(b => b.onclick = () => deleteStory(b.dataset.pfStdel));
+  document.querySelectorAll('[data-pf-stundo]').forEach(b => b.onclick = () => undoStory(b.dataset.pfStundo));
+  document.querySelectorAll('[data-pfv-stedit]').forEach(b => b.onclick = () => { const k = b.dataset.pfvStedit;
+    P.editing = k; repaintStories(`#${CSS.escape(k ? `pf-st-${k}` : 'pf-st-any')}`); });
+  // An edit is kept when they leave the box or press Done; emptied, it is deleted with its Undo, as Delete does.
+  const ta = $('.pfv-editing textarea');
+  if (ta) {
+    const k = ta.closest('[data-story]').dataset.story;
+    const done = () => { if (P.editing !== k) return; P.editing = null; const v = ta.value.trim(), was = k ? P.base.stories[k] : P.base.story;
+      if (!v) { deleteStory(k); return; }
+      if (v === was) { repaintStories(`[data-pfv-stedit="${CSS.escape(k)}"]`); return; }
+      saveNow(k ? { stories: { ...P.base.stories, [k]: v } } : { story: v }, 'pf-story-st', () => {
+        if (k) { P.base.stories = { ...P.base.stories, [k]: v }; P.draft.stories[k] = v; } else { P.base.story = v; P.draft.story = v; }
+        repaintStories(`[data-pfv-stedit="${CSS.escape(k)}"]`); }); };
+    ta.onblur = () => setTimeout(done, 0);
+    const d = $('[data-pfv-stdone]'); if (d) { d.onmousedown = e => e.preventDefault(); d.onclick = done; }
+  }
+}
+
 export default {
   tab: 'more',
-  title: () => hasProfile() ? 'Your profile' : 'Make your profile',
-  render() {
+  title: route => hasProfile() ? SUBS[subOf(route)] || 'Your profile' : 'Make your profile',
+  render(route) {
     if (REC() && !youCss()) return youWait();   // R-303: this page group's stylesheet first
     // A fresh arrival starts from what is saved, unless a draft is waiting (Save or Cancel ends it); a redraw of the same
-    // page keeps the picker and address box as they are.
-    if (!P.base || (!document.querySelector('#main .pf') && !dirty())) fresh();
+    // page keeps the picker and address box as they are. Under ?rec=1 each of Profile's pages is an arrival of its own
+    // (R-304), so a story's Undo and the suggested chips belong to the page they were made on.
+    const here = location.hash.split('?')[0];
+    if (!P.base || (!document.querySelector('#main .pf') && !dirty()) || (R304() && P.at !== here && !dirty())) fresh();
+    P.at = here;
+    if (R304() && hasProfile() && !(signedIn() && !S.user)) { const s = subOf(route); return s ? SUBVIEW[s]() : rowsView(); }
     return profileView();
   },
   // The save bar, when a draft is waiting (also drawn by paintBar as soon as something changes).
   bar: () => hasProfile() && dirty() ? barHTML() : '',
-  wire() { if (REC() && !youCss()) return; wireProfile(); },
+  wire(route) {
+    if (REC() && !youCss()) return;
+    if (R304() && hasProfile()) {
+      const s = subOf(route);
+      if (s === 'voice') { wireVoice(); return; }
+      if (s === 'letters') { const ls = $('#pf-letters'); if (ls) { wireKept(ls); wireDelete(ls, repaintLetters); } return; }
+      if (!s) return;   // the rows are links
+    }
+    wireProfile();
+  },
 };

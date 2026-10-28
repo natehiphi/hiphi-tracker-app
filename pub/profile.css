@@ -206,3 +206,34 @@ body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--s
 /* Where letters are kept (R-212 #31): this device, or the account. */
 .pf .myl-where { display: flex; gap: var(--s8); align-items: flex-start; margin: var(--s12) 0 0; }
 .pf .myl-where .ic { width: 16px; height: 16px; color: var(--p700); flex: none; margin-top: 2px; }
+
+/* ---- Profile as rows, and Your voice (R-304, ?rec=1 only; pub/profile.js rowsView, voiceView) ----
+   The rows are the calm pages' boxed rows (rec.css .rc-box, kit.js recRows), so Profile reads like You and Your alerts.
+   Spacing from the scale (A-8): the header, then the rows, then one quiet line. */
+.pf.pfr > * + * { margin-top: var(--s16); }
+.pf.pfr .pfr-rows { margin-top: var(--s24); }
+.pf.pfr .pfr-since { margin: var(--s12) 0 0; }
+.pf.pfr .pfr-head { margin-top: var(--s4); }
+.pf.pfr .pfr-head h1:focus { outline: none; }   /* focus lands here only so a screen reader starts at the page's name */
+/* Your voice: districts on one line with their Change; the opening lines under the chips, so a tap shows its effect where
+   the eye already is (Nate 28 Oct: "show the letter's opening line as you tap"). */
+.pfv .pfv-dist { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s8); margin: 0; }
+.pfv .pfv-dist > .ic { width: 18px; height: 18px; flex: none; color: var(--p700); }
+.pfv .pfv-dist .btn { min-height: 44px; }
+.pfv .tp-lede { margin: 0; }
+.pfv .pfv-prev { margin-top: var(--s4); padding: var(--s12) var(--s16); background: var(--n50); border-radius: var(--r12); }
+.pfv .pfv-h3 { margin: 0 0 var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.pfv .pfv-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
+.pfv .pfv-lines li { display: flex; flex-direction: column; gap: 2px; }
+.pfv .pfv-ln { font-size: var(--t13); color: var(--n500); }
+.pfv .pfv-lines q { font-style: italic; color: var(--n900); }
+.pfv .pfv-none { margin: var(--s4) 0 0; }
+/* The saved stories: the issue's name, the words, then Edit and Delete, each a 44px target (C-2). */
+.pfv .pfv-stories { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pfv .pfv-story { padding: var(--s12) 0; }
+.pfv .pfv-story + .pfv-story { border-top: 1px solid var(--n100); }
+.pfv .pfv-stn { margin: 0; font-size: var(--t14); font-weight: 700; color: var(--n900); }
+.pfv .pfv-stt { margin: var(--s4) 0 0; overflow-wrap: anywhere; }
+.pfv .pfv-stb { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s4); }
+.pfv .pfv-stb .btn { min-height: 44px; }
+.pfv .pf-sec > p.small { margin: 0; }

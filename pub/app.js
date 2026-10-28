@@ -191,6 +191,7 @@ export function parseRoute(h = location.hash) {
     case 'link': return { name: 'link', token: seg[1] || '' };
     // R-328 batch D: a HIPHI partner's public page, #/from/<slug>, and one of its issues, #/from/<slug>/<issue slug>.
     case 'from': return { name: 'from', slug: (seg[1] || '').toLowerCase(), issue: seg[2] || '' };
+    case 'profile': return { name: 'profile', sub: seg[1] || '' };   // #/profile/voice and the other parts of Profile, under ?rec=1 only (R-304, pub/profile.js)
     case 'quiz': return DEMO ? { name: 'quiz', step: seg[1] === 'result' ? 6 : Math.min(5, Math.max(0, +seg[1] || 0)) } : { name: 'home', unknown: true };
     default: return SCREENS[seg[0]] ? { name: seg[0] } : { name: 'home', unknown: true };   // a mistyped or old address: Home, with a word (R-067)
   }
