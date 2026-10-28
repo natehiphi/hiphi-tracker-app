@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="only light">
+<meta name="theme-color" content="#132932">
+<meta name="robots" content="noindex">
+<title>Bill Tracker trial run</title>
+<link rel="icon" href="pub/icon-192.png">
+<!-- R-337 trial runs. Staff v6 on the practice project, in one trial's own copy of the 2026 session. trial/trial.js copies
+     Staff v6's stylesheets from staff6.html when it starts, so nothing here needs updating when Staff v6 adds one. -->
+<script>try { var hp = localStorage.getItem('hiphi6_palette'); if (hp && /^[a-z-]{2,30}$/.test(hp)) document.documentElement.setAttribute('data-palette', hp); } catch (e) { /* private window */ }</script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" id="trialcss" href="trial/trial.css">
+</head>
+<body class="staff2 staff3 staff4 staff5 staff6">
+<div id="app"><p style="font: 16px Lato, system-ui, sans-serif; padding: 10vh 16px; text-align: center; color: #344852" role="status">Getting your trial ready…</p></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+window.__bootT = setTimeout(function () { var a = document.getElementById('app'); if (a && a.textContent.indexOf('Getting your trial ready') >= 0) a.innerHTML = '<p style="font: 16px Lato, system-ui, sans-serif; padding: 10vh 16px; text-align: center">We could not load the trial. <button type="button" onclick="location.reload()">Try again</button></p>'; }, 20000);
+</script>
+<script type="module" src="trial/trial.js"></script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+// R-337 trial runs, part 1: the front door and the band. trial.html opens this file, never staff6/app.js directly.
+//
+// A trial plays back real days of the 2026 session on the practice project (pjbezfxxplirpbdgjrpe), never the live one.
+// Each trial has its own copy of the database (trial_1 to trial_10) with its own clock; the practice project's trial_api
+// functions start it, move it and report on it (backend trial/api.sql). Here: sign in with an emailed link, pick a week,
+// then Staff v6 itself runs inside the trial's copy (staff6/data.js TRIAL) under a band that says the trial's day and
+// time, with Next for the person who started it (Nate 10/24: they move the clock, the others see who moved it).
+//
+// Nate's words for the design (10/24-25): four stops a day, 9 AM, noon, 3 PM and 6 PM; skip a day; any staff member
+// starts one and adds teammates by name; at a week's end the trial shows which held-back bills were found and missed.
+
+const PRACTICE_URL = 'https://pjbezfxxplirpbdgjrpe.supabase.co';
+const PRACTICE_KEY = 'sb_publishable_MlsU3w_8VxIPR0zJ5tuY2w_yuFiIKbw';   // the practice project's publishable key
+const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';   // the version Staff v6 pins
+const TZ = 'Pacific/Honolulu';
+const HERE = location.origin + location.pathname;   // where an emailed sign-in link lands
+
+// The four weeks (Nate 10/24, round 4). A trial starting at one carries on through the later ones.
+export const WEEKS = [
+  { n: 1, name: 'Opening weeks', days: 'Wed 21 to Fri 30 Jan', what: 'New bills to find and sort, and the deadline to introduce bills on Wed 28 Jan.' },
+  { n: 2, name: 'First lateral', days: 'Tue 17 to Fri 20 Feb', what: 'Bills must clear their committees to stay alive.' },
+  { n: 3, name: 'Hearing week', days: 'Mon 16 to Fri 20 Mar', what: 'Hearings almost every day, with testimony to write and send.' },
+  { n: 4, name: 'End of session', days: 'Mon 13 to Fri 17 Apr', what: 'Bills cross back to the chamber they started in.' },
+];
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const RealDate = Date;
+const fmt = (t, o) => new RealDate(t).toLocaleString('en-US', { timeZone: TZ, ...o });
+const dayOf = t => fmt(t, { weekday: 'short', month: 'short', day: 'numeric' });
+const timeOf = t => { const s = fmt(t, { hour: 'numeric', minute: '2-digit' }); return s === '12:00 PM' ? 'noon' : s; };
+const sameDay = (a, b) => fmt(a, { dateStyle: 'short' }) === fmt(b, { dateStyle: 'short' });
+// What the Next button says: "Next: noon", or "Next: Tue 9:00 AM" when the next stop is another day.
+export const nextLabel = st => !st?.next ? '' : sameDay(st.clock, st.next) ? `Next: ${timeOf(st.next)}` : `Next: ${fmt(st.next, { weekday: 'short' })} ${timeOf(st.next)}`;
+const firstName = n => (n || '').split(' ')[0];
+
+let sb, api, st, me, polling;
+
+// ---- the page's frame: Staff v6's own styles, so the front door and the app look alike ----
+async function borrowStaff6Head() {
+  // trial.html stays short: it takes Staff v6's stylesheets and the first-frame styles from staff6.html itself, so a
+  // stylesheet added there reaches the trial without anyone remembering this page.
+  const html = await fetch('staff6.html', { cache: 'no-cache' }).then(r => r.text());
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const waits = [];
+  for (const el of doc.head.querySelectorAll('link[rel="stylesheet"], link[rel="modulepreload"], link[rel="preconnect"]')) {
+    const l = document.createElement('link');
+    for (const a of el.attributes) l.setAttribute(a.name, a.value);
+    if (l.rel === 'stylesheet') waits.push(new Promise(ok => { l.onload = l.onerror = ok; }));
+    document.head.insertBefore(l, document.getElementById('trialcss'));
+  }
+  const boot = doc.body.querySelector('style');   // .boot0: the brand line and the message box
+  if (boot) document.head.appendChild(boot.cloneNode(true));
+  const brand = doc.body.querySelector('.boot0 .bar');
+  await Promise.all(waits);
+  return brand ? brand.outerHTML : '<p class="bar"><b>HIPHI Bill Tracker</b></p>';
+}
+let BRAND = '';
+
+function door(inner) {
+  clearTimeout(window.__bootT);
+  document.getElementById('app').innerHTML = `<div class="boot0 tr-door">${BRAND}<main class="msg" id="main">${inner}</main></div>`;
+  document.querySelector('.tr-door h1')?.focus();
+}
+const say = (sel, msg, bad) => { const e = document.querySelector(sel); if (e) { e.textContent = msg; e.classList.toggle('bad', !!bad); } };
+
+// ---- 1. sign in: a link by email from the practice project (staff have no practice passwords) ----
+function signInScreen(note = '') {
+  door(`<h1 tabindex="-1">Practise a week of session</h1>
+    <p>A trial run plays back real days of the 2026 session in the tracker, on a practice copy. Nothing you do there changes the real tracker.</p>
+    ${note ? `<p class="tr-note">${esc(note)}</p>` : ''}
+    <form id="tr-signin" class="tr-form">
+      <label for="tr-email">Your HIPHI email</label>
+      <input id="tr-email" type="email" autocomplete="email" required inputmode="email">
+      <button class="btn primary" type="submit">Email me a sign-in link</button>
+      <p class="tr-msg" role="status" aria-live="polite"></p>
+    </form>`);
+  document.getElementById('tr-signin').onsubmit = async e => {
+    e.preventDefault();
+    const email = document.getElementById('tr-email').value.trim(), b = e.target.querySelector('button');
+    b.disabled = true; say('.tr-msg', 'Sending…');
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: HERE, shouldCreateUser: true } });
+    b.disabled = false;
+    if (error) return say('.tr-msg', `The link could not be sent: ${error.message}`, true);
+    door(`<h1 tabindex="-1">Check your email</h1><p>We sent a sign-in link to <b>${esc(email)}</b>. It opens this page, signed in. You can close this tab.</p>
+      <p><button class="btn secondary" type="button" id="tr-again">Use another email</button></p>`);
+    document.getElementById('tr-again').onclick = () => signInScreen();
+  };
+}
+
+function notStaffScreen(email) {
+  door(`<h1 tabindex="-1">Trials are for the HIPHI team</h1><p><b>${esc(email)}</b> is not on the team list. Sign in with the email you use for the tracker.</p>
+    <p><button class="btn primary" type="button" id="tr-out">Sign out</button></p>`);
+  document.getElementById('tr-out').onclick = () => sb.auth.signOut().finally(() => location.reload());
+}
+
+// ---- 2. start: pick a week ----
+const weekPicker = () => `<fieldset class="tr-weeks"><legend>Start at</legend>${WEEKS.map(w => `
+  <label class="tr-week"><input type="radio" name="tr-week" value="${w.n}"${w.n === 3 ? ' checked' : ''}>
+    <span><b>${esc(w.name)}</b> <span class="tr-days">${esc(w.days)}</span><span class="tr-what">${esc(w.what)}</span></span></label>`).join('')}</fieldset>`;
+const HOW = 'The trial carries on through the later weeks. The clock stops four times a day, at 9 AM, noon, 3 PM and 6 PM, and moves only when you press Next. Add teammates once it starts.';
+
+function startScreen() {
+  door(`<h1 tabindex="-1">Start a trial run</h1><p>Hi ${esc(firstName(me.name))}. ${HOW}</p>
+    <form id="tr-start" class="tr-form">${weekPicker()}
+      <button class="btn primary" type="submit">Start the trial</button>
+      <p class="tr-msg" role="status" aria-live="polite"></p></form>
+    <p class="tr-quiet">Signed in as ${esc(me.email)} · <button type="button" class="tr-link" id="tr-out">Sign out</button></p>`);
+  document.getElementById('tr-out').onclick = () => sb.auth.signOut().finally(() => location.reload());
+  document.getElementById('tr-start').onsubmit = e => { e.preventDefault(); startTrial(+e.target.querySelector('input:checked').value, e.target); };
+}
+
+async function startTrial(week, form) {
+  const b = form.querySelector('button[type=submit]');
+  b.disabled = true; say('.tr-msg', 'Setting up your trial: about 20 seconds…');
+  const { error } = await api.rpc('start_trial', { p_week: week });
+  if (error) { b.disabled = false; return say('.tr-msg', error.message, true); }
+  location.reload();
+}
+
+// ---- 3. in a trial: Staff v6 inside the trial's copy, under the band ----
+async function enter() {
+  if (/access_token|refresh_token|error_description/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+  window.HIPHI_TRIAL = { url: PRACTICE_URL, key: PRACTICE_KEY, schema: st.schema, trial_id: st.trial_id };
+  // The app's clock is the trial's: it starts at the stop and runs on while the page is open, as the practice copy's does
+  // (staff6/data.js DEMO), so "in 2 hours" and "today" mean the trial's day. The database's now() is the same stop.
+  const off = RealDate.now() - new RealDate(st.clock).getTime();
+  window.Date = class extends RealDate { constructor(...a) { a.length ? super(...a) : super(RealDate.now() - off); } static now() { return RealDate.now() - off; } };
+  document.body.classList.add('trial');
+  const band = document.createElement('div');
+  band.id = 'trialband'; band.className = 'tr-band'; band.setAttribute('role', 'region'); band.setAttribute('aria-label', 'Trial run');
+  document.body.insertBefore(band, document.getElementById('app'));
+  drawBand();
+  band.addEventListener('click', onBand);
+  polling = setInterval(poll, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  await import('../staff6/app.js');
+}
+
+export function bandHTML(s, { busy = '', moved = null } = {}) {
+  const w = WEEKS.find(x => x.n === s.week);
+  const when = `${dayOf(s.clock)}, ${timeOf(s.clock)}`;
+  const who = s.can_move ? '' : `<span class="tr-hint"> · ${esc(firstName(s.starter_name) || 'The starter')} moves the clock</span>`;
+  const others = (s.members || []).length;
+  let act;
+  if (moved) act = `<span class="tr-moved">${esc(firstName(moved.moved_by_name) || 'Someone')} moved to ${esc(timeOf(moved.clock))}</span><button type="button" class="btn primary sm" data-tr="catchup">Catch up</button>`;
+  else if (!s.can_move) act = '';
+  else if (busy) act = `<span class="tr-busy" role="status">${esc(busy)}</span>`;
+  else if (s.done) act = `<button type="button" class="btn primary sm" data-tr="report">See how the week went</button>`;
+  else if (s.last_stop_of_week) act = `<button type="button" class="btn primary sm" data-tr="report">End of the week</button>`;
+  else act = `<button type="button" class="btn primary sm" data-tr="next">${esc(nextLabel(s))}</button>${s.next_day && sameDay(s.clock, s.next) ? `<button type="button" class="btn secondary sm" data-tr="skip">Skip to ${esc(fmt(s.next_day, { weekday: 'short' }))}</button>` : ''}`;
+  return `<span class="tr-where"><b class="tr-tag">Trial run</b> <b class="tr-when">${esc(when)}</b><span class="tr-hint"> · ${esc(w?.name || '')}</span>${who}</span>
+    <span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'Trial'}</button></span>`;
+}
+function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML(st, o); }
+
+async function poll() {
+  const { data, error } = await api.rpc('state');
+  if (error) return;
+  if (!data) { clearInterval(polling); return ended(); }
+  if (data.clock !== st.clock) {
+    if (st.can_move) { location.reload(); return; }   // the starter moved it from another tab or phone
+    return drawBand({ moved: data });
+  }
+  st = data; drawBand();
+}
+
+function ended() {
+  dialog(`<h2 tabindex="-1">This trial has ended</h2><p>${esc(firstName(st.starter_name) || 'The person who started it')} ended it. What you suggested is kept.</p>
+    <div class="tr-dacts"><button class="btn primary" type="button" data-tr="reload">Start your own</button></div>`, { locked: true });
+}
+
+async function move(fn, busy) {
+  drawBand({ busy });
+  const { data, error } = await api.rpc(fn);
+  if (error) { drawBand(); return toast(error.message); }
+  if (data?.drafts && /^no /.test(data.drafts)) sessionStorage.setItem('tr-drafts-note', data.drafts);
+  location.reload();   // every screen reads the trial's new day; the address after # keeps the page you were on
+}
+
+async function onBand(e) {
+  const b = e.target.closest('[data-tr]'); if (!b) return;
+  const k = b.dataset.tr;
+  if (k === 'next') move('next', `Moving to ${timeOf(st.next)}…`);
+  else if (k === 'skip') move('next_day', `Moving to ${fmt(st.next_day, { weekday: 'long' })}…`);
+  else if (k === 'catchup') location.reload();
+  else if (k === 'report') report();
+  else if (k === 'menu') menu();
+}
+
+// ---- the week's report: the held-back bills found and missed (Nate 10/24) ----
+async function report() {
+  const w = WEEKS.find(x => x.n === st.week), nx = WEEKS.find(x => x.n === st.week + 1);
+  dialog(`<h2 tabindex="-1">${esc(w.name)}: how it went</h2><p class="tr-msg" role="status">Reading the week…</p>`);
+  const { data, error } = await api.rpc('week_report', { p_week: st.week });
+  const rows = data || [], found = rows.filter(r => r.found).length;
+  const list = rows.length ? `<p>${found} of ${rows.length} bills HIPHI would have wanted were found and tracked this week.</p>
+    <ul class="tr-rep">${rows.map(r => `<li class="${r.found ? 'ok' : 'miss'}"><b>${esc(r.bill_number)}</b>${r.nickname ? ` ${esc(r.nickname)}` : ''} <span>${r.found ? '✓ Found' : 'Missed'}${r.found && r.position_then && r.position_now !== r.position_then ? ` · HIPHI's stand was ${esc(r.position_then.replace(/_/g, ' '))}` : ''}</span></li>`).join('')}</ul>`
+    : `<p>No bills were held back this week${st.week === 4 ? ': no hearings are noticed in the last week' : ''}.</p>`;
+  const go = st.done ? `<button class="btn primary" type="button" data-tr="end">End the trial</button>`
+    : `<button class="btn primary" type="button" data-tr="go">Go on to ${esc(nx?.name || 'the next week')}</button>`;
+  setDialog(`<h2 tabindex="-1">${esc(w.name)}: how it went</h2>${error ? `<p class="tr-msg bad">${esc(error.message)}</p>` : list}
+    <div class="tr-dacts">${go}<button class="btn secondary" type="button" data-tr="close">Not yet</button></div>`);
+}
+
+// ---- the menu: people, start over, end ----
+async function menu() {
+  const mine = st.can_move;
+  dialog(`<h2 tabindex="-1">Your trial</h2><p>Started by ${esc(st.starter_name || 'someone')}${st.started_week ? ` at ${esc(WEEKS[st.started_week - 1]?.name || '')}` : ''}.</p>
+    <h3>People</h3><ul class="tr-people" id="tr-people"><li>Reading the team…</li></ul>
+    ${mine ? `<h3>Start over or end</h3><p class="tr-quiet">Start over begins a new trial at the week you pick. Ending clears the trial's copy; what people suggested is kept.</p>
+      <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="over">Start over</button><button class="btn secondary" type="button" data-tr="end">End the trial</button></div>` : ''}
+    <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="close">Close</button><button type="button" class="tr-link" data-tr="signout">Sign out</button></div>`);
+  const ul = document.getElementById('tr-people');
+  if (!mine) { ul.innerHTML = [st.starter_name, ...(st.members || []).map(m => m.name)].map(n => `<li>${esc(n)}</li>`).join(''); return; }
+  const { data, error } = await api.rpc('team');
+  if (error) { ul.innerHTML = `<li class="bad">${esc(error.message)}</li>`; return; }
+  ul.innerHTML = `<li><b>${esc(me.name)}</b> <span class="tr-quiet">you, moving the clock</span></li>` + (data || []).map(p => `<li><span>${esc(p.name)}</span>${p.in_trial
+    ? '<span class="tr-quiet">In the trial</span>'
+    : `<button type="button" class="btn secondary sm" data-tr="add" data-email="${esc(p.email)}">Add</button>`}</li>`).join('');
+}
+
+async function addPerson(b) {
+  const email = b.dataset.email; b.disabled = true; b.textContent = 'Adding…';
+  const { error } = await api.rpc('add_member', { p_email: email });
+  if (error) { b.disabled = false; b.textContent = 'Add'; return toast(error.message); }
+  // Their sign-in link, from the practice project: it opens this page and puts them in the trial.
+  const { error: e2 } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: HERE, shouldCreateUser: true } });
+  b.outerHTML = `<span class="tr-quiet">${e2 ? `Added. The sign-in email did not go: ${esc(e2.message)}. Send them ${esc(HERE)}.` : 'Added · sign-in link sent'}</span>`;
+  const s = await api.rpc('state'); if (s.data) { st = s.data; drawBand(); }
+}
+
+// ---- a small dialog of its own (Staff v6's sheets belong to its screens) ----
+let dlg;
+function dialog(html, { locked = false } = {}) {
+  if (!dlg) {
+    dlg = document.createElement('dialog'); dlg.className = 'tr-dlg'; document.body.appendChild(dlg);
+    dlg.addEventListener('click', onDialog);
+  }
+  dlg.dataset.locked = locked ? '1' : '';
+  dlg.oncancel = e => { if (dlg.dataset.locked) e.preventDefault(); };
+  setDialog(html);
+  if (!dlg.open) dlg.showModal();
+}
+function setDialog(html) { dlg.innerHTML = `<div class="tr-dbody">${html}</div>`; dlg.querySelector('h2')?.focus(); }
+async function onDialog(e) {
+  if (e.target === dlg && !dlg.dataset.locked) return dlg.close();   // a click on the backdrop
+  const b = e.target.closest('[data-tr]'); if (!b) return;
+  const k = b.dataset.tr;
+  if (k === 'close') dlg.close();
+  else if (k === 'reload') location.reload();
+  else if (k === 'add') addPerson(b);
+  else if (k === 'signout') sb.auth.signOut().finally(() => location.reload());
+  else if (k === 'go') { dlg.close(); move('next', `Moving to ${WEEKS.find(x => x.n === st.week + 1)?.name || 'the next week'}…`); }
+  else if (k === 'over') { setDialog(`<h2 tabindex="-1">Start over</h2><form id="tr-start" class="tr-form">${weekPicker()}
+      <p class="tr-quiet">This trial ends and its copy is cleared. ${HOW}</p>
+      <div class="tr-dacts"><button class="btn primary" type="submit">Start over</button><button class="btn secondary" type="button" data-tr="close">Keep this trial</button></div>
+      <p class="tr-msg" role="status" aria-live="polite"></p></form>`);
+    dlg.querySelector('#tr-start').onsubmit = ev => { ev.preventDefault(); startTrial(+ev.target.querySelector('input:checked').value, ev.target); }; }
+  else if (k === 'end') setDialog(`<h2 tabindex="-1">End the trial?</h2><p>Everyone in it goes back to the start page, and its practice testimony Docs go to the trash. What people suggested is kept.</p>
+      <div class="tr-dacts"><button class="btn primary" type="button" data-tr="endyes">End the trial</button><button class="btn secondary" type="button" data-tr="close">Keep going</button></div>`);
+  else if (k === 'endyes') { b.disabled = true; b.textContent = 'Ending…'; const { error } = await api.rpc('end_trial'); if (error) { b.disabled = false; b.textContent = 'End the trial'; return toast(error.message); } location.reload(); }
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 6000); } else alert(msg);
+}
+
+// ---- boot ----
+async function boot() {
+  try {
+    const [head, mod] = await Promise.all([borrowStaff6Head(), import(SUPABASE_JS)]);
+    BRAND = head;
+    sb = mod.createClient(PRACTICE_URL, PRACTICE_KEY);
+    api = sb.schema('trial_api');
+    const linkErr = new URLSearchParams(location.hash.slice(1)).get('error_description');
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return signInScreen(linkErr ? `That link did not work: ${linkErr}. Ask for a new one.` : '');
+    const { data, error } = await api.rpc('whoami');
+    if (error) throw error;
+    me = data;
+    if (!me?.staff) return notStaffScreen(me?.email || session.user.email);
+    if (!me.trial) return startScreen();
+    st = me.trial;
+    await enter();
+    const dn = sessionStorage.getItem('tr-drafts-note'); if (dn) { sessionStorage.removeItem('tr-drafts-note'); setTimeout(() => toast(`Testimony drafts were not made: ${dn}`), 1500); }
+  } catch (e) {
+    console.error(e);
+    door(`<h1 tabindex="-1">We could not open the trial</h1><p>${esc(e?.message || e)}</p><button class="btn primary" type="button" onclick="location.reload()">Try again</button>`);
+  }
+}
+if (!window.__TRIAL_TEST) boot();
