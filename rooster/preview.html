@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
+<title>Rooster animations · HIPHI review</title>
+<!-- Private review page: every rooster animation in rooster/animations/, each in its own frame with Replay.
+     Nothing links here. Names match rooster/manifest.json and rooster/README.md. -->
+<style>
+:root{--ink:#142B35;--muted:#344852;--line:#DBE3E7;--bg:#F4F7F9;--card:#FFFFFF;--brand:#00698E;--warn:#984B0B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Lato,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1440px;margin:0 auto;padding:24px 16px 48px}
+h1{font:700 28px/1.2 Poppins,Lato,system-ui,sans-serif;margin:0 0 4px}
+.lede{margin:0 0 24px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.frame{width:100%;aspect-ratio:1;overflow:hidden;border-radius:12px;position:relative;background:var(--bg)}
+.frame iframe{position:absolute;left:0;top:0;width:480px;height:480px;border:0;transform-origin:0 0}
+h2{font:700 17px/1.25 Poppins,Lato,system-ui,sans-serif;margin:0}
+.meta{margin:0;font-size:14px;color:var(--muted)}
+.rule{margin:0;font-size:13px;color:var(--muted)}
+.rule.flag{color:var(--warn);font-weight:700}
+button{align-self:flex-start;min-height:44px;padding:0 18px;border:0;border-radius:999px;background:var(--brand);color:#fff;font:700 15px/1 Lato,system-ui,sans-serif;cursor:pointer}
+button:hover{background:#024F69}
+button:focus-visible{outline:3px solid #95DCFE;outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<h1>Rooster animations</h1>
+<p class="lede">Each plays once when its frame loads; loops keep looping. Replay reloads that one frame. Turn on Reduce Motion in your device settings to check the still versions.</p>
+<div class="grid" id="grid"></div>
+</main>
+<script>
+const items = [
+  ['small-win','Small win · head bob','Saving or following a bill, picking a stance','Fits A-10 and C-7.'],
+  ['big-win','Big win · hop and ta-da','Testimony submitted, first action sent','Trim to 1.5 s and make dismissable (A-10).'],
+  ['milestone','Milestone · crow','End of the first visit (the Mahalo page)','Too long for a 1.5 s moment; use on a page (A-10).'],
+  ['bill-passed','Bill passed · lei bloom','A followed bill becomes law','Start at the bloom (~1.3 s) or use on a page (A-10, C-7).'],
+  ['welcome','Welcome · strut and wave','First visit, onboarding','Under 5 s; must not delay Next (A-10, R-265).'],
+  ['submitting','Submitting · pecking loop','While testimony is sending','Stop at 5 s if the send is slow (A-10).'],
+  ['error','Error · gentle head tilt','Something failed','Fits A-10; words carry the meaning.'],
+  ['empty-state','Empty state · peck and look up','No bills saved yet','Play one cycle, then stop (A-10).'],
+  ['deadline-reminder','Deadline reminder · ahem','Testimony due tomorrow','Fits A-10.'],
+  ['streak','Streak · quick ta-da','Several actions in a session','Conflicts with C-7 (no streak counters). Needs Nate.'],
+  ['idle','Idle loop','Resting rooster beside content','Conflicts with A-10 (5 s limit). Limit to 5 s or on tap.']
+];
+const grid = document.getElementById('grid');
+for (const [id, title, use, rule] of items) {
+  const card = document.createElement('section');
+  card.className = 'card';
+  const flag = /Conflicts/.test(rule);
+  card.innerHTML = `<div class="frame"><iframe title="${title}" src="animations/${id}.html"></iframe></div>
+    <h2>${title}</h2><p class="meta">${use}</p><p class="rule${flag ? ' flag' : ''}">${rule}</p>
+    <button type="button">Replay</button>`;
+  const frame = card.querySelector('iframe');
+  card.querySelector('button').addEventListener('click', () => { frame.src = frame.src; });
+  grid.appendChild(card);
+}
+function fit() {
+  for (const f of document.querySelectorAll('.frame')) {
+    f.querySelector('iframe').style.transform = `scale(${f.clientWidth / 480})`;
+  }
+}
+addEventListener('resize', fit); fit();
+</script>
+</body>
+</html>

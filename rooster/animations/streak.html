@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Rooster · Streak · quick ta-da</title>
+<!--
+  HIPHI rooster · Streak · quick ta-da
+  Use: Several actions in one session.
+  Trigger: After the third action in a session.
+  Plays: once · about 1000 ms
+  Reduce Motion: Rooster still; the three sparkles show without moving.
+  Design rules: CONFLICT with C-7 ('Never a streak counter, a badge, a score'). The three sparkles read as a count. Do not use without Nate's decision; if kept, use it as the session-end burst on Home (C-7) without the counting sparkles.
+  Self-contained: the inline SVG + this file's CSS are the whole animation. It plays once on load (loops loop).
+  To replay, re-insert the element (or reload). See ../README.md for how to wire it in through pub/fx.js.
+-->
+<style>
+body{margin:0}
+a{color:#00698E}a:hover{color:#024F69}
+.k-body{transform-box:fill-box;transform-origin:50% 100%;animation:k-body .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.k-wing{transform-box:fill-box;transform-origin:85% 15%;animation:k-wing .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.k-wing2{transform-box:fill-box;transform-origin:85% 15%;animation:k-wing2 .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.k-head{transform-box:view-box;transform-origin:118px 100px;animation:k-head .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.k-tail{transform-box:fill-box;transform-origin:100% 80%;animation:k-tail .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.k-open{animation:k-hide .9s linear .1s both}
+.k-happy{opacity:0;animation:k-show .9s linear .1s both}
+.k-shadow{transform-origin:center;animation:k-shadow .9s cubic-bezier(.2,.7,.3,1) .1s both}
+.k-star{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;opacity:0;animation:k-star 1.1s cubic-bezier(.34,1.4,.64,1) both}
+@keyframes k-body{0%{transform:translateY(0) scale(1,1)}15%{transform:translateY(0) scale(1.06,.92)}40%{transform:translateY(-16px) scale(.97,1.04)}65%{transform:translateY(0) scale(1.05,.95)}85%,100%{transform:translateY(0) scale(1,1)}}
+@keyframes k-wing{0%,15%{transform:rotate(0)}40%,60%{transform:rotate(70deg)}85%,100%{transform:rotate(0)}}
+@keyframes k-wing2{0%,15%{transform:rotate(0)}40%,60%{transform:rotate(55deg)}85%,100%{transform:rotate(0)}}
+@keyframes k-head{0%{transform:rotate(0)}40%,60%{transform:rotate(-8deg)}85%,100%{transform:rotate(0)}}
+@keyframes k-tail{0%{transform:rotate(0)}40%{transform:rotate(-12deg)}70%{transform:rotate(5deg)}100%{transform:rotate(0)}}
+@keyframes k-hide{0%,34%{opacity:1}35%,75%{opacity:0}76%,100%{opacity:1}}
+@keyframes k-show{0%,34%{opacity:0}35%,75%{opacity:1}76%,100%{opacity:0}}
+@keyframes k-shadow{0%,15%{transform:scaleX(1.08)}40%{transform:scaleX(.8);opacity:.12}65%{transform:scaleX(1.1)}100%{transform:scaleX(1)}}
+@keyframes k-star{0%{opacity:0;transform:scale(.3) rotate(-20deg)}25%{opacity:1;transform:scale(1.15) rotate(0)}40%,75%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.9) translateY(-8px)}}
+@media (prefers-reduced-motion: reduce){
+.k-body,.k-wing,.k-wing2,.k-head,.k-tail,.k-shadow{animation:none}
+.k-open{animation:none;opacity:1}
+.k-happy{display:none}
+.k-star{animation:none;opacity:1}
+}
+</style>
+</head>
+<body style="margin:0;background:#F4F7F9">
+<div style="width: 480px; height: 480px; box-sizing: border-box; position: relative; overflow: hidden; background: #F4F7F9; font-family: Lato, system-ui, -apple-system, 'Segoe UI', sans-serif; color: #142B35">
+<div style="position: absolute; inset: 0">
+<div class="k-shadow" style="position: absolute; left: 186px; top: 312px; width: 108px; height: 16px; border-radius: 50%; background: #142B35; opacity: .2"></div>
+<div style="position: absolute; left: 140px; top: 136px; width: 200px; height: 200px">
+<svg viewBox="0 0 200 200" width="200" height="200" style="overflow: visible" role="img" aria-label="The rooster does a quick hop with wings up as three stars pop in for a streak">
+<g class="k-body">
+<g class="k-tail">
+<ellipse cx="60" cy="62" rx="12" ry="36" transform="rotate(-15 60 62)" fill="#093546"></ellipse>
+<ellipse cx="46" cy="74" rx="12" ry="36" transform="rotate(-38 46 74)" fill="#00698E"></ellipse>
+<ellipse cx="36" cy="94" rx="12" ry="34" transform="rotate(-62 36 94)" fill="#129DCB"></ellipse>
+<ellipse cx="36" cy="116" rx="11" ry="28" transform="rotate(-86 36 116)" fill="#6BCDF8"></ellipse>
+<ellipse cx="44" cy="134" rx="9" ry="22" transform="rotate(-110 44 134)" fill="#C4E8F6"></ellipse>
+</g>
+<g stroke="#AD560F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<path d="M90 156 L88 182 M88 182 L80 186 M88 182 L97 185"></path>
+<path d="M110 156 L112 182 M112 182 L104 186 M112 182 L121 185"></path>
+</g>
+<g class="k-wing2">
+<path d="M78 104 C84 90 112 90 124 102 C126 120 110 140 88 136 C80 128 76 114 78 104 Z" fill="#AD560F"></path>
+</g>
+<ellipse cx="98" cy="122" rx="50" ry="42" fill="#F68B2C"></ellipse>
+<ellipse cx="128" cy="96" rx="22" ry="30" fill="#F68B2C"></ellipse>
+<ellipse cx="116" cy="134" rx="26" ry="24" fill="#FCD09D"></ellipse>
+<g class="k-wing">
+<path d="M64 110 C70 96 98 96 110 108 C112 126 96 146 74 142 C66 134 62 120 64 110 Z" fill="#D86F1C"></path>
+<path d="M76 124 C84 128 92 128 100 124 M78 134 C86 137 92 137 98 134" stroke="#AD560F" stroke-width="2.5" fill="none" stroke-linecap="round"></path>
+</g>
+<g class="k-head">
+<g transform="translate(136.1 67.4) scale(1.21) translate(-140 -70)">
+<circle cx="121" cy="56" r="8" fill="#E5483A"></circle>
+<circle cx="129" cy="44" r="10.5" fill="#E5483A"></circle>
+<circle cx="140" cy="37" r="12" fill="#E5483A"></circle>
+<circle cx="152" cy="41" r="10.5" fill="#E5483A"></circle>
+<circle cx="159" cy="53" r="8" fill="#E5483A"></circle>
+<circle cx="140" cy="70" r="24" fill="#F68B2C"></circle>
+<ellipse cx="165" cy="90" rx="5" ry="9" fill="#C93A2E"></ellipse>
+<ellipse cx="158" cy="93" rx="6.5" ry="12" fill="#E5483A"></ellipse>
+<path d="M160 64 L179 72 L160 80 Z" fill="#FBB040" stroke="#FBB040" stroke-width="3" stroke-linejoin="round"></path>
+<ellipse cx="141" cy="79" rx="5" ry="3.2" fill="#F9A77C"></ellipse>
+<g class="k-open">
+<circle cx="148" cy="64" r="5.15" fill="#142B35"></circle>
+<circle cx="150" cy="62" r="1.65" fill="#FFFFFF"></circle>
+</g>
+<path class="k-happy" d="M142 66 Q148 58 154 66" stroke="#142B35" stroke-width="3.2" fill="none" stroke-linecap="round"></path>
+</g>
+</g>
+</g>
+</svg>
+</div>
+<span class="k-star" style="left: 196px; top: 108px; animation-delay: .3s"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><path d="M13 1 C14 9 17 12 25 13 C17 14 14 17 13 25 C12 17 9 14 1 13 C9 12 12 9 13 1 Z" fill="#FBB040"></path></svg></span>
+<span class="k-star" style="left: 240px; top: 88px; animation-delay: .4s"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><path d="M13 1 C14 9 17 12 25 13 C17 14 14 17 13 25 C12 17 9 14 1 13 C9 12 12 9 13 1 Z" fill="#F68B2C"></path></svg></span>
+<span class="k-star" style="left: 284px; top: 108px; animation-delay: .5s"><svg viewBox="0 0 26 26" width="26" height="26" aria-hidden="true"><path d="M13 1 C14 9 17 12 25 13 C17 14 14 17 13 25 C12 17 9 14 1 13 C9 12 12 9 13 1 Z" fill="#129DCB"></path></svg></span>
+</div>
+</div>
+</body>
+</html>
