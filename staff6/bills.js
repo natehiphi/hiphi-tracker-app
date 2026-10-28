@@ -12,8 +12,8 @@
 //     Select (bulk.js; on a phone at the right of the first group's heading), and Rows | Spreadsheet (D9: anyone may pick
 //     the spreadsheet; it is remembered for the person). The spreadsheet adds Columns, Export and Copy for Google Sheets on a
 //     line of their own (F88, F92; R-336);
-//   - the rows (default): two-line rows (steps.js billRow: the name, the bill number small, one plain line, D15; no bar,
-//     job tile or topic icon since R-352, A-18: a list of one kind; no
+//   - the rows (default): two-line rows (steps.js billRow: the name, the bill number small, one plain line, D15), each its
+//     own soft card led by its issue's tile (R-352 D, A-18: it tells bills on different issues apart); no bar or job tile; no
 //     step buttons, spec 11 settled 1) grouped by where they stand, with Monitoring and Did not advance folded and the
 //     viewer's own steps never behind "Show all", and the picked bill open beside the list (steps.js listDetail +
 //     billpane.js openItem, V17): from 1100px the panel waits beside the list ("Pick a bill to see its next step");
@@ -35,6 +35,8 @@ import { GROUPS, groupKey, stanceMark } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
+import { issuesOfBill } from './issues.js';
+import { issueLead } from './issuestand.js';   // R-352 D: each row's issue tile
 import { askSummary, toAskWords, decideWords, nwParts, askTabGo } from './push.js';   // the bills still to ask, in Today's and Hearings' words (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
@@ -279,6 +281,13 @@ export function twinsAmong(bills) {
   for (const list of by.values()) if (list.length > 1) for (const x of list) out.set(x.id, list.find(y => y.id !== x.id));
   return out;
 }
+// ---- each row leads with its issue's tile, inside its own soft card (R-352 D, Nate 28 Oct: with only words and hairlines
+// "they all blur together"; he picked D of five tried): the issue's icon on its topic's soft tint, All issues' 32px tile, so
+// bills on different issues look different at a glance (A-18 on v6: an icon that tells two things apart; A-5: topic tints
+// only). A bill on several issues shows the viewer's own issue first, else the first by name; a bill on none keeps an
+// empty slot of the same width, so every name starts at one edge. The cards are css/bills.css's (.bl-rowsv). ----
+const issueOfBill = b => myIssuesOf(b)[0] || issuesOfBill(b.id)[0] || null;
+const issueSlot = b => { const i = issueOfBill(b); return i ? issueLead(i) : '<span class="v6-row-lead i6-lead bl-noiss" aria-hidden="true"></span>'; };
 const groupHead = g => FOLDED.has(g.k)
   ? `<h2 class="bl-gh" id="bl-g-${g.k}"><button type="button" class="bl-ghb" data-fold="${g.k}" aria-expanded="${g.open}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span>${icon(g.open ? 'chevron-up' : 'chevron-down', { cls: 'chev' })}</button></h2>`
   : `<h2 class="bl-gh" id="bl-g-${g.k}"><span>${esc(g.title)}</span><span class="bl-gn">${g.all}</span></h2>`;
@@ -287,7 +296,7 @@ function rowsView(groups) {
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
-  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' }), b, { twins });
+  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: issueSlot(b) }), b, { twins });
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
   const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
