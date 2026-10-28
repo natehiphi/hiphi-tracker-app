@@ -6,8 +6,12 @@
 import { billStop, hearingStream, pathwayStops } from '../stops.js';
 export { billStop, hearingStream, pathwayStops };
 export const hooks = { onAuth: () => {}, onRecovery: () => {}, afterLoad: () => {}, toast: () => {}, render: () => {} };
-export const SUPABASE_URL = 'https://eivzjbnygscguqqiiuvh.supabase.co';
-export const SUPABASE_KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+// R-337 trial runs: trial.html runs this same app on the practice project, inside one trial's own copy of the database
+// (trial_1 to trial_10), whose clock is the trial's day. trial/trial.js sets window.HIPHI_TRIAL before this file loads;
+// on every other page it is absent and nothing here changes.
+export const TRIAL = (typeof window !== 'undefined' && window.HIPHI_TRIAL) || null;
+export const SUPABASE_URL = TRIAL ? TRIAL.url : 'https://eivzjbnygscguqqiiuvh.supabase.co';
+export const SUPABASE_KEY = TRIAL ? TRIAL.key : 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 // What every email-settings save says when the settings could not be read (Z1-5).
 export const EMAIL_UNREAD = 'Couldn’t read the email settings. Reload, then save.';
 // The email settings from their read (Z1-5): a read that failed is not "no row yet". The database counts a missing row as
@@ -155,6 +159,8 @@ export const DB = {
     // Pinned to the version the public page uses (pub/kernel.js SUPABASE_JS; R-152 D): "@2" let a new release change the staff app overnight.
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
     S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
+    // A trial reads and writes its own copy: tables and functions go to trial_N, sign-in stays the practice project's.
+    if (TRIAL) { const c = S.supa, db = c.schema(TRIAL.schema); S.supa = new Proxy(c, { get: (o, k) => k === 'from' || k === 'rpc' ? db[k].bind(db) : o[k] }); }
     const { data } = await S.supa.auth.getSession();
     S.session = data.session;
     S.supa.auth.onAuthStateChange((e, sess) => {
@@ -180,7 +186,7 @@ export const DB = {
     const { error } = await S.supa.auth.updateUser({ password });
     if (error) throw error;
   },
-  logout() { DEMO ? location.reload() : S.supa.auth.signOut(); },
+  logout() { DEMO ? location.reload() : TRIAL ? S.supa.auth.signOut().finally(() => location.reload()) : S.supa.auth.signOut(); },
   async loadAll() {
     if (DEMO) return;
     S.pq = undefined; S.pg = undefined; S.pAsks = undefined;   // R-328 B, G: Today's partner words, the Partners screen and the partner asks read again too

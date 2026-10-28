@@ -96,6 +96,10 @@ the design-rule notes in the README: `streak` conflicts with C-7 and `idle` with
 
 ## Working with parallel agents
 
+**Say this in every brief, too (R-351):** run only the browser tests `node tools/tests_for.mjs` lists for your
+branch, once, and again only after a change that could break one; never the long ones (density.py, journeys.py,
+public_journey.py) by habit, since Tests runs the full set after the push. One part per helper: about one screen or 15 files.
+
 **Say this in every brief: no git command that changes the working tree.** On 9/19 an agent ran `git stash` to
 get a clean baseline and wiped 18 modified files belonging to four agents at once. Nothing was lost, but only
 after an hour of recovery from the stash and a dangling commit. Forbidden in both repos: `git stash`, `git
