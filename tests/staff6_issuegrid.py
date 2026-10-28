@@ -1,6 +1,7 @@
 # Staff v6: My issues › All issues and › Coalitions as grids of cards (R-336 walk 3), calmer since R-352 (Nate 27 Oct: "keep
 # the issue cards, but calmer"). On the practice copy (Mon 16 Mar 2026), as Nate, at 1440x900 and 390x844.
-#   1. By topic (the default): the six topics in order, each a heading (no picture) and a count over a grid of its issues, the
+#   1. By topic (the default): the six topics in order, each a heading led by its topic's tinted icon tile (R-352 FIX-3) and a
+#      count over a grid of its issues, the
 #      most urgent first inside (issuestand.js byUrgency), the issues with nothing moving in a closed fold at the topic's end;
 #      every live issue shown once, under its own topic; a jump chip per topic that brings its heading to the top and puts the
 #      focus there.
@@ -84,7 +85,13 @@ with L.browser() as B:
     R.check(f'{w}: a jump chip per topic, with its count', chips(pg) == [f'{t} {n_of[t]}' for t in topics], chips(pg))
     sn = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-sn')].map(e => e.innerText.trim())")
     R.check(f'{w}: a topic heading says only what the chip does not (no issue count again)', all(re.fullmatch(r'(\d+ at risk|\d+ with a hearing this week)(, \d+ with a hearing this week)?', s) for s in sn) and not any('issue' in s for s in sn), sn[:3])
-    R.check(f'{w}: no topic heading carries a picture (the word is the heading)', pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-sh')].every(s => !s.querySelector('svg'))"))
+    # R-352 FIX-3 (Nate 28 Oct: "keep ... the colored icons as issue headings"): each topic heading leads with its topic's icon
+    # on its own tint, a rounded square (never round like a person's initials, A-5 on v6), hidden from screen readers (the
+    # heading says the topic); the six tints differ; the cards under it keep their small untinted icon only
+    th = pg.page.evaluate("""[...document.querySelectorAll('#is-q-body .ig6-sh')].map(s => { const t = s.querySelector(':scope > .ig6-htile'), cs = t && getComputedStyle(t);
+      return { tile: !!t && !!t.querySelector('svg') && t.getAttribute('aria-hidden') === 'true', bg: cs ? cs.backgroundColor : '', round: cs ? parseFloat(cs.borderTopLeftRadius) >= t.offsetWidth / 2 : false, svgs: s.querySelectorAll('svg').length }; })""")
+    R.check(f'{w}: every topic heading carries one tile, its topic\'s icon on its tint, a rounded square', bool(th) and all(x['tile'] and x['svgs'] == 1 and not x['round'] and not re.search(r'rgba\(0, 0, 0, 0\)', x['bg']) for x in th), th[:2])
+    R.check(f'{w}: the six topics\' tiles wear six different tints', len({x['bg'] for x in th[:6]}) == min(6, len(th)), [x['bg'] for x in th])
     pg.page.click('.ig6-jump .lg6-jchip >> nth=3'); pg.page.wait_for_timeout(900)
     jt = pg.page.evaluate("(() => { const h = document.querySelector('#ig6-g-family'); const r = h.getBoundingClientRect(); return [Math.round(r.top), document.activeElement === h]; })()")
     R.check(f'{w}: a chip brings its topic to the top, clear of the top bar, and moves focus there', jt[1] and ((40 < jt[0] <= 140) if w >= 768 else (40 <= jt[0] <= 100)), jt)

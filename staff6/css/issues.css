@@ -849,7 +849,7 @@ body.staff6 .ig6-tools .ig6-sortb[hidden] { display: none; }
   body.staff6 .ig6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 2px; padding: 6px 16px; background: var(--v6-page); }
   body.staff6 .ig6-rest { margin-top: 4px; }
   body.staff6 .ig6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
-  body.staff6 .ig6-htile { width: 32px; height: 32px; } body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 20px; height: 20px; }
+  body.staff6 .ig6-htile { width: 28px; height: 28px; } body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 18px; height: 18px; }
   body.staff6 .ig6-sec, body.staff6 .ig6-cell[id] { scroll-margin-top: 0; }
   /* The box on its own line; Sort (which names its order) and New share the next. */
   body.staff6 .ig6-tools, body.staff6 .ig6-tools.open { flex-wrap: wrap; gap: 8px; }
