@@ -25,7 +25,7 @@
 // no draft codes (D15). Nothing on a row is amber or red: "At risk" is a word and an icon (D3: amber is only late testimony
 // still accepted, red only a step of yours overdue); a late step of the viewer's own keeps its colour (steps.js shownStatus).
 import { S, SESSION_YEAR, SESSION_OVER, esc } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, deadlineName, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainDeadlines, plainGate } from './model.js';
+import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
 import { icon, iconBtn, sectionNav } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
@@ -87,10 +87,8 @@ export function standOf(i) {
 // The mark, in words and an icon (A-5): one short phrase with no " · " inside, so a row stays a name and one line.
 // `under`: the deadline date the group heading already names (R-316 W56, FR-6), so the row does not repeat it.
 // The three marks of R-272 by name: "At risk", "Safe, but a bill on it is dying", "Safe".
-const dlw = d => `${deadlineName(d).toLowerCase()} ${dayAt(d.date)}`;   // "second lateral Mon 3/30" (R-316 W1, C-15)
-// C-15 (R-277 ui-critic): someone who owns no bills and is not an admin (Patti, Julie) reads what a deadline asks, never its
-// Capitol name: "Bills must reach their last committee by Mon 3/30"; "Safe: SB 659 reached its last committee".
-const PLAIN = () => plainDeadlines();
+// C-15 (R-277 ui-critic; for everyone since R-352 FIX-2): a deadline is said as what it asks, never its Capitol name:
+// "Bills must reach their last committee by Mon 3/30"; "Safe: SB 659 reached its last committee".
 const pastNeed = (label, n) => gateNeed(label, n).replace(/^(clear|reach|pass)\b/, '$1ed').replace(/^be settled/, n === 1 ? 'was settled' : 'were settled');
 export function markOf(x, { under = null } = {}) {
   const { i } = x, by = d => under === d.date ? '' : ` by ${dayAt(d.date)}`;
@@ -98,10 +96,10 @@ export function markOf(x, { under = null } = {}) {
     case 'risk': return { ic: 'triangle-alert', word: 'At risk', text: `At risk: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
     case 'dying': return { ic: 'circle-alert', word: 'Safe, but a bill on it is dying', text: `Safe, but a bill on it is dying: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
     case 'safe': return { ic: 'shield-check', word: 'Safe', text: !x.deadline ? 'Safe: through its committees'
-      : PLAIN() ? `Safe: ${names(x.carried)} ${pastNeed(x.deadline.label, x.carried.length)}` : `Safe: ${names(x.carried)} past ${deadlineName(x.deadline).toLowerCase()}` };
+      : `Safe: ${names(x.carried)} ${pastNeed(x.deadline.label, x.carried.length)}` };
     case 'ahead': return !x.deadline ? null : x.facing?.length ? { ic: 'clock', word: 'Needs a hearing', text: `${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` }
-      : { ic: 'clock', word: '', text: under === x.deadline.date ? 'No bill waiting for a hearing' : PLAIN() ? plainGate(x.deadline.label, dayAt(x.deadline.date)) : `Next deadline: ${dlw(x.deadline)}` };
-    case 'oppose': return x.hear ? null : { ic: 'circle-x', word: 'HIPHI opposes', text: `HIPHI opposes it: no hearing set${x.next && under !== x.next.date ? `, next deadline ${PLAIN() ? dayAt(x.next.date) : dlw(x.next)}` : ''}` };
+      : { ic: 'clock', word: '', text: under === x.deadline.date ? 'No bill waiting for a hearing' : plainGate(x.deadline.label, dayAt(x.deadline.date)) };
+    case 'oppose': return x.hear ? null : { ic: 'circle-x', word: 'HIPHI opposes', text: `HIPHI opposes it: no hearing set${x.next && under !== x.next.date ? `, next deadline ${dayAt(x.next.date)}` : ''}` };
     case 'stopped': return { ic: 'circle-minus', word: '', text: i.stance === 'oppose' ? 'Its bills did not advance' : 'Nothing moving this session' };
     case 'none': return { ic: 'circle-dashed', word: '', text: `No ${SESSION_YEAR} bills on it yet` };
     case 'off': return x.bills.length ? { ic: '', word: '', text: `${plural(x.bills.length, 'bill')} in ${SESSION_YEAR}` } : { ic: 'circle-dashed', word: '', text: `No ${SESSION_YEAR} bills on it` };
@@ -249,13 +247,12 @@ function listHTML(l, o) {
   if (!o.cut || l.length <= SHOW + 2) return listBox(l.map(one).join(''));
   return `${listBox(l.slice(0, SHOW).map(one).join(''))}<details class="i6-more"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Show the other ${l.length - SHOW}</span></summary>${listBox(l.slice(SHOW).map(one).join(''))}</details>`;
 }
-// Next deadlines, one group per deadline, its date said once in its heading: "Second lateral, Mon 3/30: bills must reach
-// their last committee".
+// Next deadlines, one group per deadline, its date said once in its heading: "Must reach their last committee by Mon 3/30"
+// (model.js gateHead, the one wording; R-352 FIX-2).
 function byDeadline(l, o) {
   const keyOf = x => (x.state === 'oppose' ? x.next : x.deadline) || null, groups = new Map();
   for (const x of l) { const d = keyOf(x), k = d ? d.date : ''; if (!groups.has(k)) groups.set(k, { d, l: [] }); groups.get(k).l.push(x); }
-  return [...groups.values()].map(({ d, l }) => `<h3 class="i6-sub">${!d ? 'No deadline set' : PLAIN() ? esc(plainGate(d.label, dayAt(d.date)))
-      : `${esc(deadlineName(d))}, ${esc(dayAt(d.date))}: <span class="i6-subw">bills must ${esc(gateNeed(d.label, 2))}</span>`}</h3>
+  return [...groups.values()].map(({ d, l }) => `<h3 class="i6-sub">${!d ? 'No deadline set' : esc(gateHead(d.label, dayAt(d.date)))}</h3>
     ${listHTML(l, { ...o, under: d?.date || null, cut: true })}`).join('');
 }
 const fold = (id, title, l, o) => `<details class="i6-fold" data-fold="${id}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(title)} (${l.length})</span></summary>${listHTML(l, o)}</details>`;
@@ -331,7 +328,9 @@ export function wireTools(root, id, { get, set, paint }) {
 // The title and the page's one button on one row, the tabs straight under it at the same height on every tab, and what is
 // said about the list (a lede, the one-line notes) under the tabs, never between the title and the tabs (the critic: the
 // tab row sat at three heights). A phone's top bar carries the title, so the tabs come first there.
-export const headHTML = (cur, { action = '' } = {}) => `<header class="i6-head"><div class="i6-htop"><h1 class="i6-h1">My issues</h1>${action ? `<div class="i6-hacts">${action}</div>` : ''}</div>${sectionNav('issues', cur)}</header>`;
+// The section's title is the section, the same on its three tabs (R-352 FIX-2: All issues showed everyone's issues under
+// "My issues"), as Outreach titles Supporters: "Issues", then My issues · Coalitions · All issues.
+export const headHTML = (cur, { action = '' } = {}) => `<header class="i6-head"><div class="i6-htop"><h1 class="i6-h1">Issues</h1>${action ? `<div class="i6-hacts">${action}</div>` : ''}</div>${sectionNav('issues', cur)}</header>`;
 
 // ---- rule 10: Back from an issue or a coalition puts the focus on the row it was opened from ----
 // The page that was open says which row (rememberRow); the list, drawn again by Back, focuses that row once and scrolls it

@@ -1,6 +1,7 @@
 # Staff v6: Bills' two fixes and the spreadsheet (R-336, Nate 25 Oct). On the practice copy (Mon 16 Mar 2026).
 #   a. A group never folds away 3 bills or fewer: "No hearing yet" showed 19 of 20 and then "Show all 20 bills" for one.
-#   b. The line over the list says what Today and Hearings say: "20 to ask · first by Mon 3/23 · Bills That Need Hearings ›",
+#   b. The line over the list says what Today and Hearings say: "20 bills need a hearing · ask the chairs, first by Mon 3/23 ·
+#      Bills That Need Hearings ›" (R-352 FIX-2: "20 to ask" did not say what it was),
 #      the tab's name a link to it on the list's scope, drawn as a way on (a chevron, no underline at rest: R-352); no
 #      "Get hearings" left on Bills.
 #   c. The spreadsheet (Nate: "We also need a spreadsheet view of bills somewhere"): Rows | Spreadsheet, remembered; every
@@ -21,7 +22,7 @@ GROUPS = """[...document.querySelectorAll('.bl-grp, tbody.bl-tg')].map(g => {
   const h = g.querySelector('.bl-gh, .bl-grb'), n = +(h?.querySelector('.bl-gn, .n')?.textContent || 0);
   return { name: (h?.querySelector('span:not(.bl-gn):not(.n):not(.bl-ghic)')?.textContent || '').trim(), n,
     shown: g.querySelectorAll('.v6-row, tr[data-row]').length, open: !!g.querySelector('.v6-list, tr[data-row]'), more: !!g.querySelector('[data-full]') }; })"""
-LEAD = r'^\d+ to ask · first by (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+ · Bills That Need Hearings ›$'
+LEAD = r'^\d+ bills? needs? a hearing · ask the chairs?(, first)? by (Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d+/\d+ · Bills That Need Hearings ›$'
 def toast(pg): return pg.page.evaluate("[...document.querySelectorAll('.toastmsg')].map(t => t.innerText.trim()).join(' | ')")
 def wait_toast(pg, rx, ms=2000):
   for _ in range(ms // 100):
@@ -57,9 +58,9 @@ with L.browser() as B:
     b = pg.page.query_selector('[data-seg="blscope"][data-val="me"]')
     if b and b.get_attribute('aria-pressed') != 'true': b.click(); pg.ready()
     lead = pg.page.evaluate("document.querySelector('#bl-lead')?.innerText.trim() || ''")
-    if not lead or 'to ask' not in lead:
+    if not lead or 'a hearing' not in lead:
       R.check(f'{who}: no ask line on Bills (nothing to ask, or the group under it says it)', 'Get hearings' not in lead, lead); pg.close(); continue
-    R.check(f'{who}: Bills says "N to ask · first by <day> · Bills That Need Hearings"', re.match(LEAD, lead), lead)
+    R.check(f'{who}: Bills says "N bills need a hearing · ask the chairs, first by <day> · Bills That Need Hearings"', re.match(LEAD, re.sub(r'\s+', ' ', lead)), lead)
     R.check(f'{who}: the same words as Hearings ({hw})', hw and lead.startswith(hw), [lead, hw])
     href = pg.page.evaluate("document.querySelector('#bl-lead a')?.getAttribute('href')")
     R.check(f'{who}: the tab name links to Bills That Need Hearings on My bills', href == '#/hearings/ask?scope=mine', href)

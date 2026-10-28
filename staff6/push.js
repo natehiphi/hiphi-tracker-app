@@ -17,6 +17,8 @@ import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords,
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
+import { ACTS as PIC } from './verbs.js';   // one icon per action: Follow up is the mail, as on Today (R-352 FIX-2)
+const PIC_FOLLOW = PIC.follow.btnIcon;
 
 // The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Who to ask, Hearings' week line,
 // Today's At the Capitol): Nate's words for the tab, teal, with "›" and no underline until hover (A-12: a standalone way
@@ -286,11 +288,14 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
 }
 // One count and one wording for the bills still to ask for a hearing, on Today, Bills and Hearings alike (rule 6, A-14;
 // Nate's walk: "20 of your bills to ask", "16 of your bills with no hearing yet", "No hearing yet 20" and "Get hearings 20"
-// for one pile): "20 to ask · first by Mon 3/23", the day being the first chair's ask-by day (never a Capitol deadline's:
+// for one pile): "20 bills need a hearing · ask the chairs, first by Mon 3/23", the day being the first chair's ask-by day (never a Capitol deadline's:
 // the critic read "16 by Mon 3/30" as "ask 16 by Mon 3/30", a week late). '' when nothing is left to ask.
 export function toAskWords(sum) {
   const n = sum?.toAsk || 0; if (!n) return '';
-  return `${n} to ask${sum.firstDay ? ` · first by ${sum.firstDay}` : ''}`;
+  // Said as what it is (R-352 FIX-2: "20 to ask" did not say to ask whom, or for what): "20 bills need a hearing · ask the
+  // chairs, first by Mon 3/23"; one: "1 bill needs a hearing · ask the chair by Mon 3/23".
+  const one = n === 1;
+  return `${plural(n, 'bill')} ${one ? 'needs' : 'need'} a hearing · ask the chair${one ? '' : 's'}${sum.firstDay ? `${one ? '' : ', first'} by ${sum.firstDay}` : ''}`;
 }
 
 // One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
@@ -393,7 +398,7 @@ function rowButton(it, v, scope) {
     const r = chairAskMail(code, [b], { dl: a.st.deadline, heardAt: a.st.hearing?.scheduled_at || new Date().toISOString() });
     return r ? mailBtn(r.m.n > 1 ? 'Email the chairs' : 'Email the chair', r.href, 'secondary', `Email ${r.m.who} to schedule a vote on ${name}`) : ''; }
   // The asker's Follow up holds both ways on (spec 8, F136: the reply in 2 clicks): the mail again, or the chair's reply.
-  if (k === 'follow' && a.asker === v.id) return btn('Follow up', { kind: 'secondary', sm: true, icon: 'clock', attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${name}` } });
+  if (k === 'follow' && a.asker === v.id) return btn('Follow up', { kind: 'secondary', sm: true, icon: PIC_FOLLOW, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${name}` } });
   if (['waiting', 'follow'].includes(k)) return btn('They replied', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-v6act': 'replied', 'data-v6b': b.id, 'data-v6code': code, 'aria-haspopup': 'dialog', 'aria-label': `They replied: ${name}` } });
   if ((k === 'ask' && !it.left?.length || k === 'later') && ownsBill(b, v)) return iconBtn('ellipsis', `More for ${name}`, { 'data-hgact': 'row', 'data-hgb': b.id, 'data-hgcode': code, 'aria-haspopup': 'dialog' }, 'hg-more');
   // Someone else's bill still to ask: the take-over is on its own row (the chair's line keeps Email the chair and Give this

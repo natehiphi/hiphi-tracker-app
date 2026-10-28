@@ -2,7 +2,8 @@
 # card on a Staff v6 bill page.
 #   - a bill on an issue has the issue card in the right column, a white card like the others (the tint read as selected;
 #     on a phone the three parts share one white card); nothing is left above the name
-#   - three lines: "Its issue", the issue's name (or "Same name as this bill"), how it stands in one line; Open the issue ›
+#   - "Its issue", the issue's name (none when it is the bill's own name: the title says it, R-352 FIX-2), how it stands in
+#     one line; Open the issue ›
 #   - no bill rows, no paragraph, no black "This bill" tag
 #   - the hearing card, when there is one, comes first; on a laptop the column stands beside the bill's name; on a phone it
 #     comes under the step card, before the doors
@@ -45,8 +46,8 @@ async def main():
         check(r['card'] and not r['tint'] and r['white'] and r['shadow'], f'{tag}: the issue card, white with the standard shadow, no tint ({r["tint"]})')
         check(not r['oldFrame'], f'{tag}: no frame or old issue link over the name')
         check(r['beside'] if size == 'laptop' else r['underStep'], f'{tag}: {"the column beside the name" if size == "laptop" else "under the step card, before the doors"}')
-        check(r['label'] == 'Its issue' and (r['name'] == name if name else r['same'] == 'Same name as this bill' and not r['name']), f'{tag}: "Its issue" and its name ({r["name"] or r["same"]!r})')
-        check(r['says'] == says and r['lines'] == 3, f'{tag}: how it stands, one line ({r["says"]!r}, {r["lines"]} lines)')
+        check(r['label'] == 'Its issue' and (r['name'] == name if name else not r['name']) and not r['same'], f'{tag}: "Its issue" and its name, none when it is the bill\'s own ({r["name"] or r["same"]!r})')
+        check(r['says'] == says and r['lines'] == (3 if name else 2), f'{tag}: how it stands, one line ({r["says"]!r}, {r["lines"]} lines)')
         check(r['rows'] == 0, f'{tag}: no bill rows, paragraph or "This bill" tag ({r["rows"]})')
         check((r['href'] or '').startswith('#/issue/') and f'from={ref}' in r['href'], f'{tag}: Open the issue, with the way back ({r["href"]})')
         check(not r['hasHearing'] or 'bw-hside' in r['first'], f'{tag}: the hearing card first when there is one ({r["first"]})')

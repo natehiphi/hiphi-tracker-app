@@ -74,6 +74,27 @@ export function tintOf(id) {
   let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // someone not on the team list (a removed author)
   return h % PERSON_TINTS;
 }
+// The letters in a person's circle, unique among the team (R-352 FIX-2: James and Julie both showed "JM"). Two letters
+// where they are enough: stored initials of two, or the first and last of longer ones (Julie's "JMM" spilt out of her
+// circle as three). When those two would match someone else's, the person's own stored initials (three letters, drawn a
+// size smaller, staff.css .sv-av.ini3), else the first two letters of the first name and the last initial ("JUM").
+let lettersFrom = null, lettersOf = null;
+const twoOf = a => { const raw = String(a.initials || a.full_name?.[0] || '?').toUpperCase(); return raw.length > 2 ? raw[0] + raw[raw.length - 1] : raw; };
+export function faceLetters(adv) {
+  if (lettersFrom !== S.advocates) {
+    lettersFrom = S.advocates; lettersOf = new Map();
+    const all = S.advocates || [], count = new Map();
+    for (const a of all) { const k = twoOf(a); count.set(k, (count.get(k) || 0) + 1); }
+    // Someone whose stored initials are the two letters keeps them; the people whose shortened ones collide take three.
+    for (const a of all) {
+      const raw = String(a.initials || '').toUpperCase(), two = twoOf(a);
+      if (count.get(two) < 2 || raw === two) { lettersOf.set(String(a.id), two); continue; }
+      const first = String(a.full_name || '').trim().split(/\s+/)[0] || '';
+      lettersOf.set(String(a.id), raw.length > 2 ? raw : (first.slice(0, 2) + raw.slice(-1)).toUpperCase());
+    }
+  }
+  return lettersOf.get(String(adv.id)) || twoOf(adv);
+}
 // The viewer keeps their own tint everywhere (the colour others see them by) plus an action-coloured ring, so "you" is
 // found at a glance without being a different colour on your screen than on a teammate's.
 // `deco`: a face beside words that already name the person (faceLead, a hearing card's owner): no name of its own for a
@@ -82,10 +103,8 @@ export function tintOf(id) {
 export function avatar(adv, size = 24, { deco = false } = {}) {
   if (!adv) return deco ? `<span class="sv-av none" style="--av:${size}px"></span>` : `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
   const me = S.me && adv.id === S.me.id, t = tintOf(adv.id);
-  // At most two letters (the review: Julie's "JMM" spilt out of her circle): the first and the last ("JM"); the full name is
-  // in the title and, where the face is not decoration, read aloud.
-  const raw = String(adv.initials || adv.full_name?.[0] || '?'), ini = raw.length > 2 ? raw[0] + raw[raw.length - 1] : raw;
-  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}`;
+  const ini = faceLetters(adv);
+  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}`;
   if (deco) return `<span class="${cls}" style="--av:${size}px" data-ini="${esc(ini)}"></span>`;
   return `<span class="${cls}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(ini)}</span>`;
 }
@@ -530,7 +549,7 @@ const SECTIONS = {
   legislators: ['Legislators', [['ask', '#/legislators?view=ask', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
   // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order). No Calendar tab: the
   // calendar is Hearings' alone (R-352, B-13 on v6).
-  issues: ['My issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues']]],
+  issues: ['Issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues']]],
   inbox: ['Inbox', [['messages', '#/inbox', 'Messages'], ['updates', '#/inbox?view=updates', 'Updates']]],
 };
 export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, href, label]) => ({ key: k, href, label }));

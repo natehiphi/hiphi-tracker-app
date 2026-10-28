@@ -38,7 +38,7 @@
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
 import { S, DB, DEMO, esc } from './data.js';
-import { stopOf, hearingAhead, deadlineName, plainDeadlines, gateGloss, whenAt, RADAR_DAYS } from './model.js';
+import { stopOf, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn } from './ui.js';
 import { plural } from './lists.js';
 import { numWords, dayWords, nw } from './steps.js';
@@ -56,11 +56,10 @@ const names = l => l.length > 2 ? plural(l.length, 'bill') : l.map(num).join(' a
 const endOf = date => new Date(date + 'T23:59:59-10:00').getTime();
 const daysTo = date => Math.floor((endOf(date) - Date.now()) / 864e5);
 const href = i => `#/issue/${encodeURIComponent(i.id)}?from=mine`;
-const PLAIN = () => plainDeadlines();
-// A deadline by name for owners and admins ("Second lateral"), by its day for someone who owns no bills (C-15 on v6).
-const dn = D => PLAIN() ? `the ${dayWords(D.date)} deadline` : deadlineName(D);
-// "Second lateral yet (Mon 3/30)": the day rides at the end, so the sentence reads straight on.
-const dayTail = D => PLAIN() ? '' : ` (${dayWords(D.date)})`;
+// A deadline by its day for everyone ("past the Mon 3/30 deadline"), under a heading that says what it asks (model.js
+// gateHead; R-352 FIX-2: one name for one deadline, the Capitol's only in the chair email and Help; C-15 on v6).
+const dn = D => `the ${dayWords(D.date)} deadline`;
+const dayTail = () => '';
 // What a deadline asks, in the app's one set of words (model.js gateGloss, the same as Help and Today's season card):
 // under each Deadlines column, and as the title of a line that names a deadline.
 export const glossOf = D => { const g = D ? gateGloss(D.label) : ''; return g ? g[0].toUpperCase() + g.slice(1) : ''; };
@@ -99,7 +98,7 @@ export function judge(x) {
   const dueAt = !needs ? null : open && soon ? (hp.late ? Date.now() : new Date(hp.s.due ?? x.hear.h.scheduled_at).getTime()) : endOf(D.date);
   const j = { x, i, own: x.own, D, bills, H, S: Sn, alive, kind, cleared, dstate, ask, hp, needs, dueAt };
   j.health = healthOf(j); j.next = nextOf(j); j.dline = deadlineLine(j);
-  if (D && !PLAIN()) { j.health.title = glossOf(D); if (j.dline) j.dline.title = glossOf(D); }
+  if (D) { j.health.title = glossOf(D); if (j.dline) j.dline.title = glossOf(D); }
   return j;
 }
 
@@ -255,14 +254,14 @@ function covItem(j, under) {
 const RANK = j => j.needs ? 0 : j.dstate === 'cleared' ? 2 : 1;
 const inHeading = l => [...l].sort((a, b) => RANK(a) - RANK(b) || (a.needs ? a.dueAt - b.dueAt : 0) || a.i.name.localeCompare(b.i.name));
 const meta = (bits) => `<span class="mi-dhm"><span class="mi-dhd" aria-hidden="true">· </span>${esc(bits.filter(Boolean).join(' · '))}</span>`;
-// The heading's deadline by name for owners and admins ("Must clear Second lateral"), by its day for someone who owns no
-// bills (C-15 on v6, as dn does); its day, how far off and how many issues ride after it, quiet. Its plain-words second
-// line stays ("Bills sent to 3 or more committees must clear their first committee": the critics liked it).
+// The heading says what the deadline asks with its day, as Who to ask does ("Must reach their last committee by Mon 3/30",
+// model.js gateHead; R-352 FIX-2), then how far off and how many issues, quiet. The plain-words second line went: the
+// heading says it now (A-14).
 function deadlineSec(D, l, k) {
   const id = `mi-d-${k}`, days = Math.max(0, daysTo(D.date));
-  const t = PLAIN() ? `Must clear the ${dayWords(D.date)} deadline` : `Must clear ${deadlineName(D)}`;
-  return `<section class="i6-sec mi-grp mi-dsec" id="${id}" data-dl="${esc(D.date)}" aria-labelledby="${id}-h"><h2 class="i6-h mi-dh" id="${id}-h">${esc(t)} ${meta([PLAIN() ? '' : dayWords(D.date), days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`, plural(l.length, 'issue')])}</h2>
-    ${glossOf(D) ? `<p class="mi-sub">${esc(glossOf(D))}.</p>` : ''}<div class="mi-card">${inHeading(l).map(j => covItem(j, D.date)).join('')}</div></section>`;
+  const t = gateHead(D.label, dayWords(D.date));
+  return `<section class="i6-sec mi-grp mi-dsec" id="${id}" data-dl="${esc(D.date)}" aria-labelledby="${id}-h"><h2 class="i6-h mi-dh" id="${id}-h">${esc(t)} ${meta([days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`, plural(l.length, 'issue')])}</h2>
+    <div class="mi-card">${inHeading(l).map(j => covItem(j, D.date)).join('')}</div></section>`;
 }
 const plainSec = (id, t, sub, l) => l.length ? `<section class="i6-sec mi-grp" id="mi-g-${id}" aria-labelledby="mi-gh-${id}"><h2 class="i6-h" id="mi-gh-${id}">${esc(t)} ${meta([plural(l.length, 'issue')])}</h2>${sub ? `<p class="mi-sub">${esc(sub)}</p>` : ''}
     <div class="mi-card">${inHeading(l).map(j => covItem(j, null)).join('')}</div></section>` : '';

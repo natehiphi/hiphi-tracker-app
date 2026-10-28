@@ -5,7 +5,7 @@
 #   - no counts line and no "Needs you" chip; no icon tiles or tinted bands; one small drawing beside each name;
 #   - "Needs you today" first, and every issue is drawn once on the page (A-14), counted against the data;
 #   - a heading a deadline, in date order, each with its count; every issue under the deadline issuestand.js says it must
-#     beat next; the heading's plain-words line is kept;
+#     beat next; the heading says what the deadline asks ("Must reach their last committee by Mon 3/30", R-352 FIX-2);
 #   - every row has a House and a Senate cell, each one short thing ("House: hearing today", "Senate: none alive"), the
 #     House cell holding only House-started bills; a split (one chamber cleared, the other not) exists;
 #   - stopped issues last, in a closed fold; the filter box finds an issue by a word and by a bill number;
@@ -70,8 +70,10 @@ def main():
     heads = pg.page.evaluate(HEADS)
     dates = [h['date'] for h in heads]
     R.check('a heading a deadline, at least two, in date order', len(heads) >= 2 and dates == sorted(dates) and len(set(dates)) == len(dates), dates)
-    R.check('each heading says "Must clear", its day and its count of issues, and the count is its rows', all(h['head'].startswith('Must clear ') and re.search(r'\d+/\d+', h['head']) and re.search(rf"\b{len(h['rows'])} issues?\b", h['head']) for h in heads), [h['head'] for h in heads])
-    R.check('each heading keeps its plain-words line (what the deadline asks)', all(len(h['sub']) > 15 for h in heads), [h['sub'] for h in heads])
+    # R-352 FIX-2: one name for one deadline, Who to ask's: "Must reach their last committee by Mon 3/30" (what it asks, with
+    # its day), never the Capitol's name ("Second lateral"); the heading says it, so no second plain-words line under it
+    R.check('each heading says what the deadline asks by its day ("Must reach their last committee by Mon 3/30") and its count of issues, and the count is its rows', all(re.match(r'^Must (clear|reach|pass|be) .+ by \w{3} \d+/\d+', h['head']) and re.search(rf"\b{len(h['rows'])} issues?\b", h['head']) for h in heads), [h['head'] for h in heads])
+    R.check('no heading uses the Capitol\'s name for its deadline, and none repeats it in a plain-words line', not any(re.search(r'lateral|decking|crossover|triple', h['head'], re.I) or h['sub'] for h in heads), [(h['head'], h['sub']) for h in heads])
     R.check('every issue stands under the deadline it must beat next (issuestand.js standOf)', all(r['want'] == h['date'] for h in heads for r in h['rows']), [(r['name'], r['want'], h['date']) for h in heads for r in h['rows'] if r['want'] != h['date']][:3])
     items = pg.page.evaluate(ROWS)
     R.check('every row has two cells, "House:" then "Senate:"', bool(items) and all(len(x['cells']) == 2 and x['cells'][0].startswith('House:') and x['cells'][1].startswith('Senate:') for x in items), items[0]['cells'] if items else None)
