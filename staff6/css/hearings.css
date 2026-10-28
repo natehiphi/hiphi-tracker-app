@@ -294,8 +294,8 @@ body.staff6 .hc-st, body.staff6 .hc-room { font-size: var(--v6-t14); line-height
 /* A chair card's header leads with the chair's photo (both chairs, overlapped, on a joint referral), an initial when there
    is none (R-336 walk 2: Nate asked for photos on Who to ask; the same board is Hearings > Bills That Need Hearings). */
 
-/* ---- The week calendar's extras (R-342; Hearings is its one home since R-352) ----
-   The same .hc-* calendar; here what All issues and Today once added: the bar over the week, each bill's issue as a chip in its card's
+/* ---- The week calendar's extras (R-342; its homes are Hearings and All issues' Calendar tab, R-352 FIX-3) ----
+   The same .hc-* calendar; here what All issues (and Today once) added: the bar over the week, each bill's issue as a chip in its card's
    tint (issues.css .ig6-tintN tokens), the hearing as a box when its bills carry links of their own, and the two ways in. */
 body.staff6 .hc-wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0; }
 body.staff6 .hc-wrap > * { margin: 0; min-width: 0; }
@@ -310,6 +310,9 @@ body.staff6 .hc-hbox a.hc-cn { color: var(--v6-action); }   /* the hearing's lin
 body.staff6 .hc-hbox a.hc-cn:hover, body.staff6 .hc-hbox a.hc-bl:hover { text-decoration: underline; text-underline-offset: 3px; }
 body.staff6 .hc-e a.hc-bl { color: var(--v6-action); overflow-wrap: anywhere; }
 body.staff6 .hc-dls > li { display: grid; gap: 0; padding-bottom: 4px; }
+/* All issues' calendar view (R-342; kept by R-352 FIX-3): whose week it is, then the same week bar as Hearings */
+body.staff6 .is6-calwho { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .is6-cal .hc-wrap { margin-top: 0; }
 /* critic 2: chips and bill links reach 40px to tap (44 on a phone) without looking bigger; critic 9: a chip keeps its edge on
    a tinted column */
 body.staff6 .hc-e a.hc-iss { position: relative; border: 1px solid color-mix(in srgb, var(--ig-ink, var(--v6-body)) 22%, transparent); }

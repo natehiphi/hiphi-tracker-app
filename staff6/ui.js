@@ -547,9 +547,10 @@ const SECTIONS = {
   bills: ['Bills', [['bills', '#/bills', 'Bills'], ['new', '#/bills/new', 'Sort new bills'], ['muted', '#/bills/muted', 'Muted']]],
   // Who to ask names its view too: between sessions the bare #/legislators opens Everyone (spec 3.3).
   legislators: ['Legislators', [['ask', '#/legislators?view=ask', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
-  // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order). No Calendar tab: the
-  // calendar is Hearings' alone (R-352, B-13 on v6).
-  issues: ['Issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues']]],
+  // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order), then every issue's
+  // week as a calendar (R-342; R-352 FIX-3, Nate 28 Oct: "keep the calendar view"). The tab is All issues' one way to its
+  // calendar (A-12 on v6: no switch beside it); the calendar's other home is Hearings (B-13 on v6).
+  issues: ['Issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues'], ['cal', '#/my-issues/all?view=cal', 'Calendar']]],
   inbox: ['Inbox', [['messages', '#/inbox', 'Messages'], ['updates', '#/inbox?view=updates', 'Updates']]],
 };
 export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, href, label]) => ({ key: k, href, label }));

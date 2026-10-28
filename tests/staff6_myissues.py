@@ -1,7 +1,10 @@
 # Staff v6 My issues, on Nate's picks of 25 Oct (R-336 walks 3 and 4; staff6/myviews.js) made calmer on 27 Oct (R-352
-# part 4: "keep the cards, calmer"; A-14, A-18 and C-14 on v6): Deadlines by default, then Status, behind one remembered
-# two-button switch (Topics and the issue Spreadsheet went). Checks, on the busiest practice day (Mon 16 Mar 2026):
-#   - two views; a saved "topics", "sheet" or walk 3's "cover" opens Deadlines; the choice is remembered after a reload;
+# part 4: "keep the cards, calmer"; A-14, A-18 and C-14 on v6): Deadlines by default, then Status, Topics and Spreadsheet
+# (R-352 FIX-3, Nate 28 Oct: "keep the topics and spreadsheet tabs"), behind one remembered four-button switch. Checks, on
+# the busiest practice day (Mon 16 Mar 2026):
+#   - four views; a saved "topics" or "sheet" opens it again, walk 3's "cover" opens Deadlines; remembered after a reload;
+#   - Topics: a shelf a topic, headed by its icon on its tint, the cards calm (a small drawing, no tile); Spreadsheet: one
+#     row per issue, sortable, Copy for Google Sheets;
 #   - no counts line and no "Needs you" chip; no icon tiles or tinted bands; one small drawing beside each name;
 #   - "Needs you today" first, and every issue is drawn once on the page (A-14), counted against the data;
 #   - a heading a deadline, in date order, each with its count; every issue under the deadline issuestand.js says it must
@@ -9,7 +12,7 @@
 #   - every row has a House and a Senate cell, each one short thing ("House: hearing today", "Senate: none alive"), the
 #     House cell holding only House-started bills; a split (one chamber cleared, the other not) exists;
 #   - stopped issues last, in a closed fold; the filter box finds an issue by a word and by a bill number;
-#     "N bills on your issues have no owner yet · Take one"; a phone keeps the two buttons and nothing scrolls sideways;
+#     "N bills on your issues have no owner yet · Take one"; a phone keeps the four buttons and nothing scrolls sideways;
 #   - someone with no issue (Saya) still sees their coalitions; the calm budgets of staff6_budget.py hold on both views.
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_myissues.py [--shots DIR]
 import os, re, sys
@@ -17,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import staff6_lib as L
 
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else ''
-VIEWS = ['deadlines', 'status']
+VIEWS = ['deadlines', 'status', 'topics', 'sheet']
 
 # Each heading: its date, its count, and its rows, each with the deadline issuestand.js's standOf gives that issue.
 HEADS = r"""async () => { const d = await import('/staff6/data.js'), st = await import('/staff6/issuestand.js');
@@ -46,7 +49,10 @@ def budgets(R, pg, label):
   R.check(f'{label}: text colours <= 5', m['colors'] <= 5, m['colors'])
   R.check(f'{label}: bordered elements <= 8', m['bordered'] <= 8, m['bordered'])
   R.check(f'{label}: corner radii <= 3', m['radii'] <= 3, f"{m['radii']} {m.get('radii_where')}")
-  R.check(f'{label}: facts per row <= 4, buttons per row <= 1, no codes in rows', m['facts_max'] <= 4 and m['row_buttons_max'] <= 1 and m['row_codes'] == 0,
+  # A spreadsheet's row is a table row of seven columns by design (Bills' Spreadsheet is the same, D9): only its buttons and
+  # codes are held to the row rules there (as live's test held them, 6691bda4).
+  table = label.startswith('sheet')
+  R.check(f'{label}: facts per row <= 4{" (not for the spreadsheet)" if table else ""}, buttons per row <= 1, no codes in rows', (table or m['facts_max'] <= 4) and m['row_buttons_max'] <= 1 and m['row_codes'] == 0,
           f"facts {m['facts_max']}, buttons {m['row_buttons_max']}, codes {m['row_codes']} {m.get('worst_row')}")
   R.check(f'{label}: at most 1 filled button', m['filled'] <= 1, m['filled'])
   R.check(f'{label}: no sideways scroll', not m['hscroll'])
@@ -60,7 +66,7 @@ def main():
     # ---- Nate on a laptop ----
     pg = b.page('NT', 1440, 900); pg.open('/my-issues')
     pg.page.evaluate("() => { try { localStorage.clear(); } catch {} }"); pg.open('/my-issues')
-    R.check('opens on Deadlines (the default), two views: Deadlines and Status', pg.page.evaluate(PRESSED) == 'deadlines' and pg.page.evaluate("() => [...document.querySelectorAll('[data-miview]')].map(b => b.innerText.trim()).join('|')") == 'Deadlines|Status', pg.page.evaluate(PRESSED))
+    R.check('opens on Deadlines (the default), four views: Deadlines, Status, Topics and Spreadsheet', pg.page.evaluate(PRESSED) == 'deadlines' and pg.page.evaluate("() => [...document.querySelectorAll('[data-miview]')].map(b => b.innerText.trim()).join('|')") == 'Deadlines|Status|Topics|Spreadsheet', pg.page.evaluate(PRESSED))
     R.check('the switch has no icons and there is no select', pg.page.evaluate("() => !document.querySelector('.mi-seg svg') && !document.querySelector('[data-misel]')"))
     calm = pg.page.evaluate(CALM)
     R.check('no counts line, no "Needs you" chip, no icon tiles, no tinted sections; one small drawing beside each name', not calm['sum'] and calm['chips'] == 0 and calm['tiles'] == 0 and calm['tinted'] == 0 and calm['icons'], calm)
@@ -99,14 +105,40 @@ def main():
     budgets(R, pg, 'status 1440'); shot(pg, 'NT-status-1440.png')
     R.check('Status: no On track issue reads At risk', pg.page.evaluate("() => ![...document.querySelectorAll('#mi-s-ok ~ .i6-list .mi-dl')].some(e => /^At risk/.test(e.innerText.trim()))"))
     R.check('Status: an At risk row names bills that need a hearing, never one that has a hearing', pg.page.evaluate("() => [...document.querySelectorAll('.mi-dl')].filter(e => /^At risk/.test(e.innerText.trim())).every(e => !/has a hearing|have a hearing/.test(e.innerText))"))
+    # ---- Topics and Spreadsheet (R-352 FIX-3) ----
+    e0 = len(pg.errors); pg.page.evaluate(PICK, 'topics'); pg.page.wait_for_timeout(500)
+    tp = pg.page.evaluate(r"""() => { const tinted = e => { const c = getComputedStyle(e).backgroundColor; return c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent'; };
+      const shelves = [...document.querySelectorAll('#mi-q-body section.mi-shelf')];
+      return { shelves: shelves.length, heads: shelves.filter(s => { const t = s.querySelector('.mi-shead > .mi-sic'); return t && tinted(t) && t.querySelector('svg'); }).length,
+        cards: document.querySelectorAll('#mi-q-body a.mi-tcard').length, cardTiles: [...document.querySelectorAll('#mi-q-body a.mi-tcard *')].filter(e => e.matches('.mi-tic, .mi-sic, .mi-tart') && tinted(e)).length,
+        drawings: [...document.querySelectorAll('#mi-q-body a.mi-tcard')].every(a => a.querySelectorAll('.mi-ic').length === 1),
+        chips: document.querySelectorAll('#mi-q-body .mi-need').length, jump: document.querySelectorAll('#mi-q-body [data-mijump]').length }; }""")
+    once = pg.page.evaluate("async () => { const d = await import('/staff6/data.js'); const ids = [...document.querySelectorAll('#mi-q-body a.mi-tcard')].map(a => a.dataset.mirow); return { shown: ids.length, unique: new Set(ids).size, want: d.myIssueIds().size }; }")
+    R.check('Topics: a shelf a topic, each headed by its icon on its tint, with jump chips', tp['shelves'] >= 2 and tp['heads'] == tp['shelves'] and tp['jump'] == tp['shelves'] and len(pg.errors) == e0, (tp, pg.errors[e0:][:1]))
+    R.check('Topics: the cards stay calm (one small drawing beside the name, no tile or band, no "Needs you" chip)', tp['cards'] > 0 and tp['cardTiles'] == 0 and tp['drawings'] and tp['chips'] == 0, tp)
+    R.check('Topics: every issue once', once['shown'] == once['unique'] == once['want'], once)
+    budgets(R, pg, 'topics 1440'); shot(pg, 'NT-topics-1440.png')
+    e0 = len(pg.errors); pg.page.evaluate(PICK, 'sheet'); pg.page.wait_for_timeout(500)
+    sh = pg.page.evaluate("async () => { const d = await import('/staff6/data.js'); return { rows: document.querySelectorAll('#mi-q-body table.mi-tbl tbody tr').length, want: d.myIssueIds().size, heads: [...document.querySelectorAll('.mi-tbl thead th')].map(t => t.innerText.trim()), copy: !!document.querySelector('[data-micopy]') }; }")
+    R.check('Spreadsheet: one row per issue, the seven columns, Copy for Google Sheets', sh['rows'] == sh['want'] and sh['heads'] == ['Issue', 'House-started', 'Senate-started', 'Next deadline', 'Cleared', 'Next step', 'Owner'] and sh['copy'] and len(pg.errors) == e0, (sh, pg.errors[e0:][:1]))
+    dl = pg.page.evaluate("() => [...document.querySelectorAll('.mi-td-deadline')].map(t => t.innerText.trim()).filter(Boolean)")
+    R.check('Spreadsheet: the next deadline in the headings\' words ("Must ... by Mon 3/30"), never the Capitol\'s name', bool(dl) and all(re.match(r'^Must .+ by \w{3} \d+/\d+$', t) and not re.search(r'lateral|decking|crossover', t, re.I) for t in dl), dl[:3])
+    pg.page.click('[data-misort="issue"]'); pg.page.wait_for_timeout(300)
+    names = pg.page.evaluate("() => [...document.querySelectorAll('.mi-td-issue .mi-tlink')].map(a => a.innerText.trim())")
+    R.check('Spreadsheet: pressing Issue sorts A to Z', names == sorted(names, key=str.lower) or names == sorted(names), names[:4])
+    pg.page.click('[data-misort="issue"]'); pg.page.wait_for_timeout(200); pg.page.click('[data-misort="issue"]'); pg.page.wait_for_timeout(200)
+    budgets(R, pg, 'sheet 1440'); shot(pg, 'NT-sheet-1440.png')
+    pg.page.evaluate(PICK, 'status'); pg.page.wait_for_timeout(300)
     # remembered
     pg.open('/my-issues')
     R.check('the view is remembered after a reload', pg.page.evaluate(PRESSED) == 'status', pg.page.evaluate(PRESSED))
-    # a dropped view (Topics, Spreadsheet) or walk 3's "cover", from this browser or from the person's prefs, opens Deadlines
-    for old in ('topics', 'sheet', 'cover'):
+    # a saved Topics or Spreadsheet, from this browser or from the person's prefs, opens it again (R-352 FIX-3); walk 3's
+    # "cover" opens Deadlines
+    for saved, want, sel in (('topics', 'topics', 'section.mi-shelf'), ('sheet', 'sheet', 'table.mi-tbl'), ('cover', 'deadlines', 'section.mi-dsec')):
       e0 = len(pg.errors)
-      pg.page.evaluate("async (v) => { const d = await import('/staff6/data.js'); localStorage.setItem(`hiphi6_miview_${d.S.me.id}_demo`, v); d.S.me.prefs = { ...(d.S.me.prefs || {}), myIssuesView: v }; d.S.miView = null; d.hooks.render(); }", old); pg.page.wait_for_timeout(400)
-      R.check(f'a saved "{old}" opens the Deadlines view, with no page error', pg.page.evaluate(PRESSED) == 'deadlines' and bool(pg.page.query_selector('section.mi-dsec')) and len(pg.errors) == e0, (pg.page.evaluate(PRESSED), pg.errors[e0:][:1]))
+      pg.page.evaluate("async (v) => { const d = await import('/staff6/data.js'); localStorage.setItem(`hiphi6_miview_${d.S.me.id}_demo`, v); d.S.me.prefs = { ...(d.S.me.prefs || {}), myIssuesView: v }; d.S.miView = null; d.hooks.render(); }", saved); pg.page.wait_for_timeout(400)
+      R.check(f'a saved "{saved}" opens {want}, with no page error', pg.page.evaluate(PRESSED) == want and bool(pg.page.query_selector(sel)) and len(pg.errors) == e0, (pg.page.evaluate(PRESSED), pg.errors[e0:][:1]))
+    pg.page.evaluate(PICK, 'deadlines'); pg.page.wait_for_timeout(300)
     # the filter box
     pg.page.fill('#mi-q', 'e-cigarette'); pg.page.wait_for_timeout(400)
     found = pg.text('#mi-q-body')
@@ -121,7 +153,7 @@ def main():
     # ---- Nate on a phone ----
     ph = b.page('NT', 390, 844); ph.open('/my-issues')
     ph.page.evaluate("() => { try { localStorage.clear(); } catch {} }"); ph.open('/my-issues')
-    R.check('phone: the switch is the same two buttons, in view', ph.page.evaluate("() => [...document.querySelectorAll('[data-miview]')].filter(b => b.offsetParent).length === 2"))
+    R.check('phone: the switch is the same four buttons, in view, each word whole', ph.page.evaluate("() => { const bs = [...document.querySelectorAll('[data-miview]')].filter(b => b.offsetParent); return bs.length === 4 && bs.every(b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().right <= innerWidth); }"))
     for v in VIEWS:
       ph.page.evaluate(PICK, v); ph.page.wait_for_timeout(500)
       R.check(f'phone {v}: no sideways scroll', not ph.page.evaluate(HSCROLL))

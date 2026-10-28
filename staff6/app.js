@@ -114,10 +114,8 @@ export function parseRoute(h = location.hash) {
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', view: q.view || '', q };
     // My issues (R-263) with its tabs Coalitions and All issues (spec 3.3): v5's #/coalition and #/outreach/issues move here.
-    // R-352: All issues' week calendar (R-342) moved to Hearings, the calendar's one home; an old link opens the team's week
-    // there, on the same week (w=).
+    // #/my-issues/all?view=cal is All issues' week calendar (R-342; R-352 FIX-3, Nate 28 Oct: kept), drawn by issues.js.
     case 'my-issues':
-      if (seg[1] === 'all' && q.view === 'cal') return { name: 'hearings', view: 'week', q: {}, redirect: `#/hearings/week?view=cal&scope=team${q.w ? `&w=${encodeURIComponent(q.w)}` : ''}` };
       return seg[1] === 'coalitions' ? { name: 'coalition', id: '', q } : seg[1] === 'all' ? { name: 'issues', q } : { name: 'myissues', q };
     case 'coalition': return seg[1] ? { name: 'coalition', id: seg[1], q } : { name: 'coalition', id: '', q, redirect: to('#/my-issues/coalitions') };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };

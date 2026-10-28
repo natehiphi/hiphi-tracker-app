@@ -1,4 +1,5 @@
-# Staff v6: (R-352) no week calendar on All issues or Today; their old calendar links open Hearings' (R-342, Nate 26 Oct: "Can there be a calendar view for all issues,
+# Staff v6: All issues' week calendar, reached by its Calendar tab only (R-342; R-352 FIX-3, Nate 28 Oct: "keep the calendar
+# view"); no week on Today, whose old calendar link opens Hearings' (R-352). R-342, Nate 26 Oct: "Can there be a calendar view for all issues,
 # and for the today page?"; his picks: All issues a week grid by issue; Today My week or the team's with a switch; both a
 # List | Calendar switch and a Calendar tab "for now"). The same calendar as Hearings (hearings.js weekCalHTML). On the
 # practice copy (Mon 16 Mar 2026).
@@ -15,17 +16,34 @@ def day(pg, d): return ' '.join(pg.page.evaluate("d => document.querySelector(`.
 
 with L.browser() as B:
   errs = []
-  # ---- All issues (R-352, Nate 27 Oct: "Calendar: Hearings only"): no Calendar tab, no Cards | Calendar switch, nothing over
-  # the title; an old #/my-issues/all?view=cal link opens the team's week calendar on Hearings, on the same week ----
+  # ---- All issues (R-352 FIX-3, Nate 28 Oct: "keep the calendar view"): one way in (A-12 on v6), the Calendar tab; no
+  # Cards | Calendar switch; nothing over the title; #/my-issues/all?view=cal opens it again (no redirect to Hearings) ----
   pg = B.page('NT', 1440, 900); pg.page.on('pageerror', lambda e: errs.append(str(e))); pg.open('/my-issues/all')
   R.check('All issues shows its cards, no calendar', not pg.page.query_selector('.hc-cal') and bool(pg.page.query_selector('.ig6-grid')))
-  R.check("My issues' tabs carry no Calendar", 'Calendar' not in pg.text('.i6-head .sv-secnav'), pg.text('.i6-head .sv-secnav'))
-  R.check('All issues has no Cards | Calendar switch', not pg.page.query_selector('[data-seg="iview"], .is6-swap'))
+  tabs = pg.page.evaluate("[...document.querySelectorAll('.i6-head .sv-secnav a')].map(a => [a.textContent.trim(), a.getAttribute('href')])")
+  R.check("the Issues tabs end with Calendar, to All issues' calendar", bool(tabs) and tabs[-1] == ['Calendar', '#/my-issues/all?view=cal'], tabs)
+  R.check('All issues has no Cards | Calendar switch (one way in, A-12)', not pg.page.query_selector('[data-seg="iview"], .is6-swap'))
   R.check('nothing sits above the page title', pg.page.evaluate("document.querySelector('main .is6-index')?.firstElementChild?.matches('header.i6-head')"))
-  pg.page.goto(pg.url('/my-issues/all?view=cal')); pg.page.wait_for_timeout(1200); pg.ready()
-  R.check("an old All issues calendar link opens the team's week calendar on Hearings", '#/hearings/week' in pg.page.url and 'view=cal' in pg.page.url and 'scope=team' in pg.page.url and bool(pg.page.query_selector('main .hc-cal')), pg.page.url)
+  pg.page.click('.i6-head .sv-secnav a[href="#/my-issues/all?view=cal"]'); pg.page.wait_for_timeout(900); pg.ready()
+  R.check('the Calendar tab opens the week on All issues, not Hearings', '#/my-issues/all?view=cal' in pg.page.url and bool(pg.page.query_selector('main .is6-cal .hc-cal')), pg.page.url)
+  R.check('the Calendar tab is the current one', pg.page.evaluate("document.querySelector('.i6-head .sv-secnav a[aria-current=\"page\"]')?.textContent.trim()") == 'Calendar')
+  R.check("it says whose week: all the team's bills", 'team’s bills' in pg.text('main .is6-cal .hw-bar'), pg.text('main .is6-cal .hw-bar'))
+  R.check('five weekday columns on a laptop', pg.page.evaluate(COLS) == 5, pg.page.evaluate(COLS))
+  R.check("entries name their bills' issues (hearings.js issueTags)", pg.page.evaluate("document.querySelectorAll('main .is6-cal .hc-iss').length") > 0)
+  # the same colour of time as Hearings (A-5 on v6, steps.js status): due today is plain, "· due today" in the body colour
+  st = pg.page.evaluate("[...document.querySelectorAll('main .is6-cal .hc-st')].map(e => [e.className, e.textContent.trim(), getComputedStyle(e).color])")
+  today = [x for x in st if ' today' in x[0]]
+  # plain: the body or muted text colour (tokens.css), never the amber of Late or the red of overdue
+  plain = pg.page.evaluate("['--v6-body', '--v6-muted', '--v6-ink'].map(v => { const e = document.createElement('span'); e.style.color = `var(${v})`; document.body.appendChild(e); const c = getComputedStyle(e).color; e.remove(); return c; })")
+  R.check('due today reads "· due today", plain (body, muted or ink text, never amber or red)', bool(today) and all(x[1].endswith('· due today') and x[2] in plain for x in today), (today[:2], plain))
+  hs = pg.page.evaluate("[...document.querySelectorAll('main .hc-st')].map(e => e.textContent.trim())")
+  pg.page.goto(pg.url('/hearings/week?view=cal&scope=team')); pg.page.wait_for_timeout(1200); pg.ready()
+  hh = pg.page.evaluate("[...document.querySelectorAll('main .hc-st')].map(e => e.textContent.trim())")
+  R.check("one wording per state: All issues' calendar says what Hearings' team calendar says", sorted(set(hs)) == sorted(set(hh)), (sorted(set(hs))[:6], sorted(set(hh))[:6]))
   pg.page.goto(pg.url('/my-issues/all?view=cal&w=1')); pg.page.wait_for_timeout(1200); pg.ready()
-  R.check('and keeps its week (w=1)', '#/hearings/week' in pg.page.url and 'w=1' in pg.page.url, pg.page.url)
+  R.check('a link to another week keeps it (w=1), on All issues', '#/my-issues/all?view=cal&w=1' in pg.page.url and 'Next week' in pg.text('main .is6-cal .hw-bar'), pg.page.url)
+  pg.page.click('[data-hweek="2"]'); pg.page.wait_for_timeout(900); pg.ready()
+  R.check('Next week moves on and stays on All issues', '#/my-issues/all?view=cal&w=2' in pg.page.url, pg.page.url)
   pg.close()
 
   # ---- Today (R-352, Nate 27 Oct: "Calendar: Hearings only"): no week on Today, no calendar and no switch; Coming up ends
