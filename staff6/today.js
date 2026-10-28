@@ -36,7 +36,7 @@ import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButton
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML } from './steps.js';
 import { issueIcon, tintOf } from './issuegrid.js';
-import { actTile, iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // one icon per job (A-18 on v6), every button its icon
+import { iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // one icon per job (A-18 on v6), every button its icon
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
@@ -349,13 +349,13 @@ function rowOf(it, { ro = false, v = S.me } = {}) {
       return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`Second look · ${lower(s.act.words)}${sx}`)), tone, icon: tone !== 'neutral' ? st.icon : st.soon || hushed ? 'clock' : '',
         bold: !!st.soon && tone === 'neutral', href: billRoute(b), pick, button: rowButtonOK(s) ? rowButton(s) : '', lead: rowLeadOf(it) });
     }
-    return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined, act: true });
+    return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined, lead: rowLeadOf(it) });
   }
   // A chair ask given to the viewer reads like every other chair ask, "Ask the chair by Mon 3/23", a joint committee's "Ask
   // the chairs" beside its Email the chairs (C-15: one name per act; the critic: Kris's "You are asking · by Mon 3/23" beside
   // Kevin's "Ask the chair by Wed 3/25"); its open item says who gave it.
   if (it.kind === 'chair') { const a = it.s.ask, given = !ro && it.s.you && a.key === 'giving' && a.by != null;
-    return billRow(b, { viewer: v, step: ro ? { ...it.s, mine: false } : it.s, pick, button: ro ? false : rowButton(it.s), act: true, ...(given ? { line: nw(esc(`Ask ${a.chair || 'the chair'} by ${dayWords(a.by)}`)) } : {}) }); }
+    return billRow(b, { viewer: v, step: ro ? { ...it.s, mine: false } : it.s, pick, button: ro ? false : rowButton(it.s), lead: rowLeadOf(it), ...(given ? { line: nw(esc(`Ask ${a.chair || 'the chair'} by ${dayWords(a.by)}`)) } : {}) }); }
   // The asker's follow-up: the row's button is the step itself, "Follow up", the same button and sheet as Get hearings'
   // (push.js's listener, chairask.js followSheet): the mail again, or what the chair said, so sending the follow-up and
   // recording the reply are each two clicks from Today (spec 8; the critic: the row offered only They replied, A-12, D16).
@@ -369,7 +369,9 @@ function rowOf(it, { ro = false, v = S.me } = {}) {
 }
 // R-344 Rule 1: an item's job (verbs.js JOB_OF, the step's own kind for a bill step) and its tile as a row's lead.
 const jobOf = it => jobKind(it.kind, it.s);
-const rowLeadOf = it => { const k = jobOf(it); return k === 'none' ? '<span class="v6-row-lead v6-act-lead none" aria-hidden="true"></span>' : `<span class="v6-row-lead v6-act-lead">${actTile(k, { size: 32 })}<span class="sr">${esc(PIC[k].word)}: </span></span>`; };
+// R-352 (A-18 on v6): the read-only teammate lists lead with the same small neutral kind-of-job icon as Today's own rows
+// (rowOf below), not the coloured 32px job tile; the job's word stays for screen readers.
+const rowLeadOf = it => { const k = jobOf(it); return `<span class="v6-row-lead t6-kind" aria-hidden="true">${k !== 'none' && PIC[k] ? icon(PIC[k].icon) : ''}</span>${k !== 'none' && PIC[k] ? `<span class="sr">${esc(PIC[k].word)}: </span>` : ''}`; };
 // A to-do's or a follow-up's line colour: red only once its date has passed, for the viewer's own (D3).
 function dueTone(it, ro) {
   if (it.at == null) return { tone: '', icon: '', bold: false };
@@ -450,7 +452,8 @@ function rowWords(it, v = S.me) {
     if (it.kind === 'chair') { job = a?.decide ? 'Ask for a vote' : a?.m?.n > 1 ? 'Ask the chairs' : 'Ask the chair';
       if (a?.by != null) line = `By ${dayWords(a.by)}`; }
     // the follow-up says when it was asked ("Asked Tue 3/10, no reply"); whom, in the open item (one line a row)
-    else if (it.kind === 'followask') { job = 'Follow up'; const m = /^Follow up with .+? · (asked [\s\S]*)$/.exec(s.line || ''); line = m ? cap(m[1]) : s.line || ''; }
+    // R-352 (I, A-25): the button says "Follow up", so the row says what was done, as the ask board does ("Asked by you")
+    else if (it.kind === 'followask') { job = 'Asked the chair'; const m = /^Follow up with .+? · (asked [\s\S]*)$/.exec(s.line || ''); line = m ? cap(m[1]) : s.line || ''; }
     else if (newNotice(it)) line = `New hearing ${dayWords(it.h.scheduled_at)} · send by ${dayWords(s.act?.at ?? s.due)}`;
     else if (s.state?.key === 'second' && s.you && s.act?.words) line = cap(s.act.words.replace(/^Approve\s+/, ''));
     const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
@@ -717,11 +720,14 @@ export function slipList() {
 function leadLine() {
   if (!isLead()) return '';
   let sl; try { sl = slipList(); } catch (e) { console.error(e); return ''; }
-  const n = sl.rows.length; if (!n) return '';
-  const now = Date.now(), over = sl.rows.filter(r => r.nob ? r.nob.act?.kind === 'overdue' : r.p && r.p.due != null && r.p.due <= now && !(r.p.h && ms(r.p.h.scheduled_at) > now && /file|review|revise|submit|write/.test(r.p.kind))).length;
+  // R-352 (part 9): Team leaves the lead's own steps out (they are on this Today), so the door counts other people's rows
+  // only, as teamSlipCount does, and is not drawn at 0
+  const others = sl.rows.filter(r => !(r.ids || []).includes(S.me?.id)); if (!others.length) return '';
+  const now = Date.now(), over = others.filter(r => r.nob ? r.nob.act?.kind === 'overdue' : r.p && r.p.due != null && r.p.due <= now && !(r.p.h && ms(r.p.h.scheduled_at) > now && /file|review|revise|submit|write/.test(r.p.kind))).length;
   // Someone else's late step is said in words, never in colour (D3): the lead's own late work is on their own rows.
   // Team's own count (its ranked list adds the hearings at risk), so the door and the page it opens agree (walk 4 critic).
-  let all = n; try { all = teamSlipCount(); } catch (e) { console.error(e); }
+  let all = others.length; try { all = teamSlipCount(); } catch (e) { console.error(e); }
+  if (!all) return '';
   return lineA('#/team', 'users', `<b>${all} slipping</b> on the team${over ? ` · ${over} overdue` : ''}`, { cls: 't6-lead' });
 }
 // Each door is one short line (integrator 23 Oct: "doors as short lines"): the subject and at most one more fact. A lead's

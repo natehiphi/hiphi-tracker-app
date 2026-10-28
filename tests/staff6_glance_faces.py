@@ -60,8 +60,9 @@ def main():
       if (was) document.documentElement.dataset.palette = was; else delete document.documentElement.dataset.palette; return out; }""")
     check("Every palette (all 25): Kevin keeps his colour", pals and len(pals) >= 25 and set(pals.values()) == {kevin}, {k: v for k, v in pals.items() if v != kevin})
     # the same colour on Team's Who is on what and in the Inbox
-    pg.nav('/team'); p.click('details[data-tmfold="who"] > summary'); p.wait_for_timeout(250)
-    team = p.evaluate("""() => Object.fromEntries([...document.querySelectorAll('details[data-tmfold="who"] .tm6-load')].map(a => [a.querySelector('.tm6-ln')?.textContent.trim(), getComputedStyle(a.querySelector('.sv-av')).backgroundColor]))""")
+    # R-352 part 9: Who is on what is an open block now, no fold to click
+    pg.nav('/team')
+    team = p.evaluate("""() => Object.fromEntries([...document.querySelectorAll('[data-block="who"] .tm6-load')].map(a => [a.querySelector('.tm6-ln')?.textContent.trim(), getComputedStyle(a.querySelector('.sv-av')).backgroundColor]))""")
     check("Team: Kevin's face is his People colour (stable by person)", team.get('Kevin') == kevin, (team.get('Kevin'), kevin))
     slip = p.evaluate("() => [...document.querySelectorAll('[data-block=\"slip\"] .v6-row')].map(r => !!r.querySelector('.v6-row-lead .sv-av'))")
     check("Team: each of Slipping's rows leads with whose it is (a face, or the dashed No owner circle)", slip and all(slip), slip)
