@@ -10,12 +10,12 @@
 //
 // Walk 4 (Nate, 25 Oct: "filling the issue page with content both in the middle and on the right can be too crowded. Also
 // the where legislators stand section should not be as prominent"): one reading column at every width, read top to
-// bottom. The top four are open: the health check, What to do next (the steps.js rows Today and the bill use, each with its
-// one button where the app already offers one: D16), its bills, and who is working on it (with the coalition line).
-// Everything after is folded, each with a one-line summary on its closed line, in Nate's order: talking points and
-// materials; public interest and where partners stand (issue_partner_positions, migration 189, added and changed here);
-// where legislators stand, quiet, last before the timeline; the timeline (newest first, folded again after five); last
-// year's result; related issues, quietest. The 2027 prep card (prep.js) ends the page in session (left out until someone
+// bottom. R-352 (27 Oct): the top four are open: the health check (the sentence alone), the next step said once under a
+// heading that names it ("Needs a hearing by Mon 3/30"), with its row and its way to act (D16), its bills, and who is
+// working on it (with the coalition line). Then two quiet lines (where legislators stand, until a stance is known; the
+// public page, with the supporters' stories), three folds of one weight (talking points and materials, with where partners
+// stand, issue_partner_positions, migration 189; the timeline, newest first, folded again after five; last year's
+// result), and related issues in one line. The 2027 prep card (prep.js) ends the page in session (left out until someone
 // starts it, item 7 of walk 3) and leads it between sessions.
 //
 // Replaced, not added (A-25): the lead mark (issuestand.js) and Hearings this week (coalition.js standWeekHTML) gave way to
@@ -25,8 +25,8 @@
 // Moved here from issues.js (R-336 walk 3): pageRender and its helpers, the bill search to put a bill on the issue,
 // related issues, merge, archive, the first-visit switch. issues.js re-exports issuePage, so app.js is unchanged.
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL } from './data.js';
-import { billById, plain, PUBLIC_APP, billRef, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
-import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, switchRow, ownerOf, openSheet, closeSheet } from './ui.js';
+import { billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
+import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { plural, afterClose, billName, iconName } from './lists.js';
 import { logConversation, refreshConversations } from './conversation.js';
 import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF, prepHoldsOutlook, helpersOf as issueHelpersOf } from './prep.js';
@@ -37,7 +37,7 @@ import { listBox, rememberRow, issueLead } from './issuestand.js';
 import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { STATES } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
-import { itemRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus } from './steps.js';
+import { itemRow, billRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK } from './steps.js';
 import { surname } from './pathway.js';
 import { trackerModel } from './tracker.js';
 import { STANCE_WORD, STANCE_ICON, photo, shortName, legHref, roleWord } from './pathway.js';
@@ -49,7 +49,6 @@ const live = () => (S.issues || []).filter(i => !i.archived_at);
 const byName = (a, b) => a.name.localeCompare(b.name);
 const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
-const catIcon = k => catByKey(k)?.icon || 'tag';
 const mayPublic = i => !!S.me && (!!S.me.is_admin || i.owner_id === S.me.id);
 const mayStance = mayPublic;
 const wantPeople = () => { if (!S.peopleLoaded && !S.peopleLoading && !S.isPeopleTried) { S.isPeopleTried = true; DB.loadPeople().then(() => hooks.render()).catch(() => {}); } };
@@ -149,11 +148,14 @@ function billCard(x, { me = false } = {}) {
       ${x.alive ? barHTML(b) : ''}<span class="v6-row-line">${x.alive ? '' : icon('circle-minus')}<span><span class="sr">${esc(stepOfWords(b))}</span>${nw(esc(line))}</span></span></a></div>`;
 }
 const STOP_SHOWN = 2;   // stopped bills past this many fold under one line (what is done may fold: rule 3)
-function columnHTML(side, xs) {
+// A column with none alive folds all its stopped bills when the other column still has one alive (R-352: the alive bill is
+// the news; when every bill stopped, the first two stay open, since why they stopped is then the whole story).
+function columnHTML(side, xs, { anyAlive = false } = {}) {
   const alive = xs.filter(x => x.alive), gone = xs.filter(x => !x.alive), word = CH[side];
   const count = alive.length ? `${alive.length} alive` : gone.length ? 'none alive' : '';
-  const shown = gone.slice(0, alive.length ? 0 : STOP_SHOWN), more = gone.slice(shown.length);
-  const fold = more.length ? `<details class="ip6-fold" data-fold="stop-${side}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${alive.length || shown.length ? `${plural(more.length, 'more')} stopped` : `${plural(more.length, 'bill')} stopped`}</span></summary>${listBox(more.map(billCard).join(''))}</details>` : '';
+  const shown = gone.slice(0, alive.length || anyAlive ? 0 : STOP_SHOWN), more = gone.slice(shown.length);
+  // "1 more stopped", "3 more stopped" (R-352: plural() made "3 mores"), or "3 bills stopped" when none is shown above it.
+  const fold = more.length ? `<details class="ip6-fold" data-fold="stop-${side}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${alive.length || shown.length ? `${more.length} more stopped` : `${plural(more.length, 'bill')} stopped`}</span></summary>${listBox(more.map(billCard).join(''))}</details>` : '';
   // The empty line only when nothing follows it (the fresh-eyes review: a "none alive" box over stopped cards said it twice).
   const none = !alive.length && !gone.length ? `<p class="ip6-none" data-ip-none="${side}">${icon('circle-minus')}<span>No bill that started in the ${word} is still alive</span></p>` : '';
   return `<section class="ip6-col" aria-labelledby="ip-c${side}" data-ip-col="${side}">
@@ -163,27 +165,21 @@ function columnHTML(side, xs) {
   </section>`;
 }
 
-// Each step in words a person says: who, the verb, the thing ("Kevin files testimony", "You write the draft", "Kevin asks
-// the Senate chair for a hearing"). The row leads with it, and the health check's "Next:" is the same words as a whole
-// sentence with the bill and the day ("Next: Kevin files testimony on HB 2121, by Wed 3/18."), never cut (fresh-eyes review).
-const lc1 = t => /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t;
-const isToday = at => dayWords(at) === dayWords(Date.now());
-const whenSay = at => at == null ? '' : isToday(at) ? 'today' : `by ${dayWords(at)}`;
-const STEPV = { nodraft: ['write the draft', 'writes the draft'], write: ['write the draft', 'writes the draft'], submit: ['send testimony for approval', 'sends testimony for approval'],
-  revise: ['resubmit testimony', 'resubmits testimony'], approve: ['approve testimony', 'approves testimony'], second: ['give testimony a second look', 'gives testimony a second look'],
-  file: ['file testimony', 'files testimony'], missed: ['check whether testimony went in', 'checks whether testimony went in'] };
-// "Send the ask ..." -> "sends the ask ..." for someone else (the first word of a to-do is its verb).
-const third = t => t.replace(/^(\w+)/, w => /(s|sh|ch|x|z)$/i.test(w) ? w + 'es' : /[^aeiou]y$/i.test(w) ? w.slice(0, -1) + 'ies' : w + 's');
-function stepWords(s, b) {
-  const st = stopOf(b), ch = CH[st.chamber] || '', you = !!s.you, who = s.nobody ? '' : you ? 'You' : cap(s.whose?.words || '');
-  let v;
-  if (s.kind === 'chair') {
-    const chair = /chairs/.test(String(s.ask?.chair || '')) ? `${ch} chairs` : `${ch} chair`;
-    v = s.ask?.key === 'ask' || s.ask?.key === 'giving' ? [`ask the ${chair} for a hearing`, `asks the ${chair} for a hearing`]
-      : s.ask?.key === 'waiting' && s.ask.followUp ? [`follow up with the ${chair}`, `follows up with the ${chair}`] : null;
-  } else v = STEPV[s.kind];
-  if (!v) return cap(String(s.line || ''));
-  return s.nobody ? `${cap(v[0])} (no owner yet)` : `${who} ${you ? v[0] : v[1]}`;
+// ---- the next step, said once, with a way to act (R-352, Nate's walk 4) ----
+// The health check used to end "Next: ..." and What to do next said the same step again below it, and neither held the
+// way to act. Now the block's heading is the first step in plain words ("Needs a hearing by Mon 3/30"), its row is the bill
+// as Today and Bills draw it (steps.js billRow: the nickname, the number small, the step's one line from status(), and the
+// row's one button where the app offers one: D16), and a chair ask with no button of its own ends with the way to it,
+// "Ask on Bills That Need Hearings ›". Any later steps follow under "After that", in date order.
+const mayAsk = s => s.kind === 'chair' && ['ask', 'giving', 'waiting'].includes(s.ask?.key);
+// The heading: what the first step needs, by when (one wording per state: the deadline as the bill's own line says it).
+function headOf(x) {
+  const b = x.b, s = x.s, st = stopOf(b);
+  if (s?.kind === 'chair') { const dl = st.deadline && !st.deadline.missed ? ` by ${dayWords(st.deadline.date)}` : '';
+    return s.ask?.decide ? `Needs a committee vote${dl}` : `Needs a hearing${dl}`; }
+  if (s) return s.kind === 'missed' ? 'Did its testimony go in?' : s.h ? `Testimony for the ${dayWords(s.h.scheduled_at)} hearing` : 'Testimony to write';
+  if (x.verb === 'hearing') return `Hearing ${dayWords(x.at)}`;
+  return x.at == null ? 'A to-do on its bills' : dayWords(x.at) === dayWords(Date.now()) ? 'Due today' : `Due ${dayWords(x.at)}`;
 }
 // ---- what to do next: each alive bill's step (steps.js billStep, the row Today and the bill draw), its hearing ahead
 // when it has no step, and its open to-dos; in date order ----
@@ -194,45 +190,44 @@ function nextSteps(bills) {
     const s = billStep(b, { viewer: v }), h = hearingAhead(b), st = stopOf(b), num = numWords(b);
     if (s && !['none', 'filed'].includes(s.kind)) {
       const at = s.act?.at ?? s.due ?? (s.kind === 'chair' && st.deadline ? ms(st.deadline.date) : null);
-      const phrase = stepWords(s, b), sh = shownStatus(s) || {};
-      // The row's one button where the app already offers one (D16; steps.js rowButtonFor's rule).
-      const button = rowButtonOK(s) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, icon: 'user-round-plus', attrs: { 'data-v6act': 'take', 'data-v6b': b.id } }) : '';
-      const tone = sh.tone && sh.tone !== 'neutral' ? sh.tone : '';
-      // R-344 Rule 3: the team's own time says what it is for ("file by today 7:30 AM"); "due" is only the Capitol's.
-      const team = s.act?.kind === 'hand' && at === s.act.at;
-      const line = [num, at != null ? (s.kind === 'chair' ? `by ${dayWords(at)}` : team ? `${s.act.verb.toLowerCase()} by ${whenAt(at)}` : `due ${whenAt(at)}`) : ''].filter(Boolean).join(' · ');
-      out.push({ at, b, html: itemRow({ key: 'st' + b.id, name: phrase, line: nw(esc(line)), tone, icon: tone ? sh.icon : '', href: billRoute(b), button, cls: 'ip6-step', bill: b.id }),
-        say: `${phrase} on ${num}${at != null ? `, ${whenSay(at)}` : ''}.`, who: s.nobody ? [] : (s.whose?.ids || []), verb: s.kind, nobody: !!s.nobody });
+      out.push({ at, b, s, html: billRow(b, { viewer: v, step: s, cls: 'ip6-step' }), who: s.nobody ? [] : (s.whose?.ids || []), verb: s.kind, nobody: !!s.nobody, ask: mayAsk(s) && !rowButtonOK(s) });
     } else if (h) {
-      out.push({ at: ms(h.scheduled_at), b, html: itemRow({ key: 'hr' + b.id, name: `Hearing in ${cwShort(h.committee)}`, line: nw(esc(`${num} · ${whenAt(h.scheduled_at)}`)), href: billRoute(b), cls: 'ip6-step' }),
-        say: `${num} has its hearing in ${cwShort(h.committee)}, ${isToday(ms(h.scheduled_at)) ? 'today' : dayWords(h.scheduled_at)}.`, who: [], verb: 'hearing' });
+      out.push({ at: ms(h.scheduled_at), b, html: itemRow({ key: 'hr' + b.id, name: nameWords(b), num, line: nw(esc(`Hearing in ${cwShort(h.committee)} · ${whenAt(h.scheduled_at)}`)), href: billRoute(b), cls: 'ip6-step', bill: b.id }),
+        who: [], verb: 'hearing' });
     }
     for (const t of (S.todos?.[b.id] || []).filter(t => !t.done)) {
       const due = t.due_date ? ms(String(t.due_date).length === 10 ? t.due_date + 'T17:00:00-10:00' : t.due_date) : null;
-      const you = !!t.assignee_id && t.assignee_id === v?.id, who = t.assignee_id ? cap(firstWords(t.assignee_id, v)) : '';
-      const title = unCode(t.title);
+      const who = t.assignee_id ? cap(firstWords(t.assignee_id, v)) : '';
       // The database's email-blast to-do ("Send the ask to HIPHI's list and partners for the HHS/CPN hearing 3/20") said
-      // shortly; any other to-do in its own words when they are short, else "has a to-do on HB 2121".
+      // shortly, so its row keeps to two lines: "Send the action alert for the 3/20 Senate hearing".
       const blast = /^(Send the ask to HIPHI|Send an email blast)/.test(t.title) ? /hearing (\d+\/\d+)$/.exec(t.title) : null;
       const hear = blast ? (S.hearings || []).find(x => 'eb' + x.id === t.id) : null, hch = hear ? CH[S.committees?.[codesOf(hear.committee)[0]]?.chamber] || (/^Senate/.test(cw(hear.committee)) ? 'Senate' : /^House/.test(cw(hear.committee)) ? 'House' : '') : '';
-      const short = blast ? `${you ? 'send' : 'sends'} the action alert for the ${blast[1]}${hch ? ' ' + hch : ''} hearing`
-        : title.length <= 48 ? (you || !who ? lc1(title) : lc1(third(title))) : '';
-      const phrase = !short ? `${who || 'Nobody yet'} ${you ? 'have' : 'has'} a to-do on ${numWords(b)}` : who ? `${who} ${short}` : `${cap(short)} (no owner yet)`;
-      out.push({ at: due, b, html: itemRow({ key: 'td' + t.id, name: title, line: nw(esc([numWords(b), who || 'No owner yet', due != null ? `due ${dayWords(due)}` : ''].filter(Boolean).join(' · '))), href: billRoute(b), cls: 'ip6-todo' }),
-        say: `${phrase}${due != null ? `, ${whenSay(due)}` : ''}.`, who: t.assignee_id ? [t.assignee_id] : [], verb: 'todo' });
+      const name = blast ? `Send the action alert for the ${blast[1]}${hch ? ' ' + hch : ''} hearing` : unCode(t.title);
+      out.push({ at: due, b, html: itemRow({ key: 'td' + t.id, name, line: nw(esc([num, who || 'No owner yet', due != null ? `due ${dayWords(due)}` : ''].filter(Boolean).join(' · '))), href: billRoute(b), cls: 'ip6-todo' }),
+        who: t.assignee_id ? [t.assignee_id] : [], verb: 'todo' });
     }
   }
   return out.sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity));
 }
-function nextHTML(steps, anyBills) {
-  return `<section class="ip6-sec ip6-next" aria-labelledby="ip-nh"><h2 class="ip6-h" id="ip-nh">What to do next</h2>
-    ${steps.length ? `<div class="v6-list i6-list" role="list">${steps.map(x => x.html).join('')}</div>`
+// The way to ask a chair, standalone (teal, "›", no underline: the wave-2 rule for links), on the asker's own list when
+// the step is theirs, else the team's.
+const askGo = x => `<p class="ip6-go"><a class="ip6-golink" href="#/hearings/ask?scope=${x.s?.you ? 'mine' : 'team'}">Ask on ${ASK_TAB}<span aria-hidden="true"> ›</span></a></p>`;
+function nextHTML(steps, anyBills, { prep = false } = {}) {
+  const list = xs => `<div class="v6-list i6-list" role="list">${xs.map(x => x.html).join('')}</div>`;
+  if (!steps.length) return `<section class="ip6-sec ip6-next" aria-labelledby="ip-nh"><h2 class="ip6-h" id="ip-nh">What to do next</h2>
+    ${prep ? `<p class="ip6-go">${btn('Get it ready for 2027', { kind: 'text', cls: 'ip6-golink', attrs: { 'data-ip': 'prep' } })}</p>`
       : `<p class="ip6-quiet">${anyBills ? 'Nothing to do on its bills right now.' : 'Nothing yet: put a bill on it first.'}</p>`}
+  </section>`;
+  const [first, ...rest] = steps, later = rest.find(x => x.ask);
+  return `<section class="ip6-sec ip6-next" aria-labelledby="ip-nh"><h2 class="ip6-h" id="ip-nh">${nw(esc(headOf(first)))}</h2>
+    ${list([first])}${first.ask ? askGo(first) : ''}
+    ${rest.length ? `<h3 class="ip6-h3">After that</h3>${list(rest)}${!first.ask && later ? askGo(later) : ''}` : ''}
   </section>`;
 }
 
 // ---- the health check: one plain sentence, Nate's words (25 Oct) ----
-function health(xs, steps, earlier, { prepNext = false } = {}) {
+// R-352: the sentence alone; the next step is said once, in the block under it, with its way to act.
+function health(xs, earlier) {
   const now = xs.filter(x => thisSession(x.b)), alive = now.filter(x => x.alive), law = alive.filter(x => x.law);
   const H = alive.filter(x => x.side === 'H'), Sn = alive.filter(x => x.side === 'S'), past = alive.filter(x => PAST.has(x.st.phase) && !x.law);
   let k, text;
@@ -249,12 +244,10 @@ function health(xs, steps, earlier, { prepNext = false } = {}) {
       : `all ${n} alive bills started in the ${one}. If they stop${at}, the issue ends this year.`;
   }
   // The state's word and shape from verbs.js STATES.issue (the same on All issues' cards and My issues): ✓ On track,
-  // ⚠ At risk, ⊖ Stopped, the trophy for Won; no tint on the box, the House and Senate dots under it.
+  // ⚠ At risk, ⊖ Stopped, the trophy for Won; no tint on the box.
   const LEAD = [k === 'none' ? '' : STATES.issue[k].word, STATES.issue[k].icon];
-  const nx = k === 'stopped' ? (prepNext ? `<span class="ip6-hn">Next: ${btn('get it ready for 2027', { kind: 'text', cls: 'ip6-hlink', attrs: { 'data-ip': 'prep' } })}.</span>` : '')
-    : steps[0] && k !== 'none' ? `<span class="ip6-hn">${nw(esc(`Next: ${steps[0].say}`))}</span>` : '';
-  return { k, lead: LEAD[0], text: LEAD[0] ? cap(text) : cap(text), html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
-    <p class="ip6-hs" data-state="issue:${k}">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}${nx}</span></p></section>` };   // no House and Senate dots here (the review): the sentence says where, and "Its bills" splits it
+  return { k, lead: LEAD[0], text: cap(text), html: `<section class="ip6-health" data-health="${k}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2>
+    <p class="ip6-hs" data-state="issue:${k}">${icon(LEAD[1])}<span>${LEAD[0] ? `<b>${LEAD[0]}:</b> ` : ''}${nw(esc(LEAD[0] ? text : cap(text)))}</span></p></section>` };
 }
 
 // ---- who is working on it ----
@@ -304,7 +297,8 @@ function legsHTML(i, xs) {
     const holds = `holds ${listAnd(g.bills.map(numWords))}${h ? `, hearing ${whenAt(h.scheduled_at)}` : ''}`;
     const chairWords = chairs.length ? `${chairs.length > 1 ? 'chairs' : 'chair'} ${listAnd(chairs.map(m => surname(m.l)))}` : '';
     // Nothing known yet: one line per committee (rows only once a stance exists; the fresh-eyes review).
-    if (!known.length) return `<p class="ip6-pl ip6-lline">${icon('gavel')}<span><span class="ip6-lname">${esc(cwShort(g.code))}</span> ${esc(`${holds} · ${[chairWords, 'no stances known yet'].filter(Boolean).join(' · ')}`)}</span></p>`;
+    // The hearing's time is left to the bill's card above (said once).
+    if (!known.length) return `<p class="ip6-pl ip6-lline">${icon('gavel')}<span><span class="ip6-lname">${esc(cwShort(g.code))}</span> ${esc(`holds ${listAnd(g.bills.map(numWords))} · ${[chairWords, 'no stances known yet'].filter(Boolean).join(' · ')}`)}</span></p>`;
     const unk = all.length - known.length;
     return `<div class="ip6-lg"><h3 class="ip6-lgh">${esc(cwShort(g.code))}</h3>
       <p class="ip6-lgs">${esc(cap(`${holds}${chairWords ? ` · ${chairWords}` : ''}`))}</p>
@@ -313,13 +307,14 @@ function legsHTML(i, xs) {
     </div>`;
   }).join('');
   const fl = floor.length ? `<p class="ip6-pl">${icon('vote')}<span>${esc(floor.map(x => `${numWords(x.b)} waits for a vote of the full ${CH[x.st.chamber] || 'chamber'}`).join('; '))}</span></p>` : '';
-  const cares = !PROFILES() || i.archived_at ? '' : caresLegs(i.id).length ? caresSecHTML(i) : `<p class="ip6-pl">${icon('landmark')}<span>Legislators who care about this: none yet</span></p>`;
-  // The closed line's summary (walk 4): how many committees hold its bills, and whether any stance is known.
+  // Legislators who care about it, only once someone is named (a "none yet" line on every issue said nothing).
+  const cares = !PROFILES() || i.archived_at || !caresLegs(i.id).length ? '' : caresSecHTML(i);
+  // R-352 (walk 3's shape, Nate walk 4: "should not be as prominent"): until a stance is known it is one quiet line per
+  // committee holding its bills, open, with no heading or fold; once one is known, the committee's members with a stance.
   const known = [...by.values()].reduce((n, g) => n + legsOf(g.code).filter(m => stanceFor(m.l, g.bills).s !== 'unknown').length, 0);
-  const sum = !by.size && !floor.length ? 'No committee holds its bills now'
-    : [by.size ? plural(by.size, 'committee') : '', floor.length ? `${plural(floor.length, 'bill')} at a floor vote` : '', known ? plural(known, 'stance') + ' known' : 'no stances known yet'].filter(Boolean).join(' · ');
-  const body = !groups && !fl ? `<p class="ip6-quiet">No committee holds one of its bills right now.</p>${cares}` : `${groups}${fl}${cares}`;
-  return { sum, body: `<div class="ip6-legs">${body}</div>` };
+  if (!groups && !fl && !cares) return '';
+  if (!known) return `<div class="ip6-legs" data-ip-legs="line">${groups}${fl}${cares}</div>`;
+  return `<section class="ip6-legs is-rows" aria-labelledby="ip-lh" data-ip-legs="rows"><h2 class="ip6-h3" id="ip-lh">Where legislators stand</h2>${groups}${fl}${cares}</section>`;
 }
 
 // ---- the timeline: hearings and their results, testimony filed, talks logged, floor votes and the team's notes, across
@@ -427,7 +422,7 @@ function paintLate(i) {
   const ts = document.querySelector('[data-ip-late="tlsum"]'); if (ts) ts.textContent = tlSum(i, now.concat(earlier));
 }
 
-// ---- public interest, and where partners stand ----
+// ---- where partners stand (in Talking points and materials), and the public page's line ----
 // Where partners stand (issue_partner_positions, migration 189, Nate's yes on walk 4): staff record each partner group's
 // position on the issue, or on one of its bills, for a session. Read once per visit; a failed read shows the older lines
 // (the partner groups writing on its bills) and no editor, so nothing is claimed that could not be read.
@@ -472,36 +467,34 @@ function ppBody(i, now) {
     ${writing}`;
 }
 const ppCount = i => { const box = PP()[i.id]; return !box || box.state === 'loading' ? null : box.state === 'err' ? -1 : box.rows.length; };
-function publicSum(i, now) {
-  const n = ppCount(i), f = sumPub(now).followers;
-  const pp = n == null ? '' : n < 0 ? '' : n ? plural(n, 'partner position') : 'no partner positions yet';
-  return [isDraft(i) ? '' : `${f.toLocaleString()} following its bills`, pp].filter(Boolean).join(' · ') || 'loading…';
-}
 function sumPub(now) {
   const sum = { followers: 0, testimonies: 0, emails: 0, attending: 0 };
   for (const b of now) { const c = S.pubCounts?.[b.id]; if (!c) continue; sum.followers += c.followers || 0; if ((c.people || 0) >= 10) { sum.testimonies += c.testimonies || 0; sum.emails += c.emails || 0; sum.attending += c.attending || 0; } }
   return sum;
 }
-function publicHTML(i, now) {
-  wantPP(i);
-  const pp = `<h3 class="ip6-h3">Where partners stand</h3><div data-ip-late="pp">${ppBody(i, now)}</div>`;
-  // A draft has no public page yet: only where partners stand.
-  if (isDraft(i)) return { title: 'Where partners stand', sum: publicSum(i, now), body: `<div data-ip-late="pp">${ppBody(i, now)}</div>` };
-  const f = followers(i), sum = sumPub(now);
-  const acts = [sum.testimonies ? `${sum.testimonies} testified` : '', sum.emails ? `${sum.emails} emailed a legislator` : '', sum.attending ? `${sum.attending} plan to attend` : ''].filter(Boolean);
-  // The first-visit switch is a setting, so it moved to the issue's "…" (the fresh-eyes review); here its state, in words.
-  const fv = i.archived_at ? '' : `<p class="ip6-pl">${icon(inFirstVisit(i) ? 'eye' : 'eye-off')}<span>${inFirstVisit(i) ? 'Shown in the first visit' : 'Left out of the first visit'}</span></p>`;
-  return { title: 'Public interest and where partners stand', sum: publicSum(i, now), body: `<div class="ip6-pub">
-    <p class="ip6-pl">${icon('users')}<span>${esc(f ? `Following this issue: ${f.own}${f.via ? ` (${f.via} more with its whole topic)` : ''} · following its bills: ${sum.followers}` : 'Counting followers…')}</span></p>
-    ${acts.length ? `<p class="ip6-pl">${icon('megaphone')}<span>${esc(cap(acts.join(' · ')))}</span></p>` : ''}
-    ${fv}</div>${pp}` };
+// On the public page, in one quiet line (R-352: Public interest and Stories were two folds): who follows it and its bills,
+// what they did, the first visit only when it is left out (the "…" holds the switch), and the supporters' stories, which
+// open in a sheet for the issue's owner, its helpers and admins. A draft has no public page yet, so only its stories.
+function publicLine(i, now) {
+  const parts = [];
+  if (!isDraft(i) && !i.archived_at) {
+    const f = followers(i), sum = sumPub(now);
+    parts.push(f ? `${f.own ? `${f.own} following this issue${f.via ? ` (${f.via} more with its whole topic)` : ''} · ` : ''}${sum.followers} following its bills` : 'counting followers…');
+    if (sum.testimonies) parts.push(`${sum.testimonies} testified`); if (sum.emails) parts.push(`${sum.emails} emailed a legislator`); if (sum.attending) parts.push(`${sum.attending} plan to attend`);
+    if (!inFirstVisit(i)) parts.push('left out of the first visit');
+  }
+  let stories = '';
+  if (mayStories(i)) { wantStories(i); const r = STO()[i.id];
+    if (r && r.length) stories = btn(`${plural(r.length, 'story', 'stories')} from supporters`, { kind: 'text', cls: 'ip6-hlink', attrs: { 'data-ip': 'stories', 'aria-haspopup': 'dialog' } }); }
+  if (!parts.length && !stories) return '';
+  return `<p class="ip6-pl ip6-pub">${icon('users')}<span>On the public page: ${esc(parts.join(' · '))}${stories ? `${parts.length ? ' · ' : ''}${stories}` : ''}</span></p>`;
 }
 // The positions arrive after the first draw: painted in place (no full redraw under the reader), then wired.
 function paintPP(i) {
   if (S.route?.name !== 'issue' || String(S.route.id) !== String(i.id)) return;
   const { now } = billsSplit(i);
   document.querySelectorAll('[data-ip-late="pp"]').forEach(el => { el.innerHTML = ppBody(i, now); wirePP(i, el); });
-  const s = document.querySelector('[data-ip-late="publicsum"]'); if (s) s.textContent = publicSum(i, now);
+  const s = document.querySelector('[data-ip-late="pointssum"]'); if (s) s.textContent = pointsHTML(i, now, billsSplit(i).earlier).sum;
 }
 function ppRedraw(i, focus) {
   const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y);
@@ -587,14 +580,17 @@ function pointsHTML(i, now, earlier) {
     docs.push(`<li><a href="${esc(d.doc_url || d.filed_url)}" target="_blank" rel="noopener">${esc(`${numWords(b)} testimony for ${cw(d.committee)}`)}${icon('external-link')}</a> <span class="ip6-evd">${esc(at ? (d.status === 'filed' ? 'filed ' : '') + dayAny(at) : '')}</span></li>`); }
   const folders = [...new Set(drafts.map(d => d.folder_id).filter(Boolean))].map(f => `<li><a href="https://drive.google.com/drive/folders/${encodeURIComponent(f)}" target="_blank" rel="noopener">Drive folder${icon('external-link')}</a></li>`);
   const docList = [...folders, ...docs];
-  // The closed line (walk 4): "3 points, 6 documents".
-  const np = shown.length + more.length, sum = [np ? plural(np, 'point') : 'no talking points yet', docList.length ? plural(docList.length, 'document') : ''].filter(Boolean).join(', ');
+  // The closed line (walk 4): "3 points, 6 documents, 2 partner positions". Where partners stand moved in here (R-352:
+  // it was half of the Public interest fold): what partners say is material for the team's own case.
+  wantPP(i); const npp = ppCount(i);
+  const np = shown.length + more.length, sum = [np ? plural(np, 'point') : 'no talking points yet', docList.length ? plural(docList.length, 'document') : '', npp > 0 ? plural(npp, 'partner position') : ''].filter(Boolean).join(', ');
   return { sum: cap(sum), body: `${goal}
     ${shown.length ? `${src}<ul class="ip6-pts" role="list">${shown.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : `<p class="ip6-quiet">No talking points yet.</p>`}
     ${more.length ? `<details class="ip6-fold" data-fold="pts"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${plural(more.length, 'more point')} from its bills</span></summary><ul class="ip6-pts" role="list">${more.map(([b, t]) => `<li>${esc(t)}${b ? ` <span class="ip6-evd">${esc(numWords(b))}</span>` : ''}</li>`).join('')}</ul></details>` : ''}
     ${docList.length ? `<h3 class="ip6-h3">Testimony to borrow from</h3><ul class="ip6-docs" role="list">${docList.slice(0, DOCS_SHOWN).join('')}</ul>
       ${docList.length > DOCS_SHOWN ? `<details class="ip6-fold" data-fold="docs"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${plural(docList.length - DOCS_SHOWN, 'more document')}</span></summary><ul class="ip6-docs" role="list">${docList.slice(DOCS_SHOWN).join('')}</ul></details>` : ''}` : ''}
-    <p class="ip6-pl">${icon('book-open')}<span><a href="#/testimony?view=library">Earlier testimony library</a></span></p>` };
+    <p class="ip6-pl">${icon('book-open')}<span><a href="#/testimony?view=library">Earlier testimony library</a></span></p>
+    <h3 class="ip6-h3">Where partners stand</h3><div data-ip-late="pp">${ppBody(i, now)}</div>` };
 }
 
 // ---- the header: name, description, stance, topic; Edit and "…" ----
@@ -641,13 +637,22 @@ function relatedHTML(i) {
   const about = (o, staff) => cap([o.category === i.category ? '' : catByKey(o.category)?.name || o.category, staff ? 'linked by staff' : ''].filter(Boolean).join(', '));
   const who = c => { const a = c.set_by && advocate(c.set_by); return `unlinked${a ? ` by ${a.full_name.split(' ')[0]}` : ''}${c.set_at ? ` ${fmtDate(c.set_at)}` : ''}`; };
   const row = (o, line, button = '') => itemRow({ key: o.id, name: o.name, line: line ? esc(line) : '', href: `#/issue/${encodeURIComponent(o.id)}`, button, cls: 'i6-row', lead: issueLead(o) });
-  return { sum: on.length ? plural(on.length, 'linked issue') : 'none yet', body: `<div class="is6-rel">
+  return { body: `<div class="is6-rel">
     <div class="i6-hrow ip6-sfa"><p class="ip6-quiet">Followers of either one see the other’s bills first.</p>${btn(edit ? 'Done' : 'Edit', { kind: 'text', sm: true, attrs: { 'data-is': 'reledit', 'aria-expanded': String(edit), 'aria-label': edit ? 'Done editing related issues' : 'Edit related issues' } })}</div>
     ${on.length ? listBox(on.map(({ o, staff }) => row(o, about(o, staff), edit ? iconBtn('x', `Unlink ${o.name} from ${i.name}`, { 'data-isunlink': o.id }) : '')).join('')) : '<p class="ip6-quiet">None yet.</p>'}
     ${edit ? `<p class="i6-acts">${btn('Link another issue', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-is': 'link', 'aria-haspopup': 'dialog' } })}</p>
     ${off.length ? `<details class="i6-fold" data-fold="unlinked"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Unlinked by staff (${off.length})</span></summary>
       ${listBox(off.map(({ o, c }) => row(o, cap([about(o), who(c)].filter(Boolean).join(', ')), btn('Link again', { kind: 'text', sm: true, attrs: { 'data-isrelink': o.id } }))).join(''))}</details>` : ''}` : ''}
   </div>` };
+}
+// Related issues in one line (R-352: it was a fold of its own): the linked issues by name, and Edit, which opens the
+// list's tools in place (Link another issue, unlink, link again).
+const REL_SHOWN = 2;   // the rest are named under Edit
+function relatedLine(i) {
+  if (P().rel[i.id]) return `<section class="ip6-rel" aria-labelledby="is-rh"><h2 class="ip6-h3" id="is-rh">Related issues</h2>${relatedHTML(i).body}</section>`;
+  const { on } = relatedOf(i), names = on.slice(0, REL_SHOWN).map(({ o }) => `<a class="ip6-coal" href="#/issue/${encodeURIComponent(o.id)}">${icon(issueIcon(o))}<span>${esc(o.name)}</span></a>`);   // each with its issue's icon, as the coalition line's names (A-18: tells issues apart)
+  const more = on.length > REL_SHOWN ? ` and ${on.length - REL_SHOWN} more` : '';
+  return `<p class="ip6-pl ip6-rel">${icon('link')}<span>Related issues: ${names.length ? names.join(', ') + more : 'none yet'}</span>${btn('Edit', { kind: 'text', sm: true, cls: 'ip6-reledit', attrs: { 'data-is': 'reledit', 'aria-expanded': 'false', 'aria-label': 'Edit related issues' } })}</p>`;
 }
 async function setLink(i, o, on) {
   const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.querySelector('.is6-rel')?.querySelector('[data-is="link"], [data-is="reledit"]')?.focus({ preventScroll: true }); };
@@ -764,7 +769,7 @@ function pageRender(route) {
   wantTl(i, now.concat(earlier));
   const xs = now.map(placeOfBill), names = new Map(); for (const x of xs) { const n = plain(nameWords(x.b)); names.set(n, (names.get(n) || 0) + 1); }
   for (const x of xs) x.twin = names.get(plain(nameWords(x.b))) > 1;
-  const steps = nextSteps(now), hc = health(xs, steps, earlier, { prepNext: !i.archived_at && !isDraft(i) && stateOf(i) !== 'approved' });
+  const steps = nextSteps(now), hc = health(xs, earlier), prepNext = hc.k === 'stopped' && !i.archived_at && !isDraft(i) && stateOf(i) !== 'approved';
   const outlook = i.outlook ? `<p class="is6-desc"><span class="is6-dl">Between sessions, the public reads:</span> ${esc(i.outlook)}</p>` : '';
   const head = `<header class="is6-head ip6-head">
       <span class="is6-icon mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>
@@ -779,29 +784,27 @@ function pageRender(route) {
     ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
   // The bills, House bills | Senate bills, by the chamber each started in.
   const edit = !!P().edit[i.id] || !(now.length + earlier.length);
-  const cols = now.length ? `<div class="ip6-cols">${columnHTML('H', xs.filter(x => x.side === 'H'))}${columnHTML('S', xs.filter(x => x.side === 'S'))}</div>` : '';
+  const anyAlive = xs.some(x => x.alive), cols = now.length ? `<div class="ip6-cols">${columnHTML('H', xs.filter(x => x.side === 'H'), { anyAlive })}${columnHTML('S', xs.filter(x => x.side === 'S'), { anyAlive })}</div>` : '';
   const editBtn = now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : '';
   const billsSec = `<section class="ip6-sec ip6-bills" aria-labelledby="is-bh"><div class="i6-hrow"><h2 class="ip6-h" id="is-bh">Its bills</h2>${editBtn}</div>
     ${cols}${edit ? editHTML(i, now, earlier) : ''}</section>`;
   // R-316 W16: between sessions the 2027 prep is the work, so its card comes first; in session it waits at the end (and is
   // left out until someone starts it: prep.js, walk 3 item 7).
   const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook, always: hc.k === 'stopped' }), prepFirst = (SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved') || isDraft(i);
-  const next = nextHTML(steps, now.length > 0), who = whoHTML(i, xs, steps), pub = publicHTML(i, now);
+  const next = nextHTML(steps, now.length > 0, { prep: prepNext }), who = whoHTML(i, xs, steps);
   const back = `<a class="co6-back" href="${from ? billRoute(from) : bk.href}" data-back${from ? ` aria-label="Back to ${esc(from.bill_number)}"` : ''}>${icon('chevron-left')}<span>${from ? `Back to ${esc(from.bill_number)}` : esc(bk.label)}</span></a>`;
   // One reading column at every width (Nate, walk 4: "one column on a laptop", read top to bottom; the screen is a 760px
-  // column, `narrow`). The top four stay open: how it stands, what to do next, its bills, who is working on it. Everything
-  // after is folded with a one-line summary, in Nate's order; where legislators stand sits quiet, last before the timeline
-  // ("the where legislators stand section should not be as prominent"). Related issues end it, quiet too.
+  // column, `narrow`, left-aligned at the work area's edge like every other screen). The top four stay open: how it
+  // stands, the next step, its bills, who is working on it. Then two quiet lines, where legislators stand (Nate: "should
+  // not be as prominent") and the public page; then three folds of reference, one weight, each with its summary on the
+  // closed line (R-352: seven folds of uneven weight were too many); related issues end it in one line.
+  const lines = [legsHTML(i, xs), publicLine(i, now)].filter(Boolean).join('');
   const folds = [
     foldSec('points', 'ip-mh', 'Talking points and materials', pointsHTML(i, now, earlier)),
-    foldSec('public', 'ip-ph', pub.title, pub),
-    mayStories(i) ? (wantStories(i), foldSec('stories', 'ip-sh', 'Stories from supporters', storiesHTML(i))) : '',
-    foldSec('legs', 'ip-lh', 'Where legislators stand', legsHTML(i, xs), { quiet: true }),
     foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' }),
     foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' }),
-    i.archived_at ? '' : foldSec('related', 'is-rh', 'Related issues', relatedHTML(i), { quiet: true }),
   ].join('');
-  return `<div class="le-page is6-page ip6-page">${back}${head}${prepFirst ? prep : ''}${hc.html}${next}${billsSec}${who}<div class="ip6-folds">${folds}</div>${prepFirst ? '' : prep}</div>`;
+  return `<div class="le-page is6-page ip6-page">${back}${head}${prepFirst ? prep : ''}${hc.html}${next}${billsSec}${who}${lines ? `<div class="ip6-lines">${lines}</div>` : ''}<div class="ip6-folds">${folds}</div>${i.archived_at ? '' : relatedLine(i)}${prepFirst ? '' : prep}</div>`;
 }
 
 export const issuePage = {
@@ -819,6 +822,8 @@ export const issuePage = {
     const st = P();
     root.querySelector('[data-ip="prep"]')?.addEventListener('click', () => { const c = root.querySelector('.pr6-card'); if (!c) return;
       if (c.tagName === 'DETAILS') c.open = true; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.querySelector('summary, h2, [data-prfocus]')?.focus({ preventScroll: true }); });
+    // The supporters' stories open in a sheet from the public page's line (R-352: they were a fold of their own).
+    root.querySelector('[data-ip="stories"]')?.addEventListener('click', () => openSheet({ title: 'Stories from supporters', body: `<div class="le-sheet">${storiesHTML(i).body}</div>` }));
     root.querySelector('[data-ip="cvlog"]')?.addEventListener('click', () => logConversation({ issueId: i.id, onDone: () => { refreshConversations(); delete TL()[i.id]; hooks.render(); } }));
     // The "…" holds the rare actions (F155); Edit is also a visible text button beside it.
     root.querySelector('[data-is="edit"]')?.addEventListener('click', () => openIssueForm(i));
@@ -904,7 +909,7 @@ export function issueCardHTML(i, b) {
   const { now, earlier } = billsSplit(i), xs = now.map(placeOfBill), names = new Map();
   for (const x of xs) { const n = plain(nameWords(x.b)); names.set(n, (names.get(n) || 0) + 1); }
   for (const x of xs) x.twin = names.get(plain(nameWords(x.b))) > 1;
-  const hc = health(xs, [], earlier), alive = xs.filter(x => x.alive), gone = xs.length - alive.length, href = issueLinkHref(i, b);
+  const hc = health(xs, earlier), alive = xs.filter(x => x.alive), gone = xs.length - alive.length, href = issueLinkHref(i, b);
   const tint = tintOf(Math.max((S.categories || []).findIndex(c => c.key === i.category), 0));
   // R-344: the issue set's shapes (verbs.js STATES.issue), the same as the issue page's box and All issues' cards
   const pill = hc.lead ? `<p class="bw-ic-pillp"><span class="bw-if-pill is-${hc.k}" data-state="issue:${hc.k}">${icon(STATES.issue[hc.k]?.icon || 'circle')}<span>${esc(hc.lead)}</span></span></p>` : '';
