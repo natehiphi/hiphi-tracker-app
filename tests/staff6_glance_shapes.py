@@ -151,15 +151,16 @@ with L.browser() as B:
     # ---- 5. All issues ----
     pg.nav('/my-issues/all')
     c = pg.page.evaluate("""(() => { const cards = [...document.querySelectorAll('#is-q-body .ig6-issue')];
-      return { n: cards.length, state: cards.map(x => x.querySelector('[data-state^="issue:"]')?.dataset.state || ''),
-        dots: cards.filter(x => x.querySelectorAll('.v6-chd').length === 2).length,
-        tint: cards.filter(x => { const m = x.querySelector('.ig6-sline .v6-sm-ic'); return m && getComputedStyle(m).backgroundColor !== getComputedStyle(document.body).getPropertyValue('--v6-wash').trim() && /leaf|late|bad/.test(m.parentElement.className) && !/t-done/.test(m.parentElement.className); }).length,
-        boxTint: cards.filter(x => { const bg = getComputedStyle(x.querySelector('.ig6-sline')).backgroundColor; return !/rgba\\(0, 0, 0, 0\\)|transparent/.test(bg); }).length }; })()""")
+      return { n: cards.length, state: cards.map(x => x.querySelector('.ig6-stat [data-state^="issue:"]')?.dataset.state || ''),
+        word: cards.filter(x => (x.querySelector('.ig6-stat .ig6-sic')?.getAttribute('aria-label') || '').trim()).length,
+        boxTint: cards.filter(x => { const bg = getComputedStyle(x.querySelector('.ig6-stat')).backgroundColor; return !/rgba\\(0, 0, 0, 0\\)|transparent/.test(bg); }).length }; })()""")
     keys = {'issue:ontrack', 'issue:risk', 'issue:stopped', 'issue:won', 'issue:none'}
-    R.check(f'{w} All issues: every card says how its issue is doing as one shape and word', c['n'] > 0 and all(k in keys for k in c['state']), sorted(set(c['state'])))
+    R.check(f'{w} All issues: every card\'s status line wears how its issue is doing, one shape per state', c['n'] > 0 and all(k in keys for k in c['state']), sorted(set(c['state'])))
     R.check(f'{w} All issues: the states vary (not one shape on every card)', len(set(c['state'])) >= 3, sorted(set(c['state'])))
-    R.check(f'{w} All issues: the state line has no tint (Decision 4)', c['boxTint'] == 0 and c['tint'] == 0, (c['boxTint'], c['tint']))
-    R.check(f'{w} All issues: every card with bills carries the House and Senate dots', c['dots'] >= len([k for k in c['state'] if k != 'issue:none']), (c['dots'], c['n']))
+    R.check(f'{w} All issues: each shape has its word for screen readers', c['word'] == c['n'], (c['word'], c['n']))
+    R.check(f'{w} All issues: no tint (Decision 4)', c['boxTint'] == 0, c['boxTint'])
+    fa = pg.measure(full=True)
+    R.check(f'{w} All issues: a card keeps spec 8\'s four facts', fa['facts_max'] <= 4, (fa['facts_max'], fa['worst_row']))
     R.check(f'{w} All issues: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     shot(pg, 'all-issues')
 

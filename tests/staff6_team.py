@@ -34,7 +34,7 @@ def main():
     check('1440: Slipping shows its 3 most urgent rows', len(top) == min(3, n), f'{len(top)} of {n}')
     check('1440: each of the 3 has its one action', top and all(r['btn'] for r in top), [r['t'][:50] for r in top if not r['btn']])
     check('1440: the 3 are on the first screen', top and max(r['y'] for r in top) <= 900, [r['y'] for r in top])
-    check('1440: overdue first, then late, then the rest', top and 'Overdue' in top[0]['t'] and (len(top) < 2 or re.search(r'late, still accepted', top[1]['t'])), [r['t'][:60] for r in top])
+    check('1440: overdue first, then late, then the rest', top and 'Overdue' in top[0]['t'] and (len(top) < 2 or re.search(r'(?i)late, still accepted', top[1]['t'])), [r['t'][:60] for r in top])
     m = pg.measure()
     check('1440: at most 12 controls on the first screen (A-2 on v6)', m['controls'] <= 12, m['controls'])
     check('1440: fewer words on the first screen than before (246)', m['words'] < 200, m['words'])

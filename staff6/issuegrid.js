@@ -24,7 +24,7 @@ import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb } from './issuestand.js';
 import { nw } from './steps.js';
-import { stateMark, issueKey, chamberDots } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape (Decision 4)
+import { STATES, issueKey } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape (Decision 4)
 
 // ---- the picture: an icon on a soft tint ----
 // Six tints, in the topics' order (tokens in issues.css .ig6-tint1..6, each a wash of one hue with a darker ink of the same
@@ -182,15 +182,17 @@ function issueCard(x, { tags = [], why = null, letter = '', anchor = '' } = {}) 
   // goes (R-344 D10, "Legal adult-use cannabis"), so it stays on the issue's own page with its switch.
   const shown = tags.filter(t => !/first visit/i.test(t));
   const line = shown.length ? [esc(shown.join(', ')), 'ig6-desc ig6-tag'] : [desc ? esc(desc) : '', 'ig6-desc', desc];
-  // R-344 Rule 2, Decision 4: how the issue is doing as one shape and its word (On track, At risk, Stopped, Won, No bills
-  // yet), neutral, no tint, with the House and Senate dots beside it. A card with no bills keeps its status line's words
-  // and shows the shape alone (A-25: said once); "At risk:" stays at the head of its status line (R-272's This week).
-  const key = issueKey(x);
-  const state = [`${stateMark('issue', key, { size: 20, cls: 'ig6-state', word: key !== 'none' })}${key !== 'none' ? chamberDots(x.going) : ''}`, 'ig6-sline'];
+  // R-344 Rule 2, Decision 4: how the issue is doing is the status line's own picture, one shape per state (On track's
+  // tick, At risk's triangle, Stopped's minus, Won's trophy, No bills' dashed ring), neutral, no tint; its word is read
+  // with it and is in the card's title. A line of its own with the word and the House and Senate dots took the card to
+  // seven facts against spec 8's four (the budget test), and the status line already says the chambers in words.
+  const key = issueKey(x), sw = STATES.issue[key];
+  const stH = st ? statusHTML(st) : null;
+  const shaped = stH ? [stH[0].replace(/^<svg[\s\S]*?<\/svg>/, `<span class="ig6-sic" data-state="issue:${key}" role="img" aria-label="${esc(sw.word)}" title="${esc(sw.word)}">${icon(sw.icon)}</span>`), stH[1]] : null;
   return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', letter, anchor, cls: 'ig6-issue',
     // The issue's own icon (Nate's R-339 picks), else its topic's.
     pic: picHTML({ ic: issueIcon(i), tint: Math.max(catIndex(i.category), 0) }),
-    lines: [line, statusHTML(st), state] });
+    lines: [line, shaped] });
 }
 
 // ---- the sorts ----
