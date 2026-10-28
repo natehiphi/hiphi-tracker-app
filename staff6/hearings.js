@@ -436,8 +436,33 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
   return `<div class="hc-cal">${btns}<div class="hc-grid">${wd.map(dayCol).join('')}</div>${weekend}</div>${monLine}${askL()}`;
 }
 
-// R-352 (Nate 27 Oct): the week calendar's one home is Hearings (calHTML below); Today's week and All issues' calendar,
-// and the exports they used (CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal, calPick, weekGlance), are gone.
+// ---- The same week calendar on All issues (R-342, Nate 26 Oct; R-352 FIX-3, Nate 28 Oct: "keep the calendar view") ----
+// One calendar, drawn here (calHTML), so Hearings and All issues never drift: the same entries, the same colour of time and
+// the same words for each state. All issues shows the team's week (All issues is everyone's), each entry with its issue's
+// name; its one way in is the Calendar tab (ui.js SECTIONS, A-12 on v6). The week arrows and the phone's day buttons work
+// as on Hearings; `href(w)` is the page's own address for week w, so Back and a shared link keep the week. Today's week
+// (weekGlance) stays gone: Today's Coming up ends with "See the week on Hearings".
+export const calWeekBar = route => weekNav(route);
+export function weekCalHTML(route, { scope = 'team' } = {}) {
+  seedMoved(); freshScope(); ISS = '';   // Hearings' issue pick is its own
+  return calHTML(route, scope, null, { ask: false });
+}
+export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
+  root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {
+    S.hcRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.hcDay = null;
+    S.go(href(+el.dataset.hweek || 0), { replace: true, keepScroll: true });
+  });
+  root.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {
+    const d = el.dataset.hcpick; S.hcDay = d;
+    root.querySelectorAll('[data-hcpick]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hcpick === d)));
+    root.querySelectorAll('[data-hcday]').forEach(x => x.classList.toggle('on', x.dataset.hcday === d));
+  });
+  root.querySelector('[data-hwmon]')?.addEventListener('click', async () => {
+    try { await DB.patchPrefs({ showMonitor: !monOn() }); } catch (e) { toast(e, { err: true }); return; }
+    S.hcRefocus = '[data-hwmon]'; redraw();
+  });
+  if (S.hcRefocus) { const f = root.querySelector(S.hcRefocus); S.hcRefocus = null; f?.focus({ preventScroll: true }); }
+}
 
 // The next session's opening day: the calendar's, else the third Wednesday in January (the Hawaiʻi Constitution's day).
 function openingDay() {

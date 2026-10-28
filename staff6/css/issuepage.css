@@ -23,3 +23,14 @@ body.staff6 .ip6-page p.ip6-rel { align-items: center; margin-top: var(--s16); }
 body.staff6 .ip6-rel > span { flex: 1 1 auto; min-width: 0; }
 body.staff6 .ip6-rel .ip6-reledit { flex: none; }
 body.staff6 section.ip6-rel { margin-top: var(--s24); }
+
+/* R-352 FIX-3 (Nate 28 Oct, "rethink how colored icons can be a warm welcome into the issue"): the issue's own icon on its
+   topic's tint, one tile at the top beside its name, larger than any list's, so the page opens on the picture the topic
+   heading on All issues showed. A rounded square (person initials are round: A-5 on v6). The tint and ink are the topic's
+   (css/myissues.css .mi-c-*). On a phone it stays, 40px, beside the name. */
+body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] { width: 64px; height: 64px; margin-top: 0; border-radius: var(--v6-r20); }
+body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] .ic { width: 34px; height: 34px; stroke-width: 1.75; }
+@media (max-width: 599px) {
+  body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] { display: inline-flex; width: 40px; height: 40px; border-radius: var(--v6-r12); }
+  body.staff6 .ip6-head > .is6-icon[class*="mi-c-"] .ic { width: 22px; height: 22px; }
+}
