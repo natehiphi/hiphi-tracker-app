@@ -19,7 +19,11 @@ STATE = r'\b(Writing|With an approver|Second look|Ready to file|Filed|Missed)\b'
 # The viewer's own step says its verb instead of the state ("Approve by today 11:00 AM", "Resubmit · late, still accepted
 # until 9:30 AM today"): it tells where the testimony stands from where this person sits, so it counts as saying it.
 OWN_STEP = r'(?m)^\s*(Approve|Resubmit|File|Write|Revise|Review|Send (?:it )?for approval)\b.*\b(by|until|now|due)\b'
-said_state = lambda t: re.search(STATE, t) or re.search(OWN_STEP, t)
+# R-352 (C-15): a card's time line no longer repeats the verb (the button says it: "Late, still accepted until ..." beside
+# Resubmit), so the own step is said by the card's sentence, its verb and the testimony ("Revise and resubmit the testimony
+# on ..."), which tells where it stands as plainly as the state word.
+OWN_SAY = r'(?m)^\s*(Approve|Resubmit|File|Write|Revise|Review|Send|Make)\b[^\n]*\btestimony\b'
+said_state = lambda t: re.search(STATE, t) or re.search(OWN_STEP, t) or re.search(OWN_SAY, t)
 STATE_V5 = r'Testimony|No draft|draft yet|Filed|Ready to file|Sent back|in review|approval'
 R = L.Results()
 def check(name, ok, detail='', v6_only=False, skip=None):
@@ -82,7 +86,8 @@ def main():
     check('Nate: Team opens on the Slipping list', 'Slipping' in txt[:400], txt[:80].replace('\n', ' '), skip=nb)
     end = pg.page.evaluate("(() => { const s = [...document.querySelectorAll('main section, main .v6-team-block, main [data-block]')].find(x => /^\\s*Slipping/.test(x.innerText)); return s ? Math.round(s.getBoundingClientRect().bottom) : null; })()")
     check("Nate: the whole Slipping list on Team's first screen", end is not None and end <= pg.h, end, skip=nb)
-    pg.nav('/'); check('Nate: partner words to approve stay on his Today (R-328)', re.search(r'partner words', main_text(pg), re.I), '')
+    # R-352 part 2: the side column says it as "Partners · 3 sets of words and 1 group to approve"
+    pg.nav('/'); check('Nate: partner words to approve stay on his Today (R-328)', re.search(r'partner words|Partners\b[^\n]*\bwords\b[^\n]*\bto approve', main_text(pg), re.I), '')
     check('Nate: no page errors', not pg.errors, pg.errors[:1]); pg.close()
 
     # ---- Jess: her approvals on every visit, even after a look at Team; late but open is never red "Overdue" ----

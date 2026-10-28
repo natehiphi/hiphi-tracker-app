@@ -23,7 +23,7 @@ import { itemRow, billRow, nameWords, numWords, whereWords, committeeName, nw } 
 import { isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
 import { issueIcon } from './issuegrid.js';
-import { glanceRow, twinsAmong } from './bills.js';   // R-344: the bill's own picture (slim bar, Now, Law), its twin's chamber and HIPHI's stance, as Bills' rows
+import { glanceRow, twinsAmong } from './bills.js';   // as Bills' rows: the twin only, no bar or job tile (R-352, A-18: each result group is one kind under its own heading)
 
 // This page's look (css/search.css). staff6.html links the screens' style sheets; until it links this one (shared_changes),
 // the module adds it once, before the first page is drawn.

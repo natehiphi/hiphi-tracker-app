@@ -438,25 +438,14 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
 // One calendar, drawn here, so the three never drift: All issues shows the team's week with each bill's issue in its
 // tint (tag); Today shows the person's week or the team's (tasks: 'mine' | 'team'). The week arrows and the phone's day
 // buttons work as on Hearings; `href(w)` is the page's own address for week w, so Back and a shared link keep the week.
-// R-352 (Nate 27 Oct): the calendar's one home is Hearings, so Today's week and All issues' calendar go. Until their own
-// builds land, today.js and issues.js still import CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal, weekGlance and calPick;
-// once neither does, all but weekCalHTML can be removed from here.
+// R-352 (Nate 27 Oct): the calendar's one home is Hearings. Today's week is gone (and weekGlance, its strip, with it);
+// All issues' calendar waits for its own build, so issues.js still imports CAL_WAYS, calWeekBar, weekCalHTML, wireWeekCal
+// and calPick. Once it does not, all but weekCalHTML can be removed from here.
 export const CAL_WAYS = { tab: true, swap: true };
 export const calWeekBar = route => weekNav(route);
 export function weekCalHTML(route, { scope = 'team', tag = false, tasks = 'mine', steps = null } = {}) {
   seedMoved(); freshScope(); ISS = '';   // Hearings' issue pick is its own
   return calHTML(route, scope, null, { ask: false, tag, tasks, steps });
-}
-// Today's week at a glance (R-346, the moderate mock's "This week"): this week's Monday to Friday, each with how many
-// hearings the calendar shows in this scope, how many entries are the person's own (steps, to-dos, follow-ups, testimony
-// due), and the Capitol's deadline that day, from the same calWeek, so the strip and the calendar under it never disagree.
-export function weekGlance({ scope = 'mine', steps = null } = {}) {
-  seedMoved(); freshScope(); ISS = '';
-  const now = Date.now(), mon = mondayOf(now), today = hst(now), cw = calWeek(scope, mon, { tasks: 'mine', steps });
-  return [0, 1, 2, 3, 4].map(i => { const d = addDays(mon, i), list = cw.days.get(d) || [];
-    return { d, day: fmt(d, { weekday: 'short' }), long: fmt(d, { weekday: 'long', month: 'long', day: 'numeric' }), today: d === today, past: d < today,
-      h: list.filter(e => e.k === 'h' && !e.cancelled).length, own: list.filter(e => e.k !== 'h').length,
-      caps: (cw.caps.get(d) || []).map(c => c.label) }; });
 }
 export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
   root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {

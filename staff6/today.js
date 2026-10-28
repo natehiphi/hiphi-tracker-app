@@ -34,7 +34,7 @@ import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billByI
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
-  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName } from './steps.js';
+  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML } from './steps.js';
 import { issueIcon, tintOf } from './issuegrid.js';
 import { actTile, iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // one icon per job (A-18 on v6), every button its icon
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -614,16 +614,16 @@ const MINI_SAY = {
 };
 function miniHead(it, r, id) {
   const b = r.num ? it.b : null, say = b && MINI_SAY[it.kind]?.(r, it);
-  if (!b || !say) return stepHeadHTML(null, { sentence: r.what || r.line, id, job: jobOf(it) });
+  if (!b || !say) return stepHeadHTML(null, { sentence: r.what || r.line, id });
   const [kind, sentence, under] = say;
-  return stepHeadHTML(b, { kind, sentence, id, job: jobOf(it) }) + (under ? `<p class="v6-step-under">For ${billInLink(b)}.</p>` : '');
+  return stepHeadHTML(b, { kind, sentence, id }) + (under ? `<p class="v6-step-under">For ${billInLink(b)}.</p>` : '');
 }
 const billInLink = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(nameWords(b))}</a>`;
 function miniCard(it, { primary = true, v = S.me, id = 't6-next-h' } = {}) {
   if (it.kind === 'stale') {
     const d = it.d, b = it.b;
     return `<section class="v6-step own named w-today t6-mini" aria-labelledby="${id}">
-      ${stepHeadHTML(b, { kind: 'Testimony', sentence: 'Check your testimony on {bill} against the new version', id, job: 'stale' })}
+      ${stepHeadHTML(b, { kind: 'Testimony', sentence: 'Check your testimony on {bill} against the new version', id })}
       <p class="v6-step-when">${esc(`The bill is now ${versionWords(b.current_version)}; your testimony was written for ${versionWords(d.version)}. It is ${lower(testimonyState(d, b)?.word || 'with an approver')}.`)}</p>
       ${d.doc_url ? `<div class="v6-step-acts">${docBtn(d.doc_url, { kind: primary ? 'primary' : 'secondary' })}</div>` : ''}</section>`;
   }
@@ -1144,9 +1144,10 @@ function stepFirst(html, it, v) {
   const m = /<li class="v6-hcard-bill t6-hc-lead">[\s\S]*?<\/li>/.exec(html); if (!m) return html;
   const btnM = /<span class="v6-row-act">([\s\S]*?)<\/span><\/li>$/.exec(m[0]), y = sayOf(it, v);
   const late = /<p class="v6-hcard-note v6-hcard-late[^"]*">[\s\S]*?<\/p>/.exec(html);
-  const eye = [esc(y.kind), `<span class="v6-row-num">${esc(numWords(it.b))}</span>`, issueChip(it.b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
-  const jk = jobOf(it), tile = jk !== 'none' ? `<span class="t6-jtile" aria-hidden="true">${actTile(jk, { size: 24 })}</span>` : '';   // R-344 Rule 1
-  const head = `<div class="t6-nshead"><p class="t6-jeye">${tile}${eye}</p><p class="v6-step-what t6-nsay">${y.html}</p>${late ? late[0] : `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.sub}</p>`}${btnM ? `<div class="t6-nsacts">${btnM[1]}</div>` : ''}</div>`;
+  // R-352 (B-2, A-18 on v6): no quiet line or job tile over the sentence, as on every next-step card (steps.js stepCard): the
+  // sentence names the bill as its link, its number small after it; the filled button carries the job's icon.
+  const say = y.html.replace('</a>', `</a>${billNumHTML(it.b)}`);
+  const head = `<div class="t6-nshead"><p class="v6-step-what t6-nsay">${say}</p>${late ? late[0] : `<p class="t6-jsub${y.tone ? ' t-' + y.tone : ''}">${y.sub}</p>`}${btnM ? `<div class="t6-nsacts">${btnM[1]}</div>` : ''}</div>`;
   let out = html.replace(m[0], '');
   if (late) out = out.replace(late[0], '');
   out = out.replace(/<ul class="v6-hcard-bills">\s*<\/ul>/, '');

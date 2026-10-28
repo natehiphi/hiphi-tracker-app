@@ -133,8 +133,11 @@ def main():
     check('390: Inbox, no sideways scroll', pp.evaluate(OVER) <= 0, pp.evaluate(OVER)); ph.close()
 
     pg = b.page('NT', 1440, 900); pg.open(f'/legislator/{L.LEGISLATOR}'); p = pg.page
-    st = p.evaluate(ICONS_IN, '.lg6-standb')
-    check("Legislator: where they stand is the thumbs-up, not the pencil", st and set(st) == {'ic-thumbs-up'}, sorted(set(st)))
+    # R-352 part 8b (A-18, one picture one meaning): an unknown stand is the words "Mark stand", no thumbs-up (the thumbs-up
+    # means a yes); its spoken name says whose stand on which bill
+    st = p.evaluate("() => [...document.querySelectorAll('.lg6-standb')].map(e => [e.innerText.trim(), e.querySelectorAll('svg.ic-thumbs-up').length, e.getAttribute('aria-label') || ''])")
+    check('Legislator: an unknown stand reads "Mark stand", with no thumbs-up', st and all(x[0] == 'Mark stand' and x[1] == 0 for x in st), st[:3])
+    check('Legislator: each "Mark stand" says whose stand on which bill to a screen reader', st and all(x[2].startswith('Mark stand: where ') for x in st), [x[2] for x in st][:2])
     check('Legislator: their Capitol page link is not the Capitol building (Legislators place only)', 'ic-landmark' not in p.evaluate(ICONS_IN, 'main .lg6-page ul'), '')
     pg.nav('/tools')
     rows = p.evaluate("() => [...document.querySelectorAll('main .v6-more-row')].map(r => [r.querySelector('.v6-more-nm')?.textContent.trim(), [...(r.querySelector('.v6-more-ic svg')?.classList || [])].find(c => c.startsWith('ic-') && c !== 'ic')])")

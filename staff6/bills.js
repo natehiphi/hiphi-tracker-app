@@ -32,8 +32,6 @@ import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
 import { offTag, teamName, teamFirst, newOwnerTag, FACTS } from './model.js';   // R-316 W28: a turned-off owner says so
 import { GROUPS, groupKey, stanceMark } from './standing.js';
-import { actTile, dropVerb } from './verbs.js';   // R-344: the picture rules' one table
-import { slimBarHTML } from './tracker.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
@@ -254,16 +252,14 @@ function selRow(b) {
     <span class="bl-check" aria-hidden="true">${icon(on ? 'square-check-big' : 'square')}</span><span class="bl-seltx"><span class="v6-row-top"><span class="v6-row-name">${esc(nameWords(b))}</span><span class="v6-row-num">${esc(numWords(b))}</span></span>${s?.line ? `<span class="v6-row-line"><span>${nw(esc(s.line))}</span></span>` : ''}</span></button></div>`;
 }
 // ---- R-344 (the at-a-glance review's "the bill's own picture", Rules 1 and 2): what a row shows at a glance ----
-// glanceRow(html, b, { step, stance, twins }) adds to a steps.js billRow, without changing it:
+// glanceRow(html, b, { stance, twins }) adds to a steps.js billRow, without changing it:
 //   - a twin: when another bill in the same list goes by the same name (HB 2121 and SB 2175, "Disposable e-cigarette ban"),
 //     each says "twin of SB 2175" inside its number, so the right one is picked (D3) and nobody reads it as where the bill is
 //     now (the fresh-eyes review: "House" sat beside "Waiting in Senate Commerce"); `twins` is twinsAmong(the shown bills);
-//   - (HIPHI's stance as its shape and one word, D1, only with `stance: true`: see below);
-//   - the viewer's own step's job as its small tile at the start of the line (Rule 1: the row says what kind of job it is);
-//   - the slim progress bar under the line, with Now and Law (tracker.js slimBarHTML, D2).
-// Search results use all of it (search.js). Bills' own rows take the twin only (R-352, A-18: Bills is a list of one kind, so
-// no job tile, and its verb stays: "File now · due today 10:00 AM"; the bar, pin and trophy wait on the bill's page).
-export function glanceRow(html, b, { step = null, stance = false, bar = true, twins = null } = {}) {
+//   - (HIPHI's stance as its shape and one word, D1, only with `stance: true`: see below).
+// Bills' rows and search's bill results take the twin only (R-352, A-18: a list of one kind, so no job tile, and the verb
+// stays: "File now · due today 10:00 AM"; the progress bar, Now and the trophy wait on the bill's page).
+export function glanceRow(html, b, { stance = false, twins = null } = {}) {
   if (!html || !b) return html;
   const tw = twins?.get(b.id);
   // inside the number ("HB 2121 twin of SB 2175"): one fact, the bill's name in the Capitol's words (spec 8: four a row)
@@ -272,15 +268,8 @@ export function glanceRow(html, b, { step = null, stance = false, bar = true, tw
   // fifth on every row of a long list is what spec 8 forbids. stanceMark is ready (standing.js); `stance: true` draws it.
   if (stance === true) { const sm = stanceMark(b, { cls: 'bl-stance' });
     if (sm) html = html.replace(tw ? /(<span class="v6-row-num">[^<]*<span class="v6-twin"[^>]*>[^<]*<\/span><\/span>)/ : /(<span class="v6-row-num">[^<]*<\/span>)/, `$1${sm}`); }
-  const own = step && step.you && OWN_ACT.has(step.kind) && step.act?.kind !== 'none';
-  // the tile takes the line's own icon's place and its verb (A-25: the tile says the job); the line keeps its colour. 24px,
-  // the smallest the review allows: each job's glyph still tells apart at 14px on its hue (pencil, person-check, clipboard).
-  if (own) html = html.replace(/(<span class="v6-row-line[^"]*">)(?:<svg[\s\S]*?<\/svg>)?<span>([\s\S]*?)<\/span><\/span>/, (_, open, text) => `${open}${actTile(step.kind, { size: 24 })}<span>${dropVerb(text, step.act?.verb)}</span></span>`);
-  if (bar) { const sb = slimBarHTML(b); if (sb) html = html.replace(/(<\/(?:a|button)>)((?:<span class="v6-row-act">[\s\S]*?<\/span>)?<\/div>)\s*$/, `${sb}$1$2`); }
   return html;
 }
-// The jobs a row's tile can show (the steps a person does; filed, missed and none are not jobs).
-const OWN_ACT = new Set(['nodraft', 'write', 'submit', 'revise', 'approve', 'review', 'review2', 'second', 'file', 'stale', 'chair']);
 // Among the bills a list shows, each one whose name another of them shares (the same session): id -> that other bill.
 export function twinsAmong(bills) {
   const by = new Map(), out = new Map();
@@ -296,7 +285,7 @@ function rowsView(groups) {
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
-  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' }), b, { twins, bar: false });
+  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '' }), b, { twins });
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
   const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
