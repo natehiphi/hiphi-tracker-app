@@ -50,9 +50,14 @@ SCAN = """(() => { const { names, ics } = window.__icn, I = new Set(ics), out = 
 # failed, until each lands. Remove a line when its fix is in.
 LATER = {'button.lg6-jchip': 'All issues jump chips (issuegrid.js)', 'a.bw-inline': 'a bill\'s coalition link (bill.js)'}
 LATER_SCREENS = {'Search': 'search.js', 'Coalitions': 'issuegrid.js', 'Today': 'today.js', 'Partners': 'partnerq.js'}
+# R-352 (A-18 on v6): where a name stands alone in words on its own line, it carries no icon: the bill page's issue name and
+# its coalition link (bill.js). Those spots must have none; every other spot keeps the rule above.
+WORDS_ONLY = {'p.bw-ic-n', 'a.bw-ws-a'}
 def check(pg, label, w):
   pg.page.wait_for_timeout(300)
   spots = pg.page.evaluate(SCAN)
+  plain = [s for s in spots if s['where'] in WORDS_ONLY]; spots = [s for s in spots if s['where'] not in WORDS_ONLY]
+  if plain: R.check(f'{w}: {label}: the issue name and coalition link stand in words, no icon (R-352)', not any(s['ok'] for s in plain), [(s['name'], s['where']) for s in plain if s['ok']][:4])
   own = [s for s in spots if not s['bill']]; bills = [s for s in spots if s['bill']]
   miss = [s for s in own if not s['ok']]; bmiss = [s for s in bills if not s['ok']]
   if w < 600: miss = [s for s in miss if s['where'] != 'a.mi-tlink']   # the phone spreadsheet drops the tile on purpose (its name column is narrow)
