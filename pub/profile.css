@@ -250,3 +250,43 @@ body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--s
 .pfv .pfv-one .pfv-h3 { margin: 0; }
 .pfv #pf-quote-f > .pf-st { margin: 0 0 var(--s4); }
 .pfv .pf-where > .pf-st { margin-top: var(--s8); }
+
+/* ---- R-304 part 2 ---- */
+/* The pages under Profile are blocks of cards, as Your voice. */
+.pf.pfr .pfr-page > * + * { margin-top: var(--s16); }
+.pf.pfr .pfr-page > .pfr-head + * { margin-top: var(--s16); }
+/* How you'll help: four tiles, two across (the mockup's option B); a tile partly on says "Some of these". */
+.pfh .pfh-lede { margin: 0; }
+.pfh .pfh-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s8); }
+.pfh .pfh-tile { display: flex; align-items: flex-start; gap: var(--s8); min-height: 64px; padding: var(--s12); text-align: left; background: var(--n0);
+  border: 1.5px solid var(--n300); border-radius: var(--r12); color: var(--n900); font: 700 var(--t16)/1.25 var(--font-h); cursor: pointer; }
+.pfh .pfh-tile .ic { width: 20px; height: 20px; flex: none; color: var(--n400); margin-top: 1px; }
+.pfh .pfh-tt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pfh .pfh-ts { font: 400 var(--t13)/1.3 var(--font); color: var(--n700); }
+.pfh .pfh-tile[aria-pressed="true"], .pfh .pfh-tile[aria-pressed="mixed"] { border-color: var(--p700); background: var(--p50); color: var(--p800); }
+.pfh .pfh-tile[aria-pressed="true"] .ic, .pfh .pfh-tile[aria-pressed="mixed"] .ic { color: var(--p700); }
+@media (hover: hover) { .pfh .pfh-tile:hover { border-color: var(--p700); } }
+.pfh .pfh-tile:active { transform: scale(.98); }
+.pfh .pfh-tile:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .pfh .pfh-tile { transition: background .15s, border-color .15s; } }
+.pfh .pfh-fold { border-top: 1px solid var(--n100); padding-top: var(--s4); }
+.pfh .pfh-fold > summary { display: flex; align-items: center; gap: var(--s8); min-height: 44px; cursor: pointer; color: var(--p700); font-weight: 700; list-style: none; }
+.pfh .pfh-fold > summary::-webkit-details-marker { display: none; }
+.pfh .pfh-fold > summary .ic { width: 18px; height: 18px; transition: transform .15s; }
+.pfh .pfh-fold[open] > summary .ic { transform: rotate(180deg); }
+.pfh .pfh-fold > summary:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: var(--r8); }
+.pfh .pfh-in { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s8); }
+@media (prefers-reduced-motion: reduce) { .pfh .pfh-fold > summary .ic { transition: none; } }
+/* Your data and account: the buttons in their own card. */
+.pfd .pfd-acct .btnrow, .pfd .pfd-acct .mr-delrow { margin: 0; }
+/* The laptop, from 1024px: the rows on the left (about 300px), the open page on the right; the open row is marked. */
+body.rec .mr.yu.pfr-wide { max-width: 1120px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: var(--s32); align-items: start; }
+.pf.pfr-wide > * + * { margin-top: 0; }
+.pfr-wide .pfr-side > * + * { margin-top: var(--s16); }
+.pfr-wide .pfr-side .pf-head .hero { font-size: var(--t22); }
+.pfr-wide .pfr-side .pf-av-lg { width: 48px; height: 48px; font-size: var(--t16); }
+.pfr-wide .pfr-main { min-width: 0; max-width: 720px; }
+.pfr-wide .pfr-main .pfr-sh { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); color: var(--n900); }
+.pfr-wide .pfr-main .pfr-sh:focus { outline: none; }
+body.rec .pfr-rows .rc-row[aria-current="page"] { background: var(--p50); box-shadow: inset 3px 0 0 var(--p700); }
+body.rec .pfr-rows .rc-row[aria-current="page"] .rc-rname { color: var(--p800); }

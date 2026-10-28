@@ -254,9 +254,10 @@ function issuesBody() {
   const n = followedIssues().length, b = S.watch?.size || 0;
   return `<p>${n || b ? `You follow ${n ? `${n} ${n === 1 ? 'issue' : 'issues'}` : ''}${n && b ? ' and ' : ''}${b ? `${b} ${b === 1 ? 'bill' : 'bills'}` : ''}.` : 'You don’t follow any issues yet.'} <a href="#/bills">${n || b ? 'See them in My issues' : 'Find issues to follow'}</a></p>`;
 }
-function dataBody() {
-  if (!signedIn()) return `<p>Your profile and letters are saved on this device. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep them on any phone or computer.' : 'Adding your email (under Alerts) keeps them on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
-    ${deviceDelete()}`;
+function dataBody() { return dataKeep() + (signedIn() ? accountButtons() : deviceDelete()); }
+// What we keep, without the buttons, so Part 2's page (R-304) can put them in a card of their own; the words are today's.
+function dataKeep() {
+  if (!signedIn()) return `<p>Your profile and letters are saved on this device. ${codesOn() ? '<a href="#/signin?by=number">Sign in with your number</a> to keep them on any phone or computer.' : 'Adding your email (under Alerts) keeps them on any phone or computer.'} HIPHI staff never see your text-alert number. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
   // What we keep and who sees it, as a short list (X4-5, R-180: it was one 90-word paragraph, well above grade 8). The same
   // facts as R-151's and R-153's wording (10/4, the privacy page made accurate; kept emails); the privacy page has the long
   // form. Signed in with a number only (R-155): the number signs them in and staff never see it; no email, so none opened.
@@ -269,8 +270,7 @@ function dataBody() {
     'The last letter and email to lawmakers you sent on each bill, so they’re ready for its next step'];
   return `<p>We keep:</p><ul class="pf-list pf-keep">${rows.map(r => `<li>${icon('check')}<span>${r}</span></li>`).join('')}</ul>
     <p>HIPHI staff can see all of it except ${num ? 'your number, ' : ''}your letters and your emails to lawmakers. Only you can see those.</p>
-    <p>We never keep your street address, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>
-    ${accountButtons()}`;
+    <p>We never keep your street address, only your districts. We never sell your information or give it to other groups. <a href="#/privacy">Read about privacy</a></p>`;
 }
 // Sign out and delete, for every signed-in profile (an email or a number).
 function accountButtons() {
@@ -498,7 +498,9 @@ function lettersSum() {
   const Ls = keptLetters(); if (!Ls.length) return 'Letters and emails you send are kept here';
   const e = Ls.filter(L => L.kind === 'email').length, t = Ls.length - e;
   const last = Ls[0]?.sent ? new Date(Ls[0].sent).toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
-  return [t ? `${t} ${t === 1 ? 'testimony' : 'testimonies'}` : '', e ? `${e} ${e === 1 ? 'email' : 'emails'}` : '', last ? `the last on ${last}` : ''].filter(Boolean).join(' · ');
+  // One letter of testimony is kept per bill (letters.js), so more than one reads "testimony on 3 bills" ("2 testimonies"
+  // reads wrong, the coordinator's review of part 2).
+  return [t ? (t === 1 ? '1 testimony' : `testimony on ${t} bills`) : '', e ? `${e} ${e === 1 ? 'email' : 'emails'}` : '', last ? `the last on ${last}` : ''].filter(Boolean).join(' · ');
 }
 function helpSum() {
   const on = new Set(myInterests()), gs = HELP_GROUPS.filter(([, xs]) => xs.some(([k]) => on.has(k))).map(([g]) => g);
@@ -511,27 +513,45 @@ function whoLine() {
   if (signedIn()) { const n = myNumber(), e = myEmail(); return n ? `Signed in with ${masked(n)}` : e ? `Signed in with ${e}` : ''; }
   const t = textSaved(); return t?.phone ? `Kept on this device · texts to ${masked(t.phone)}` : '';
 }
-function rowsView() {
+// The laptop (R-304 part 2, from 1024px): Profile's rows on the left and the open page on the right, Your voice when none is
+// named; a phone keeps one column. The routes are the same at both widths, so a link to #/profile/voice works on either.
+const WIDE = '(min-width: 1024px)';
+const wide = () => { try { return matchMedia(WIDE).matches; } catch { return false; } };
+try { matchMedia(WIDE).addEventListener('change', () => { if (R304() && /^#\/(profile|settings)\b/.test(location.hash)) app.render(); }); } catch { /* an old browser: one column */ }
+const openSub = route => subOf(route) || (wide() && R304() && hasProfile() ? 'voice' : '');
+function sideHTML(open = '') {
   const name = myName(), s = since(), who = whoLine();
   // Back from a sub-page lands here with that sub-page as the page behind: Profile's own Back still names You.
   const back = /^#\/profile\//.test(String(history.state?.prev || '')) ? recBack('#/more', 'You') : backFrom('#/more', 'You');
+  const row = (k, r) => ({ ...r, attrs: open === k ? { 'aria-current': 'page' } : {} });
   const rows = [
-    { name: 'Your voice', text: voiceSum(), href: '#/profile/voice', lead: 'pencil' },   // a pen: what they write (the review)
+    row('voice', { name: 'Your voice', text: voiceSum(), href: '#/profile/voice', lead: 'pencil' }),   // a pen: what they write (the review)
     { name: 'Your alerts', text: alertStatus().title, href: '#/alerts', lead: 'bell' },
-    { name: 'Your testimony and emails', text: lettersSum(), href: '#/profile/letters', lead: 'mail' },
-    { name: SUBS.help, text: helpSum(), href: '#/profile/help', lead: 'users' },
-    { name: SUBS.data, text: dataSum(), href: '#/profile/data', lead: 'lock' }];
-  return `<div class="mr pf pfr yu">${back}
+    row('letters', { name: SUBS.letters, text: lettersSum(), href: '#/profile/letters', lead: 'mail' }),
+    row('help', { name: SUBS.help, text: helpSum(), href: '#/profile/help', lead: 'users' }),
+    row('data', { name: SUBS.data, text: dataSum(), href: '#/profile/data', lead: 'lock' })];
+  return `${back}
     <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><p class="pfr-eye">Your profile</p><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
       ${who ? `<p class="meta pf-since">${esc(who)}</p>` : ''}</div></header>
     ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
     <p class="sr" id="pf-live" aria-live="polite"></p>
     <nav class="pfr-rows" aria-label="Your profile">${recRows(rows, BOX)}</nav>
     ${s ? `<p class="small muted pfr-since">Speaking up since ${esc(s)}</p>` : ''}
-    ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
-  </div>`;
+    ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}`;
 }
-const subHead = (k, lede = '') => `${recBack('#/profile', 'Profile')}<header class="pagehead pfr-head"><h1 class="hero" id="pf-h" tabindex="-1">${esc(SUBS[k])}</h1>${lede ? `<p class="small muted pfr-lede">${esc(lede)}</p>` : ''}</header><p class="sr" id="pf-live" aria-live="polite"></p>`;
+const rowsView = () => `<div class="mr pf pfr yu">${sideHTML()}</div>`;
+// A sub-page: on a phone alone, under "← Profile" with its name as the h1; on a laptop beside the rows, whose h1 is the
+// person, so its name is an h2 and there is no back link (the rows are in view).
+function subFrame(k) {
+  if (!wide()) return `<div class="mr pf pfr yu">${SUBVIEW[k]()}</div>`;
+  return `<div class="mr pf pfr yu pfr-wide"><div class="pfr-side">${sideHTML(k)}</div><div class="pfr-main">${SUBVIEW[k]()}</div></div>`;
+}
+const hid = () => wide() ? 'pf-sh' : 'pf-h';
+const subHead = (k, lede = '') => {
+  const l = lede ? `<p class="small muted pfr-lede">${esc(lede)}</p>` : '';
+  return wide() ? `<header class="pfr-head"><h2 class="pfr-sh" id="pf-sh" tabindex="-1">${esc(SUBS[k])}</h2>${l}</header>`
+    : `${recBack('#/profile', 'Profile')}<header class="pagehead pfr-head"><h1 class="hero" id="pf-h" tabindex="-1">${esc(SUBS[k])}</h1>${l}</header><p class="sr" id="pf-live" aria-live="polite"></p>`;
+};
 
 // A heading with its own quiet "Saved" beside it, so the note is where the change was made (the review, 28 Oct).
 const headSt = (tag, id, title, st) => `<div class="pfv-hrow"><${tag} id="${id}">${esc(title)}</${tag}>${status(st)}</div>`;
@@ -542,7 +562,7 @@ function voiceView() {
   // The hint says what the chips are for; the lines straight under them show it (the review: on a phone the lines were
   // out of view under More titles and the type box).
   const hint = 'Tap any that fit. Your letters start with one.';
-  return `<div class="mr pf pfr pfv yu">${subHead('voice', 'Changes save as you make them.')}
+  return `<div class="pfr-page pfv">${subHead('voice', 'Changes save as you make them.')}
     <section class="card pf-sec" id="pf-about" aria-labelledby="pf-about-t"><h2 id="pf-about-t">Name and districts</h2>
       <div class="field pf-f"><div class="pfv-hrow"><label for="pf-name">Name</label>${status('pf-name-st')}</div>
         <input id="pf-name" type="text" value="${esc(d.name)}" maxlength="120" autocomplete="name" autocapitalize="words" enterkeyhint="done"></div>
@@ -592,12 +612,61 @@ function storyItem(k) {
   return `<li class="pfv-story"><p class="pfv-stn">${esc(name)}</p><p class="pfv-stt">“${esc(text)}”</p>
     <div class="pfv-stb">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-pfv-stedit': k, 'aria-label': `Edit ${storyWhat(k)}` } })}${btn('Delete', { kind: 'text', sm: true, icon: 'trash-2', attrs: { 'data-pf-stdel': k, 'aria-label': `Delete ${storyWhat(k)}` } })}</div></li>`;
 }
-const lettersView = () => `<div class="mr pf pfr yu">${subHead('letters')}
-    <section class="card pf-sec pfr-letters" id="pf-letters" aria-labelledby="pf-h">${lettersBody(lettersList())}</section></div>`;
-const helpView = () => `<div class="mr pf pfr yu">${subHead('help')}
-    <section class="card pf-sec" id="pf-help" aria-labelledby="pf-h">${helpBody()}</section></div>`;
-const dataView = () => `<div class="mr pf pfr yu">${subHead('data')}${homeScreenNote()}
-    <section class="card pf-sec" id="pf-data" aria-labelledby="pf-h">${dataBody()}</section></div>`;
+const lettersView = () => `<div class="pfr-page">${subHead('letters')}
+    <section class="card pf-sec pfr-letters" id="pf-letters" aria-labelledby="${hid()}">${lettersBody(lettersList())}</section></div>`;
+// How you'll help (R-304 part 2, the mockup's option B): four tiles, each its whole group of today's ticks, and the ticks
+// themselves in a closed "Choose exactly" fold with the box for their own words. It saves as they tap, and saves the same
+// interests and help_note as before (myprofile.js saveProfile; read by actions.js for 'testify' and by the staff apps'
+// person pages), so nothing that reads them changes.
+const TILE_SUB = { 'Speak up': 'Testify, call, write', 'Spread the word': 'Share, talk, bring it', 'Show up': 'Rallies, meetings, gatherings', 'Bring my skills': 'Translate, design, volunteer' };
+const tileState = keys => { const on = new Set(P.base.help), n = keys.filter(k => on.has(k)).length; return n === 0 ? 'false' : n === keys.length ? 'true' : 'mixed'; };
+function tilesHTML() {
+  return HELP_GROUPS.map(([g, xs], i) => { const st = tileState(xs.map(([k]) => k));
+    return `<button type="button" class="pfh-tile" data-pfh-tile="${i}" aria-pressed="${st}">${icon(st === 'true' ? 'circle-check' : st === 'mixed' ? 'circle-dot' : 'plus')}<span class="pfh-tt">${esc(g)}<span class="pfh-ts">${esc(st === 'mixed' ? 'Some of these' : TILE_SUB[g] || '')}</span></span></button>`; }).join('');
+}
+const helpView = () => `<div class="pfr-page pfh">${subHead('help', 'Changes save as you make them.')}
+    <section class="card pf-sec" id="pf-help" aria-labelledby="pfh-t">${headSt('h2', 'pfh-t', 'Ways you’d like to help', 'pfh-st')}
+      <p class="small muted pfh-lede">Tap any. HIPHI invites you to what fits.</p>
+      <div class="pfh-tiles" role="group" aria-labelledby="pfh-t">${tilesHTML()}</div>
+      <details class="pfh-fold"${P.helpOpen ? ' open' : ''}><summary>${icon('chevron-down')}<span>Choose exactly</span></summary>
+        <div class="pfh-in">
+        ${HELP_GROUPS.map(([g, xs]) => `<fieldset class="mr-set pf-f pf-helpg"><legend>${esc(g)}</legend>
+          ${xs.map(([k, l]) => check(`pf-int-${k}`, esc(l), HELP_HINT[k] || '', P.base.help.includes(k), ` data-pf-int="${k}"`)).join('')}</fieldset>`).join('')}
+        <div class="field pf-f"><div class="pfv-hrow"><label for="pf-note">Something else? Tell us</label>${status('pfh-note-st')}</div>
+          <input id="pf-note" type="text" maxlength="200" value="${esc(P.base.helpNote)}" autocapitalize="sentences" enterkeyhint="done" placeholder="Like cooking for a rally"></div>
+        </div></details>
+    </section></div>`;
+// Your data and account (part 2): today's words in two cards like Your voice's, what we keep and the account's buttons.
+const dataView = () => `<div class="pfr-page pfd">${subHead('data')}${homeScreenNote()}
+    <section class="card pf-sec" id="pf-data" aria-labelledby="pfd-keep-t"><h2 id="pfd-keep-t">What we keep</h2>${dataKeep()}</section>
+    <section class="card pf-sec pfd-acct" aria-labelledby="pfd-acct-t"><h2 id="pfd-acct-t">${signedIn() ? 'Your account' : 'Your profile on this device'}</h2>${signedIn() ? accountButtons() : deviceDelete()}</section></div>`;
+// The help answers, saved at once in today's shape: interests keeps the other kinds of interest as they were.
+function saveHelp(next, stId) {
+  const help = HELP_KEYS.filter(k => next.includes(k));
+  P.base.help = help; P.draft.help = [...help]; paintHelp();
+  return saveNow({ interests: [...myInterests().filter(k => !HELP_KEYS.includes(k)), ...help] }, stId);
+}
+// Tiles and ticks follow each other without a redraw, so focus stays on what was tapped.
+function paintHelp() {
+  document.querySelectorAll('[data-pfh-tile]').forEach(b => { const xs = HELP_GROUPS[+b.dataset.pfhTile][1].map(([k]) => k), st = tileState(xs);
+    b.setAttribute('aria-pressed', st); b.querySelector('.ic').outerHTML = icon(st === 'true' ? 'circle-check' : st === 'mixed' ? 'circle-dot' : 'plus');
+    b.querySelector('.pfh-ts').textContent = st === 'mixed' ? 'Some of these' : TILE_SUB[HELP_GROUPS[+b.dataset.pfhTile][0]] || ''; });
+  document.querySelectorAll('[data-pf-int]').forEach(c => { c.checked = P.base.help.includes(c.dataset.pfInt); });
+}
+function wireHelp() {
+  // A tile turns its whole group on, or off when all of it is on (a group partly on is "Some of these", and a tap fills it).
+  document.querySelectorAll('[data-pfh-tile]').forEach(b => b.onclick = () => {
+    const xs = HELP_GROUPS[+b.dataset.pfhTile][1].map(([k]) => k), all = tileState(xs) === 'true';
+    saveHelp(all ? P.base.help.filter(k => !xs.includes(k)) : [...new Set([...P.base.help, ...xs])], 'pfh-st');
+  });
+  document.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = () => {
+    const k = c.dataset.pfInt; saveHelp(c.checked ? [...P.base.help, k] : P.base.help.filter(x => x !== k), 'pfh-st'); });
+  const f = $('.pfh-fold'); if (f) f.ontoggle = () => { P.helpOpen = f.open; };
+  const note = $('#pf-note');
+  if (note) { const keep = () => { const v = note.value.trim(); if (v === P.base.helpNote) return;
+      saveNow({ helpNote: v }, 'pfh-note-st', () => { P.base.helpNote = v; P.draft.helpNote = v; }); };
+    note.onblur = keep; note.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); note.blur(); } }; }
+}
 const SUBVIEW = { voice: voiceView, letters: lettersView, help: helpView, data: dataView };
 
 // Saving as you go. One save at a time, in the order made, so two quick taps never land out of order on the account.
@@ -676,7 +745,7 @@ export default {
     const here = location.hash.split('?')[0];
     if (!P.base || (!document.querySelector('#main .pf') && !dirty()) || (R304() && P.at !== here && !dirty())) fresh();
     P.at = here;
-    if (R304() && hasProfile() && !(signedIn() && !S.user)) { const s = subOf(route); return s ? SUBVIEW[s]() : rowsView(); }
+    if (R304() && hasProfile() && !(signedIn() && !S.user)) { const s = openSub(route); return s ? subFrame(s) : rowsView(); }
     return profileView();
   },
   // The save bar, when a draft is waiting (also drawn by paintBar as soon as something changes).
@@ -684,8 +753,9 @@ export default {
   wire(route) {
     if (REC() && !youCss()) return;
     if (R304() && hasProfile()) {
-      const s = subOf(route);
+      const s = openSub(route);
       if (s === 'voice') { wireVoice(); return; }
+      if (s === 'help') { wireHelp(); return; }
       if (s === 'letters') { const ls = $('#pf-letters'); if (ls) { wireKept(ls); wireDelete(ls, repaintLetters); } return; }
       if (!s) return;   // the rows are links
     }
