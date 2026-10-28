@@ -1,0 +1,47 @@
+/* Team (#/team), Staff v6, R-352 (Nate 27 Oct; A-2, A-14, A-18, B-14 on v6). The rules Team shares with Today (.tm6-block,
+   .tm6-h, .tm6-lines, the read-only list) stay in today.css; this file holds what R-352 changed:
+   - the page's two columns from 1360px, as 23 Oct had them: the lists (Slipping, No owner, Hearings) at most 760px, and
+     beside them Who is on what with the Partners line; one column below, in that same order;
+   - Who is on what read-only (faces and how many each carries, no links);
+   - the No owner card's "All N bills with no owner ›" link;
+   - a teammate's read-only list: the job tiles drawn as the small neutral kind-of-job icon (A-18 on v6). */
+
+body.staff6 .tm6-page { max-width: 1120px; }
+body.staff6 .tm6-page > .t6-head { margin-bottom: 24px; }
+body.staff6 .tm6-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; max-width: 760px; }
+body.staff6 .tm6-main, body.staff6 .tm6-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-content: start; }
+body.staff6 .tm6-main > .tm6-lines { margin-top: -16px; }   /* the Hearings line belongs with Slipping above it */
+@media (min-width: 1360px) {
+  body.staff6 .tm6-cols { grid-template-columns: minmax(0, 760px) minmax(260px, 320px); max-width: none; }
+  /* the Partners line ends the side column level with the lists' end, so the first screen keeps to A-2's 12 controls (the
+     lists' own buttons come first) */
+  body.staff6 .tm6-side { grid-template-rows: auto 1fr; }
+  body.staff6 .tm6-side > .tm6-lines { align-self: end; }
+}
+@media (max-width: 767px) { body.staff6 .tm6-cols, body.staff6 .tm6-main, body.staff6 .tm6-side { gap: 32px; } }
+
+/* Slipping's quiet line under its heading: how many of the lead's own steps are on their Today instead */
+body.staff6 .tm6-block > .tm6-yours { margin-top: -4px; }
+
+/* No owner: the whole list, a standalone teal link with its "›", no underline (R-352 wave 2) */
+body.staff6 .tm6-all { margin: 12px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
+body.staff6 .tm6-all > a { display: inline-flex; align-items: center; min-height: 44px; color: var(--v6-action); text-decoration: none; font-weight: 400; }
+body.staff6 .tm6-all > a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .tm6-all > a:hover { text-decoration: underline; text-underline-offset: 3px; } }
+
+/* Who is on what: read-only rows (a face, the name, a quiet bar, the count) */
+body.staff6 .tm6-side .tm6-loads { margin: 0; list-style: none; }
+body.staff6 .tm6-side .tm6-load { grid-template-columns: 28px minmax(0, 7fr) minmax(32px, 4fr) 24px; min-height: 40px; cursor: default; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .tm6-side .tm6-load:hover { background: none; } }
+body.staff6 .tm6-side .tm6-idle { list-style: none; }
+
+/* A teammate's read-only list (asTeammate, today.js rowOf): its job tiles as the small neutral icon, no wash, no hue */
+body.staff6 .tm6-ro .v6-row-lead.v6-act-lead .v6-at { width: 20px; height: 24px; border-radius: 0; background: none; color: var(--v6-muted); }
+body.staff6 .tm6-ro .v6-row-lead.v6-act-lead .v6-at svg { width: 20px; height: 20px; }
+body.staff6 .tm6-ro .v6-row-main.has-lead:has(> .v6-act-lead) { grid-template-columns: 20px minmax(0, 1fr); }
+body.staff6 .tm6-ro .v6-row-main.has-lead > .v6-row-lead.v6-act-lead { width: 20px; height: 24px; margin-top: 0; }
+@media (max-width: 599.98px) {
+  body.staff6 .tm6-ro .v6-row-main.has-lead > .v6-row-lead.v6-act-lead { display: none; }
+  body.staff6 .tm6-ro .v6-row-main.has-lead:has(> .v6-act-lead) { display: flex; }
+  body.staff6 .tm6-ro .v6-row:has(.v6-act-lead) > .v6-row-act { padding-left: 0; }
+}

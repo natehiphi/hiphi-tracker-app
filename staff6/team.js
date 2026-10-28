@@ -7,23 +7,25 @@
 //   - Hearings at risk (D2): a working day or less from the day the notice must post, nobody has asked; no owner first;
 //   - today's and tomorrow's hearings as a plain schedule (D5): time, room, "Going: Kris" / "Going: no one yet", no counts,
 //     no colour, no to-do rows (R-276);
+//   - No owner (R-352, B-14 on v6): a card, the soonest 3 with Give to… (Take it for a non-admin lead), then "All N bills
+//     with no owner ›";
 //   - Who is on what: one bar per person counting what they hold, each step once (their own steps, their chair asks, the
-//     public asks they write); a helper with nothing of their own says whom they help ("helps HEAL"), never 0; a bar
-//     opens that person's list;
-//   - by season: the 2027 issues (admins), the partners' groups (partner approvers), the bills with no owner.
-//   Slipping and Hearings at risk are one ranked list (top 3 shown); the schedule, Who is on what and No owner are quiet
-//   lines that open in place.
+//     public asks they write); a helper with nothing of their own says whom they help ("helps HEAL"), never 0; read-only,
+//     in the column beside the lists from 1360px with the Partners line under it (23 Oct's layout), one column below;
+//   - by season: the 2027 issues (admins).
+//   Slipping and Hearings at risk are one ranked list (top 3 shown) that leaves out the lead's own steps (their Today's,
+//   R-352); the schedule is the one quiet line that opens in place.
 // #/team?who=<id> is "See as teammate" for everyone (More tools links it): that person's Today, read-only, never in colour,
 // worked out by today.js exactly as their own Today is. #/team?who=none lists the steps nobody holds yet ("Anyone can take
 // these steps"). Someone who is not a lead and opens #/team gets the picker, never an error.
 import { S, DB, SESSION_OVER, esc, advocate, hooks } from './data.js';
 import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk, partnersLine } from './today.js';
-import { billRoute, billById, whenAt, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
+import { billRoute, billById, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar, faceLead } from './ui.js';
-import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
+import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, status, leftSoon, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
 import { plainCodes } from './terms.js';
-import { dropVerb } from './verbs.js';   // R-344: one verb per row (A-25)
+import { dropVerb, actIcon, jobKind } from './verbs.js';   // R-344: one verb per row (A-25); R-352: the kind of job's icon
 import { isLead } from './more.js';
 import { ownerProgress, BOARD_HREF, dueEnd as prepDue } from './prep.js';
 import { pqItems, admitsPartners, wantQueue } from './partnerq.js';
@@ -97,9 +99,15 @@ const takeBtn = b => btn('Take it', { kind: 'secondary', sm: true, icon: 'user-r
 const noOwnBtn = b => S.me?.is_admin ? giveBtn(b) : takeBtn(b);
 
 // ---- Slipping (v5's logic): one row per step, said in v6's words ----
-// A testimony step's time is steps.js actBy's, the hand-on time every other screen gives (Today, Testimony, Hearings and
-// Review say "Approve by today 11:00 AM"; Team had said the Capitol's 3:00 PM: rule 6, spec 5).
-const actTime = a => !a || a.kind === 'none' ? '' : a.kind === 'hand' ? `by ${a.time}` : a.kind === 'now' ? `due ${a.time}` : a.kind === 'late' ? lateLine(a.until, { lower: true }) : `was due ${a.time}`;
+// A teammate's step says the team's time, "by …" (steps.js actBy's hand-on time, the one Today, Testimony and Hearings give;
+// the Capitol's own time is in the open item). Late, overdue and due today say steps.js status()'s one wording for that
+// state (R-352 wave 2: "Late, still accepted until 1:10 PM today", "2 days overdue", "Due today 10:00 AM, in 59 min").
+const actTime = a => !a || a.kind === 'none' ? '' : a.kind === 'hand' ? `by ${a.time}${leftSoon(a.at)}` : a.kind === 'late' ? lateLine(a.until, { lower: true })
+  : a.kind === 'overdue' ? lc(status({ due: a.due }).words) : lc(status({ due: a.at }).words);
+// R-352 (A-18 on v6): Team's list mixes kinds of job, so each row's line carries one small neutral icon for its kind (the
+// job's own icon, verbs.js), except where its time is the news: overdue (the alert), late (the alarm clock) and due today
+// (the clock), by A-5 on v6. The face before the name says whose it is.
+const kindIcon = k => { const j = jobKind(k); return j === 'none' ? 'list-checks' : actIcon(j); };
 // The step's name, for a bill's second row in the list (HB 1523's to-do and its approval read as one row twice).
 const STEP_NAME = { approve: 'Approve testimony', second: 'Second look', file: 'File testimony', revise: 'Revise testimony', submit: 'Send testimony for approval',
   write: 'Send testimony for approval', nodraft: 'Make the draft', stale: 'Check the testimony' };
@@ -124,7 +132,7 @@ function slipping() {
     // Testimony and Bills give the same bill (the fresh-eyes check: Team's "file by tomorrow 11:00 AM" beside their 1:00 PM
     // read as two deadlines; the filer's earlier time is in the open item). Sorted still by the time to act.
     if (r.nob) { const s = r.nob;
-      return { key: r.key, b: r.b, p: null, s, ids: [], mine: false, line: s.line || [NO_OWNER, lc(s.act.words)].join(' · '), over: s.act.kind === 'overdue', lateOk: s.act.kind === 'late', at: s.act.at }; }
+      return { key: r.key, b: r.b, p: null, s, ids: [], mine: false, line: s.line || [NO_OWNER, lc(s.act.words)].join(' · '), kic: kindIcon(s.kind), today: s.status?.tone === 'today', over: s.act.kind === 'overdue', lateOk: s.act.kind === 'late', at: s.act.at }; }
     // A share to-do is the rallier's public ask, by OUTREACH's time, only where the rallier has that row (today.js shareAsk;
     // spec 11.6): said and alerted as theirs. Anywhere else it is its owner's own to-do, in its own words and time.
     const sh = shareAsk(r.p), p = sh ? { ...r.p, due: sh.due ?? r.p.due } : r.p, b = r.b, ids = sh?.rl.length ? sh.rl : r.ids || [];
@@ -133,8 +141,8 @@ function slipping() {
     const who = !ids.length ? NO_OWNER : mine && solo ? 'You' : cap(orWords(ids, S.me));
     if (s && s.state && s.act) {
       const over = s.act.kind === 'overdue', lateOk = s.act.kind === 'late';
-      const line = [over ? `Overdue since ${whenAt(s.act.due)}` : '', stepWords(s)].filter(Boolean).join(' · ');
-      return { key: 'sl:' + (p.key || b.id), b, p, s, ids, mine, line, what: STEP_NAME[s.kind] ? lc(STEP_NAME[s.kind]) + ` on ${numWords(b)}` : strip(p.s), over, lateOk, at: s.act.at ?? p.due };
+      const line = stepWords(s);
+      return { key: 'sl:' + (p.key || b.id), b, p, s, ids, mine, line, kic: kindIcon(s.kind), today: s.status?.tone === 'today', what: STEP_NAME[s.kind] ? lc(STEP_NAME[s.kind]) + ` on ${numWords(b)}` : strip(p.s), over, lateOk, at: s.act.at ?? p.due };
     }
     // Anything else keeps v5's own words, codes made plain: its time first, so a two-line row never cuts it (the critic's 6).
     // Overdue says so first, in words, with its date (addendum 4).
@@ -145,8 +153,9 @@ function slipping() {
     const task = sh ? `write the public ask${sh.h ? ` for the ${dayWords(sh.h.scheduled_at)} hearing` : ''}` : strip(plainCodes(esc(strip(p.s))));
     const named = ids.length && !(mine && solo) && ids.some(id => id !== me);
     const what = named ? cap(task) : `${who}: ${task}`;
-    const line = [over ? `Overdue since ${whenAt(p.due)}` : p.due != null ? cap(`due ${whenAt(p.due)}`) : '', what].filter(Boolean).join(' · ');
-    return { key: 'sl:' + (p.key || b.id), b, p, s: null, ids, mine, line, what: sh ? `write the public ask for ${numWords(b)}` : strip(p.s), over, lateOk: false, at: p.due ?? Infinity };
+    const st = p.due != null ? status({ due: p.due }) : null;
+    const line = [st ? st.words : '', what].filter(Boolean).join(' · ');
+    return { key: 'sl:' + (p.key || b.id), b, p, s: null, ids, mine, line, kic: sh ? actIcon('ask') : kindIcon(p.kind), today: st?.tone === 'today', what: sh ? `write the public ask for ${numWords(b)}` : strip(p.s), over, lateOk: false, at: p.due ?? Infinity };
   });
   // Overdue first, then late testimony the Capitol still takes, then by the time to act (v5's "Late testimony, still open"
   // led its Slipping; Nate's walk: at noon two late filings sat below steps due at 2 and 3 PM).
@@ -176,7 +185,7 @@ function slipRow(x) {
   // R-344 (A-25): beside the step's own button ("File") the line drops the verb, "Late, still accepted until…", as Testimony
   // and Today say it; late wears the alarm clock, its own picture (verbs.js), and anything else the clock.
   const line = button && x.mine && x.s?.act?.verb ? dropVerb(x.line, x.s.act.verb) : x.line;
-  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: x.over ? 'circle-alert' : x.lateOk ? 'alarm-clock' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.ids) });
+  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: x.over ? 'circle-alert' : x.lateOk ? 'alarm-clock' : x.today ? 'clock' : x.kic || 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.ids) });
 }
 // A long button ("Alert Lauren and Patti", "Alerted 9:00 AM · Undo") goes under the row's line below 1440px (css .tm6-wide),
 // so the name and its time never break onto lines of their own; a short one stays beside the words. Below 600px every
@@ -214,7 +223,7 @@ function riskRow(x) {
   // R-344 (A-25): the owner's face leads the row and "Alert James" names them, so "· James owns it" goes; yours and an
   // unowned one keep their words.
   const whose = !x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : '';
-  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)}${whose ? ` · ${whose}` : ''}`)), icon: 'calendar-clock', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
+  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)}${whose ? ` · ${whose}` : ''}`)), icon: actIcon('chair'), href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
 }
 
 // ---- today's and tomorrow's hearings (D5): a plain schedule ----
@@ -250,8 +259,6 @@ const nobodyLine = s => { const u = unheld(s);
   if (!s?.state || !NOBODY_STEP[s.kind] || ['missed', 'filed'].includes(s.state.key) || s.off) return u;
   return `${NOBODY_STEP[s.kind]} · ${s.kind === 'nodraft' && /^due /i.test(u) ? 'testimony ' : ''}${lc(u)}`; };
 const nobodyRow = (x, { button = noOwnBtn(x.b) } = {}) => billRow(x.b, { viewer: S.me, step: { ...x.s, mine: false }, line: nw(esc(nobodyLine(x.s))), button, cls: 'tm6-r' });
-// A step due by the end of tomorrow (Slipping's window): its row keeps its button in Team's No owner fold.
-const soonStep = x => { const d = x.s?.act?.at ?? x.s?.due; return d != null && hday(d) <= hday(Date.now() + DAY); };
 
 // ---- Who is on what: everything each person holds, each step counted once ----
 // The people with nothing open are one line, "Everyone else: nothing open" (spec 0: less on every screen; between sessions
@@ -274,14 +281,17 @@ function loads() {
     const n = w.own.length + w.asks.length + rally;
     return { a, n, helps: n ? '' : helpsWords(a) }; }).sort((x, y) => y.n - x.n || !!y.helps - !!x.helps || x.a.full_name.localeCompare(y.a.full_name));
 }
+// R-352 (Nate's 23 Oct layout): read-only, faces and how many each carries, in the column beside the lists from 1360px. Each
+// bar was a link to that person's list: 11 controls past A-2's 12 on v6, so a teammate's list is opened from More tools'
+// "See a teammate's list" (and that page's "See someone else").
 function loadHTML(rows = loads()) {
-  // (no No owner bar: Team's own No owner line, just below, says it and opens it; A-14)
+  // (no No owner bar: Team's own No owner card says it and opens it; A-14)
   const busy = rows.filter(r => r.n > 0 || r.helps), idle = rows.length - busy.length, max = Math.max(1, ...rows.map(r => r.n));
-  const bar = (href, av, name, n, title, helps = '') => helps
-    ? `<a class="tm6-load tm6-helps" href="${esc(href)}" aria-label="${esc(`${title}: nothing of their own open, ${helps}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-hw">${esc(helps)}</span></a>`
-    : `<a class="tm6-load" href="${esc(href)}" aria-label="${esc(`${title}: ${plural(n, 'step')}`)}">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></a>`;
-  return `<div class="tm6-loads">${busy.map(({ a, n, helps }) => bar(`#/team?who=${encodeURIComponent(a.id)}`, avatar(a, 28), a.id === S.me?.id ? 'You' : a.full_name, n, a.id === S.me?.id ? 'Your list' : `${a.full_name}’s list`, helps)).join('')}
-    ${idle ? `<p class="tm6-idle">${icon('circle-check')}<span>${busy.length ? 'Everyone else' : 'Everyone'}: nothing open</span></p>` : ''}</div>`;
+  const bar = (av, name, n, helps = '') => helps
+    ? `<li class="tm6-load tm6-helps">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-hw">${esc(helps)}</span></li>`
+    : `<li class="tm6-load"><span class="sr">${esc(`${name}: ${plural(n, 'step')}`)}</span>${av}<span class="tm6-ln" aria-hidden="true">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></li>`;
+  return `<ul class="tm6-loads" role="list">${busy.map(({ a, n, helps }) => bar(avatar(a, 28, { deco: true }), a.id === S.me?.id ? 'You' : a.full_name, n, helps)).join('')}
+    ${idle ? `<li class="tm6-idle">${icon('circle-check')}<span>${busy.length ? 'Everyone else' : 'Everyone'}: nothing open</span></li>` : ''}</ul>`;
 }
 
 // ---- the seasonal blocks ----
@@ -310,9 +320,7 @@ function partnersHTML() {
 // supposed to look." His pick, "One list, top 3": one reading column (A-13, one focal point). Slipping and Hearings at risk
 // are one ranked list (overdue, then late but still accepted, then a hearing a working day from its notice with nobody
 // asking, then what is due within a day), its three most urgent rows shown with their one action each, and "See all N"
-// opening the rest in place under their small headings. The schedule, Who is on what and the bills with no owner are one
-// quiet line each that opens its list where it is (A-14: each count is the number of rows it opens), the Partners line
-// last. The same order on a phone (spec 6 phone).
+// opening the rest in place. R-352: the bills with no owner a card under it, Who is on what beside it (see teamPage).
 const TOP = 3;
 const RANK = { over: 0, late: 1, risk: 2, due: 3 };
 const kindOf = x => x.risk ? 'risk' : x.over ? 'over' : x.lateOk ? 'late' : 'due';
@@ -336,30 +344,39 @@ function schedLine(sch) {
   const when = [t ? `${t} today` : '', m ? `${m} tomorrow` : ''].filter(Boolean).join(', ');
   return `<b>${all.length === 1 ? 'Hearing' : 'Hearings'}</b> · ${esc(when)}${alone ? ` · ${alone === all.length ? 'no one going yet' : `${alone} with no one going`}` : ''}`;
 }
+// R-352 (Nate 27 Oct): the lead's own steps are the hero of their Today, so Slipping leaves them out and says so in one quiet
+// line; the bills with no owner are a card of their own, the soonest 3 with Give to… (B-14 on v6: a lead's jobs are never
+// folded); Who is on what and the Partners line sit in the column beside from 1360px, as 23 Oct had it, one column below.
+const mineRow = x => x.risk ? x.owner === S.me?.id : !!x.mine;
 function teamPage() {
   ALERTS.clear(); reachOf(null);   // who Slack can reach, asked once (admins), so an Alert's words are right the first time
   const off = SESSION_OVER;
   const sl = slipping(), risk = off ? [] : atRisk(), sch = off ? [] : schedule(), prep = prepSlip();
-  const rows = ranked(sl, risk), all = !!S.tmSlipAll || rows.length <= TOP, n = rows.length + (prep ? 1 : 0);
-  const more = rows.length > TOP ? `<p class="tm6-more">${btn(S.tmSlipAll ? 'Show fewer' : `See all ${rows.length}`, { kind: 'text', icon: S.tmSlipAll ? 'chevron-up' : 'chevron-down', attrs: { 'data-tmslipall': '1', 'aria-expanded': String(!!S.tmSlipAll) } })}</p>` : '';
-  const slip = block('slip', 'Slipping', n ? `${prep}${rows.length ? rankedHTML(rows, all) : ''}${more}`
-    : quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.'), { count: n || '' });
-  // the quiet lines, one card
-  const lines = [];
-  if (!off) lines.push(sch.some(d => d.rows.length)
+  const ranked0 = ranked(sl, risk), rows = ranked0.filter(x => !mineRow(x)), mine = ranked0.length - rows.length;
+  const all = !!S.tmSlipAll || rows.length <= TOP, n = rows.length + (prep ? 1 : 0);
+  const more = rows.length > TOP ? btn(S.tmSlipAll ? 'Show fewer' : `See all ${rows.length}`, { kind: 'text', icon: S.tmSlipAll ? 'chevron-up' : 'chevron-down', attrs: { 'data-tmslipall': '1', 'aria-expanded': String(!!S.tmSlipAll) } }) : '';
+  // Said first, under the heading, in plain words, not a link: Today is the sidebar's first place, with its count.
+  const yours = mine ? `<p class="tm6-sub tm6-yours">${esc(mine === 1 ? 'Your own one is on your Today, not here.' : `Your own ${mine} are on your Today, not here.`)}</p>` : '';
+  const foot = more ? `<p class="tm6-more">${more}</p>` : '';
+  const slip = block('slip', 'Slipping', n ? `${yours}${prep}${rows.length ? rankedHTML(rows, all) : ''}${foot}`
+    : `${yours}${quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.')}`, { count: n || '' });
+  // No owner: the soonest 3 not already drawn in Slipping above (a bill is said once on the page, A-14), each with its one
+  // button, then the whole list.
+  const nob = nobodySteps(), shown = new Set((all ? rows : rows.slice(0, TOP)).map(x => x.b?.id));
+  const nob3 = nob.filter(x => !shown.has(x.b.id)).slice(0, TOP);
+  const noown = nob.length ? block('noown', 'No owner', `<p class="tm6-sub">Bills with a position that nobody holds yet, soonest first.</p>
+      ${nob3.length ? `<div class="v6-list" role="list">${nob3.map(x => nobodyRow(x)).join('')}</div>` : ''}
+      <p class="tm6-all"><a href="#/team?who=none">All ${esc(plural(nob.length, 'bill'))} with no owner<span aria-hidden="true">&nbsp;›</span></a></p>`, { count: nob.length }) : '';
+  const hear = off ? '' : `<div class="t6-doors tm6-lines" role="group" aria-label="Hearings">${sch.some(d => d.rows.length)
     ? fold('sched', 'calendar-days', schedLine(sch), sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join(''))
-    : quiet('calendar-days', 'No hearings on our bills today or tomorrow.'));
+    : quiet('calendar-days', 'No hearings on our bills today or tomorrow.')}</div>`;
   const people = loads(), busy = people.filter(r => r.n > 0).length;
-  lines.push(fold('who', 'users', `<b>Who is on what</b> · ${busy ? `${plural(busy, 'person', 'people')} with open steps` : 'nothing open'}`,
-    `<p class="tm6-sub">Each person’s open steps, chair asks included.</p>${loadHTML(people)}`));
-  const nob = nobodySteps();
-  if (nob.length) lines.push(fold('noown', 'user-round', `<b>No owner</b> · ${plural(nob.length, 'bill')} with a position`,
-    `<div class="v6-list" role="list">${nob.map(x => soonStep(x) ? nobodyRow(x) : nobodyRow(x, { button: false })).join('')}</div>${door('#/team?who=none', 'user-round', `<b>${S.me?.is_admin ? 'Give them out' : 'Take one'}</b> on the No owner list`)}`));
+  const who = block('who', 'Who is on what', `<p class="tm6-sub">${esc(busy ? `${plural(busy, 'person', 'people')} with open steps, chair asks included.` : 'Nothing open on the team.')}</p>${loadHTML(people)}`);
   const partners = partnersHTML();
-  return `<div class="tm6-root tm6-one">
+  return `<div class="tm6-root tm6-page">
     <header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>
-    ${prepBlock()}${slip}
-    <div class="t6-doors tm6-lines" role="group" aria-label="More on the team">${lines.join('')}${partners}</div></div>`;
+    <div class="tm6-cols"><div class="tm6-main">${prepBlock()}${slip}${hear}${noown}</div>
+    <aside class="tm6-side" aria-label="The team">${who}${partners ? `<nav class="t6-doors tm6-lines" aria-label="Partners">${partners}</nav>` : ''}</aside></div></div>`;
 }
 // The way back above the title (B-4; the sitting page opened from Team has one): Team for a lead, More tools for anyone else.
 const backLink = () => { const b = isLead() ? { href: '#/team', label: 'Team' } : { href: '#/tools', label: 'More tools' };
@@ -413,9 +430,10 @@ function wire(route, root) {
 const titleOf = route => route?.who === 'none' ? 'No owner' : route?.who && advocate(route.who) ? `${first(route.who)}’s list` : isLead() ? 'Team' : 'A teammate’s list';
 
 // What Team's Slipping heading counts (its ranked rows plus the 2027 prep line), so Today's door says the same number.
+// R-352: the lead's own rows are on their Today, not Team's list, so they are not in this count either.
 export function teamSlipCount() {
   const off = SESSION_OVER;
-  return ranked(slipping(), off ? [] : atRisk()).length + (prepSlip() ? 1 : 0);
+  return ranked(slipping(), off ? [] : atRisk()).filter(x => !mineRow(x)).length + (prepSlip() ? 1 : 0);
 }
 export default {
   tab: 'team',
