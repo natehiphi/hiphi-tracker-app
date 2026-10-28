@@ -118,7 +118,7 @@ function build() {
     let folded = g.rows.length > cap && !g.flat ? g.rows.filter(b => ownStep(b) || k++ < cap) : g.rows;
     if (g.rows.length - folded.length <= 3) folded = g.rows;
     g.hides = g.rows.length - folded.length; g.shown = g.hides && !(v.full ??= {})[g.k] ? folded : g.rows; }
-  if (BX === 'c' && !hold) for (const g of groups) g.shown = byTopic(g.shown).flatMap(r => r.rows);
+  if (XF.topic && !hold) for (const g of groups) g.shown = byTopic(g.shown).flatMap(r => r.rows);
   NAV = groups.filter(g => g.open).flatMap(g => g.shown.map(b => b.id));
   return { list, groups };
 }
@@ -291,8 +291,12 @@ export function twinsAmong(bills) {
 //      pin, no trophy: the bar only says how far it has come);
 //   c: inside each stage group, the bills sit under their topic's name (Health care, Food, ...) with its coloured icon; the
 //      rows stay plain. (By issue it was one heading a bill: nearly every practice bill has an issue of its own.)
+//   d: a's tile inside b's card (no bar);   e: all three: c's topic headings, b's cards with the bar, a's tile.
 // A bill on several issues counts under one: the viewer's own issue first, else the first by name.
-const BX = (() => { try { const x = new URLSearchParams(location.search).get('bills'); return /^[abc]$/.test(x || '') ? x : ''; } catch { return ''; } })();
+const BX = (() => { try { const x = new URLSearchParams(location.search).get('bills'); return /^[a-e]$/.test(x || '') ? x : ''; } catch { return ''; } })();
+// each option as the parts it turns on (the page carries one class per part: css/bills.css .bl-xf-*)
+const XF = { tile: 'ade'.includes(BX || '-'), card: 'bde'.includes(BX || '-'), bar: 'be'.includes(BX || '-'), topic: 'ce'.includes(BX || '-') };
+const xfClass = () => Object.keys(XF).filter(k => XF[k]).map(k => ' bl-xf-' + k).join('');
 const issueOfBill = b => myIssuesOf(b)[0] || issuesOfBill(b.id)[0] || null;
 // a: the tile, or an empty slot of the same width so every name starts at one edge
 const xLead = b => { const i = issueOfBill(b); return i ? issueLead(i) : '<span class="v6-row-lead i6-lead bl-x-none" aria-hidden="true"></span>'; };
@@ -317,10 +321,10 @@ function rowsView(groups) {
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
   const rowOf = (b, g) => { if (v.selecting) return selRow(b);
-    const html = glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: BX === 'a' ? xLead(b) : '' }), b, { twins });
-    return BX === 'b' ? xBar(html, b) : html; };
+    const html = glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: XF.tile ? xLead(b) : '' }), b, { twins });
+    return XF.bar ? xBar(html, b) : html; };
   // c: one card per stage group, its topics' runs inside it, each run its own list under the issue's name
-  const listOf = g => BX === 'c' && !v.selecting ? `<div class="bl-x-subs">${byTopic(g.shown).map(r => `<div class="bl-x-sub">${subHead(r.c, r.rows.length)}<div class="v6-list" role="list" aria-label="${esc(topicName(r.c))}">${r.rows.map(b => rowOf(b, g)).join('')}</div></div>`).join('')}</div>`
+  const listOf = g => XF.topic && !v.selecting ? `<div class="bl-x-subs">${byTopic(g.shown).map(r => `<div class="bl-x-sub">${subHead(r.c, r.rows.length)}<div class="v6-list" role="list" aria-label="${esc(topicName(r.c))}">${r.rows.map(b => rowOf(b, g)).join('')}</div></div>`).join('')}</div>`
     : `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(b => rowOf(b, g)).join('')}</div>`;
   // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
   // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
@@ -900,7 +904,7 @@ export default {
     v.lastMuted = false;
     this._after = arrival(route);
     const p = parts();
-    return `<div class="bl-page ${tableOn() ? 'bl-tablev' : `bl-rowsv${BX ? ' bl-x-' + BX : ''}`}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
+    return `<div class="bl-page ${tableOn() ? 'bl-tablev' : `bl-rowsv${BX ? ' bl-x-' + BX + xfClass() : ''}`}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
       <div class="bl-stick">${toolbar()}<div id="bl-chips">${p.chips}</div></div><div id="bl-dyn">${p.body}</div></div>`;
   },
   bar(route) {
