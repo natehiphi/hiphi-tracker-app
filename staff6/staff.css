@@ -414,19 +414,19 @@ body.staff6.hasbar:has(#toast > *) main { padding-bottom: calc(var(--tabbar) + v
 /* ---- shared parts from ui.js ---- */
 .sv-av { width: var(--av, 24px); height: var(--av, 24px); border-radius: 50%; background: var(--v6-wash); color: var(--v6-body); display: inline-flex; align-items: center; justify-content: center;
   font: 700 var(--v6-t14)/1 var(--font); flex: none; letter-spacing: 0; }
-.sv-av.ini3 { font-size: 11px; letter-spacing: -0.02em; }   /* three-letter initials (JMM) stay inside a 24px circle (R-267); not reading text */
 .sv-av.none { background: none; border: 1.5px dashed var(--v6-field); }
-/* R-344 rule 4 (Nate 26 Oct, decision 3): a soft colour per person (ui.js tintOf), never the amber, red or green of status
-   and not the action teal. Fixed values, not palette tokens: a person is the same colour whatever palette a teammate picked,
-   and every palette's card is white or near it, so each pair keeps its contrast (initials on tint, WCAG 1.4.3): blue 6.4,
-   sky 6.4, violet 6.4, orchid 6.1, indigo 6.9, taupe 6.7. v6 has no dark mode yet; DESIGN.md (A-5 on v6) records the dark
-   pairs for when A-21 is built. */
-.sv-av.p0 { background: #CCDDFB; color: #1B4A8C; }   /* blue */
-.sv-av.p1 { background: #C2E7F4; color: #0B5470; }   /* sky */
-.sv-av.p2 { background: #DFD3FA; color: #533596; }   /* violet */
-.sv-av.p3 { background: #F5D0EE; color: #7E2B76; }   /* orchid */
-.sv-av.p4 { background: #D6D3F7; color: #3A3591; }   /* indigo */
-.sv-av.p5 { background: #EADCCD; color: #56463A; }   /* taupe */
+/* R-344 rule 4 (Nate 26 Oct, decision 3): a soft colour per person (ui.js tintOf), never the amber, red or green of status,
+   and (the fresh-eyes review) never one of the action tiles' hues either (verbs.js: indigo, violet, steel, the action blue,
+   rose, slate), so a face never reads as a job. Six far apart: apricot, aqua, khaki, blush, taupe and stone grey. Fixed
+   values, not palette tokens: a person is the same colour whatever palette a teammate picked, and every palette's card is
+   white or near it. Initials on tint (WCAG 1.4.3): apricot 6.3, aqua 7.2, khaki 7.4, blush 7.3, taupe 7.3, stone 8.2.
+   v6 has no dark mode yet. */
+.sv-av.p0 { background: #FAD9C2; color: #7E3A0F; }   /* apricot */
+.sv-av.p1 { background: #C4ECE6; color: #0B514B; }   /* aqua */
+.sv-av.p2 { background: #EAE3B4; color: #4F450C; }   /* khaki */
+.sv-av.p3 { background: #EFD6E0; color: #6A2F47; }   /* blush */
+.sv-av.p4 { background: #E6D8C9; color: #4F3E31; }   /* taupe */
+.sv-av.p5 { background: #DFE1E3; color: #383F44; }   /* stone */
 /* you: your own tint (the colour teammates see you by) and an action ring around it */
 .sv-av.me { box-shadow: 0 0 0 2px var(--v6-card), 0 0 0 3.5px var(--v6-action); }
 .sv-av.sv-avmore { background: var(--v6-wash); color: var(--v6-muted); font-weight: 400; }

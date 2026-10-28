@@ -107,8 +107,9 @@ body.staff6 .hr-page .hr-mrow.v6-face-row .v6-row-main.has-lead { grid-template-
 body.staff6 .hr-page .hr-lgface { width: 40px; min-height: 40px; margin-top: 0; }
 body.staff6 .hr-page .hr-goface { display: inline-flex; flex: none; align-items: center; margin-right: 2px; }
 body.staff6 .hr-page .hr-goface .sv-av + .sv-av { margin-left: -6px; box-shadow: 0 0 0 2px var(--v6-card); }
-body.staff6 .hr-page .hr-ownface { display: inline-flex; vertical-align: -5px; margin-right: 4px; }
-body.staff6 .hr-page .hr-ownface .sv-av { font-size: 10px; }
+/* the owner's face sized to its 20px line, with a gap before the words (R-344 review: it was taller than the line) */
+body.staff6 .hr-page .hr-ownface { display: inline-flex; vertical-align: -3px; margin-right: 6px; line-height: 0; }
+body.staff6 .hr-page .hr-ownface .sv-av { --av: 18px; width: 18px; height: 18px; font-size: 9px; }
 /* R-344 rule 3: the Capitol's deadline turns amber once it falls today (A-5 on v6, Nate 26 Oct) */
 body.staff6 .hr-due.today, body.staff6 .hr-due.today svg { color: var(--v6-late); }
 body.staff6 .hr-due.today { font-weight: 700; }

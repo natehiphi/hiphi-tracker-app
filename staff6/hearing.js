@@ -122,12 +122,13 @@ function facesIn(html, c) {
   const goers = c.cancelled ? [] : goersOf(c.rows);
   if (goers.length) html = html.replace(/(<p class="v6-hcard-going">)<svg[\s\S]*?<\/svg>/, `$1<span class="hr-goface" aria-hidden="true">${goers.slice(0, 3).map(a => avatar(a, 28, { deco: true })).join('')}</span>`);
   for (const x of c.items) { if (!isPos(x.b)) continue;
-    const own = advocate((S.assignments?.[x.b.id] || [])[0]); if (!own) continue;
+    // "Your bill" says it already: no face of your own beside it (the fresh-eyes review: on a phone it touched the words)
+    const own = advocate((S.assignments?.[x.b.id] || [])[0]); if (!own || own.id === S.me?.id) continue;
     const at = `<a class="v6-hcard-bl" href="${esc(billRoute(x.b))}">`, i = html.indexOf(at); if (i < 0) continue;
     const j = html.indexOf('<span class="v6-hcard-facts">', i), k = html.indexOf('</a>', i); if (j < 0 || j > k) continue;
     // right before "Kevin's bill" (else at the line's start), so the face sits beside the words it pictures
     const tag = '<span class="v6-hcard-facts">', w = html.indexOf(esc(whoseWords(x.b)), j), at2 = w > j && w < k ? w : j + tag.length;
-    html = html.slice(0, at2) + `<span class="hr-ownface" aria-hidden="true">${avatar(own, 20, { deco: true })}</span>` + html.slice(at2);
+    html = html.slice(0, at2) + `<span class="hr-ownface" aria-hidden="true">${avatar(own, 18, { deco: true })}</span>` + html.slice(at2);
   }
   return html;
 }

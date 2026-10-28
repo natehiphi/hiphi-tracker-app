@@ -82,8 +82,10 @@ export function tintOf(id) {
 export function avatar(adv, size = 24, { deco = false } = {}) {
   if (!adv) return deco ? `<span class="sv-av none" style="--av:${size}px"></span>` : `<span class="sv-av none" style="--av:${size}px" role="img" aria-label="No owner" title="No owner"></span>`;
   const me = S.me && adv.id === S.me.id, t = tintOf(adv.id);
-  const ini = adv.initials || adv.full_name?.[0] || '?';   // three letters (JMM) take a smaller size to stay inside the circle (R-267)
-  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}${ini.length > 2 ? ' ini3' : ''}`;
+  // At most two letters (the review: Julie's "JMM" spilt out of her circle): the first and the last ("JM"); the full name is
+  // in the title and, where the face is not decoration, read aloud.
+  const raw = String(adv.initials || adv.full_name?.[0] || '?'), ini = raw.length > 2 ? raw[0] + raw[raw.length - 1] : raw;
+  const cls = `sv-av${t >= 0 ? ` p${t}` : ''}${me ? ' me' : ''}`;
   if (deco) return `<span class="${cls}" style="--av:${size}px" data-ini="${esc(ini)}"></span>`;
   return `<span class="${cls}" style="--av:${size}px" title="${esc(me ? 'You' : adv.full_name)}" role="img" aria-label="${esc(me ? 'You' : adv.full_name)}">${esc(ini)}</span>`;
 }

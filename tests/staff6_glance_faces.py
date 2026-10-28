@@ -40,6 +40,12 @@ def main():
     check('People: the faces use at least 5 different colours (not all one teal)', len(tints) >= 5, sorted(tints))
     check('People: no colour is shared by more than 3 people', max([sum(1 for x in ppl if x['bg'] == t) for t in tints] or [99]) <= 3, '')
     check('People: no face uses status amber, red or green, or the action teal', not tints & {AMBER, RED, 'rgb(46, 118, 80)', 'rgb(0, 105, 142)', 'rgb(251, 239, 217)', 'rgb(251, 233, 229)'}, sorted(tints))
+    # the fresh-eyes review (27 Oct): no face in an action tile's hue (verbs.js: write, approve, file, chair, rally, take), so
+    # a face never reads as a job; and at most two letters in a circle (Julie's "JMM" spilt out of hers)
+    hues = p.evaluate("""() => ['write', 'approve', 'file', 'chair', 'rally', 'take'].map(k => { const d = document.createElement('span'); d.className = 'v6-at h-' + k; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })""")
+    check('People: no face uses an action tile\'s colour', not tints & set(hues), sorted(tints & set(hues)))
+    ini = p.evaluate("[...document.querySelectorAll('.v6-row-lead .sv-av')].map(a => (getComputedStyle(a, '::before').content || '').replace(/[\"']/g, '') || a.innerText.trim())")
+    check('People: at most two letters in every face', ini and all(len(x) <= 2 for x in ini), [x for x in ini if len(x) > 2])
     check('People: Nate and Kevin look different', by.get('Nate', {}).get('bg') != by.get('Kevin', {}).get('bg'), (by.get('Nate', {}).get('bg'), by.get('Kevin', {}).get('bg')))
     check('People: only your own face has the ring', [x['name'] for x in ppl if x['ring']] == ['Nate'], [x['name'] for x in ppl if x['ring']])
     contrast = p.evaluate("""() => { const lum = c => { const v = c.match(/\\d+/g).slice(0, 3).map(n => { n /= 255; return n <= 0.03928 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };

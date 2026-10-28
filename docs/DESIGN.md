@@ -1004,12 +1004,13 @@ comments, so a swap is one edit (D6). Contrast is WCAG, on page / card / wash:
   with a circle-x icon, never red (spec 11.4, amending D3). **Green** only for done. **Coral** only for celebration.
   This replaces "due today (or within 2 hours) is neutral: first in the list, the time in bold, a clock icon".
 - **A soft colour for each person (27 Oct 2026, Nate's decision 3 via R-344):** every staff member's initials circle has a
-  tint of their own, so "whose" reads before a word does. Six tints, none of them the amber, red or green of status nor the
-  action teal, the same in every palette (fixed values; each palette's card is white or near it), initials at WCAG AA
-  (A-7): blue #CCDDFB / #1B4A8C (6.4), sky #C2E7F4 / #0B5470 (6.4), violet #DFD3FA / #533596 (6.4), orchid #F5D0EE /
-  #7E2B76 (6.1), indigo #D6D3F7 / #3A3591 (6.9), taupe #EADCCD / #56463A (6.7). For dark mode, when A-21 is built:
-  blue #24395E / #C9DAFA, sky #173F4F / #BFE6F4, violet #36295C / #DCD0FA, orchid #4D2547 / #F4CDEC, indigo #2C2A5C /
-  #D6D3F7, taupe #3F342B / #E8DACB (all 8:1 or more). A person's tint is their place among everyone's ids, sorted
+  tint of their own, so "whose" reads before a word does. Six tints, none of them the amber, red or green of status, the
+  action teal, or any action tile's hue (indigo, violet, steel, blue, rose, slate: a face never reads as a job; R-344
+  fresh-eyes review, 27 Oct), spread far apart, the same in every palette (fixed values; each palette's card is white or
+  near it), initials at WCAG AA (A-7): apricot #FAD9C2 / #7E3A0F (6.3), aqua #C4ECE6 / #0B514B (7.2), khaki #EAE3B4 /
+  #4F450C (7.4), blush #EFD6E0 / #6A2F47 (7.3), taupe #E6D8C9 / #4F3E31 (7.3), stone #DFE1E3 / #383F44 (8.2). Dark-mode
+  pairs are worked out when A-21 is built. At most two letters in a circle (the first and the last: "JM"); the full name
+  is its title. A person's tint is their place among everyone's ids, sorted
   (`ui.js` `tintOf`), so it is the same on every screen and device; the viewer keeps their own tint with an action-coloured
   ring. Faces are added beside names, never instead of them (`ui.js` `faceLead`; hidden from reading, since the words name
   the person), and where a face is added a repeated name goes (A-25). Legislators show their photo over their initial.
