@@ -249,7 +249,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     const card = X.stepCard(nb.b, { viewer: JMM, where: 'today' }), t = strip(card);
     ok(!/btn primary/.test(card) && (t.match(/No owner/g) || []).length === 1 && /No owner yet/.test(t) && /data-v6act="take"/.test(card) && !/Open to anyone|no one holds it/i.test(t), `the card says it once, "No owner yet", with Take it and no filled button: ${nb.b.bill_number}`);
     // The card is titled with the step, not the owner situation; "No owner yet" sits beside Take it (the critic's HB 2300).
-    ok(/<h3 class="v6-step-what"[^>]*>File the testimony on <a class="v6-step-in"[^>]*>[^<]*<\/a> at the Capitol/.test(card) && /class="v6-step-noown"[^>]*>[\s\S]*No owner yet[\s\S]*data-v6act="take"/.test(card), 'the card is titled "File the testimony at the Capitol", with "No owner yet" beside Take it');
+    ok(/<h3 class="v6-step-what"[^>]*>File the testimony on <a class="v6-step-in"[^>]*>[^<]*<\/a>(?: <span class="v6-step-num">[^<]*<\/span>)? at the Capitol/.test(card) && /class="v6-step-noown"[^>]*>[\s\S]*No owner yet[\s\S]*data-v6act="take"/.test(card), 'the card is titled "File the testimony at the Capitol", with "No owner yet" beside Take it');
     ok(/^No owner yet · /.test(nb.s.line), `the row says so: "${nb.s.line}"`);
     ok(X.billStep(nb.b, { viewer: NT }).takeFor && !X.billStep(nb.b, { viewer: JMM }).takeFor, 'it reaches whoever may hand it (an admin, the issue’s owner), not everyone');
   }
@@ -260,7 +260,9 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(/<h3 class="v6-step-what"[^>]*>[^<]*<a class="v6-step-in" href="#\/bill\/HB1523">Let people cross/.test(today) && !/v6-step-in" href="#\/bill/.test(pane), 'Today’s card names the bill inside its sentence, as a link; the open item’s does not repeat its h2');
   ok(!/v6-step-bn|class="sr">, /.test(today), 'no separate name line above the sentence and no hidden copy of the name');
   const withIss = M.billByNum('HB1671'), pc = X.stepCard(withIss, { viewer: KR, where: 'today' });
-  ok(/<a class="v6-step-iss" href="#\/issue\/[^"]+\?from=HB1671"/.test(pc) && /v6-step-eyeb/.test(pc), 'the line above the sentence links the bill’s issue (HB 1671: "Its issue")');
+  // R-352 (B-2, A-14): no quiet line over a sentence that names the bill: its number follows the link small, and the bill's
+  // page (one tap on the name) holds its issue; "Testimony · HB 1671 · Its issue" made Today's card a line taller.
+  ok(!/v6-step-eyeb|v6-step-iss|v6-at/.test(pc) && /<\/a> <span class="v6-step-num">HB 1671<\/span>/.test(pc), 'no quiet line or tile over the sentence; the number follows the bill link (HB 1671)');
   const ownAsk = X.stepCard(withIss, { viewer: M.advocates?.find?.(a => a.initials === 'PT') || KR, where: 'today' }), askT = strip(ownAsk);
   ok(/Ask for a hearing on Hygienists can place temporary fillings/.test(askT) || /asks for a hearing on Hygienists/.test(askT), `a chair ask reads "Ask for a hearing on <bill>" (${askT.slice(0, 90)})`);
   ok(/class="v6-step-chair"/.test(ownAsk) && /chair of Senate Health and Human Services/.test(askT), 'the chair is named on the line under the sentence, with the committee');
@@ -301,9 +303,10 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const long = [];
   for (const who of people) for (const b of S.bills) { const s = X.billStep(b, { viewer: who }); if (s && s.line && s.line.split(' · ').length > 2) long.push(`${who.initials} ${b.bill_number}: ${s.line}`); }
   ok(!long.length, `every row line (six people, every bill) has two parts at most${long.length ? '; e.g. ' + long.slice(0, 3).join(' | ') : ''}`);
-  // Someone else's step says who does what, then when (spec 6's "Kris approves · due today 3:00 PM").
+  // Someone else's step says who does what, then when (spec 6's "Kris approves · due today 3:00 PM"); R-352: the team's
+  // time where one is still ahead, "by", the same time its owner sees ("Kris approves it · by today 11:00 AM").
   const oth = S.bills.map(b => X.billStep(b, { viewer: JMM })).find(s => s && s.kind === 'approve' && !s.you);
-  ok(!!oth && /^[A-Z][\w ,]* approves it · (due|late)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
+  ok(!!oth && /^[A-Z][\w ,]* approves it · (by|due|late)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
   // Hearing cards: every one of our bills on every sitting says where its testimony stands, in two parts.
   const sittings = [...new Map(S.hearings.filter(h => h.status !== 'cancelled').map(h => [h.committee + h.scheduled_at, h])).values()];
   const noState = [], tooLong = [];

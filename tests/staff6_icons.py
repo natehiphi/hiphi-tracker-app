@@ -24,7 +24,7 @@ SCREENS = [('Today', '/'), ('Hearings', '/hearings'), ('Hearings, This week', '/
   ('An issue', f'/issue/{L.ISSUE}'), ('Bills', '/bills'), ('A bill', '/bill/HB10'), ('Legislators', '/legislators'),
   ('A legislator', f'/legislator/{L.LEGISLATOR}'), ('Outreach', '/outreach'), ('Outreach, Partners', '/outreach/partners'),
   ('A supporter', f'/person/{L.SUPPORTER}'), ('Search', '/search?q=school'), ('Team', '/team'), ('Partners', '/partners'), ('Review', '/review')]
-MY_VIEWS = ['deadlines', 'status', 'topics', 'sheet']
+MY_VIEWS = ['deadlines', 'status']   # R-352: My issues has two views (topics and the spreadsheet are gone)
 
 # Names and icons come from the app's own data, so a new issue or icon needs no change here.
 SETUP = """import('./staff6/data.js').then(m => {
@@ -50,9 +50,14 @@ SCAN = """(() => { const { names, ics } = window.__icn, I = new Set(ics), out = 
 # failed, until each lands. Remove a line when its fix is in.
 LATER = {'button.lg6-jchip': 'All issues jump chips (issuegrid.js)', 'a.bw-inline': 'a bill\'s coalition link (bill.js)'}
 LATER_SCREENS = {'Search': 'search.js', 'Coalitions': 'issuegrid.js', 'Today': 'today.js', 'Partners': 'partnerq.js'}
+# R-352 (A-18 on v6): where a name stands alone in words on its own line, it carries no icon: the bill page's issue name and
+# its coalition link (bill.js). Those spots must have none; every other spot keeps the rule above.
+WORDS_ONLY = {'p.bw-ic-n', 'a.bw-ws-a'}
 def check(pg, label, w):
   pg.page.wait_for_timeout(300)
   spots = pg.page.evaluate(SCAN)
+  plain = [s for s in spots if s['where'] in WORDS_ONLY]; spots = [s for s in spots if s['where'] not in WORDS_ONLY]
+  if plain: R.check(f'{w}: {label}: the issue name and coalition link stand in words, no icon (R-352)', not any(s['ok'] for s in plain), [(s['name'], s['where']) for s in plain if s['ok']][:4])
   own = [s for s in spots if not s['bill']]; bills = [s for s in spots if s['bill']]
   miss = [s for s in own if not s['ok']]; bmiss = [s for s in bills if not s['ok']]
   if w < 600: miss = [s for s in miss if s['where'] != 'a.mi-tlink']   # the phone spreadsheet drops the tile on purpose (its name column is narrow)
@@ -74,7 +79,7 @@ with L.browser() as B:
       pg.open(route); pg.page.evaluate(SETUP); check(pg, label, w)
     pg.open('/my-issues'); pg.page.evaluate(SETUP)
     for v in MY_VIEWS:
-      pg.page.click(f'[data-miview="{v}"]' if w >= 768 else 'body', timeout=3000) if w >= 768 else pg.page.select_option('[data-misel]', v)
+      pg.page.click(f'[data-miview="{v}"]', timeout=3000)   # the same two-button switch at every width (no phone picker)
       pg.page.wait_for_timeout(600); pg.ready()
       pg.page.evaluate("document.querySelectorAll('#mi-g-stopped, .mi-stopped').forEach(d => d.open = true)")
       check(pg, f'My issues, {v}', w)

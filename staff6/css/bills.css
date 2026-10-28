@@ -7,19 +7,17 @@
 .bl-page, .bl-memopage { --bl-top0: var(--header); --bl-sh: 0px; }
 .bl-page { min-width: 0; }
 
-/* ---- the head: "Bills" with the whose switch at its right (as v5 had it beside the title), the page tabs on their own
-   row under them (staff.css .sv-phead). The switch used to take a 56px row of its own under the tabs, which put the first
-   bill 444px down Nate's laptop (A-1: 400); at the title's right it keeps its own track, apart from the tabs. ---- */
-@media (min-width: 768px) {
-  body.staff6 main .bl-head.sv-phead:has(.sv-secnav) .sv-phr > .sv-seg.sv-whose { order: 1; }   /* outranks staff.css's order: 3 */
-  body.staff6 main .bl-head { margin-bottom: var(--s16); }
-}
-/* A phone: the tabs, then the switch across the column; 12px between them, not 20 (the first bill 490px down, A-1). */
+/* ---- the head: "Bills" and the page tabs; Mine | Team leads the toolbar row under them (R-352 D: the same place as
+   Hearings' and Legislators', at the left), so it costs no row of its own on a laptop. ---- */
+@media (min-width: 768px) { body.staff6 main .bl-head { margin-bottom: var(--s16); } }
+@media (max-width: 767px) { body.staff6 main .bl-head { margin: 0 0 var(--s12); } body.staff6 main .bl-head .sv-secnav { margin-bottom: 0; } }
+.bl-whose { flex: none; display: flex; }
+/* a phone: the switch on a row of its own at its compact width (as Legislators' and Hearings'), the box and Filter under it */
 @media (max-width: 767px) {
-  body.staff6 main .bl-head { display: flex; flex-wrap: wrap; gap: var(--s12) 0; margin: 0 0 var(--s12); }
-  body.staff6 main .bl-head .sv-secnav { margin-bottom: 0; }
-  body.staff6 main .bl-head .sv-seg { flex: 1 1 100%; display: flex; }
-  body.staff6 main .bl-head .sv-seg button { flex: 1 1 auto; padding: 0 10px; white-space: nowrap; }
+  .bl-page .bl-tools { flex-wrap: wrap; }
+  .bl-whose { flex: 1 0 100%; }
+  .bl-whose .sv-seg { padding: 2px; }
+  .bl-page .bl-tools .bl-search { flex: 1 1 0; }
 }
 
 /* ---- the deadline line (F95): one sentence, 16px, its count a link to those bills, then Get hearings. A phone has the
@@ -29,8 +27,6 @@
 .bl-dls b { color: var(--v6-ink); }
 /* the two links in the line: underlined, not bold (the share of bold text, spec 4) */
 .bl-dls .bl-dlk { font: inherit; font-weight: 400; text-align: left; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
-.bl-dls .bl-dlgo { font-weight: 400; color: var(--v6-action); white-space: nowrap; text-decoration: none; }
-.bl-dls .bl-dlgo:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* (one line at every width now, in Get hearings' words: "20 to ask; 16 face the Mon 3/30 deadline · Get hearings") */
 @media (max-width: 767px) {
   .bl-dls { margin-bottom: var(--s8); }
@@ -88,8 +84,6 @@
   .bl-tools { margin-bottom: var(--s8); }
   .bl-search .input { box-sizing: border-box; height: 44px; }
   .bl-search .input:placeholder-shown { padding-right: 12px; }   /* no clear button while empty: the words get its room */
-  /* the switch: 48px, not 52 (its buttons stay 44px targets) */
-  body.staff6 main .bl-head .sv-seg { padding: 2px; }
 }
 
 /* ---- filters that are on: chips that come off with a click, then Clear all ---- */

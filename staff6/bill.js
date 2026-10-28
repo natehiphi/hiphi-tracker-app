@@ -30,8 +30,8 @@ import { renderEarlier, wireTestimony, earlierCount, onNextUp } from './testimon
 import { billRoute, billByNum, MEMO_SAYS, plain, companionsOf, wantsHearing, chairAskMail, chairAskOf, ASK_LOG, liveAsk } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
-import { issuesOfBill } from './issues.js';
-import { issueCardHTML } from './issuepage.js';   // the issue card at the top of the right column (R-346)
+import { issuesOfBill, issueLinkHref } from './issues.js';
+import { issueHealth } from './issuepage.js';   // how the issue stands, the issue page's own judgement (R-352)
 import { dayOf } from './standing.js';
 import { askedChip } from './chairask.js';
 import { STATES } from './verbs.js';
@@ -908,11 +908,10 @@ function hearingSide(b, s) {
 // (or "Same name as this bill" when the bill is called what its issue is), and where the issue stands in one short line
 // ("At risk: the only bill still alive"), then "Open the issue ›". The bill rows, the paragraph and the black "This bill"
 // tag went: the tag was the heaviest thing on the page and the tint read as selected. How the issue stands is the issue
-// page's own judgement (issuepage.js health, read from issueCardHTML's data-state until it exports it), so the two agree.
+// page's own judgement (issuepage.js issueHealth), so the two agree.
 const CH_OF = b => /^S/.test(b.bill_number || '') ? 'S' : 'H';
 function issueSide(i, b) {
-  const full = issueCardHTML(i, b);
-  const k = (/data-state="issue:(\w+)"/.exec(full) || [])[1] || 'none', href = (/class="bw-if-go" href="([^"]*)"/.exec(full) || [])[1] || '';
+  const k = issueHealth(i).k || 'none', href = issueLinkHref(i, b);
   const alive = (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(y => y.id === x.bill_id))
     .filter(x => x && x.tracked !== false && (!x.session_year || +x.session_year === +SESSION_YEAR) && !diedish(x));
   const chs = new Set(alive.map(CH_OF)), n = alive.length, CHN = { H: 'House', S: 'Senate' };

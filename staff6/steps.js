@@ -28,7 +28,7 @@ import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft
   whenAt, clockDay, lateLine, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
   streamOf, billById, offTag, legById, askReply, billRef } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
-import { ACTS as PIC, actTile, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON } from './verbs.js';   // R-344: the one table of action pictures and status shapes
+import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
 import { issueIcon } from './issuegrid.js';   // R-339: an issue's own icon wherever an issue is named (used in functions only)
 import { askLine, answerSheet } from './chairask.js';
 import { askTodoOf, giveAsk, logAsk } from './push.js';
@@ -524,7 +524,11 @@ function rowLine(s, v) {
     if (s.kind === 'nodraft') return `Make the draft · ${s.act.words ? lc(s.act.words) : `testimony due ${whenAt(s.due)}`}`;
     return s.act.words;
   }
-  const when = late ? lateLine(s.until, { lower: true }) : s.status.tone === 'overdue' ? `was due ${whenAt(s.due)}` : s.due != null ? `due ${whenAt(s.due)}` : '';
+  // R-352: a teammate's row says the team's time, the one its owner sees ("Kevin files it · by Wed 3/18, 7:30 AM" beside
+  // his own "File by Wed 3/18, 7:30 AM"), as Testimony's rows do (testimonyplace.js lineOf); the open card says the
+  // Capitol's later deadline. "by" is the team's time, "due" the Capitol's, shown only where no team time is still ahead.
+  const hand = s.act?.kind === 'hand' && s.act.at > Date.now();
+  const when = late ? lateLine(s.until, { lower: true }) : s.status.tone === 'overdue' ? `was due ${whenAt(s.due)}` : hand ? `by ${whenAt(s.act.at)}` : s.due != null ? `due ${whenAt(s.due)}` : '';
   return [othersWords(s), when].filter(Boolean).join(' · ');
 }
 const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
@@ -556,12 +560,21 @@ function chairLine(s, v) {
 // someone else's does ("Writing · sent back, you resubmit now"; spec 12.6), where Hearings had said only "Writing · you
 // resubmit now" beside Today's and Testimony's Sent back. `toned`: the row is drawn in the late colour (the viewer's own,
 // or a teammate's on their bill), so it keeps the one word "late" beside its colour (D3), never the time again.
-export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
+// `button`: the row carries the viewer's own button (R-352, C-15): the button says the verb, so the line says the state and
+// the time in status()'s one wording ("Ready to file · due today 10:00 AM, in 59 min", "Ready to file · late"); with no
+// button the line keeps "you" and the verb, as Bills' rows keep "File now · ...".
+export function hearingLine(s, { lateSaid = false, toned = false, button = false } = {}) {
   if (!s) return '';
   if (s.kind === 'chair' || s.kind === 'none' || !s.state) return s.line || '';
   const st = s.state, tone = s.status?.tone, hush = lateSaid && tone === 'late';
   if (st.key === 'filed' || st.key === 'missed' || s.off) return s.line;
   const own = `${st.word} · ${st.sentBack ? 'sent back, ' : ''}you `;
+  if (s.you && button) {
+    const head = `${st.word}${st.sentBack ? ' · sent back' : ''}`, sep = st.sentBack ? ', ' : ' · ';
+    if (hush) return toned ? `${head}${sep}late` : head;
+    const t = ['late', 'overdue'].includes(tone) ? s.status.words : dropVerb(s.act?.words || '', s.act?.verb);
+    return t ? `${head}${sep}${lc(t)}` : head;
+  }
   if (s.you && hush) return own + lc(s.kind === 'nodraft' ? 'Make the draft' : s.act?.verb || 'act on it') + (toned ? ', late' : '');
   // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
   if (s.you) return own + lc(String(s.line || '')).replace(/ · /g, ', ');
@@ -569,7 +582,8 @@ export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
   const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : tone === 'today' && s.mine && s.due != null ? `due ${whenAt(s.due)}` : '';
   if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
   if (!when && st.noDraft) return `${st.word} · not started`;
-  if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}` : ''}`;
+  // the Capitol's time in status()'s one wording, with the time left when it is near ("due today 9:30 AM, in 2 hours")
+  if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}${leftSoon(s.due)}` : ''}`;
   const who = othersWords(s), lead = who.startsWith(st.word) ? who : `${st.word} · ${who}`;
   return when ? `${lead}, ${when}` : lead;
 }
@@ -711,16 +725,23 @@ export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : [])
 const BILL_IN = '\u0001bill\u0001';
 // The bill's name inside the sentence: the app's in-sentence link (the bill page's chair name, bill.css .bw-chairl): the
 // action colour, underlined at rest (A-12, B-9). It keeps the sentence's size and weight, so the card has one heading.
-const billInHTML = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(fullName(b))}</a>`;
+// R-352: its number follows small, as on every row ("Disposable e-cigarette ban HB 2121"), now that no quiet line over the
+// sentence carries it: two bills can share a name (HB 2121 and SB 2175), and the number tells them apart.
+export const billNumHTML = b => fullName(b) === numWords(b) ? "" : ` <span class="v6-step-num">${esc(numWords(b))}</span>`;
+const billInHTML = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(fullName(b))}</a>${billNumHTML(b)}`;
 // The chair's name opens their page, wherever the card names them (R-316 W18 did it on the bill page only; option E moves
 // the chair to a line of its own, so the link moves with it and now works on Today, Testimony and Team too). Same words
 // chairAskMail writes ("Sen. San Buenaventura"), so the name is found in the line.
 // The head of a card that is not a bill step (Today's small cards, partner words) in the same shape (option E): the quiet
 // line (kind · number · issue) and the sentence, its {bill} the bill's name as the in-sentence link. No bill: the
 // sentence alone, under the kind.
-// `job` (R-344 Rule 1): the job's kind in verbs.js ACTS, drawn as its tile at the head of the quiet line.
-export function stepHeadHTML(b, { kind = '', sentence = '', id = '', job = '' } = {}) {
-  const top = (job && PIC[job] && job !== 'none' ? actTile(job, { size: 24 }) : '') + [kind ? esc(kind) : '', b ? `<span class="v6-row-num">${esc(numWords(b))}</span>` : '', b ? issueLinksHTML(b) : ''].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
+// R-352 (A-18 on v6, B-2): no job tile at the head (the filled button below carries the job's icon), and where the sentence
+// already names the bill as its link (with its number small after it), no quiet line at all: "Testimony · SB 3076 · Its
+// issue" over a sentence naming the bill made the card a line taller and pushed Kevin's Email the chair off his first screen. The bill's page, one tap on the
+// name, has its number and issue.
+export function stepHeadHTML(b, { kind = '', sentence = '', id = '' } = {}) {
+  const named = !!b && sentence.includes('{bill}');
+  const top = named ? '' : [kind ? esc(kind) : '', b ? `<span class="v6-row-num">${esc(numWords(b))}</span>` : '', b ? issueLinksHTML(b) : ''].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>');
   const said = nw(esc(sentence)).split('{bill}').join(b ? billInHTML(b) : '');
   return `${top ? `<p class="v6-step-eyebrow v6-step-eyeb">${top}</p>` : ''}<h3 class="v6-step-what"${id ? ` id="${esc(id)}"` : ''}>${said}</h3>`;
 }
@@ -751,10 +772,10 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   // (the bill page, the open item) on a chair ask.
   const kindW = s.kind === 'chair' ? (s.ask.decide ? 'Getting a vote' : 'Getting a hearing') : s.kind === 'none' ? 'Where it stands' : 'Testimony';
   const eye = x ? '' : s.kind === 'chair' ? `${kindW}${s.ask.code ? ' · ' + committeeName(s.ask.code) : ''}` : s.kind === 'none' ? kindW : '';
-  const eyebrow = x ? [esc(kindW), `<span class="v6-row-num">${esc(numWords(b))}</span>`, issueLinksHTML(b)].filter(Boolean).join('<span class="v6-sep" aria-hidden="true"> · </span>')
-    : [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
-  // R-344 Rule 1: the card's quiet line starts with its job's tile, the same picture as its row and its buttons.
-  const tileH = s.kind !== 'none' && PIC[s.kind] ? actTile(s.kind, { size: 24 }) : '';
+  // R-352 (B-2, A-14): where the sentence names the bill (x, its number small after the link), no quiet line over it:
+  // "Testimony · SB 3076 · Its issue" said again what the sentence and its link say, and made Today's card a line taller. The bill's page has its number and issue.
+  // No job tile either (A-18 on v6): the filled button carries the job's icon.
+  const eyebrow = x ? '' : [lead ? `<span class="v6-step-lead">${esc(lead)}</span>` : '', eye ? esc(eye) : ''].filter(Boolean).join(' · ');
   const say = t => nw(esc(t)).split(BILL_IN).join(billInHTML(b));
   const chairH = c.chairLine ? linkChairs(b, say(c.chairLine), s.ask?.code) : '';
   // Someone else's step: Open Doc for everyone, and where the step is done (the open item, the bill) a teammate who may
@@ -772,7 +793,7 @@ export function stepCard(b, { viewer, where = 'pane', d, h, primary = true, big 
   const sent = sentWords(s, v);
   const fit = actsHTML == null ? actsFit(acts) : '';
   return `<section class="v6-step ${own ? 'own' : 'others'} k-${esc(s.kind)}${big ? ' big' : ''}${s.kind === 'missed' ? ' closing' : ''}${showName ? ' named' : ''} w-${esc(where)}" data-v6step="${esc(b.id)}" aria-labelledby="${hid}">
-    ${eyebrow || tileH ? `<p class="v6-step-eyebrow${x ? ' v6-step-eyeb' : ''}">${tileH}${eyebrow}</p>` : ''}
+    ${eyebrow ? `<p class="v6-step-eyebrow">${eyebrow}</p>` : ''}
     <h3 class="v6-step-what" id="${hid}">${say(c.what)}</h3>
     ${chairH ? `<p class="v6-step-chair">${chairH}</p>` : ''}
     ${c.tile?.words || c.when || rem ? `<div class="v6-step-meta">${[statusTile(c.tile), rem, c.when ? `<span class="v6-step-when">${s.kind === 'chair' && x ? linkChairs(b, say(c.when), s.ask?.code) : say(c.when)}</span>` : ''].filter(Boolean).join(' ')}</div>` : ''}
@@ -881,7 +902,9 @@ function testimonyCard(s, v, own, x = '') {
   if (st.key === 'missed') return { tile: s.status, what: own ? `The hearing${on(x)} has started. Did we file?` : x ? `The testimony on ${x} was not filed before the hearing` : 'Not filed before the hearing',
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
   const tile = ['late', 'overdue'].includes(s.status.tone) ? shown
-    : own ? (s.act.words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words: s.act.words } : null)
+    // R-352 (C-15, one wording per state): the viewer's own card says the time as every row beside its button does, the verb
+    // left to the button: "Due today 2:00 PM, in 1 hour" under Resubmit, "By Wed 3/18, 7:30 AM" under File.
+    : own ? (s.act.words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words: dropVerb(s.act.words, s.act.verb) } : null)
     : { tone: 'neutral', icon: '', words: st.label };
   // A step nobody holds is titled with the step itself ("File the testimony at the Capitol"); "No owner yet" sits beside
   // Take it, in the bill header's words (the critic: a card titled "No owner" under a header saying "No owner yet").
@@ -1019,10 +1042,11 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">${NOTE_HEAD}:</span> ${esc(s.d.review_note)}</p>` : '';
     // Open Doc in the step card's own look beside Resubmit (tonal: the Doc is where the writer revises; Patti's finding)
     const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'secondary', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
-    const btnHtml = (ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s)) + doc, t = lineTone(s);
+    const own = ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s);
+    const btnHtml = own + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
     return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
-      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late' })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
+      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late', button: ok && !!own })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
   const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
   // The lead bill (the viewer's own step, Today's hearing day) in a list of its own, so the narrowest phones can draw it
   // right under the committee, before Going: at 320x640 Kris's Review sat under the bottom bar (steps.css, below 380px).
