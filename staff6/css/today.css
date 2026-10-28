@@ -730,7 +730,7 @@
 .td-root .td-mbill:hover { color: var(--p800); text-decoration: underline; }
 .td-root .td-mstate { flex: 1 1 auto; display: inline-flex; align-items: center; gap: 4px; color: var(--n700); }
 .td-root .td-mstate .ic { width: 14px; height: 14px; flex: none; }
-.td-root .td-myrev { color: var(--warn-text); font-weight: 700; }   /* v4 (R-269): your approval on today's hearing, amber like its deadline (A-5) */
+.td-root .td-myrev { color: var(--n900); font-weight: 700; }   /* v4 (R-269): your approval on today's hearing; due today is plain, amber only when late (A-5 on v6, R-352) */
 
 /* v4 (R-269, T11): Slipping. Each row carries whoever it waits on, in place of the per-person headings. */
 .td-root .td-rav { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 52px; }
@@ -1005,7 +1005,6 @@ body.staff6 .t6-wacts { display: flex; flex-wrap: wrap; gap: 4px; }
   body.staff6 .t6-next .v6-step > .v6-step-acts { order: 1; }
 }
 /* a lead's slipping line on a phone, right under the next step */
-body.staff6 .t6-leadph { margin: 0; }
 /* a hearing day: the step's sitting is its own card on the page, which names its time, room and committee once (A-14) */
 body.staff6 .t6-next.t6-nohear .v6-step-hear { display: none; }
 /* (who is going and I'm going are on the hearing's own card: Hearings, the sitting's page, the open item, and on a hearing
@@ -1044,7 +1043,9 @@ body.staff6 .t6-hcteam > summary:focus-visible { outline: 3px solid var(--v6-act
   body.staff6 .t6-root .t6-list .v6-row-num { display: inline; white-space: nowrap; margin-left: 2px; }
 }
 body.staff6 .t6-clgo { margin: 4px 0 0; }
-@media (min-width: 768px) { body.staff6 .t6-col { gap: 24px; } }
+/* R-352: a little tighter from 768px (20 between the parts; 8 under each heading, at the end of this file, as a phone has), so a laptop's first
+   screen holds the next step, Do today and the first of Coming up: Kevin's Email the chair stays in sight (B-2) */
+@media (min-width: 768px) { body.staff6 .t6-col { gap: 20px; } }
 
 /* ---- Team (#/team, V15, D2, D5): one reading column (Nate's walk 4, "One list, top 3": calm and roomy, A-13 one focal
    point). Slipping's three most urgent rows first, then one card of quiet lines that open in place (A-8 space, not lines). */
@@ -1186,28 +1187,14 @@ body.staff6 .t6-quiet.t6-later { margin-top: 12px; }
 /* the Waiting on others and Later lists: the bill number small and plain beside the name, as in every row (D15) */
 body.staff6 .t6-wname .v6-row-num { font-family: Lato, system-ui, sans-serif; font-weight: 400; font-size: var(--v6-t14); color: var(--v6-muted); }
 
-/* ---- R-346 (Nate 27 Oct, Today = moderate): rows lead with the job, a time column, the week in the page ----
-   Each row: the time on the left (Do today's hour, "Any time" quiet; Coming up's day), then a quiet line (kind · number ·
-   the issue's icon and name on its tint), the job as a sentence with the bill as an in-sentence link (option E), one quiet
-   line under it, and the row's one tonal button (D16). The row's pick is a link laid over the row (no link holds another);
-   the words sit above it and only their own links take the pointer (A-24: one shape for every row). */
+/* ---- group headings with a quiet subtitle ("Do today · In the order they are due"), and a hearing day's next-step head
+   (R-346's option E, kept by R-352: the quiet line, the sentence, the line under it) ---- */
 body.staff6 .t6-ghd { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; margin: 0 0 12px; }
 body.staff6 .t6-ghd > .t6-gh { margin: 0; }
 body.staff6 .t6-ghsub { margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
-body.staff6 .t6-jobs .v6-row.t6-job { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 72px; padding: 12px 8px; }
-body.staff6 .t6-job > .t6-jmain { position: absolute; inset: 0; z-index: 0; margin: 0; padding: 0; border-radius: var(--v6-r12); }
-body.staff6 .t6-job > .t6-jmain:focus-visible { outline: 3px solid var(--v6-action); outline-offset: -3px; }
-body.staff6 .t6-job > .t6-jt, body.staff6 .t6-job > .t6-jb, body.staff6 .t6-job > .v6-row-act { position: relative; z-index: 1; }
-body.staff6 .t6-job > .t6-jt, body.staff6 .t6-job > .t6-jb { pointer-events: none; }
-body.staff6 .t6-job .t6-jb a { pointer-events: auto; position: relative; z-index: 2; }
-body.staff6 .t6-jt { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 500; color: var(--v6-ink); font-variant-numeric: tabular-nums; }
-body.staff6 .t6-jt.any { font-size: var(--v6-t14); font-weight: 400; color: var(--v6-muted); }
-body.staff6 .t6-jb { display: grid; gap: 2px; min-width: 0; }
-body.staff6 .t6-jb > p { margin: 0; }
 body.staff6 .t6-jeye { display: flex; flex-wrap: wrap; align-items: center; row-gap: 4px; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
 body.staff6 .t6-jeye .v6-row-num { font-size: inherit; color: inherit; }
 body.staff6 .t6-jeye .v6-sep { white-space: pre; }
-body.staff6 .t6-jsay { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t18); line-height: var(--v6-lh18, 26px); color: var(--v6-ink); overflow-wrap: anywhere; }
 body.staff6 .t6-jsub { display: flex; align-items: flex-start; gap: 6px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
 body.staff6 .t6-jsub > svg { width: 18px; height: 18px; flex: none; margin-top: 3px; }
 body.staff6 .t6-jsub > span { min-width: 0; overflow-wrap: anywhere; }
@@ -1220,91 +1207,26 @@ body.staff6 a.t6-iss svg { width: 14px; height: 14px; flex: none; margin-top: 3p
 body.staff6 a.t6-iss > span { min-width: 0; overflow-wrap: anywhere; }
 body.staff6 a.t6-iss:focus-visible { outline: 2px solid var(--v6-action); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 a.t6-iss:hover > span { text-decoration: underline; text-underline-offset: 3px; } }
-/* the open item beside the list from 1100px narrows the list: the time column then sits over the words */
-@media (min-width: 1100px) { body.staff6 .t6-ld.open .t6-jobs .v6-row.t6-job { grid-template-columns: minmax(0, 1fr) auto; } body.staff6 .t6-ld.open .t6-job > .t6-jt { grid-column: 1 / -1; } }
-/* a phone: the time over the words, the button under them, full width of the row (A-8: one layout for every row) */
-@media (max-width: 599px) {
-  body.staff6 .t6-jobs .v6-row.t6-job { grid-template-columns: minmax(0, 1fr); row-gap: 4px; padding: 12px 8px; }
-  body.staff6 .t6-job > .v6-row-act { padding: 4px 0 0; }
-  body.staff6 .t6-jsay { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
-}
-
-/* the Team card: its heading inside the card of one-line doors (the moderate mock) */
-body.staff6 .t6-teamh { display: flex; align-items: center; gap: 10px; margin: 0; padding: 10px 12px 4px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
-body.staff6 .t6-teamh svg { width: 20px; height: 20px; flex: none; color: var(--v6-muted); }
-body.staff6 .t6-teamh + .t6-line::before { background: transparent; }
-
-/* "This week" at the top of the side column: five small days, today ringed, and the way to the week below */
-body.staff6 .t6-wk { display: grid; gap: 12px; padding: 16px 20px 20px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
-body.staff6 .t6-wk > * { margin: 0; }
-body.staff6 .t6-wkhd { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
-body.staff6 .t6-wk .t6-sh { display: inline-flex; align-items: center; gap: 8px; }
-body.staff6 .t6-wk .t6-sh svg { width: 20px; height: 20px; color: var(--v6-muted); }
-body.staff6 a.t6-wkopen { display: inline-flex; align-items: center; min-height: 40px; color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; font-size: var(--v6-t16); }
-body.staff6 a.t6-wkopen:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
-body.staff6 .t6-wkdays { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
-body.staff6 .t6-wkd { display: grid; align-content: start; gap: 2px; min-height: 76px; padding: 8px 6px; border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t14); line-height: 20px; color: var(--v6-body); }
-body.staff6 .t6-wkd.today { background: var(--v6-card); box-shadow: inset 0 0 0 2px var(--v6-action); }
-body.staff6 .t6-wkd.past { color: var(--v6-muted); }
-body.staff6 .t6-wkn { font-weight: 700; color: var(--v6-ink); }
-body.staff6 .t6-wkc { display: inline-flex; align-items: center; gap: 4px; }
-body.staff6 .t6-wkc svg { width: 14px; height: 14px; flex: none; color: var(--v6-muted); }
-body.staff6 .t6-wko svg { color: var(--v6-action); }
-body.staff6 .t6-wkcap { overflow-wrap: anywhere; color: var(--v6-body); }
-body.staff6 .t6-wkkey { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
-body.staff6 .t6-wkkey svg { width: 14px; height: 14px; flex: none; }
-body.staff6 .t6-wkkey .v6-sep { white-space: pre; }
-body.staff6 .t6-wk .t6-sl { font-size: var(--v6-t16); }
-
-/* the week in the work column, under Coming up: the same calendar as Hearings, its own heading */
-body.staff6 .t6-week { scroll-margin-top: calc(var(--header, 64px) + 16px); }
-body.staff6 .t6-weekhd { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; margin: 0 0 12px; }
-body.staff6 .t6-weekhd > .t6-gh { margin: 0; }
-body.staff6 .t6-week .hc-wrap { gap: 12px; }
-body.staff6 .t6-week .hw-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
-/* the week spans the page's width under both columns (the bold mock's "The rest of the week"), so five days have room
-   to say every name whole */
-body.staff6 .t6-root > .t6-week { margin-top: 32px; }
-@media (max-width: 767px) { body.staff6 .t6-root > .t6-week { margin-top: 24px; } }
-body.staff6 .t6-week .hc-e a.hc-job, body.staff6 .t6-week .hc-e a.hc-iss > span { overflow-wrap: break-word; }
-
 /* ---- After the fresh-eyes review (R-346) ---- */
-/* "Any time" is a time like the others, in the muted colour */
-body.staff6 .t6-jt.any { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 500; color: var(--v6-muted); }
 /* an issue named as its bill: its icon alone (the name is in the sentence) */
 body.staff6 a.t6-iss.t6-iss-ic { padding: 2px 6px; }
 body.staff6 a.t6-iss.t6-iss-ic svg { margin-top: 0; }
-/* the week strip: each day a link to its column in the week, its marks in words */
-body.staff6 .t6-wkd { display: block; min-height: 0; padding: 0; background: none; }
-body.staff6 .t6-wkd.today { background: none; box-shadow: none; }
-body.staff6 a.t6-wkl { display: grid; align-content: start; gap: 2px; height: 100%; min-height: 76px; padding: 8px 6px; border-radius: var(--v6-r12); background: var(--v6-wash);
-  color: var(--v6-body); text-decoration: none; font-size: var(--v6-t14); line-height: 20px; }
-body.staff6 .t6-wkd.today a.t6-wkl { background: var(--v6-card); box-shadow: inset 0 0 0 2px var(--v6-action); }
-body.staff6 .t6-wkd.past a.t6-wkl { color: var(--v6-muted); }
-body.staff6 a.t6-wkl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { body.staff6 a.t6-wkl:hover { box-shadow: var(--v6-sh1); } body.staff6 .t6-wkd.today a.t6-wkl:hover { box-shadow: inset 0 0 0 2px var(--v6-action), var(--v6-sh1); } }
-body.staff6 .t6-wkc { display: block; overflow-wrap: break-word; }
-body.staff6 .hc-day:focus { outline: none; }
-body.staff6 .hc-day:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .hc-day { scroll-margin-top: calc(var(--header, 64px) + 16px); }
 /* a hearing day's next step leads with the step (option E), then the sitting */
 body.staff6 .t6-nshead { display: grid; gap: 4px; padding-bottom: 16px; margin-bottom: 8px; border-bottom: 1px solid var(--v6-hair); }
 body.staff6 .t6-nshead > * { margin: 0; }
 body.staff6 .t6-nsay { font-family: Poppins, system-ui, sans-serif; font-weight: 500; font-size: var(--v6-t22); line-height: var(--v6-lh22, 30px); color: var(--v6-ink); overflow-wrap: anywhere; }
 body.staff6 .t6-nsacts { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
 body.staff6 .t6-nsacts .btn.primary { min-height: 44px; }
-/* a phone: the Team card right under the next step */
-body.staff6 .t6-leadph > .t6-doors { margin: 0; }
-/* five days in a 360px column: room for "2 hearings" whole (a word never breaks inside, A-24) */
-body.staff6 .t6-wk { padding-left: 12px; padding-right: 12px; }
-body.staff6 .t6-wk .t6-wkhd { padding: 0 8px; }
-body.staff6 .t6-wkdays { gap: 4px; }
-body.staff6 a.t6-wkl { padding: 8px 4px 8px 6px; }
-body.staff6 .t6-wkc, body.staff6 .t6-wkcap { overflow-wrap: normal; word-break: keep-all; hyphens: manual; }
 
-/* R-344 Rule 1: each job row starts with its job's tile (verbs.js), the same picture as its button and its card, between the
-   time and the words; the words keep one left edge (a row with no job keeps the column empty). */
-body.staff6 .t6-jb.has-tile { grid-template-columns: 32px minmax(0, 1fr); column-gap: 12px; }
-body.staff6 .t6-jb.has-tile > p { grid-column: 2; }
-body.staff6 .t6-jb > .t6-jtile { grid-column: 1; grid-row: 1 / span 3; align-self: start; margin-top: 2px; }
+/* the job's tile in that head (R-344 Rule 1) */
 body.staff6 .t6-jeye > .t6-jtile { display: inline-flex; margin-right: 8px; }
+
+/* ---- R-352 (Nate 27 Oct, item 2): a row is a name and one line again, the job first; one small neutral icon for the
+   kind of job (A-18 on v6: Do today mixes kinds), drawn as steps.css's quiet row lead (20px glyph, muted ink, none below
+   600px). Coming up ends with one quiet line to the week on Hearings. ---- */
+body.staff6 .v6-row-lead.t6-kind { color: var(--v6-muted); }
+body.staff6 .t6-weekln { margin: 12px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
+body.staff6 .t6-weekln > a { display: inline-flex; align-items: center; min-height: 44px; color: var(--v6-body); text-decoration: none; }
+body.staff6 .t6-weekln > a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .t6-weekln > a:hover { color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 .t6-nexth, body.staff6 .t6-ghd { margin-bottom: 8px; }   /* R-352: 8 under each heading at every width (see .t6-col) */

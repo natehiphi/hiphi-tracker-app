@@ -1,9 +1,11 @@
-# Staff v6: Today = moderate (R-346, Nate's pick 27 Oct), plus the week in the page ("allow the calendar to exist somewhere
-# in the main section"). One page, no Today | Calendar and no List | Calendar switch (finding A); every row leads with the
-# job and names the bill as a link inside the sentence (B, option E), with a time column and a quiet line that carries the
-# issue's icon and name (E); Do today in time order, "Any time" last; partner words in the Team card, not the list; the
-# week strip at the top of the side column from 1100px; the week calendar under Coming up, one entry per job (C). On the
-# practice copy (Mon 16 Mar 2026), as Nate.
+# Staff v6: Today after R-352 (Nate's go 27 Oct; it undoes R-346's moderate rows and the week in the page). No week on
+# Today: no calendar, no day strip, one quiet "See the week on Hearings" line at the end of Coming up (the calendar is
+# Hearings' only). Rows are a name and one line again, the job first ("File testimony · State program to forgive medical
+# debt" with "SB 3025" small after, then the status), no quiet line above, no time column, no issue chip, no links inside
+# the words; one small neutral icon for the kind of job (A-18 on v6); at most one button, only on the viewer's own step due
+# now (A-3, D16). The next-step card as it was. The Team lines short, with no heading; on a phone they come last. Kevin's
+# Email the chair on his first laptop screen (B-2). On the practice copy (Mon 16 Mar 2026). (The file keeps its name, so
+# tools/tests_for.mjs still finds it for staff6/today.js.)
 #
 #   HOST=http://localhost:9447 python3 tests/staff6_today346.py     exits 1 when a check fails
 import os, re, sys
@@ -12,82 +14,64 @@ import staff6_lib as L
 
 R = L.Results()
 def overflow(pg): return pg.page.evaluate('document.documentElement.scrollWidth - innerWidth')
-# minutes after midnight of a "10:00 AM" time column; None for "Any time"
-def mins(t):
-  m = re.match(r'^(\d{1,2}):(\d{2}) ([AP]M)$', t.strip())
-  if not m: return None
-  h = int(m.group(1)) % 12 + (12 if m.group(3) == 'PM' else 0)
-  return h * 60 + int(m.group(2))
 
 ROWS = """sel => [...document.querySelectorAll(sel + ' .v6-row')].map(r => ({
-  when: r.querySelector('.t6-jt')?.textContent.trim() || '',
-  eye: !!r.querySelector('.t6-jeye'), icon: !!r.querySelector('.t6-jeye .t6-iss svg'), bill: !!r.querySelector('.t6-jeye .v6-row-num'),
-  say: r.querySelector('.t6-jsay')?.textContent.trim() || '', link: !!r.querySelector('.t6-jsay a.v6-step-in'),
-  pick: !!r.querySelector('.t6-jmain'), btns: r.querySelectorAll('.v6-row-act .btn').length }))"""
+  name: r.querySelector('.v6-row-name')?.textContent.trim() || '', num: !!r.querySelector('.v6-row-top .v6-row-num'),
+  line: r.querySelectorAll('.v6-row-line').length, kind: !!r.querySelector('.v6-row-lead.t6-kind'), tile: !!r.querySelector('.v6-at'),
+  old: !!r.querySelector('.t6-jeye, .t6-jt, .t6-iss, .t6-jsay'), links: [...r.querySelectorAll('a')].filter(a => !a.closest('.v6-row-act')).length,
+  btns: r.querySelectorAll('.v6-row-act .btn').length, cls: r.className }))"""
+TODAY, SOON = 'section[aria-labelledby="t6-g-today"]', 'section[aria-labelledby="t6-g-soon"]'
 
 with L.browser() as B:
   for w, h in [(1440, 900), (1280, 800)]:
     pg = B.page('NT', w, h); pg.open('/')
-    R.check(f'{w}: no Today | Calendar tabs, no List | Calendar switch', not pg.page.query_selector('.t6-caltabs, [data-tview], .t6-ways, [data-seg="tview"]'))
-    rows = pg.page.evaluate(ROWS, '#t6-g-today ~ .t6-list, section[aria-labelledby="t6-g-today"]')
+    R.check(f'{w}: no Today | Calendar tabs, no List | Calendar or Mine | Team switch', not pg.page.query_selector('.t6-caltabs, [data-tview], .t6-ways, [data-seg="tview"], [data-seg="tcwho"]'))
+    R.check(f'{w}: no week on Today: no calendar and no day strip', not pg.page.query_selector('main #t6-week, main .t6-wk, main .hc-cal'))
+    wk = pg.page.evaluate("(() => { const a = [...document.querySelectorAll('.t6-col a')].find(x => /See the week on Hearings/.test(x.textContent)); const c = document.querySelector('" + SOON + "'); return a ? { href: a.getAttribute('href'), after: !c || (c.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 || c.contains(a) } : null; })()")
+    R.check(f'{w}: Coming up ends with one quiet line to the week on Hearings', bool(wk) and wk['href'].startswith('#/hearings/week') and wk['after'], wk)
+    rows = pg.page.evaluate(ROWS, TODAY)
     R.check(f'{w}: Do today has rows', len(rows) >= 3, len(rows))
-    R.check(f'{w}: every Do today row has a time column ("10:00 AM" or "Any time")', all(r['when'] and (mins(r['when']) is not None or r['when'] == 'Any time') for r in rows), [r['when'] for r in rows])
-    R.check(f'{w}: every Do today row has a quiet line with the bill number', all(r['eye'] and r['bill'] for r in rows))
-    R.check(f'{w}: every Do today row on a bill with an issue shows the issue icon', sum(r['icon'] for r in rows) >= len(rows) - 1, [r['icon'] for r in rows])
-    R.check(f'{w}: every Do today row leads with a sentence holding the bill as a link', all(r['say'] and r['link'] for r in rows), [r['say'][:40] for r in rows if not r['link']])
-    R.check(f'{w}: each row has at most one button (D16)', all(r['btns'] <= 1 for r in rows))
-    ts = [mins(r['when']) for r in rows]
-    timed = [t for t in ts if t is not None]
-    first_any = next((i for i, t in enumerate(ts) if t is None), len(ts))
-    R.check(f'{w}: Do today runs in time order, "Any time" last', timed == sorted(timed) and all(t is None for t in ts[first_any:]), [r['when'] for r in rows])
-    soon = pg.page.evaluate(ROWS, 'section[aria-labelledby="t6-g-soon"]')
-    R.check(f'{w}: Coming up says the day in its time column', soon and all(re.match(r'^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}/\d{1,2}$', r['when']) for r in soon), [r['when'] for r in soon])
+    R.check(f'{w}: Do today keeps "In the order they are due"', 'In the order they are due' in pg.text(TODAY))
+    soon = pg.page.evaluate(ROWS, SOON)
+    allr = rows + soon
+    R.check(f'{w}: every row is a name and one line', all(r['name'] and r['line'] == 1 for r in allr), [r['name'][:30] for r in allr if r['line'] != 1])
+    R.check(f'{w}: a bill row names the job first, then the bill, its number small after', all(' · ' in r['name'] and r['num'] for r in allr if r['num']), [r['name'][:40] for r in allr if r['num'] and ' · ' not in r['name']])
+    R.check(f'{w}: "File testimony · ..." leads a filing row', any(re.match(r'^File testimony · ', r['name']) for r in allr), [r['name'][:30] for r in allr])
+    R.check(f'{w}: no quiet line above, no time column, no issue chip (R-346 gone)', not any(r['old'] for r in allr))
+    R.check(f'{w}: no links inside the words: the whole row opens the item', all(r['links'] == 1 for r in allr), [(r['name'][:30], r['links']) for r in allr if r['links'] != 1])
+    R.check(f'{w}: each row starts with one small neutral kind-of-job icon, no coloured tile (A-18)', all(r['kind'] and not r['tile'] for r in allr))
+    R.check(f'{w}: at most one button a row (D16)', all(r['btns'] <= 1 for r in allr))
+    R.check(f'{w}: in Coming up only a chair ask in its window has a button (own step due now, A-3)', all(r['btns'] == 0 or re.search(r't6-k-(chair|followask)\b', r['cls']) for r in soon), [r['name'][:30] for r in soon if r['btns']])
     R.check(f'{w}: no partner group in the list', not pg.page.query_selector('#t6-g-pq') and 'Partner words to approve' not in pg.text('.t6-col'))
-    team = pg.text('.t6-aside .t6-teamc')
-    R.check(f'{w}: the Team card has its heading and the partners line', team.startswith('Team') and re.search(r'Partners · \d+ sets? of words', team) is not None, team[:200])
-    strip = pg.page.query_selector('.t6-aside .t6-wk')
-    R.check(f'{w}: the week strip leads the side column', bool(strip) and strip.is_visible() and pg.page.evaluate("document.querySelector('.t6-aside').firstElementChild?.classList.contains('t6-wk')"))
-    R.check(f'{w}: the strip has five days, each a link, today ringed', pg.page.evaluate("document.querySelectorAll('.t6-wk .t6-wkd > a.t6-wkl[data-t6day]').length") == 5 and bool(pg.page.query_selector('.t6-wk .t6-wkd.today a[aria-current=date]')))
-    R.check(f'{w}: the strip says its marks in words ("1 hearing", "3 yours"), no legend, no separate Open the calendar', re.search(r'\b\d+ hearings?\b', pg.text('.t6-wk')) is not None and re.search(r'\b\d+ yours\b', pg.text('.t6-wk')) is not None
-      and not pg.page.query_selector('.t6-wkkey, [data-t6cal]') and 'Open the calendar' not in pg.text('.t6-wk'))
-    R.check(f'{w}: an issue named as its bill is its icon alone (its name is in the sentence)', pg.page.evaluate("""[...document.querySelectorAll('.t6-job')].every(r => { const c = r.querySelector('.t6-iss'), say = r.querySelector('.t6-jsay')?.textContent || '';
-      if (!c) return true; const nm = (c.getAttribute('aria-label') || '').replace(/^Issue: /, ''); return !(say.includes(nm) && c.textContent.trim()); })"""))
-    R.check(f'{w}: "Any time" is as large as the times', pg.page.evaluate("(() => { const a = document.querySelector('.t6-jt.any'), t = document.querySelector('.t6-jt:not(.any)'); return !a || !t || getComputedStyle(a).fontSize === getComputedStyle(t).fontSize; })()"))
-    R.check(f"{w}: a hearing day's next step leads with the step's sentence, its bill a link, above the sitting", pg.page.evaluate("""(() => { const c = document.querySelector('.t6-nextsit'); if (!c) return true;
-      const h = c.querySelector('.t6-nshead .t6-nsay a.v6-step-in'), n = c.querySelector('.v6-hcard-name'); return !!h && !!n && (h.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING) > 0; })()"""))
-    R.check(f'{w}: the next step card is first', pg.page.evaluate("document.querySelector('.t6-col').firstElementChild?.querySelector('.t6-next, .t6-nexth') != null"))
+    doors = pg.page.evaluate("[...document.querySelectorAll('.t6-aside .t6-doors .t6-line')].map(a => a.textContent.replace(/\\s+/g, ' ').trim())")
+    R.check(f'{w}: the Team lines are short lines with no heading of their own', bool(doors) and not pg.page.query_selector('.t6-teamh, .t6-teamc') and any(re.match(r'^\d+ slipping on the team', d) for d in doors) and any(d.startswith('Waiting on others · ') for d in doors), doors)
+    R.check(f'{w}: the next step card is first, with its one filled button', pg.page.evaluate("(() => { const n = document.querySelector('.t6-col').firstElementChild; return !!n?.querySelector('.t6-next, .t6-nexth') && n.querySelectorAll('.btn.primary').length === 1; })()"))
     R.check(f'{w}: no link inside a link', pg.page.evaluate("document.querySelectorAll('a a').length") == 0)
     R.check(f'{w}: no sideways scroll', overflow(pg) <= 0, overflow(pg))
-    # the calendar in the page, under Coming up, one entry per job
-    R.check(f'{w}: the week calendar is in the page, after Coming up', pg.page.evaluate("(() => { const c = document.querySelector('section[aria-labelledby=\"t6-g-soon\"]'), k = document.querySelector('#t6-week .hc-cal'); return !!c && !!k && (c.compareDocumentPosition(k) & Node.DOCUMENT_POSITION_FOLLOWING) > 0; })()"))
-    dup = pg.page.evaluate("""(() => { const out = [];
-      for (const day of document.querySelectorAll('#t6-week .hc-day, #t6-week .hc-wkend')) {
-        const step = new Set([...day.querySelectorAll('.hc-step a.hc-bl')].map(a => a.textContent.trim()));
-        for (const a of day.querySelectorAll('.hc-due a.hc-bl')) if (step.has(a.textContent.trim())) out.push(a.textContent.trim()); }
-      // a step at its sitting's start is said on the hearing's entry, not again as an entry of its own
-      for (const e of document.querySelectorAll('#t6-week .hc-step')) { const t = e.querySelector('.hc-t').textContent, n = e.querySelector('a.hc-bl')?.textContent.trim();
-        for (const h of e.closest('.hc-list').querySelectorAll('.hc-h')) if (h.querySelector('.hc-t').textContent === t && [...h.querySelectorAll('a.hc-bl')].some(a => a.textContent.trim() === n)) out.push(n + ' at ' + t); }
-      return out; })()""")
-    R.check(f'{w}: the calendar lists no job twice (finding C)', not dup, dup)
-    R.check(f'{w}: no calendar entry name is cut short', pg.page.evaluate("![...document.querySelectorAll('#t6-week .hc-e')].some(e => /…/.test(e.textContent))"))
-    # a day of the strip goes to its own column in the week; a row still opens beside the list
-    pg.page.click('.t6-wk a[data-t6day="2026-03-18"]'); pg.page.wait_for_timeout(900)
-    R.check(f"{w}: a day in the strip goes to that day's column in the week", pg.page.evaluate("(() => { const r = document.querySelector('#t6-week .hc-day[data-hcday=\"2026-03-18\"]').getBoundingClientRect(); return r.top >= -2 && r.top < innerHeight * 0.6; })()"))
-    pg.page.evaluate('scrollTo(0, 0)')
-    pick = pg.page.query_selector('section[aria-labelledby="t6-g-today"] .t6-jmain[data-v6pick]')
-    pick.click(position={'x': 24, 'y': 24}); pg.page.wait_for_timeout(600)   # on the time column, off the bill's own link
-    R.check(f'{w}: a row still opens beside the list', bool(pg.page.query_selector('.t6-ld.open .v6-item')))
+    pick = pg.page.query_selector(f'{TODAY} .v6-row-main[data-v6pick]')
+    pick.click(); pg.page.wait_for_timeout(600)
+    R.check(f'{w}: a row still opens beside the list, the bill linked from the open item', bool(pg.page.query_selector('.t6-ld.open .v6-item a.v6-item-open, .t6-ld.open .v6-item a[href*="/bill/"]')))
     R.check(f'{w}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
-  # ---- a phone: nothing lost, nothing sideways ----
-  pg = B.page('NT', 390, 844, mobile=True); pg.open('/')
-  # (on a phone's hearing day the next step is inside its sitting's big card, V14: .t6-hday-ph)
-  R.check('390: the next step, Do today, Coming up, the Team lines and the week are all there', all(pg.page.query_selector(s) for s in ['.t6-next, .t6-hday-ph .t6-nshead', 'section[aria-labelledby="t6-g-today"]', 'section[aria-labelledby="t6-g-soon"]', '.t6-teamc', '#t6-week .hc-cal']))
-  R.check('390: the whole Team card sits right under the next step, before Do today', pg.page.evaluate("""(() => { const t = document.querySelector('.t6-teamc'), d = document.querySelector('section[aria-labelledby="t6-g-today"]'), n = document.querySelector('.t6-hday-ph, .t6-nextcol');
-    return !!t && !!d && !!n && (n.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 && (t.compareDocumentPosition(d) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 && /slipping/.test(t.textContent) && /Partners/.test(t.textContent); })()"""))
-  R.check('390: the Team card is not drawn twice', len(pg.page.query_selector_all('.t6-col .t6-teamc')) == 1)
-  R.check('390: rows keep the time and the sentence', pg.page.evaluate("[...document.querySelectorAll('section[aria-labelledby=\"t6-g-today\"] .v6-row')].every(r => r.querySelector('.t6-jt') && r.querySelector('.t6-jsay a'))"))
-  R.check('390: no sideways scroll', overflow(pg) <= 0, overflow(pg))
-  R.check('390: no page errors', not pg.errors, pg.errors[:2]); pg.close()
+  # an old calendar address on Today opens the week's one home, Hearings
+  pg = B.page('NT', 1440, 900); pg.open('/?view=cal'); pg.page.wait_for_timeout(600)
+  R.check('an old #/?view=cal opens the week on Hearings', '#/hearings/week' in pg.page.url, pg.page.url); pg.close()
+
+  # Kevin: asking a chair for a hearing starts on his first laptop screen (B-2)
+  pg = B.page('KV', 1440, 900); pg.open('/')
+  top = pg.page.evaluate("(() => { const b = [...document.querySelectorAll('main .btn')].find(x => /^\\s*Email the chairs?\\b/.test(x.textContent)); return b ? b.getBoundingClientRect().top : null; })()")
+  R.check("Kevin 1440: Email the chair is on his first screen (B-2)", top is not None and top < 900, top); pg.close()
+
+  # ---- a phone: the next step, Do today, Coming up, then the Team lines ----
+  for who in ('NT', 'KV'):
+    pg = B.page(who, 390, 844, mobile=True); pg.open('/')
+    order = pg.page.evaluate("""(() => { const q = s => document.querySelector(s), F = Node.DOCUMENT_POSITION_FOLLOWING;
+      const n = q('.t6-nextcol, .t6-hday-ph'), d = q('section[aria-labelledby="t6-g-today"]'), c = q('section[aria-labelledby="t6-g-soon"]'), t = q('.t6-col .t6-doors:not(.t6-later)');
+      const after = (a, b) => !a || !b || (a.compareDocumentPosition(b) & F) > 0;
+      return { ok: !!n && !!d && after(n, d) && after(d, c) && after(c || d, t), first: d?.querySelector('.v6-row')?.getBoundingClientRect().top ?? null }; })()""")
+    R.check(f'390 {who}: the next step, Do today, Coming up, then the Team lines', order['ok'], order)
+    R.check(f'390 {who}: the next step and the first Do today row are on the first screen', order['first'] is not None and order['first'] < 844, order['first'])
+    R.check(f'390 {who}: no sideways scroll', overflow(pg) <= 0, overflow(pg))
+    R.check(f'390 {who}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
 R.done()

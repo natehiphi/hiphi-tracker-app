@@ -103,6 +103,7 @@ export function parseRoute(h = location.hash) {
     case undefined:
       // v5's Today | This week and Mine | Team switches: This week is Hearings, Team is Team (spec 6, Today; 3.4). The week
       // paged to (w=) and Team (scope=team) go along, so v5's week grid keeps its place inside Hearings until HEARINGS lands.
+      if (q.view === 'cal') return { name: 'hearings', view: 'week', q: {}, redirect: to('#/hearings/week') };   // R-352: Today's old week (who=, w=, day= go along)
       if (q.view === 'week' || q.view === 'ahead') return { name: 'hearings', view: '', q: {}, redirect: to('#/hearings', ['view']) };
       if (q.scope === 'team') return { name: 'team', who: '', q: {}, redirect: to('#/team', ['scope']), leads: true };
       return { name: 'today', q };
