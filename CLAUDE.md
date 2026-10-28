@@ -78,9 +78,8 @@ found because sessions start in the backend repo) walks the whole checklist.
 1. `node --experimental-default-type=module --check` every JS file touched (plain `node --check` reads these files as
    CommonJS and let a duplicate `const` through on 9/27, which broke the public page in the tests); `node
    staff/tools/parity.mjs` if a staff data layer changed.
-2. Run the browser tests for what changed, and only those: `node tools/tests_for.mjs` lists them from the files the
-   branch changed (R-351; the full set runs in Tests after the push). LOOK at phone and desktop screenshots. Several
-   bad UIs shipped when this was skipped.
+2. Run the test file(s) for what changed and LOOK at phone and desktop screenshots. Several bad UIs shipped
+   when this was skipped.
 3. `git diff --stat`: only the files you meant.
 4. Commit (end the message with the attribution line the session gives you), push, wait for Pages (about a
    minute), then load the published page and confirm no console errors. Nate has said: push live as you go.
