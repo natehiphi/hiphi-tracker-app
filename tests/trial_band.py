@@ -171,7 +171,7 @@ with sync_playwright() as pw:
   ok(not pg.is_visible('[data-tr="skip"]'), 'at 6 PM there is no Skip (Next already goes to the next day)')
   pg.click('[data-tr="report"]'); pg.wait_for_selector('.tr-rep li', timeout=8000)
   rep = pg.inner_text('dialog.tr-dlg')
-  ok('1 of 2' in rep and 'Missed' in rep and 'Go on to End of session' in rep, "the week's report shows found and missed, then the next week")
+  ok('1 of 2' in rep and 'Missed' in rep and 'Go on to the End of session week' in rep, "the week's report shows found and missed, then the next week")
   shot(pg, 'report-phone.png'); ctx.close()
 
   # 6. A teammate: no Next; when the starter moves the clock the band says so, with Catch up.
@@ -182,8 +182,14 @@ with sync_playwright() as pw:
   f.whoami['trial'] = state(can_move=False, starter_name='Nate Hix', moved_by_name='Nate Hix', clock='2026-03-16T22:00:00+00:00')
   pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
   pg.wait_for_selector('[data-tr="catchup"]', timeout=8000)
-  ok('Nate moved to noon' in pg.inner_text('#trialband'), 'the band says the starter moved it, with Catch up')
+  ok('Nate moved to noon' in pg.inner_text('#trialband') and 'moves the clock' not in pg.inner_text('#trialband'), 'the band says the starter moved it, with Catch up')
   shot(pg, 'member-laptop.png'); ctx.close()
+  # ... and on a phone, where the week's name is dropped, "moves the clock" stays.
+  f = Fake({'email': ME['email'], 'staff': True, 'admin': False, 'name': ME['name'], 'trial': state(can_move=False, starter_name='Nate Hix')})
+  ctx, pg, errs, live = open_page(b, f, 390, 844)
+  pg.wait_for_selector('#trialband .tr-where', timeout=15000)
+  ok(pg.is_visible('.tr-who') and 'Nate moves the clock' in pg.inner_text('#trialband'), 'phone: a teammate still sees who moves the clock')
+  shot(pg, 'member-phone.png'); ctx.close()
 
   b.close()
 

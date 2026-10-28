@@ -18,7 +18,7 @@ const HERE = location.origin + location.pathname;   // where an emailed sign-in 
 // The four weeks (Nate 10/24, round 4). A trial starting at one carries on through the later ones.
 export const WEEKS = [
   { n: 1, name: 'Opening weeks', days: 'Wed 21 to Fri 30 Jan', what: 'New bills to find and sort, and the deadline to introduce bills on Wed 28 Jan.' },
-  { n: 2, name: 'First lateral', days: 'Tue 17 to Fri 20 Feb', what: 'Bills must clear their committees to stay alive.' },
+  { n: 2, name: 'Committee deadline (first lateral)', days: 'Tue 17 to Fri 20 Feb', what: 'Bills must clear their committees to stay alive.' },
   { n: 3, name: 'Hearing week', days: 'Mon 16 to Fri 20 Mar', what: 'Hearings almost every day, with testimony to write and send.' },
   { n: 4, name: 'End of session', days: 'Mon 13 to Fri 17 Apr', what: 'Bills cross back to the chamber they started in.' },
 ];
@@ -97,7 +97,7 @@ function notStaffScreen(email) {
 const weekPicker = () => `<fieldset class="tr-weeks"><legend>Start at</legend>${WEEKS.map(w => `
   <label class="tr-week"><input type="radio" name="tr-week" value="${w.n}"${w.n === 3 ? ' checked' : ''}>
     <span><b>${esc(w.name)}</b> <span class="tr-days">${esc(w.days)}</span><span class="tr-what">${esc(w.what)}</span></span></label>`).join('')}</fieldset>`;
-const HOW = 'The trial carries on through the later weeks. The clock stops four times a day, at 9 AM, noon, 3 PM and 6 PM, and moves only when you press Next. Add teammates once it starts.';
+const HOW = 'Practise a week of session on a copy of the tracker: nothing you do here reaches the real tracker or the public. The clock stops four times a day, at 9 AM, noon, 3 PM and 6 PM, and moves only when you press Next. The trial carries on through the later weeks, and you can add teammates once it starts.';
 
 function startScreen() {
   door(`<h1 tabindex="-1">Start a trial run</h1><p>Hi ${esc(firstName(me.name))}. ${HOW}</p>
@@ -139,7 +139,9 @@ async function enter() {
 export function bandHTML(s, { busy = '', moved = null } = {}) {
   const w = WEEKS.find(x => x.n === s.week);
   const when = `${dayOf(s.clock)}, ${timeOf(s.clock)}`;
-  const who = s.can_move ? '' : `<span class="tr-hint"> · ${esc(firstName(s.starter_name) || 'The starter')} moves the clock</span>`;
+  // A teammate always sees who moves the clock (it explains the missing Next), on a phone too; once it has moved, the
+  // band says that instead.
+  const who = s.can_move || moved ? '' : `<span class="tr-who"> · ${esc(firstName(s.starter_name) || 'The starter')} moves the clock</span>`;
   const others = (s.members || []).length;
   let act;
   if (moved) act = `<span class="tr-moved">${esc(firstName(moved.moved_by_name) || 'Someone')} moved to ${esc(timeOf(moved.clock))}</span><button type="button" class="btn primary sm" data-tr="catchup">Catch up</button>`;
@@ -149,7 +151,7 @@ export function bandHTML(s, { busy = '', moved = null } = {}) {
   else if (s.last_stop_of_week) act = `<button type="button" class="btn primary sm" data-tr="report">End of the week</button>`;
   else act = `<button type="button" class="btn primary sm" data-tr="next">${esc(nextLabel(s))}</button>${s.next_day && sameDay(s.clock, s.next) ? `<button type="button" class="btn secondary sm" data-tr="skip">Skip to ${esc(fmt(s.next_day, { weekday: 'short' }))}</button>` : ''}`;
   return `<span class="tr-where"><b class="tr-tag">Trial run</b> <b class="tr-when">${esc(when)}</b><span class="tr-hint"> · ${esc(w?.name || '')}</span>${who}</span>
-    <span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'Trial'}</button></span>`;
+    <span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
 }
 function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML(st, o); }
 
@@ -197,15 +199,15 @@ async function report() {
     <ul class="tr-rep">${rows.map(r => `<li class="${r.found ? 'ok' : 'miss'}"><b>${esc(r.bill_number)}</b>${r.nickname ? ` ${esc(r.nickname)}` : ''} <span>${r.found ? '✓ Found' : 'Missed'}${r.found && r.position_then && r.position_now !== r.position_then ? ` · HIPHI's stand was ${esc(r.position_then.replace(/_/g, ' '))}` : ''}</span></li>`).join('')}</ul>`
     : `<p>No bills were held back this week${st.week === 4 ? ': no hearings are noticed in the last week' : ''}.</p>`;
   const go = st.done ? `<button class="btn primary" type="button" data-tr="end">End the trial</button>`
-    : `<button class="btn primary" type="button" data-tr="go">Go on to ${esc(nx?.name || 'the next week')}</button>`;
+    : `<button class="btn primary" type="button" data-tr="go">Go on to the ${esc(nx?.name || 'next')} week</button>`;
   setDialog(`<h2 tabindex="-1">${esc(w.name)}: how it went</h2>${error ? `<p class="tr-msg bad">${esc(error.message)}</p>` : list}
-    <div class="tr-dacts">${go}<button class="btn secondary" type="button" data-tr="close">Not yet</button></div>`);
+    <div class="tr-dacts">${go}<button class="btn secondary" type="button" data-tr="close">Stay on this week</button></div>`);
 }
 
 // ---- the menu: people, start over, end ----
 async function menu() {
   const mine = st.can_move;
-  dialog(`<h2 tabindex="-1">Your trial</h2><p>Started by ${esc(st.starter_name || 'someone')}${st.started_week ? ` at ${esc(WEEKS[st.started_week - 1]?.name || '')}` : ''}.</p>
+  dialog(`<h2 tabindex="-1">This trial</h2>${mine ? '' : `<p>${esc(firstName(st.starter_name) || 'The person who started it')} moves the clock.</p>`}
     <h3>People</h3><ul class="tr-people" id="tr-people"><li>Reading the team…</li></ul>
     ${mine ? `<h3>Start over or end</h3><p class="tr-quiet">Start over begins a new trial at the week you pick. Ending clears the trial's copy; what people suggested is kept.</p>
       <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="over">Start over</button><button class="btn secondary" type="button" data-tr="end">End the trial</button></div>` : ''}
