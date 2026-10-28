@@ -13,9 +13,8 @@ body.staff6 .v6-status svg { width: 16px; height: 16px; flex: none; }
    these tiles among the bill page's bold); done's words are in body text on its leaf wash, the icon in leaf, so a
    screen of filed rows adds no sixth text colour (spec 8: at most 5) */
 body.staff6 .v6-status.late { background: var(--v6-late-wash); color: var(--v6-late); }
-/* R-352 (Nate 27 Oct, A-5 on v6): amber only when late; a step past its own deadline that can still be done is late too
-   (the alarm clock, "2 hours overdue"), never red */
-body.staff6 .v6-status.overdue { background: var(--v6-late-wash); color: var(--v6-late); }
+/* A-5 on v6 (R-352): amber is late, still accepted; red is a step still to do past its own deadline ("2 hours overdue") */
+body.staff6 .v6-status.overdue { background: var(--v6-bad-wash); color: var(--v6-bad); }
 body.staff6 .v6-status.done { background: var(--v6-leaf-wash); color: var(--v6-body); }
 body.staff6 .v6-status.done svg { color: var(--v6-leaf); }
 
@@ -247,7 +246,7 @@ body.staff6 .v6-row-line svg { width: 18px; height: 18px; flex: none; margin-top
    (A-13). Late and overdue keep their colour all the way through, the time too (A-5) */
 body.staff6 .v6-row-line.soon .v6-tm { color: var(--v6-ink); font-weight: 400; }
 body.staff6 .v6-row-line.t-late { color: var(--v6-late); }
-body.staff6 .v6-row-line.t-overdue { color: var(--v6-late); }
+body.staff6 .v6-row-line.t-overdue { color: var(--v6-bad); }
 body.staff6 .v6-row-line.t-late .v6-nw, body.staff6 .v6-row-line.t-overdue .v6-nw { color: inherit; }
 body.staff6 .v6-row-line.t-late .v6-tm, body.staff6 .v6-row-line.t-overdue .v6-tm { font-weight: 400; color: inherit; }
 body.staff6 .v6-row-line.t-done svg { color: var(--v6-leaf); }
@@ -496,7 +495,7 @@ body.staff6 .v6-sm-ic svg { width: 14px; height: 14px; }
 body.staff6 .v6-sm.s20 .v6-sm-ic { width: 20px; height: 20px; } body.staff6 .v6-sm.s20 .v6-sm-ic svg { width: 12px; height: 12px; }
 body.staff6 .v6-sm.t-done .v6-sm-ic { color: var(--v6-leaf); background: var(--v6-leaf-wash); }
 body.staff6 .v6-sm.t-late .v6-sm-ic { color: var(--v6-late); background: var(--v6-late-wash); }
-body.staff6 .v6-sm.t-overdue .v6-sm-ic { color: var(--v6-late); background: var(--v6-late-wash); }
+body.staff6 .v6-sm.t-overdue .v6-sm-ic { color: var(--v6-bad); background: var(--v6-bad-wash); }
 body.staff6 .v6-sm-w { overflow-wrap: anywhere; }
 
 /* ---- the testimony step picture (verbs.js testimonyTrack, C5): 20px dots, 14px words in ink, one line ---- */
@@ -554,7 +553,7 @@ body.staff6 .v6-row-top .v6-sm { flex: none; }
 /* ---- R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): due today is plain. The body colour and the neutral
    tile, a plain clock, and only its time in bold (.v6-tm, steps.js nw), with the time left in words under 3 hours
    ("in 1 hour"); the screens put it first. On a busy day every row is due today, so amber there hid the one late item.
-   Amber is late's alone (late, still accepted; past due and still doable). ---- */
+   Amber is late, still accepted alone; red is overdue. ---- */
 body.staff6 .v6-status.today { background: var(--v6-wash); color: var(--v6-body); }
 body.staff6 .v6-row-line.t-today, body.staff6 .t6-jsub.t-today, body.staff6 .ig6-stat.t-today { color: var(--v6-body); }
 body.staff6 .v6-row-line.t-today .v6-nw { color: inherit; }

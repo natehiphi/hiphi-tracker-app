@@ -228,9 +228,9 @@ export function actBy(step) {
 // status(x) -> { tone: 'neutral'|'today'|'late'|'overdue'|'done', icon, words, time, soon }
 // R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): amber only when late. Due today ('today') is drawn in the
 // plain body colour, with a neutral clock, its time in bold and, under 3 hours, the time left in words; the screens put it
-// first. Amber, with the alarm clock, is for what is late and can still be done: late testimony the Capitol still takes
-// ('late') and a step still to do whose own deadline has passed ('overdue'). Missed testimony (its hearing has started) is
-// said in words, in neutral, never coloured: nobody can act on it any more (V25, V30). Nothing is red.
+// first. Amber, with the alarm clock, is only late testimony the Capitol still takes ('late'). Red, with the alert and the
+// word "overdue", is a step still to do whose own deadline has passed ('overdue'). Missed testimony (its hearing has
+// started) is said in words, in neutral, never coloured: nobody can act on it any more (V25, V30).
 // A 2027 prep date that has passed is "Still to finish", never red (spec section 6, My issues).
 export function status(x) {
   const s = x || {}, now = Date.now();
@@ -245,7 +245,7 @@ export function status(x) {
   if (due <= now) {
     if (until != null && until > now) return { tone: 'late', icon: 'alarm-clock', words: lateLine(until), time: clockDay(until), soon: true };   // R-344: the alarm clock is late's own picture; the plain clock is due today's
     if (s.kind === 'prep') return { tone: 'neutral', icon: 'clock', words: 'Still to finish', time: '', soon: false };
-    return { tone: 'overdue', icon: 'alarm-clock', words: `${cap(spanOf(due))} overdue`, time: whenAt(due), soon: true };
+    return { tone: 'overdue', icon: 'circle-alert', words: `${cap(spanOf(due))} overdue`, time: whenAt(due), soon: true };
   }
   // R-352: due today keeps the 'today' tone (the screens order and bold by it) but no colour; the clock is neutral.
   const today = hday(due) === hday(now), soon = due - now <= 2 * HR || today;

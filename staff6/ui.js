@@ -113,10 +113,10 @@ export const undoFiledLink = (a = {}) => `<button type="button" class="linkbtn s
 const lateUntil = (iso, until) => { const now = Date.now(); return !!until && new Date(iso) <= now && new Date(until) > now; };
 // The colour of time (R-352, Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): amber only when late. A deadline that
 // falls today (the same calendar day in Hawaiʻi, not yet passed) is 'today', drawn plain: a neutral clock, its time in
-// bold, the time left in words. Late testimony still accepted, and a step past its deadline still to do, are amber with
-// the alarm clock. Anything further out neutral, with the distance in words. One function, so every countdown agrees
+// bold, the time left in words. Late testimony still accepted is amber with the alarm clock; a step past its deadline
+// still to do is red with the alert and "overdue". Anything further out neutral, with the distance in words. One function, so every countdown agrees
 // (v6's rows and tiles take the same rule from steps.js status()).
-//   'late' (passed, still to do) · 'lateok' (late but accepted) · 'today' (due today, plain) · '' (neutral, later)
+//   'late' (red, passed, still to do) · 'lateok' (amber) (late but accepted) · 'today' (due today, plain) · '' (neutral, later)
 export function timeTone(iso, { until = null } = {}) {
   if (!iso) return '';
   if (lateUntil(iso, until)) return 'lateok';
@@ -139,7 +139,7 @@ export function countdown(iso, { prefix = '', until = null, at = false } = {}) {
   // timeLeft, the same on every screen: "in 28 min", "in 4 hours", "4 hours overdue" (no more "under an hour", "7h left").
   const left = tone === 'late' ? timeLeft(iso) : `in ${spanOf(iso)}`;
   const text = `${prefix}${at ? `${dayAt(iso)} · ` : ''}${left}`;
-  return `<span class="sv-count${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'alarm-clock' : 'clock')}${esc(text)}</span>`;
+  return `<span class="sv-count${tone ? ' ' + tone : ''}">${icon(tone === 'late' ? 'circle-alert' : 'clock')}${esc(text)}</span>`;
 }
 
 // ---- rows and groups ----
@@ -294,8 +294,8 @@ export function urgentMark(iso, { done = false, until = null, act = null } = {})
   if (tone === 'lateok') { return `<span class="sv-urg lateok" role="img" aria-label="${esc(lateLine(until))}">${icon('alarm-clock')}<b>${esc(spanOf(until, { short: true }))}</b><span>${esc(act || 'to file')}</span></span>`; }   // the hours left to file late ("late" read as "4 hours late")
   const big = spanOf(iso, { short: true });   // "28m", "4h", "3d", rounded down (R-022); R-277 fix 3: one rounding with the words
   const word = tone === 'late' ? 'overdue' : act || 'left';   // one word for time still to run, hours or days (R-152 C: it said "to go" past 48 hours)
-  // R-352: a plain clock when due today, the alarm clock once passed, neutral further out; the words say which (WCAG 1.4.1).
-  return `<span class="sv-urg${tone ? ' ' + tone : ''}" role="img" aria-label="${esc(`${big} ${word}${tone === 'today' ? ', due today' : ''}`)}">${tone === 'late' ? icon('alarm-clock') : tone === 'today' ? icon('clock') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
+  // R-352: a plain clock when due today, the alert once passed, neutral further out; the words say which (WCAG 1.4.1).
+  return `<span class="sv-urg${tone ? ' ' + tone : ''}" role="img" aria-label="${esc(`${big} ${word}${tone === 'today' ? ', due today' : ''}`)}">${tone === 'late' ? icon('circle-alert') : tone === 'today' ? icon('clock') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
 }
 
 export const empty = ({ title, text = '', action = '', h = 'h2', art = '' }) => `<div class="empty">${art}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;

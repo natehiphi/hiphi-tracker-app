@@ -1,7 +1,7 @@
 // Staff v6's one word per fact (R-336, V6-SPEC section 5; staff6/steps.js), checked on the practice copy's own data, the
 // way the app builds it (data.js demoInit, Mon 16 Mar 2026, 9:00 AM in Honolulu). No server or browser needed:
 //   node tests/staff6_steps_test.mjs
-// status(): nothing amber unless late (still accepted, or past due and still doable), nothing red, due today plain (D3, R-352); testimonyState(): one of five
+// status(): nothing amber unless late but still accepted, nothing red unless overdue, due today plain (D3, R-352); testimonyState(): one of five
 // words and Missed for every draft state; actBy(): the W31 hand-on times; committeeName() for every committee code in
 // demo/snapshot.json; versionWords(); the practice seeds (Patti, Julie, the chair asks); and the weekly memo carries no
 // programmer's note (V35).
@@ -54,7 +54,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // R-344 review: late wears its own alarm clock, so it never reads as due today's plain clock
   ok(late.tone === 'late' && late.icon === 'alarm-clock' && late.words === 'Late, still accepted until 1:10 PM today', `late testimony the Capitol still takes is amber with the alarm clock and its words: "${late.words}"`);
   const od = X.status({ kind: 'todo', due: hst('2026-03-15T17:00:00-10:00') });
-  ok(od.tone === 'overdue' && od.icon === 'alarm-clock' && /overdue$/.test(od.words), `a to-do past its date and still doable is late: the alarm clock and the word (amber, never red; R-352): "${od.words}"`);
+  ok(od.tone === 'overdue' && od.icon === 'circle-alert' && /overdue$/.test(od.words), `a to-do past its date is red with an alert icon and the word: "${od.words}"`);
   const prep = X.status({ kind: 'prep', due: hst('2026-03-10T17:00:00-10:00') });
   ok(prep.tone === 'neutral' && prep.words === 'Still to finish', 'a 2027 prep date that passed is "Still to finish", never red');
   ok(X.status({ done: true }).tone === 'done' && X.status({ missed: true }).tone === 'neutral', 'done is leaf; missed is said, not coloured (V25, V30)');
@@ -66,7 +66,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     if (s.status.tone === 'late') { ambers++; if (!(s.due <= now && s.until > now)) badAmber.push(b.bill_number); }
     if (s.status.tone === 'overdue') { reds++; if (!(s.due <= now && !(s.until > now))) badRed.push(b.bill_number); } }
   ok(!badAmber.length, `nothing amber unless late but still accepted (${ambers} late on the practice day${badAmber.length ? '; wrong: ' + badAmber.join(', ') : ''})`);
-  ok(!badRed.length, `overdue (amber, R-352) only once its own deadline passed (${reds} overdue${badRed.length ? '; wrong: ' + badRed.join(', ') : ''})`);
+  ok(!badRed.length, `nothing red unless overdue (${reds} overdue${badRed.length ? '; wrong: ' + badRed.join(', ') : ''})`);
   // A quiet day (Wed 18 Mar, 7:00 AM, every draft of the week filed or written in time): no amber, no red on anyone's steps.
   const saved = JSON.stringify(S.drafts);
   for (const d of Object.values(S.drafts).flat()) if (d.status !== 'cancelled') d.status = 'filed';
