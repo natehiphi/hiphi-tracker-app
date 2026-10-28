@@ -13,6 +13,13 @@ body.staff6 .hw-page > .sv-secnav { margin: -16px -4px -8px; }
 body.staff6 .hw-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; min-width: 0; }
 body.staff6 .hw-bar .sv-seg { flex-wrap: wrap; max-width: 100%; }
 body.staff6 .hw-bar .hw-nav { margin: 0 0 0 auto; }
+/* whose hearings, then the issue picker (R-352), on one line while they fit */
+body.staff6 .hw-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+/* the week's other view, one plain link after its dates (R-352, A-12 on v6: never a second pill switch) */
+body.staff6 a.hw-view { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-action); text-decoration: none; }
+body.staff6 a.hw-view .v6-chev { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.hw-view:hover { text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 a.hw-view:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
 @media (max-width: 380px) { body.staff6 .hw-bar .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-bar .sv-seg button { padding: 0 12px; } }
 /* this week on a phone: the week's row with its arrows sits under the scope switch, its own line (spec 2: phones
    first-class; Nate's walk: with the arrows hidden Patti could not look at next week) */
@@ -213,7 +220,6 @@ body.staff6 .ca-whorep .ca-how { display: grid; grid-template-columns: minmax(0,
    on the page ground, today's column on the card ground; one quiet line per entry; only a hearing is a soft card (sh1, no
    border); tokens only; nothing moves under Reduce Motion (A-10). */
 body.staff6 .hw-page.m-cal { max-width: none; }
-body.staff6 .hw-bar .sv-seg[aria-label="Show the week as"] { flex-wrap: nowrap; }
 body.staff6 .hc-cal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 body.staff6 .hc-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; min-width: 0; align-items: stretch; }
 body.staff6 .hc-day, body.staff6 .hc-wkend { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 12px; border-radius: var(--v6-r20); background: var(--v6-wash); }
@@ -369,6 +375,7 @@ body.staff6 a.hg-cphl { display: inline-flex; border-radius: 50%; }
 body.staff6 a.hg-cphl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl { margin-left: -14px; }
 body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl .lg-ph { margin-left: 0; }
-/* R-344: due today amber, passed red, in the calendar as in every list (late keeps its bold) */
-body.staff6 .hc-st.today { color: var(--v6-late); }
+/* The colour of time in the calendar as in every list (A-5 on v6, R-352): due today plain with its clock, late amber (its
+   own rule above), red only for a step still to do whose deadline passed */
+body.staff6 .hc-st.today { color: var(--v6-body); }
 body.staff6 .hc-st.overdue { color: var(--v6-bad); font-weight: 700; }

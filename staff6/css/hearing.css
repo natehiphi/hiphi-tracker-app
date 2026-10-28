@@ -110,6 +110,5 @@ body.staff6 .hr-page .hr-goface .sv-av + .sv-av { margin-left: -6px; box-shadow:
 /* the owner's face sized to its 20px line, with a gap before the words (R-344 review: it was taller than the line) */
 body.staff6 .hr-page .hr-ownface { display: inline-flex; vertical-align: -3px; margin-right: 6px; line-height: 0; }
 body.staff6 .hr-page .hr-ownface .sv-av { --av: 18px; width: 18px; height: 18px; font-size: 9px; }
-/* R-344 rule 3: the Capitol's deadline turns amber once it falls today (A-5 on v6, Nate 26 Oct) */
-body.staff6 .hr-due.today, body.staff6 .hr-due.today svg { color: var(--v6-late); }
-body.staff6 .hr-due.today { font-weight: 700; }
+/* The Capitol's deadline on its own day: plain, its time in bold, the clock neutral (A-5 on v6, R-352: amber is late's alone) */
+body.staff6 .hr-due.today .v6-tm { font-weight: 700; color: var(--v6-ink); }
