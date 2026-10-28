@@ -42,13 +42,14 @@ export function pendingTitle(st) {
   return pre ? pre.k : ownKey(q);
 }
 
-// o: { legend, hint, addOnly, suggest, quietLegend }.
+// o: { legend, hint, addOnly, suggest, quietLegend, under }.
 // suggest (R-304, Your voice under ?rec=1): the keys to show first in place of today's eight (titles.js suggestTitles: the
 // person's own titles, then the ones that fit the issues they follow, six in all); "More titles" then holds every other
 // title, the first ones too. quietLegend: the page's own heading names the picker, so the legend is for screen readers
-// only and the hint is a line under it (A-14: "I'm a..." once on the screen). The walkthrough (helper.js) passes neither.
+// only and the hint is a line under it (A-14: "I'm a..." once on the screen). under: a function drawn straight under the
+// chips on every redraw (Your voice's opening lines, so a tap's effect is in view on a phone). The walkthrough passes none.
 export function pickerHTML(pfx, st, o) {
-  const { legend = 'I’m a…', hint = 'Pick any, or none.', addOnly = false, suggest = null, quietLegend = false } = st.opts = o || st.opts || {};
+  const { legend = 'I’m a…', hint = 'Pick any, or none.', addOnly = false, suggest = null, quietLegend = false, under = null } = st.opts = o || st.opts || {};
   const full = st.chosen.length >= TITLES_MAX, q = st.q || '';
   // Every title stays where it is, ticked when picked, so a tap never makes a chip jump out of sight (the review of R-165:
   // a title tapped in "More titles" vanished to the top). After the first ones: titles shown nowhere else, their own words and,
@@ -63,7 +64,7 @@ export function pickerHTML(pfx, st, o) {
   const leg = quietLegend ? `<legend class="tp-leg sr">${esc(legend)}</legend><p class="small muted tp-lede">${esc(hint)}</p>`
     : `<legend class="tp-leg">${esc(legend)} <span class="tp-hint">${esc(hint)}</span></legend>`;
   return `<fieldset class="tp${addOnly ? ' tp-addonly' : ''}${suggest ? ' tp-six' : ''}" id="${pfx}-tp">${leg}
-    <div class="chips tp-chips">${firsts}${mine}</div>
+    <div class="chips tp-chips">${firsts}${mine}</div>${under ? under() : ''}
     ${full ? `<p class="small muted">${icon('info')} You can pick up to ${TITLES_MAX}.${addOnly ? '' : ' Tap one to take it off.'}</p>` : `
     <button type="button" class="explain tp-morebtn" data-tp-more aria-expanded="${!!st.more}" aria-controls="${pfx}-tpm">${icon(st.more ? 'chevron-up' : 'chevron-down')}<span>${st.more ? 'Fewer titles' : 'More titles'}</span></button>${more}
     <div class="field tp-type"><label for="${pfx}-tq">Or type one, in your own words</label>

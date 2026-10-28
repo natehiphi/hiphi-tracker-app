@@ -221,7 +221,7 @@ body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--s
 .pfv .pfv-dist > .ic { width: 18px; height: 18px; flex: none; color: var(--p700); }
 .pfv .pfv-dist .btn { min-height: 44px; }
 .pfv .tp-lede { margin: 0; }
-.pfv .pfv-prev { margin-top: var(--s4); padding: var(--s12) var(--s16); background: var(--n50); border-radius: var(--r12); }
+.pfv .pfv-prev { margin: 0; padding: var(--s12) var(--s16); background: var(--n50); border-radius: var(--r12); }
 .pfv .pfv-h3 { margin: 0 0 var(--s8); font-size: var(--t14); font-weight: 700; color: var(--n900); }
 .pfv .pfv-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s8); }
 .pfv .pfv-lines li { display: flex; flex-direction: column; gap: 2px; }
@@ -237,3 +237,16 @@ body.hasbar[data-screen="profile"] #toast { bottom: calc(var(--tabbar) + var(--s
 .pfv .pfv-stb { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s4); }
 .pfv .pfv-stb .btn { min-height: 44px; }
 .pfv .pf-sec > p.small { margin: 0; }
+/* The review of 28 Oct: "Your profile" over the name, so "← Profile" on the sub-pages names something on this page; one
+   line under Your voice's title on how it saves; each Saved beside the heading or label of what changed. */
+.pf.pfr .pfr-eye { margin: 0 0 2px; font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n700); }
+.pf.pfr .pfr-lede { margin: var(--s4) 0 0; }
+.pfv .pfv-hrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s4) var(--s12); }
+.pfv .pfv-hrow > h2, .pfv .pfv-hrow > label { margin: 0; }
+.pfv .pfv-hrow .pf-st { font-weight: 400; }
+.pfv .pf-sec > .pfv-hrow + * { margin-top: 0; }
+.pfv .pfv-one { margin: 0; }
+.pfv .pfv-one q { font-style: italic; color: var(--n900); }
+.pfv .pfv-one .pfv-h3 { margin: 0; }
+.pfv #pf-quote-f > .pf-st { margin: 0 0 var(--s4); }
+.pfv .pf-where > .pf-st { margin-top: var(--s8); }

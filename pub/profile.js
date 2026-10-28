@@ -359,7 +359,7 @@ function addStory(id) {
 }
 function repaintStories(focusSel) {
   const s = $('#pf-story'); if (!s) return;
-  s.innerHTML = `<h2 id="pf-story-t">Your stories</h2>${onVoice() ? voiceStoryBody() : storyBody()}`; if (onVoice()) wireVoiceStories(); else wireStories();
+  s.innerHTML = onVoice() ? `${storyHead()}${voiceStoryBody()}` : `<h2 id="pf-story-t">Your stories</h2>${storyBody()}`; if (onVoice()) wireVoiceStories(); else wireStories();
   const f = focusSel && $(focusSel); if (f) { f.focus({ preventScroll: true }); f.scrollIntoView({ block: 'center' }); }
 }
 function wireStories() {
@@ -489,7 +489,9 @@ function voiceSum() {
   const t = myTitles(), iss = followedIssues(), n = storyCount();
   const opens = [...new Set((iss.length ? iss : [null]).map(i => asWords(pickTitle(t, i ? aboutIssue(i) : {}), false)).filter(Boolean))].slice(0, 3);
   const st = n ? `${n} ${n === 1 ? 'story' : 'stories'}` : '';
-  return opens.length ? [...opens.map(o => `“${o}…”`), st].filter(Boolean).join(' · ') : ['Add who you are, so your letters sound like you', st].filter(Boolean).join(' · ');
+  // No districts yet: the row says so (the reviewer, 28 Oct), since a letter can say "I live in their district" only with them.
+  const addr = myDistricts() ? '' : 'Add your address';
+  return (opens.length ? [...opens.map(o => `“${o}…”`), st, addr] : ['Add who you are, so your letters sound like you', st, addr]).filter(Boolean).join(' · ');
 }
 // "1 testimony · 1 email · the last on March 3" (the app's own month-then-day, as dateLong).
 function lettersSum() {
@@ -507,20 +509,20 @@ const dataSum = () => signedIn() ? 'What we keep · Sign out · Delete' : 'What 
 // "Signed in" would not be true.
 function whoLine() {
   if (signedIn()) { const n = myNumber(), e = myEmail(); return n ? `Signed in with ${masked(n)}` : e ? `Signed in with ${e}` : ''; }
-  const t = textSaved(); return t?.phone ? `Saved on this phone with ${masked(t.phone)}` : '';
+  const t = textSaved(); return t?.phone ? `Kept on this device · texts to ${masked(t.phone)}` : '';
 }
 function rowsView() {
   const name = myName(), s = since(), who = whoLine();
   // Back from a sub-page lands here with that sub-page as the page behind: Profile's own Back still names You.
   const back = /^#\/profile\//.test(String(history.state?.prev || '')) ? recBack('#/more', 'You') : backFrom('#/more', 'You');
   const rows = [
-    { name: 'Your voice', text: voiceSum(), href: '#/profile/voice', lead: 'mic' },
+    { name: 'Your voice', text: voiceSum(), href: '#/profile/voice', lead: 'pencil' },   // a pen: what they write (the review)
     { name: 'Your alerts', text: alertStatus().title, href: '#/alerts', lead: 'bell' },
     { name: 'Your testimony and emails', text: lettersSum(), href: '#/profile/letters', lead: 'mail' },
     { name: SUBS.help, text: helpSum(), href: '#/profile/help', lead: 'users' },
     { name: SUBS.data, text: dataSum(), href: '#/profile/data', lead: 'lock' }];
   return `<div class="mr pf pfr yu">${back}
-    <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
+    <header class="pagehead pf-head">${av('pf-av pf-av-lg')}<div class="pf-who"><p class="pfr-eye">Your profile</p><h1 class="hero" id="pf-h" tabindex="-1">${name ? esc(name) : 'Your profile'}</h1>
       ${who ? `<p class="meta pf-since">${esc(who)}</p>` : ''}</div></header>
     ${P.made ? `<p class="okmsg pf-made" role="status">${icon('circle-check')}<span>${esc(P.made)}</span></p>` : ''}
     <p class="sr" id="pf-live" aria-live="polite"></p>
@@ -529,36 +531,46 @@ function rowsView() {
     ${DEMO ? notice('info', 'info', 'You’re in the sandbox: what you change here stays in this browser and is never sent.') : ''}
   </div>`;
 }
-const subHead = k => `${recBack('#/profile', 'Profile')}<header class="pagehead pfr-head"><h1 class="hero" id="pf-h" tabindex="-1">${esc(SUBS[k])}</h1></header><p class="sr" id="pf-live" aria-live="polite"></p>`;
+const subHead = (k, lede = '') => `${recBack('#/profile', 'Profile')}<header class="pagehead pfr-head"><h1 class="hero" id="pf-h" tabindex="-1">${esc(SUBS[k])}</h1>${lede ? `<p class="small muted pfr-lede">${esc(lede)}</p>` : ''}</header><p class="sr" id="pf-live" aria-live="polite"></p>`;
 
+// A heading with its own quiet "Saved" beside it, so the note is where the change was made (the review, 28 Oct).
+const headSt = (tag, id, title, st) => `<div class="pfv-hrow"><${tag} id="${id}">${esc(title)}</${tag}>${status(st)}</div>`;
 // Your voice. The chips suggested once per arrival, so a chip never moves under the finger while they tap.
 function voiceView() {
   const d = P.draft, dist = d.sd && d.hd;
   P.tp.suggest ||= suggestTitles(followedIssues().map(aboutIssue), P.base.titles);
-  const hint = followedIssues().length ? 'Tap any that fit. These come first because of the issues you follow.' : 'Tap any that fit.';
-  return `<div class="mr pf pfr pfv yu">${subHead('voice')}
+  // The hint says what the chips are for; the lines straight under them show it (the review: on a phone the lines were
+  // out of view under More titles and the type box).
+  const hint = 'Tap any that fit. Your letters start with one.';
+  return `<div class="mr pf pfr pfv yu">${subHead('voice', 'Changes save as you make them.')}
     <section class="card pf-sec" id="pf-about" aria-labelledby="pf-about-t"><h2 id="pf-about-t">Name and districts</h2>
-      <div class="field pf-f"><label for="pf-name">Name</label>
+      <div class="field pf-f"><div class="pfv-hrow"><label for="pf-name">Name</label>${status('pf-name-st')}</div>
         <input id="pf-name" type="text" value="${esc(d.name)}" maxlength="120" autocomplete="name" autocapitalize="words" enterkeyhint="done"></div>
       <div class="pf-f pf-where">
         ${dist && !P.addrOpen ? `<p class="pfv-dist">${icon('map-pin')}<span>Senate ${esc(d.sd)} · House ${esc(d.hd)}</span><button type="button" class="btn text sm" data-pfv-addr aria-expanded="false">Change address</button></p>`
-          : addrField('pf-ad', P.addr, { label: dist ? 'Your new address' : 'Your home address', help: '' })}
+          // What the address is for, in what the code does with the districts: helper.js says "I live in ..., in Senator X's
+          // district" when their own lawmaker hears the bill, and an email to their legislators says they live there.
+          : addrField('pf-ad', P.addr, { label: dist ? 'Your new address' : 'Your home address', help: 'It finds your senator and representative, so your letters can say you live in their district.' })}
+        ${status('pf-about-st')}
         <p class="pf-promise">${icon('shield-check')}<span>We use your address once to find your senator and representative, then forget it. We keep only their district numbers.</span></p>
-      </div>
-      ${status('pf-about-st')}</section>
-    <section class="card pf-sec" id="pf-iam" aria-labelledby="pf-iam-t"><h2 id="pf-iam-t">I’m a…</h2>
-      <div class="pf-f" id="pf-tp-host">${pickerHTML('pf', P.tp, { legend: 'I’m a…', hint, suggest: P.tp.suggest, quietLegend: true })}</div>
-      <div class="pfv-prev"><h3 class="pfv-h3" id="pfv-lines-t">How your letters start</h3><div id="pfv-lines">${linesHTML()}</div></div>
-      ${status('pf-tp-st')}</section>
-    <section class="card pf-sec" id="pf-story" aria-labelledby="pf-story-t"><h2 id="pf-story-t">Your stories</h2>${voiceStoryBody()}</section>
+      </div></section>
+    <section class="card pf-sec" id="pf-iam" aria-labelledby="pf-iam-t">${headSt('h2', 'pf-iam-t', 'I’m a…', 'pf-tp-st')}
+      <div class="pf-f" id="pf-tp-host">${pickerHTML('pf', P.tp, { legend: 'I’m a…', hint, suggest: P.tp.suggest, quietLegend: true, under: linesBox })}</div></section>
+    <section class="card pf-sec" id="pf-story" aria-labelledby="pf-story-t">${storyHead()}${voiceStoryBody()}</section>
   </div>`;
 }
+const storyHead = () => headSt('h2', 'pf-story-t', 'Your stories', 'pf-story-st');
+const linesBox = () => `<div class="pfv-prev" id="pfv-lines">${linesHTML()}</div>`;
 // One line per followed issue, the way its letter would open (Nate's change 1 to D: "true opening lines").
+// When every issue's letter starts the same, that one line (the review: three equal lines read as a list to compare); the
+// issues one by one only when their lines differ.
 function linesHTML() {
   const t = P.draft.titles, iss = followedIssues();
   const xs = iss.length ? iss.map(i => [i.name, openLine(t, i)]) : [['Any letter', openLine(t, null)]];
-  return `<ul class="pfv-lines" aria-labelledby="pfv-lines-t">${xs.map(([n, l]) => `<li><span class="pfv-ln">${esc(n)}</span><q>${esc(l)}</q></li>`).join('')}</ul>
-    ${t.length ? '' : '<p class="small muted pfv-none">Tap a title above, and your letters start with it.</p>'}`;
+  const one = new Set(xs.map(([, l]) => l)).size === 1;
+  const body = one ? `<p class="pfv-one"><span class="pfv-h3" id="pfv-lines-t">Your letters start:</span> <q>${esc(xs[0][1])}</q></p>`
+    : `<h3 class="pfv-h3" id="pfv-lines-t">How your letters start</h3><ul class="pfv-lines" aria-labelledby="pfv-lines-t">${xs.map(([n, l]) => `<li><span class="pfv-ln">${esc(n)}</span><q>${esc(l)}</q></li>`).join('')}</ul>`;
+  return `${body}${t.length ? '' : '<p class="small muted pfv-none">Tap a title above, and your letters start with it.</p>'}`;
 }
 // The saved stories as a list, each with Edit and Delete (Delete and Undo as R-212 #28). Stories are written on the letter
 // step now (Nate, 28 Oct), so there is no box to add one here.
@@ -568,10 +580,9 @@ function voiceStoryBody() {
     ${keys.length ? `<ul class="pfv-stories">${keys.map(storyItem).join('')}</ul>` : '<p class="muted pfv-none">No stories yet.</p>'}
     <p class="small pfv-how">You add a story when you write a letter, and it’s kept for the next one.</p>
     <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
-    <fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>
+    <fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>${status('pf-quote-st')}
       <p class="small muted">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
-      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, P.draft.quote === k)).join('')}</fieldset>
-    ${status('pf-story-st')}`;
+      ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, P.draft.quote === k)).join('')}</fieldset>`;
 }
 function storyItem(k) {
   const text = k ? P.base.stories[k] : P.base.story, name = k ? storyName(k) || 'Another issue' : 'Any issue', id = k ? `pf-st-${k}` : 'pf-st-any';
@@ -603,7 +614,7 @@ function wireVoice() {
   const nm = $('#pf-name');
   if (nm) {
     const keep = () => { const v = nm.value.trim(); if (v === P.base.name) return; P.draft.name = v;
-      saveNow({ name: v }, 'pf-about-st', () => { P.base.name = v; }); };
+      saveNow({ name: v }, 'pf-name-st', () => { P.base.name = v; }); };
     nm.oninput = () => { P.draft.name = nm.value; };
     nm.onblur = keep;
     nm.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); nm.blur(); } };
@@ -634,7 +645,7 @@ function wireVoice() {
 }
 function wireVoiceStories() {
   document.querySelectorAll('input[name="pf-quote"]').forEach(r => r.onchange = () => { if (!r.checked) return; const q = r.value;
-    P.draft.quote = q; saveNow({ quote: q }, 'pf-story-st', () => { P.base.quote = q; }); });
+    P.draft.quote = q; saveNow({ quote: q }, 'pf-quote-st', () => { P.base.quote = q; }); });
   document.querySelectorAll('[data-pf-stdel]').forEach(b => b.onclick = () => deleteStory(b.dataset.pfStdel));
   document.querySelectorAll('[data-pf-stundo]').forEach(b => b.onclick = () => undoStory(b.dataset.pfStundo));
   document.querySelectorAll('[data-pfv-stedit]').forEach(b => b.onclick = () => { const k = b.dataset.pfvStedit;
