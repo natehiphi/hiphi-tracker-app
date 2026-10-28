@@ -31,7 +31,7 @@
 import { S, DB, DEMO, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
 import v5, { todayItems, slipNow } from './today5.js';
 import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
-import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, ASK_TAB, andWords } from './ui.js';
+import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML } from './steps.js';
@@ -41,7 +41,7 @@ import { issuesOfBill, issueLinkHref } from './issues.js';
 import { aboutBill, closeBtn } from './billpane.js';
 import { plainCodes } from './terms.js';   // codes in a to-do's or a note's own words become plain words (D15, V05)
 import { prepTaskOf, dueEnd as prepDue, issueHref, prepListHref } from './prep.js';
-import { askTodoOf, askSummary, toAskWords, decideWords, nwParts } from './push.js';
+import { askTodoOf, askSummary, toAskWords, decideWords, nwParts, askTabWords } from './push.js';
 import { isLead } from './more.js';
 import { teamSlipCount } from './team.js';   // a cycle (team.js reads today.js), safe: used only when a page draws
 import { newSteps, markNewStep } from './help.js';
@@ -668,7 +668,8 @@ function itemFor(key, v = S.me) {
 const lineOf = (it, v) => (it.s && !['followask', 'stale'].includes(it.kind) ? it.s.line : it.kind === 'followask' ? it.s.line : it.kind === 'stale' ? `Check your testimony: the bill is now ${versionWords(it.b.current_version)}` : miniOf(it, v).line) + sitSuffix(it, v);
 
 // ---- the one-line doors (each one labelled control, never a list of other people's steps: D4, V15) ----
-const lineA = (href, ic, html, { cls = '', attrs = '' } = {}) => `<a class="t6-line${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs}>${icon(ic)}<span class="t6-lt">${html}</span>${icon('chevron-right', { cls: 't6-chev' })}</a>`;
+// chev: false where the words end in their own "›" (Bills That Need Hearings, push.js askTabWords): one way-on mark, not two
+const lineA = (href, ic, html, { cls = '', attrs = '', chev = true } = {}) => `<a class="t6-line${cls ? ' ' + cls : ''}" href="${esc(href)}"${attrs}>${icon(ic)}<span class="t6-lt">${html}</span>${chev ? icon('chevron-right', { cls: 't6-chev' }) : ''}</a>`;
 const lineB = (data, ic, html) => `<button type="button" class="t6-line" ${data} aria-haspopup="dialog">${icon(ic)}<span class="t6-lt">${html}</span>${icon('chevron-right', { cls: 't6-chev' })}</button>`;
 // A share to-do (migration 112, the bill owner's) is the rallier's public ask (11.6): { h, rl (the ralliers), due (OUTREACH's
 // time) }, or null for any other task. Team and the slipping count say it as the rallier's, by that time (one owner and one
@@ -919,7 +920,7 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
   const dk = ownsAny ? w.asks.filter(r => r.s?.ask?.decide).length : 0;
   if (askT || dk) w.askSaid = true;
   const parts = [said ? '' : nh ? p(`Your next hearing: ${nw(esc(whenAt(nh.scheduled_at)))} · ${esc(committeeName(nh.committee) || nh.committee)}`, 'gavel') : noHearingLine(v, w, p),
-    askT ? lineA('#/hearings/ask?scope=mine', 'mail', `${nwParts(boldLead(askT))} · <span class="v6-nw">${ASK_TAB}</span>`) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'flag') : '',
+    askT ? lineA('#/hearings/ask?scope=mine', 'mail', `${nwParts(boldLead(askT))} · ${askTabWords()}`, { chev: false }) : dl ? p(`Next deadline ${nw(esc(dayWords(dl.date)))}: ${esc(dl.words)}`, 'flag') : '',
     dk ? lineA('#/hearings/ask?scope=mine', 'gavel', nwParts(boldLead(decideWords(dk)))) : ''];
   if (!parts.join('')) return null;
   return { title: 'At the Capitol', html: parts.join('') };   // (R-352: the week is Hearings'; this card is the next hearing and deadline) Hearings is a place in the sidebar and the phone bar, always in sight

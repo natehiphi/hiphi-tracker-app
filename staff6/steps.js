@@ -560,12 +560,21 @@ function chairLine(s, v) {
 // someone else's does ("Writing · sent back, you resubmit now"; spec 12.6), where Hearings had said only "Writing · you
 // resubmit now" beside Today's and Testimony's Sent back. `toned`: the row is drawn in the late colour (the viewer's own,
 // or a teammate's on their bill), so it keeps the one word "late" beside its colour (D3), never the time again.
-export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
+// `button`: the row carries the viewer's own button (R-352, C-15): the button says the verb, so the line says the state and
+// the time in status()'s one wording ("Ready to file · due today 10:00 AM, in 59 min", "Ready to file · late"); with no
+// button the line keeps "you" and the verb, as Bills' rows keep "File now · ...".
+export function hearingLine(s, { lateSaid = false, toned = false, button = false } = {}) {
   if (!s) return '';
   if (s.kind === 'chair' || s.kind === 'none' || !s.state) return s.line || '';
   const st = s.state, tone = s.status?.tone, hush = lateSaid && tone === 'late';
   if (st.key === 'filed' || st.key === 'missed' || s.off) return s.line;
   const own = `${st.word} · ${st.sentBack ? 'sent back, ' : ''}you `;
+  if (s.you && button) {
+    const head = `${st.word}${st.sentBack ? ' · sent back' : ''}`, sep = st.sentBack ? ', ' : ' · ';
+    if (hush) return toned ? `${head}${sep}late` : head;
+    const t = ['late', 'overdue'].includes(tone) ? s.status.words : dropVerb(s.act?.words || '', s.act?.verb);
+    return t ? `${head}${sep}${lc(t)}` : head;
+  }
   if (s.you && hush) return own + lc(s.kind === 'nodraft' ? 'Make the draft' : s.act?.verb || 'act on it') + (toned ? ', late' : '');
   // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
   if (s.you) return own + lc(String(s.line || '')).replace(/ · /g, ', ');
@@ -573,7 +582,8 @@ export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
   const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : tone === 'today' && s.mine && s.due != null ? `due ${whenAt(s.due)}` : '';
   if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
   if (!when && st.noDraft) return `${st.word} · not started`;
-  if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}` : ''}`;
+  // the Capitol's time in status()'s one wording, with the time left when it is near ("due today 9:30 AM, in 2 hours")
+  if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}${leftSoon(s.due)}` : ''}`;
   const who = othersWords(s), lead = who.startsWith(st.word) ? who : `${st.word} · ${who}`;
   return when ? `${lead}, ${when}` : lead;
 }
@@ -1032,10 +1042,11 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">${NOTE_HEAD}:</span> ${esc(s.d.review_note)}</p>` : '';
     // Open Doc in the step card's own look beside Resubmit (tonal: the Doc is where the writer revises; Patti's finding)
     const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'secondary', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
-    const btnHtml = (ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s)) + doc, t = lineTone(s);
+    const own = ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s);
+    const btnHtml = own + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
     return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
-      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late' })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
+      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late', button: ok && !!own })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
   const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
   // The lead bill (the viewer's own step, Today's hearing day) in a list of its own, so the narrowest phones can draw it
   // right under the committee, before Going: at 320x640 Kris's Review sat under the bottom bar (steps.css, below 380px).

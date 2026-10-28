@@ -37,7 +37,6 @@ body.staff6 .hw-ask-t { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; c
 body.staff6 .hw-ask-n { color: var(--v6-ink); }
 body.staff6 .hw-ask-s { color: var(--v6-muted); }
 body.staff6 .hw-ask-go { flex: none; display: inline-flex; align-items: center; gap: 2px; font-size: var(--v6-t16); font-weight: 400; color: var(--v6-action); }
-body.staff6 .hw-ask-go .v6-chev { width: 20px; height: 20px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .hw-ask:hover { box-shadow: var(--v6-sh2); } }
 body.staff6 .hw-ask:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 /* the week: its dates, then Previous and Next */
@@ -127,8 +126,6 @@ body.staff6 .hg-dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 
 body.staff6 .hg-dlh { display: grid; gap: 4px; }
 body.staff6 .hg-dlh h2 { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .hg-dls { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
-/* The door to Get hearings at the end of Legislators' deadline line, as Bills' (bills.css .bl-dlgo). */
-body.staff6 .hg-dls .hg-dlgo { color: var(--v6-action); white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
 /* Legislators' Who to ask: a later deadline folded to one line that opens it in place (push.js askBoard `fold`) */
 body.staff6 .hg-fold { display: block; }
 body.staff6 .hg-fold > summary { position: relative; list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 56px; padding: 12px 46px 12px 16px;
@@ -376,3 +373,18 @@ body.staff6 a.hg-cnl { color: var(--v6-action); text-decoration: none; border-ra
 body.staff6 a.hg-cnl:hover { text-decoration: underline; text-underline-offset: 3px; }
 body.staff6 a.hg-cnl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .hc-st.overdue { color: var(--v6-bad); font-weight: 700; }
+
+/* R-352 (H, C-15, A-12): a calendar cell's bill is its name first, the link, in the cell's ink (underlined on hover only),
+   then its number small and plain and where it stands on one line; late is amber with its alarm clock and the word, not
+   bold; the issue line is words only. "Triple filing" and the other Capitol words stand alone: teal, no underline until
+   hover. */
+body.staff6 .hc-e a.hc-bl { flex: 1 0 100%; color: var(--v6-ink); padding-top: 4px; min-height: 0; overflow-wrap: break-word; }
+@media (max-width: 767.98px) { body.staff6 .hc-e a.hc-bl { min-height: 32px; } }
+body.staff6 .hc-e .hc-bnum { font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hc-e a.hc-bl:hover { text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 .hc-st.late { font-weight: 400; }
+body.staff6 a.hw-cap-n, body.staff6 .hc-cap a { text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.hw-cap-n:hover, body.staff6 .hc-cap a:hover { text-decoration: underline; text-underline-offset: 3px; } }
+/* R-352 (G): the title sits as close to its tabs as on Testimony, Bills and Legislators (12px; it was 32px: the title's own
+   24px margin added to the grid's gap; a phone already matched) */
+body.staff6 .hw-page > h1.v6-ptitle { margin-bottom: 4px; }

@@ -25,7 +25,7 @@
 import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, sessionClock, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
-import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn, ASK_TAB } from './ui.js';
+import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
   views, curView, viewName, openEditViews, scopeOpts, posWord, openCoalition, viewState } from './filters.js';
 import { openLook } from './look.js';
@@ -35,7 +35,7 @@ import { GROUPS, groupKey, stanceMark } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
-import { askSummary, toAskWords, decideWords, nwParts } from './push.js';   // the bills still to ask, in Today's and Hearings' words (rule 6)
+import { askSummary, toAskWords, decideWords, nwParts, askTabGo } from './push.js';   // the bills still to ask, in Today's and Hearings' words (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -192,7 +192,7 @@ function leadLine(list) {
   let sm = null; try { sm = askSummary({ scope }); } catch { sm = null; }
   const t = toAskWords(sm) || decideWords(sm?.decide || 0) || sm?.words || ''; if (!t) return '';
   const said = t.split(' · ').map((p, i) => i ? esc(p) : `<b>${esc(p)}</b>`).join(' · ');
-  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${nwParts(said)} · <a class="bl-dlgo" href="#/hearings/ask?scope=${scope}">${ASK_TAB}<span aria-hidden="true"> ›</span></a></span></p>`;
+  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${nwParts(said)} · ${askTabGo(`#/hearings/ask?scope=${scope}`)}</span></p>`;
 }
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
@@ -208,7 +208,9 @@ function toolbar() {
   // Rows | Spreadsheet and its tools from 600px; below that they are all in the toolbar's menu (D9: anyone, any width).
   const sw = !(has || tbl) ? '' : switchNow() ? `<div class="sv-seg bl-viewsw" role="group" aria-label="Show bills as">${[['rows', 'Rows', 'rows-3'], ['table', 'Spreadsheet', 'table-2']].map(([k, l, ic]) => `<button type="button" data-blview="${k}" aria-pressed="${mode === k}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>`
     : iconBtn('ellipsis', 'Show as a spreadsheet, or export', { 'data-blmenu': '1', 'aria-haspopup': 'dialog' });
-  return `<div class="bl-tools" role="group" aria-label="This list">${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
+  // R-352 (D): Mine | Team leads the toolbar row, at its left under the tabs, as on Hearings and Legislators (it sat at the
+  // title's right); a phone gives it a row of its own at its own compact width, the box and Filter under it.
+  return `<div class="bl-tools" role="group" aria-label="This list"><div class="bl-whose">${scopeSwitch()}</div>${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
 }
 let BACK_AT = 0;   // when the browser's Back (or the top bar's) last landed, for the focus above
 if (typeof addEventListener === 'function') addEventListener('popstate', () => { BACK_AT = Date.now(); });
@@ -864,7 +866,7 @@ export default {
     v.lastMuted = false;
     this._after = arrival(route);
     const p = parts();
-    return `<div class="bl-page ${tableOn() ? 'bl-tablev' : 'bl-rowsv'}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills', { right: scopeSwitch() })}<div id="bl-lead">${p.lead}</div>
+    return `<div class="bl-page ${tableOn() ? 'bl-tablev' : 'bl-rowsv'}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
       <div class="bl-stick">${toolbar()}<div id="bl-chips">${p.chips}</div></div><div id="bl-dyn">${p.body}</div></div>`;
   },
   bar(route) {

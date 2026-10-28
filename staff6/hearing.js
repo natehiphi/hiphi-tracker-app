@@ -247,7 +247,7 @@ function membersHTML(c) {
   // v3: the stance pickers are in Committees on the bill's page; the door lands there (a button, not a link inside a
   // sentence: 44px links inside text break the line on a phone). Its picture is the pencil, a thing to fill in: the
   // thumbs-up means support, and no stand is known here (A-18 on v6, R-344 rule 5, R-352).
-  const hint = lead && !any ? `<p class="hr-p">No one has recorded where they stand on these bills yet.</p><p class="hr-more">${btn('Mark where they stand', { kind: 'text', sm: true, icon: 'pencil', href: billRoute(lead, 'committees') })}</p>` : '';
+  const hint = lead && !any ? `<p class="hr-p">No one has recorded where they stand on these bills yet.</p><p class="hr-more">${btn('Mark stand', { kind: 'text', sm: true, icon: 'pencil', href: billRoute(lead, 'committees') })}</p>` : '';
   const key = h.id + '|m', open = rows.length <= FOLD + 2 || S.hrMore?.has(key);
   return section('hr-s-mem', 'Committee members', `${hint}<div class="v6-list" role="list" aria-label="Committee members">${(open ? rows : rows.slice(0, FOLD)).join('')}</div>${open ? '' : `<p class="hr-more">${showAllBtn(rows.length, { 'data-hrmore': key }, { what: 'members' })}</p>`}`);
 }

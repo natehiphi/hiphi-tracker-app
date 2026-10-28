@@ -551,3 +551,9 @@ body.staff6 .v6-hcard-note.v6-hcard-late.t-late svg { color: inherit; }
 body.staff6 .v6-step.w-today .v6-status.neutral, body.staff6 .v6-step.w-today .v6-status.today { background: none; padding-left: 0; padding-right: 0; }
 /* the bill's number after its name inside a card's sentence (steps.js billNumHTML): small and quiet, as on a row */
 body.staff6 .v6-step-num { font: 400 var(--v6-t14)/1 Lato, system-ui, sans-serif; color: var(--v6-muted); white-space: nowrap; }
+
+/* The way to Bills That Need Hearings (push.js askTabGo / askTabWords), one look everywhere (R-352 E, A-12): teal, its own
+   "›", no underline until hover, kept on one line */
+body.staff6 .v6-asktab { color: var(--v6-action); font-weight: 400; text-decoration: none; white-space: nowrap; }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.v6-asktab:hover, body.staff6 a:hover > * > .v6-asktab, body.staff6 a:hover > .v6-asktab { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; } }
+body.staff6 a.v6-asktab:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }

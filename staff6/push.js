@@ -18,6 +18,11 @@ import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
 
+// The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Who to ask, Hearings' week line,
+// Today's At the Capitol): Nate's words for the tab, teal, with "›" and no underline until hover (A-12: a standalone way
+// on), no icon of its own. askTabGo is the link; askTabWords the same words inside a row that is already the link.
+export const askTabWords = () => `<span class="v6-asktab">${ASK_TAB}<span aria-hidden="true">&nbsp;›</span></span>`;
+export const askTabGo = (href, cls = '') => `<a class="v6-asktab${cls ? ' ' + cls : ''}" href="${esc(href)}">${ASK_TAB}<span aria-hidden="true">&nbsp;›</span></a>`;
 export const PUSH_BOARD = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 export const GIVE_ASK = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 
@@ -515,7 +520,7 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const nwd = needWords(d.items, { scope, viewer: v, day: false }), cn = nwd.c, total = cn.total, nw0 = cn.need;
     const shared = !!nwd.only;   // every bill here one teammate's: said once on this line, not on every row (A-14)
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
-    const door = fold && di === 0 ? ` ·&nbsp;<a class="hg-dlgo" href="#/hearings/ask?scope=${esc(scope)}">${ASK_TAB}</a>` : '';
+    const door = fold && di === 0 ? ` ·&nbsp;${askTabGo(`#/hearings/ask?scope=${scope}`, 'hg-dlgo')}` : '';
     // The ask part never repeats the count before it (Nate's walk 3: "16 of your bills need a hearing · 16 to ask"): when
     // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask". Only
     // this deadline's bills, never a share of the tab's total ("12 of the 20" mixed two totals: the critic, walk 3, A-14).
