@@ -240,3 +240,8 @@
 .hp-dlg .hp-speak { margin: 0 0 var(--s8); }
 .hp-dlg .hp-speak .hp-q { margin: 0 0 var(--s8); font-weight: 600; }
 .hp-dlg .hp-speak .chips { display: flex; flex-wrap: wrap; gap: var(--s8); }
+/* The quote question with a first story (R-304): under the tick that saves it, set in a little so it reads as part of it. */
+.hp-quote { margin: var(--s12) 0 0; padding: 0 0 0 var(--s12); border: 0; border-left: 2px solid var(--p100); min-width: 0; }
+.hp-quote legend { padding: 0; font-weight: 700; color: var(--n900); }
+.hp-quote > p { margin: var(--s4) 0 var(--s4); }
+.hp-quote[hidden] { display: none; }

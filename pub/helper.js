@@ -60,7 +60,7 @@ import { introMark } from './speakup.js';
 import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
-import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile } from './myprofile.js';   // R-147, R-156, R-165
+import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile, quoteLevel, QUOTE } from './myprofile.js';   // R-147, R-156, R-165, R-304
 import { pickTitle, asWords, aWords, needsSelf, setSelfPref, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
@@ -1149,12 +1149,26 @@ function aboutScreen() {
         <span class="help" id="hp-why-help">${whyHelp(x)}</span>
         ${x.offer && !x.why.trim() ? `<p class="hp-offer">${btn(`Use your story about “${topicName(x.offer.topic)}”`, { kind: 'text', sm: true, icon: 'user', cls: 'hp-inl', attrs: { 'data-hp': 'usestory' } })}</p>` : ''}
         <label class="check hp-savest" for="hp-savestory"><input type="checkbox" id="hp-savestory"${x.saveStory ? ' checked' : ''}><span>${hasProfile() ? 'Save this to my profile' : 'Keep this on this device'}${topicOf(x) ? ` as my story about “${esc(topicName(topicOf(x)))}”` : ' as my story'}, ready for my next ${isMail(x) ? 'email' : 'letter'}</span></label>
+          ${quoteAsk(x)}
           <span class="help hp-savelen" id="hp-savelen">${x.why.trim().length > 600 ? `${hasProfile() ? 'Your profile keeps' : 'This device keeps'} the first 600 characters.` : ''}</span></div>
       <div class="field"><label for="hp-closing">How you’d like to sign off <span class="hp-opt">(optional)</span></label>
         <input id="hp-closing" name="closing" type="text" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="${x.mode === 'intro' ? esc(thanksLine()) : 'Mahalo'}" value="${esc(x.closing)}" aria-describedby="hp-closing-help">
         <div class="hp-sugs" role="group" aria-label="Ideas for signing off">${CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="closing" data-v="${esc(c)}" aria-pressed="${x.closing.trim() === c}">${esc(c)}</button>`).join('')}</div>
         <span class="help" id="hp-closing-help">${x.mode === 'intro' ? `Left empty, the letter says “${esc(thanksLine())}”` : 'Your name goes under it.'}</span></div>
     </form>`;
+}
+// "Can HIPHI quote your stories?" with a first story (R-304, Nate 28 Oct: the question shows only once a first story is
+// saved, and is asked when it is). Only for someone with no story and no answer yet; shown while the tick to save the
+// story is on, under it; No until they pick another. The words and the four choices are the profile's own (profile.js,
+// myprofile.js QUOTE; a lawyer is to confirm them), and the answer is saved as the profile saves it (saveProfile quote).
+// Once a story is saved it is never asked here again: the profile's Your stories holds it from then on.
+const firstStory = () => !myStory() && !Object.keys(myStories()).length && !quoteLevel();
+function quoteAsk(x) {
+  if (!firstStory()) return '';
+  const q = x.quote || '', r = (v, l) => `<label class="check mr-check" for="hp-quote-${v || 'no'}"><input type="radio" name="hp-quote" id="hp-quote-${v || 'no'}" value="${v}"${q === v ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(l)}</span></span></label>`;
+  return `<fieldset class="mr-set hp-quote" id="hp-quote"${x.saveStory ? '' : ' hidden'}><legend>Can HIPHI quote your stories?</legend>
+    <p class="small muted">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
+    ${[['', 'No'], ...QUOTE].map(([v, l]) => r(v, l)).join('')}</fieldset>`;
 }
 // The blue box on About you, in full only until they have sent one (R-212 #30: the Capitol Regular read the same paragraph
 // on every letter). After that it is one quiet line that keeps the fact that matters: testimony is public; an email goes
@@ -1754,7 +1768,9 @@ function toLetter() {
     const titles = cleanTitles(x.tp?.chosen), patch = {}, t = topicOf(x), why = x.why.trim().slice(0, 600), st = myStories();
     if (x.name.trim() && (x.name.trim() !== x.name0 || x.name.trim() !== myName())) patch.name = x.name.trim();
     if (JSON.stringify(titles) !== JSON.stringify(myTitles())) patch.titles = titles;
-    if (x.saveStory && why && why !== (t ? st[t] : myStory())) { if (t) patch.stories = { ...st, [t]: why }; else patch.story = why; x.storySaved = true; x.storyKept = !hasProfile() && (t || 'any'); }
+    const first = firstStory();   // read before this save makes the story (R-304)
+    if (x.saveStory && why && why !== (t ? st[t] : myStory())) { if (t) patch.stories = { ...st, [t]: why }; else patch.story = why; x.storySaved = true; x.storyKept = !hasProfile() && (t || 'any');
+      if (first && x.quote) patch.quote = x.quote; }   // their answer to the first-story question; none stays No
     if (Object.keys(patch).length) saveProfile(patch).catch(e => console.warn('profile:', e?.message || e)); }
   if (hasEmail && email) sendLink(x);   // in the background: the letter never waits for it
   goTo(2);
@@ -2098,6 +2114,9 @@ function onInput(e) {
     x.storyDraft = t.value;
   } else if (t.id === 'hp-savestory') {
     x.saveStory = t.checked;
+    const qf = dlg.querySelector('#hp-quote'); if (qf) qf.hidden = !t.checked;   // the quote question goes with the tick (R-304)
+  } else if (t.name === 'hp-quote') {
+    if (t.checked) { x.quote = t.value; saveDraft(); }
   } else if (t.id === 'hp-email') {
     // Remembered like the name, so a phone that reloads the tab brings it back. The error (shown only after
     // leaving the field or choosing See my letter) clears as soon as the address looks right, or the box is empty.

@@ -596,8 +596,13 @@ function linesHTML() {
 // step now (Nate, 28 Oct), so there is no box to add one here.
 function voiceStoryBody() {
   const keys = [...(P.base.story ? [''] : []), ...Object.keys(P.base.stories)];
+  // No story yet: no quote question either (Nate, 28 Oct: it shows once a first story is saved, and the letter step asks it
+  // when that story is saved, helper.js quoteAsk).
+  if (!keys.length) return `${storyGone()}
+    <p class="pfv-none">No stories yet. You add one when you write a letter, and it’s kept for the next one.</p>
+    <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>`;
   return `${storyGone()}
-    ${keys.length ? `<ul class="pfv-stories">${keys.map(storyItem).join('')}</ul>` : '<p class="muted pfv-none">No stories yet.</p>'}
+    <ul class="pfv-stories">${keys.map(storyItem).join('')}</ul>
     <p class="small pfv-how">You add a story when you write a letter, and it’s kept for the next one.</p>
     <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
     <fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>${status('pf-quote-st')}
