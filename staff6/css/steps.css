@@ -53,9 +53,9 @@ body.staff6 .v6-step-what { margin: 0; font-family: Poppins, system-ui, sans-ser
   line-height: var(--v6-lh18, 24px); color: var(--v6-ink); letter-spacing: -.005em; }
 /* the bill named for screen readers inside the heading has no visual weight (it is not seen) */
 body.staff6 .v6-step-what .sr { font-weight: 400; }
-body.staff6 .v6-step.big .v6-step-what, body.staff6 .v6-step.w-today .v6-step-what { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
+body.staff6 .v6-step.big .v6-step-what { font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); }
 /* under the bill's name, the step is the sentence (Poppins 16 at 500), so the card has one name and one heading size */
-body.staff6 .v6-step.named:not(.w-today):not(.big) .v6-step-what { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); font-weight: 500; letter-spacing: 0; }
+body.staff6 .v6-step.named:not(.w-today):not(.big) .v6-step-what { font-weight: 500; letter-spacing: 0; }
 body.staff6 .v6-step.named .v6-step-bill + .v6-step-what { margin-top: -6px; }
 /* Option E (Nate 10/26): a named card's sentence holds the bill, "Ask for a hearing on <bill>". Above it one quiet line
    says the kind of step, the number and the issue link; under it the chair's line. The three sit close (4px, 4px) as one
@@ -219,7 +219,7 @@ body.staff6 .v6-hcard-watchin svg { width: 18px; height: 18px; }
 @media (max-width: 379.98px) { body.staff6 .v6-hcard.week .v6-hcard-going > .btn { grid-column: 1 / -1; justify-self: end; } }
 /* the phone's hearing-day card: time and room large, 56px+ rows (V14) */
 body.staff6 .v6-hcard.big .v6-hcard-time { font-size: var(--v6-t28); line-height: var(--v6-lh28, 34px); }
-body.staff6 .v6-hcard.big .v6-hcard-day { font-size: var(--v6-t18); line-height: var(--v6-lh18, 24px); color: var(--v6-ink); }
+body.staff6 .v6-hcard.big .v6-hcard-day { color: var(--v6-ink); }
 body.staff6 .v6-hcard.big .v6-hcard-bill { min-height: 56px; }
 
 /* ---- rows: a name, the bill number small, one line (V04, D15, D16) ---- */

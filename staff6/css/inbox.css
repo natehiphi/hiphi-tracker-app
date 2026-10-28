@@ -152,7 +152,7 @@ body.staff6 .hp-page .hp-steps { margin-top: 12px; }
 /* A step is an instruction, not the name of a bill, an issue or a category (A-19), so it reads in the reading face, as
    Today's Getting started shows the same steps (one step, one face on both screens); ink for the step, muted for the
    line under it. The ones done step back (the tick says done, with the word for screen readers). */
-body.staff6 .hp-page .hp-step .v6-row-name { font-family: Lato, system-ui, sans-serif; font-weight: 400; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-step .v6-row-name { font-family: Lato, system-ui, sans-serif; font-weight: 400; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
 body.staff6 .hp-page .hp-step .v6-row-line svg { color: var(--v6-muted); }
 body.staff6 .hp-page .hp-step.done .v6-row-name { color: var(--v6-body); }
 body.staff6 .hp-page .hp-step.done .v6-row-line { color: var(--v6-muted); font-weight: 400; }
@@ -232,7 +232,7 @@ body.staff6 .me-page { padding-bottom: 24px; color: var(--v6-body); }
 body.staff6 .me-page p { margin: 0; }
 body.staff6 .me-page .me-sec + .me-sec { margin-top: 40px; }
 body.staff6 .me-page .me-h2 { margin: 0 0 8px; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22); color: var(--v6-ink); }
-body.staff6 .me-page .me-h3 { margin: 24px 0 8px; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 700; color: var(--v6-ink); }
+body.staff6 .me-page .me-h3 { margin: 24px 0 8px; font-size: var(--v6-t18); line-height: var(--v6-lh18); font-weight: 600; font-family: Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .me-page .me-lede { margin: 0 0 16px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 body.staff6 .me-page .me-note { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .me-page .me-note svg { flex: none; width: 18px; height: 18px; margin-top: 3px; }

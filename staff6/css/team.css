@@ -45,3 +45,5 @@ body.staff6 .tm6-ro .v6-row-main.has-lead > .v6-row-lead.v6-act-lead { width: 20
   body.staff6 .tm6-ro .v6-row-main.has-lead:has(> .v6-act-lead) { display: flex; }
   body.staff6 .tm6-ro .v6-row:has(.v6-act-lead) > .v6-row-act { padding-left: 0; }
 }
+/* Team, Scheduled: the day headings (Today, Tomorrow) are card subheads, 18/600 like every other (R-353, A-4 on v6) */
+body.staff6 .tm6-day { font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); letter-spacing: 0; }

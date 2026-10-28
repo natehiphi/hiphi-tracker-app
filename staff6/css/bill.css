@@ -86,7 +86,7 @@
 .bw-if-pill.is-won .ic { color: var(--v6-leaf); }   /* only Won (done) is leaf (R-344 Decision 4) */
 .bw-icard .bw-if-go { margin-bottom: -8px; }
 /* the hearing card: the time and room large, the committee the door to the sitting, who is going with I'm going */
-.bw-hs-when { font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif !important; color: var(--v6-ink) !important; }
+.bw-hs-when { font: 500 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif !important; color: var(--v6-ink) !important; }
 .bw-hs-note { display: flex; align-items: center; gap: 6px; color: var(--v6-body); }
 .bw-hs-note .ic { width: 18px; height: 18px; color: var(--v6-muted); }
 body.staff6 .bw-hside .v6-step-go { margin-top: var(--s8); }
@@ -507,8 +507,6 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 /* ---- phones ---- */
 @media (max-width: 767.98px) {
   .bw-page { padding-bottom: var(--s32); }
-  .bw-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }   /* the top bar already carries the page's name in 18 */
-  .bw-h1.bw-long { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
   .bw-tabs, .bw-head + .bw-tabs { margin-top: var(--s12); }
   .bw-panel { padding-top: var(--s12); }
   .bw-tnote, .bw-box, .bw-pubform, .bw-wbody { padding: var(--s16); }
@@ -582,7 +580,7 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
 .bw-ptfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8); }
 .bw-ptrow .bw-count:empty { display: none; }
 /* The preview: the points as the public page's letter writer lists them, each on its own with its own Add (pub/helper.js hp-ptrow). */
-.bw-pvh { font: 600 var(--v6-t16)/var(--v6-lh16) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
+.bw-pvh { font: 600 var(--v6-t18)/var(--v6-lh18) var(--font-h, Poppins, system-ui, sans-serif); color: var(--v6-ink); }
 .bw-pvsub { margin-top: 2px !important; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
 .bw-pvlist { list-style: none; margin: var(--s8) 0 0; padding: 0; display: grid; gap: var(--s8); }
 .bw-pvlist li { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); padding: var(--s8) var(--s12); border-radius: var(--v6-r12); background: var(--v6-wash);

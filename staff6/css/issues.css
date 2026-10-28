@@ -635,7 +635,7 @@ body.staff6 .is6-meta { display: flex; flex-wrap: wrap; align-items: center; gap
 body.staff6 .is6-stl { color: var(--v6-muted); }
 body.staff6 .is6-cat { color: var(--v6-muted); }
 body.staff6 .is6-hacts { display: flex; align-items: center; gap: var(--s4); flex: none; }
-@media (max-width: 599px) { body.staff6 .is6-icon { display: none; } body.staff6 main .is6-h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); } }
+@media (max-width: 599px) { body.staff6 .is6-icon { display: none; } }
 body.staff6 .is6-card { margin-top: var(--s24); padding: var(--s16) var(--s24); border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
 body.staff6 .is6-side .is6-card:first-child { margin-top: 0; }
 body.staff6 .is6-card h2, body.staff6 .co6-card h2 { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
@@ -788,7 +788,7 @@ body.staff6 .ig6-link:focus-visible { outline: none; }
 body.staff6 .ig6-top { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
 body.staff6 .ig6-ic { display: inline-flex; flex: none; margin-top: 3px; color: var(--v6-muted); }
 body.staff6 .ig6-ic .ic, body.staff6 .ig6-ic svg { width: 18px; height: 18px; }
-body.staff6 .ig6-name { min-width: 0; font: 500 var(--v6-t16)/var(--v6-lh16) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
+body.staff6 .ig6-name { min-width: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
 /* A coalition's short name after its full name: small and muted ("Community Health Workers · CHW"). */
 body.staff6 .ig6-after { font: 400 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-muted); white-space: nowrap; }   /* the dot stays with the short name */
 body.staff6 .ig6-desc { display: block; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
@@ -848,7 +848,6 @@ body.staff6 .ig6-tools .ig6-sortb[hidden] { display: none; }
   /* A group's heading stays under the top bar while its rows pass (Everyone's rule on a phone). */
   body.staff6 .ig6-sh { position: sticky; top: var(--header); z-index: 3; margin: 0 -16px 2px; padding: 6px 16px; background: var(--v6-page); }
   body.staff6 .ig6-rest { margin-top: 4px; }
-  body.staff6 .ig6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
   body.staff6 .ig6-htile { width: 28px; height: 28px; } body.staff6 .ig6-htile .ic, body.staff6 .ig6-htile svg { width: 18px; height: 18px; }
   body.staff6 .ig6-sec, body.staff6 .ig6-cell[id] { scroll-margin-top: 0; }
   /* The box on its own line; Sort (which names its order) and New share the next. */
@@ -865,9 +864,9 @@ body.staff6 .ip6-page .ip6-head { margin-bottom: 0; }
 body.staff6 .ip6-page .is6-desc { margin-top: var(--s4); }
 body.staff6 .ip6-page .is6-meta { margin-top: var(--s8); }
 body.staff6 .ip6-health { margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); }
-body.staff6 .ip6-hs { display: flex; align-items: flex-start; gap: var(--s12); margin: 0; font-size: var(--v6-t18); line-height: 28px; color: var(--v6-ink); }
-body.staff6 .ip6-hs > .ic { width: 22px; height: 22px; margin-top: 3px; flex: none; color: var(--v6-ink); }
-body.staff6 .ip6-hs b { font-weight: 600; }
+body.staff6 .ip6-hs { display: flex; align-items: flex-start; gap: var(--s12); margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .ip6-hs > .ic { width: 20px; height: 20px; margin-top: 2px; flex: none; color: var(--v6-ink); }
+body.staff6 .ip6-hs b { font-weight: 700; }
 body.staff6 .ip6-hn { display: block; color: var(--v6-body); }   /* Next: on a line of its own, so the tile reads in two parts */
 body.staff6 .ip6-sec { margin-top: var(--s32); }
 body.staff6 .ip6-h { margin: 0 0 var(--s12); font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; letter-spacing: -.01em; color: var(--v6-ink); }

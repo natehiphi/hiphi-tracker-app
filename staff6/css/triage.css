@@ -98,7 +98,7 @@
 .st-triage { min-width: 0; }
 .st-tlead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s16); margin: 0 0 var(--s16); }
 .st-num { flex: 1 1 260px; min-width: 0; margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-.st-num b { font: 700 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); margin-right: 4px; }
+.st-num b { font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); margin-right: 4px; }
 .st-tfilters { display: flex; flex-wrap: wrap; gap: var(--s8); margin: 0; min-width: 0; }
 .st-tfilters .sv-pick { max-width: 100%; }
 .st-tfilters .sv-pick span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

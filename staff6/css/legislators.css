@@ -614,12 +614,10 @@ body.staff6 .lg6-facts .btn { flex: none; }
   body.staff6 .lg6-back { display: none; }   /* the phone's top bar carries Back (spec 3.2) */
   body.staff6 .lg6-phead { margin-top: 8px; }
   body.staff6 .lg6-pph .lg-ph { width: 56px; height: 56px; }
-  body.staff6 .lg6-pt h1 { font-size: var(--v6-t22); line-height: var(--v6-lh22); }
   body.staff6 .lg6-acts .btn { flex: 1 1 auto; justify-content: center; }
   body.staff6 .lg6-acts .btn.primary { flex-basis: 100%; }
   body.staff6 .lg6-tel { flex: 1 1 100%; justify-content: space-between; }
   body.staff6 .lg6-sec { margin-bottom: 32px; }
-  body.staff6 .lg6-sech h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
 }
 
 /* ---- the Profile (R-335, practice copy) in v6: sentences at 16px, labels at 14px, one card for the sections ---- */
@@ -772,5 +770,4 @@ body.staff6 .lg6-cline.strong { font-weight: 700; color: var(--v6-ink); }
   body.staff6 .lg6-jchip { padding: 0 12px; gap: 4px; }
   body.staff6 .lg6-rph.lg6-cph, body.staff6 .lg6-rph.lg6-cph .lg-ph { width: 80px; height: 80px; }
   body.staff6 .lg6-rph.lg6-cph { font-size: 30px; }
-  body.staff6 .lg6-sh h2 { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
 }
