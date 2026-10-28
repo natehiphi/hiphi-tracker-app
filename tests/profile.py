@@ -7,11 +7,13 @@
 # focus stays on a chip, "Saved." is said aloud, Escape closes a section, stories by topic and the three quote choices,
 # the letter's "says" ticks, the story asked after sending, the profile line, the sign-in merge (two devices), sign-out
 # clearing the device, and the ʻokina never an initial.
-#   python3 tests/profile.py [base]     base defaults to http://localhost:8832/track.html?demo=1&codes=0
+#   python3 tests/profile.py [base]     base defaults to http://localhost:8832/track.html?demo=1&codes=0&rec=0
 #   (the box before codes are on, R-176: the practice copy shows codes on by default; tests/phone_signin.py has the code)
-import sys, os
+# Sections 1 to 10 were written for More and Profile before the calm redesign became everyone's (19 Oct), so they run
+# with &rec=0; section 11 (R-304) takes it off for today's page and adds &rec=1 for the rows and Your voice.
+import sys, os, re
 from playwright.sync_api import sync_playwright
-BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1&codes=0'
+BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1&codes=0&rec=0'
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out'); os.makedirs(OUT, exist_ok=True)
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
@@ -161,7 +163,7 @@ with sync_playwright() as p:
     pg.locator('#hp-dlg .hp-foot .hp-main').first.click(); pg.wait_for_timeout(800)
     L = pg.input_value('#hp-letter')
     ok('My name is Leilani Kahale, and I’m a ' in L and 'youth soccer coach. I support HB 1523. I live in Hilo, in Senator ' in L and '’s district.' in L and L.count(' and ') >= 1, 'the letter: the titles they picked, and "I live in Hilo, in Senator ...’s district."')
-    ok(pg.locator('.hp-says [data-hp="says"]').count() == 3 and 'Testimony is posted publicly' in text(pg, '.hp-says') and pg.evaluate("document.querySelector('.hp-says').compareDocumentPosition(document.querySelector('#hp-letter')) & 2") , 'under the letter: what it says about them (titles, where they live, their story), each a tap to leave out')
+    ok(pg.locator('.hp-says [data-hp="says"]').count() == 4 and 'Testimony is posted publicly' in text(pg, '.hp-says') and pg.evaluate("document.querySelector('.hp-says').compareDocumentPosition(document.querySelector('#hp-letter')) & 2") , 'under the letter: what it says about them (titles, writing for myself since R-212 #23, where they live, their story), each a tap to leave out')
     pg.click('#hp-says-live'); pg.wait_for_timeout(300)
     L = pg.input_value('#hp-letter')
     ok('I live in' not in L and pg.locator('#hp-says-live[aria-pressed="false"]').count() == 1 and 'left out' in text(pg, '#hp-says-live') and 'put it back' in text(pg, '.hp-says'), 'leaving out where they live takes it out of the letter, and the chip says "left out"')
@@ -291,5 +293,92 @@ with sync_playwright() as p:
     pg.fill('#mr-email', 'lei@example.com'); pg.click('#mr-si-send'); pg.wait_for_timeout(800)
     ok(pg.locator('#mr-ecin').count() == 0, 'without the switch, no code box (the email has no code yet)')
     ok(not errs, 'no page errors on an iPhone: ' + '; '.join(errs[:2]))
+    br.close()
+
+    # 11. Profile as rows and Your voice (R-304, Nate's "Yes, build it" of 28 Oct), only with ?rec=1 written in the address.
+    # Kai (the practice copy's sample person): a text number on this phone, three issues, the title parent and one story.
+    ECIG = '66a32660-b0a7-4a90-a71f-231963619b44'
+    KAI = """() => { if (sessionStorage.getItem('__kai')) return; sessionStorage.setItem('__kai', '1');
+      const set = (k, v) => localStorage.setItem(k + '_demo', JSON.stringify(v));
+      set('hiphi_issue_follows', ['%s', '1dcec7ca-ed94-4a19-9c9c-235514ca7491', '2616613e-a363-418b-ae19-4add60957cd8']);
+      set('hiphi_text', { token: 't', phone: '8085550123', confirmed: true, at: '2026-03-02T09:00:00-10:00' });
+      set('hiphi_me', { name: 'Kai Akana', titles: ['parent'], stories: { '%s': 'My son’s friends started at 14 with flavors that smell like candy.' } }); }""" % (ECIG, ECIG)
+    PLAIN = re.sub(r'[&?]rec=[^&#]*', '', BASE); REC = PLAIN + '&rec=1'   # PLAIN: what the live site draws today
+    br = p.chromium.launch()
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True); ctx.add_init_script(f"({SKIP})()"); ctx.add_init_script(f"({KAI})()")
+    pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+    me = lambda: pg.evaluate("async () => { const m = await import('./pub/myprofile.js'); return { t: m.myTitles(), st: m.myStories(), n: m.myName(), q: m.quoteLevel() }; }")
+    pg.goto(REC + '#/profile'); ready(pg); pg.wait_for_selector('.pfr-rows', timeout=20000)
+    names = [x.strip() for x in pg.locator('.pfr-rows .rc-rname').all_inner_texts()]
+    ok(names == ['Your voice', 'Your alerts', 'Your testimony and emails', 'How you’ll help', 'Your data and account'], f'rec Profile: the five rows ({names})')
+    ok(pg.locator('.pfr-rows .rc-row').evaluate_all("as => as.map(a => a.getAttribute('href')).join()") == '#/profile/voice,#/alerts,#/profile/letters,#/profile/help,#/profile/data', 'each row opens its own page; Your alerts is the alerts page')
+    ok(pg.locator('.pfr-rows .rc-lead .ic').count() == 5 and pg.locator('.pfr-rows .rc-chev').count() == 5, 'each row has a line icon and a chevron')
+    v = text(pg, '.pfr-rows li:first-child .rc-rstat')
+    ok('“As a parent…”' in v and '1 story' in v, f'Your voice shows the opening line and the story count ({v!r})')
+    ok('Saved on this phone with (808) ••• 0123' in text(pg, '.pf-head') and 'Speaking up since' in text(pg, '.pfr-since'), 'the header says how the profile is kept; "Speaking up since" under the rows')
+    ok(pg.locator('#main .pf-sec, #main .actionbar').count() == 0, 'no sections and no Save bar on rec Profile')
+    h = pg.evaluate("document.documentElement.scrollHeight")
+    ok(h < 1000, f'rec Profile for Kai is under 1,000px on a phone ({h}px)')
+    shot(pg, '11_rec_rows')
+    pg.click('.pfr-rows a[href="#/profile/voice"]'); pg.wait_for_selector('.pfv', timeout=20000); pg.wait_for_timeout(300)
+    ok('Profile' in text(pg, '.pfv .rc-back') and text(pg, '#pf-h').strip() == 'Your voice', 'Your voice: "← Profile" at the top, then its name')
+    order = [x.strip() for x in pg.locator('.pfv h2, .pfv h3').all_inner_texts()]
+    ok(order == ['Name and districts', 'I’m a…', 'How your letters start', 'Your stories'], f'the voice page in order ({order})')
+    ok('then forget it' in text(pg, '#pf-about'), 'the address promise in today\'s words')
+    chips = pg.locator('#pf-tp .tp-chips [data-tp]')
+    ok(chips.count() == 6 and chips.first.get_attribute('data-tp') == 'parent' and chips.first.get_attribute('aria-pressed') == 'true', f'six suggested chips, the title they chose first ({chips.evaluate_all("cs => cs.map(c => c.dataset.tp).join()")})')
+    ok(pg.locator('#pf-tq').count() == 1 and pg.locator('[data-tp-more]').count() == 1, 'then More titles and the box to type in')
+    pg.click('[data-tp-more]'); pg.wait_for_timeout(200)
+    six = chips.evaluate_all("cs => cs.slice(0, 6).map(c => c.dataset.tp)")
+    ok(pg.locator('#pf-tpm [data-tp="nurse"]').count() == 1 and not any(pg.locator(f'#pf-tpm [data-tp="{k}"]').count() for k in six), 'More titles holds every other title, the first ones too, none of the six again')
+    pg.click('[data-tp-more]'); pg.wait_for_timeout(200)
+    lines = lambda: [x.strip() for x in pg.locator('.pfv-lines q').all_inner_texts()]
+    ok(len(lines()) == 3 and all('As a parent, I support' in l for l in lines()), f'How your letters start: one line per issue ({lines()})')
+    pg.click('#pf-tp [data-tp="student-hs"]'); pg.wait_for_timeout(500)
+    L = lines()
+    ok(any('As a high school student, I support' in l for l in L) and any('As a parent' in l for l in L), f'tapping a chip changes the lines at once, by the letters\' rule ({L})')
+    ok(me()['t'] == ['parent', 'student-hs'] and 'Saved' in text(pg, '#pf-tp-st') and pg.locator('#main .actionbar').count() == 0, 'the tap is saved at once, with "Saved" and no Save bar')
+    pg.fill('#pf-name', 'Kai A.'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
+    ok(me()['n'] == 'Kai A.' and 'Saved' in text(pg, '#pf-about-st'), 'a typed name is saved on Enter')
+    ok(pg.locator('.pfv-story').count() == 1 and 'candy' in text(pg, '.pfv-story') and pg.locator('#pf-quote-f input[name="pf-quote"]').count() == 4 and 'Testimony is public' in text(pg, '#pf-story'), 'Your stories: the saved one, "Testimony is public" and the four quote choices')
+    pg.click('[data-pf-stdel]'); pg.wait_for_timeout(400)
+    ok(me()['st'] == {} and pg.locator('[data-pf-stundo]').count() == 1, 'Delete takes the story off at once, with Undo in its place')
+    pg.click('[data-pf-stundo]'); pg.wait_for_timeout(400)
+    ok(ECIG in me()['st'] and pg.locator('.pfv-story').count() == 1, 'Undo brings it back')
+    pg.click('[data-pfv-stedit]'); pg.wait_for_timeout(200)
+    pg.fill('.pfv-editing textarea', 'Candy flavors got my son’s friends at 14.'); pg.click('[data-pfv-stdone]'); pg.wait_for_timeout(400)
+    ok(me()['st'].get(ECIG, '').startswith('Candy flavors') and 'Saved' in text(pg, '#pf-story-st'), 'Edit, then Done, keeps the new words')
+    pg.check('#pf-quote-first'); pg.wait_for_timeout(300)
+    ok(me()['q'] == 'first', 'a quote choice is saved as it is tapped')
+    shot(pg, '11b_rec_voice')
+    pg.click('.pfv .rc-back'); pg.wait_for_selector('.pfr-rows', timeout=10000); pg.wait_for_timeout(200)
+    v = text(pg, '.pfr-rows li:first-child .rc-rstat')
+    ok('“As a parent…”' in v and '“As a high school student…”' in v, f'back on Profile, Your voice shows each opening line ({v!r})')
+    pg.evaluate("""async () => { const c = await import('./pub/core.js'), L = await import('./pub/letters.js'); const b = c.D.bills.find(x => x.bill_number === 'HB1523');
+      L.keepLetter({ v: 1, bill: b.id, num: 'HB1523', sent: '2026-03-02T10:00:00-10:00', stance: 'support', letter: 'Aloha, I support HB 1523.' });
+      L.keepLetter({ v: 1, kind: 'email', bill: b.id, num: 'HB1523', sent: '2026-03-03T10:00:00-10:00', stance: 'support', letter: 'Aloha.' }); c.app.render(); }""")
+    pg.wait_for_timeout(400)
+    v = text(pg, '.pfr-rows a[href="#/profile/letters"] .rc-rstat')
+    ok(v == '1 testimony · 1 email · the last on March 3', f'Your testimony and emails: what is kept ({v!r})')
+    pg.click('.pfr-rows a[href="#/profile/letters"]'); pg.wait_for_selector('#pf-letters', timeout=10000); pg.wait_for_timeout(200)
+    ok(pg.locator('.myl-item').count() == 2 and 'Profile' in text(pg, '.rc-back'), 'its page lists both, under "← Profile"')
+    pg.locator('[data-myl-del]').first.click(); pg.wait_for_timeout(300)
+    ok(pg.locator('.myl-item').count() == 1 and pg.locator('[data-myl-undo]').count() == 1, 'Delete on a letter, with Undo (R-212 #28)')
+    pg.click('[data-myl-undo]'); pg.wait_for_timeout(300)
+    ok(pg.locator('.myl-item').count() == 2, 'and Undo brings it back')
+    for sub, sel in [('help', '#pf-help [data-pf-int="testify"]'), ('data', '#pf-data [data-mr-del="ask"]')]:
+        pg.goto(REC + '#/profile/' + sub); ready(pg)
+        ok(pg.locator(sel).count() == 1 and 'Profile' in text(pg, '.rc-back'), f'#/profile/{sub}: today\'s section, under "← Profile"')
+    pg.goto(REC + '#/profile/help'); ready(pg); pg.check('#pf-int-testify'); pg.wait_for_timeout(200)
+    ok(pg.locator('#main .actionbar [data-pf-save]').count() == 1, 'How you’ll help keeps today\'s Save bar in Part 1')
+    pg.click('#main .actionbar [data-pf-save]'); pg.wait_for_timeout(500)
+    ok('testify' in pg.evaluate("async () => (await import('./pub/myprofile.js')).myInterests()"), 'and saves as today')
+    ok(pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), 'no sideways scroll at 390px')
+    # Without ?rec=1 the page is today's, at both addresses.
+    for addr in ['#/profile', '#/profile/voice']:
+        pg.goto(PLAIN + addr); ready(pg)
+        ok(pg.locator('#pf-about').count() == 1 and pg.locator('#pf-story').count() == 1 and pg.locator('.pfr, .pfv').count() == 0 and pg.locator('.yu-pfal').count() == 1 and 'then Save' in text(pg, '.pf-auto'), f'without ?rec=1, {addr} is today\'s one page (its alerts row, R-303)')
+    ok(pg.locator('#pf-tp .tp-chips [data-tp]').count() >= 9, 'and today\'s picker shows its first titles')
+    ok(not errs, 'no page errors on the rec pages: ' + '; '.join(errs[:2]))
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)
