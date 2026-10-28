@@ -459,9 +459,11 @@ body.staff6 .v6-row-lead.sv-tile svg { width: 18px; height: 18px; }
 .sv-count { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); font-weight: 400; color: var(--v6-body); white-space: nowrap; }
 .sv-count .ic { width: 16px; height: 16px; }
 .sv-count.soon { color: var(--v6-ink); font-weight: 700; }
-.sv-count.today { color: var(--v6-late); font-weight: 700; }
+/* R-352 (Nate 27 Oct, A-5 on v6): due today plain, its words bold; amber only when late (still accepted, or passed and
+   still to do), never red */
+.sv-count.today { color: var(--v6-ink); font-weight: 700; }
 .sv-count.lateok { color: var(--v6-late); font-weight: 700; }
-.sv-count.late { color: var(--v6-bad); font-weight: 700; }
+.sv-count.late { color: var(--v6-late); font-weight: 700; }
 .sv-posic { display: inline-flex; color: var(--v6-muted); }
 .sv-posic .ic { width: 18px; height: 18px; }
 .sv-p1 { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: var(--v6-pill); background: var(--v6-wash); font: 400 var(--v6-t14)/1 var(--font); color: var(--v6-body); }
@@ -697,12 +699,11 @@ body.staff6 main.sv-login, body.staff6 main.sv-load { width: 100%; max-width: 44
 .sv-urg span { font-size: var(--v6-t14); text-transform: lowercase; color: var(--v6-muted); }
 .sv-urg .ic { width: 14px; height: 14px; margin-bottom: 1px; }
 .sv-urg.soon { background: var(--v6-wash); color: var(--v6-ink); }
-.sv-urg.today { background: var(--v6-late-wash); color: var(--v6-late); }
-.sv-urg.today span { color: var(--v6-late); }
+.sv-urg.today { background: var(--v6-wash); color: var(--v6-ink); }
 .sv-urg.lateok { background: var(--v6-late-wash); color: var(--v6-late); }
 .sv-urg.lateok span { color: var(--v6-late); }
-.sv-urg.late { background: var(--v6-bad-wash); color: var(--v6-bad); box-shadow: none; }
-.sv-urg.late span { color: var(--v6-bad); }
+.sv-urg.late { background: var(--v6-late-wash); color: var(--v6-late); box-shadow: none; }
+.sv-urg.late span { color: var(--v6-late); }
 .sv-urg.done { background: var(--v6-leaf-wash); color: var(--v6-leaf); min-width: 40px; }
 .sv-urg.none { background: none; min-width: 0; padding: 0; }
 

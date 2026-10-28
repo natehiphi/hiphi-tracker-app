@@ -12,7 +12,7 @@
 #   5. All issues: each card says how the issue is doing as one shape and word (no tint), with the House and Senate dots.
 #   6. No sideways scroll, no page errors.
 #   Part 2 (the files R-346 held): Today's job rows lead with their tile and every button carries its icon; due today is
-#   amber; the bill page's step card wears its tile, the bigger step picture and "The Capitol’s deadline"; the issue page's
+#   plain with its time bold (R-352, amending Decision 2); the bill page's step card wears its tile, the bigger step picture and "The Capitol’s deadline"; the issue page's
 #   health check is an issue shape with the House and Senate dots; the ask board's chair photos open their pages; the
 #   Capitol building is not used for hearings or asks (Rule 5); Testimony's team rows lead with whose face it is (Rule 4).
 #
@@ -170,12 +170,19 @@ with L.browser() as B:
       return { n: rows.length, tiles: rows.filter(r => r.querySelector('.t6-jtile .v6-at')).length,
         btns: [...document.querySelectorAll('.t6-job .v6-row-act .btn, .v6-step-acts .btn:not(.text), .t6-nsacts .btn')].map(b => [b.innerText.trim(), !!b.querySelector('svg')]),
         today: rows.filter(r => r.querySelector('.t6-jsub.t-today')).length,
+        todayLook: [...document.querySelectorAll('.t6-jsub.t-today')].map(e => { const tm = e.querySelector('.v6-tm');
+          return [getComputedStyle(e).color, tm ? getComputedStyle(tm).fontWeight : '', !!e.querySelector('svg.ic-clock'), /\\btoday\\b/i.test(e.innerText)]; }),
+        body: getComputedStyle(document.body).getPropertyValue('--v6-body').trim(),
         landmark: document.querySelectorAll('.v6-step-hl svg.ic-landmark, .t6-line svg.ic-landmark').length,
         late: [...document.querySelectorAll('.v6-hcard-late, .t6-jsub.t-late')].map(e => [getComputedStyle(e).color, !!e.querySelector('svg.ic-alarm-clock'), /^\\s*Late\\b/.test(e.innerText)]),
         amber: getComputedStyle(document.body).getPropertyValue('--v6-late').trim() }; })()""")
     R.check(f'{w} Today: every job row starts with its job\'s tile (Rule 1)', t6['n'] > 0 and t6['tiles'] == t6['n'], (t6['tiles'], t6['n']))
     R.check(f'{w} Today: every row and card button carries its icon', all(b[1] for b in t6['btns']), [b[0] for b in t6['btns'] if not b[1]][:4])
-    R.check(f'{w} Today: what is due today says so in amber (Rule 3, Decision 2)', t6['today'] > 0, t6['today'])
+    R.check(f'{w} Today: something is due today on the busy day', t6['today'] > 0, t6['today'])
+    # R-352 (Nate 27 Oct, A-5 on v6): due today is plain, never amber: the body colour, a plain clock, the time in bold and
+    # the word "today", so on a busy day the one late row is the only amber one.
+    amber_rgb = pg.page.evaluate("(() => { const e = document.createElement('i'); e.style.color = 'var(--v6-late)'; document.body.appendChild(e); const c = getComputedStyle(e).color; e.remove(); return c; })()")
+    R.check(f'{w} Today: due today is plain (not amber), with its clock, the word "today" and its time in bold (R-352)', t6['todayLook'] and all(x[0] != amber_rgb and x[1] in ('700', 'bold') and x[2] and x[3] for x in t6['todayLook']), t6['todayLook'][:3])
     R.check(f'{w} Today: the Capitol building is not on hearing or ask lines (Rule 5)', t6['landmark'] == 0, t6['landmark'])
     R.check(f'{w} Today: your late-but-accepted filing is amber, leads with "Late" and wears the alarm clock (not due today\'s clock)', t6['late'] and all(x[1] and x[2] for x in t6['late']) and len({x[0] for x in t6['late']}) == 1, t6['late'])
     pg.nav('/bill/HB1523')

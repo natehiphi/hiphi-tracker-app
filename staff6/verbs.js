@@ -18,7 +18,7 @@
 //   iconizeButtons(html)       -> adds BTN_ICON's icon to every .btn in `html` that has none (steps.js rowButton draws its
 //                                 buttons bare; a pale button with no picture is the blur test's failure, Rule 1).
 //   STATES.testimony|chair|issue|stance[key] -> { word, icon, tone, means }: Rule 2's four sets, one shape, one colour and one
-//                                 word per state. tone: '' (body ink), 'done' (leaf), 'late' (amber), 'overdue' (red): status
+//                                 word per state. tone: '' (body ink), 'done' (leaf), 'late' and 'overdue' (amber: late, still doable; R-352): status
 //                                 colours only, never an action hue.
 //   stateMark(set, key, { word, cls, size }) -> the state's icon on its small round tile, with its word (word: false keeps
 //                                 the word for screen readers only). The tile is the neutral wash; the icon carries the tone.

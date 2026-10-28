@@ -1,7 +1,7 @@
 // Staff v6's one word per fact (R-336, V6-SPEC section 5; staff6/steps.js), checked on the practice copy's own data, the
 // way the app builds it (data.js demoInit, Mon 16 Mar 2026, 9:00 AM in Honolulu). No server or browser needed:
 //   node tests/staff6_steps_test.mjs
-// status(): nothing amber unless late but still accepted, nothing red unless overdue (D3); testimonyState(): one of five
+// status(): nothing amber unless late (still accepted, or past due and still doable), nothing red, due today plain (D3, R-352); testimonyState(): one of five
 // words and Missed for every draft state; actBy(): the W31 hand-on times; committeeName() for every committee code in
 // demo/snapshot.json; versionWords(); the practice seeds (Patti, Julie, the chair asks); and the weekly memo carries no
 // programmer's note (V35).
@@ -43,15 +43,18 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const n = X.status({ due: hst('2026-03-18T13:00:00-10:00') });
   ok(n.tone === 'neutral' && !n.soon && n.words === 'Due Wed 3/18, 1:00 PM', `a step due later in the week is neutral, no mark: "${n.words}"`);
   const t = X.status({ due: hst('2026-03-16T15:00:00-10:00') });
-  // R-344 (Nate's Decision 2 of 26 Oct, A-5 on v6 as amended): due today is amber, with its clock; red only once passed
-  ok(t.tone === 'today' && t.soon && t.icon === 'clock' && t.words === 'Due today 3:00 PM', `due today is amber ('today'), first, with a clock and its time: "${t.words}"`);
+  // R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): due today is plain ('today', drawn in the body colour,
+  // steps.css), with a neutral clock and its time; amber only when late. 6 hours out: no time left in words yet.
+  ok(t.tone === 'today' && t.soon && t.icon === 'clock' && t.words === 'Due today 3:00 PM', `due today is 'today' (plain, first), with a clock and its time: "${t.words}"`);
   const t2 = X.status({ due: hst('2026-03-16T10:30:00-10:00') });
-  ok(t2.tone === 'today' && t2.soon, 'due within 2 hours today is amber too, never red before it passes (R-344 Decision 2)');
+  ok(t2.tone === 'today' && t2.soon && t2.icon === 'clock' && t2.words === 'Due today 10:30 AM, in 1 hour', `under 3 hours, due today says the time left in words, still plain: "${t2.words}"`);
+  const t3 = X.status({ due: hst('2026-03-16T09:25:00-10:00') });
+  ok(t3.words === 'Due today 9:25 AM, in 25 min', `under an hour, in minutes: "${t3.words}"`);
   const late = X.status({ kind: 'file', due: hst('2026-03-16T08:00:00-10:00'), until: hst('2026-03-16T13:10:00-10:00') });
   // R-344 review: late wears its own alarm clock, so it never reads as due today's plain clock
   ok(late.tone === 'late' && late.icon === 'alarm-clock' && late.words === 'Late, still accepted until 1:10 PM today', `late testimony the Capitol still takes is amber with the alarm clock and its words: "${late.words}"`);
   const od = X.status({ kind: 'todo', due: hst('2026-03-15T17:00:00-10:00') });
-  ok(od.tone === 'overdue' && od.icon === 'circle-alert' && /overdue$/.test(od.words), `a to-do past its date is red with an alert icon and the word: "${od.words}"`);
+  ok(od.tone === 'overdue' && od.icon === 'alarm-clock' && /overdue$/.test(od.words), `a to-do past its date and still doable is late: the alarm clock and the word (amber, never red; R-352): "${od.words}"`);
   const prep = X.status({ kind: 'prep', due: hst('2026-03-10T17:00:00-10:00') });
   ok(prep.tone === 'neutral' && prep.words === 'Still to finish', 'a 2027 prep date that passed is "Still to finish", never red');
   ok(X.status({ done: true }).tone === 'done' && X.status({ missed: true }).tone === 'neutral', 'done is leaf; missed is said, not coloured (V25, V30)');
@@ -63,7 +66,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     if (s.status.tone === 'late') { ambers++; if (!(s.due <= now && s.until > now)) badAmber.push(b.bill_number); }
     if (s.status.tone === 'overdue') { reds++; if (!(s.due <= now && !(s.until > now))) badRed.push(b.bill_number); } }
   ok(!badAmber.length, `nothing amber unless late but still accepted (${ambers} late on the practice day${badAmber.length ? '; wrong: ' + badAmber.join(', ') : ''})`);
-  ok(!badRed.length, `nothing red unless overdue (${reds} overdue${badRed.length ? '; wrong: ' + badRed.join(', ') : ''})`);
+  ok(!badRed.length, `overdue (amber, R-352) only once its own deadline passed (${reds} overdue${badRed.length ? '; wrong: ' + badRed.join(', ') : ''})`);
   // A quiet day (Wed 18 Mar, 7:00 AM, every draft of the week filed or written in time): no amber, no red on anyone's steps.
   const saved = JSON.stringify(S.drafts);
   for (const d of Object.values(S.drafts).flat()) if (d.status !== 'cancelled') d.status = 'filed';
@@ -130,9 +133,9 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const r = X.actBy({ kind: 'revise', due: due('2026-03-18T15:00:00-10:00') });
   ok(r.at === due('2026-03-17T16:00:00-10:00') && r.words === 'Resubmit by tomorrow 4:00 PM', `after a send-back the verb is Resubmit, same times: "${r.words}"`);
   const f = X.actBy({ kind: 'file', due: due('2026-03-16T13:10:00-10:00'), h: h('2026-03-17T13:10:00-10:00') });
-  ok(f.kind === 'hand' && f.at === due('2026-03-16T11:10:00-10:00') && f.words === 'File by today 11:10 AM', `File by is 2 hours before: "${f.words}"`);
+  ok(f.kind === 'hand' && f.at === due('2026-03-16T11:10:00-10:00') && f.words === 'File by today 11:10 AM, in 2 hours', `File by is 2 hours before: "${f.words}"`);
   const now = X.actBy({ kind: 'file', due: due('2026-03-16T10:00:00-10:00'), h: h('2026-03-17T10:00:00-10:00') });
-  ok(now.kind === 'now' && now.words === 'File now · due today 10:00 AM', `the hand-on time gone and the deadline ahead, the row's and the card's one wording: "${now.words}"`);
+  ok(now.kind === 'now' && now.words === 'File now · due today 10:00 AM, in 1 hour', `the hand-on time gone and the deadline ahead, the row's and the card's one wording: "${now.words}"`);
   const late = X.actBy({ kind: 'file', due: due('2026-03-15T13:10:00-10:00'), h: h('2026-03-16T13:10:00-10:00') });
   ok(late.kind === 'late' && late.at === due('2026-03-16T13:10:00-10:00') && late.words === 'Late, still accepted until 1:10 PM today', `late: the time is the hearing's start, "until 1:10 PM": "${late.words}"`);
   const lt = X.actBy({ kind: 'file', due: due('2026-03-16T08:00:00-10:00'), h: h('2026-03-17T09:30:00-10:00') });
@@ -140,7 +143,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // Approvals sit between the writer's time and the filer's, so an approver on time never makes the filing late.
   const ap = X.actBy({ kind: 'approve', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
   const fb = X.actBy({ kind: 'file', due: due('2026-03-16T15:00:00-10:00'), h: h('2026-03-17T15:00:00-10:00') });
-  ok(ap.kind === 'hand' && ap.words === 'Approve by today 11:00 AM' && ap.at < fb.at, `the first approval is 4 hours before the deadline, before File by (${fb.time}): "${ap.words}"`);
+  ok(ap.kind === 'hand' && ap.words === 'Approve by today 11:00 AM, in 2 hours' && ap.at < fb.at, `the first approval is 4 hours before the deadline, before File by (${fb.time}): "${ap.words}"`);
   const sl = X.actBy({ kind: 'second', due: due('2026-03-16T15:00:00-10:00') });
   ok(sl.at === due('2026-03-16T12:00:00-10:00') && sl.at > ap.at && sl.at < fb.at, `the second look is 3 hours before: "${sl.words}"`);
   ok(X.actBy({ kind: 'review', due: due('2026-03-16T15:00:00-10:00') }).at === ap.at, 'v5 Today\'s review task has the same time');

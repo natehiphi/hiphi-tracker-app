@@ -197,6 +197,11 @@ export function handTime(due, hours) {
   return new Date(hday(due - DAY) + 'T16:00:00-10:00').getTime();
 }
 // A step's until: the hearing's start for a testimony step (late testimony), nothing otherwise.
+// R-352 (Nate 27 Oct, A-5 on v6): a deadline under about 3 hours away says how long is left in words beside its time
+// ("Due today 10:00 AM, in 1 hour", "in 25 min"), so due today is found by its words and its bold time, not by amber. A
+// comma, not " · ": it is part of the time, and a row's line keeps two parts at most (spec 8's four facts).
+export const SOON_HOURS = 3;
+export const leftSoon = at => { const d = at - Date.now(); return d > 0 && d < SOON_HOURS * HR ? `, in ${spanOf(at)}` : ''; };
 const untilOfStep = s => s.until !== undefined ? ms(s.until) : TESTI.has(s.kind) && s.h && s.h.status !== 'cancelled' ? ms(s.h.scheduled_at) : null;
 // actBy(step) -> { kind: 'hand'|'now'|'due'|'late'|'overdue'|'none', at, due, until, verb, time, words }
 // `step`: a v6 step (billStep), a v5 Today task ({ kind, due, h }), or { kind, due, h }.
@@ -211,19 +216,21 @@ export function actBy(step) {
   const hours = HAND[kind];
   if (hours) {
     const at = handTime(due, hours);
-    if (at > now) return { kind: 'hand', at, due, until, verb, time: whenAt(at), words: `${verb} by ${whenAt(at)}` };
+    if (at > now) return { kind: 'hand', at, due, until, verb, time: whenAt(at), words: `${verb} by ${whenAt(at)}${leftSoon(at)}` };
     // The hand-on time is gone and the deadline is still ahead: "File now · due today 10:00 AM", the same words on the row
     // and the card (V19).
-    return { kind: 'now', at: due, due, until, verb, time: whenAt(due), words: `${verb} now · due ${whenAt(due)}` };
+    return { kind: 'now', at: due, due, until, verb, time: whenAt(due), words: `${verb} now · due ${whenAt(due)}${leftSoon(due)}` };
   }
-  return { kind: 'due', at: due, due, until, verb, time: whenAt(due), words: verb === 'Due' ? `Due ${whenAt(due)}` : `${verb} by ${whenAt(due)}` };
+  return { kind: 'due', at: due, due, until, verb, time: whenAt(due), words: `${verb === 'Due' ? 'Due' : `${verb} by`} ${whenAt(due)}${leftSoon(due)}` };
 }
 
 // ---- status by exception (D3, V08) ----
 // status(x) -> { tone: 'neutral'|'today'|'late'|'overdue'|'done', icon, words, time, soon }
-// R-344 (Nate's Decision 2 of 26 Oct, A-5 on v6 as amended): due today is amber ('today', with its clock); late testimony
-// the Capitol still takes is amber ('late'). Within 2 hours on another day stays neutral, a clock and a bold time (`soon`). Red is only a step still to do whose own deadline has
-// passed. Missed testimony (its hearing has started) is said, never coloured: nobody can act on it any more (V25, V30).
+// R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): amber only when late. Due today ('today') is drawn in the
+// plain body colour, with a neutral clock, its time in bold and, under 3 hours, the time left in words; the screens put it
+// first. Amber, with the alarm clock, is for what is late and can still be done: late testimony the Capitol still takes
+// ('late') and a step still to do whose own deadline has passed ('overdue'). Missed testimony (its hearing has started) is
+// said in words, in neutral, never coloured: nobody can act on it any more (V25, V30). Nothing is red.
 // A 2027 prep date that has passed is "Still to finish", never red (spec section 6, My issues).
 export function status(x) {
   const s = x || {}, now = Date.now();
@@ -238,11 +245,11 @@ export function status(x) {
   if (due <= now) {
     if (until != null && until > now) return { tone: 'late', icon: 'alarm-clock', words: lateLine(until), time: clockDay(until), soon: true };   // R-344: the alarm clock is late's own picture; the plain clock is due today's
     if (s.kind === 'prep') return { tone: 'neutral', icon: 'clock', words: 'Still to finish', time: '', soon: false };
-    return { tone: 'overdue', icon: 'circle-alert', words: `${cap(spanOf(due))} overdue`, time: whenAt(due), soon: true };
+    return { tone: 'overdue', icon: 'alarm-clock', words: `${cap(spanOf(due))} overdue`, time: whenAt(due), soon: true };
   }
-  // R-344 Rule 3 (Nate's Decision 2, A-5 on v6 as amended): due today is amber, with its clock; red only once it passed.
+  // R-352: due today keeps the 'today' tone (the screens order and bold by it) but no colour; the clock is neutral.
   const today = hday(due) === hday(now), soon = due - now <= 2 * HR || today;
-  return { tone: today ? 'today' : 'neutral', icon: soon ? 'clock' : '', words: `Due ${whenAt(due)}`, time: whenAt(due), soon };
+  return { tone: today ? 'today' : 'neutral', icon: soon ? 'clock' : '', words: `Due ${whenAt(due)}${leftSoon(due)}`, time: whenAt(due), soon };
 }
 // A status as a tile: the neutral sand tile, or late / overdue / done with its icon AND its word, never colour alone.
 export const statusTile = (st, { cls = '' } = {}) => st && st.words ? `<span class="v6-status ${esc(st.tone)}${cls ? ' ' + cls : ''}">${st.icon ? icon(st.icon) : ''}<span>${nw(esc(st.words))}</span></span>` : '';
@@ -477,8 +484,8 @@ function finishStep(step, v) {
   step.status = step.kind === 'chair' && step.ask.key === 'passed' ? { tone: 'neutral', icon: 'circle-alert', words: step.ask.words, time: '', soon: false } : status(step);
   // The viewer's own hand-on time today is today's work, though the Capitol's deadline is tomorrow morning: a clock and
   // a bold line, as for anything due today (D3).
-  // R-344 Rule 3: a hand-on time today is amber too (due today), red only once it has passed (actBy's 'now': the Capitol's
-  // deadline is still ahead, so it stays amber, never red).
+  // A hand-on time today is due today too (plain, its time bold; R-352); once it has passed with the Capitol's deadline
+  // still ahead (actBy's 'now') it stays due today, never late.
   if (step.you && step.status.tone === 'neutral' && step.act?.at != null && step.act.at > now && (step.act.at - now <= 2 * HR || hday(step.act.at) === hday(now)))
     step.status = { ...step.status, tone: hday(step.act.at) === hday(now) ? 'today' : 'neutral', icon: 'clock', soon: true };
   if (step.you && step.act?.kind === 'now' && step.status.tone === 'neutral') step.status = { ...step.status, tone: 'today', icon: 'clock', soon: true };
@@ -558,7 +565,7 @@ export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
   if (s.you && hush) return own + lc(s.kind === 'nodraft' ? 'Make the draft' : s.act?.verb || 'act on it') + (toned ? ', late' : '');
   // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
   if (s.you) return own + lc(String(s.line || '')).replace(/ · /g, ', ');
-  // R-344: amber for due today carries its word ("due today 9:30 AM"), as late and overdue carry theirs (D3)
+  // Due today carries its words ("due today 9:30 AM"), as late and overdue carry theirs (D3): words, never colour alone
   const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : tone === 'today' && s.mine && s.due != null ? `due ${whenAt(s.due)}` : '';
   if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
   if (!when && st.noDraft) return `${st.word} · not started`;
