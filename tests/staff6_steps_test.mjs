@@ -43,9 +43,10 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   const n = X.status({ due: hst('2026-03-18T13:00:00-10:00') });
   ok(n.tone === 'neutral' && !n.soon && n.words === 'Due Wed 3/18, 1:00 PM', `a step due later in the week is neutral, no mark: "${n.words}"`);
   const t = X.status({ due: hst('2026-03-16T15:00:00-10:00') });
-  ok(t.tone === 'neutral' && t.soon && t.icon === 'clock' && t.words === 'Due today 3:00 PM', `due today is neutral, first, with a clock and its time (no amber): "${t.words}"`);
+  // R-344 (Nate's Decision 2 of 26 Oct, A-5 on v6 as amended): due today is amber, with its clock; red only once passed
+  ok(t.tone === 'today' && t.soon && t.icon === 'clock' && t.words === 'Due today 3:00 PM', `due today is amber ('today'), first, with a clock and its time: "${t.words}"`);
   const t2 = X.status({ due: hst('2026-03-16T10:30:00-10:00') });
-  ok(t2.tone === 'neutral' && t2.soon, 'due within 2 hours is still neutral (D3: amber only when truly late)');
+  ok(t2.tone === 'today' && t2.soon, 'due within 2 hours today is amber too, never red before it passes (R-344 Decision 2)');
   const late = X.status({ kind: 'file', due: hst('2026-03-16T08:00:00-10:00'), until: hst('2026-03-16T13:10:00-10:00') });
   ok(late.tone === 'late' && late.icon === 'clock' && late.words === 'Late, still accepted until 1:10 PM today', `late testimony the Capitol still takes is amber with a clock and its words: "${late.words}"`);
   const od = X.status({ kind: 'todo', due: hst('2026-03-15T17:00:00-10:00') });
@@ -388,7 +389,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
 
   // The step card's options: compact, acts, title, lead.
   const own = M.billByNum('HB1523'), full = X.stepCard(own, { viewer: NT, where: 'today' }), cpt = X.stepCard(own, { viewer: NT, where: 'today', compact: true });
-  ok(/v6-track/.test(full) && !/v6-track/.test(cpt) && !/v6-step-who/.test(cpt) && !/v6-step-go/.test(cpt) && /v6-step-hl/.test(cpt), 'compact: no track, no "You file it" line, no going row; the hearing line stays');
+  ok(/v6-tt\b/.test(full) && !/v6-tt\b/.test(cpt) && !/v6-step-who/.test(cpt) && !/v6-step-go/.test(cpt) && /v6-step-hl/.test(cpt), 'compact: no track (verbs.js testimonyTrack, R-344), no "You file it" line, no going row; the hearing line stays');
   const acts = X.stepCard(own, { viewer: NT, acts: '<p class="mine">Steps</p>' });
   ok(/<div class="v6-step-acts"><p class="mine">Steps<\/p><\/div>/.test(acts) && !/data-v6act="approve"|<span>Review<\/span>/.test(acts), 'acts: the screen’s own HTML in place of the buttons');
   ok(/>Not filed before the hearing</.test(X.stepCard(own, { viewer: NT, title: 'Not filed before the hearing' })), 'title: the sentence in other words');
