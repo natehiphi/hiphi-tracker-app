@@ -21,13 +21,16 @@ const rowBtn = (attrs, ic, name, line) => `<button type="button" class="v6-more-
 // Sort new bills says its one number and what it means (V19, V35): the same count as Bills' tab ("12 new bills match
 // CTFH's words"), from billshead.js. Until it is read, what the page is for.
 const sortLine = () => sortWords() || 'Track or pass each new bill';
+// R-344 rule 5 (one picture, one meaning): each row's picture is its place's own. Legislators' rows carry the Capitol, the
+// session calendar the deadlines' flag (My issues' Deadlines), supporters' groups the supporters' heart-handshake, a
+// teammate's list the eye that reads it; the people icons are left to Team (users) and People (user-round).
 function groups() {
   const nv = views().length, admin = !!S.me?.is_admin, sorts = canSort();
   return [
     ['Getting hearings', [
       HOLDING() ? ['Holding our bills', '#/legislators?view=holding', 'landmark', 'Which chairs hold our bills, and who to ask'] : null,
-      ['Session calendar', '#/help/calendar', 'calendar', 'The session’s deadlines, day by day'],
-      DEMO ? ['Legislators’ profiles', '#/legislators?view=everyone', 'user-round', 'Everyone at the Capitol, and what each cares about (practice copy)'] : null,
+      ['Session calendar', '#/help/calendar', 'flag', 'The session’s deadlines, day by day'],
+      DEMO ? ['Legislators’ profiles', '#/legislators?view=everyone', 'landmark', 'Everyone at the Capitol, and what each cares about (practice copy)'] : null,
     ]],
     ['Testimony', [
       // F118: the library has its own address (Testimony draws it); Filed links to it too.
@@ -40,8 +43,8 @@ function groups() {
       ['First visit numbers', '#/my-issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'],
       // F177: an admin's Import CSV and Export sit at the foot of Supporters: one row says both, and ?io=1 opens Supporters at
       // that foot (A-14: one row per place; it used to be two rows to the same top of the page, the second a scroll away).
-      admin ? ['Supporters’ groups, import and export', '#/outreach/supporters?io=1', 'users-round', 'Saved groups to email; a spreadsheet in or out at the foot']
-        : ['Supporters’ groups', '#/outreach/supporters', 'users-round', 'Saved groups of supporters, to email'],
+      admin ? ['Supporters’ groups, import and export', '#/outreach/supporters?io=1', 'heart-handshake', 'Saved groups to email; a spreadsheet in or out at the foot']
+        : ['Supporters’ groups', '#/outreach/supporters', 'heart-handshake', 'Saved groups of supporters, to email'],
     ]],
     // Sort new bills and Muted are for whoever sorts and mutes (admins and owners, F94, F97), as Bills' own tabs are; the
     // foot line names them for everyone else (D8).
@@ -95,7 +98,7 @@ export default {
     return `<div class="v6-more v6-tools">
       <h1 class="v6-ptitle sv-h1">More tools</h1>
       ${groups().map(([h, rows], i) => sec(h, rows.map(asRow), i)).join('')}
-      ${sec('Someone else’s list', [rowBtn('data-tlwho aria-haspopup="dialog"', 'users-round', 'See a teammate’s list', 'Their Today, to read, when you cover for them')], 'who')}
+      ${sec('Someone else’s list', [rowBtn('data-tlwho aria-haspopup="dialog"', 'scan-eye', 'See a teammate’s list', 'Their Today, to read, when you cover for them')], 'who')}
       ${leads.length ? sec('Lead tools', [...leads.map(k => placeRow(k)),
         // F165: the admins' Prep board, a view on All issues (issues.js, prep.js)
         admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null], 'lead') : ''}

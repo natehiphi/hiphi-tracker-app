@@ -14,7 +14,7 @@
 // partnerSetApprover): nothing new is asked of the database.
 import { S, DB, esc, fmtDate, advocate, APP_URL, hooks } from './data.js';
 import { diedish, billRoute, whenAt } from './model.js';
-import { icon, btn, toast, openSheet, closeSheet, switchRow, field, notice, empty, avatar, pickerSheet, friendly } from './ui.js';
+import { icon, btn, toast, openSheet, closeSheet, switchRow, field, notice, empty, avatar, pickerSheet, friendly, faceLead } from './ui.js';
 import { itemRow, listDetail, placeHead, nameWords, numWords } from './steps.js';
 import { queueChanged, wantQueue } from './partnerq.js';
 import { bl, save as saveBills } from './filters.js';
@@ -132,7 +132,8 @@ const coverWho = x => !x ? 'no one' : isMe(x) ? 'you' : firstOf(x);
 function rowOf(a, sel) {
   // No email yet says the first thing to do (sign-in goes by email), as v5's row did; "No sign-in yet" alone hid why.
   const n = holdings(a).bills.length, line = !live(a) ? 'Turned off' : [rolesWords(a), n ? plural(n, 'live bill') : '', a.email ? signWords(a) : 'No email yet'].filter(Boolean).join(' · ');
-  return itemRow({ key: a.id, name: a.full_name + (isMe(a) ? ' (you)' : ''), line: esc(line), href: `#/people/${encodeURIComponent(a.id)}`, selected: sel === a.id });
+  // R-344 rule 4: each person's face, in their own colour, leads their row (the record's big circle is the same colour).
+  return itemRow({ key: a.id, name: a.full_name + (isMe(a) ? ' (you)' : ''), line: esc(line), href: `#/people/${encodeURIComponent(a.id)}`, selected: sel === a.id, cls: 'v6-face-row', lead: faceLead(a) });
 }
 function reachCard() {
   const s = P();
@@ -215,10 +216,12 @@ const recordPage = (a, route) => `<div class="pe-page pe-one">${backLink(backOf(
 // ---- Leaving or away? (V27): everything they hold, a cover for each part, one button ----
 function partRow(p, a, done) {
   const who = coverWho(p.to), many = p.kind === 'bills' || (p.kind === 'issues' && p.items.length > 1);
-  const line = done ? `${cap(who)} now · was ${firstOf(a)}’s` : `${many ? 'Go' : 'Goes'} to ${who} · ${p.to === p.sug ? p.why : 'your pick'}`;
+  // R-344 (A-25): the cover's face leads the row and the button names them ("Kevin ▾"), so the line no longer says "Goes to
+  // Kevin" as well; it says why that person (or that it was your pick). Nobody picked yet keeps its words.
+  const line = done ? `${cap(who)} now · was ${firstOf(a)}’s` : !p.to ? `${many ? 'Go' : 'Goes'} to no one yet` : p.to === p.sug ? `Suggested: ${p.why}` : 'Your pick';
   const button = done ? '' : btn(`${esc(p.to ? firstOf(p.to) : 'Pick')}${p.to && isMe(p.to) ? ' (you)' : ''}`, { kind: 'secondary', sm: true, iconEnd: 'chevron-down',
     attrs: { 'data-pecover': p.key, 'aria-haspopup': 'dialog', 'aria-label': `Who covers ${p.name}${p.num ? ` (${p.num})` : ''}: ${p.to ? p.to.full_name : 'no one yet'}. Change` } });
-  return itemRow({ key: p.key, name: p.name, num: p.num, line: esc(line), button });
+  return itemRow({ key: p.key, name: p.name, num: p.num, line: esc(line), button, cls: 'v6-face-row', lead: faceLead(p.to ? [p.to] : []) });
 }
 function leavingPage(a, route) {
   const s = P(), first = firstOf(a), done = s.done[a.id];
@@ -242,7 +245,7 @@ function leavingPage(a, route) {
   const away = done || !parts.length ? '' : `<p class="pe-quiet pe-soon">Back soon? Use Hand over, keep ${esc(first)} signed in${billParts.length ? '; you can move bills back from Which bills' : ''}.</p>`;
   const top = done ? notice('ok', 'circle-check', `<b>${done.parts.length ? 'Handed over' : 'Turned off'} ${esc(whenAt(new Date(done.at).toISOString()))}.</b> ${esc(done.keep ? `${first} can still sign in.` : `${first} is turned off and cannot sign in.`)} ${esc(done.toldWords)}`, btn('Undo', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-peundo': a.id } })) : '';
   const nothing = !parts.length && !h.drafts.length && !h.going.length;
-  const all = done || !parts.length ? '' : `<div class="pe-all">${btn('Give it all to one person', { kind: 'text', icon: 'users', attrs: { 'data-pecover': 'all', 'aria-haspopup': 'dialog' } })}</div>`;
+  const all = done || !parts.length ? '' : `<div class="pe-all">${btn('Give it all to one person', { kind: 'text', icon: 'user-round-plus', attrs: { 'data-pecover': 'all', 'aria-haspopup': 'dialog' } })}</div>`;
   // Done, the way out is Back above the title (the phone's top bar below 768px), not a second link to the same place (A-14).
   const go = done ? ''
     : `<div class="pe-go">${btn(nothing ? 'Turn off' : 'Hand over and turn off', { icon: 'handshake', attrs: { 'data-pego': a.id, ...(s.busy === a.id ? { 'aria-busy': 'true' } : {}) } })}${nothing ? '' : btn(`Hand over, keep ${first} signed in`, { kind: 'text', attrs: { 'data-pekeep': a.id } })}

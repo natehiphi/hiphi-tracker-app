@@ -936,9 +936,10 @@ function wireApply(root, rows) {
 
 // One checklist row: its state as an icon and a word (never colour alone; amber and red are kept for late and overdue
 // steps, D3, so a blocking check is said, not painted), what it checks, what it found, and its one way to fix it.
+// R-344 rule 5: Blocking has its own shape, the warning triangle; the circle with an x is Missed everywhere in v6.
 function readyRowHTML(r) {
   const [ic, cls, word] = r.waiting ? ['calendar-clock', 'info', 'Expected'] : r.ok === true ? ['circle-check', 'ok', 'Done'] : r.level === 'manual' ? ['circle-dashed', 'todo', 'To do']
-    : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['circle-x', 'bad', 'Blocking'] : ['circle-alert', 'warn', 'Check'];
+    : r.ok === null || r.level === 'info' ? ['info', 'info', 'For your information'] : r.level === 'block' ? ['triangle-alert', 'bad', 'Blocking'] : ['circle-alert', 'warn', 'Check'];
   const fixText = !r.waiting && (r.ok === false || (r.level === 'manual' && !r.ok)) ? (FIX_TEXT[r.key] || tidy(r.fix)) : '';
   const to = r.ok !== true && !r.waiting && FIX[r.key];
   const act = r.waiting ? '' : r.level === 'manual'
@@ -995,7 +996,7 @@ function renderIndex() {
     const bad = live.filter(r => r.level === 'block' && r.ok === false).length, warn = live.filter(r => r.level === 'warn' && r.ok === false).length,
       todo = live.filter(r => r.level === 'manual' && !r.ok).length, open = rows.filter(r => r.ok !== true), pass = rows.filter(r => r.ok === true);
     const sum = [bad ? plural(bad, 'blocking problem') : 'Nothing is blocking', warn ? `${warn} to check` : '', todo ? `${todo} to tick off` : '', soon ? `${soon} not due yet` : ''].filter(Boolean).join(', ');
-    ready = `<p class="ss-sum">${icon(bad ? 'circle-x' : 'circle-check')}<span><b>${bad ? 'Not ready yet.' : 'Ready.'}</b> ${esc(sum)}.</span></p>
+    ready = `<p class="ss-sum">${icon(bad ? 'triangle-alert' : 'circle-check')}<span><b>${bad ? 'Not ready yet.' : 'Ready.'}</b> ${esc(sum)}.</span></p>
       ${open.length ? `<ul class="ss-checks" role="list" aria-label="To fix or tick off">${open.map(readyRowHTML).join('')}</ul>` : ''}
       ${pass.length ? `<details class="ss-fold" data-pass${s.passOpen ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>${plural(pass.length, 'check passes', 'checks pass')}</span></summary><ul class="ss-checks" role="list" aria-label="Passing">${pass.map(readyRowHTML).join('')}</ul></details>` : ''}`;
   }

@@ -66,7 +66,7 @@ body.staff6 .ib-page .ib-msg + .ib-msg::before { content: ''; position: absolute
 body.staff6 .ib-page .ib-msg.this { background: var(--v6-action-wash); }
 body.staff6 .ib-page .ib-msg.this::before, body.staff6 .ib-page .ib-msg.this + .ib-msg::before { background: transparent; }
 body.staff6 .ib-page .ib-msg p { margin: 0; }
-body.staff6 .ib-page .ib-msg-who { font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .ib-page .ib-msg-who { display: flex; align-items: center; gap: 8px; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
 body.staff6 .ib-page .ib-msg-t { font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); overflow-wrap: anywhere; white-space: pre-line; }
 body.staff6 .ib-page .ib-item-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 4px; }
 body.staff6 .ib-page .ib-item-acts .btn { margin: 0; }

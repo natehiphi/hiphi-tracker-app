@@ -19,7 +19,7 @@
 import { S, DB, SESSION_OVER, esc, advocate, hooks } from './data.js';
 import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk, partnersLine } from './today.js';
 import { billRoute, billById, whenAt, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
-import { icon, btn, toast, pickerSheet, avatar } from './ui.js';
+import { icon, btn, toast, pickerSheet, avatar, faceLead } from './ui.js';
 import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -138,7 +138,12 @@ function slipping() {
     // Anything else keeps v5's own words, codes made plain: its time first, so a two-line row never cuts it (the critic's 6).
     // Overdue says so first, in words, with its date (addendum 4).
     const over = p.due != null && p.due <= now;
-    const what = sh ? `${who}: write the public ask${sh.h ? ` for the ${dayWords(sh.h.scheduled_at)} hearing` : ''}` : `${who}: ${strip(plainCodes(esc(strip(p.s))))}`;
+    // R-344 rule 4 (A-25): the row's face says whose it is and its Alert button names them, so a teammate's name is not said
+    // a third time before the task ("James: Ask the chair's office…" is now James's face, the task, "Alert James"). Your
+    // own and an unheld one keep their word ("You:", "No owner yet:"), which the face alone cannot say to a screen reader.
+    const task = sh ? `write the public ask${sh.h ? ` for the ${dayWords(sh.h.scheduled_at)} hearing` : ''}` : strip(plainCodes(esc(strip(p.s))));
+    const named = ids.length && !(mine && solo) && ids.some(id => id !== me);
+    const what = named ? cap(task) : `${who}: ${task}`;
     const line = [over ? `Overdue since ${whenAt(p.due)}` : p.due != null ? cap(`due ${whenAt(p.due)}`) : '', what].filter(Boolean).join(' · ');
     return { key: 'sl:' + (p.key || b.id), b, p, s: null, ids, mine, line, what: sh ? `write the public ask for ${numWords(b)}` : strip(p.s), over, lateOk: false, at: p.due ?? Infinity };
   });
@@ -165,7 +170,9 @@ function slipRow(x) {
   // Bills and Hearings (the critic: HB 1562's "late, still accepted" was amber there and grey here, A-5). The overdue step
   // is red with its word and date, which is what a lead opens Team to find (addendum 4).
   const late = !x.over && x.lateOk && shownStatus(x.s)?.tone === 'late';
-  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: x.over ? 'circle-alert' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) });
+  // R-344 rule 4: the face of whoever holds the step leads the row (a dashed circle when nobody does), so "whose" reads
+  // before a word does; the line keeps its words.
+  return itemRow({ key: x.key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(x.line)), icon: x.over ? 'circle-alert' : 'clock', tone: x.over ? 'overdue' : late ? 'late' : '', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.ids) });
 }
 // A long button ("Alert Lauren and Patti", "Alerted 9:00 AM · Undo") goes under the row's line below 1440px (css .tm6-wide),
 // so the name and its time never break onto lines of their own; a short one stays beside the words. Below 600px every
@@ -200,7 +207,10 @@ function riskRow(x) {
   if (!x.owner) button = noOwnBtn(x.b);
   else if (x.owner === S.me?.id) button = rowButton(billStep(x.b, { viewer: S.me, d: null, h: null }));
   else { ALERTS.set(key, { b: x.b, ids: [x.owner], what: `the hearing notice must post by ${dayWords(x.a.by)} and nobody has asked ${chair} yet` }); button = alertBtn(key, [x.owner]); }
-  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)} · ${!x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : `${first(x.owner)} owns it`}`)), icon: 'calendar-clock', href: billRoute(x.b), button, cls: wideCls(button) });
+  // R-344 (A-25): the owner's face leads the row and "Alert James" names them, so "· James owns it" goes; yours and an
+  // unowned one keep their words.
+  const whose = !x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : '';
+  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)}${whose ? ` · ${whose}` : ''}`)), icon: 'calendar-clock', href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
 }
 
 // ---- today's and tomorrow's hearings (D5): a plain schedule ----
@@ -281,7 +291,7 @@ function prepBlock() {
   const pr = ownerProgress(); if (!pr.length) return '';
   const done = pr.reduce((s, o) => s + o.done, 0), all = pr.reduce((s, o) => s + o.total, 0), behind = pr.filter(o => o.done < o.total);
   return block('prep', 'Issues for 2027', `<p class="tm6-sub">${done} of ${plural(all, 'issue')} ready across the team. Admins see this.</p>
-        ${behind.length ? `<div class="v6-list" role="list">${behind.slice(0, 5).map(o => itemRow({ key: 'pr:' + o.id, name: advocate(o.id)?.full_name || 'Someone', num: '', line: esc(`${o.done} of ${plural(o.total, 'issue')} ready`), href: `${BOARD_HREF}&who=${encodeURIComponent(o.id)}` })).join('')}</div>` : ''}
+        ${behind.length ? `<div class="v6-list" role="list">${behind.slice(0, 5).map(o => itemRow({ key: 'pr:' + o.id, name: advocate(o.id)?.full_name || 'Someone', num: '', line: esc(`${o.done} of ${plural(o.total, 'issue')} ready`), href: `${BOARD_HREF}&who=${encodeURIComponent(o.id)}`, cls: 'v6-face-row', lead: faceLead(o.id) })).join('')}</div>` : ''}
         ${door(BOARD_HREF, 'clipboard-list', '<b>Open the prep board</b>')}`);
 }
 // The partners' one line, today.js's (the same parts and words as Today's door).
@@ -333,8 +343,8 @@ function teamPage() {
   // the quiet lines, one card
   const lines = [];
   if (!off) lines.push(sch.some(d => d.rows.length)
-    ? fold('sched', 'calendar', schedLine(sch), sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join(''))
-    : quiet('calendar', 'No hearings on our bills today or tomorrow.'));
+    ? fold('sched', 'calendar-days', schedLine(sch), sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join(''))
+    : quiet('calendar-days', 'No hearings on our bills today or tomorrow.'));
   const people = loads(), busy = people.filter(r => r.n > 0).length;
   lines.push(fold('who', 'users', `<b>Who is on what</b> · ${busy ? `${plural(busy, 'person', 'people')} with open steps` : 'nothing open'}`,
     `<p class="tm6-sub">Each person’s open steps, chair asks included.</p>${loadHTML(people)}`));
@@ -360,20 +370,20 @@ function asTeammate(id) {
   }
   const a = advocate(id); T6REG.clear();
   const L = listHTML(a, { ro: true }), w = L.w;
-  return `<div class="tm6-root">${backLink()}<header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">${esc(first(a.id))}’s list</h1></header>
+  return `<div class="tm6-root">${backLink()}<header class="t6-head tm6-whohead">${avatar(a, 40)}<h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">${esc(first(a.id))}’s list</h1></header>
     <p class="tm6-note">${icon('eye')}<span>${esc(`${first(a.id)}’s Today, to read while you cover for them. Their messages are not shown.`)}</span>${pickBtn()}</p>
     <div class="t6-col tm6-ro">${L.html}${w.waiting.length ? quiet('hourglass', `${plural(w.waiting.length, 'step')} on ${first(a.id)}’s bills ${w.waiting.length === 1 ? 'waits' : 'wait'} on someone else.`) : ''}</div></div>`;
 }
-const pickBtn = () => btn('See someone else', { kind: 'text', sm: true, icon: 'users-round', attrs: { 'data-tmpick': '1', 'aria-haspopup': 'dialog' } });
+const pickBtn = () => btn('See someone else', { kind: 'text', sm: true, icon: 'scan-eye', attrs: { 'data-tmpick': '1', 'aria-haspopup': 'dialog' } });
 // Not a lead: the picker, as a page (More tools › See a teammate's list lands here too).
 function pickerPage() {
   // Each person's count for today, in place of one line repeated under every name (the critic's 12).
   const today = a => { try { return t6Groups(work(a)).today.length; } catch { return 0; } };
   const rows = teammates().filter(a => a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name))
-    .map(a => { const n = today(a); return itemRow({ key: a.id, name: a.full_name, num: '', line: esc(n ? `${plural(n, 'thing')} to do today` : 'Nothing to do today'), href: `#/team?who=${encodeURIComponent(a.id)}` }); }).join('');
+    .map(a => { const n = today(a); return itemRow({ key: a.id, name: a.full_name, num: '', line: esc(n ? `${plural(n, 'thing')} to do today` : 'Nothing to do today'), href: `#/team?who=${encodeURIComponent(a.id)}`, cls: 'v6-face-row', lead: faceLead(a) }); }).join('');
   return `<div class="tm6-root"><header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">A teammate’s list</h1></header>
     <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Their messages are only theirs, so these counts leave them out. Team, with what is slipping, is for admins and second approvers.</span></p>
-    <div class="v6-list" role="list">${rows}${itemRow({ key: 'none', name: 'No owner', num: '', line: esc(`${plural(noOwnerBills().length, 'bill')} with a position and no owner`), href: '#/team?who=none' })}</div></div>`;
+    <div class="v6-list" role="list">${rows}${itemRow({ key: 'none', name: 'No owner', num: '', line: esc(`${plural(noOwnerBills().length, 'bill')} with a position and no owner`), href: '#/team?who=none', cls: 'v6-face-row', lead: faceLead([]) })}</div></div>`;
 }
 
 function render(route) {
