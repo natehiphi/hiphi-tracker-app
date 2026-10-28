@@ -17,7 +17,6 @@ import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords,
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
-import { photo } from './pathway.js';   // the chair's photo on the card's header (R-336 walk 2: Nate, "include photos of legislators")
 
 export const PUSH_BOARD = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
 export const GIVE_ASK = () => true;   // live 10/22 at Nate's go, after W3 (R-329)
@@ -459,13 +458,13 @@ function groupHTML(g, v, scope, { primary, shared }) {
   const rows = g.rows.map(x => { const [line, ic] = rowLine(x, v, scope, { shared, hdrDay }), mine = ['follow', 'giving'].includes(x.k) && (x.a.asker === v?.id || x.a.todo?.assignee_id === v?.id);
     return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: ic, tone: x.k === 'scheduled' ? 'done' : '', bold: mine, href: billRoute(x.b), button: rowButton(x, v, scope), cls: `hg-r k-${x.k}` }); }).join('');
   const when = mineDue ? `you ask by ${hdrDay}` : day ? `ask by ${day}` : g.rows.every(x => x.k === 'scheduled') ? 'scheduled' : '';
-  // The chair's photo (both, overlapped, for a joint referral), falling back to an initial; decoration, the name says who.
-  const faces = chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean).slice(0, 2);
-  // R-344 (the review's B4): the photo is what people try to tap, so each one opens that legislator's page (a link with the
-  // chair's name for screen readers; the heading beside it still says who).
-  const ph = faces.length ? `<span class="hg-cph${faces.length > 1 ? ' two' : ''}">${faces.map(l => `<a class="hg-cphl" href="#/legislator/${encodeURIComponent(l.id)}" aria-label="${esc(`Open ${chairWho(l.id)}’s page`)}" title="${esc(chairWho(l.id))}">${photo(l, 40)}</a>`).join('')}</span>` : '';
+  // R-352 (A-18 on v6: no letter bubbles): the card starts with the chair's name, and each name is the link to that
+  // legislator's page (R-344's B4: people tapped the photo to get there; the photo was mostly a letter). Teal, no underline
+  // on a standalone link (one link style); a joint referral names each chair, each its own link.
+  const chairs = m ? chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean) : [];
+  const whoHTML = chairs.length ? andWords(chairs.map(l => `<a class="hg-cnl" href="#/legislator/${encodeURIComponent(l.id)}">${esc(chairWho(l.id))}</a>`)) : esc(who);
   return `<section class="hg-chair" aria-labelledby="hg-c-${esc(g.id)}">
-    <div class="hg-chead">${ph}<div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${esc(who)}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
+    <div class="hg-chead"><div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${whoHTML}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
     <div class="v6-list hg-list" role="list" aria-label="${esc(`Bills for ${who}`)}">${rows}</div>${foot}</section>`;
 }
 // askBoard({ scope, bills, viewer, primary, id, empty }) -> the board's HTML: under each deadline (soonest first) in words,

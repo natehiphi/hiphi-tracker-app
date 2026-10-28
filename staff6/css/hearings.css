@@ -296,10 +296,6 @@ body.staff6 .hc-st, body.staff6 .hc-room { font-size: var(--v6-t14); line-height
 
 /* A chair card's header leads with the chair's photo (both chairs, overlapped, on a joint referral), an initial when there
    is none (R-336 walk 2: Nate asked for photos on Who to ask; the same board is Hearings > Bills That Need Hearings). */
-body.staff6 .hg-cph { flex: none; display: inline-flex; align-self: flex-start; }
-body.staff6 .hg-cph .lg-ph { width: 40px; height: 40px; border: 2px solid var(--v6-card); box-sizing: content-box; background: var(--v6-wash); color: var(--v6-body); font: 400 var(--v6-t16)/1 Poppins, system-ui, sans-serif; }
-body.staff6 .hg-cph.two .lg-ph + .lg-ph { margin-left: -14px; }
-body.staff6 .hg-chead:has(.hg-cph) .hg-cwho { flex: 1 1 200px; }
 
 /* ---- The week calendar on All issues and on Today (R-342; hearings.js weekCalHTML) ----
    The same .hc-* calendar; here only what the two pages add: the bar over the week, each bill's issue as a chip in its card's
@@ -371,11 +367,12 @@ body.staff6 .hc-isl a.hc-iss { position: relative; }
 @media (max-width: 767.98px) { body.staff6 .hc-e, body.staff6 .hc-e.hc-h, body.staff6 .hc-cap { padding: 12px 16px; } body.staff6 .hc-e a.hc-bl { min-height: 44px; } }
 
 /* R-344 (B4): the chair's photo on the ask board opens their page; the focus ring hugs the round photo */
-body.staff6 a.hg-cphl { display: inline-flex; border-radius: 50%; }
-body.staff6 a.hg-cphl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl { margin-left: -14px; }
-body.staff6 .hg-cph.two a.hg-cphl + a.hg-cphl .lg-ph { margin-left: 0; }
 /* The colour of time in the calendar as in every list (A-5 on v6, R-352): due today plain with its clock, late amber (its
    own rule above), red only for a step still to do whose deadline passed */
 body.staff6 .hc-st.today { color: var(--v6-body); }
+
+/* The chair's name is the link to their page (R-352): teal, no underline until hover (a standalone link). */
+body.staff6 a.hg-cnl { color: var(--v6-action); text-decoration: none; border-radius: 4px; }
+body.staff6 a.hg-cnl:hover { text-decoration: underline; text-underline-offset: 3px; }
+body.staff6 a.hg-cnl:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
 body.staff6 .hc-st.overdue { color: var(--v6-bad); font-weight: 700; }
