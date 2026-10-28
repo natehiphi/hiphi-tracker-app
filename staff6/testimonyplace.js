@@ -19,12 +19,12 @@
 import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
-import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML } from './steps.js';
+import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
 import { queue } from './review.js';
-import { rowLead, iconizeButtons, testimonyTrack, dropVerb, STATES, ACTS } from './verbs.js';   // R-344: the picture rules' one table
+import { testimonyTrack, dropVerb } from './verbs.js';
 
 const DAY = 864e5;
 const ms = t => t == null || t === '' ? null : new Date(t).getTime();
@@ -111,7 +111,11 @@ function lineOf(it) {
     return `Filed${by ? ` by ${by}` : ''}${it.d.filed_at ? ` ${dayWords(it.d.filed_at)}` : ''}${cm ? ` · ${cm}` : ''}`; }
   if (tab === 'missed') return it.recorded ? `Missed · noted on the bill · ${cm}` : `Missed · the hearing started ${whenAt(it.h.scheduled_at)}`;
   if (s.off) return `${st.word} · hearing cancelled, no new date yet`;
-  const late = s.status.tone === 'late', when = late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
+  // R-352: a row says the team's time, the one its owner sees ("Kevin files it · by Wed 3/18, 7:30 AM", the owner's "File by
+  // Wed 3/18, 7:30 AM"); where the Capitol's deadline is later, the open item says it ("The Capitol's deadline: 9:30 AM").
+  // "by" is the team's time to act, "due" the Capitol's, which a row shows only where no earlier team time is set.
+  const late = s.status.tone === 'late', hand = s.act?.kind === 'hand' && s.act.at > Date.now();   // a team time already passed gives way to the Capitol's
+  const when = late ? lateLine(s.until, { lower: true }) : hand ? `by ${whenAt(s.act.at)}` : s.due != null ? `due ${whenAt(s.due)}` : '';
   if (s.you) {
     if (['late', 'overdue'].includes(s.status.tone)) return s.line;
     const act = s.act?.words ? lower(s.act.words) : when;
@@ -139,22 +143,28 @@ function lineOf(it) {
 const HR2 = 2 * 36e5;
 let TP_HI = null;   // the row a writer's step just moved here (render takes S.tpHi once, so the next draw drops it)
 const soonRow = it => { if (it.own || !it.s || it.s.off || ['filed', 'missed'].includes(it.tab)) return false;
-  const t = it.s.status?.tone === 'late' ? it.s.until : it.s.due, now = Date.now(); return t != null && t > now && t - now <= HR2; };
-// R-344 Rule 1: every row starts with its job's tile (verbs.js ACTS: the same picture as its button and the open item's
-// step), and every row button carries its icon (steps.js rowButton draws them bare; iconizeButtons adds them). A row of the
-// record shows its state's shape (Filed, Missed). Where the tile and the button say the job, the line stops repeating its
-// verb (A-25): "File now · due today 10:00 AM" beside File is "Due today 10:00 AM".
-const leadKind = it => it.tab === 'filed' ? 'filed' : it.tab === 'missed' ? 'missed' : it.s?.kind && ACTS[it.s.kind] ? it.s.kind : it.tab === 'sent' ? 'revise' : it.tab === 'file' ? 'file' : it.tab === 'approve' ? 'approve' : 'write';
-// R-344 Rule 4: whose it is matters on the team's rows, so they lead with the person's face (each in their own colour); the
-// viewer's own rows, and the record (filed, missed), lead with the job's tile.
-const leadOf = it => !it.own && !['filed', 'missed'].includes(it.tab) && it.s ? faceLead(it.s.nobody ? [] : (it.s.whose?.ids || [])) : rowLead(leadKind(it));
-const rowLine = it => it.own && !['filed', 'missed'].includes(it.tab) ? dropVerb(lineOf(it), it.s?.act?.verb) : lineOf(it);
-const rowOf = (it, picked, view) => iconizeButtons(faceRow(it, soonRow(it)
-  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it) })
-  : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(rowLine(it))) } : { step: { ...it.s, line: rowLine(it) } }),
-  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it) })));
-// a face-led row takes the faces' own row class (staff.css .v6-face-row: the 32px column at every width)
-const faceRow = (it, html) => /sv-face/.test(html.slice(0, 600)) ? html.replace('class="v6-row', 'class="v6-row v6-face-row') : html;
+  const t = it.s.status?.tone === 'late' ? it.s.until : it.s.act?.kind === 'hand' && it.s.act.at > Date.now() ? it.s.act.at : it.s.due, now = Date.now(); return t != null && t > now && t - now <= HR2; };
+// R-352 (A-18 on v6: no icon on a list of one kind): the rows lead with nothing of their own. Your own row needs no mark
+// (the File button already says the job, with its icon), and a row nobody holds says "No owner yet" in words. A teammate's
+// row keeps their face, 28px in their own soft tint (ui.js faceLead), so whose it is reads before a word is read; in a
+// group that has faces, a row without one keeps an empty slot of the same width, so the names still start at one edge.
+// The row's one button (D16) shows only where the step is the viewer's own and due now (steps.js rowButtonOK); beside it
+// the line stops repeating the button's verb (A-25: "File now · due today 10:00 AM" beside File is "Due today 10:00 AM").
+// With no button, the line keeps its verb, since nothing else on the row says the job.
+const FACE = 28;
+const faced = it => !it.own && it.s && !it.s.nobody && !['filed', 'missed'].includes(it.tab) && (it.s.whose?.ids || []).length > 0;
+const NOFACE = '<span class="v6-row-lead sv-face tp-noface" aria-hidden="true"></span>';
+const leadOf = (it, slot) => faced(it) ? faceLead(it.s.whose.ids, FACE) : slot ? NOFACE : '';
+const hasBtn = (it, view) => it.own && view !== 'approve' && !['filed', 'missed'].includes(it.tab) && rowButtonOK(it.s);
+const rowLine = (it, view) => hasBtn(it, view) ? dropVerb(lineOf(it), it.s?.act?.verb) : lineOf(it);
+const rowOf = (it, picked, view, slot = false) => faceRow(soonRow(it)
+  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it, view))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it, slot) })
+  : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(rowLine(it, view))) } : { step: { ...it.s, line: rowLine(it, view) } }),
+  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it, slot) }));
+// a face-led row takes the faces' own row class (staff.css .v6-face-row; testimony.css sizes it to 28px here)
+const faceRow = html => /sv-face/.test(html.slice(0, 600)) ? html.replace('class="v6-row', 'class="v6-row v6-face-row') : html;
+// A group's rows, each with the empty slot when any row of the group has a face.
+const groupRows = (rows, picked, view) => { const slot = rows.some(faced); return rows.map(it => rowOf(it, picked, view, slot)).join(''); };
 // The viewer's bills whose step is someone else's (they own it, or wrote the draft): a group of their own, "Your bills",
 // between "For you" and "The team's", each row naming who acts next (Nate's walk: Lauren's HB 1523, Patti's draft, sat
 // under "The team's" on To approve, where she would not look; spec 5 whoseStep).
@@ -162,8 +172,8 @@ const yoursToo = it => !it.own && !!S.me && ((S.assignments?.[it.b.id] || []).in
 const gh = (text, id) => `<div class="tp-gh" role="listitem"><h2 class="tp-ghh" id="${esc(id)}">${esc(text)}</h2></div>`;
 const moreBtn = (view, n) => `<div class="tp-more" role="listitem">${btn(`Show all ${n}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': view } })}</div>`;
 function listRows(view, items, picked) {
-  const all = (S.tpAll ??= {})[view], row = it => rowOf(it, picked, view);
-  if (view === 'filed') return (all ? items : items.slice(0, FILED_LIMIT)).map(row).join('') + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
+  const all = (S.tpAll ??= {})[view], rows = list => groupRows(list, picked, view);
+  if (view === 'filed') return rows(all ? items : items.slice(0, FILED_LIMIT)) + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
   // Missed: the person's own still to answer, the team's still to answer, then the record (answered, or past answering).
   const rec = view === 'missed' ? items.filter(it => !it.asking) : [];
   const own = items.filter(it => it.own), mineB = items.filter(it => !it.own && !rec.includes(it) && yoursToo(it)), team = items.filter(it => !it.own && !rec.includes(it) && !mineB.includes(it)), shown = all ? team : team.slice(0, LIMIT);
@@ -171,8 +181,8 @@ function listRows(view, items, picked) {
   // four drafts on other coalitions' bills; spec 0, less on every screen). A picked one stays in sight.
   const folded = view === 'write' && !own.length && !mineB.length && team.length && !all && !team.some(it => it.key === String(picked));
   const teamPart = !team.length ? '' : folded ? `<div class="tp-fold" role="listitem"><button type="button" class="t6-line tp-foldbtn" data-tpall="${esc(view)}">${icon('users')}<span class="t6-lt"><b>The team has ${team.length === 1 ? '1 draft' : `${team.length} drafts`} to write</b> · See them</span>${icon('chevron-down', { cls: 't6-chev' })}</button></div>`
-    : gh('The team’s', `tp-g-${view}-team`) + shown.map(row).join('') + (team.length > shown.length ? moreBtn(view, team.length) : '');
-  return `${own.length ? gh('For you', `tp-g-${view}-you`) + own.map(row).join('') : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`) + mineB.map(row).join('') : ''}${teamPart}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rec.map(row).join('') : ''}`;
+    : gh('The team’s', `tp-g-${view}-team`) + rows(shown) + (team.length > shown.length ? moreBtn(view, team.length) : '');
+  return `${own.length ? gh('For you', `tp-g-${view}-you`) + rows(own) : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`) + rows(mineB) : ''}${teamPart}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rows(rec) : ''}`;
 }
 
 // ---- the open item: the step card, and the filing card for a step that is Ready to file ----
@@ -286,25 +296,13 @@ function renderLibrary() {
 }
 
 // ---- the page ----
-// A tab that holds one of the person's own late steps says so beside its count, in the late colour with the clock (amber
-// "late, still accepted"; red only once it is overdue), so a late filing on another tab is never hidden behind a count that
-// looks like every other (D3; fresh-eyes review 23 Oct). The tab it opens on stays spec 3.3's.
-const TAB_STATE = { write: 'write', approve: 'approve', sent: 'sent', file: 'file', filed: 'filed', missed: 'missed' };
-const lateTone = it => it.own && ['late', 'overdue'].includes(it.s?.status?.tone) ? it.s.status.tone : '';
+// The tabs are plain words and the person's own counts (R-352, A-18 on v6: no icons on tabs). A late step is said on its
+// own row, in the late colour with its words (status by exception, A-5), not by a mark on the tab: the row carries the
+// lateness, not the door. The tab it opens on (openOn) is still the one holding the most urgent own step.
 function head(cur, m) {
   const hide = !m || !m.tabs.missed.length ? ['missed'] : [];
   const counts = m ? Object.fromEntries(['write', 'approve', 'sent', 'file', 'missed'].map(t => [t, m.mine(t).length]).filter(([, n]) => n)) : {};
-  let nav = sectionNav('testimony', cur, { hide, counts });
-  if (m) for (const t of ['write', 'approve', 'sent', 'file']) {
-    const tones = m.tabs[t].map(lateTone).filter(Boolean); if (!tones.length || !counts[t]) continue;
-    const tone = tones.includes('overdue') ? 'overdue' : 'late', n = tones.length;
-    // Through the label's own span (ui.js sectionNav wraps it in <span class="sv-tl">): the pattern stopped at its "<" and
-    // the mark never drew (R-344 C1).
-    nav = nav.replace(new RegExp(`(view=${t}"[^>]*>(?:<span class="sv-tl"[^>]*>[^<]*</span>)?[^<]*)<span class="sv-tn">(\\d+)</span>`), (_, a, c) => `${a}<span class="sv-tn">${c}</span><span class="tp-tlate tp-tlate-${tone}" title="${n === 1 ? 'One' : n} ${tone === 'overdue' ? 'overdue' : 'late'}">${icon(tone === 'overdue' ? 'circle-alert' : 'alarm-clock')}<span class="sr">, ${n === 1 ? 'one' : n} ${tone === 'overdue' ? 'overdue' : 'late'}</span></span>`);
-  }
-  // R-344 Rule 2: each tab wears its state's shape (verbs.js STATES.testimony), the same as the rows and the step picture.
-  for (const [t, k] of Object.entries(TAB_STATE)) nav = nav.replace(new RegExp(`(view=${t}"[^>]*>)(<span class="sv-tl")`), (_, a, b2) => `${a}<span class="tp-tic" aria-hidden="true">${icon(STATES.testimony[k].icon)}</span>${b2}`);
-  return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${nav}`;
+  return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${sectionNav('testimony', cur, { hide, counts })}`;
 }
 // One calm line per tab under the tabs: what it holds. To approve also starts Review (F41, F42) and says how many
 // supporter emails wait in Outreach › Emails (F172).

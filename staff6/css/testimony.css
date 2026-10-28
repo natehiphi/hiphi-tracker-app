@@ -14,11 +14,6 @@ body.staff6 .tp-intro b { color: var(--v6-ink); }
 body.staff6 .tp-start { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 0 0 16px; }
 body.staff6 .tp-start .tp-intro { flex: 1 1 320px; margin: 0; }
 body.staff6 .tp-start .btn { flex: none; margin: 0 0 0 auto; }
-/* a tab holding the person's own late step: the clock beside its count, amber while still accepted, red once overdue */
-body.staff6 .sv-secnav .tp-tlate { display: inline-flex; align-items: center; margin-left: 4px; vertical-align: -2px; }
-body.staff6 .sv-secnav .tp-tlate svg { width: 16px; height: 16px; flex: none; stroke-width: 2.5; }
-body.staff6 .sv-secnav .tp-tlate-late { color: var(--v6-late); }
-body.staff6 .sv-secnav .tp-tlate-overdue { color: var(--v6-bad); }
 /* F172: the supporter emails to approve, one quiet labelled line to Outreach › Emails, under the list in its column */
 body.staff6 .tp-mailrow { padding: 8px 0 0; }
 body.staff6 .tp-mailrow.tp-mailalone { padding: 16px 0 0; max-width: 720px; }
@@ -284,6 +279,20 @@ body.staff6 .tp-fold .tp-foldbtn { width: 100%; text-align: left; background: no
 /* What the bill does, under its name in Review (v5 showed it) */
 body.staff6 .rv6-desc { margin: -4px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
 
-/* R-344 Rule 2: each tab's state shape (verbs.js STATES.testimony), 16px beside its 16px word, in the tab's own colour */
-body.staff6 .tp .sv-secnav .tp-tic { display: inline-flex; align-items: center; }
-body.staff6 .tp .sv-secnav .tp-tic svg { width: 16px; height: 16px; }
+/* R-352 (A-18 on v6): a teammate's row leads with their face, 28px (the 32px of staff.css is a mixed list's), so a phone's
+   bill name keeps its width; a row in the same group without a face keeps the empty slot, so names start at one edge. */
+body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead { grid-template-columns: 28px minmax(0, 1fr); column-gap: 12px; }
+body.staff6 .tp .v6-row-lead.sv-face { width: 28px; min-height: 28px; }
+body.staff6 .tp .v6-row-lead.sv-face .sv-av { --av: 28px; width: 28px; height: 28px; font-size: 13px; }
+body.staff6 .tp .v6-row-lead.sv-face.many { height: 28px; }
+body.staff6 .tp .v6-row-lead.tp-noface { visibility: hidden; }
+/* Below 600px the face moves down beside the row's line ("Patti or Lauren revises it"), so the bill's name keeps the
+   row's whole width and starts at the same edge as the viewer's own rows (a 390 phone wrapped "Safer walking routes next
+   to schools" round a face). A row with no face in such a group drops its empty slot: its line says "No owner yet". */
+@media (max-width: 599.98px) {
+  body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-top { grid-column: 1 / -1; grid-row: 1; }
+  body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-lead { grid-column: 1; grid-row: 2 / span 2; margin-top: 0; }
+  body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-line { grid-column: 2; grid-row: 2; align-self: center; }
+  body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-lead.tp-noface { display: none; }
+  body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead:has(> .tp-noface) > .v6-row-line { grid-column: 1 / -1; }
+}
