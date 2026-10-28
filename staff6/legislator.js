@@ -6,7 +6,7 @@
 // list). Then, for a chair, "Waiting on them for a hearing": our bills in their committee with no hearing yet, the viewer's
 // own first and never folded (spec 7.3; other people's asks past the fifth wait behind Show all), each in the same words
 // as Who to ask (holding.js chairLine). Then Our bills in their
-// committees, each with where it stands and "Mark where they stand" (pathway.js's stance sheet: stance, note, who on our team
+// committees, each with where it stands and "Mark stand" (pathway.js's stance sheet: stance, note, who on our team
 // knows them). Opened from a bill (?from=HB1562) that bill comes first, marked. Then, behind R-335's practice gate
 // (profile.js PROFILES), the Profile: the sections someone has written in, and one "Add what we know" card for the empty
 // ones. Then the reference: bills they introduced, their committees, and how to reach the office. One column at every
@@ -19,9 +19,9 @@
 // for writing down what happened.
 import { S, DB, esc, hooks } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billByRef, billRoute, chairIdsOf, hstDayOf } from './model.js';
-import { icon, btn, iconBtn, empty, toast } from './ui.js';
+import { icon, btn, empty, toast } from './ui.js';
 import { showAllBtn } from './ui.js';
-import { photo, legName, shortName, seatsOf, roleWord, legMail, openStance, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
+import { legName, shortName, seatsOf, roleWord, legMail, openStance, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
 import { logConversation, convListHTML, wireConvList, withOthers, fetchOthers, convCount } from './conversation.js';
 import { PROFILES, profileHTML, profileTipHTML, wireProfile } from './profile.js';   // R-335 (practice copy)
@@ -59,17 +59,17 @@ function waitingOn(l, from) {
   return pool.map(b => ({ b, ...chairLine(b, l) })).filter(x => x.s && x.s.key !== 'scheduled' && chairIdsOf(x.s.code).includes(l.id)).sort(byChairOrder);
 }
 
-// The stance button: "Mark where they stand" until someone sets it, then the stance itself ("Leaning yes"); it opens BILL's
-// stance sheet (pathway.js openStance: stance, note, who on our team knows them).
-const unknownStance = (b, l) => { const x = stanceOf(b.id, l.id); return !x.stance || x.stance === 'unknown'; };
+// The stance button: "Mark stand" until someone sets it, then the stance itself ("Leaning yes"); it opens BILL's stance sheet
+// (pathway.js openStance: stance, note, who on our team knows them).
 function stanceBtn(b, l) {
   const x = stanceOf(b.id, l.id), word = STANCE_WORD[x.stance] || 'Unknown', none = !x.stance || x.stance === 'unknown';
-  // Unknown, a small thumbs-up whose name says the act and the bill: eight identical "Mark where they stand" buttons ran down
-  // Kevin's page, one per row (A-3, A-14); the section's line says once what it does. Known, the stance itself, a text
-  // button that changes it (A-12: never a status tag that acts). R-344 rule 5: the thumbs-up, as the hearing page's "Mark
-  // where they stand" and the stances themselves use; the pencil meant "edit" everywhere else.
-  if (none) return iconBtn('thumbs-up', `Mark where ${shortName(l)} stands on ${billSay(b)}`, { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog' }, 'lg6-standb');
-  return btn(word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance] || 'thumbs-up',
+  // Unknown, a short labelled text button, "Mark stand", its spoken name the act and the bill (the visible words first, so
+  // voice control finds it). R-352 (A-18, one picture one meaning): a thumbs-up drawn here for an unknown stand read as
+  // "they support it" and needed a sentence to explain it (P-4); the words need none. Known, the stance itself, a text
+  // button that changes it (A-12: never a status tag that acts), with the stance's own icon: the thumbs-up only for a yes.
+  if (none) return btn('Mark stand', { kind: 'text', sm: true, cls: 'lg6-standb',
+    attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Mark stand: where ${shortName(l)} stands on ${billSay(b)}` } });
+  return btn(word, { kind: 'text', sm: true, icon: STANCE_ICON[x.stance],
     attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Where ${shortName(l)} stands on ${billSay(b)}: ${word}. Change it` } });
 }
 // One of our bills with this legislator: the shared row (name, number, one line) and its one button. In "Waiting on them"
@@ -131,6 +131,11 @@ function actionsHTML(l, from, asks) {
   return `<div class="lg6-acts${own ? ' lg6-acts-ask' : ''}">${mail}${call}${log}</div>`;
 }
 
+// The face (R-352, A-18 on v6: no letter bubbles): a real photo when there is one, and none at all otherwise, so the page
+// starts with the name. A photo that fails to load takes its frame with it rather than falling back to an initial (the
+// shared photo() does, for the lists). Never a link, so never underlined; the name beside it says who.
+const faceHTML = l => l.photo_url ? `<span class="lg6-pph" aria-hidden="true"><img class="lg-ph s64" src="${esc(l.photo_url)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : '';
+
 function pageHTML(route, l, back) {
   const from = fromBill(route), seats = seatsOf(l), island = islandFor(l), intro = introducedBy(l).slice().sort((a, b) => diedish(a) - diedish(b) || byUrgency(a, b));
   // Waiting on them for a hearing (a chair's), then our other bills in their committees (the bill this page was opened from
@@ -145,10 +150,6 @@ function pageHTML(route, l, back) {
   const sub = [PARTY[l.party] || l.party, `${l.chamber === 'S' ? 'Senate' : 'House'} District ${l.district}`, island === 'Hawaiʻi' ? 'Hawaiʻi Island' : island].filter(Boolean).join(' · ');
   const ours = intro.filter(b => ourBill(b)).length;
   const billsTitle = asks.length ? 'Our other bills in their committees' : 'Our bills in their committees';
-  // The button's hint is said once, over the first list that has one (R-336 walk 2: it was printed over both).
-  const PENCIL = 'The thumbs-up on a bill marks where they stand on it.';   // on a phone it sits under the bill, not beside it
-  const waitPencil = asks.length > 0 && asks.some(x => !x.waitingMine && unknownStance(x.b, l));
-  const cmPencil = !waitPencil && [...(fromRest ? [fromRest] : []), ...inCm].some(b => unknownStance(b, l));
   // A bill they introduced with no nickname shows its summary, which ran to two bold lines (R-336 walk 2). It is cut at a
   // word near 70 characters, which keeps the words that tell the bill apart ("Funds studies, monitoring and independent
   // testing of water affected…"; the Capitol's short title says only "Red Hill"), the whole of it in the name's title. A
@@ -160,15 +161,14 @@ function pageHTML(route, l, back) {
       return cut === full ? m : `<span class="v6-row-name" title="${esc(full)}">${esc(cut)}</span>`; }); };
   return `<div class="lg6-page">
     <a class="lg6-back" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>
-    <header class="lg6-phead"><span class="lg6-pph" aria-hidden="true">${photo(l, 64)}</span><div class="lg6-pt"><h1>${esc(legName(l))}</h1><p class="lg6-psub">${esc(sub)}</p>${l.title ? `<p class="lg6-psub">${esc(l.title)}</p>` : ''}</div></header>
+    <header class="lg6-phead">${faceHTML(l)}<div class="lg6-pt"><h1>${esc(legName(l))}</h1><p class="lg6-psub">${esc(sub)}</p>${l.title ? `<p class="lg6-psub">${esc(l.title)}</p>` : ''}</div></header>
     ${actionsHTML(l, from, asks)}
     ${PROFILES() ? profileTipHTML(l) : ''}
     ${section('lg6-s-talks', 'Asks and talks', n || null, talksHTML(l))}
     ${asks.length ? section('lg6-s-wait', 'Waiting on them for a hearing', asks.length, folded(`${l.id}|wait`, asks.map(x => standRow(x.b, l, { from: from?.id === x.b.id, ask: x })), `Our bills waiting on ${shortName(l)} for a hearing`,
-      { keep: asks.filter(x => x.own || x.follow || x.waitingMine || x.b.id === from?.id).length }), { sub: waitPencil ? PENCIL : '' }) : ''}
+      { keep: asks.filter(x => x.own || x.follow || x.waitingMine || x.b.id === from?.id).length })) : ''}
     ${seats.length ? section('lg6-s-bills', billsTitle, inCm.length + (fromRest ? 1 : 0) || null,
-      stand.length ? folded(`${l.id}|cm`, stand, `${billsTitle}, ${shortName(l)}`) : `<p class="lg6-none">${asks.length ? 'None besides the bills waiting on them.' : 'None of our live bills is in their committees right now.'}</p>`,
-      { sub: cmPencil ? PENCIL : '' })
+      stand.length ? folded(`${l.id}|cm`, stand, `${billsTitle}, ${shortName(l)}`) : `<p class="lg6-none">${asks.length ? 'None besides the bills waiting on them.' : 'None of our live bills is in their committees right now.'}</p>`)
       : section('lg6-s-bills', 'Our bills in their committees', null, `<p class="lg6-none">${noSeats(l)}</p>${fromRest ? listOf([standRow(fromRest, l, { from: true })], 'The bill you came from') : ''}`)}
     ${known.length ? section('lg6-s-known', 'Other bills they have a stance on', known.length, folded(`${l.id}|kn`, known.map(b => standRow(b, l)), 'Other bills they have a stance on')) : ''}
     ${PROFILES() ? profileHTML(l, { intro, tip: false }) : ''}
