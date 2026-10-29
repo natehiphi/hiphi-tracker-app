@@ -1,5 +1,5 @@
-# R-337 trial runs, part 1: the front door (sign in, pick a week) and the band over Staff v6 (Next, Skip a day, the week's
-# report, people). The practice project is faked here: its sign-in is a session put in the browser's storage and its
+# R-337 trial runs: the front door (sign in, pick a week) and the band over Staff v6 (Next, Skip a day, the week's
+# report, people; part 2: Alerts with useful / not useful / wrong, and Suggest). The practice project is faked here: its sign-in is a session put in the browser's storage and its
 # answers come from this file, so nothing reaches either database. What is checked against the real practice project
 # lives in the backend (trial/api.sql, tested in rolled-back transactions).
 #
@@ -42,6 +42,14 @@ class Fake:
   def __init__(self, whoami, signed_in=True):
     self.whoami, self.signed_in, self.calls, self.profiles = whoami, signed_in, [], []
     self.after_next = None
+    self.posts, self.mine = [], []
+    self.alerts = [
+      {'id': 41, 'at': '2026-03-16T19:00:00+00:00', 'kind': 'draft_created', 'to_channel': False, 'subject': 'Testimony draft ready: HB1562',
+       'body': '📝 *Testimony draft ready* — HB1562\nRelating to Youth Mental Health.\nWritten testimony due *Sun Mar 15, 1:10 PM*\n\nDraft: https://docs.google.com/document/d/abc/edit\nTracker: https://natehiphi.github.io/hiphi-tracker-app/#bill=HB1562',
+       'rating': None, 'rating_words': None},
+      {'id': 40, 'at': '2026-03-16T17:05:00+00:00', 'kind': 'daily_list', 'to_channel': True, 'subject': 'daily_list',
+       'body': '☀️ *Upcoming hearings, next 7 days* · Mon Mar 16\n_Climate Health_\n• <https://natehiphi.github.io/hiphi-tracker-app/#bill=SB2969|SB 2969 SD1> · Support · HED 2:00 PM',
+       'rating': None, 'rating_words': None}]
   def serve_site(self, route):
     p = unquote(urlparse(route.request.url).path).lstrip('/') or 'index.html'
     f = os.path.join(ROOT, p)
@@ -55,6 +63,9 @@ class Fake:
     h = {'access-control-allow-origin': '*', 'content-type': 'application/json', 'content-range': '0-0/0'}
     prof = r.headers.get('accept-profile') or r.headers.get('content-profile') or ''
     self.calls.append((r.method, path, prof));
+    if path.startswith('/rest/v1/rpc/') and r.method == 'POST':
+      try: self.posts.append((path.rsplit('/', 1)[1], json.loads(r.post_data or '{}')))
+      except Exception: pass
     if path.startswith('/auth/v1/otp'): return route.fulfill(status=200, headers=h, body='{}')
     if path.startswith('/auth/v1/'): return route.fulfill(status=200, headers=h, body=json.dumps(SESSION['user']))
     if path.startswith('/rest/v1/rpc/'):
@@ -70,6 +81,14 @@ class Fake:
       elif fn == 'week_report': body = [{'bill_number': 'HB1880', 'nickname': 'Flavor ban', 'found': True, 'position_now': 'strongly_support', 'position_then': 'strongly_support'},
                                         {'bill_number': 'SB3245', 'nickname': None, 'found': False, 'position_now': None, 'position_then': 'support'}]
       elif fn == 'my_inbox': body = []
+      elif fn == 'my_alerts': body = self.alerts
+      elif fn == 'my_suggestions': body = self.mine
+      elif fn == 'suggest':
+        a = self.posts[-1][1]
+        if a.get('kind') == 'suggest': self.mine.insert(0, {'kind': 'suggest', 'words': a.get('words'), 'status': 'new', 'reply': None})
+        for al in self.alerts:
+          if al['id'] == a.get('notification_id'): al['rating'] = a['kind']; al['rating_words'] = a.get('words')
+        body = len(self.posts)
       else: body = None if fn in ('end_trial',) else []
       return route.fulfill(status=200, headers=h, body=json.dumps(body))
     if path.startswith('/rest/v1/advocates'): return route.fulfill(status=200, headers=h, body=json.dumps([ADV]))
@@ -190,6 +209,50 @@ with sync_playwright() as pw:
   pg.wait_for_selector('#trialband .tr-where', timeout=15000)
   ok(pg.is_visible('.tr-who') and 'Nate moves the clock' in pg.inner_text('#trialband'), 'phone: a teammate still sees who moves the clock')
   shot(pg, 'member-phone.png'); ctx.close()
+
+  # 7. Part 2: Alerts and Suggest on the band, on a phone and on the narrowest laptop.
+  for w, h, tag in ((390, 844, 'phone'), (768, 1024, 'tablet')):
+    f = Fake({'email': ME['email'], 'staff': True, 'admin': False, 'name': ME['name'], 'trial': state()})
+    ctx, pg, errs, live = open_page(b, f, w, h)
+    pg.wait_for_selector('#trialband [data-tr="alerts"] .tr-new', timeout=15000)
+    ok('2 new' in pg.inner_text('[data-tr="alerts"]'), f'{tag}: the band says 2 new alerts')
+    over = pg.evaluate("() => { const b = document.getElementById('trialband'), r = b.getBoundingClientRect(); return [...b.querySelectorAll('button')].filter(x => { const q = x.getBoundingClientRect(); return q.right > innerWidth + 1 || q.top < r.top - 1 || q.bottom > r.bottom + 1; }).length + (document.documentElement.scrollWidth > innerWidth ? 100 : 0); }")
+    ok(over == 0, f'{tag}: every band button fits inside the band ({over})')
+    pg.wait_for_timeout(800)
+    shot(pg, f'band-alerts-{tag}.png')
+    pg.click('[data-tr="alerts"]'); pg.wait_for_selector('.tr-alert', timeout=8000)
+    ok(pg.locator('.tr-alert').count() == 2 and pg.locator('.tr-alert.new').count() == 2, f'{tag}: both alerts are listed as new')
+    ok('Testimony draft ready' in pg.inner_text('.tr-alert >> nth=0') and 'Team channel' in pg.inner_text('.tr-alert >> nth=1'), f'{tag}: each says what it is and who it went to')
+    ok(pg.get_attribute('.tr-alert >> nth=1 >> a', 'href') == '#bill=SB2969', f'{tag}: a tracker link opens the bill inside the trial')
+    ok(pg.get_attribute('.tr-alert >> nth=0 >> a[target=_blank]', 'href').startswith('https://docs.google.com/'), f'{tag}: the Doc link opens in a new tab')
+    ok(not pg.is_visible('[data-tr="alerts"] .tr-new'), f'{tag}: opening Alerts clears the count')
+    pg.click('.tr-alert >> nth=0 >> [data-k="useful"]')
+    pg.wait_for_selector('.tr-alert >> nth=0 >> [data-k="useful"][aria-pressed="true"]', timeout=8000)
+    pg.click('.tr-alert >> nth=0 >> [data-k="wrong"]')
+    pg.wait_for_selector('.tr-alert >> nth=0 >> textarea', timeout=8000)
+    pg.fill('.tr-alert >> nth=0 >> textarea', 'The due time is before the hearing was noticed')
+    pg.click('.tr-alert >> nth=0 >> .tr-why button'); pg.wait_for_selector('text=Saved', timeout=8000)
+    sug = [a for fn, a in f.posts if fn == 'suggest']
+    ok(len(sug) == 3 and sug[0]['kind'] == 'useful' and sug[1]['kind'] == 'wrong' and sug[2].get('words', '').startswith('The due time') and all(a.get('notification_id') == 41 for a in sug),
+       f'{tag}: Useful, then Wrong with words, are saved for that alert ({[a["kind"] for a in sug]})')
+    ok(pg.get_attribute('.tr-alert >> nth=0 >> [data-k="useful"]', 'aria-pressed') == 'false', f'{tag}: one rating shows at a time')
+    rb = pg.evaluate("() => document.querySelector('.tr-rate .btn').getBoundingClientRect().height")
+    ok(rb >= 44, f'{tag}: the rating buttons are 44px ({rb})')
+    shot(pg, f'alerts-{tag}.png')
+    pg.click('dialog.tr-dlg [data-tr="close"]')
+    pg.click('[data-tr="suggest"]'); pg.wait_for_selector('#tr-words', timeout=8000)
+    ok(pg.evaluate("document.activeElement.id") == 'tr-words', f'{tag}: Suggest puts the cursor in the box')
+    pg.click('#tr-sug [type=submit]')
+    pg.wait_for_timeout(300)
+    ok(not any(fn == 'suggest' and a.get('kind') == 'suggest' for fn, a in f.posts), f'{tag}: an empty suggestion is not sent')
+    pg.fill('#tr-words', 'Put the room number first on the hearings list')
+    pg.click('#tr-sug [type=submit]'); pg.wait_for_selector('text=Sent. Thank you', timeout=8000)
+    pg.wait_for_selector('.tr-sugrow', timeout=8000)
+    s1 = [a for fn, a in f.posts if fn == 'suggest' and a.get('kind') == 'suggest']
+    ok(len(s1) == 1 and s1[0]['page'], f'{tag}: the suggestion is saved with the page it was made on ({s1[:1]})')
+    ok('Waiting for Nate' in pg.inner_text('#tr-mine'), f'{tag}: it is listed under What you have suggested, waiting for Nate')
+    ok(not errs and not live, f'{tag}: no page errors, nothing to the live project ({errs[:2]})')
+    shot(pg, f'suggest-{tag}.png'); ctx.close()
 
   b.close()
 

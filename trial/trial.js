@@ -1,4 +1,5 @@
-// R-337 trial runs, part 1: the front door and the band. trial.html opens this file, never staff6/app.js directly.
+// R-337 trial runs: the front door and the band (part 1), Alerts and Suggest on the band (part 2). trial.html opens this
+// file, never staff6/app.js directly.
 //
 // A trial plays back real days of the 2026 session on the practice project (pjbezfxxplirpbdgjrpe), never the live one.
 // Each trial has its own copy of the database (trial_1 to trial_10) with its own clock; the practice project's trial_api
@@ -33,7 +34,7 @@ const sameDay = (a, b) => fmt(a, { dateStyle: 'short' }) === fmt(b, { dateStyle:
 export const nextLabel = st => !st?.next ? '' : sameDay(st.clock, st.next) ? `Next: ${timeOf(st.next)}` : `Next: ${fmt(st.next, { weekday: 'short' })} ${timeOf(st.next)}`;
 const firstName = n => (n || '').split(' ')[0];
 
-let sb, api, st, me, polling;
+let sb, api, st, me, polling, alertsNew = 0;
 
 // ---- the page's frame: Staff v6's own styles, so the front door and the app look alike ----
 async function borrowStaff6Head() {
@@ -133,10 +134,11 @@ async function enter() {
   band.addEventListener('click', onBand);
   polling = setInterval(poll, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  countNewAlerts();
   await import('../staff6/app.js');
 }
 
-export function bandHTML(s, { busy = '', moved = null } = {}) {
+export function bandHTML(s, { busy = '', moved = null, alerts = 0 } = {}) {
   const w = WEEKS.find(x => x.n === s.week);
   const when = `${dayOf(s.clock)}, ${timeOf(s.clock)}`;
   // A teammate always sees who moves the clock (it explains the missing Next), on a phone too; once it has moved, the
@@ -151,9 +153,9 @@ export function bandHTML(s, { busy = '', moved = null } = {}) {
   else if (s.last_stop_of_week) act = `<button type="button" class="btn primary sm" data-tr="report">End of the week</button>`;
   else act = `<button type="button" class="btn primary sm" data-tr="next">${esc(nextLabel(s))}</button>${s.next_day && sameDay(s.clock, s.next) ? `<button type="button" class="btn secondary sm" data-tr="skip">Skip to ${esc(fmt(s.next_day, { weekday: 'short' }))}</button>` : ''}`;
   return `<span class="tr-where"><b class="tr-tag">Trial run</b> <b class="tr-when">${esc(when)}</b><span class="tr-hint"> · ${esc(w?.name || '')}</span>${who}</span>
-    <span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
+    <span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="alerts" aria-haspopup="dialog">Alerts${alerts ? ` <span class="tr-new">${alerts} new</span>` : ''}</button><button type="button" class="btn secondary sm" data-tr="suggest" aria-haspopup="dialog">Suggest</button><button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
 }
-function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML(st, o); }
+function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML(st, { ...o, alerts: alertsNew }); }
 
 async function poll() {
   const { data, error } = await api.rpc('state');
@@ -187,6 +189,137 @@ async function onBand(e) {
   else if (k === 'catchup') location.reload();
   else if (k === 'report') report();
   else if (k === 'menu') menu();
+  else if (k === 'alerts') alerts();
+  else if (k === 'suggest') suggestBox();
+}
+
+// ---- part 2: the alerts the trial made, each rated useful / not useful / wrong (Nate 10/24) ----
+// The practice project sends no Slack and no alert email, so the alerts the tracker would have sent come here instead.
+const KIND = {
+  draft_created: 'Testimony draft ready', draft_thread: 'Draft posted to the team', hearing_alert: 'Hearing alert',
+  daily_list: 'Daily hearing list', reminder_morning: 'Testimony reminder, morning', reminder_before: 'Testimony reminder, before it is due',
+  reminder_after: 'Testimony reminder, after the hearing', slot_alert: 'Last hearing slot', deadline_reminder: 'Deadline reminder',
+};
+export const kindName = k => KIND[k] || String(k || 'Alert').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+const RATE = [['useful', 'Useful'], ['not_useful', 'Not useful'], ['wrong', 'Wrong']];
+const RATE_ASK = { not_useful: 'What would have made it useful? (optional)', wrong: 'What was wrong? (optional)' };
+const seenKey = () => `tr-seen-${st.trial_id}`;
+const seenId = () => { try { return +localStorage.getItem(seenKey()) || 0; } catch { return 0; } };
+let alertRows = [];
+
+// Slack's own marks (*bold*, _italic_, <url|words>) as the alert would read there. Links to the tracker stay in the trial
+// (#bill=HB123 opens that bill in the trial's copy); others (the Google Doc) open in a new tab.
+const TRACKER = /^https:\/\/natehiphi\.github\.io\/hiphi-tracker-app\/[^#]*(#.*)?$/;
+export function slackText(s) {
+  const out = []; let last = 0; const re = /<(https?:\/\/[^|>\s]+)(?:\|([^>]+))?>|(https?:\/\/[^\s<>]+)/g; let m;
+  const plain = t => esc(t).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/(^|[\s(])_([^_\n]+)_(?=$|[\s.,)])/g, '$1<i>$2</i>');
+  while ((m = re.exec(s || ''))) {
+    out.push(plain(s.slice(last, m.index)));
+    const url = m[1] || m[3], words = m[2] || (TRACKER.test(url) ? 'Open in the trial' : url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40) + (url.length > 48 ? '…' : ''));
+    const t = TRACKER.exec(url);
+    out.push(t ? `<a href="${esc(t[1] || '#/')}" data-tr="inlink">${esc(words)}</a>` : `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(words)}</a>`);
+    last = re.lastIndex;
+  }
+  out.push(plain((s || '').slice(last)));
+  return out.join('');
+}
+
+async function countNewAlerts() {
+  const { data } = await api.rpc('my_alerts', { p_limit: 200 });
+  alertRows = data || [];
+  const seen = seenId();
+  alertsNew = alertRows.filter(a => a.id > seen).length;
+  drawBand();
+}
+
+function alertHTML(a, seen) {
+  const where = a.to_channel ? 'Team channel' : 'To you';
+  const ask = a.rating && RATE_ASK[a.rating];
+  return `<li class="tr-alert${a.id > seen ? ' new' : ''}" data-id="${a.id}">
+    <p class="tr-ahead"><b>${esc(kindName(a.kind))}</b> <span class="tr-quiet">${esc(where)} · ${esc(dayOf(a.at))}, ${esc(timeOf(a.at))}</span>${a.id > seen ? ' <span class="tr-new">New</span>' : ''}</p>
+    <div class="tr-abody">${slackText(a.body || a.subject)}</div>
+    <div class="tr-rate" role="group" aria-label="Was this alert useful?">${RATE.map(([k, w]) => `<button type="button" class="btn secondary sm" data-tr="rate" data-k="${k}" aria-pressed="${a.rating === k}">${w}</button>`).join('')}</div>
+    ${ask ? `<form class="tr-why" data-tr-why><label for="why-${a.id}">${esc(ask)}</label><textarea id="why-${a.id}" rows="2" maxlength="4000">${esc(a.rating_words || '')}</textarea>
+      <div class="tr-dacts"><button type="submit" class="btn primary sm">Save</button><span class="tr-quiet" role="status"></span></div></form>` : ''}
+  </li>`;
+}
+
+async function alerts() {
+  dialog(`<h2 tabindex="-1">Your alerts in this trial</h2><p class="tr-msg" role="status">Reading your alerts…</p>`, { wide: true });
+  await countNewAlerts();
+  const seen = seenId();
+  const top = alertRows.reduce((m, a) => Math.max(m, a.id), 0);
+  try { if (top) localStorage.setItem(seenKey(), String(top)); } catch { /* private window */ }
+  alertsNew = 0; drawBand();
+  setDialog(`<h2 tabindex="-1">Your alerts in this trial</h2>
+    <p class="tr-quiet">Slack and email are off in a trial, so the alerts the tracker would have sent you are here, newest first. Mark each one: it shows what to keep and what to fix.</p>
+    ${alertRows.length ? `<ul class="tr-alerts">${alertRows.map(a => alertHTML(a, seen)).join('')}</ul>`
+      : `<p>No alerts yet. They come as the trial's days pass: hearing notices, testimony drafts and reminders.</p>`}
+    <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="close">Close</button></div>`);
+}
+
+async function rate(b) {
+  const li = b.closest('.tr-alert'), a = alertRows.find(x => x.id === +li.dataset.id), k = b.dataset.k;
+  if (!a || a.rating === k) return;
+  li.querySelectorAll('[data-tr="rate"]').forEach(x => { x.disabled = true; });
+  const { error } = await api.rpc('suggest', { kind: k, page: location.hash.slice(1) || '/', notification_id: a.id, alert_kind: a.kind, alert_text: (a.body || a.subject || '').slice(0, 2000) });
+  if (error) { li.querySelectorAll('[data-tr="rate"]').forEach(x => { x.disabled = false; }); return toast(error.message); }
+  a.rating = k; a.rating_words = null;
+  li.outerHTML = alertHTML(a, Infinity);
+  const nli = dlg.querySelector(`.tr-alert[data-id="${a.id}"]`);
+  (nli.querySelector('textarea') || nli.querySelector(`[data-k="${k}"]`))?.focus();
+}
+
+async function saveWhy(form) {
+  const li = form.closest('.tr-alert'), a = alertRows.find(x => x.id === +li.dataset.id), msg = form.querySelector('[role=status]');
+  const words = form.querySelector('textarea').value, btn = form.querySelector('button');
+  btn.disabled = true; msg.textContent = 'Saving…';
+  const { error } = await api.rpc('suggest', { kind: a.rating, page: location.hash.slice(1) || '/', words, notification_id: a.id, alert_kind: a.kind, alert_text: (a.body || a.subject || '').slice(0, 2000) });
+  btn.disabled = false;
+  if (error) { msg.textContent = error.message; return; }
+  a.rating_words = words; msg.textContent = 'Saved';
+}
+
+// ---- part 2: Suggest, on every page, with what the person suggested before and Nate's decision on each ----
+const DECIDED = { new: 'Waiting for Nate', build: 'Will be built', not_now: 'Not now', planned: 'Already planned', ask: 'Nate would like to ask you about it' };
+function pageName() {
+  const h = document.querySelector('#app h1');
+  return (h?.textContent || '').trim() || (location.hash.slice(1) || '/');
+}
+async function suggestBox() {
+  const here = pageName();
+  dialog(`<h2 tabindex="-1">Suggest a change</h2>
+    <form id="tr-sug" class="tr-form">
+      <p class="tr-quiet">About <b>${esc(here)}</b> · ${esc(dayOf(st.clock))}, ${esc(timeOf(st.clock))} in the trial. Nate reads every one.</p>
+      <label for="tr-words">What would you change, or what got in your way?</label>
+      <textarea id="tr-words" rows="4" maxlength="4000" required></textarea>
+      <div class="tr-dacts"><button class="btn primary" type="submit">Send</button><button class="btn secondary" type="button" data-tr="close">Cancel</button></div>
+      <p class="tr-msg" role="status" aria-live="polite"></p>
+    </form>
+    <h3>What you have suggested</h3><ul class="tr-people tr-mine" id="tr-mine"><li class="tr-quiet">Reading…</li></ul>`, { wide: true });
+  dlg.querySelector('#tr-words').focus();
+  dlg.querySelector('#tr-sug').onsubmit = async ev => {
+    ev.preventDefault();
+    const f = ev.target, words = f.querySelector('textarea').value.trim(), btn = f.querySelector('[type=submit]');
+    if (!words) return say('#tr-sug .tr-msg', 'Say what you would change first.', true);
+    btn.disabled = true; say('#tr-sug .tr-msg', 'Sending…');
+    const { error } = await api.rpc('suggest', { kind: 'suggest', page: (location.hash.slice(1) || '/') + ' · ' + here.slice(0, 120), words });
+    btn.disabled = false;
+    if (error) return say('#tr-sug .tr-msg', error.message, true);
+    f.querySelector('textarea').value = '';
+    say('#tr-sug .tr-msg', 'Sent. Thank you: Nate will see it on the suggestions page.');
+    mine();
+  };
+  mine();
+}
+async function mine() {
+  const ul = document.getElementById('tr-mine'); if (!ul) return;
+  const { data, error } = await api.rpc('my_suggestions');
+  if (error) { ul.innerHTML = `<li class="bad">${esc(error.message)}</li>`; return; }
+  const rows = (data || []).filter(r => r.kind === 'suggest');
+  ul.innerHTML = rows.length ? rows.slice(0, 20).map(r => `<li class="tr-sugrow"><span>${esc(r.words)}</span>
+      <span class="tr-quiet">${esc(DECIDED[r.status] || r.status)}${r.reply ? `: ${esc(r.reply)}` : ''}</span></li>`).join('')
+    : '<li class="tr-quiet">Nothing yet.</li>';
 }
 
 // ---- the week's report: the held-back bills found and missed (Nate 10/24) ----
@@ -233,12 +366,14 @@ async function addPerson(b) {
 
 // ---- a small dialog of its own (Staff v6's sheets belong to its screens) ----
 let dlg;
-function dialog(html, { locked = false } = {}) {
+function dialog(html, { locked = false, wide = false } = {}) {
   if (!dlg) {
     dlg = document.createElement('dialog'); dlg.className = 'tr-dlg'; document.body.appendChild(dlg);
     dlg.addEventListener('click', onDialog);
+    dlg.addEventListener('submit', e => { if (e.target.matches('[data-tr-why]')) { e.preventDefault(); saveWhy(e.target); } });
   }
   dlg.dataset.locked = locked ? '1' : '';
+  dlg.classList.toggle('wide', wide);
   dlg.oncancel = e => { if (dlg.dataset.locked) e.preventDefault(); };
   setDialog(html);
   if (!dlg.open) dlg.showModal();
@@ -249,6 +384,8 @@ async function onDialog(e) {
   const b = e.target.closest('[data-tr]'); if (!b) return;
   const k = b.dataset.tr;
   if (k === 'close') dlg.close();
+  else if (k === 'inlink') dlg.close();   // the link's own #address opens the bill in the trial
+  else if (k === 'rate') rate(b);
   else if (k === 'reload') location.reload();
   else if (k === 'add') addPerson(b);
   else if (k === 'signout') sb.auth.signOut().finally(() => location.reload());
