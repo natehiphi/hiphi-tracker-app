@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="only light">
+<meta name="theme-color" content="#132932">
+<meta name="robots" content="noindex">
+<title>Trial suggestions</title>
+<link rel="icon" href="pub/icon-192.png">
+<!-- R-337 part 3: what the team said in trial runs, for Nate and the admins he names, on the practice project. -->
+<script>try { var hp = localStorage.getItem('hiphi6_palette'); if (hp && /^[a-z-]{2,30}$/.test(hp)) document.documentElement.setAttribute('data-palette', hp); } catch (e) { /* private window */ }</script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" id="trialcss" href="trial/trial.css">
+</head>
+<body class="staff2 staff3 staff4 staff5 staff6 trial-sugs">
+<div id="app"><p style="font: 16px Lato, system-ui, sans-serif; padding: 10vh 16px; text-align: center; color: #344852" role="status">Reading the suggestions…</p></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+window.__bootT = setTimeout(function () { var a = document.getElementById('app'); if (a && a.textContent.indexOf('Reading the suggestions') >= 0) a.innerHTML = '<p style="font: 16px Lato, system-ui, sans-serif; padding: 10vh 16px; text-align: center">We could not load the page. <button type="button" onclick="location.reload()">Try again</button></p>'; }, 20000);
+</script>
+<script type="module" src="trial/suggestions.js"></script>
+</body>
+</html>
