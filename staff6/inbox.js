@@ -5,7 +5,7 @@
 //     in the sidebar and on the phone's bell.
 //   - Updates: "What changed" since yesterday, since your last visit or in the last 7 days, one row per bill (it lived at the
 //     foot of Today in v5; spec 6 moves it here). Opening it counts as reading the Capitol's updates, as on v5's Today.
-// Deadline reminders are not here (V26): they are not something that happened but a step still to do, and the step itself
+// Deadline reminders and every other note that restates a step Today shows are not here (V26, R-356 decision 5, A-14): they are not something that happened but a step still to do, and the step itself
 // says its time on Today and in Testimony. A question still waiting for your answer is also a row on Today (addendum 7).
 // Each row is a name and one line (V04); picking one opens it beside the list from 1100px wide, or as its own page below
 // that, with Back (V17, F12). Reading, marking read or unread and Mark all read keep v5's data calls (my_inbox, inbox_mark,
@@ -72,7 +72,11 @@ const noteOf = i => i.kind === 'testimony' ? NOTE.find(([, rx]) => rx.test(unsla
 // A note about your own step to take (approve, a second look, revise): its row has no tick, since beside "Testimony for
 // your approval" a tick read as Approve (R-316 W56, FD-10, as in v5); opening the row reads it.
 const ownStep = i => ['approve', 'second', 'sentback'].includes(noteOf(i)?.[0]);
-function stepNotice(i) { const n = noteOf(i)?.[0]; return n === 'approve' || n === 'second' || (n === 'sentback' && !sentNote(i)); }
+// R-356 round 1, decision 5 (A-14): "Approved, ready to file" and "A testimony draft is ready" also restate a step that is on
+// Today (File it, Write it) for as long as that step is open, so they are step notices too; once the draft has moved on
+// (filed, or sent back) the note is history and stays.
+const stillOpen = i => !!draftOf(i);   // a draft still in the state the note names (draftOf)
+function stepNotice(i) { const n = noteOf(i)?.[0]; return n === 'approve' || n === 'second' || (n === 'sentback' && !sentNote(i)) || ((n === 'approved' || n === 'draft') && stillOpen(i)); }
 // Who did it ("Kevin Lee submitted ...", "Nate approved ..."), and the approver's note on testimony sent back (live, after
 // "> " in the body; in the practice copy, the body itself).
 const actorOf = i => { const m = /(?:^|[\s:])([A-Z][^\s*:]*(?: [A-Z][^\s*:]*){0,3}) (?:submitted|approved|asked for changes|filed)\b/.exec(`${unslack(i.title || '')} ${unslack(i.body || '')}`); return m ? m[1] : ''; };
@@ -304,7 +308,9 @@ function updDetail(id) {
     <div class="ib-item-acts">${btn('Open its Team talk', { kind: 'secondary', iconEnd: 'arrow-right', href: billRoute(r.b, 'talk') })}</div></div>`;
 }
 // The tracker's own notes that are not about one bill and need nothing done ("Hearing notice received, no alerts sent").
-const trackerNotes = () => (S.inbox || []).filter(i => i.kind === 'system' && !isMsg(i)).sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 10);
+// R-356 decision 5: a note that only restates a step Today shows (a deadline, "your step is due", "N bills need a hearing") is left out.
+const RESTATES = /\b(due in|is due|testimony due|deadline|your step|need(s)? a hearing|bills? to ask)\b/i;
+const trackerNotes = () => (S.inbox || []).filter(i => i.kind === 'system' && !isMsg(i) && !RESTATES.test(`${unslack(i.title || '')} ${unslack(i.body || '')}`)).sort((x, y) => String(y.at).localeCompare(String(x.at))).slice(0, 10);
 function updatesHTML() {
   const v = st(), since = sinceOf(), dg = digest(since), found = digestFind(dg.rows, v.uq || '');
   // How far back: the full words, and on a phone short ones that fit one line ("Since Fri", "Last visit", "7 days"); the

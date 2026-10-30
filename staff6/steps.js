@@ -1021,7 +1021,7 @@ export async function openCounts() {
 // parts are joined by real spaces and " · " (screen readers and copied text read "Today · Room 430", not "TodayRoom 430").
 // A moved sitting says so ("Moved from Mon 3/9"); whether to still go is asked by Hearings' own strip (moved.js), of the
 // people who were going to the old one.
-export function hearingCard(sitting, { viewer, big = false, from = '', id = '', omit = null, lead = null, self = false, week = from === 'week', facts = null, watchLink = true } = {}) {
+export function hearingCard(sitting, { viewer, big = false, from = '', id = '', omit = null, lead = null, self = false, week = from === 'week', facts = null, watchLink = true, buttons = true } = {}) {
   const h = sitting?.h || sitting; if (!h) return '';
   const v = meOf(viewer), rows = sittingRows(h), now = Date.now(), at = ms(h.scheduled_at), cancelled = rows.every(r => r.status === 'cancelled');
   const hid = id || `v6h-${esc(h.id)}`, href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
@@ -1042,13 +1042,15 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
   const lateMine = lateAny && pos.some(x => { const s = stepOf(x); return s?.status?.tone === 'late' && s.mine && !['filed', 'missed'].includes(s.state?.key); });
   const bill = x => { const s = stepOf(x), first = lead != null && String(x.b.id) === String(lead);
     // Wherever the card offers Resubmit, the note is beside it (Hearings › This week too), so the button resubmits at once.
-    const ok = rowButtonOK(s), home = (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
+    // `buttons: false` (R-356 round 1, decision 5; A-14, D15): Hearings > This week shows each bill's testimony status as words;
+    // the step's button is on Today and on Testimony.
+    const ok = buttons && rowButtonOK(s), home = buttons && (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
     const sbOn = s.you && s.kind === 'revise' && !!s.state?.sentBack && !!s.d?.review_note && (home || ok);
     const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">${NOTE_HEAD}:</span> ${esc(s.d.review_note)}</p>` : '';
     // Open Doc beside Resubmit (the Doc is where the writer revises; Patti's finding), a plain link as on the step card:
     // one tonal button per row (A-3 on v6, R-352 FIX-2: Resubmit and Open Doc were two tonal buttons side by side).
     const doc = (home || sbOn) && s.d?.doc_url ? docBtn(s.d.doc_url, { kind: 'text', sm: true, attrs: { 'data-v6doc': s.d.id } }) : '';
-    const own = ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s);
+    const own = !buttons ? '' : ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s);
     const btnHtml = own + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
     return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
