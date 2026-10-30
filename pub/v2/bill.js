@@ -17,10 +17,11 @@ import { btn } from '../ui.js';
 import { mailLabel, letterOn, againLine } from '../letters.js';
 import { levelLine, levelBox, wireLevelLine } from '../alerts.js';
 import { onListsLine } from '../mylists.js';
-import { screen, lookup, mainButton, railInfo, headChips, readLink, plainHead, recTop, recWhere, recCards, stanceInner, sponsorLine, partnerSide, welcomeLine,
+import { screen, lookup, mainButton, WORDS, headChips, readLink, plainHead, recTop, recWhere, recCards, stanceInner, sponsorLine, partnerSide, welcomeLine,
   friendCard, storyLine, followIsMain, newbie, textIssue, TXT, wide, fold, doWords, stoppedWords, flipFollow, arrived, RMAIL } from '../bill.js';
 import { goalFor, hearingSay, askSay, byWhen, dayLong, soon, cutoffAt, cutoffDay, testimonyTime } from './slide.js';
 
+WORDS.followIssue = 'Follow this issue';   // one Follow label on this page: the stopped bill's main button says it as the slide's Follow does (today's page says "the issue")
 const warnWords = (t, warn) => warn ? `<b class="warn">${esc(t)}</b>` : esc(t);
 
 // ---------------- what the slide says ----------------
@@ -44,19 +45,19 @@ function wordsFor(b, x) {
       // The email to the chair is the other way in: a person who will not make a Capitol account today. Not for someone who sees the
       // bill differently from HIPHI (its words are HIPHI's), and not once they have sent it.
       if (mailed) out.done = `<p class="v2-done v2-note">${icon('circle-check')}<span>You emailed the chair. Written testimony is different: the committee reads it before it votes.</span>${btn('Undo', { kind: 'text', sm: true, attrs: { 'data-undo': k + 'email', 'aria-label': 'Undo: emailed the chair' } })}</p>`;
-      else if (!x.differs) out.link = btn(mailLabel(b, 'email|' + h.id, `Email the ${chairs} instead · 2 min`), { kind: 'text', attrs: { 'data-mailwalk': x.k } });
+      else if (!x.differs) out.link = btn(mailLabel(b, 'email|' + h.id, `Email the ${chairs} instead · 2 min`), { kind: 'text', icon: 'mail', attrs: { 'data-mailwalk': x.k } });
       const again = againLine(b, h); if (again) out.done = again + out.done;   // "You wrote testimony on this bill ..., for an older draft": next to "Send my letter again"
     }
     return out;
   }
-  // Between hearings, the one thing to do (R-357: "Needs a hearing by Mon, Mar 30 · ask the chair"), or the bill's state in a phrase.
+  // Between hearings, the one thing to do ("Needs a hearing by Mon, Mar 30", the button says the ask), or the bill's state in a phrase.
   switch (x.kind) {
     case 'ask': case 'hold': case 'remind': case 'capitol':
       out.say = x.kind === 'capitol' ? 'You see this one differently from HIPHI. You can still tell lawmakers what you think, in your own words.' : x.kind === 'remind' ? `You asked before, and it still has no hearing. A short follow-up to the ${chairs} can help.` : askSay(st, x.kind === 'hold');
       if (dl) {
         const day = cutoffDay(st), warn = cutoffAt(st) - Date.now() < 864e5;
-        out.detail = x.kind === 'hold' ? `${warnWords(`Hearing deadline ${day}`, warn)} · ask the ${chairs} to hold it` : x.kind === 'remind' ? `${warnWords(`Needs a hearing by ${day}`, warn)} · follow up with the ${chairs}`
-          : x.kind === 'capitol' ? warnWords(`Needs a hearing by ${day}`, warn) : `${warnWords(`Needs a hearing by ${day}`, warn)} · ask the ${chairs}`;
+        // The date only: the button already says the ask ("Ask the chair for a hearing", A-14). An opposed bill's is the day it can't pass.
+        out.detail = warnWords(x.kind === 'hold' ? `Hearing deadline ${day}` : `Needs a hearing by ${day}`, warn);
       } else out.detail = esc(plainStatus(b).short);
       return out;
     case 'floor': case 'conference': case 'governor':
@@ -73,23 +74,26 @@ function wordsFor(b, x) {
   }
 }
 
-// Follow this issue: outlined; Following: a pale chip, never a filled dark one (A-12). A bill with no issue is followed by itself.
+// Follow this issue: outlined; Following: outlined too, with a check (A-12). A bill with no issue is followed by itself.
 // A newcomer's follow is the one a newcomer has always had (data-bl-newfollow: the profile ask, the moment, the visit's end).
 // Not drawn when the main button already is the follow (a stopped bill whose issue is not followed yet).
 function followHtml(b, x) {
   if (followIsMain(b, x)) return '';
   const iss = issuesOf(b), i = iss.length ? textIssue(b) || iss.find(issueFollowed) || iss[0] : null;
   const on = i ? issueFollowed(i) : S.watch.has(b.id), what = i ? 'issue' : 'bill';
-  if (on) return `<button type="button" class="btn v2-following" aria-pressed="true" aria-label="Following${i ? ` ${esc(i.name)}` : ''}. Press to stop following." title="Following. Press to stop following." ${i ? `data-bl-unfollowissue="${esc(i.id)}"` : 'data-v2-star="1"'}>${icon('check')}<span>Following</span></button>`;
+  // Following: the same outlined pill, a check for the star, so it still reads as pressable (A-12); never the filled dark state button.
+  if (on) return btn('Following', { kind: 'secondary', icon: 'check', full: true, cls: 'v2-following', attrs: { ...(i ? { 'data-bl-unfollowissue': i.id } : { 'data-v2-star': '1' }), 'aria-pressed': 'true', 'aria-label': `Following${i ? ` ${i.name}` : ''}. Press to stop following.`, title: 'Following. Press to stop following.' } });
   const attr = newbie(b) ? { 'data-bl-newfollow': '1' } : i ? { 'data-bl-followissue': i.id } : { 'data-v2-star': '1' };
   return btn(`Follow this ${what}`, { kind: 'secondary', icon: 'star', full: true, attrs: { ...attr, 'aria-pressed': 'false', ...(i ? { 'aria-label': `Follow this issue: ${i.name}` } : {}) } });
 }
 
 // The slide: the small line, the goal, the sentence, the detail, the button, the link, Follow.
-function slide(b, x) {
-  const p = posInfo(b), label = [spaced(b.bill_number), p ? p.text : b.hiphi_position === 'monitor' && !partnerSide(b) ? 'HIPHI is watching' : ''].filter(Boolean).join(' · ');
+function slide(b, x, main) {
   // The goal; else the bill's everyday name; else, for a bill with neither, what it does in a sentence (smaller: it is a sentence, as today's page sets it).
-  const named = goalFor(b) || nick(b), goal = named || plainHead(b), w = wordsFor(b, x), main = mainButton(b, x);
+  const named = goalFor(b) || nick(b), goal = named || plainHead(b), w = wordsFor(b, x);
+  // The small line names the bill: its number and, over a goal heading, its everyday name (P-1; HIPHI's side is the chip inside More and the
+  // goal's own direction). Two lines at most, then an ellipsis (v2.css).
+  const label = [spaced(b.bill_number), nick(b) && nick(b) !== goal ? nick(b) : ''].filter(Boolean).join(' · ');
   return `<div class="bl-head v2-slide" role="group" aria-labelledby="v2-goal">
     <p class="v2-k">${esc(label)}</p>
     <h1 class="v2-goal${named ? '' : ' v2-plain'}" id="v2-goal">${esc(goal)}</h1>
@@ -106,31 +110,29 @@ function issueLine(b) {
   const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0];
   return `<div class="v2-issue"><a class="v2-issuelink" href="#/issue/${esc(i.slug)}"><span>Its issue: <b>${esc(i.name)}</b></span>${icon('chevron-right')}</a>${t ? `<span class="bl-txt">${levelLine(t, TXT)}</span>${levelBox(t, TXT)}` : ''}</div>`;
 }
-// What the row says it holds. The step is told where there is one (a live bill); a finished bill's is its end.
-function rowLine(b, x) {
-  const r = x.live ? railInfo(b, x) : null;
-  return `What it does, where ${x.law ? 'it ended up' : x.stopped ? 'it stopped' : `it is${r ? ` (step ${r.idx + 1} of ${r.names.length})` : ''}`}, who decides`;
-}
+// What the row says it holds. (The step is in the card inside, not here: A-14.) A finished bill's is its end.
+const rowLine = (b, x) => `What it does, where ${x.law ? 'it ended up' : x.stopped ? 'it stopped' : 'it is'}, who decides`;
 // today's sections, in today's order: the bill's name and what it does, HIPHI's side and Read the bill, its issue, who introduced it,
 // Where it is now with its steps, where the person stands (not on the first screen: the letter asks), then the closed cards.
 function moreBody(b, x) {
   const name = nick(b), lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '';
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  // The heading above says the goal, so the bill's own everyday name and number are said here, once (A-14).
-  const title = name && goalFor(b) ? `<h2 class="v2-bn">${esc(name)}<span class="bl-hnum"> ${esc(spaced(b.bill_number))}</span></h2>` : '';
+  // (The bill's name and number are the small line over the goal, said once: A-14.)
   const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : '';
-  return `${note}${title}${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${headChips(b, x)}${readLink(b)}</div>
+  return `${note}${lede ? `<p class="lede bl-lede">${esc(lede)}</p>` : ''}<div class="bl-rhrow">${headChips(b, x)}${readLink(b)}</div>
     ${issueLine(b)}${partnerSide(b)}${sponsorLine(b)}${onListsLine(b)}
-    ${recWhere(b, x)}${stance}<div class="bl-rfolds">${recCards(b, x)}</div>`;
+    ${recWhere(b, x, { words: false })}${stance}<div class="bl-rfolds">${recCards(b, x)}</div>`;
 }
 
 // The page. A phone: the slide, then the row (a closed card this visit remembers, and a /changes link opens). A laptop: two columns,
 // the slide on the left and More about this bill open on the right.
 function page(num, b, x) {
   arrived(b);
-  const top = `${recTop(b)}${welcomeLine(b)}`, side = `${friendCard(b, x)}${slide(b, x)}${storyLine(b)}`;
+  // The Share pill stands aside when the one button is itself Share ("Share the good news"): two Shares side by side say it twice (A-14).
+  const main = mainButton(b, x), top = `${recTop(b, { share: !/data-bl-go="share"/.test(main) })}${welcomeLine(b)}`, side = `${friendCard(b, x)}${slide(b, x, main)}${storyLine(b)}`;
+  // A laptop: the right column starts at the bill's own content, open, with no heading of its own (the row's name is for a closed row).
   if (wide()) return `<div class="bl-page bl-wide bl-rec bl-v2">${top}<div class="v2-cols"><div class="v2-left">${side}</div>
-    <section class="v2-more v2-open" aria-labelledby="v2-more-h"><h2 class="v2-mh" id="v2-more-h">More about this bill</h2><p class="v2-ms">${esc(rowLine(b, x))}</p><div class="v2-body">${moreBody(b, x)}</div></section></div></div>`;
+    <section class="v2-more v2-open" aria-label="More about this bill"><div class="v2-body">${moreBody(b, x)}</div></section></div></div>`;
   const open = S.blOpen.has(`${b.id}|v2more`) || /\/changes$/i.test(location.hash);
   return `<div class="bl-page bl-rec bl-v2">${top}${side}
     <details class="v2-more" ${open ? 'data-bl-fold="v2more" open' : fold(b, 'v2more')}><summary><span><span class="v2-mt" id="v2-more-h">More about this bill</span><span class="v2-ms">${esc(rowLine(b, x))}</span></span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>

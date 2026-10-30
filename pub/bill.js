@@ -351,13 +351,16 @@ export function stoppedWords(b, x) {
   const meets = when ? `when the Legislature meets on ${when}` : 'when the Legislature meets in January';
   return { was: `Did not advance in ${yr}.`, next: yr % 2 === 0 || b.stage === 'vetoed' ? `This bill can’t come back, but its idea can, as a new bill ${meets}.` : `It may be taken up again ${meets}.` };
 }
-function stoppedNext(b, x) {
+// words: false leaves the sentence out when the page's first screen already says it (version 2's slide, A-14), keeping the second choice.
+function stoppedNext(b, x, { words = true } = {}) {
   const sw = stoppedWords(b, x); if (!sw) return '';
   const text = `${sw.was} ${sw.next}`;
   const second = followIsMain(b, x) && !myDistricts() ? btn('Find your legislators', { kind: 'text', sm: true, icon: 'map-pin', href: `#/legislators?from=${encodeURIComponent(billRef(b))}` }) : '';
-  return `<div class="bl-after"><p>${esc(text)}</p>${second}</div>`;
+  return words || second ? `<div class="bl-after">${words ? `<p>${esc(text)}</p>` : ''}${second}</div>` : '';
 }
 
+// Words version 2 says another way (pub/v2/bill.js sets them as it loads, so today's page is untouched): one Follow label on the page.
+export const WORDS = { followIssue: 'Follow the issue' };
 // The page's one main button. On a phone it sits in the sticky bottom bar; on a wide screen it sits in the side panel,
 // inside the action card when there is one. While the email composer is open its own "Open in my mail app" is the
 // main button, so this one steps aside (two blue buttons competed before).
@@ -394,7 +397,7 @@ export function mainButton(b, x) {
       // a link gets their card's own follow here (the profile ask, its moment, and the visit ends on this bill: R-212 #47),
       // so the page asks once.
       const off = sessionInfo().phase !== 'in', bi = issuesOf(b)[0];
-      if (bi && !issueFollowed(bi)) return btn('Follow the issue', { kind: 'primary', icon: 'star', full: true, attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : bi.id, 'aria-label': `Follow the issue: ${bi.name}` }, cls: 'bl-barbtn' });
+      if (bi && !issueFollowed(bi)) return btn(WORDS.followIssue, { kind: 'primary', icon: 'star', full: true, attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : bi.id, 'aria-label': `${WORDS.followIssue}: ${bi.name}` }, cls: 'bl-barbtn' });
       if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
       if (bi) return btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' });
       return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
@@ -1312,7 +1315,7 @@ function sayOnce(t, code, b) {
     .replace(/\bthe next (?:committee|one), the ((?:two|three|four|five|six) committees),/g, 'the next $1')
     .replace(/Waiting for a hearing in the (?:committee|(?:two|three|four|five|six) committees)\./, 'Waiting for its hearing.');
 }
-export function recWhere(b, x, { title = 'Where it is now' } = {}) {
+export function recWhere(b, x, { title = 'Where it is now', words = true } = {}) {
   const r = railInfo(b, x), n = r.names.length, s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
   // The step line says where it is in plain words, the committee named once, as its steps name it (C-15, A-14, R-212 #45):
   // "Step 6 of 10" over "In the Senate Judiciary Committee", or "In two Senate committees, together:" with each committee's
@@ -1325,7 +1328,7 @@ export function recWhere(b, x, { title = 'Where it is now' } = {}) {
   return `<section class="bl-sec bl-rwhere" aria-labelledby="bl-rw-h"><h2 class="bl-rh" id="bl-rw-h">${esc(title)}</h2><div class="card">
     <div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}"><ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dotItems(r, x)}</ol></div>
     <p class="bl-rnow"><small>${esc(small)}</small>${nameHtml}</p>
-    ${x.stopped ? `<p class="bl-rsay">${esc(sayOnce(stopDetail(b), cm, b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x, cm))}</p>`}${stoppedNext(b, x)}
+    ${x.stopped ? `<p class="bl-rsay">${esc(sayOnce(stopDetail(b), cm, b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x, cm))}</p>`}${stoppedNext(b, x, { words })}
     <details class="bl-steps bl-rall" ${fold(b, 'steps')}><summary><span>See all ${n} steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>${steps.html}
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details></div></section>`;
 }
@@ -1375,10 +1378,11 @@ export function billParts(b, { lead = '', where } = {}) {
   return { x, act: recAct(b, x, { lead }), where: recWhere(b, x, { title: where }), line: recLine(b, x), main: mainButton(b, x) };
 }
 // Back, Share and ⋯ (Follow this bill alone, Add to a list, the Capitol's page). The number moved to the title's label.
-export function recTop(b) {
+// share: false leaves the Share pill out when the page's main button is itself Share (version 2, A-14).
+export function recTop(b, { share = true } = {}) {
   const on = S.watch.has(b.id), alone = issuesOf(b).length ? ' alone' : '', to = backName();
   return `<div class="bl-top bl-rtop${wide() ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1"${to ? ` aria-label="Back to ${esc(to)}"` : ''}>${icon('arrow-left')}<span>${esc(to || 'Back')}</span></button>
-    <div class="bl-tools"><button type="button" class="bl-sharebtn" data-bl-share="1">${icon('share-2')}<span>Share</span></button>
+    <div class="bl-tools">${share ? `<button type="button" class="bl-sharebtn" data-bl-share="1">${icon('share-2')}<span>Share</span></button>` : ''}
       <div class="bl-menuwrap">${iconBtn('ellipsis', 'More options', { 'data-bl-menu': '1', 'aria-expanded': 'false', 'aria-controls': 'bl-menu' })}
         <div class="bl-menu" id="bl-menu" hidden>
           <button type="button" class="bl-mi" data-bl-star="1" aria-pressed="${on}">${icon(on ? 'check' : 'star')}<span>${on ? `Following this bill${alone}` : `Follow this bill${alone}`}</span></button>

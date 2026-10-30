@@ -1,13 +1,15 @@
 # R-357 Part 1 (Nate, 30 Oct 2026): version 2 of the bill page, behind ?v2=1, and the three small fixes to today's page that ship live.
 #   v2 (?demo=1&v2=1#/bill/HB2300, a phone and a laptop):
-#     - the page opens like Home's slide: HB 2300 · HIPHI supports, the goal heading within 320px of the top (A-1), one plain sentence, one
-#       detail line, exactly one filled button in view (A-3), "Email the chair instead · 2 min", an outlined "Follow this issue" a newcomer
-#       has too, then one row, "More about this bill", closed; no stance chips on the first screen; the slide under 60 words and 6 text styles
+#     - the page opens like Home's slide: HB 2300 · the bill's everyday name, the goal heading within 320px of the top (A-1), one plain
+#       sentence, one detail line on one line ("By tomorrow 1:00 PM · about 10 min"), exactly one filled button in view (A-3), "Email the chair
+#       instead · 2 min" with its envelope, an outlined "Follow this issue" a newcomer has too, then one row, "More about this bill",
+#       closed; no stance chips on the first screen; the slide under 60 words and 6 text styles
 #     - the row opens today's sections inline (Where it is now, Where do you stand?, Who decides next ...); from 1100px they are open on
 #       the right of the slide
-#     - HB 1671 (waiting for a hearing): "Needs a hearing by Mon, Mar 30 · ask the chair" and the hearing's own ask; a stopped bill between
-#       sessions: its state in one phrase and the issue's Follow as the one button
-#     - Follow this issue becomes a pale "Following" chip (never a filled dark button) and back
+#     - HB 1671 (waiting for a hearing): "Needs a hearing by Mon, Mar 30" and the hearing's own ask; a stopped bill between sessions: its
+#       state in one phrase, the issue's Follow ("Follow this issue", the one Follow label) as the one button, its sentence said once
+#     - a law: the top Share pill stands aside when the main button is Share
+#     - Follow this issue becomes the outlined "Following" with a check (never a filled dark button) and back
 #   today's page (no v2): nothing of version 2 loads or shows, and
 #     - 3a a newcomer has the band's Follow the issue; 3b Back on a bill opened first says Home, goes Home, and lights no tab;
 #       3c the "Its issue" link and the sponsors' names are 44px targets (A-6)
@@ -36,7 +38,9 @@ LOOK = """() => {
     if (!s || !el.checkVisibility({ visibilityProperty: true }) || el.closest('.sr, [aria-hidden="true"]')) continue;
     words += s.split(/\\s+/).filter(x => /\\w/.test(x)).length; const cs = getComputedStyle(el); if (!el.closest('.warn')) st.add([cs.fontFamily.split(',')[0], cs.fontSize, cs.fontWeight, cs.color].join(' ')); }
   return { h1: h1 && h1.textContent.trim(), h1top: h1 && Math.round(h1.getBoundingClientRect().top + scrollY),
-    k: document.querySelector('.v2-k')?.textContent.trim(), say: document.querySelector('.v2-say')?.textContent.trim() || '', detail: document.querySelector('.v2-detail')?.textContent.trim() || '',
+    k: document.querySelector('.v2-k')?.textContent.trim(), kLines: (e => e ? Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)) : 0)(document.querySelector('.v2-k')),
+    detailLines: (e => e ? Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)) : 0)(document.querySelector('.v2-detail')),
+    share: document.querySelectorAll('.bl-sharebtn').length, linkIcon: !!document.querySelector('.v2-go .btn.text .ic'), say: document.querySelector('.v2-say')?.textContent.trim() || '', detail: document.querySelector('.v2-detail')?.textContent.trim() || '',
     filled: [...document.querySelectorAll('.btn.primary')].filter(vis).map(e => e.textContent.trim()),
     link: document.querySelector('.v2-go .btn.text')?.textContent.trim() || '', follow: document.querySelector('.v2-go .btn.secondary, .v2-go .v2-following')?.textContent.trim() || '',
     stance: [...document.querySelectorAll('[data-bl-stance]')].filter(vis).length, words, styles: st.size,
@@ -57,19 +61,19 @@ with sync_playwright() as pw:
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', errs=errs)
   pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(900)
   r = pg.evaluate(LOOK)
-  ok(r['k'] == 'HB 2300 · HIPHI supports', f"the small line is the number and HIPHI's side ({r['k']!r})")
+  ok(r['k'] == 'HB 2300 · Local food buying rules for schools' and r['kLines'] <= 2, f"the small line names the bill, the number and its everyday name, in two lines at most ({r['k']!r}, {r['kLines']})")
   ok(r['h1'] == 'Help put more local food in school meals' and r['h1top'] < 320, f"the goal heading, within 320px of the top (A-1): {r['h1']!r} at {r['h1top']}px")
   ok(re.search(r'hears it \w+\. ', r['say'] + ' ') and 'note' in r['say'], f"one plain sentence on what happens next and why a note helps ({r['say']!r})")
-  ok(re.fullmatch(r'By .* · about 10 min the first time', r['detail']) is not None, f"the detail line: when, and the first-time promise ({r['detail']!r})")
+  ok(re.fullmatch(r'By .* · about 10 min', r['detail']) is not None and r['detailLines'] == 1, f"the detail line, on one line: when, and how long ({r['detail']!r}, {r['detailLines']} line)")
   ok(r['filled'] == ['Help me write testimony'], f"exactly one filled button in view, Help me write testimony (A-3): {r['filled']}")
-  ok(r['link'] == 'Email the chair instead · 2 min', f"the plain link under it ({r['link']!r})")
+  ok(r['link'] == 'Email the chair instead · 2 min' and r['linkIcon'], f"the plain link under it, with the app's envelope ({r['link']!r})")
   ok(r['follow'] == 'Follow this issue', f"a newcomer has Follow this issue ({r['follow']!r})")
   ok(r['stance'] == 0, 'no stance chips on the first screen: the letter asks')
   ok(r['words'] < 60 and r['styles'] <= 6, f"the slide under 60 words and 6 text styles ({r['words']} words, {r['styles']} styles)")
   ok(not r['moreOpen'], 'More about this bill starts closed')
   ok(r['back'] == 'Home' and r['lit'] == [], f"Back says Home and no tab is lit ({r['back']!r}, {r['lit']})")
   ok(pg.evaluate("() => document.body.classList.contains('v2') && !!document.querySelector('link[href=\"pub/v2/v2.css\"]')"), 'the page brings version 2\'s stylesheet and marks the body')
-  ok(pg.evaluate("() => [...document.querySelectorAll('summary')].find(s => /More about this bill/.test(s.textContent))?.innerText.replace(/\\s+/g, ' ').trim()") == 'More about this bill What it does, where it is (step 5 of 9), who decides', 'the row says what it holds, with the step')
+  ok(pg.evaluate("() => [...document.querySelectorAll('summary')].find(s => /More about this bill/.test(s.textContent))?.innerText.replace(/\\s+/g, ' ').trim()") == 'More about this bill What it does, where it is, who decides', 'the row says what it holds (the step is in the card inside, said once)')
   # the row opens today's sections inline
   pg.click('details.v2-more > summary'); pg.wait_for_timeout(400)
   t = pg.evaluate("() => document.querySelector('#main').innerText")
@@ -84,13 +88,22 @@ with sync_playwright() as pw:
   pg.evaluate("window.scrollTo(0, 0)")
   pg.click('.v2-go .btn.secondary'); pg.wait_for_timeout(900)
   if pg.query_selector('text=Not now'): pg.click('text=Not now'); pg.wait_for_timeout(3200)   # the Mahalo's quiet moment (R-212 #47) first
-  chip = pg.evaluate("() => { const e = document.querySelector('.v2-go .v2-following'); if (!e) return null; const cs = getComputedStyle(e); return { text: e.textContent.trim(), pressed: e.getAttribute('aria-pressed'), bg: cs.backgroundColor, color: cs.color }; }")
-  ok(chip and chip['text'] == 'Following' and chip['pressed'] == 'true' and chip['bg'] != 'rgb(0, 105, 142)', f'followed: a pale Following chip, not the filled blue ({chip})')
+  chip = pg.evaluate("() => { const e = document.querySelector('.v2-go .v2-following'); if (!e) return null; const cs = getComputedStyle(e); return { text: e.textContent.trim(), pressed: e.getAttribute('aria-pressed'), bg: cs.backgroundColor, color: cs.color, outlined: e.classList.contains('secondary') && !e.classList.contains('on'), check: !!e.querySelector('.ic-check'), star: !!e.querySelector('.ic-star') }; }")
+  ok(chip and chip['text'] == 'Following' and chip['pressed'] == 'true' and chip['outlined'] and chip['check'] and not chip['star'] and chip['bg'] != 'rgb(0, 105, 142)', f'followed: the same outlined pill with a check, not the filled blue ({chip})')
   ok(len(pg.evaluate(LOOK)['filled']) == 1, f"still one filled button after following {pg.evaluate(LOOK)['filled']}")
   pg.click('.v2-go .v2-following'); pg.wait_for_timeout(700)
   ok(pg.evaluate(LOOK)['follow'] == 'Follow this issue', 'pressing Following stops following')
   ok(not errs, f'no errors after following {errs[:2]}')
   ctx.close()
+
+  # ---------------- testimony already sent: its sentence once ----------------
+  # (the sandbox's HB 2300 hearing of Wed 18 Mar: ids from demo/snapshot.json)
+  SENT = "localStorage.setItem('hiphi_done_demo', JSON.stringify(['86f499e6-7bab-4943-ad6e-5f4d23e85e34|62da6ef7-6c9a-4a03-975b-4b5155e564dc|testimony']))"
+  errs = []; ctx = br.new_context(**PHONE); ctx.add_init_script(RETURNING + ';' + SENT); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
+  pg.goto(f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300'); pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(900)
+  t = pg.evaluate("() => document.querySelector('.v2-slide').innerText.replace(/\\s+/g, ' ')")
+  ok(t.count('reads your testimony before it votes') == 1 and 'Your testimony is in' not in t and 'You sent testimony. Mahalo!' in t, f'after testimony: the committee reads it, said once, and the Mahalo line ({t!r})')
+  ok(pg.evaluate(LOOK)['filled'] == ['Ask a friend to speak up'], 'and the one button asks a friend'); ctx.close()
 
   # ---------------- the email walkthrough from the link ----------------
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', returning=True, errs=errs)
@@ -102,15 +115,19 @@ with sync_playwright() as pw:
   # ---------------- a bill waiting for a hearing; a stopped bill between sessions ----------------
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB1671', errs=errs)
   pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700); r = pg.evaluate(LOOK)
-  ok(re.fullmatch(r'Needs a hearing by \w{3}, \w{3} \d+ · ask the chair', r['detail']) is not None, f"between hearings the one thing to do ({r['detail']!r})")
+  ok(re.fullmatch(r'Needs a hearing by \w{3}, \w{3} \d+', r['detail']) is not None, f"between hearings the one thing to do, the date only: the button says the ask ({r['detail']!r})")
+  ok(r['say'] == 'A Senate committee hasn’t heard it yet. The committee’s chair decides whether it gets a hearing, and people asking helps.', f"it says who decides and that asking helps ({r['say']!r})")
   ok(r['filled'] == ['Ask the chair for a hearing'] and r['link'] == '' and r['h1top'] < 320, f"the hearing's own ask, one filled button, no email link ({r['filled']}, {r['link']!r})")
   ok(r['follow'] == 'Follow this issue' and not r['wide'], 'Follow this issue, nothing scrolls sideways'); ctx.close()
   ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1&season=off#/bill/HB2121', errs=errs)
   pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700); r = pg.evaluate(LOOK)
-  ok(r['detail'].startswith('Did not advance in 20') and r['filled'] == ['Follow the issue'] and r['follow'] == '', f"between sessions: the state in one phrase, the issue's Follow the one button, no second Follow ({r['detail']!r}, {r['filled']}, {r['follow']!r})"); ctx.close()
+  ok(r['detail'].startswith('Did not advance in 20') and r['filled'] == ['Follow this issue'] and r['follow'] == '', f"between sessions: the state in one phrase, the issue's Follow (one label, Follow this issue) the one button, no second Follow ({r['detail']!r}, {r['filled']}, {r['follow']!r})")
+  pg.click('details.v2-more > summary'); pg.wait_for_timeout(400)
+  said = pg.evaluate("() => (document.querySelector('#main').innerText.match(/can’t come back/g) || []).length")
+  ok(said == 1, f"the dead bill's sentence is said once, the stage card does not repeat it ({said})"); ctx.close()
   ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1&season=off#/bill/HB2300', errs=errs)
   pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700); r = pg.evaluate(LOOK)
-  ok(r['detail'] == 'Became law' and len(r['filled']) == 1, f"a law: its state, one filled button ({r['detail']!r}, {r['filled']})")
+  ok(r['detail'] == 'Became law' and r['filled'] == ['Share the good news'] and r['share'] == 0, f"a law: its state, one filled button, and no second Share above it ({r['detail']!r}, {r['filled']}, {r['share']} pills)")
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
   # ---------------- version 2, a laptop ----------------
@@ -119,6 +136,7 @@ with sync_playwright() as pw:
   geo = pg.evaluate("() => { const a = document.querySelector('.v2-slide').getBoundingClientRect(), b = document.querySelector('.v2-more').getBoundingClientRect(); return { slideRight: a.right, moreLeft: b.left, sameTop: Math.abs(a.top - b.top) < 120 }; }")
   ok(geo['slideRight'] <= geo['moreLeft'] and geo['sameTop'], f'the slide on the left, More about this bill beside it on the right ({geo})')
   ok(r['moreOpen'] and 'Where it is now' in pg.evaluate("() => document.querySelector('.v2-more').innerText"), 'More about this bill is open')
+  ok(not pg.query_selector('.v2-mh, .v2-more > .v2-ms') and r['share'] == 1, 'with no heading of its own: the right column starts at the bill\'s content')
   ok(r['filled'] == ['Help me write testimony'] and not r['wide'], f"one filled button, nothing scrolls sideways ({r['filled']})")
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
@@ -137,6 +155,10 @@ with sync_playwright() as pw:
   pg.click('.bl-back'); pg.wait_for_timeout(900)
   ok(re.search(r'#/(start/0)?$', pg.evaluate('location.hash')) is not None, f"3b: Back goes Home, a newcomer's front door ({pg.evaluate('location.hash')})")
   ok(not errs, f'no page errors {errs[:2]}'); ctx.close()
+  # one Follow label is version 2's alone: today's stopped bill still says "Follow the issue"
+  ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1#/bill/HB10', returning=True, errs=errs)
+  pg.wait_for_selector('#main .bl-head h1', timeout=30000); pg.wait_for_timeout(900)
+  ok(pg.evaluate("() => [...new Set([...document.querySelectorAll('#main .btn.primary')].map(e => e.textContent.trim()))].join('|')") == 'Follow the issue', 'today\'s stopped bill still says Follow the issue'); ctx.close()
   # a visit with an earlier page keeps real Back: the bill, its issue's page, another bill
   ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1#/bill/HB2300', returning=True, errs=errs)
   pg.wait_for_selector('#main .bl-head h1', timeout=30000); pg.wait_for_timeout(700)

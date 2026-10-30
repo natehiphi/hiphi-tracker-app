@@ -48,18 +48,19 @@ export function hearingSay(b, h, late = false) {
     : b.hiphi_action ? b.hiphi_action : `A short note from you can help ${opp ? 'stop it' : 'it pass'}.`;
   return `${hears} ${ask}`;
 }
-// A bill waiting for a hearing before its committee's cut-off: what the chair can do. hold: HIPHI opposes it, so the note asks
-// the chair not to hear it (bill.js doWords says the same).
+// A bill waiting for a hearing before its committee's cut-off: who decides and that asking helps (R-357: Home's "When people ask, the
+// chair can give it one" read as a favour). hold: HIPHI opposes it, so the note asks the chair not to hear it (bill.js doWords says the same).
 export function askSay(st, hold = false) {
-  const n = codesOf(st.committee).length, chairs = chairContacts(st.committee).length > 1 ? 'chairs' : 'chair';
+  const n = codesOf(st.committee).length, many = chairContacts(st.committee).length > 1, chairs = many ? 'chairs' : 'chair';
   const cs = whoHears(st.committee).replace(/^The /, n > 1 ? '' : 'A ');
-  return `${cs} ${n > 1 ? 'haven’t' : 'hasn’t'} heard it yet. ${hold ? `A short, polite note asking the ${chairs} not to hear it can help.` : `When people ask, the ${chairs} can give it one.`}`;
+  return `${cs} ${n > 1 ? 'haven’t' : 'hasn’t'} heard it yet. ${hold ? `A short, polite note asking the ${chairs} not to hear it can help.`
+    : many ? 'The chairs decide whether it gets a hearing, and people asking helps.' : 'The committee’s chair decides whether it gets a hearing, and people asking helps.'}`;
 }
 // The hearing ask's cut-off, as a time (Home's: the start of its last afternoon), for the amber inside 24 hours.
 export const cutoffAt = st => hiT(st.deadline.date) + 12 * 36e5;
 export const cutoffDay = st => dateLong(st.deadline.date + 'T12:00:00-10:00');
-// "about 10 min the first time": the Capitol asks for a free account once, so the first testimony takes longer (the walkthrough's
-// own promise, "About 15 minutes the first time", measured in the walk of 28 Oct at about 10); after one has gone it is about 3.
-// The kept "done" marks say whether this person has sent testimony before.
+// "about 10 min": the Capitol asks for a free account once, so the first testimony takes longer (the walk of 28 Oct: about 10); after
+// one has gone it is about 3. The kept "done" marks say whether this person has sent testimony before. "The first time" is said where
+// the Capitol account is (the letter's first screen, Part 2), not on this line (A-13, Nate's coordinator 30 Oct).
 export const sentBefore = () => myActions().some(a => a.kind === 'testimony');
-export const testimonyTime = () => sentBefore() ? 'about 3 min' : 'about 10 min the first time';
+export const testimonyTime = () => sentBefore() ? 'about 3 min' : 'about 10 min';

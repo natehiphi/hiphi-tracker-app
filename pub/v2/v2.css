@@ -7,7 +7,8 @@
    the same here, on the slide only), so the words a newcomer reads first are the ones they can read easiest. */
 .bl-v2 .v2-slide { --t13: .875rem; --t14: 1rem; --t16: 1.125rem; --t18: 1.375rem; font-size: var(--t16);
   display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s16); }
-.bl-v2 .v2-k { margin: 0; font: 400 var(--t14)/1.3 var(--font); letter-spacing: .02em; color: var(--n700); }   /* "HB 2300 · HIPHI supports" */
+.bl-v2 .v2-k { margin: 0; font: 400 var(--t14)/1.3 var(--font); letter-spacing: .02em; color: var(--n700);   /* "HB 2300 · Local food buying rules for schools" */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }   /* two lines, then an ellipsis */
 .bl-v2 .v2-slide h1.v2-goal { margin: 0; font: 700 var(--t28)/1.15 var(--font-h); letter-spacing: -.02em; color: var(--n900); max-width: none;
   display: block; overflow: visible; overflow-wrap: break-word; }   /* the goal, in full: today's page clamps a long title at 900px (bill.css) */
 .bl-v2 .v2-slide h1.v2-plain { font-size: var(--t22); line-height: 1.25; letter-spacing: -.01em; }   /* a sentence, not a name: as today's page sets it (bill.css .bl-what) */
@@ -19,11 +20,10 @@
 .bl-v2 .v2-go .btn.full { width: 100%; }
 .bl-v2 .v2-go .btn, .bl-v2 .bl-sharebtn { font-size: 1rem; }   /* one size for every control on the first screen: back, Share, the button, the link, Follow (6 text styles, A-23's spirit) */
 .bl-v2 .v2-go .btn.text { align-self: center; white-space: normal; text-align: center; }
+.bl-v2 .v2-go .btn.text .ic { width: 18px; height: 18px; }   /* the small envelope the email ask has (A-12) */
 .bl-v2 .v2-go .bl-barq { margin: 0; }
-/* Following: a pale chip, never a filled dark state button that reads as the page's main action (the returner walk, A-12) */
-.bl-v2 .btn.v2-following { width: 100%; background: var(--p100); color: var(--p800); box-shadow: none; }
-.bl-v2 .btn.v2-following:hover { background: var(--p200); }
-.bl-v2 .btn.v2-following:active { transform: scale(.98); }
+/* Following is the same outlined pill as Follow this issue, a check for the star: it still reads as pressable, and is never a filled dark
+   state button that reads as the page's main action (the returner walk, A-12). base.css's filled state is .secondary.on, which it does not use. */
 /* what they did, in the slide's place of the time: sent testimony or an email (with Undo, B-5) */
 .bl-v2 .v2-done { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s12); margin: 0; font-size: var(--t14); color: var(--n900); font-weight: 700; }
 .bl-v2 .v2-done > .ic { width: 20px; height: 20px; color: var(--ok-text); }
@@ -46,8 +46,6 @@
 .bl-v2 .v2-ms { display: block; margin: 3px 0 0; font: 400 1rem/1.35 var(--font); color: var(--n700); text-wrap: balance; }
 .bl-v2 .v2-body { display: flex; flex-direction: column; gap: var(--s12); margin-top: var(--s16); }
 .bl-v2 .v2-body > * { margin-top: 0; margin-bottom: 0; }
-.bl-v2 .v2-bn { font: 700 var(--t22)/1.2 var(--font-h); letter-spacing: -.02em; color: var(--n900); }
-.bl-v2 .v2-bn .bl-hnum { font: 700 .5em/1 var(--font); letter-spacing: .02em; color: var(--n500); white-space: nowrap; vertical-align: .35em; }
 .bl-v2 .v2-body .bl-rhrow { margin-top: 0; }
 .bl-v2 .v2-body .bl-rhrow .chip:not(.ok):not(.warn):not(.danger):not(.yay) { background: var(--n0); }   /* a soft label's wash vanishes on the grey page (today's bill.css, X9-1, A-7) */
 /* its issue, one line (it was the issue band); the whole line is the link, 44px tall (A-6) */
@@ -68,7 +66,5 @@
 .bl-v2.bl-wide .v2-left { position: sticky; top: calc(var(--header) + var(--s24)); }
 .bl-v2.bl-wide .v2-left > .v2-slide { margin-top: 0; }
 .bl-v2.bl-wide .v2-more { margin-top: 0; }
-.bl-v2.bl-wide .v2-mh { font: 600 var(--t22)/1.2 var(--font-h); letter-spacing: -.015em; color: var(--n900); }
-.bl-v2.bl-wide .v2-more > .v2-ms { margin: var(--s4) 0 0; }
-.bl-v2.bl-wide .v2-body { margin-top: var(--s24); }
+.bl-v2.bl-wide .v2-body { margin-top: 0; }   /* the right column starts at the bill's own content, level with the slide's first line */
 .bl-v2.bl-wide .v2-go { max-width: none; }
