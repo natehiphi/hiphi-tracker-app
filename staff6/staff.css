@@ -72,7 +72,7 @@ body.staff6 main h1.v6-ptitle { margin: var(--s8) 0 var(--s24); }
 .sv-hdr .iconbtn { color: var(--v6-body); }
 @media (hover: hover) and (pointer: fine) { .sv-hdr .iconbtn:hover { background: var(--v6-wash); } }
 /* Help on Help is lit, as a tab is (the action teal), so the button says where you are. */
-.sv-hdr .sv-helpbtn[aria-current="page"] { color: var(--v6-action); }
+.sv-hdr .sv-helpbtn[aria-current="page"], .sv-hdr .sv-bell[aria-current="page"] { color: var(--v6-action); }
 /* The Inbox bell: a dot when something is unread (spec 3.2); the number is in its label and on the Inbox page. */
 .sv-bell { position: relative; }
 .sv-bell .sv-dot { position: absolute; top: 9px; right: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--v6-action); box-shadow: 0 0 0 2px var(--v6-page); }
@@ -178,7 +178,11 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
   .sv-scollapse .ic { width: 20px; height: 20px; }
   /* the laptop header: only the search box (spec 3.1); Cmd/Ctrl-K or "/" puts the cursor in it */
   .sv-hdr { padding: 0 var(--v6-gutter); gap: var(--s12); }
-  .sv-hdr .sv-brand, .sv-hdr .sv-back.phone, .sv-hdr .sv-srchbtn, .sv-hdr .sv-helpbtn, .sv-hdr .sv-bell { display: none; }
+  .sv-hdr .sv-brand, .sv-hdr .sv-back.phone, .sv-hdr .sv-srchbtn { display: none; }
+  /* R-356 decision 1: Help and the Inbox left the sidebar, so they stay in the header on a laptop too, at the right of the
+     search box, 40px targets (A-6 on v6). The unread count is the phone's, from messagesCount. */
+  .sv-hdr .sv-helpbtn, .sv-hdr .sv-bell { display: inline-flex; flex: none; width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  .v6-more-list > li:has(> .v6-phone-only), .v6-more-row.v6-phone-only { display: none; }   /* Outreach and Issues are in the sidebar */
   .sv-hdr .sv-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .sv-hdr .sv-search { display: block; position: relative; flex: 0 1 560px; min-width: 0; }
   .sv-hdr .sv-search input { width: 100%; min-height: 44px; padding: 10px 72px 10px 44px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12);

@@ -1,7 +1,7 @@
 // HIPHI Staff v6 (R-336, Nate 22-23 Oct: "too much per screen", rebuilt around the jobs; docs/requests/R-336/V6-SPEC.md):
-// a copy of Staff v5 at staff6.html. The frame: a labelled sidebar from 768px wide (places, Inbox with its count, Help, Lead
-// tools by role, More tools, You at the foot), a laptop header that is only the search box, and on a phone a top bar (Back
-// or the mark, the title, Search, the Inbox bell) with the 5-tab bar Today · Hearings · Testimony · Bills · More on every
+// a copy of Staff v5 at staff6.html. The frame: a labelled sidebar from 768px wide (the five places and Bills, Lead
+// tools by role, More, You at the foot), a header with the search box and, at every width, the Help and Inbox icons beside it
+// (R-356: they left the sidebar), and on a phone a top bar (Back or the mark, the title, Search, Help, Inbox) with the 5-tab bar Today · Hearings · Testimony · Bills · More on every
 // route (spec 3.1, 3.2, D2, D11, D12, V02, V03, V21). Every v5 address still opens (spec 3.4, V36).
 // Before it, HIPHI Staff v5 (R-277, Nate 13 Oct: "make a staffv5 and implement the 1-21 fixes"): a copy of Staff v4 at staff5.html
 // for the ease-of-use review's fixes; v4 stays as it was, to compare. Before that, Staff v3 (R-264, Nate 12 Oct: "make all these changes, but make them on a staff v3 so I can explore and compare"):
@@ -49,7 +49,7 @@ import testimonyplace from './testimonyplace.js';
 import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
-import more, { PLACES, MAIN, BAR, leadKeys, isLead, youName, syncWords, syncNote } from './more.js';
+import { PLACES, MAIN, BAR, leadKeys, seesTeam, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -83,11 +83,11 @@ const [devui] = lazy(() => import('./devui.js'), m => ({ devui: m.default }), { 
 const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.default }), { tab: '', title: () => 'Partners' });
 
 // ---- routes ----
-// v6 (R-336, spec 3.3, 3.4): the places Hearings, Testimony, Team, People, More tools and More join the v5 screens. Every v5
+// v6 (R-336, spec 3.3, 3.4): the places Hearings, Testimony, Team, People and More join the v5 screens. Every v5
 // address still opens the same thing (V36): an old one is redirected (replaced, never pushed) to its v6 address, keeping its
 // query (#/outreach/issues?view=links opens #/my-issues/all?view=links). tests/staff6_links.py proves it.
 const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups,
-  hearings, testimony: testimonyplace, team, people, tools, more };
+  hearings, testimony: testimonyplace, team, people, tools, more: tools };   // More and More tools are one page (R-356), drawn by tools.js
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -142,7 +142,7 @@ export function parseRoute(h = location.hash) {
     case 'email': return seg[1] === 'new' ? { name: 'composer', id: '', q } : { name: 'composer', id: seg[1] || '', q };
     case 'search': return { name: 'search', q };
     case 'me': return { name: 'me', q };
-    case 'team': return { name: 'team', who: q.who || '', q };
+    case 'team': return { name: 'team', who: q.who || '', view: seg[1] || '', q };
     case 'people': return { name: 'people', id: seg[1] || '', q };
     // v5's Session setup > People and > Team parts are the People place now (spec 3.4, V28).
     case 'setup': return seg[1] === 'people' || seg[1] === 'team' ? { name: 'people', id: '', q, redirect: '#/people' } : { name: 'setup', section: seg[1] || '', q };
@@ -159,13 +159,15 @@ export function parseRoute(h = location.hash) {
 const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', testimony: 'testimony', review: 'testimony', outreach: 'outreach', asks: 'outreach', partners: 'outreach', memo: 'outreach',
   emails: 'outreach', composer: 'outreach', supporters: 'outreach', person: 'outreach', lists: 'outreach', list: 'outreach', bills: 'bills', triage: 'bills', bill: 'bills',
   legislators: 'legislators', legislator: 'legislators', myissues: 'myissues', issues: 'myissues', issue: 'myissues', coalition: 'myissues', inbox: 'inbox', help: 'help',
-  team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'tools', devui: 'tools', more: 'more', me: 'you', search: '' };
+  team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'more', devui: 'more', more: 'more', me: 'you', search: '' };
 // A stub showing a v5 view keeps its own place lit (route.place, hearings.js and team.js). Team is a lead tool: anyone else
-// reaches #/team?who= ("See a teammate's list") from More tools, so More tools is lit for them (B-13, A-12).
+// reaches #/team?who= ("See a teammate's list") from More, so More is lit for them (B-13, A-12).
 const placeOf = route => !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
-  : route.name === 'team' && !isLead() ? 'tools' : PLACE_OF[route.name] ?? '';
+  : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? '';
 // The phone bar lights More for every place that is not one of its five.
 const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
+// The sidebar lights More for a place it does not draw (Legislators, Inbox, Help, the tools): one click from More (R-356).
+const sideOf = (k, leads) => !k || MAIN.includes(k) || leads.includes(k) || k === 'you' || k === 'more' ? k : 'more';
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
@@ -289,9 +291,9 @@ export function refreshCounts() {
   });
 }
 // The header. A phone: Back (deeper than a place) or the mark, the page's title, Search, Help and the Inbox bell with a dot. A laptop
-// or tablet (768px and wider): only the search box, which Cmd/Ctrl-K or "/" focuses (V32); the sidebar holds the rest.
-// Pages one level under More or More tools whose screens name no parent: a phone still shows Back to where they came from.
-const UNDER = { me: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/tools', label: 'More tools' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More tools as a place, and draws no Back
+// or tablet (768px and wider): the search box, which Cmd/Ctrl-K or "/" focuses (V32), then Help and the Inbox; the sidebar holds the places.
+// Pages one level under More whose screens name no parent: a phone still shows Back to where they came from.
+const UNDER = { me: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/more', label: 'More' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More as a place, and draws no Back
 function header(route, scr, title) {
   let b = scr.back ? scr.back(route) : UNDER[route.name] || null;
   // Back goes where the person came from when this page was opened inside the app (wireFrame: history.back()), so it says
@@ -303,11 +305,10 @@ function header(route, scr, title) {
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
-  // R-344 rule 5: the Inbox is the tray on a phone as in the sidebar (it was a bell here), with the sidebar's number, not a
-  // bare dot: one picture and one count for one place.
-  // Help is one visible tap on a phone, as the tray is for the Inbox (spec 8: "Inbox and Help 1 visible tap", B-13, D2); More's
-  // Help row stays. A laptop has Help in the sidebar, so the button is a phone's only (staff.css).
-  const help = placeOf(route) === 'help';
+  // R-344 rule 5: the Inbox is the tray, with its unread count (the Inbox page's own number), not a bare dot.
+  // R-356 decision 1: Help and the Inbox are icons beside the search box at every width, since they left the sidebar (the
+  // More page keeps a row for each, so both are still one click from More). The lit one says where you are.
+  const help = placeOf(route) === 'help', inb = placeOf(route) === 'inbox';
   return `<header class="sv-hdr">
     ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>`
       : `<a class="sv-brand" href="#/" aria-label="Bill Tracker, Today">${MARK}</a>`}
@@ -315,11 +316,11 @@ function header(route, scr, title) {
     <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people and places</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"><span class="sv-kbd" aria-hidden="true">${mac ? '⌘K' : 'Ctrl K'}</span></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
     <a class="iconbtn sv-helpbtn" href="#/help" aria-label="Help"${help ? ' aria-current="page"' : ''}>${icon('circle-help')}</a>
-    <a class="iconbtn sv-bell sv-tray" href="#/inbox" aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('inbox')}${unread ? `<span class="sv-dot sv-trayn" aria-hidden="true">${unread > 99 ? '99+' : unread}</span>` : ''}</a>
+    <a class="iconbtn sv-bell sv-tray" href="#/inbox"${inb ? ' aria-current="page"' : ''} aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('inbox')}${unread ? `<span class="sv-dot sv-trayn" aria-hidden="true">${unread > 99 ? '99+' : unread}</span>` : ''}</a>
   </header>`;
 }
-// The sidebar (768px and wider): every place, labelled, in the same order for everyone (V02, V18, D11, D12). Exactly two
-// counts, Today's and the Inbox's. Lead tools appear, under their heading, only for people who have one. More tools and You
+// The sidebar (768px and wider): the five places and Bills, labelled, in the same order for everyone (V02, V18, D11, D12). Exactly one
+// count, Today's (the Inbox's is on its header icon). Lead tools appear, under their heading, only for people who have one. More and You
 // stay at the foot, in view on a short laptop screen (the places scroll above them if they must); You opens the account
 // menu (the header's initials menu is gone). Collapse is opt-in and keeps short labels.
 // The full label is always the link's name: in the collapsed rail it is read, not shown (the short one is shown), so every
@@ -336,9 +337,7 @@ function sideItem(k, now, extra = '') {
 // Collapsed, the cue is the chevron alone (its words on hover): a "More" there read as the phone's More place (B-13).
 const sideCue = dir => `<button type="button" class="sv-smore ${dir}" data-smore="${dir}" tabindex="-1" aria-hidden="true" title="${dir === 'up' ? 'More above' : 'More below'}">${icon(dir === 'up' ? 'chevron-up' : 'chevron-down')}<span class="lbl">${dir === 'up' ? 'More above' : 'More below'}</span></button>`;
 function sidebar(route) {
-  const now = placeOf(route), bd = badge(), lateN = lateCount(bd), leads = leadKeys(), narrow = sideNarrow();
-  let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
-  const inboxN = unread ? `<span class="sv-sn" role="img" aria-label="${unread} unread">${unread > 99 ? '99+' : unread}</span>` : '';
+  const leads = leadKeys(), now = sideOf(placeOf(route), leads), bd = badge(), lateN = lateCount(bd), narrow = sideNarrow();
   // From 768 to 1099px the 216px sidebar shows "You" and the initials only (staff.css): the name was cut to "You · Lau…"
   // (A-1, nothing cut). The whole name stays the button's name and its title.
   const youFull = `You · ${S.me?.full_name || youName()}`;
@@ -346,11 +345,10 @@ function sidebar(route) {
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
     <nav class="sv-snav" aria-label="Places">${sideCue('up')}
       <div class="sv-sgrp">${MAIN.map(k => sideItem(k, now, k === 'today' ? todayBadge(bd, lateN, 'sv-sn') : '')).join('')}</div>
-      <div class="sv-sgrp">${sideItem('inbox', now, inboxN)}${sideItem('help', now)}</div>
       ${leads.length ? `<div class="sv-sgrp" role="group" aria-labelledby="sv-leadh"><p class="sv-shd" id="sv-leadh">Lead tools</p>${leads.map(k => sideItem(k, now)).join('')}</div>` : ''}
       ${sideCue('down')}
     </nav>
-    <div class="sv-sfoot">${syncNote()}${sideItem('tools', now)}
+    <div class="sv-sfoot">${syncNote()}${sideItem('more', now)}
       <div class="sv-you"><button type="button" class="sv-sitem sv-youbtn" data-you aria-haspopup="menu" aria-label="${esc(youFull)}" title="${esc(youFull)}"${now === 'you' ? ' aria-current="page"' : ''}><span class="lbl"><span>You</span><span class="sv-youn">· ${esc(youName())}</span></span><span class="lbs" aria-hidden="true">You</span><span class="sv-youav" aria-hidden="true">${avatar(S.me, 28)}</span></button>
         <button type="button" class="sv-scollapse" data-sidecol aria-pressed="${narrow}" aria-label="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}" title="${narrow ? 'Expand the sidebar' : 'Collapse the sidebar'}">${icon(narrow ? 'panel-left-open' : 'panel-left-close')}</button></div>
     </div>
@@ -438,7 +436,7 @@ export function render() {
   if (RECOVERY && !DEMO) return renderRecovery();
   const route = parseRoute();
   // v5's #/?scope=team is Team for leads and Today for everyone else (spec 3.4).
-  if (route.leads && !isLead()) route.redirect = '#/';
+  if (route.leads && !seesTeam()) route.redirect = '#/';
   // The old app's forms (#bill=, #emails, #calendar=) met after the first load (a link opened in the same tab): the same
   // place as boot() gives them.
   if (route.legacy) route.redirect = `#/bill/${route.num}`;
