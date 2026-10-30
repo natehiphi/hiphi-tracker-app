@@ -280,6 +280,9 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      on Home** (DESIGN B-14; after a first action from a shared link the same list is shown calm, no button singled out). Later visits prompt
      actions easiest first (`actionCard`: "Send a quick email · 2 min" until the first action, then testimony).
      Someone whose stance differs from HIPHI's (`agrees(b) === false`) is sent to the Capitol's own form.
+     **"Just look around"** on the welcome (`leaveVisit('arrive')` in `pub/start.js`) goes to `#/find` and leaves the first visit
+     undone, not skipped, since Home for someone who follows nothing is the first visit's own doorway (R-357 Light fixes g, 30 Oct);
+     the other doors ("Leave, go to Home" on a step) still mark it left (`tests/first_visit_doors.py`).
   2. The alerts ask is a step in the flow (right after the issues since R-146, 10/4; one box in `pub/alerts.js`: a
      mobile number first, email as a link; a number goes to `text_signup`, backend 121, and is only kept until texts
      are set up; an email goes to `sendEmailLink`); giving either is the consent for both hearing alerts
@@ -294,7 +297,11 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      number there), the box and its consent words are unchanged. It is the first thing seen after a first follow or
      letter: an issue page's or a category's Follow, and a bill page's "Follow the issue", open it in the alerts sheet with
      "You're following ..." over it (the follow's toast comes after the sheet closes); after a letter it sits right under
-     the "Mahalo", above "What happens next". No second ask on Home after a skip (Nate). The old "Get alerts" ask is the
+     the "Mahalo", above "What happens next". No second ask on Home after a skip (Nate). **The visit's one ask is remembered in the tab's
+     `sessionStorage`** (R-357 Light fixes h, DESIGN C-3): `hiphi_ask_asked` once the first visit's alerts screen or the follow
+     sheet has been shown, `hiphi_ask_skipped` once either was skipped (`markAsked`, `askedThisVisit`, `skippedThisVisit` in
+     `pub/alerts.js`; the kernel's `nudgeOk()` reads the first, so every ask path honours it, and "You're all set" leaves out
+     "Alerts are off · Turn on alerts" after a skip; a reload keeps both, `tests/ask_once.py`). The old "Get alerts" ask is the
      test `save`'s second version, off (backend 148; `?ab=save.alerts` shows it); `tests/profile_ask.py` checks both.
      Once the first visit's ask is answered or skipped, that screen turns into the **"Mahalo!" page** (`stepThanks` in
      `pub/start-rest.js`; the plans' sign-up the same in `pub/onb.js`): same address, so Back finds it, the flower opens

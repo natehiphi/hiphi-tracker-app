@@ -269,3 +269,17 @@ jobs:
       - name: Density and splits across 70 screens against the recorded baseline (X9-6)
         if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/density.py --check
+      # R-357 Part 0 and Part 1 (30 Oct 2026): the light fixes' tests and the bill page's version 2. Each takes the address of this server
+      # first (tour_link.py wants the page itself, track.html, and adds its own query); each goes on one of the lightest machines.
+      - name: "The bill page's tour never opens by itself for someone who arrived on a link, and \"Take the tour\" still works (R-114, R-357 Light fixes b)"
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        run: python3 tests/tour_link.py http://localhost:8832/track.html
+      - name: "One profile ask per visit: a skip is remembered for the tab, a follow after it does not reopen the sheet, the ending has no \"Turn on alerts\" (C-3, R-357 Light fixes h)"
+        if: ${{ !cancelled() && matrix.shard == 5 }}
+        run: python3 tests/ask_once.py http://localhost:8832
+      - name: "One link style on the public page: underlined inside a sentence, plain when it stands alone, the staff app unchanged (A-5, C-15, R-357 Light fixes c)"
+        if: ${{ !cancelled() && matrix.shard == 6 }}
+        run: python3 tests/link_style.py http://localhost:8832
+      - name: "The bill page as a slide behind ?v2=1, and the small fixes to today's page (R-357 Part 1)"
+        if: ${{ !cancelled() && matrix.shard == 1 }}
+        run: python3 tests/v2_bill.py http://localhost:8832
