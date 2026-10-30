@@ -1,7 +1,7 @@
 // Staff v6 (R-336, spec 3.3 and 6 "Help", V29, critic's gaps; F191, F192, F193, F212, F21): Help (#/help, #/help/<topic>,
 // #/help/moved). A reference, not a tutorial: one search box, short guides each on its own page (a link can point straight
 // at one), the Capitol's words, and What moved: each v5 place or button and where it is in v6. Every guide uses v6's place
-// names (Today, Hearings, Testimony, Outreach, Bills, Legislators, My issues, Inbox, More tools, You, the lead tools), and
+// names (Today, Hearings, Testimony, Outreach, Bills, Legislators, Issues, Inbox, More, You, the lead tools), and
 // tests/staff6_words.py checks that every place Help names is in the app's navigation. Facts that change are read from the
 // data, never typed in: who approves (the admin and approver flags), the deadlines (the session calendar), the coalitions
 // and the committees. Ask Nate in Slack (a DM to Nate, Nate 10/22) sits near the top of Help and at the foot of every guide,
@@ -73,14 +73,14 @@ const TOPICS = [
       ['Testimony', 'Every draft by where it stands: <b>To write</b>, <b>To approve</b>, <b>Sent back</b>, <b>Ready to file</b> and <b>Filed</b>. Approvers open Review from To approve, one draft at a time.'],
       ['Outreach', 'Rallying the public and partners: <b>This week’s asks</b> (each bill’s ask, its deadline and the words to copy), <b>Partner update</b>, <b>Emails</b> to supporters, <b>Supporters</b> and <b>Lists</b>.'],
       ['Bills', 'Every tracked bill, grouped by where it stands, or as a spreadsheet; filter it, or select several to change at once. <b>Sort new bills</b> (in the opening weeks) and <b>Muted</b> are its other tabs. A bill’s page has three tabs: <b>Next step</b> (What’s next for you), <b>Team talk</b> (messages, notes and talks with legislators) and <b>Public</b>.'],
-      ['Legislators', '<b>Who to ask</b> (the chairs who hold our bills), <b>Everyone</b> (find anyone by name, town, district or committee) and <b>Holding our bills</b>. A legislator’s page starts with Email, Call and Log a talk.'],
-      ['My issues', 'The issues you own or help on, four ways: <b>Deadlines</b> (each under the deadline it must beat next), <b>Status</b>, <b>Topics</b> and <b>Spreadsheet</b>; between sessions, your issues for 2027. <b>Coalitions</b> lists each coalition, with its I help on switch; <b>All issues</b> is every issue, by topic; <b>Calendar</b> is the team’s week with each bill’s issue, the same calendar as Hearings’.'],
-      ['Inbox', '<b>Messages</b>: what teammates wrote to you or about your bills, and the tracker’s notes to you. <b>Updates</b>: what changed on your bills since yesterday, since your last visit or in the last 7 days. The number beside Inbox counts the unread messages.'],
-      ['More tools', 'Every tool used now and then, grouped by job: Holding our bills, the session calendar, earlier testimony, lists, a link or QR code, first visit numbers, sorting and muting bills, saved views, bulk change, export, and the guides for learning.'],
+      ['Legislators', 'Open it from <b>More</b>. <b>Who to ask</b> (the chairs and our bills they hold, as plain rows; emailing a chair is on Hearings), <b>Everyone</b> (find anyone by name, town, district or committee) and <b>Holding our bills</b>. A legislator’s page starts with Email, Call and Log a talk.'],
+      ['Issues', 'The issues you own or help on, four ways: <b>Deadlines</b> (each under the deadline it must beat next), <b>Status</b>, <b>Topics</b> and <b>Spreadsheet</b>; between sessions, your issues for 2027. <b>Coalitions</b> lists each coalition, with its I help on switch; <b>All issues</b> is every issue, by topic; <b>Calendar</b> is the team’s week with each bill’s issue, the same calendar as Hearings’.'],
+      ['Inbox', 'The envelope beside the search box. <b>Messages</b>: what teammates wrote to you or about your bills, and the tracker’s notes to you. <b>Updates</b>: what changed on your bills since yesterday, since your last visit or in the last 7 days. The number beside Inbox counts the unread messages.'],
+      ['More', 'One page for the places that are not in the sidebar (Legislators, Inbox, Help), then the tools used now and then, grouped by job: the session calendar, how to file, lists, a link or QR code, first visit numbers, supporters’ groups, and the guides for learning. Sorting and muting bills, saved views, bulk change and export are on Bills itself.'],
       ['You', 'At the foot of the sidebar (on a phone, the last rows of <b>More</b>): <b>My settings</b> and Sign out.'],
-      ['Lead tools', 'For admins and second approvers, in the sidebar: <b>Team</b> (what is slipping, today’s and tomorrow’s hearings, who is on what), <b>People</b> (admins), <b>Partners</b> (admins and partner approvers) and <b>Session setup</b> (admins). Anyone can read a teammate’s list from More tools.'],
+      ['Lead tools', 'For admins and second approvers, in the sidebar: <b>Team</b> (what is slipping, today’s and tomorrow’s hearings, who is on what), <b>People</b> (admins), <b>Partners</b> (admins and partner approvers) and <b>Session setup</b> (admins). Anyone can read a teammate’s list from More. Team is shown to leads and to anyone an admin gave “Sees Team” on People.'],
       ['Search', 'The box at the top (on a phone, the search button) finds bills by number or words, legislators, teammates, supporters, conversations, places and things to do. Cmd or Ctrl and K puts the cursor in it from any page.'],
-      ['On a phone', 'The bar at the bottom: Today, Hearings, Testimony, Bills and <b>More</b>, which lists every other place with a line on what it is for. Search and the Inbox are at the top.']] },
+      ['On a phone', 'The bar at the bottom: Today, Hearings, Testimony, Bills and <b>More</b>, which lists every other place with a line on what it is for. Search, Help and the Inbox are at the top.']] },
   // R-316 W29 (L-3): the everyday tasks staff asked Help about, one line each, pointing at the button.
   { id: 'howto', title: 'How do I…', also: 'how to tasks everyday', icon: 'circle-help', sub: () => 'Everyday tasks, one line each',
     items: () => [['Step by step', 'For the bigger jobs: <a href="#/help/hearing">Getting a bill a hearing</a> · <a href="#/help/talk">Logging a talk with a legislator</a> · <a href="#/help/file">How to file at the Capitol</a> · <a href="#/help/changes">When the Capitol changes the plan</a> · <a href="#/help/versions">House and Senate versions</a> · <a href="#/help/moments">What to do at each moment</a> · <a href="#/help/calendar">Session calendar</a>.'],
@@ -93,7 +93,7 @@ const TOPICS = [
       ['Hand a bill or a to-do to someone', 'Give to… beside a bill’s owner (on its page) or on a to-do hands it to a teammate, who gets a Slack message. A chair ask: Give this ask to… on ' + ASK_TAB + '. Someone leaving or away: an admin hands over all they hold, from People.'],
       ['Send this week’s ask', 'Outreach, <b>This week’s asks</b>: each bill’s ask and its deadline, with Copy link, Copy message, Copy post and Email followers.'],
       ['See what I owe today', 'Today: your next step first, then what to do today. The number beside Today in the sidebar counts it.'],
-      ['Cover for a teammate', 'More tools, then See a teammate’s list: their Today, to read. Leads also have Team.'],
+      ['Cover for a teammate', 'More, then See a teammate’s list: their Today, to read. Leads (and anyone with “Sees Team”) also have Team.'],
       ['Find anything', 'Type in the search box at the top, or press Cmd or Ctrl and K. It finds bills, people, places and things to do.']] },
   // R-316 W37: short guides in the app's own words, each linked from the screen where its job happens.
   { id: 'hearing', gate: HOW_TO, title: 'Getting a bill a hearing', also: 'ask the chair hearing request schedule notice push', icon: 'megaphone', sub: () => 'When to ask, whom, how, and how to record it',
@@ -252,7 +252,7 @@ function momentItems() {
 
 // ---- What moved (critic: change aversion; spec 3, 11): each v5 place or button, and where it is in v6 ----
 // One line each, grouped by where it was in v5, with a link to where it is now. The words name the v5 thing plainly and
-// the v6 place by its label in the sidebar, the page tabs or More tools.
+// the v6 place by its label in the sidebar, the page tabs or More.
 const go = (label, href) => `<a href="${esc(href)}">${esc(label)}</a>`;
 // A row's third element, when there is one, says who has that place (admins, leads, approvers, partner approvers): a row
 // about a place the viewer's role does not have is left out (spec 0: less on every screen).
@@ -264,7 +264,7 @@ const MOVED_ALL = () => [
     ['The asked chip, to record what the chair said', `${go(ASK_TAB, '#/hearings/ask')}: <b>They replied</b>, on the ask that waits for a reply. Legislators’ Who to ask shows the same board.`],
     ['Give to… and I’ll ask, on a chair ask', `${go(ASK_TAB, '#/hearings/ask')}: <b>Give this ask to…</b> and <b>I’ll ask</b> beside each chair. Whoever takes it gets a row on Today.`],
     ['Also worth doing (suggestions)', `${go('Hearings', '#/hearings')}, at the foot of This week. Never counted, as before.`],
-    ['The Mine and Team switch, and the person picker', `${isLeadish() ? `${go('Team', '#/team')} in the sidebar (leads), and ` : ''}${go('More tools', '#/tools')}, then See a teammate’s list, to read anyone’s list.`],
+    ['The Mine and Team switch, and the person picker', `${go('More', '#/more')}, then See a teammate’s list, to read anyone’s list. The <b>Mine | My coalitions | Team</b> switch on Hearings, Bills, Legislators and Outreach shows Team only for leads and for people an admin gave “Sees Team”.`],
     ['Slipping', `${go('Team', '#/team')}, first on the page. Today keeps one line, “7 slipping · Open Team”.`, isLeadish],
     ['Your coalition’s week (for helpers): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go(ASK_TAB, '#/hearings/ask?scope=coal')} for your coalitions.`],
     ['A coalition’s late or due cards (for helpers)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
@@ -275,23 +275,23 @@ const MOVED_ALL = () => [
     ['A row’s menu (the three dots)', 'Each action is in its home: <b>I’m going</b> and <b>Watch</b> on the hearing’s card, <b>Undo filed</b> on the testimony under Filed, <b>Reply in Team talk</b> in the Inbox, <b>Give to…</b> on the bill, the bill’s owner in its header.'],
     ['Give a to-do to someone else', 'The bill’s Next step tab, under To-dos on this bill: <b>Give to…</b> and <b>Take it yourself</b>. Waiting on others, on Today, has them too.'],
     ['The quick look at a bill (o)', 'The open item beside the list, on Today and on Bills (o or Space opens it, Esc closes it).'],
-    ['The legislative day, on Today’s date line', `${go('Session calendar', '#/help/calendar')}, in Help and in More tools.`],
-    ['Getting started (New here?)', `The top of Today for someone new, and ${go('More tools', '#/tools')}, then Getting started.`]]],
+    ['The legislative day, on Today’s date line', `${go('Session calendar', '#/help/calendar')}, in Help and on More.`],
+    ['Getting started (New here?)', `The top of Today for someone new, and ${go('More', '#/more')}, under Learning, then Getting started.`]]],
   ['Testimony', [
     ['Review, from Today’s approval card', `${go('Testimony', '#/testimony?view=approve')}, under To approve, opens Review: one draft at a time, as before. A note in the Inbox opens it too.`, approves],
     ['Drafts sent back, and Resubmit', `${go('Testimony', '#/testimony?view=sent')}, under Sent back, with the note, the Doc and <b>Resubmit</b>. The writer’s Today has the row too.`],
     ['The Mark filed sheet', `${go('Testimony', '#/testimony?view=file')}, under Ready to file: the filing card, with the PDF, the Capitol page and the form’s answers to copy.`],
     ['Withdraw from review, in the bill’s hearing menu', `${go('Testimony', '#/testimony?view=approve')}, under To approve: open your draft that is with an approver, then <b>Withdraw from review</b>. The Undo right after Send for approval does it too.`],
-    ['Earlier testimony', `${go('Testimony', '#/testimony?view=filed')}, under Filed, and in More tools. A bill’s Next step tab offers Borrow from earlier testimony.`],
+    ['Earlier testimony', `${go('Testimony', '#/testimony?view=filed')}, under Filed (the library of earlier testimony). A bill’s Next step tab offers Borrow from earlier testimony.`],
     ['Supporter emails to approve or send, on Today', `${go('Outreach', '#/outreach/emails')}, under Emails, and each email’s own page. Your own step on one stays a row on Today.`],
     ['Deadline reminders in the Inbox', 'They stay on the step itself (its time to act, on Today and in Testimony); the Inbox keeps only what happened.']]],
   ['Bills and a bill', [
-    ['Bills’ menu: Sort new bills, Muted bills', `Tabs of ${go('Bills', '#/bills')} (Sort new bills in the opening weeks), and rows of ${go('More tools', '#/tools')}.`],
-    ['Bills’ menu: Lists', `${go('Outreach', '#/outreach/lists')}, under Lists, and More tools.`],
+    ['Bills’ menu: Sort new bills, Muted bills', `Tabs of ${go('Bills', '#/bills')} (Sort new bills in the opening weeks; Muted for bill and coalition owners).`],
+    ['Bills’ menu: Lists', `${go('Outreach', '#/outreach/lists')}, under Lists, and on More.`],
     ['Bills’ quick filter chips', 'Presets at the top of Bills’ Filter sheet: At risk, Hearing this week, Monitoring.'],
-    ['Bills’ menu: Save this view, Saved views', 'Bills’ Filter sheet: <b>Save this view</b>, and your saved views as presets. More tools lists them too.'],
-    ['Bills’ menu: Columns and rows, Edit in the table, Export', 'Bills’ <b>Spreadsheet</b> view, which anyone can pick: <b>Columns</b>, <b>Export</b> and <b>Copy for Google Sheets</b> in its toolbar. A position, owner or nickname cell is changed by clicking it; each change has Undo. More tools has Export too.'],
-    ['Bills’ menu: Select bills', 'A <b>Select</b> button in Bills’ toolbar (or press and hold a row on a phone), then Change… or Add to…. More tools has Bulk change.'],
+    ['Bills’ menu: Save this view, Saved views', 'Bills’ Filter sheet: <b>Save this view</b>, and your saved views as presets.'],
+    ['Bills’ menu: Columns and rows, Edit in the table, Export', 'Bills’ <b>Spreadsheet</b> view, which anyone can pick: <b>Columns</b>, <b>Export</b> and <b>Copy for Google Sheets</b> in its toolbar. A position, owner or nickname cell is changed by clicking it; each change has Undo.'],
+    ['Bills’ menu: Select bills', 'A <b>Select</b> button in Bills’ toolbar (or press and hold a row on a phone), then Change… or Add to….'],
     ['A bill’s Overview tab and its Next up card', 'The bill’s Next step tab: What’s next for you, with your step’s button or whose step it is.'],
     ['To-dos, on a bill’s Overview', 'The bill’s Next step tab, under To-dos on this bill.'],
     ['A bill’s Activity tab', 'The bill’s Team talk tab: messages, the team note, and talks with legislators in one box.'],
@@ -306,11 +306,11 @@ const MOVED_ALL = () => [
   ['Legislators', [
     ['Legislators’ This week', `${go('Legislators', '#/legislators?view=everyone')}, under Everyone: <b>Hearing our bills this week</b>.`],
     ['The phone’s House, Senate and All chips', `${go('Legislators', '#/legislators?view=everyone')}, under Everyone: Filter, then House or Senate.`],
-    ['Holding our bills (it had no address)', `${go('Legislators', '#/legislators?view=holding')}, under Holding our bills, and in More tools.`],
+    ['Holding our bills (it had no address)', `${go('Legislators', '#/legislators?view=holding')}, under Holding our bills.`],
     ['Log a conversation', 'A legislator’s page: <b>Log a talk</b>. A bill’s Team talk box logs one too. Tick “This was an ask for a hearing” when it was one.'],
     ['Mark where they stand, on a legislator’s page', 'The same page, beside each of our bills in their committees: <b>Mark stand</b> (once set, the stance itself, such as Leaning yes). The bill’s Committees door has it too.']]],
   ['Outreach and My issues', [
-    ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More tools', '#/tools')} has First visit numbers and Make a link or QR code.`],
+    ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More', '#/more')} has First visit numbers and Make a link or QR code.`],
     ['Your issues for 2027 (the prep list)', `${go('My issues', '#/my-issues')} itself, between sessions.`],
     ['The Prep board, in All issues’ menu (admins)', `${go('All issues', '#/my-issues/all?view=prep')}, its own switch beside the list (between sessions, or while something waits for you).`, isAdmin],
     ['Coalitions (its own page)', `${go('My issues', '#/my-issues/coalitions')}, under Coalitions.`],
@@ -329,10 +329,10 @@ const MOVED_ALL = () => [
   ['Around the app', [
     ['Your initials menu, top right', 'You, at the foot of the sidebar: My settings, Refresh and Sign out. On a phone, the last rows of More.'],
     ['Practice as someone else, Start the practice over', 'You, at the foot of the sidebar, on the practice copy.'],
-    ['The Inbox, in that menu', `${go('Inbox', '#/inbox')}, in the sidebar with its count; on a phone, the bell at the top.`],
-    ['Help, My settings and Session setup at the sidebar’s foot', `Help in the sidebar; My settings under You${S.me?.is_admin ? '; Session setup under Lead tools' : ''}.`],
+    ['The Inbox, in that menu', `${go('Inbox', '#/inbox')}, the envelope beside the search box, with its count, at every width.`],
+    ['Help, My settings and Session setup at the sidebar’s foot', `Help is the button beside the search box (and on More); My settings under You${S.me?.is_admin ? '; Session setup under Lead tools' : ''}.`],
     ['The phone’s bar: Today, My issues, Bills, Legislators, Outreach', 'Today, Hearings, Testimony, Bills and More, where every other place is listed.'],
-    ['Open the current app, and version links', 'More tools, under Compare versions (admins).', isAdmin],
+    ['Open the current app, and version links', 'More, under Other versions (admins).', isAdmin],
     ['The search box', 'The same box, which now also finds places, setup parts and things to do. Cmd or Ctrl and K puts the cursor in it.'],
     ['Keyboard shortcuts', `All of v5’s, plus g h for Hearings, g w for Testimony and Cmd or Ctrl and K for search: ${go('Keyboard shortcuts', '#/help/keys')}.`]]],
 ];
