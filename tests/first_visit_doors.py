@@ -2,8 +2,9 @@
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/first_visit_doors.py [base] [out]   base defaults to http://localhost:8832
 # In the practice copy, today's version (an automated browser gets each test's first version):
-#   - the welcome's "Just look around" reaches Home in one tap, a reload stays on Home, Back leaves the site, Home offers a
-#     way back to pick issues (B-3), and the welcome still has one primary (A-3, C-2);
+#   - the welcome's "Just look around" opens Find's topics in one tap (R-357 Light fixes g, Nate's yes 30 Oct 2026: it used to land on a
+#     Home whose main button sent them back into the visit), a reload stays on Find, Back returns to the welcome, the first visit is
+#     left undone so the Home tab resumes it, and the welcome still has one primary (A-3, C-2);
 #   - "Leave, go to Home" on every step after the welcome (topics, issues, alerts, the story, Coming up; the short version's
 #     page; a shared bill's "Follow this issue?") reaches Home in one tap, keeps what was followed before it and follows
 #     nothing more, and a reload stays on Home; not on the finale, nor over the "Mahalo!" cover, nor in a plan;
@@ -14,7 +15,7 @@
 #   - the private counts get 'leave' for the step it was pressed on (and 'skip' for Skip): read from the sandbox's own
 #     printout (?debug), never sent. Every write to the database is refused and must not even be tried (a link that names a
 #     version carries &abrest, so the testers' path log stays off too).
-#   - Back from Home after leaving returns to the step that was left (B-4, B-5); after "Just look around", to the welcome.
+#   - Back from Home after leaving returns to the step that was left (B-4, B-5); after "Just look around" (from Find), to the welcome.
 import json, os, re, sys
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
@@ -96,23 +97,28 @@ with sync_playwright() as pw:
         ok(bn and b and b['y'] >= bn['b'] - 1 and p.locator('.actionbar .btn.primary').count() == 1, f'{w}: it sits under Let’s begin, which stays the one primary (A-3, C-2)')
         p.screenshot(path=os.path.join(OUT, f'{w}_welcome.png'))
         p.click('.st-hellobar [data-stleave]')
-        ok(home(p), f'{w}: one tap reaches Home ({H(p)}, {screen(p)})')
+        p.wait_for_function("document.body.dataset.screen === 'find'", timeout=8000); p.wait_for_timeout(600)
+        ok(H(p) == '#/find' and screen(p) == 'find', f'{w}: one tap opens Find\'s topics ({H(p)}, {screen(p)})')
         ev = last_leave(p)
         ok(len(ev) == 1 and ev[0].get('step') == 'arrive' and ev[0].get('path') == 'in', f'{w}: counted as leave on the welcome, arrive ({ev})')
-        ok(wiz(p).get('skipped') is True and not wiz(p).get('done'), f'{w}: the first visit is marked left, not done ({wiz(p)})')
+        ok(not wiz(p).get('skipped') and not wiz(p).get('done'), f'{w}: the first visit stays undone, so it can be resumed ({wiz(p)})')
+        ok(p.locator('.rc-row, .st-tile').count() >= 3, f'{w}: there are topics to look at ({p.locator(".rc-row").count()} rows)')
         if w == 375:
-            ok(p.locator('a[href="#/start/1"]').count() >= 1, 'Home offers a way back to pick issues (B-3): a link to the topics')
-            p.screenshot(path=os.path.join(OUT, f'{w}_home_after_look.png'), full_page=True)
+            p.screenshot(path=os.path.join(OUT, f'{w}_find_after_look.png'))
         p.reload(); p.wait_for_timeout(2500)
-        ok(H(p) in ('#/', '') and screen(p) == 'home', f'{w}: a reload stays on Home, the welcome does not open again ({H(p)})')
+        ok(H(p) == '#/find' and screen(p) == 'find', f'{w}: a reload stays on Find, the welcome does not open again ({H(p)})')
         if w == 375:
             p.go_back(); p.wait_for_timeout(1800)
-            ok(H(p) == '#/start/0' and p.locator('.st-hellobar [data-stleave]').count() == 1, f'Back from Home after "Just look around" returns to the welcome, both doors there (B-4) ({H(p)})')
+            ok(H(p) == '#/start/0' and p.locator('.st-hellobar [data-stleave]').count() == 1, f'Back from Find after "Just look around" returns to the welcome, both doors there (B-4) ({H(p)})')
+            p.go_forward(); p.wait_for_timeout(1500)
+            p.click('nav.tabs a[href="#/"]'); p.wait_for_timeout(2000)
+            ok(screen(p) == 'start', f'the Home tab takes the first visit up again, not a Home that sends them back into it ({H(p)}, {screen(p)})')
         c.close()
     # between sessions too
     c, p = ctx(br, 375); begin(p, '&season=off'); p.click('.st-hellobar [data-stleave]')
-    ok(home(p) and p.locator('a[href="#/start/1"]').count() >= 1, 'between sessions: Home, with "Pick the issues I care about" (B-3)')
-    p.screenshot(path=os.path.join(OUT, '375_home_after_look_off.png'), full_page=True)
+    p.wait_for_function("document.body.dataset.screen === 'find'", timeout=8000); p.wait_for_timeout(600)
+    ok(H(p) == '#/find' and screen(p) == 'find', f'between sessions too: Find\'s topics ({H(p)}, {screen(p)})')
+    p.screenshot(path=os.path.join(OUT, '375_find_after_look_off.png'), full_page=True)
     c.close()
 
     # ---- 2. "Leave, go to Home" from each step, and "Skip this part" beside it ----
