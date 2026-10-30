@@ -215,54 +215,6 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   Each screen keeps its own desktop rules in its own CSS.
 - Screen contract: `{ tab, tabs?, noTabs?, title?, render(route), wire(route), bar?(route) }`. Screens reach
   the frame through `app.render / app.go / app.openHelper` on the `app` object exported by `core.js`.
-- **Version 2 (R-357, Nate 30 Oct 2026: "make the bold changes but keep the my issues tab"), behind `?v2=1`.** `V2()` in `pub/app.js`
-  (opt-in for now; one later flip to `!== '0'` makes it everyone's) is read by a screen as `app.v2()`; the router keeps the query, so
-  the flag lasts the visit, and the body carries `.v2`. A v2 screen is its own lazy module under `pub/v2/` picked in `app.js` (the bill
-  page: `./v2/bill.js`), and `V2_CSS` brings `pub/v2/v2.css` after `rec/rec.css` (and the idle prefetch leaves it out without the flag),
-  so nothing of version 2 is fetched and v1 is unchanged without it. Part 1, the bill page as a slide: `pub/v2/bill.js` draws only the
-  slide and its "More about this bill" row; everything else is `pub/bill.js`, whose `screen(draw)` takes the page's drawing (loading,
-  bars and `wire()` are v1's) and which exports the parts the v2 page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...);
-  `pub/v2/slide.js` holds the slide's words (goal, sentences, times) for the pages that say them, to be shared with Home when its v2 part lands.
-  Test: `tests/v2_bill.py`.
-  Part 3, Home's week: `pub/calm/home.js` (the calm Home, everyone's) draws, with `app.v2()` on, the white box under the slide as "This week"
-  (`weekRows`, `weekBlock`; between sessions `issuesBlock` with a different last line): rows by day (a day label, the bill's name, what is due), a tap
-  opening the bill, the slide's own bill lit and not a link, "Also due: HIPHI asks", no number (`alsoDue` finds the soonest: the same ranking as Find's "Needs voices this week":
-  `suggestionList`/`recommendations` in `core.js`, without recording a showing) opening Find at that heading, and "Edit my issues" as the box's last
-  line (it asks for `#/bills` and presses its Edit button once drawn: `S.rcEdit` is cleared on arrival, so Home cannot set it). Its rules are in
-  `pub/home.css` under `.hm-v2` and `body.v2` (not `pub/v2/v2.css`: that file comes with the bill page, and with Home only after the idle
-  load, so Home would draw unstyled); `V2_CSS` in `app.js` could take `home: ['v2/v2']` once the rules move. "See your 2026 session" left Home
-  for You's row ("Your 2026 session", set in `pub/more.js` over `rec/you.js`'s). The slide's letter buttons call `app.openLetter2(bill, kind, opts)`
-  when it exists (Part 2; `{ resume: true }` for a letter started) and otherwise open today's walkthrough. Home does not import `pub/v2/slide.js`
-  (a static import would put it in Home's tree, which `check_split.mjs` rule 5 wants named in `track.html`); it already holds the same day words.
-  A newcomer's story card (`pub/v2/story.js`, Part 4: `storyCard()` -> `{ html, wire }`) is asked for by a dynamic import that Home does not await (a
-  top-level await would deadlock on an import back into this file) and is drawn between the slide and the box; one redraw draws a card found late.
-  Tests: `tests/v2_home.py`, and the version 2 set (three people, phone and laptop) in `tests/home_calm.py`.
-- **Version 2's first visit, in eight taps (R-357 part 4, Nate 30 Oct 2026, "seven taps" up to the profile ask; `?v2=1`).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
-  flow: `FLOW_V2 = ['topics', 'issues', 'voice', 'alerts']` after the welcome, and `FLOW_LINK_V2 = ['followask', 'alerts']` for a shared bill's visit;
-  past the last step is Home (`goStep`/`wire` call `finish()`). Welcome and topics are unchanged; Your issues starts two ticked per topic, at least one
-  (`model2` in `start-rest.js`), under the line "The two most active under each topic are ticked; change them as you like."; then `stepWhy`
-  (`start-rest.js`; the step the private counts know as `voice`, so no migration), "Why your note counts": the VOICES drawing from `art.js`, two sentences,
-  two plain rows (testimony; an email to the committee chair, each with its time) and Next, seen once (`wiz().why`, so "Edit my issues" does not teach
-  twice); then the profile ask as today (`alerts.js`, unchanged). Its Mahalo is the same cover (`coverAndFold`, which hands `end: true` to `coverEnd`): no band to fold into
-  because Home comes next, so it plays, then holds still with the button "See How I Can Help" (`GO_HELP`, the eighth tap) until it is pressed (Enter or Space too; the
-  page under it is inert, Reduce Motion shows it without animation), draws Home, and fades off it. `COVER_END_MS` (0) is the one-line switch to a cover that moves on by
-  itself after that many milliseconds (2800 was tried), which Nate may choose at his check: then the visit is 7 taps again. The
-  story, "This Year and Next" and "You're all set" are not in the v2 visit (v1 keeps them). The story is `storyCard()` in `pub/v2/story.js`, a card Home draws
-  for a newcomer (`{ html, wire }`, no side effects on import; "Read it" opens `#/learn/story`, whose Done returns to Home and calls `storyMark()`; "Not now"
-  does too). The first visit's pages have no `body.v2` or v2.css (`app.js` leaves `FIRST_VISIT` routes out), so v2's first-visit rules are at the end of
-  `pub/start.css` and the card's are inline in its markup. Test: `tests/v2_first_visit.py`.
-- **Version 2, Part 2: the letter in three screens (R-357, Nate 30 Oct 2026), `pub/v2/letter.js` + `letter.css`.** The walkthrough's frame
-  and everything that writes, keeps and sends the letter stay `pub/helper.js`'s; version 2 adds screens to that one dialog through a small
-  registry (`V2`, filled when `letter.js` loads) and borrows the letter's code through `HP` (both exported at the bottom and top of
-  `helper.js`). `helperLoad` in `app.js` loads `letter.js` and `letter.css` with the walkthrough only when `app.v2()` is true; then
-  `helper.js`'s `open()` and `openMail()` (a chair's email at a hearing) hand every new letter to `V2.open` first, so every "Help me
-  write testimony" button, Home's "Finish sending your testimony" included, opens the new sheet without a change of its own; a draft
-  started in the older walkthrough still finishes there. Screens: `v2l` (the letter: stance line, tappable points, own line, name),
-  `v2a` (the Capitol account, first time only), `v2s` (send, then "Did it go through?"), `v2own` (the Capitol's own form, for the
-  other side); an email is `v2l` then the older `mail` step. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })`
-  opens it by name (`resume: true` only when a letter is waiting; it returns true when the sheet opened, a promise until the files are in).
-  A draft is kept once the person has gone past the first screen, changed something, or chosen "I'll finish later" or "Not yet"
-  (`x.touched`), with `v2: 1` in it. Test: `tests/v2_letter.py`.
 - **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
   tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`
   is the state, the client, the catalog, the follows, the first visit's state and the page's small helpers; `pub/core.js`
@@ -348,6 +300,62 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
      "too quick... a permanent page that a user hits next on"); the first action and a law keep the moment (fx.js celebrate).
   3. Progress is the person's own. Community numbers appear only inside one bill or hearing, from 10 people.
 - Parked at Nate's request: exact YouTube hearing links (needs a YouTube Data API key in Settings).
+
+### Version 2 (?v2=1, R-357)
+
+Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
+
+- **The switch.** `V2()` in `pub/app.js` (opt-in for now; one later flip to `!== '0'` makes it everyone's) is read by a screen as
+  `app.v2()`; the router keeps the query, so the flag lasts the visit, and the body carries `.v2`. A v2 screen is its own lazy module
+  under `pub/v2/` picked in `app.js` (the bill page: `./v2/bill.js`), and `V2_CSS` brings `pub/v2/v2.css` after `rec/rec.css` (the idle
+  prefetch leaves it out without the flag), so nothing of version 2 is fetched and v1 is unchanged without it.
+- **The bill page, a slide (Part 1).** `pub/v2/bill.js` draws only the slide and its "More about this bill" row; everything else is
+  `pub/bill.js`, whose `screen(draw)` takes the page's drawing (loading, bars and `wire()` are v1's) and which exports the parts the v2
+  page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...). `pub/v2/slide.js` holds the slide's words (goal, sentences, times)
+  for the pages that say them, to be shared with Home when its v2 part lands. Test: `tests/v2_bill.py`.
+- **The letter in three screens (Part 2).** `pub/v2/letter.js` + `letter.css`. The walkthrough's frame and everything that writes, keeps
+  and sends the letter stay `pub/helper.js`'s; version 2 adds screens to that one dialog through a small registry (`V2`, filled when
+  `letter.js` loads) and borrows the letter's code through `HP` (both exported at the bottom and top of `helper.js`). `helperLoad` in
+  `app.js` loads `letter.js` and `letter.css` with the walkthrough only when `app.v2()` is true; then `helper.js`'s `open()` and
+  `openMail()` (a chair's email at a hearing) hand every new letter to `V2.open` first, so every "Help me write testimony" button,
+  Home's "Finish sending your testimony" included, opens the new sheet without a change of its own; a draft started in the older
+  walkthrough still finishes there. Screens: `v2l` (the letter: stance line, tappable points, own line, name), `v2a` (the Capitol
+  account, first time only), `v2s` (send, then "Did it go through?"), `v2own` (the Capitol's own form, for the other side); an email is
+  `v2l` then the older `mail` step. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })` opens it by name
+  (`resume: true` only when a letter is waiting; it returns true when the sheet opened, a promise until the files are in). A draft is
+  kept once the person has gone past the first screen, changed something, or chosen "I'll finish later" or "Not yet" (`x.touched`), with
+  `v2: 1` in it. Test: `tests/v2_letter.py`.
+- **Home's week (Part 3).** `pub/calm/home.js` (the calm Home, everyone's) draws, with `app.v2()` on, the white box under the slide as
+  "This week" (`weekRows`, `weekBlock`; between sessions `issuesBlock` with a different last line): rows by day (a day label, the bill's
+  name, what is due), a tap opening the bill, the slide's own bill lit and not a link, "Also due: HIPHI asks", no number (`alsoDue` finds
+  the soonest: the same ranking as Find's "Needs voices this week": `suggestionList`/`recommendations` in `core.js`, without recording a
+  showing) opening Find at that heading, and "Edit my issues" as the box's last line (it asks for `#/bills` and presses its Edit button
+  once drawn: `S.rcEdit` is cleared on arrival, so Home cannot set it). Its rules are in `pub/home.css` under `.hm-v2` and `body.v2` (not
+  `pub/v2/v2.css`: that file comes with the bill page, and with Home only after the idle load, so Home would draw unstyled); `V2_CSS` in
+  `app.js` could take `home: ['v2/v2']` once the rules move. "See your 2026 session" left Home for You's row ("Your 2026 session", set in
+  `pub/more.js` over `rec/you.js`'s). The slide's letter buttons call `app.openLetter2(bill, kind, opts)` (Part 2's) when it exists (`{ resume: true }`
+  for a letter started) and otherwise open today's walkthrough. Home does not import `pub/v2/slide.js` (a static import would put it in
+  Home's tree, which `check_split.mjs` rule 5 wants named in `track.html`); it already holds the same day words. Tests:
+  `tests/v2_home.py`, and the version 2 set (three people, phone and laptop) in `tests/home_calm.py`.
+- **The first visit, in eight taps (Part 4; "seven taps" up to the profile ask).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
+  flow: `FLOW_V2 = ['topics', 'issues', 'voice', 'alerts']` after the welcome, and `FLOW_LINK_V2 = ['followask', 'alerts']` for a shared
+  bill's visit; past the last step is Home (`goStep`/`wire` call `finish()`). Welcome and topics are unchanged; Your issues starts two
+  ticked per topic, at least one (`model2` in `start-rest.js`), under the line "The two most active under each topic are ticked; change
+  them as you like."; then `stepWhy` (`start-rest.js`; the step the private counts know as `voice`, so no migration), "Why your note
+  counts": the VOICES drawing from `art.js`, two sentences, two plain rows (testimony; an email to the committee chair, each with its
+  time) and Next, seen once (`wiz().why`, so "Edit my issues" does not teach twice); then the profile ask as today (`alerts.js`,
+  unchanged). Its Mahalo is the same cover (`coverAndFold`, which hands `end: true` to `coverEnd`): no band to fold into because Home
+  comes next, so it plays, then holds still with the button "See How I Can Help" (`GO_HELP`, the eighth tap) until it is pressed (Enter
+  or Space too; the page under it is inert, Reduce Motion shows it without animation), draws Home, and fades off it. `COVER_END_MS` (0)
+  is the one-line switch to a cover that moves on by itself after that many milliseconds (2800 was tried), which Nate may choose at his
+  check: then the visit is 7 taps again. The story, "This Year and Next" and "You're all set" are not in the v2 visit (v1 keeps them).
+  The first visit's pages have no `body.v2` or v2.css (`app.js` leaves `FIRST_VISIT` routes out), so v2's first-visit rules are at the
+  end of `pub/start.css`. Test: `tests/v2_first_visit.py`.
+- **The story card (Part 4).** `storyCard()` in `pub/v2/story.js` -> `{ html, wire }`, no side effects on import: a card Home draws for a
+  newcomer between the slide and the box. Home asks for it by a dynamic import that it does not await (a top-level await would deadlock on
+  an import back into `pub/calm/home.js`); one redraw draws a card found late. "Read it" opens `#/learn/story`, whose Done returns to Home
+  and calls `storyMark()`; "Not now" does too. The card's rules are inline in its markup. Tests: `tests/v2_first_visit.py`, and the card's
+  place on Home in `tests/v2_home.py`.
 
 ## Staff v6 (`staff6.html` + `staff6/`), the calm rebuild (R-336, 23 Oct 2026)
 
