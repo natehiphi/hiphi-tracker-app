@@ -169,15 +169,17 @@ function stampRoot() {
   if (!isRoot() || history.state?.blRoot) return;
   try { history.replaceState({ ...(history.state || {}), blRoot: true }, ''); } catch { /* ignore */ }
 }
-// A first visit that arrived on this link gets Find, the browse page, not the sign-up (R-238 A4-1; app.calmPlace).
-const goBack = () => { if (history.state?.arrived || !(history.state?.blRoot || isRoot())) history.back(); else app.go(app.calmPlace ? app.calmPlace() : '#/'); };
+// Nothing of this app behind a bill opened first (a shared link): Back says Home and goes to Home (R-357, Nate 30 Oct: it said
+// "Find" and lit the Find tab for someone who never saw Find; R-238 A4-1's Find is for an old-form link, which has Find behind
+// it for real, history.state.arrived, so its Back is real Back).
+const goBack = () => { if (history.state?.arrived || !(history.state?.blRoot || isRoot())) history.back(); else app.go('#/'); };
 // The Back button names the screen it returns to (R-238 A4-5: a follower of thirty should know where Back goes): the
 // page this one was opened from (app.js keeps it in history.state.prev), or Home or Find when the bill was the first
 // page opened. "Back" alone when nothing is known (a page reached by the browser's own history).
 function backName() {
   const st = history.state || {};
   if (!app.placeName) return '';
-  const name = isRoot(st) || st.blRoot ? app.placeName(app.calmPlace ? app.calmPlace() : '#/') : st.prev ? app.placeName(st.prev) : '';
+  const name = isRoot(st) || st.blRoot ? app.placeName('#/') : st.prev ? app.placeName(st.prev) : '';
   // A long name (an issue's) on a phone is cut at a whole word, never mid-word ("More local f…" read as broken, the
   // fresh-eyes review 10/11); the full name is on the page in its "Part of" line.
   if (wide() || name.length <= 16) return name;
@@ -1400,16 +1402,18 @@ function recHead(b, x) {
 // Follow the issue: the one follow on a bill page (R-067). It replaced "Part of <issue>", which this layout showed only after
 // a text's link or a follow (R-212 #47); both still say what they said: a text's level line, and "Following the issue".
 // "Its issue: <name>", the name said even when it is the bill's own (R-346, Nate 10/27: "of the same name" read oddly).
-// A stopped bill's main button is already Follow the issue, and a newcomer has it on their own card, so then the band has none.
+// A stopped bill's main button is already Follow the issue, so then the band has none. A newcomer has it too (R-357, Nate 30 Oct):
+// this layout draws no "New here?" card, and the band's Follow was left out for them on the card's account, so a newcomer from a link
+// had no way to follow from the page. Theirs is the card's own follow (data-bl-newfollow): the profile ask, the moment, the visit's end.
 const plainN = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().trim();
 const TONE_IC = { ok: 'circle-check', warn: 'circle-alert', stop: 'circle-minus' };
 function issueBand(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0], on = issueFollowed(i), hx = issueHealth(i, b);
   const badge = hx?.word ? `<span class="bl-ib-badge bl-ib-${hx.tone}">${icon(TONE_IC[hx.tone] || 'circle')}<span>${esc(hx.word)}</span></span> ` : '';
-  const follow = (x && followIsMain(b, x)) || firstVisit() ? ''
+  const follow = x && followIsMain(b, x) ? ''
     : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on bl-ib-btn', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
-    : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', cls: 'bl-ib-btn', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } });
+    : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', cls: 'bl-ib-btn', attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : i.id, 'aria-pressed': 'false' } });
   const tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '';
   return `<section class="bl-iband" data-topic="${esc(i.category || '')}" aria-label="Part of an issue">
     <span class="bl-ib-ic" aria-hidden="true">${icon(issueLead(i))}</span>
@@ -1626,7 +1630,8 @@ export function wireBillParts(roots, b, { bar = null, x = situation(b) } = {}) {
 // ---------------- the screen ----------------
 export default {
   // No tab bar here (the page has its own bars); on wide screens the header nav marks where bills live.
-  get tab() { const r = refFromHash(), b = lookup(r.num, r.year); return b && S.watch.has(b.id) ? 'bills' : 'find'; },
+  // A bill opened first (a shared link) lights no tab: Find was never seen (R-357, Nate 30 Oct; Back says Home, goBack).
+  get tab() { const r = refFromHash(), b = lookup(r.num, r.year); return b && S.watch.has(b.id) ? 'bills' : isRoot() || history.state?.blRoot ? '' : 'find'; },
   // Layout 3 (R-302) keeps the tab bar; its button docks above it once the action card scrolls away.
   get tabs() { return REC(); },
   title: route => { const num = normNum(route.num), b = lookup(num, +route.year || 0), sp = spaced(num) || 'Bill'; return b && nick(b) ? `${nick(b)} · ${sp}` : sp; },

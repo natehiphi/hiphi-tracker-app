@@ -163,6 +163,10 @@ pasted into Slack.
 Inline links inside running text are exempt. On pointer-only widths, 32px is allowed for controls
 inside a dense table.
 
+On the public bill page the issue band's "Its issue" link and the issue's name, and the names of the people who introduced
+the bill, are padded to 44px (inline padding: the tap reaches past the text without moving a line); they measured 83x17 and
+17px tall in the walk of 28 Oct (R-357, Nate 30 Oct 2026).
+
 *Reason.* Fitts's law, and a thumb is about 44px wide. The exemption for dense tables is real: a
 desktop table with 44px cells everywhere holds fewer rows and makes scanning worse, which costs more
 than it saves.
@@ -488,8 +492,10 @@ public-sector services: you complete something and the service just stops.
 Browser Back, the header back button and the phone's system gesture all do the same predictable
 thing. A screen with unsaved work registers a leave guard (`S.leaveGuards`). Closing a sheet is Back.
 A page's own Back names the screen it returns to ("← Find", "← Home", the issue's name), as iOS and
-GOV.UK do, and never leads forward into a form: someone whose first page was a friend's link gets
-Find, the browse page, behind it, not the sign-up (R-238).
+GOV.UK do, and never leads forward into a form: someone whose first page was an old-form link gets
+Find, the browse page, behind it, not the sign-up (R-238). A bill opened first (a friend's link) has nothing of
+the tracker behind it, so its Back says Home and goes Home, and no tab is lit: it said "Find" and lit the Find tab
+for someone who had never seen Find (the walk of 28 Oct; R-357, Nate 30 Oct 2026).
 
 *Reason.* NN/g heuristic 3. On the public page most people are on a phone using the system back
 gesture, which we do not control and must not surprise.
