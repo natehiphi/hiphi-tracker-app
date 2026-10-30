@@ -601,6 +601,9 @@ export const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].i
 export function nudgeOk() {
   // A number given for text alerts is an alerts sign-up too (R-146): nothing asks again.
   if (S.session || S.nudgedThisVisit || textSaved()) return false;
+  // One profile ask per visit (C-3; R-357 Light fixes h): pub/alerts.js marks the ask in this tab's sessionStorage the moment
+  // it is shown, which a reload keeps and S.nudgedThisVisit does not; every ask path reads the same mark through here.
+  try { if (sessionStorage.getItem('hiphi_ask_asked') === '1') return false; } catch { /* private mode: S.nudgedThisVisit holds it */ }
   const o = onb(), n = o.nudgeNo || 0, at = o.nudgeNoAt ? Date.parse(o.nudgeNoAt) : 0;
   return !n || Date.now() - at > (n === 1 ? 14 : 60) * 864e5;
 }
