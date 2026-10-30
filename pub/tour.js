@@ -3,8 +3,8 @@
 // can help: the page's real main button, lit and usable. A bill with nothing to do (stopped, became law, between
 // sessions) points tip 3 at Follow instead. Shown once, never during the first visit (#/start), never over the "New here?"
 // card someone gets on a shared link, and never by itself to anyone whose page load began on a link (a bill, an issue, a
-// legislator: R-114, cameToLook below): they get the tour on a later visit that begins at Home, or by asking for it. Finished or skipped, it never comes back (hiphi_tour_bill; the sandbox's storage patch in core.js
-// keeps its own _demo copy).
+// legislator: R-114, cameToLook below): they get the tour on a later visit that begins at Home, or by asking for it.
+// Finished or skipped, it never comes back (hiphi_tour_bill; the sandbox's storage patch in core.js keeps its own _demo copy).
 // It must never trap anyone: a tip whose part of the page is missing is left out, and with none there is no tour.
 // app.js calls after(route) at the end of every render; this module finds the parts by the bill page's own classes
 // (read only: bill.js draws them) and lives outside #app, so a redraw of the page underneath leaves it standing.
@@ -275,8 +275,8 @@ const CAME_IN = ['home', 'start', 'learn', 'next'];   // Home, and app.js FIRST_
 const cameToLook = () => !!S.arrivedOn && CAME_IN.includes(S.arrivedOn);
 const BILL = { key: 'hiphi_tour_bill', label: 'Reading a bill', route: 'bill', on: onBill, wide, tips,
   // Never by itself for someone who arrived on a link (R-114; cameToLook above, whatever the timing): they came for the
-  // bill, and the "New here?" card (bill.js) offers the tour in one quiet line. Nor, since X10-4 (R-180), for anyone who finished the first visit or
-  // opened this bill from Home to act (core.js billTourHeld): the bill page's own line "New to this? Take the tour"
+  // bill, and the "New here?" card (bill.js) offers the tour in one quiet line. Nor, since X10-4 (R-180), for anyone who
+  // finished the first visit or opened this bill from Home to act (core.js billTourHeld): the bill page's own line "New to this? Take the tour"
   // starts it (startBill, below), and goes once the tips are seen. Nor on a bill opened at its drafts (#/bill/.../changes,
   // R-212 #50): that page has scrolled down to what changed, so the tips at its top would dim it with nothing in view.
   above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => cameToLook() && !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !billTourHeld() && !/\/changes$/i.test(location.hash), delay: () => 450,
