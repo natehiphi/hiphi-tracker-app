@@ -73,7 +73,7 @@ const recIssue = lazy('issue', () => './rec/issue.js', { tab: 'find', title: 'Is
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -114,9 +114,15 @@ let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : 
 app.billTour = () => tourLoad().then(t => t.startBill()).catch(e => console.error(e));   // the bill page's "Take the tour" (X10-4)
 const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
 let helperMod = null;
-const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper', 'profile'])]).then(([m]) => { helperMod = m.default; return helperMod; });
+// Version 2 (?v2=1, R-357 Part 2): the letter in three screens (pub/v2/letter.js, pub/v2/letter.css) loads with the walkthrough, which hands
+// it every new letter; without the flag neither file is fetched.
+const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper', 'profile', ...(V2() ? ['v2/letter'] : [])]), V2() ? import('./v2/letter.js') : null]).then(([m]) => { helperMod = m.default; return helperMod; });
 app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
 app.openMail = o => helperLoad().then(() => app.openMail(o));
+// app.openLetter2(bill, kind, { hearing, resume, friend }): the v2 letter by name, for a screen that wants to open it (Home's "Finish sending
+// your testimony"); until the files are in it answers with a promise of what the real one returns (true when the sheet opened).
+const letter2Load = () => Promise.all([helperLoad(), import('./v2/letter.js'), ensureCss(['v2/letter'])]);
+app.openLetter2 = (...a) => letter2Load().then(() => app.openLetter2(...a));
 // A tab that reloads with the walkthrough open (iOS does this to a background tab while the person is in their mail app)
 // comes back to it: helper.js's tryReopen runs from its wire(), so when its mark is set (its OPEN_KEY) it loads at once.
 try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => render()); } catch { /* storage blocked */ }

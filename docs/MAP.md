@@ -224,6 +224,18 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   bars and `wire()` are v1's) and which exports the parts the v2 page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...);
   `pub/v2/slide.js` holds the slide's words (goal, sentences, times) for the pages that say them, to be shared with Home when its v2 part lands.
   Test: `tests/v2_bill.py`.
+- **Version 2, Part 2: the letter in three screens (R-357, Nate 30 Oct 2026), `pub/v2/letter.js` + `letter.css`.** The walkthrough's frame
+  and everything that writes, keeps and sends the letter stay `pub/helper.js`'s; version 2 adds screens to that one dialog through a small
+  registry (`V2`, filled when `letter.js` loads) and borrows the letter's code through `HP` (both exported at the bottom and top of
+  `helper.js`). `helperLoad` in `app.js` loads `letter.js` and `letter.css` with the walkthrough only when `app.v2()` is true; then
+  `helper.js`'s `open()` and `openMail()` (a chair's email at a hearing) hand every new letter to `V2.open` first, so every "Help me
+  write testimony" button, Home's "Finish sending your testimony" included, opens the new sheet without a change of its own; a draft
+  started in the older walkthrough still finishes there. Screens: `v2l` (the letter: stance line, tappable points, own line, name),
+  `v2a` (the Capitol account, first time only), `v2s` (send, then "Did it go through?"), `v2own` (the Capitol's own form, for the
+  other side); an email is `v2l` then the older `mail` step. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })`
+  opens it by name (`resume: true` only when a letter is waiting; it returns true when the sheet opened, a promise until the files are in).
+  A draft is kept once the person has gone past the first screen, changed something, or chosen "I'll finish later" or "Not yet"
+  (`x.touched`), with `v2: 1` in it. Test: `tests/v2_letter.py`.
 - **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
   tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`
   is the state, the client, the catalog, the follows, the first visit's state and the page's small helpers; `pub/core.js`

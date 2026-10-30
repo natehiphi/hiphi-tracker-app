@@ -473,6 +473,9 @@ anything that lengthens one needs a reason in the commit message.
 | Public: an email sent again (its email kept from the bill's last step) | 4 steps (R-153, 10/4: Send my email again, Use my email, read it and Next, open it in the mail app; "Did you send it?" closes it as for any email) |
 | Public: the one follow-up to the same chair, a week before the deadline | 3 steps (R-153: Follow up with the chair, read it and Next, open it in the mail app; offered only once their email is 5 days old; Nate: "Yes for now, but needs to be reconsidered") |
 | Public: quick email (under More ways to help) → sent | 9 steps (R-079, 9/29: Nate chose the testimony walkthrough for emails to a chair - where you stand, the bill and its talking points, About you, the email to read over, then sending by mail app, Gmail or Outlook.com and "Did you send it?". It was 4 steps as a one-box composer) |
+| Public, version 2 (`?v2=1`): testimony from a shared link → sent, first time | 5 taps in the tracker (R-357 v2, Nate's pick 30 Oct 2026, "the letter in three screens": the button on the bill page, Next: send it, This is my first time, Copy and open the Capitol page, Yes. A name is typed once when the profile has none. The Capitol's own account and form are outside the tracker and are not counted; v1's 9 stays until the flip) |
+| Public, version 2: testimony with a profile and a Capitol account | 4 taps (R-357 v2: the button, Next: send it, Copy and open the Capitol page, Yes; the name is the profile's and there is no account screen, so the sheet is "1 of 2". The brief wrote 3, counting from inside the sheet; the button's tap is counted here as in the 5 above) |
+| Public, version 2: an email to the chair | 4 taps (R-357 v2: Email the chair instead, Next: send your email, Open in my mail app or Gmail or Outlook, Yes, I sent it; the same letter, two screens, today's send step and its "Did you send it?" last) |
 | Public: ask a friend to speak up, right after acting (from the Mahalo, once the profile ask is answered) | 3 steps on a phone (R-205, 10/7: Ask a friend to speak up, then Send to a friend when a hearing offers more than one ask, then the phone's own menu, where the person and Send are the phone's). 2 on a laptop: Ask a friend to speak up, then an Email it button or Copy message |
 | Public: sign up for alerts (from the moment it is offered) | 3 steps with the code (R-155 and R-176, 10/5: Nate chose "Code at sign-up", then "Code everywhere": type the number, Text me a code, type the code, which sends itself at six digits and which phones offer above the keyboard; the code is the proof the number is theirs and cannot be removed). 2 until codes are on (R-146, 10/4: a mobile number is the box shown first, type it and Text me; email is one tap more, behind "Prefer email?". It was "give an email address", also 2) |
 | Staff: open app → first thing due is on screen | 1 step |
@@ -497,6 +500,22 @@ if any journey exceeds its budget.
 bills (Nate: "the user is not interested in bills, but instead about policies"). The same three steps -
 pick a category, see its issues, follow the ticked ones - now end on issues, and a bill reaches the person
 because it is on an issue they follow.
+
+**Version 2's letter in three screens, 30 Oct 2026 (R-357 Part 2, Nate's pick, behind `?v2=1`; the practice copy first).** Where
+the older walkthrough asked nine things on six parts, version 2 asks one thing on the first screen: the letter, already written from
+HIPHI's talking points, in which each point is a line to tap to keep or leave out, with an optional line of their own and the name
+(the profile's, else a box that must be filled). The Capitol account is one screen, the first time only, and says it honestly
+("About 10 minutes"); the send screen is one button, then one question, "Did it go through?". Reverses R-068's "each one a single
+question" for the stance (it is one line, "You support it · change") and folds 9/28's "Get to know the bill" into the letter; it keeps
+testimony the main action (R-068) and the email sharing the frame (R-079): the same sheet, two screens, today's send step last. **B-12:**
+the stance starts as HIPHI's, which the exception for HIPHI's own recommendations allows: it is on screen, one tap changes it, nothing
+is sent unseen, and nothing is kept as the person's own until they tap a chip. A person who picks the side opposite HIPHI's is offered
+the Capitol's own form, with a way back to a letter of their own words. **C-5:** title, email, why it matters, keep my story, the quote
+question and the sign-off chips are not asked in the letter; they belong after the Mahalo, beside the profile ask (that move is not part
+of this build, so until it lands those asks are simply not made). The timing of the consent words moves, the words do not: the note that
+testimony is public (for an email, the note that it goes from their own account and that a copy only they can see is kept) now sits
+under the letter, and "the Capitol posts it publicly" stays on the send screen; a lawyer should confirm the new timing. Measured by
+`tests/v2_letter.py`; v1's budgets stand until the flip.
 
 ### B-3 No dead ends
 

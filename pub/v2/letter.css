@@ -1,0 +1,70 @@
+/* Version 2's letter in three screens (R-357 Part 2, pub/v2/letter.js; Nate, 30 Oct 2026), behind ?v2=1. Loaded after helper.css (pub/app.js
+   helperLoad), and every rule is under .hp-v2, the dialog's own class, so nothing reaches another screen or the older walkthrough.
+   Colours and sizes only through base.css's tokens (A-5, A-7, A-8); type sizes 13, 14, 16, 18, 22 (A-4). */
+
+/* the stance, one line over the letter: "You support it · change" */
+.hp-v2 .v2-stancebox { display: flex; flex-direction: column; gap: var(--s4); }
+.hp-v2 .v2-stance { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); font-size: var(--t16); color: var(--n700); }
+.hp-v2 .v2-stance b { color: var(--n900); }
+.hp-v2 .v2-change { margin-left: calc(-1 * var(--s4)); text-decoration: underline; text-underline-offset: 3px; }
+.hp-v2 .v2-chips { margin-top: 0; }
+.hp-v2 .v2-strong { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
+.hp-v2 .v2-frombill { margin: 0; }
+
+/* the letter: a page of paper, in today's format; its own words are Lato 16 like the box it replaces (helper.css .hp-letter) */
+.hp-v2 .v2-paper { display: flex; flex-direction: column; gap: var(--s12); padding: var(--s16); border: 1px solid var(--n300); border-radius: var(--r12);
+  background: var(--n0); color: var(--n900); font: 400 var(--t16)/1.55 var(--font); }
+.hp-v2 .v2-paper p { margin: 0; overflow-wrap: anywhere; }
+.hp-v2 .v2-head, .hp-v2 .v2-to { font-size: var(--t13); line-height: 1.5; color: var(--n700); }   /* what it is, to whom, for which hearing: kept small, the words are below */
+.hp-v2 .v2-head { padding-bottom: var(--s12); border-bottom: 1px solid var(--n200); }
+.hp-v2 .v2-to { padding-bottom: var(--s12); border-bottom: 1px solid var(--n200); }
+.hp-v2 .v2-to b { color: var(--n900); }
+
+/* each talking point is a line to tap. Kept: the letter's own text, with a thin rule in the margin. Left out: grey, with a plus. */
+.hp-v2 .v2-lines { display: flex; flex-direction: column; gap: var(--s4); margin: 0; padding: 0; list-style: none; }
+.hp-v2 .v2-pt { display: flex; align-items: flex-start; gap: var(--s8); width: calc(100% + var(--s16)); min-height: 44px; margin: 0 calc(-1 * var(--s8)); padding: 10px var(--s8) 10px var(--s12);
+  border: 0; border-left: 3px solid var(--p200); border-radius: 0 var(--r8) var(--r8) 0; background: none; color: var(--n900); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+@media (hover: hover) { .hp-v2 .v2-pt:hover { background: var(--p50); } }   /* a touch screen keeps :hover on the line just tapped */
+.hp-v2 .v2-pt:active { background: var(--p100); }
+.hp-v2 .v2-pt .v2-ptt { flex: 1 1 auto; min-width: 0; }
+.hp-v2 .v2-pt.out { color: var(--n500); border-left-color: var(--n200); }
+.hp-v2 .v2-pt.out .ic { flex: none; width: 18px; height: 18px; margin-top: 4px; color: var(--p700); }   /* the plus: not by colour alone (A-5) */
+.hp-v2 .v2-from { display: flex; align-items: center; gap: 6px; margin: var(--s8) 0 0; font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.hp-v2 .v2-from .ic { width: 16px; height: 16px; flex: none; color: var(--n500); }
+
+/* the line of their own, and the name: boxes inside the letter, plain labels (the placeholder is only an example) */
+.hp-v2 .v2-own, .hp-v2 .v2-signed { gap: var(--s4); }
+.hp-v2 .v2-own label, .hp-v2 .v2-signed label { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.hp-v2 .v2-own textarea { min-height: 48px; resize: none; border-style: dashed; }
+.hp-v2 .v2-own .help { color: var(--n700); font-size: var(--t14); }
+.hp-v2 .v2-sign { display: flex; flex-direction: column; gap: var(--s4); }
+.hp-v2 .v2-name { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); font-weight: 700; }
+.hp-v2 .v2-rename { margin-left: calc(-1 * var(--s4)); font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
+.hp-v2 .v2-hint { margin: calc(-1 * var(--s4)) 0 0; font-size: var(--t14); color: var(--n700); }
+
+/* screen 2: the choices, the Public Access Room's number, the plain way out */
+.hp-v2 .v2-par { margin: 0; }
+.hp-v2 .v2-escape { display: flex; justify-content: flex-start; margin-left: calc(-1 * var(--s12)); }
+.hp-v2 .v2-escape .btn { white-space: normal; text-align: left; justify-content: flex-start; }
+
+/* screen 3: what to do at the Capitol, and the one question after the button */
+.hp-v2 .v2-do { display: flex; flex-direction: column; gap: var(--s8); }
+.hp-v2 .v2-do p { margin: 0; }
+.hp-v2 .v2-do b { color: var(--n900); }
+.hp-v2 .v2-do .hp-nw { white-space: nowrap; }
+.hp-v2 .v2-ask { display: flex; flex-direction: column; gap: var(--s8); }
+.hp-v2 .v2-ask h4 { margin: 0; font-size: var(--t18); }
+.hp-v2 .v2-ask p { margin: 0; }
+.hp-v2 .v2-answers { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s8); margin-top: var(--s4); }
+.hp-v2 .v2-answers .btn { width: 100%; justify-content: center; }
+.hp-v2 .v2-ask .hp-inl { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
+
+/* Back on the first screen closes the sheet: icon only on the narrowest phones, as Back is on the others (helper.css) */
+@media (max-width: 379px) {
+  .hp-v2 .hp-back[data-hp="close"]:has(.ic) { min-width: 44px; padding: 0; }
+  .hp-v2 .hp-back[data-hp="close"]:has(.ic) span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+@media (min-width: 720px) {
+  .hp-v2 .v2-answers { grid-template-columns: repeat(2, minmax(0, 200px)); }
+}
+@media (prefers-reduced-motion: reduce) { .hp-v2 .v2-pt { transition: none; } }
