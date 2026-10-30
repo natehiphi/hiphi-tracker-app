@@ -21,7 +21,7 @@ const VOICE_WORDS = () => ['You’re ready to speak up.', 'Your voice is ready.'
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
-import { alertFields, alertButton, wireAlertForm, fmtPhone, confirmWords, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, confirmWords, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H, markAsked } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -510,6 +510,7 @@ function mahaloBand() {
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false; keepFirstName();
+  if (!r) markAsked({ skipped: true });   // Skip on the ask: the ending does not offer "Turn on alerts" a moment later, nor does a follow reopen the sheet (C-3)
   if (wiz().via) { goStep(step, step + 1); return; }
   S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
   // R-306: the cover goes up over this screen first, the story is drawn under it, then the cover folds into the band.
@@ -1059,7 +1060,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     // The visit's one alerts ask, so Home will not ask again (C-3); once drawn it stays in the flow (redirectFor).
     // A "Mahalo!" page reached with nothing asked (noAsk, above) does not count as the ask: the email-ask test's later ask
     // (R-135) must still come.
-    if (!S.stThanks?.noAsk) { S.nudge = null; S.nudgedThisVisit = true; }
+    if (!S.stThanks?.noAsk) { S.nudge = null; markAsked(); }
     S.alertsShown = true;
     wireAlertForm($('#st-aform'), { pfx: 'st-a', source: 'first_visit', onDone: r => {
       if (r.kind === 'email') S.stMail = { email: r.email, name: S.stMail.name || '', sent: r.email, demo: !!r.demo };

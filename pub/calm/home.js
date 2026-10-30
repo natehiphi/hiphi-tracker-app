@@ -33,6 +33,7 @@ import { S, app, esc, icon, nick, headline, billPath, alive, openActions, dayWor
 import { btn, chip, skeleton } from '../ui.js';
 import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs, remindWhen, remindDone, testimonyTime } from '../actions.js';
 import { celebrate, bloom, swap, reduced, fxOn, rooster } from '../fx.js';
+import { askedThisVisit } from '../alerts.js';
 import { CAPITOL, issueBand, flower } from '../art.js';
 import { GOAL } from './goals.js';
 import today, { calmParts as P, wireExtras } from '../home.js';
@@ -191,7 +192,7 @@ function dueParts(c, e, hl, live) {
   // The time is the button's: testimony says its one promise (actions.js testimonyTime), the quick email keeps "about 2 min".
   const writes = /data-helper/.test(p.go) ? testimonyTime() : /data-mailwalk/.test(p.go) ? 'about 2 min' : '';
   return { hl, id: 't-' + h.id, art: artOf(b), title: goalOf(b), say: `${why}${esc(hears)} ${ask}`,
-    detail: detailLine(`${late ? 'Late until' : 'By'} ${byWhen(dl)}`, warn, writes ? 'about 2 min' : '', b), before: p.before, go: p.go, after: p.after, mk: ck, mw: 'mw-' + h.id };
+    detail: detailLine(`${late ? 'Late until' : 'By'} ${byWhen(dl)}`, warn, writes, b), before: p.before, go: p.go, after: p.after, mk: ck, mw: 'mw-' + h.id };
 }
 // The hearing ask (home.js askCard's facts, as a slide): a bill waiting for a hearing before its committee's cut-off. Its More
 // ways to help (R-300, Nate's "every slide gets it"): a friend asks too, the cut-off in their calendar, the bill itself.
@@ -499,7 +500,8 @@ export default {
     if (delegated) return today.render(route);
     const si = sessionInfo();
     // A fresh arrival on the first visit's own Home, the email step skipped: one ask, as a line (core's nudge rules).
-    if (!document.querySelector('#main .cm') && welcome && !S.nudge && !S.session && !P.alertsGiven()) nudge('follow');
+    // Not after the one ask of the visit was shown and skipped, even across a reload (alerts.js askedThisVisit; C-3, R-357 Light fixes h).
+    if (!document.querySelector('#main .cm') && welcome && !S.nudge && !S.session && !P.alertsGiven() && !askedThisVisit()) nudge('follow');
     return si.phase === 'in' ? inSession(si, { welcome, fin }) : offSession(si, { welcome });
   },
   wire(route) {

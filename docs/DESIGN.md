@@ -666,7 +666,10 @@ the box's consent words already name). It is the first thing seen after a first 
 happens: after an issue page's or a category's Follow it rises in the alerts sheet with the follow said over it, and
 after a letter it sits right under the thank-you, above "What happens next" (it had been under the first phone screen,
 so "Done" came first). Still once per visit, and no second ask on Home after a skip (Nate). The old "Get alerts" ask
-is kept as a switched-off version to test later (the test `save`).
+is kept as a switched-off version to test later (the test `save`). Since 30 Oct 2026 (R-357, Nate's yes to the Light fixes) the
+visit's mark is kept in the tab's session as well as in the page (a reload no longer forgets it), so a follow after a skip does
+not reopen the sheet, and "You're all set" leaves out "Alerts are off · Turn on alerts" for the rest of the visit once the
+ask was skipped (`alerts.js` `markAsked`, `skippedThisVisit`).
 
 **Then the share ask, since 10/7 (R-205, Nate: "the profile ask stays first", "Do not ask them to keep sharing after
 they've done it").** On a letter's or an email's Mahalo the profile ask's two answers sit in the bar, "Not now" and the box's
