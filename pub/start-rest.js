@@ -11,6 +11,7 @@ import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sent
 import { btn, chip, posChip } from './ui.js';
 import { t } from './i18n.js';   // the bar's "Skip this part" is said in the person's language, as bar2's (start.js)
 import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-296)
+import { testimonyTime } from './actions.js';   // and its one time promise (R-357 Light fixes e; C-15)
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
@@ -678,7 +679,7 @@ const dayOf = iso => { const d = hstDay(iso), t = hstDay(Date.now()); return d =
 function wayWords(w) {
   const name = w.b ? nick(w.b) || spaced(w.b.bill_number) : '', soon = iso => new Date(iso) - Date.now() < 864e5;
   switch (w.kind) {
-    case 'testimony': return { ic: 'notebook-pen', act: 'Write testimony', min: 'a few min', name,
+    case 'testimony': return { ic: 'notebook-pen', act: 'Write testimony', min: testimonyTime(), name,
       when: `Due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`, urgent: soon(w.h.testimony_deadline) };
     case 'email': return { ic: 'mail', act: 'Email the committee chair', min: '2 min', name, when: `Hearing ${dayOf(w.h.scheduled_at)} at ${timeWord(w.h.scheduled_at)}` };
     case 'ask': return { ic: 'mail', act: `Ask the ${chairContacts(w.code).length > 1 ? 'chairs' : 'chair'} for a hearing`, min: '2 min', name,
@@ -691,7 +692,7 @@ function wayWords(w) {
   }
 }
 const lastOf = l => (l.sort_name || l.name || '').split(',')[0];
-// "Write testimony · a few min": the time stays with its words (the review: never alone on a line).
+// "Write testimony · about 10 min the first time": the time stays with its words (the review: never alone on a line).
 const actLine = (ic, t, m) => `<span class="st-way-act">${icon(ic)}<span>${esc(t)}${m ? ` <span class="st-way-min nobr">· ${esc(m)}</span>` : ''}</span></span>`;
 function stepWays(step, ways) {
   // "before January" between sessions, and in session when nothing on their issues is due (the between-sessions ways).

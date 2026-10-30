@@ -2,7 +2,7 @@
 // Home ("Do this now"), Find (suggestions) and the bill page, so it looks and behaves the same everywhere.
 // One primary button (write testimony, or email the chair once the written deadline has passed), one secondary
 // ("More ways to help") that opens inside the card, never a sheet. Every action counts (Nate, 9/18).
-import { S, DEMO, app, esc, icon, blurb, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, alive, hstDay, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
+import { S, DEMO, app, esc, icon, blurb, firstVisit, asSentence, spaced, billPath, issueOf, posInfo, cmteLabel, dueInfo, hearingText, dateLong, dayWord, timeWord, roomLabel, countOk, chairContacts, actedOn, didKind, doneKey, markDone, toggleWatch, dismiss, toast, friendly, KINDS, onb, onbSet, nick, myActions, agrees, anyBill, anyHearing, settledOn, goingOn, ensureBill, companionsOf, viaIssue, issuesOf, issueFollowed, setFollows, testimonyDraft, billShareUrl, issueShareUrl, dueWords, isResolution, alive, hstDay, followedIssues, CHAMBER_NAME, codesOf, suggestEvent } from './core.js';
 import { testifyLabel, againLine, mailLabel, letterOn, HELP_WORDS } from './letters.js';
 import { logAct } from './visitlog.js';
 import { issueBand } from './art.js';
@@ -30,6 +30,13 @@ function doneLabel(b, h, k) {
 // have acted, testimony leads. HIPHI's scripted email and letter are offered only when the person's own stance
 // matches HIPHI's or they have not said; someone who disagrees is pointed to the Capitol's own form instead.
 export const newToActing = () => myActions().length === 0;
+// One time promise wherever testimony is offered (R-357 Light fixes e, Nate's yes 30 Oct 2026; C-15: one name for each thing).
+// The words come from here: "about 10 min the first time" (the Capitol site asks for a free account) and "about 3 min" once
+// testimony has been sent, read from the same kept done marks as everything else (kernel myActions). The quick email keeps
+// its own "2 min". The Home slide's detail line (calm/home.js) and the rows under More ways to help both say it through these.
+export const sentTestimony = () => myActions().some(a => a.kind === 'testimony');
+export const testimonyTime = () => sentTestimony() ? 'about 3 min' : 'about 10 min the first time';
+const testimonySub = () => `The strongest way to be heard. ${testimonyTime().replace(/^a/, 'A')}${sentTestimony() ? '' : ' (the Capitol site asks for a free account)'}.`;
 // Ranking by weight with the committee (R-005, Nate 9/26), now the rank test (R-135, variant.js 'rank'): once testimony is
 // sent, the 'ranked' version offers the strongest step still open as the main button - an email to the chair, then going
 // in person, then sharing - and "More ways to help" lists the rest in that order; today's version has no main button
@@ -77,10 +84,16 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const emailBtn = btn(mailWords, { kind: 'primary', icon: 'mail', full: true, attrs: { 'data-mailwalk': k } });
   // A bill on an issue is followed through its issue (R-067), so the button says so, as the bill page's does (C1-7, R-199).
   const fi = issuesOf(b)[0];
-  const followBtn = btn(fi ? 'Follow this issue' : 'Follow this bill', { kind: 'primary', icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false', 'aria-label': fi ? `Follow this issue: ${fi.name}` : null } });
+  const followWith = kind => btn(fi ? 'Follow this issue' : 'Follow this bill', { kind, icon: 'star', full: true, attrs: { 'data-follow': b.id, 'aria-pressed': 'false', 'aria-label': fi ? `Follow this issue: ${fi.name}` : null } });
+  const followBtn = followWith('primary');
   // A suggested bill they have not followed yet: the ask is step 2 of the ladder (follow), not
   // step 4 (email a committee chair about a bill they met four seconds ago).
   const asking = !!suggest && !S.watch.has(b.id);
+  // ...except once its testimony is open for someone past the first visit (Home for a person who follows nothing yet): then the act
+  // is the filled button and Follow the quieter one beside it, never the reverse with the act folded under "More ways to help"
+  // (B-14; R-357 Light fixes g, Nate's yes 30 Oct 2026). A newcomer in the first visit still meets Follow first (the ladder);
+  // late testimony keeps Follow first too, since the quick email is the way then.
+  const actFirst = asking && !firstVisit() && !!due && !late;
   // The rank test is met where its versions differ: testimony sent on this hearing and another step still open (R-135).
   const after = !asking && !compact && didKind(b, h, 'testimony') && !!nextStep(b, h), R = after && ranked();
   if (after && !quiet) abRankMet(h.id);
@@ -96,11 +109,11 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
   const rankedBtn = { testimony: testimonyBtn, email: emailBtn,
     attend: btn('Go to the hearing', { kind: 'primary', icon: 'map-pin', full: true, attrs: { 'data-go': k, 'aria-expanded': S.goOpen.has(k) } }),
     share: btn('Ask a friend to speak up', { kind: 'primary', icon: 'share-2', full: true, attrs: { 'data-share': k } }) };
-  const primary = asking ? followBtn
+  const primary = actFirst ? testimonyBtn : asking ? followBtn
     : R ? (step ? rankedBtn[step] + (step === 'attend' && S.goOpen.has(k) ? goPanel(b, h, k) : '') : '')
     : emailFirst ? (didKind(b, h, 'email') ? '' : emailBtn) : (didKind(b, h, 'testimony') ? '' : testimonyBtn);
   const rowFor = x => ({
-    testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony', late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
+    testimony: differs ? '' : moreRow('notebook-pen', late ? 'Send late testimony' : 'Write testimony', late ? 'It will be marked late and may not be read before the vote.' : testimonySub(), { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent'),
     email: differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairWho)} who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     attend: inPerson || planned ? '' : moreRow('map-pin', 'Go to the hearing', `${esc(roomLabel(h.room))}, State Capitol. Anyone can attend.`, { 'data-go': k, 'aria-expanded': S.goOpen.has(k) }, didKind(b, h, 'attend') && doneLabel(b, h, 'attend')) + (S.goOpen.has(k) ? goPanel(b, h, k) : ''),
     share: moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
@@ -112,7 +125,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     moreRow('calendar-plus', 'Add to my calendar', late ? 'The hearing time and place.' : 'A reminder before testimony is due.', { 'data-ics': k }, S.chips[k + 'ics'] && 'Calendar file ready')].join('');
   const rows = R ? rankedRows() : [
     // Testimony is listed here only when it is not already the main button (a suggested bill leads with Follow).
-    asking ? moreRow('notebook-pen', late ? 'Send late testimony' : HELP_WORDS, late ? 'It will be marked late and may not be read before the vote.' : 'The strongest way to be heard. About 15 minutes the first time (the Capitol site asks for a free account), a few after that.', { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
+    asking && !actFirst ? moreRow('notebook-pen', late ? 'Send late testimony' : HELP_WORDS, late ? 'It will be marked late and may not be read before the vote.' : testimonySub(), { 'data-helper': h.id, 'data-bill': b.id }, didKind(b, h, 'testimony') && 'Sent') : '',
     differs ? '' : moreRow('mail', mailWords, `A short note to ${esc(chairWho)} who ${runs} this hearing.`, { 'data-mailwalk': k }, didKind(b, h, 'email') && 'Emailed'),
     legRow,
     moreRow('share-2', 'Ask a friend to speak up', 'More voices carry more weight.', { 'data-share': k }, didKind(b, h, 'share') && 'Shared'),
@@ -146,7 +159,7 @@ export function actionCard(b, h, { focus = false, suggest = null, why, heading =
     ${done ? `<div class="donebox" role="status">${icon('circle-check')}<span>${doneKinds.includes('testimony') ? 'You sent testimony. Mahalo!' : doneKinds.map(x => doneLabel(b, h, x)).join(' · ') + '. Mahalo!'}</span>${sentLetter}${lastDone ? `<button type="button" class="btn text sm" data-undo="${esc(k)}|${lastDone}" aria-label="Undo: ${esc(doneLabel(b, h, lastDone))}">Undo</button>` : ''}${emailOnly ? `<p class="small doneafter">Written testimony is different: the committee reads it before it votes.</p>` : ''}</div>` : ''}
 
     ${voices && !emailOnly ? `<p class="proof">${icon('users')}${voices} people have acted on this hearing through HIPHI</p>` : ''}
-    <div class="btncol">${compact ? '' : primary}${askBtn}
+    <div class="btncol">${compact ? '' : primary}${compact || !actFirst ? '' : followWith('secondary')}${askBtn}
       ${btn(more ? 'Fewer ways to help' : 'More ways to help', { kind: REC() ? 'text' : 'secondary', iconEnd: more ? 'chevron-up' : 'chevron-down', full: true, cls: REC() ? 'mwtoggle' : '', attrs: { 'data-moreways': k, 'aria-expanded': more ? 'true' : 'false', 'aria-controls': 'mw-' + h.id } })}</div>
     ${planned ? planBlock(b, h, k, lastDone !== 'attend') : ''}
     ${!planned && onZoom(b, h) ? zoomBlock(b, h) : ''}

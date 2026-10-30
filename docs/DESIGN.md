@@ -597,7 +597,7 @@ which is A-1 again.
 On Home, every thing a person can do this week is on the page: the soonest as the slide (R-295: drawing, goal heading, one full-width button, like a first-visit screen), the rest one line each, none
 behind "Show more", "Ready now?" or a closed fold. On the calm Home (R-222, A-23) "one line each" is the issue's row: it
 names its soonest deadline and how many more are due that week ("Testimony due tomorrow 1:00 PM, and 1 more this
-week"), and the slide's pager (its arrows, or a swipe; R-300) brings each up on the slide, as does a tap on a row that has something due, which moves the pager to it (R-295, Nate 10/17, "5a"); the slide's own issue says "On the slide above" in its row; a row is never silent about something due. Late testimony counts
+week"), and the slide's pager (its arrows, or a swipe; R-300) brings each up on the slide, as does a tap on a row that has something due, which moves the pager to it (R-295, Nate 10/17, "5a"); since 30 Oct 2026 (R-357, Nate's yes to the Light fixes) such a row ends in the word "Show" in link blue instead of a chevron, which promised a new page (A-12), and the slide's own row, lit, no longer says "On the slide above" and says only how many more are due that week; a row is never silent about something due. Late testimony counts
 as something due (R-250, Nate 10/11): when nothing is due on time it is the slide, and its row says "Late testimony until
 today 1:10 PM". A bill followed on its own has a row too, named for the bill with its number on the status line ("HB 1563 ·
 Needs a hearing by Mon, Mar 30"); the slide's own bill has none. **One exception, at
