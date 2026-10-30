@@ -49,7 +49,7 @@ import testimonyplace from './testimonyplace.js';
 import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
-import { PLACES, MAIN, BAR, leadKeys, seesTeam, youName, syncWords, syncNote } from './more.js';
+import { PLACES, MAIN, BAR, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -167,7 +167,8 @@ const placeOf = route => !route ? '' : route.name === 'bill' && S.billFrom ? S.b
 // The phone bar lights More for every place that is not one of its five.
 const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
 // The sidebar lights More for a place it does not draw (Legislators, Inbox, Help, the tools): one click from More (R-356).
-const sideOf = (k, leads) => !k || MAIN.includes(k) || leads.includes(k) || k === 'you' || k === 'more' ? k : 'more';
+// Inbox and Help are lit on their header icon only (A-12: one current place); Legislators and the tools keep More lit.
+const sideOf = (k, leads) => k === 'inbox' || k === 'help' ? '' : !k || MAIN.includes(k) || leads.includes(k) || k === 'you' || k === 'more' ? k : 'more';
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
@@ -345,7 +346,8 @@ function sidebar(route) {
     <a class="sv-sbrand" href="#/" aria-label="Bill Tracker, Today">${MARK}<span>Bill Tracker<small>HIPHI staff</small></span></a>
     <nav class="sv-snav" aria-label="Places">${sideCue('up')}
       <div class="sv-sgrp">${MAIN.map(k => sideItem(k, now, k === 'today' ? todayBadge(bd, lateN, 'sv-sn') : '')).join('')}</div>
-      ${leads.length ? `<div class="sv-sgrp" role="group" aria-labelledby="sv-leadh"><p class="sv-shd" id="sv-leadh">Lead tools</p>${leads.map(k => sideItem(k, now)).join('')}</div>` : ''}
+      ${leads.length ? (() => { const only = !isLead() && leads.length === 1 && leads[0] === 'team';   // C-15: Kris sees Team without leading; "Lead tools" over one row Team was wrong, so no heading
+        return `<div class="sv-sgrp"${only ? '' : ' role="group" aria-labelledby="sv-leadh"'}>${only ? '' : '<p class="sv-shd" id="sv-leadh">Lead tools</p>'}${leads.map(k => sideItem(k, now)).join('')}</div>`; })() : ''}
       ${sideCue('down')}
     </nav>
     <div class="sv-sfoot">${syncNote()}${sideItem('more', now)}

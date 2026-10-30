@@ -59,6 +59,17 @@ function scopeOf(route) {
 }
 // With one choice left there is nothing to switch: no switch is drawn.
 const switcher = scope => scopes().length > 1 ? segmented('hscope', scopes(), scope, 'Whose hearings') : '';
+// B-13 on v6, P-4, C-15: with no switch the page says in words whose week this is, and, quietly, that the team has more (no
+// link: Team is not theirs to open). Only on This week's list, for the week in view; the count is the team's sittings that
+// week which are not already in this person's list.
+function scopeWords(route, scope) {
+  const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), keep = x => !x.mon || monOn();
+  const mine = new Set(weekSittings(scope, mon).filter(keep).map(x => sitKey(x.h)));
+  const rest = weekSittings('team', mon).filter(keep).filter(x => !mine.has(sitKey(x.h))).length;
+  const w = scope === 'coal' ? 'Your coalitions’ hearings' : 'Your hearings';
+  const when = off === 0 ? ' this week' : off === 1 ? ' next week' : off === -1 ? ' last week' : '';
+  return `<p class="hw-scope">${esc(w + when)}</p>${rest ? `<p class="hw-scope-more">The team has ${rest} more${when || ' that week'}</p>` : ''}`;
+}
 
 // ---- one issue's hearings (R-352: the job All issues' calendar did, now here) ----
 // The address holds the pick (?issue=<id>), nothing else does: a filter kept out of sight would hide hearings from someone
@@ -547,7 +558,7 @@ export default {
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
       <h1 class="v6-ptitle sv-h1">Hearings</h1>
       ${tabs(view, sum)}
-      <div class="hw-bar"><div class="hw-picks">${switcher(scope)}${view === 'week' ? issuePick(scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
+      <div class="hw-bar"><div class="hw-picks">${switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? issuePick(scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
   },

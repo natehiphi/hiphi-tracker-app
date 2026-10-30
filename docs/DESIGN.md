@@ -1167,9 +1167,11 @@ none covered chair asks, filing or covering for someone.
 
 ### B-13 on v6: every job a role does has a visible, labelled door
 
-- **Laptop and tablet (768px and wider): the sidebar**, always shown, always labelled (spec 3.1): Today, Hearings,
-  Testimony, Outreach, Bills, Legislators, My issues, then Inbox and Help, then Lead tools by role, More tools and You.
-  **Exactly two counts**, Today's and Inbox's.
+- **Laptop and tablet (768px and wider): the sidebar**, always shown, always labelled (spec 3.1): Today, Testimony,
+  Hearings, Issues, Outreach, then Bills (five places and Bills until round 2 of R-356), then Lead tools by role, More
+  and You. **Inbox and Help are header icons at every width**, not sidebar rows. More and More tools are one page
+  (`#/tools`). **Exactly two counts**, Today's and Inbox's. (Amended 31 Oct 2026, R-356 round 1; it listed Legislators,
+  Inbox, Help and More tools in the sidebar.)
 - **Phone: the bar Today · Hearings · Testimony · Bills · More** on every route (D2). More is a labelled page, not a menu,
   naming every other place; Search and the Inbox sit in the top bar.
 - **Rare tools together in More tools** (`#/tools`), the same at every width, never only inside an account menu.
