@@ -40,6 +40,9 @@ const place = () => { try { const d = JSON.parse(localStorage.getItem(DISTRICTS_
 const since = () => { const at = S.user?.created_at || textSaved()?.at; return at ? new Date(at).toLocaleDateString('en-US', { timeZone: HST, month: 'long', year: 'numeric' }) : ''; };
 const av = (cls = 'pf-av') => { const i = initials(); return `<span class="${cls}" aria-hidden="true">${i ? esc(i) : icon('user')}</span>`; };
 // ---------------- no profile yet: the invitation ----------------
+// The Sign in link is a 40x17 box in a sentence: padded to 44px tall and pulled back by the same amount, so the words and the line
+// stay where they were (A-6; the pattern of base.css .al-fine a; R-357 Part 5b). profile.css is not this part's, hence inline.
+const TAP = ' style="display:inline-block;padding:14px 6px;margin:-14px -6px"';
 function inviteView() {
   S.alertMode ??= 'phone';
   const b = alertButton('pf-alf');
@@ -48,7 +51,7 @@ function inviteView() {
       <p class="lede">${codeStep('pf-alf') ? 'Type the 6-digit code from the text to make your profile.' : 'Get a text or email when a bill on your issues has a hearing, in time to speak up. Your issues and letters stay saved. Free, and no password.'}</p></header>
     <form class="card mr-form mr-panel" id="pf-al" novalidate>${alertFields('pf-alf')}
       <div class="mr-send">${submitBtn(b.label, b.icon, 'pf-al-send')}</div></form>
-    <p class="small muted pf-back">${codesOn() ? 'Made one before? <a href="#/signin?by=number">Sign in</a>' : 'Added your email before? <a href="#/signin">Sign in on this device</a>'}, and everything comes with you.</p>
+    <p class="small muted pf-back">${codesOn() ? `Made one before? <a href="#/signin?by=number"${TAP}>Sign in</a>` : `Added your email before? <a href="#/signin"${TAP}>Sign in on this device</a>`}, and everything comes with you.</p>
   </div>`;
 }
 function wireInvite() {

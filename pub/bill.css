@@ -449,7 +449,7 @@
 .bl-rec .bl-ib-m p { margin: 0; }
 .bl-rec .bl-ib-l a { display: inline-flex; align-items: center; gap: 2px; font: 700 var(--t13)/1.3 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n700); text-decoration: none; padding-block: 14px; margin-block: -14px; }   /* 44px tall, the line where it was (A-6, R-357: 83x17 in the walk) */   /* the page's own grey: the tint is the band's colour, never one more text colour (A-5) */
 .bl-rec .bl-ib-l .bl-ib-chev { width: 14px; height: 14px; }
-.bl-rec .bl-ib-n a { display: inline-block; padding-block: 11px; margin-block: -11px; font: 600 var(--t18)/1.35 var(--font-h); color: var(--n900); text-decoration: none; overflow-wrap: anywhere; }
+.bl-rec .bl-ib-n a { display: inline-block; padding-block: 12px; margin-block: -12px; font: 600 var(--t18)/1.35 var(--font-h); color: var(--n900); text-decoration: none; overflow-wrap: anywhere; }   /* 12px, not 11: at the phone's 16px name the box was 43.6px (A-6, R-357 Part 5b) */
 .bl-rec .bl-ib-l a:hover, .bl-rec .bl-ib-n a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .bl-rec .bl-ib-s { margin-top: var(--s4) !important; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
 .bl-rec .bl-ib-badge { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; padding: 1px 10px 1px 7px; border-radius: var(--pill); background: rgba(255,255,255,.85); font: 700 var(--t14)/20px var(--font); white-space: nowrap; vertical-align: 1px; }
