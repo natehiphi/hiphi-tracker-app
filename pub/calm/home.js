@@ -25,9 +25,9 @@
 // (backend docs/requests/R-222-assessment.md, section 6).
 // Version 2 (?v2=1, R-357 Part 3, Nate's pick of 30 Oct 2026, "keep the my issues tab"): the greeting and the slide are exactly the
 // same. The box under the slide becomes "This week" (weekBlock): by day, each thing to do with its day, the bill's everyday name and
-// what is due, a tap opening that bill's page (the slide's own bill is the lit row and needs no tap), then "Also due: HIPHI asks" (no
-// number: Nate, R-300) on issues they do not follow, which opens Find's "Needs voices this week", and "Edit my issues" as the box's last
-// line. A newcomer has one more block between the slide and the box, the story as a card (pub/v2/story.js, Part 4; storyCard). "See your
+// what is due, a tap opening that bill's page (the slide's own bill is the lit row and needs no tap), then "Other bills that need voices this
+// week" (no number, no day: Nate, R-300) on issues they do not follow, which opens Find's "Needs voices this week", and "Edit my issues" as
+// the box's last line. A newcomer has one more block between the slide and the box, the story as a card (pub/v2/story.js, Part 4; storyCard). "See your
 // 2026 session" moved to the You tab (more.js) and "See them all in My issues" went: the tab is one tap away. Between sessions the
 // box is today's list of issues, with the same words, a title that is not "This week" and the same last line. Without the flag
 // nothing of this runs.
@@ -147,7 +147,10 @@ function cardParts(html) {
 const billLink = b => `<a class="cm-bill" href="${esc(billPath(b))}">${esc(spaced(b))}</a>`;
 // The one detail line (R-300, Nate's "one detail line"): when it runs out, the time it takes, the bill ("By tomorrow 1:00 PM ·
 // about 10 min the first time · HB 1780"). Amber only inside 24 hours, on the time alone (A-5).
-const detailLine = (dl, warn, mins, b) => `${warn ? `<b class="warn">${esc(dl)}</b>` : esc(dl)}${mins ? ` · ${mins}` : ''}${b ? ` · ${billLink(b)}` : ''}`;
+// Version 2 keeps each "·" with the word before it (a no-break space), so a wrap never starts a line with "· HB 2121" (A-8, R-357 Part 3);
+// version 1's line is as Nate checked it.
+const detailLine = (dl, warn, mins, b) => { const sep = V2() ? '\u00a0· ' : ' · ';
+  return `${warn ? `<b class="warn">${esc(dl)}</b>` : esc(dl)}${mins ? `${sep}${mins}` : ''}${b ? `${sep}${billLink(b)}` : ''}`; };
 // A slide's words: the goal, one sentence, the detail line, and what the card adds above its button (a twin, a letter
 // started, what they did). ghost: a hidden copy that only holds room (below).
 function wordsHtml(p, ghost = false) {
@@ -400,29 +403,26 @@ const dayTag = iso => { const d = dayShort(iso); return d === 'today' ? 'Today' 
 // A time never breaks across lines in a row ("1:00 / PM"), as whole() keeps a day and its time.
 const keepTime = t => t.replace(/\b(\d{1,2}:\d{2} [AP]M)/g, '<span class="cm-when">$1</span>');
 const NEWDOT = '<span class="cm-new" title="New since your last visit"><span class="sr"> New since your last visit</span></span>';
-function weekRowHtml(r) {
-  const inner = `<span class="cm-day"${r.day ? '' : ' aria-hidden="true"'}>${esc(r.day || '')}</span><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? NEWDOT : ''}</span>
-    ${r.text ? `<span class="cm-rstat${r.warn ? ' warn' : ''}">${keepTime(esc(r.text))}</span>` : ''}</span>`;
+// o.same: the day is the one the row above already says (a run of one day names it once, A-14; a screen reader still gets it); o.word: the first
+// row with the dot also says "New" in words, beside its line (the dot hangs in the left gutter, so every name starts at the same place: B-9, A-8).
+function weekRowHtml(r, o = {}) {
+  const day = !r.day ? '<span class="cm-day" aria-hidden="true"></span>' : o.same ? `<span class="cm-day cm-same"><span class="sr">${esc(r.day)}</span></span>` : `<span class="cm-day">${esc(r.day)}</span>`;
+  const inner = `${day}<span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? NEWDOT : ''}</span>
+    ${r.text ? `<span class="cm-rline"><span class="cm-rstat${r.warn ? ' warn' : ''}">${keepTime(esc(r.text))}</span>${o.word ? '<span class="cm-newword" aria-hidden="true">New</span>' : ''}</span>` : ''}</span>`;
   return r.on ? `<li><div class="cm-row cm-wk on" aria-current="true">${inner}</div></li>`
     : `<li><a class="cm-row cm-wk" href="${esc(r.href)}">${inner}${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
 }
-// When the soonest of the HIPHI asks on issues the person does not follow runs out, or null when there are none: the rows Find's "Needs
-// voices this week" draws (pub/rec/find.js voices(), written there for that page: the same short list and ranking from core.js, the same
-// rule that the hearing is within 7 days, a bill the person put aside is left out, an issue followed leaves out its bills, one row an issue
-// or a bill on no issue). It never records a showing (noteShown), since nothing here is shown as a suggestion, and nothing between sessions.
-// No count is said (Nate, R-300: "If it's a lot it can be overwhelming"): the row only says there are some, under the day the soonest is due
-// (Find's own "Testimony due today 2:00 PM": the written deadline while it is ahead, else the hearing). If the two ever disagreed Find's
-// would win, so the row is drawn only when there is at least one.
+// Whether there are HIPHI asks on issues the person does not follow with a hearing this week: the rows Find's "Needs voices this week" draws
+// (pub/rec/find.js voices(), written there for that page: the same short list and ranking from core.js, the same rule that the hearing is
+// within 7 days, a bill the person put aside is left out, an issue followed leaves out its bills, one row an issue or a bill on no issue).
+// It never records a showing (noteShown), since nothing here is shown as a suggestion, and nothing between sessions. No count and no day is
+// said (Nate, R-300: "If it's a lot it can be overwhelming"; a day label read like a missed deadline): the row only says there are some. If
+// the two ever disagreed Find's would win, so the row is drawn only when there is at least one.
 function alsoDue() {
-  if (sessionInfo().phase !== 'in') return null;
-  const skip = dismissed(), now = Date.now(), week = now + 7 * 864e5, seen = new Set();
-  let soon = Infinity;
-  const ok = r => { const h = r.st?.hearing; return !!h && !skip.has(r.b.id) && Date.parse(h.scheduled_at) > now && Date.parse(h.scheduled_at) < week; };
-  const add = r => { const on = issuesOf(r.b); if (on.some(issueFollowed)) return; seen.add(on[0] ? on[0].id : 'b:' + r.b.id);
-    const h = r.st.hearing, at = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : h.scheduled_at; soon = Math.min(soon, Date.parse(at)); };
-  suggestionList(4).filter(ok).forEach(add);
-  recommendations(200).filter(ok).forEach(add);
-  return seen.size ? new Date(soon).toISOString() : null;
+  if (sessionInfo().phase !== 'in') return false;
+  const skip = dismissed(), now = Date.now(), week = now + 7 * 864e5;
+  const ok = r => { const h = r.st?.hearing; return !!h && !skip.has(r.b.id) && Date.parse(h.scheduled_at) > now && Date.parse(h.scheduled_at) < week && !issuesOf(r.b).some(issueFollowed); };
+  return suggestionList(4).some(ok) || recommendations(200).some(ok);
 }
 // The week's rows. todo: what the deck's slides are made of (testimony due, late testimony, a hearing ask), one row each for the bill,
 // twins as one (the deck's own list), so nothing due is left off the page (B-14). Every other issue, and every bill followed on its
@@ -454,12 +454,16 @@ function weekRows(c, iss, own, entry) {
   for (const r of rows) r.on = !!entry && r.key === entry.key;
   return rows;
 }
-function weekBlock(rows, also) {   // also: when the soonest ask is due (alsoDue), or null
+function weekBlock(rows, also) {   // also: there are asks on issues they do not follow (alsoDue)
   if (!rows.length) return '';
   const long = rows.length > FOLD;
   const more = long ? `<li class="cm-showrow">${btn(`Show all your issues${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } })}</li>` : '';
-  const li = (r, n) => { const h = weekRowHtml(r); return long && n >= FOLD ? h.replace('<li>', '<li data-cm-more hidden>') : h; };
-  const alsoRow = also ? `<li><a class="cm-row cm-wk cm-also" href="#/find" data-hm-voices><span class="cm-day">${esc(dayTag(also))}</span><span class="cm-rtext"><span class="cm-rname">Also due: HIPHI asks</span>
+  // A run of rows on one day says the day once, on its first row; the first row with a dot says "New" too.
+  let prev = null; const first = rows.findIndex(r => r.fresh);
+  const li = (r, n) => { const same = !!r.day && r.day === prev; prev = r.day || null;
+    const h = weekRowHtml(r, { same, word: n === first }); return long && n >= FOLD ? h.replace('<li>', '<li data-cm-more hidden>') : h; };
+  // The row for the other asks: no day (a day beside it read like a missed deadline), a name that says what they are in plain words.
+  const alsoRow = also ? `<li><a class="cm-row cm-wk cm-also" href="#/find" data-hm-voices><span class="cm-day" aria-hidden="true"></span><span class="cm-rtext"><span class="cm-rname">Other bills that need voices this week</span>
     <span class="cm-rstat">On issues you don’t follow</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>` : '';
   return `<section class="cm-issues cm-week" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">This week</h2>
     <ul class="cm-rows" role="list">${rows.map((r, n) => (long && n === FOLD ? more : '') + li(r, n)).join('')}${alsoRow}${editRow}</ul></section>`;
