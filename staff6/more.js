@@ -3,7 +3,7 @@
 // #/tools) is drawn by tools.js; it names every place that is not in the sidebar or the bar, so nothing is hidden behind an
 // icon (Nate, 22 Oct: "If people are unable to find things because they are hidden or hard to find, that would be the
 // worst"). The phone's bar has five tabs (Today, Hearings, Testimony, Bills, More).
-import { S, DEMO, DEMO_ASOF, esc } from './data.js';
+import { S, DEMO, DEMO_ASOF, esc, seesTeam } from './data.js';
 import { icon, avatar } from './ui.js';
 import { admitsPartners } from './partnerq.js';
 
@@ -35,7 +35,9 @@ export const BAR = ['today', 'hearings', 'testimony', 'bills', 'more'];
 // approvers (R-328). Always in the same spot, and absent for everyone else (D8 names them at the foot of More tools).
 export const isLead = (a = S.me) => !!a && a.is_active !== false && (!!a.is_admin || !!a.is_reviewer);
 // Team also opens for a person an admin has given Sees Team (R-356 decision 4), without making them a lead otherwise.
-export const seesTeam = (a = S.me) => isLead(a) || (!!a && a.is_active !== false && !!a.sees_team);
+// Who sees Team (R-356 decision 2): leads, and anyone an admin gave Sees Team. One definition, data.js's, re-exported here so
+// the frame (app.js, tools.js) and the places (hearings, bills, legislators, asks, team) agree on it.
+export { seesTeam };
 export const leadKeys = (a = S.me) => [seesTeam(a) ? 'team' : null, a?.is_admin ? 'people' : null, admitsPartners(a) ? 'partners' : null, a?.is_admin ? 'setup' : null].filter(Boolean);
 // "Nate T." for the sidebar's foot ("You · Nate T."): a first name and an initial, so two Kevins would still differ.
 export const youName = (a = S.me) => { const p = String(a?.full_name || '').trim().split(/\s+/).filter(Boolean); return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : p[0] || ''; };
