@@ -279,16 +279,27 @@ with sync_playwright() as p:
     c.close()
 
     # N10 someone whose first bill page is a /changes landing (a new phone): the bill page's tips do not start over it, since
-    # the page has scrolled to the drafts and the tips at its top would dim it with nothing in view (live check, 10/25). A
-    # plain first bill page still gets them.
+    # the page has scrolled to the drafts and the tips at its top would dim it with nothing in view (live check, 10/25). Nor does
+    # a plain bill opened from a link: since R-357's Light fixes (b, R-114) the tips never start by themselves for someone whose page
+    # load began on a link (tests/tour_link.py has the rest). A person past the first visit who goes from Home into a bill still
+    # gets them.
     fresh = """(() => { if (sessionStorage.getItem('__set')) return; sessionStorage.setItem('__set', '1');
       for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_')) localStorage.removeItem(k); })();"""
-    for hp, want in (('#/bill/2026/HB2121/changes', False), ('#/bill/2026/SB2175', True)):
+    left = """(() => { if (sessionStorage.getItem('__set')) return; sessionStorage.setItem('__set', '1');
+      for (const k of Object.keys(localStorage)) if (k.startsWith('hiphi_')) localStorage.removeItem(k);
+      localStorage.setItem('hiphi_wiz_demo', JSON.stringify({ step: 1, skipped: true })); })();"""
+    for hp, want in (('#/bill/2026/HB2121/changes', False), ('#/bill/2026/SB2175', False)):
         c, pg = page(fresh, 390, 844)
         pg.goto(f'{BASE}/track.html?demo=1&letter{hp}'); pg.wait_for_selector('.bl-page .bl-head', timeout=60000); pg.wait_for_timeout(3500)
         tip = pg.evaluate("() => { const t = document.querySelector('.tr-tip'); return !!t && t.getBoundingClientRect().height > 0; }")
-        ok(tip == want, f'N10 a first bill page at {hp}: the tips {"start" if want else "do not start"} ({tip})')
+        ok(tip == want, f'N10 a first bill page at {hp} opened from a link: the tips {"start" if want else "do not start"} ({tip})')
         c.close()
+    c, pg = page(left, 390, 844)
+    pg.goto(f'{BASE}/track.html?demo=1&letter#/'); pg.wait_for_timeout(2500)
+    pg.evaluate("location.hash = '#/bill/2026/SB2175'"); pg.wait_for_selector('.bl-page .bl-head', timeout=60000); pg.wait_for_timeout(3500)
+    tip = pg.evaluate("() => { const t = document.querySelector('.tr-tip'); return !!t && t.getBoundingClientRect().height > 0; }")
+    ok(tip, f'N10 a first bill page opened from Home, past the first visit: the tips start ({tip})')
+    c.close()
 
     ok(not errs, f'N9 no page errors ({errs[:2]})')
     br.close()
