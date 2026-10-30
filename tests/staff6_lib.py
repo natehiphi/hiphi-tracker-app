@@ -26,6 +26,7 @@ BASELINE = os.path.join(TESTS, 'staff6_baseline_v5.json')
 PEOPLE = ['NT', 'KV', 'KR', 'JS', 'SY', 'LR', 'PH', 'JMM']
 MORE_PEOPLE = ['RK', 'MR', 'JM', 'PT']          # measured on Today and Bills only (assessment critic)
 LEADS = {'NT', 'JS', 'JN'}                       # admins and second approvers: Team (spec 3.1)
+TEAM_SEERS = LEADS | {'KR'}                      # R-356 decision 2: Kris has Sees Team in the practice copy, so Team shows for her too
 ADMINS = {'NT'}                                  # People, Session setup
 NAMES = {'NT': 'Nate', 'KV': 'Kevin', 'KR': 'Kris', 'JS': 'Jess', 'SY': 'Saya', 'LR': 'Lauren', 'PH': 'Patti', 'JMM': 'Julie',
          'RK': 'Rick', 'MR': 'May Rose', 'JM': 'James', 'PT': 'Patrick', 'JN': 'Jaylen'}

@@ -1,9 +1,8 @@
 // Staff v6 · Legislators (#/legislators; R-336 spec 3.3 and 6, V23; F139-F144, F150). Three page tabs, each with its own
 // address, and one find box on every tab (F143):
-//   Who to ask (#/legislators, ?view=ask): the Get hearings board, the same component as Hearings > Get hearings (push.js
-//     askBoard, drawn here since the integration: one board, so the two doors never disagree, X7; holding.js's own board
-//     below is kept only as the fallback should askBoard fail). Mine · My coalitions · Team is a visible switch, the same as Hearings'.
-//     Each chair carries ONE email button: the viewer's own asks with them, to them alone, named by bill (V24).
+//   Who to ask (#/legislators, ?view=ask): the chairs and the bills each holds, with no step buttons (R-356 round 1, decision
+//     5, A-14: Email the chair, They replied and Follow up are on Today and Hearings > Get hearings, which the foot links to).
+//     Mine · My coalitions · Team (Team only for people who see it) is a visible switch, the same as Hearings'.
 //   Everyone (?view=everyone): the directory as a grid of photo cards, both chambers or one (an All | House | Senate
 //     switch, All first, remembered per person), grouped by island, A to Z or by committee (Sort); each card a photo, the
 //     name, the district, its main towns and one line of what they hold of ours. With the "Hearing our bills this week" preset (F142, v5's This week view) and
@@ -15,15 +14,14 @@
 // or without the ʻokina and macrons; a street address looks up its districts on the live app (rule 3: the address is never
 // kept, only the districts it finds). The tab comes from the address (route.view): v5's ?view=all|hold|week still open
 // Everyone, Holding and Everyone's this-week preset.
-import { S, DB, esc, DEMO, islandOf, SESSION_OVER } from './data.js';
+import { S, DB, esc, DEMO, islandOf, SESSION_OVER, seesTeam } from './data.js';
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, chairIdsOf, stopOf, diedish, legById } from './model.js';
 import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav, andWords } from './ui.js';
-import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairEmail, replyBtn, chairGroups, askItems, askScopes, askScope, scopeWhose } from './holding.js';
-import * as PUSH from './push.js';   // Hearings > Get hearings' board (askBoard), drawn here (spec 6: one component)
+import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairGroups, askItems, askScopes as allScopes, askScope as anyScope, scopeWhose } from './holding.js';
 import { photo, legName, legHref, seatsOf, roleWord, RANK, wireLinks, surname } from './pathway.js';
 import { PROFILES, caresIds, caresCounts, issueSheet } from './profile.js';   // R-335 (practice copy)
 import { issueById } from './issues.js';
-import { billStep, billRow, committeeName, nw } from './steps.js';
+import { billRow, committeeName, nw } from './steps.js';
 
 const WEEK = 7 * 864e5;
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent' };
@@ -147,36 +145,35 @@ const caresOn = v => PROFILES() && !!v.cares;
 const caresName = v => issueById(v.cares)?.name || 'that issue';
 const searching = v => !!(v.q.trim() || v.pick);
 
-// ---- Who to ask: the Get hearings board (V13, V23) ----
-// Hearings > Get hearings' own board (push.js askBoard) when it is there, so the two places are one component and can never
-// disagree (spec 6, X7). Until then the same board grouped by chair from the same model (holding.js chairGroups): each
-// chair a section heading (22px, its role and last contact under it) with its ONE email button, the viewer's own asks with
-// that chair (new ones and follow-ups), to that chair alone and named by bill (V24); under it our bills in the shared row,
-// each line said of that chair (chairLine). A bill's one button: "They replied" on the viewer's own ask that waits for a
-// reply (that chair's answer only), or Take it on an ask nobody holds, for whoever may hand it.
-function askRowBtn(x, l) {
-  if (x.waitingMine) return replyBtn(x.b, l, x.aw.code);
-  if (x.s?.key === 'ask' && !x.s.other) { const st = billStep(x.b); if (st?.kind === 'chair' && st.nobody && st.takeFor) return btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': x.b.id } }); }
-  return false;
-}
+// ---- Who to ask: the chairs and the bills each holds (V13, V23) ----
+// R-356 round 1, decision 5 (A-14, D1, D15): a chair ask's button (Email the chair, They replied, Follow up) is drawn on Today
+// and on Hearings > Get hearings (push.js askBoard), nowhere else. This tab used to draw that whole board, buttons and all, so
+// the same ask sat on two screens; it now reads as the directory view of it: each chair a heading with its role and last
+// contact, and our bills under them in the shared row with the chair's own plain status line and no button. The way on to
+// the buttons is one line at the foot (a way on, "Get hearings ›").
 function groupHTML(g) {
-  const l = g.l, act = chairEmail(l, g.rows), hid = `lg6-g${l.id}`;
+  const l = g.l, hid = `lg6-g${l.id}`;
   const line = [chairRole(l, g.rows.map(x => x.aw.code)), contactWords(l)].filter(Boolean).join(' · ');
   return `<section class="lg6-grp" aria-labelledby="${hid}">
-    <div class="lg6-gh"><div class="lg6-gt"><h2 class="lg6-gname" id="${hid}"><a class="lg6-gn" href="#/legislator/${l.id}?from=ask">${esc(legName(l))}</a></h2><p class="lg6-gline">${nw(esc(line))}</p></div>${act ? `<span class="lg6-gact">${act}</span>` : ''}</div>
-    <div class="lg6-rows" role="list" aria-label="${esc(`Our bills with ${legName(l)}`)}">${g.rows.map(x => billRow(x.b, { line: nw(esc(x.line)), button: askRowBtn(x, l), cls: 'lg6-wrap' })).join('')}</div>
+    <div class="lg6-gh"><div class="lg6-gt"><h2 class="lg6-gname" id="${hid}"><a class="lg6-gn" href="#/legislator/${l.id}?from=ask">${esc(legName(l))}</a></h2><p class="lg6-gline">${nw(esc(line))}</p></div></div>
+    <div class="lg6-rows" role="list" aria-label="${esc(`Our bills with ${legName(l)}`)}">${g.rows.map(x => billRow(x.b, { line: nw(esc(x.line)), button: false, cls: 'lg6-wrap' })).join('')}</div>
   </section>`;
 }
+// R-356 decision 2: Team is a choice only for people who see Team (data.js seesTeam); holding.js askScopes, which this page
+// does not own, still lists it, so it is taken out here. Someone with nothing of their own and no coalitions keeps Mine.
+// A remembered or linked team scope for someone without Sees Team falls back to the first choice left, never an empty page.
+const askScopes = () => { const l = allScopes().filter(x => x[0] !== 'team' || seesTeam()); return l.length ? l : [['mine', 'Mine']]; };
+const askScope = want => { const ok = askScopes().map(x => x[0]); return ok.includes(want) ? want : ok.includes(anyScope(want)) ? anyScope(want) : ok[0]; };
 function askHTML(v) {
   if (SESSION_OVER) return empty({ title: 'No asks between sessions', text: 'Asking chairs for hearings starts when the session opens in January.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) });
   const scope = askScope(v.ask);
-  if (typeof PUSH.askBoard === 'function') { try { return PUSH.askBoard({ scope, primary: true, id: 'lg', fold: true }); } catch (e) { console.warn('askBoard', e); } }
   const { items, scheduled: n } = askItems(scope), whose = scopeWhose(scope);
   const heard = n ? `<p class="lg6-foot">${icon('calendar-check')}<span>${esc(`${n} of ${whose} ${n === 1 ? 'has' : 'have'} a hearing set.`)} <a href="#/hearings">See Hearings</a></span></p>` : '';
+  const go = `<p class="lg6-foot">${icon('mail')}<span>To email a chair or log a reply, open <a href="#/hearings/ask?scope=${esc(scope)}">Get hearings</a>.</span></p>`;
   if (!items.length) return empty({ title: `None of ${whose} is waiting for a hearing`, text: 'When one is referred to a committee, its chair shows here with the day to ask by.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) }) + heard;
   const gs = chairGroups(items), bills = new Set(items.map(x => x.b.id)).size;
   return `<p class="lg6-sum">${esc(`${plural(gs.length, 'chair')} to ask about ${plural(bills, 'bill')}, the soonest ask first.`)}</p>
-    <div class="lg6-board">${gs.map(groupHTML).join('')}</div>${heard}`;
+    <div class="lg6-board">${gs.map(groupHTML).join('')}</div>${go}${heard}`;
 }
 
 // ---- Everyone: the directory as a grid of faces (F142, F144; R-336 walk 2, Nate: "can this be better organized? Profile
@@ -406,7 +403,7 @@ function searchHTML(v) {
 
 function bodyHTML(tab, v) {
   if (searching(v)) return searchHTML(v);
-  if (tab === 'holding') return holdingHTML({ scope: v.ask });
+  if (tab === 'holding') return holdingHTML({ scope: askScope(v.ask) });
   if (tab === 'everyone') return everyoneHTML(v);
   return askHTML(v);
 }

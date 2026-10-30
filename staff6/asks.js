@@ -13,7 +13,7 @@
 // v6 draws the cards itself: they used to come from today.js (weekAsksHTML), which TODAY is rebuilding (spec 11).
 // The rallier, with no migration (spec 6 and addendum 6): Saya on CTFH, else the coalition's owner, else the bill's owner.
 // TODAY may import rallierOf() and askDueAt() to put the ask on the rallier's Today two days before it is due.
-import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO } from './data.js';
+import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO, seesTeam } from './data.js';
 import { sharePageUrl, liveAsk, billRoute, whenAt, timeFirst, hstDayOf, publicResponse, billById, spanOf } from './model.js';
 import { icon, btn, empty, toast, sectionNav, whoseSeg } from './ui.js';
 import { pageHead } from './lists.js';
@@ -53,17 +53,22 @@ export function rallierOf(b) {
 }
 // Someone who rallies for a coalition (Saya, a coalition's owner): they see the partners' asks going out (F187).
 export const isRallier = (me = S.me) => !!me && (S.campaigns || []).some(c => leadOf(c) === me.id);
+// Whether the viewer is the one who writes this bill's ask: its rallier, or its owner when it has none (askDue's `mine`).
+const writes = b => { const me = S.me?.id, r = rallierOf(b); return !!me && (r.length ? r.includes(me) : (S.assignments?.[b?.id] || []).includes(me)); };
 // Who may write a bill's ask here: its rallier, its owner, an admin (the Public tab is open to the same people).
 const mayWrite = b => !!S.me && (S.me.is_admin || rallierOf(b).includes(S.me.id) || (S.assignments?.[b.id] || []).includes(S.me.id));
 
 // ---- the week's asks ----
 // Bills with a position on the public page whose testimony closes in the next 7 days, soonest first; each bill once, at
-// its soonest deadline. `mine`: the bills on the viewer's coalitions, or their own bills when they help on none.
+// its soonest deadline. `mine`: the asks the viewer writes (they are the bill's rallier: Saya writes everyone's public
+// asks, R-356 decision 2, so her list is those and needs no Team), plus the bills on the viewer's coalitions, or their
+// own bills when they help on none. The rule for "writes" is askDue's `mine` below, so the list and the card agree.
 // Closing within 3 hours keeps the card (a post can still help) but leaves the newsletter (`soon`).
 const myCoals = () => { const c = S.me?.prefs?.coalitions, ids = (S.campaigns || []).map(x => x.id); return new Set(c === 'all' ? ids : Array.isArray(c) ? c.filter(id => ids.includes(id)) : []); };
 export function weekAskItems({ mine = false } = {}) {
   const now = Date.now(), end = now + 7 * DAY, seen = new Map(), co = mine ? myCoals() : null;
-  const keep = !mine ? () => true : co.size ? b => (S.billCampaigns?.[b.id] || []).some(id => co.has(id)) : b => isMine(b);
+  const own = co?.size ? b => (S.billCampaigns?.[b.id] || []).some(id => co.has(id)) : b => isMine(b);
+  const keep = !mine ? () => true : b => writes(b) || own(b);
   for (const h of S.hearings || []) {
     if (h.status === 'cancelled') continue;
     const due = testDue(h), b = billById(h.bill_id);
@@ -178,7 +183,7 @@ const boxOpen = b => S.otOpen === b.id && mayWrite(b);
 const STRONG = ['strongly_support', 'strongly_oppose'];
 function askDue(x) {
   const b = x.b, due = askDueAt(x.h), r = rallierOf(b), me = S.me?.id;
-  const mine = !!me && (r.length ? r.includes(me) : (S.assignments?.[b.id] || []).includes(me));
+  const mine = writes(b);
   const strong = STRONG.includes(b.position);
   return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine, strong, step: mine && strong, who: r.length ? first(r[0]) : '' };
 }
@@ -257,6 +262,8 @@ function leadId(items, want = null) {
 
 // B-3: an empty week says why and offers the way on. Nothing on the viewer's coalitions: the switch's job, as a button.
 function emptyHTML(all, n) {
+  // Someone who does not see Team (R-356) is not offered the team's list; the words say whose list is empty.
+  if (!all && n && !seesTeam()) return `<div class="ot-empty">${empty({ title: 'No asks this week on your list', text: 'The asks you write, and those on your coalitions’ bills, show here when their testimony closes within a week.' })}</div>`;
   if (!all && n) return `<div class="ot-empty">${empty({ title: 'No asks this week on your coalitions’ bills', text: `The team has ${plural(n, 'ask')} this week.`, action: btn('Show the team’s asks', { kind: 'secondary', attrs: { 'data-otall': '1' } }) })}</div>`;
   const next = (S.hearings || []).filter(h => h.status !== 'cancelled' && testDue(h) > Date.now() + 7 * DAY).map(h => ({ h, b: billById(h.bill_id) }))
     .filter(x => x.b && x.b.position && x.b.position !== 'monitor' && x.b.is_public).sort((p, q) => testDue(p.h) - testDue(q.h))[0];
@@ -264,7 +271,7 @@ function emptyHTML(all, n) {
     action: btn('Write a partner update', { kind: 'secondary', href: '#/outreach/partners' }) })}</div>`;
 }
 
-const everyOn = route => route?.q?.all === '1';
+const everyOn = route => seesTeam() && route?.q?.all === '1';   // R-356: a linked ?all=1 for someone without Sees Team stays on their own list
 // ?bill=HB2121 (a bill's Public tab, Today) or ?hearing=<id> (the hearing page): those cards, highlighted, in view.
 function wanted(route) {
   const q = route?.q || {}, key = s => String(s || '').toUpperCase().replace(/\s/g, '');
@@ -274,10 +281,30 @@ function wanted(route) {
   return null;
 }
 // A link to a card that is not on the viewer's coalitions opens the team's list, where it is.
-const showAll = (route, want) => everyOn(route) || (!!want && want.size > 0 && !weekAskItems({ mine: true }).some(x => want.has(x.b.id)));
+const showAll = (route, want) => seesTeam() && (everyOn(route) || (!!want && want.size > 0 && !weekAskItems({ mine: true }).some(x => want.has(x.b.id))));
 // C-15: the first 8 cards, then "Show all 11 asks". A link to a card further down shows them all, so it is on the page.
 const SHOW = 8;
 const cut = (items, want) => items.length > SHOW && !S.otEvery && !(want && items.slice(SHOW).some(x => want.has(x.b.id)));
+
+// The week's asks as cards under a Copy all bar: Outreach draws it with its head, Team's Public asks tab (R-356) without.
+function listHTML(items, want) {
+  const nl = copyAll(items, 'newsletter').use.length, po = copyAll(items, 'social').use.length;
+  // Copy all shows once there is something to copy, and says what it leaves out; with no ask written yet it is not
+  // drawn at all (each card says its ask is not written), rather than a line that looks like a dead button.
+  const bar = nl + po ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
+    <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all as posts', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
+    <p class="ot-left">${esc(leftOut(items))}</p></div>` : '';
+  const lead = leadId(items, want), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
+  const more = short ? `<p class="ot-more">${btn(`Show all ${items.length} asks`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-otmore': '1' } })}</p>` : '';
+  return `${bar}
+    <div class="ot-cards">${shown.map(x => cardHTML(x, { hl: !!want && want.has(x.b.id), lead: x.b.id === lead })).join('')}</div>${more}`;
+}
+// R-356 decision 2: the team's public asks left Outreach's Team switch for Team's "Public asks" tab (team.js).
+export function teamAsksHTML() {
+  const items = weekAskItems();
+  return `<div class="ot-page">${items.length ? listHTML(items, null) : emptyHTML(true, 0)}</div>`;
+}
+export function wireTeamAsks(root) { wireAsks(root, () => weekAskItems()); }
 
 export default {
   tab: 'outreach',
@@ -288,25 +315,22 @@ export default {
   render(route) {
     const want = wanted(route), team = weekAskItems(), all = showAll(route, want);
     const items = all ? team : weekAskItems({ mine: true });
-    const sw = whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' });
+    // Team only for people who see it (R-356); with one choice left there is no switch.
+    const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';
     const head = pageHead(sectionNav('outreach', 'asks'), 'Outreach', '', sw);
     if (!items.length) return `<div class="le-page ot-page">${head}${emptyHTML(all, team.length)}${partnersHTML()}</div>`;
-    const nl = copyAll(items, 'newsletter').use.length, po = copyAll(items, 'social').use.length;
-    // Copy all shows once there is something to copy, and says what it leaves out; with no ask written yet it is not
-    // drawn at all (each card says its ask is not written), rather than a line that looks like a dead button.
-    const bar = nl + po ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
-      <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all as posts', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
-      <p class="ot-left">${esc(leftOut(items))}</p></div>` : '';
-    const lead = leadId(items, want), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
-    const more = short ? `<p class="ot-more">${btn(`Show all ${items.length} asks`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-otmore': '1' } })}</p>` : '';
-    return `<div class="le-page ot-page">${head}${bar}
-      <div class="ot-cards">${shown.map(x => cardHTML(x, { hl: !!want && want.has(x.b.id), lead: x.b.id === lead })).join('')}</div>${more}
+    return `<div class="le-page ot-page">${head}${listHTML(items, want)}
       ${partnersHTML()}${landingHTML(items)}</div>`;
   },
   wire(route, root) {
-    const items = () => showAll(S.route, wanted(S.route)) ? weekAskItems() : weekAskItems({ mine: true });
     root.querySelectorAll('[data-seg="otwho"]').forEach(b => b.onclick = () => setAll(b.dataset.val === 'all'));
     root.querySelector('[data-otall]')?.addEventListener('click', () => setAll(true));
+    wireAsks(root, () => showAll(S.route, wanted(S.route)) ? weekAskItems() : weekAskItems({ mine: true }));
+  },
+};
+
+// The cards' buttons: copy, write, save. `items` says which list the page shows (Outreach's pick, or Team's whole list).
+function wireAsks(root, items) {
     root.querySelector('[data-otmore]')?.addEventListener('click', () => { const n = SHOW; S.otEvery = true; redraw(); root.querySelectorAll('.ot-card')[n]?.querySelector('.ot-name a')?.focus({ preventScroll: true }); });
     const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok, { ok: true }); } catch { toast('Could not copy. Select the words on the card and copy them yourself.', { err: true }); } };
     root.querySelectorAll('[data-askall]').forEach(el => el.onclick = () => {
@@ -337,8 +361,7 @@ export default {
     if (hl && S.otSeen !== location.hash) { S.otSeen = location.hash; S.scrollClaimed = true;
       // The card is found again when the frame comes: a redraw meanwhile (the partners' asks arriving) replaced it.
       requestAnimationFrame(() => { const c = document.querySelector('.ot-card.hl') || hl; c.scrollIntoView({ block: 'start' }); c.focus({ preventScroll: true }); }); }
-  },
-};
+}
 
 // The switch redraws in place: the address changes (replace, so Back still leaves Outreach) and focus stays on it.
 function setAll(on) {

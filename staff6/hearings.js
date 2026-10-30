@@ -19,7 +19,7 @@
 // What it replaces (A-25, rule 7.8): v5's This week grid (testimony-deadline cards, hearing blocks, Other to-dos: the
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
-import { S, DB, esc, hooks, SESSION_OVER } from './data.js';
+import { S, DB, esc, hooks, SESSION_OVER, seesTeam } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, pickerChip, pickerSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
@@ -47,11 +47,29 @@ async function remember(v) {
   try { localStorage.setItem(KEY(), v); } catch { /* a private window: this visit only */ }
   try { await DB.patchPrefs({ hscope: v }); } catch { /* the address keeps it for this visit */ }
 }
+// R-356 decision 2: Team is a choice only for people who see Team (data.js seesTeam); push.js scopesFor, which this page
+// does not own, still lists it, so it is taken out here. Someone with nothing of their own and no coalitions keeps Mine
+// (an empty week that says so) rather than a page with no scope. A remembered or linked team scope for someone who no
+// longer sees Team falls back to the first choice left, never an empty page.
+const scopes = () => { const l = scopesFor().filter(x => x[0] !== 'team' || seesTeam()); return l.length ? l : [['mine', SCOPES.mine]]; };
+const safeScope = v => scopes().some(x => x[0] === v) ? v : scopes()[0][0];
 function scopeOf(route) {
-  const ok = scopesFor().map(x => x[0]), want = [route?.q?.scope, route?.q?.who, S.me?.prefs?.hscope, remembered()].find(x => x && ok.includes(x));
-  return want || defaultScope();
+  const ok = scopes().map(x => x[0]), want = [route?.q?.scope, route?.q?.who, S.me?.prefs?.hscope, remembered()].find(x => x && ok.includes(x));
+  return want || safeScope(defaultScope());
 }
-const switcher = scope => segmented('hscope', scopesFor(), scope, 'Whose hearings');
+// With one choice left there is nothing to switch: no switch is drawn.
+const switcher = scope => scopes().length > 1 ? segmented('hscope', scopes(), scope, 'Whose hearings') : '';
+// B-13 on v6, P-4, C-15: with no switch the page says in words whose week this is, and, quietly, that the team has more (no
+// link: Team is not theirs to open). Only on This week's list, for the week in view; the count is the team's sittings that
+// week which are not already in this person's list.
+function scopeWords(route, scope) {
+  const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), keep = x => !x.mon || monOn();
+  const mine = new Set(weekSittings(scope, mon).filter(keep).map(x => sitKey(x.h)));
+  const rest = weekSittings('team', mon).filter(keep).filter(x => !mine.has(sitKey(x.h))).length;
+  const w = scope === 'coal' ? 'Your coalitions’ hearings' : 'Your hearings';
+  const when = off === 0 ? ' this week' : off === 1 ? ' next week' : off === -1 ? ' last week' : '';
+  return `<p class="hw-scope">${esc(w + when)}</p>${rest ? `<p class="hw-scope-more">The team has ${rest} more${when || ' that week'}</p>` : ''}`;
+}
 
 // ---- one issue's hearings (R-352: the job All issues' calendar did, now here) ----
 // The address holds the pick (?issue=<id>), nothing else does: a filter kept out of sight would hide hearings from someone
@@ -122,7 +140,7 @@ const dayHead = d => { const now = Date.now(); return d === hst(now) ? `Today ·
 const monNums = h => [...new Set((S.hearings || []).filter(r => r.committee === h.committee && r.scheduled_at === h.scheduled_at && r.status !== 'cancelled')
   .map(r => billById(r.bill_id)).filter(b => b && b.tracked !== false && isMon(b)).map(b => numWords(b)))];
 function weekCard(h) {
-  let html = hearingCard(h, { from: 'week' });
+  let html = hearingCard(h, { from: 'week', buttons: false });   // R-356 decision 5 (A-14): testimony status as words here; its button is on Today and Testimony
   const nums = monNums(h);
   if (nums.length && nums.length <= 3) html = html.replace(/(<a class="v6-hcard-mon"[^>]*><span>[^<]*?)(?:\d+ bills? we monitor)/, `$1${nums.length === 1 ? '1 bill' : `${nums.length} bills`} we monitor: ${esc(nums.join(', '))}`);
   html = html.replace(/(<p class="v6-hcard-day">)[^<]*/, '$1');
@@ -159,7 +177,7 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 // says them in the board's own words, so Get hearings is still one tap away for them.
 function askLine(s, scope) {
   const t = SESSION_OVER ? '' : toAskWords(s) || decideWords(s?.decide || 0); if (!t || !tabCounts()) return '';
-  const href = `#/hearings/ask${scope !== defaultScope() ? `?scope=${scope}` : ''}`;
+  const href = `#/hearings/ask${scope !== safeScope(defaultScope()) ? `?scope=${scope}` : ''}`;
   return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">${askTabWords()}</span></a>`;
 }
 // Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
@@ -496,6 +514,36 @@ function tabs(view, sum) {
   return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} to ask</span>` : ''}</a></nav>`;
 }
 
+// The buttons a week's cards carry besides the cards' own (wireSteps): shared by this page and Team's "The team's hearings" tab.
+function wireWeek(page) {
+  // A phone's day buttons show one day at a time; no redraw, so the focus stays on the button pressed
+  page.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {
+    const d = el.dataset.hcpick; S.hcDay = d;
+    page.querySelectorAll('[data-hcpick]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hcpick === d)));
+    page.querySelectorAll('[data-hcday]').forEach(s => s.classList.toggle('on', s.dataset.hcday === d));
+  });
+  page.querySelector('[data-hwmon]')?.addEventListener('click', async () => {
+    const on = !monOn();
+    try { await DB.patchPrefs({ showMonitor: on }); } catch (e) { toast(e, { err: true }); return; }
+    S.hwRefocus = '[data-hwmon]'; hooks.render();
+  });
+  page.querySelector('.hw-earlier')?.addEventListener('toggle', e => { S.hwEarlier = e.currentTarget.open; });
+  page.querySelectorAll('[data-sgdo]').forEach(el => el.onclick = () => answerSugg(el.dataset.sgdo, el.dataset.sgst));
+}
+// R-356 decision 2: the team's week left Hearings' Team switch for Team's "The team's hearings" tab (team.js). This week only
+// (other weeks are on Hearings); the same cards as This week draws at team scope, with the same buttons.
+export function teamHearingsHTML() {
+  seedMoved(); freshScope(); ISS = '';
+  const sum = SESSION_OVER ? null : askSummary({ scope: 'team' });
+  return `<div class="hw-page v-week">${weekHTML({ q: {} }, 'team', sum)}</div>`;
+}
+export function wireTeamHearings(root) {
+  const page = root.querySelector('.hw-page'); if (!page) return;
+  wireSteps(page, { after: () => hooks.render() });
+  wireMoved(page, { toast, redraw: () => hooks.render() });
+  wireWeek(page);
+}
+
 export default {
   tab: 'hearings',
   title: () => 'Hearings',
@@ -510,7 +558,7 @@ export default {
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
       <h1 class="v6-ptitle sv-h1">Hearings</h1>
       ${tabs(view, sum)}
-      <div class="hw-bar"><div class="hw-picks">${switcher(scope)}${view === 'week' ? issuePick(scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
+      <div class="hw-bar"><div class="hw-picks">${switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? issuePick(scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
   },
@@ -542,19 +590,7 @@ export default {
       pickerSheet({ title: 'Show hearings on', value: ISS || 'all', options: [['all', 'All issues'], ...issueOpts(scope).map(i => [String(i.id), i.name])],
         onPick: v => { S.hwRefocus = '[data-hwiss]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, { issue: v === 'all' ? '' : v })}`, { replace: true, keepScroll: true }); } });
     });
-    // A phone's day buttons show one day at a time; no redraw, so the focus stays on the button pressed
-    page.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {
-      const d = el.dataset.hcpick; S.hcDay = d;
-      page.querySelectorAll('[data-hcpick]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hcpick === d)));
-      page.querySelectorAll('[data-hcday]').forEach(s => s.classList.toggle('on', s.dataset.hcday === d));
-    });
-    page.querySelector('[data-hwmon]')?.addEventListener('click', async () => {
-      const on = !monOn();
-      try { await DB.patchPrefs({ showMonitor: on }); } catch (e) { toast(e, { err: true }); return; }
-      S.hwRefocus = '[data-hwmon]'; hooks.render();
-    });
-    page.querySelector('.hw-earlier')?.addEventListener('toggle', e => { S.hwEarlier = e.currentTarget.open; });
-    page.querySelectorAll('[data-sgdo]').forEach(el => el.onclick = () => answerSugg(el.dataset.sgdo, el.dataset.sgst));
+    wireWeek(page);
     // A redraw after an answer keeps the focus near where it was (B-4).
     if (S.hwRefocus) { const f = page.querySelector(S.hwRefocus); S.hwRefocus = null; f?.focus({ preventScroll: true }); }
   },
