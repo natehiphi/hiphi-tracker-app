@@ -1,10 +1,10 @@
 // The bill page tour (R-062 Concept 2, Nate 9/29): three short tips over the real page, the first time anyone opens a
 // bill. (1) what this is: the name, what it does, where HIPHI stands; (2) where it is now: the steps card; (3) how you
 // can help: the page's real main button, lit and usable. A bill with nothing to do (stopped, became law, between
-// sessions) points tip 3 at Follow instead. Shown once, to everyone, never during the first visit (#/start) and never
-// over the "New here?" card someone gets on a shared link: they see the tour on their next bill page, or once they
-// answer the card. Finished or skipped, it never comes back (hiphi_tour_bill; the sandbox's storage patch in core.js
-// keeps its own _demo copy).
+// sessions) points tip 3 at Follow instead. Shown once, never during the first visit (#/start), never over the "New here?"
+// card someone gets on a shared link, and never by itself to anyone whose page load began on a link (a bill, an issue, a
+// legislator: R-114, cameToLook below): they get the tour on a later visit that begins at Home, or by asking for it.
+// Finished or skipped, it never comes back (hiphi_tour_bill; the sandbox's storage patch in core.js keeps its own _demo copy).
 // It must never trap anyone: a tip whose part of the page is missing is left out, and with none there is no tour.
 // app.js calls after(route) at the end of every render; this module finds the parts by the bill page's own classes
 // (read only: bill.js draws them) and lives outside #app, so a redraw of the page underneath leaves it standing.
@@ -237,9 +237,13 @@ function onClick(e) {
   if (t.els().some(el => el && el.contains(e.target))) finish('used', { keepFocus: true });
 }
 
-function start(def) {
+function start(def, asked = false) {
   pending = 0;
-  if (T || seen(def) || !def.on() || blocked()) return;
+  // Decided again at the moment of starting, not only when the timer was set (R-357 Light fixes, b): the page may have
+  // changed under the timer (a bill page draws a skeleton first, then redraws), and a timer set while the arrival or the
+  // first visit was not yet known used to start the tour on a bill someone had opened from a link (R-114). Asked for
+  // (the bill page's "Take the tour") needs no wish of the page's.
+  if (T || seen(def) || !def.on() || blocked() || (!asked && !def.wants())) return;
   const list = def.tips(); if (!list.length) return;
   T = { def, list, i: 0, back: document.activeElement, root: build() };
   if (reduceMotion()) T.root.classList.add('tr-still');
@@ -263,13 +267,19 @@ function close({ keepFocus = false } = {}) {
 function finish(how, o) { const d = T?.def; if (d) { markSeen(d, how); try { d.done?.(how); } catch { /* counting never gets in the way */ } } close(o); }
 
 // ---------------- the tours ----------------
+// Where this page load began (app.js boot() keeps it in S.arrivedOn before the first screen is drawn). Only someone who came
+// in at the tracker itself (Home) or in the first visit's own frame may be shown around by itself; anyone whose first
+// address was a bill, an issue, a legislator or any other link came to do or read one thing (R-114; R-357 Light fixes, b).
+// Not known yet counts as a link: the tour waits rather than guess, and a page load that never learns it never shows one.
+const CAME_IN = ['home', 'start', 'learn', 'next'];   // Home, and app.js FIRST_VISIT
+const cameToLook = () => !!S.arrivedOn && CAME_IN.includes(S.arrivedOn);
 const BILL = { key: 'hiphi_tour_bill', label: 'Reading a bill', route: 'bill', on: onBill, wide, tips,
-  // Never by itself for someone who arrived on a shared link (R-114): they came for the bill, and the "New here?" card
-  // (bill.js) offers the tour in one quiet line. Nor, since X10-4 (R-180), for anyone who finished the first visit or
-  // opened this bill from Home to act (core.js billTourHeld): the bill page's own line "New to this? Take the tour"
+  // Never by itself for someone who arrived on a link (R-114; cameToLook above, whatever the timing): they came for the
+  // bill, and the "New here?" card (bill.js) offers the tour in one quiet line. Nor, since X10-4 (R-180), for anyone who
+  // finished the first visit or opened this bill from Home to act (core.js billTourHeld): the bill page's own line "New to this? Take the tour"
   // starts it (startBill, below), and goes once the tips are seen. Nor on a bill opened at its drafts (#/bill/.../changes,
   // R-212 #50): that page has scrolled down to what changed, so the tips at its top would dim it with nothing in view.
-  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !billTourHeld() && !/\/changes$/i.test(location.hash), delay: () => 450,
+  above: ['.hdr', '.bl-page .bl-top'], below: ['.actionbar'], wants: () => cameToLook() && !(S.blNew && S.blNew.size) && !(S.blLooking && S.blLooking.size) && !billTourHeld() && !/\/changes$/i.test(location.hash), delay: () => 450,
   done: () => { S.billTourDone = true; document.querySelector('.bl-tourline [data-bl-billtour]')?.closest('.bl-tourline')?.remove(); } };
 
 // Home's tips (R-098) never start over a dialog or the testimony walkthrough.
@@ -320,9 +330,12 @@ export function after(route) {
     return;
   }
   const def = TOURS.find(d => route?.name === d.route && !seen(d) && d.wants());
+  // Any timer set by an earlier render is dropped first, whether or not this render wants a tour: a timer left running
+  // from a skeleton render started the tour 450 ms later on a page that no longer wanted one (R-114, found 30 Oct).
+  clearTimeout(pending); pending = 0;
   if (!def) return;
-  clearTimeout(pending); pending = setTimeout(() => start(def), def.delay());
+  pending = setTimeout(() => start(def), def.delay());
 }
 // Asked for: the bill page's "Take the tour" line (X10-4). The same tips, at once, whoever the person is.
-export function startBill() { if (T) return; clearTimeout(pending); start(BILL); }
+export function startBill() { if (T) return; clearTimeout(pending); start(BILL, true); }
 export default { after, startBill };

@@ -31,8 +31,9 @@ import { S, app, esc, icon, nick, headline, billPath, alive, openActions, dayWor
   followedIssues, issueBills, outcomeOf, didKind, sessionInfo, followsAnything, wiz, settledOn, plainStatus, testimonyDraft,
   followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts, myActions, anyBill, anyHearing } from '../core.js';
 import { btn, chip, skeleton } from '../ui.js';
-import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs, remindWhen, remindDone } from '../actions.js';
+import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs, remindWhen, remindDone, testimonyTime } from '../actions.js';
 import { celebrate, bloom, swap, reduced, fxOn, rooster } from '../fx.js';
+import { askedThisVisit } from '../alerts.js';
 import { CAPITOL, issueBand, flower } from '../art.js';
 import { GOAL } from './goals.js';
 import today, { calmParts as P, wireExtras } from '../home.js';
@@ -123,10 +124,10 @@ function cardParts(html) {
   return { go: col.innerHTML.trim(), before: before.join(''), after: after.join('') };
 }
 // The bill's number on the detail line opens its page: the card's linked name went with the card, and the slide is the only
-// place on Home that names the bill (its row says "On the slide above"), so reading the bill first is one tap.
+// place on Home that names the bill (its row is lit, and says nothing of it), so reading the bill first is one tap.
 const billLink = b => `<a class="cm-bill" href="${esc(billPath(b))}">${esc(spaced(b))}</a>`;
 // The one detail line (R-300, Nate's "one detail line"): when it runs out, the time it takes, the bill ("By tomorrow 1:00 PM ·
-// about 2 min · HB 1780"). Amber only inside 24 hours, on the time alone (A-5).
+// about 10 min the first time · HB 1780"). Amber only inside 24 hours, on the time alone (A-5).
 const detailLine = (dl, warn, mins, b) => `${warn ? `<b class="warn">${esc(dl)}</b>` : esc(dl)}${mins ? ` · ${mins}` : ''}${b ? ` · ${billLink(b)}` : ''}`;
 // A slide's words: the goal, one sentence, the detail line, and what the card adds above its button (a twin, a letter
 // started, what they did). ghost: a hidden copy that only holds room (below).
@@ -188,9 +189,10 @@ function dueParts(c, e, hl, live) {
     : differs ? 'You see this one differently from HIPHI, and you can still tell them what you think.'
     : b.hiphi_action ? esc(b.hiphi_action) : `A short note from you can help ${opp ? 'stop it' : 'it pass'}.`;
   const dl = late ? h.scheduled_at : h.testimony_deadline, warn = Date.parse(dl) - Date.now() < 864e5;
-  const writes = /data-helper|data-mailwalk/.test(p.go);
+  // The time is the button's: testimony says its one promise (actions.js testimonyTime), the quick email keeps "about 2 min".
+  const writes = /data-helper/.test(p.go) ? testimonyTime() : /data-mailwalk/.test(p.go) ? 'about 2 min' : '';
   return { hl, id: 't-' + h.id, art: artOf(b), title: goalOf(b), say: `${why}${esc(hears)} ${ask}`,
-    detail: detailLine(`${late ? 'Late until' : 'By'} ${byWhen(dl)}`, warn, writes ? 'about 2 min' : '', b), before: p.before, go: p.go, after: p.after, mk: ck, mw: 'mw-' + h.id };
+    detail: detailLine(`${late ? 'Late until' : 'By'} ${byWhen(dl)}`, warn, writes, b), before: p.before, go: p.go, after: p.after, mk: ck, mw: 'mw-' + h.id };
 }
 // The hearing ask (home.js askCard's facts, as a slide): a bill waiting for a hearing before its committee's cut-off. Its More
 // ways to help (R-300, Nate's "every slide gets it"): a friend asks too, the cut-off in their calendar, the bill itself.
@@ -329,8 +331,12 @@ const billRow = (b, c) => { const st = stateOf(new Set([b.id]), c); return { b, 
 // A deadline stays whole on its line: the day and its time in one span ("Testimony due Sun / 3:00 PM" broke in the
 // redesign's narrower white box, R-303), held on one line by rec.css with ?rec=1 only; today's Home wraps as before.
 const whole = t => t.replace(/\b((?:today|tomorrow|Mon|Tue|Wed|Thu|Fri|Sat|Sun|[A-Z][a-z]{2} \d{1,2}) \d{1,2}:\d{2} [AP]M)/g, '<span class="cm-when">$1</span>');
-const rowHtml = r => `<li><a class="cm-row${r.on ? ' on' : ''}" href="${esc(r.href)}"${r.pick && !r.on ? ` data-cm-pick="${esc(r.pick)}"` : ''}><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? '<span class="cm-new" title="New since your last visit"><span class="sr"> New since your last visit</span></span>' : ''}</span>
-    <span class="cm-rstat${r.warn ? ' warn' : ''}">${whole(esc(r.text))}</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
+// What a tap does is written on the row (A-12; R-357 Light fixes f, Nate's yes 30 Oct): a row with something due moves the slide to it
+// (decision 5a), so it ends in the word "Show" in link blue; a chevron promises a new page, so only the rows that open the issue's
+// page keep one. The slide's own row opens its issue too, and the lit background marks it, so it has no line saying so.
+const rowHtml = r => { const pick = r.pick && !r.on;
+  return `<li><a class="cm-row${r.on ? ' on' : ''}" href="${esc(r.href)}"${pick ? ` data-cm-pick="${esc(r.pick)}"` : ''}><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? '<span class="cm-new" title="New since your last visit"><span class="sr"> New since your last visit</span></span>' : ''}</span>
+    ${r.text ? `<span class="cm-rstat${r.warn ? ' warn' : ''}">${whole(esc(r.text))}</span>` : ''}</span>${pick ? '<span class="cm-show">Show<span class="sr"> on the slide</span></span>' : icon('chevron-right', { cls: 'cm-chev' })}</a></li>`; };
 // A long list (Nate 10/11, for a follower of dozens like Leilani: "Option number 2, but still grouped by status"): the
 // issues ranked by importance, which is the group order below, then the soonest date, then HIPHI's own order of issues; the
 // first FOLD show and "Show all your issues" opens the rest in place. No headings over the groups since R-300 (Nate 17 Oct:
@@ -406,11 +412,12 @@ function inSession(si, { welcome, fin }) {
     open: openActions(S.bills, S.hearings).filter(x => !settledOn(x.b, x.h)), thanks: thanksNow() };
   S.cmKeys = deck.map(e => e.key); S.cmMk = entry ? (entry.kind === 'ask' || entry.kind === 'remind' ? entry.key : `${entry.b.id}|${entry.x.h.id}`) : null;
   const iss = followedIssues(), own = looseBills().filter(b => b.id !== card.bill?.id);
-  // The slide's own issue: its row says "On the slide above" (and what else on it is due), and stays where it ranks.
+  // The slide's own issue: its row is lit and stays where it ranks; it says only what else on it is due (nothing due is left off
+  // the page, B-14), not that it is the slide's (R-357 Light fixes f: the lit background says so).
   const onSlide = ['due', 'late', 'ask'].includes(card.kind) ? card.bill.id : null;
   const slideRow = (i, st) => { const ids = issueBills(i); if (!onSlide || !ids.includes(onSlide)) return st;
     const more = due.filter(x => ids.includes(x.b.id) && x.b.id !== onSlide).length;
-    return { ...st, on: true, warn: false, text: `On the slide above${more ? `, and ${more} more this week` : ''}` }; };
+    return { ...st, on: true, warn: false, text: more ? `${more} more due this week` : '' }; };
   const rows = [...iss.map(i => slideRow(i, issueRow(i, c))), ...own.map(b => billRow(b, c))].sort(byImportance)
     // Nothing is new seconds after the first visit: everything on the page was just seen there.
     .map(r => ({ ...r, fresh: !welcome && r.fresh }));
@@ -468,7 +475,7 @@ const offRows = yr => [...P.myIssues(yr).map(r => ({ name: r.title, text: unname
   ...looseBills().map(b => ({ b, name: headline(b), text: `${spaced(b)} · ${plainStatus(b).short}`, href: billPath(b) }))];
 
 // My issues under ?rec=1 (R-303, pub/rec/mybills.js): every issue and bill followed as Home's rows, in Home's words and
-// order, without the slide (so no row says "On the slide above"), so the two pages never disagree about where one stands.
+// order, without the slide (so no row is the slide's), so the two pages never disagree about where one stands.
 // Between sessions, the rows Home shows then.
 export function myRows() {
   const si = sessionInfo();
@@ -493,7 +500,8 @@ export default {
     if (delegated) return today.render(route);
     const si = sessionInfo();
     // A fresh arrival on the first visit's own Home, the email step skipped: one ask, as a line (core's nudge rules).
-    if (!document.querySelector('#main .cm') && welcome && !S.nudge && !S.session && !P.alertsGiven()) nudge('follow');
+    // Not after the one ask of the visit was shown and skipped, even across a reload (alerts.js askedThisVisit; C-3, R-357 Light fixes h).
+    if (!document.querySelector('#main .cm') && welcome && !S.nudge && !S.session && !P.alertsGiven() && !askedThisVisit()) nudge('follow');
     return si.phase === 'in' ? inSession(si, { welcome, fin }) : offSession(si, { welcome });
   },
   wire(route) {

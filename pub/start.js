@@ -23,8 +23,9 @@
 //   "Leave, go to Home"   (Nate's words) at the top of every step after the welcome but the finale, and on the topics, which
 //                         have no Back, in Skip's place in the bar: one tap to Home, the first visit marked left (wiz skipped,
 //                         so Home stops sending them back), nothing followed undone; the phone's Back returns to the step.
-//   "Just look around"    the welcome's quiet second choice under Let's begin, the same door (C-2: a skip that costs
-//                         nothing and is not styled as failure). Both are counted as 'leave' on their step.
+//   "Just look around"    the welcome's quiet second choice under Let's begin (C-2: a skip that costs nothing and is not
+//                         styled as failure). It opens Find's topics and leaves the visit undone (leaveVisit, below). Both are
+//                         counted as 'leave' on their step.
 // The plans (pub/onb*.js, practice only) keep their own words and have no Leave. Celebrations are in proportion (DESIGN C-7 as
 // rewritten 9/21): a small burst for a small win and for each part finished, a moment that waits for Continue for the
 // first follow only (one after the lessons read as the end, R-140), and the peak at the end. Motion follows A-10
@@ -187,10 +188,16 @@ export function finish() {
 // Home's "Pick the issues I care about" still marks it done). The key is cleared so coming back to this step counts it again.
 // Home is a new page in the history, not in place of the step (finish() replaces, since that visit is over): the phone's
 // Back after a mistaken tap returns to the step that was left, Leave still on it (B-4, B-5).
+//
+// "Just look around" on the welcome ('arrive') is different since 30 Oct 2026 (R-357 Light fixes g, Nate's yes): it opens Find's
+// topics, where there is something to look at, and does NOT mark the visit left. Home for someone who has followed nothing is
+// the first visit's doorway (its main button sent them back into it, the newcomer walk's finding 8), so the way to Home stays
+// the visit itself, and the first visit stays undone and can be taken up whenever they choose (C-2: a skip that costs nothing).
 function leaveVisit(name) {
   track(name, 'leave');
   viewKey = ''; S.stBand = false;
   LZ?.lessonStop();
+  if (name === 'arrive') { app.go('#/find'); return; }
   wizSet({ skipped: true });
   app.go('#/');
 }
@@ -667,7 +674,7 @@ export default {
     // A lesson on its own: Next, and on the story's last stage Done (wireLearn changes the words), which goes back where
     // it was opened.
     if (route.name === 'learn') return REST?.learnFailed() ? '' : bar1('Next', 'arrow-right', { 'data-stlearnnext': '1' });   // no Next on a lesson that could not load (R-212 #49)
-    // The welcome's two doors (R-212 #46): Let's begin, and under it the quiet "Just look around", straight to Home (C-2).
+    // The welcome's two doors (R-212 #46): Let's begin, and under it the quiet "Just look around", to Find's topics (C-2).
     if (route.step === 0) return helloOn() ? `<div class="st-bar st-one st-hellobar">${btn(t('Let’s begin'), { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}${btn(t('Just look around'), { kind: 'text', attrs: { 'data-stleave': '1' } })}</div>` : '';
     const step = route.step || 1, off = isOff();
     if (redirectFor(step, off)) return '';

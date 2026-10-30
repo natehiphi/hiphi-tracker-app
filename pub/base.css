@@ -156,6 +156,15 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 .iconbtn.on { color: var(--p700); }
 .iconbtn.on .ic { fill: currentColor; }
 .linkbtn { color: var(--p700); text-decoration: underline; text-underline-offset: 2px; padding: 0; font: inherit; }
+/* One link style on the public page (A-12, C-15; R-357 Light fixes c, Nate's yes 30 Oct 2026). A link is underlined inside
+   running text (a sentence in a paragraph or a list item, the .cm sentences: the browser's own underline, kept) and is plain
+   when it stands alone as the action: .link, a link styled as a button, a row's link, "More ways to help", "Read the bill",
+   a line that is only a link. The same blue (--p700) in both; a standalone link underlines on hover. Staff v2 loads
+   this file too (body.staff2): every rule here is scoped away from it, as the .sg rule is from a host's icon rule (MAP.md),
+   and the header band's white links (.band a, above) keep their own underline. */
+body:not(.staff2) :is(a.link, a.btn, a.row, a.mwrow, a.hbtn, a.al-swap, .cm-row, .rc-row, p.bl-learn > a) { text-decoration: none; }
+body:not(.staff2) :is(a.link, a.al-swap, p.bl-learn > a):hover { text-decoration: underline; text-underline-offset: 2px; }
+body:not(.staff2) a.link { display: inline-flex; align-items: center; min-height: 44px; color: var(--p700); font-weight: 700; }
 .btnrow { display: flex; flex-wrap: wrap; gap: var(--s8); align-items: center; }
 .btncol { display: flex; flex-direction: column; gap: var(--s8); }
 .btncol .btn { width: 100%; }
@@ -367,6 +376,9 @@ main:focus { outline: none; }
    HELP) smaller but still body-safe (n500); the way to email is a quiet text button that keeps the 44px target. */
 .al-line { margin: 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); max-width: 65ch; }
 .al-fine { margin: 0; font-size: var(--t13); line-height: 1.45; color: var(--n500); max-width: 65ch; }
+/* Terms and Privacy under the number (R-357 Light fixes d, A-6): the link is 16px of text, so its box is padded to 44px tall and
+   pulled back by the same amount, which leaves the line, the words and the sheet's height where they were. */
+.al-fine a { display: inline-block; padding: 14px 6px; margin: -14px -6px; }
 .al-hint { margin: var(--s4) 0 0; }
 .al-swaprow { margin: 0; }
 /* The label and, at the right, the way to the other kind (R-311). The link keeps its 44px target; it reaches 10px up into

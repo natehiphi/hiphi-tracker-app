@@ -11,6 +11,7 @@ import { myStories, saveProfile, storyAsk } from './myprofile.js';   // one sent
 import { btn, chip, posChip } from './ui.js';
 import { t } from './i18n.js';   // the bar's "Skip this part" is said in the person's language, as bar2's (start.js)
 import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-296)
+import { testimonyTime } from './actions.js';   // and its one time promise (R-357 Light fixes e; C-15)
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
@@ -20,7 +21,7 @@ const VOICE_WORDS = () => ['You’re ready to speak up.', 'Your voice is ready.'
 import { shareLine } from './keep.js';
 import { endHome, armOf, abSeen } from './variant.js';   // and the test 'act' (R-150): today's "Coming up" | three ways to help
 import { nameField, wireName, keepName as keepFirstName, firstName } from './firstname.js';   // the first name on the sign-up (R-294)
-import { alertFields, alertButton, wireAlertForm, fmtPhone, confirmWords, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H } from './alerts.js';
+import { alertFields, alertButton, wireAlertForm, fmtPhone, confirmWords, codeStep, alertStatus, alertRowHTML, wireAlertRow, profileAsk, PROFILE_H, markAsked } from './alerts.js';
 const followLabel = n => n ? `Follow ${plural(n, 'issue')}` : 'Follow issues';
 
 // ================= Importance (Nate, 9/21): what HIPHI backs hardest and the team's top priority lead =================
@@ -509,6 +510,7 @@ function mahaloBand() {
 }
 export function leaveAlerts(step, r = null) {
   S.alertEdit = false; keepFirstName();
+  if (!r) markAsked({ skipped: true });   // Skip on the ask: the ending does not offer "Turn on alerts" a moment later, nor does a follow reopen the sheet (C-3)
   if (wiz().via) { goStep(step, step + 1); return; }
   S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
   // R-306: the cover goes up over this screen first, the story is drawn under it, then the cover folds into the band.
@@ -678,7 +680,7 @@ const dayOf = iso => { const d = hstDay(iso), t = hstDay(Date.now()); return d =
 function wayWords(w) {
   const name = w.b ? nick(w.b) || spaced(w.b.bill_number) : '', soon = iso => new Date(iso) - Date.now() < 864e5;
   switch (w.kind) {
-    case 'testimony': return { ic: 'notebook-pen', act: 'Write testimony', min: 'a few min', name,
+    case 'testimony': return { ic: 'notebook-pen', act: 'Write testimony', min: testimonyTime(), name,
       when: `Due ${dayOf(w.h.testimony_deadline)} at ${timeWord(w.h.testimony_deadline)}`, urgent: soon(w.h.testimony_deadline) };
     case 'email': return { ic: 'mail', act: 'Email the committee chair', min: '2 min', name, when: `Hearing ${dayOf(w.h.scheduled_at)} at ${timeWord(w.h.scheduled_at)}` };
     case 'ask': return { ic: 'mail', act: `Ask the ${chairContacts(w.code).length > 1 ? 'chairs' : 'chair'} for a hearing`, min: '2 min', name,
@@ -691,7 +693,7 @@ function wayWords(w) {
   }
 }
 const lastOf = l => (l.sort_name || l.name || '').split(',')[0];
-// "Write testimony · a few min": the time stays with its words (the review: never alone on a line).
+// "Write testimony · about 10 min the first time": the time stays with its words (the review: never alone on a line).
 const actLine = (ic, t, m) => `<span class="st-way-act">${icon(ic)}<span>${esc(t)}${m ? ` <span class="st-way-min nobr">· ${esc(m)}</span>` : ''}</span></span>`;
 function stepWays(step, ways) {
   // "before January" between sessions, and in session when nothing on their issues is due (the between-sessions ways).
@@ -1058,7 +1060,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     // The visit's one alerts ask, so Home will not ask again (C-3); once drawn it stays in the flow (redirectFor).
     // A "Mahalo!" page reached with nothing asked (noAsk, above) does not count as the ask: the email-ask test's later ask
     // (R-135) must still come.
-    if (!S.stThanks?.noAsk) { S.nudge = null; S.nudgedThisVisit = true; }
+    if (!S.stThanks?.noAsk) { S.nudge = null; markAsked(); }
     S.alertsShown = true;
     wireAlertForm($('#st-aform'), { pfx: 'st-a', source: 'first_visit', onDone: r => {
       if (r.kind === 'email') S.stMail = { email: r.email, name: S.stMail.name || '', sent: r.email, demo: !!r.demo };

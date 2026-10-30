@@ -68,15 +68,28 @@ export function profileSaved(r) {
 // Back closes this sheet (back: B-4, "Closing a sheet is Back"): a newcomer from a friend's link meets it on the bill they
 // opened (R-212 #47), often their only page, where Back used to leave the site with the sheet still asking.
 export function followAsk(name, after, { many = false, receipt = '' } = {}) {
-  if (S.session || alertsGiven() || !nudgeOk()) return false;
+  if (S.session || alertsGiven() || !nudgeOk() || askedThisVisit()) return false;
   abSeen('save');   // where the two versions differ: the old one asked nothing here
   if (!profileAsk()) return false;
-  S.nudgedThisVisit = true; S.nudge = null;
+  markAsked(); S.nudge = null;
   let got = null;
   openAlertsSheet({ source: 'home', back: true, profile: 'follow', lede: profileLede('follow', { many }), receipt: receipt || (name ? `You’re following “${name}”.` : 'You’re following it.'),
     onNo: () => { const n = (onb().nudgeNo || 0) + 1; onbSet({ nudgeNo: n, nudgeNoAt: new Date().toISOString() }); },
-    onDone: r => { got = r; }, onClose: () => after && after(got) });
+    onDone: r => { got = r; }, onClose: () => { if (!got) markAsked({ skipped: true }); after && after(got); } });   // closed without a yes (Not now, Esc, Back): skipped
   return true;
+}
+// One profile ask per visit (C-3; R-357 Light fixes h, Nate's yes 30 Oct 2026: "no second ask on Home after a skip"; an existing
+// account only ever gains choices). A visit is this tab's session, so the marks live in sessionStorage as well as in S.nudgedThisVisit
+// (which a reload forgets): the first visit's alerts screen, or this sheet, counts as the ask once it has been shown, and a skip
+// of either also takes the "Alerts are off · Turn on alerts" line off the ending (alertRowHTML) for the rest of the visit.
+const ASKED = 'hiphi_ask_asked', SKIPPED = 'hiphi_ask_skipped';
+const marked = k => { try { return sessionStorage.getItem(k) === '1'; } catch { return false; } };
+const mark = k => { try { sessionStorage.setItem(k, '1'); } catch { /* private mode: S.nudgedThisVisit holds it for this page's life */ } };
+export const askedThisVisit = () => !!S.nudgedThisVisit || marked(ASKED);
+export const skippedThisVisit = () => !!S.askSkipped || marked(SKIPPED);
+export function markAsked({ skipped = false } = {}) {
+  S.nudgedThisVisit = true; mark(ASKED);
+  if (skipped) { S.askSkipped = true; mark(SKIPPED); }
 }
 
 // The consent words, and their versions (R-265, Nate 12 Oct: "the sign up page needs far less words", then "the absolute
@@ -541,6 +554,7 @@ export function openAlertsSheet({ source = 'more', onDone, onClose, onNo, profil
 // (X10-4). A secondary button under the words, so the ending keeps one primary, "See How I Can Help" (A-3, R-190).
 export function alertRowHTML(k = 0) {
   const a = alertStatus(), kind = a.key === 'on' ? 'ok' : a.key === 'off' ? 'off' : 'wait';
+  if (a.key === 'off' && skippedThisVisit()) return '';   // they just skipped the one ask (C-3): not "Turn on alerts" a moment later (R-357 Light fixes h)
   return `<li class="st-alrow" style="--k:${k}" data-alrow tabindex="-1"><span class="st-rc st-rc-${kind}">${icon(kind === 'ok' ? 'check' : a.icon)}</span><div><b>${esc(a.title)}</b><span>${esc(a.sub)}</span>
     ${a.action ? btn(a.action, { kind: 'secondary', sm: true, icon: a.key === 'code' ? 'message-square' : 'bell', cls: 'st-alon', attrs: { 'data-alsheet': '1' } }) : ''}</div></li>`;
 }
