@@ -258,6 +258,9 @@ buttons and links look like links — never a link styled as a button to borrow 
 active and current states are visible without comparison (`aria-current`, `aria-pressed`, a filled
 chip, a coloured tab). Disabled controls look disabled and say why when it is not obvious.
 
+Follow is an outlined button and Following is a pale chip with a check, never a filled dark button: a dark filled "Following" read
+as the page's main action (the returner walk, 28 Oct; the bill page in version 2, R-357, Nate 30 Oct 2026).
+
 *Reason.* Signifiers are how an interface explains itself. This is the load-bearing rule for P-4: an
 app nobody needs a tutorial for is an app where every control is self-evident.
 
@@ -395,6 +398,18 @@ headings with counts, a dot for what is new, one link under it; in the redesign 
 row lit pale blue inside it and each day kept whole with its time. **On a phone the first screen is under 60 words and
 6 text styles** (the amber of A-5 aside), measured with a style as one face, size, weight and colour. Checked by
 `tests/home_calm.py` on every slide of each moment, phone and laptop.
+
+**The bill page opens as the same slide (version 2, `?v2=1`, R-357 Part 1, Nate's pick of 30 Oct 2026: "Make the bold changes but
+keep the my issues tab").** Under the back row: a small line ("HB 2300 · HIPHI supports"), the goal heading (the slide's, from
+`calm/goals.js`; without one, the bill's everyday name), one plain sentence on what happens next and why a note helps, one detail line
+("By tomorrow 1:00 PM · about 10 min the first time"; "about 3 min" once the person has sent testimony; amber only inside 24 hours;
+between hearings the one thing to do, "Needs a hearing by Mon, Mar 30 · ask the chair"; between sessions the state in a phrase), the
+one filled button (today's main action), a plain link ("Email the chair instead · 2 min", only with a hearing ahead) and an outlined
+"Follow this issue". Then one row, "More about this bill", which opens today's sections inline (what it does, Where it is now, where you
+stand, who decides, About the bill, More details, Others following); there are no stance chips on the first screen, since the letter asks.
+Budget, in the slide's words: the goal heading within 320px of the top (A-1), one filled button (A-3), **the slide block under 60 words and
+the first screen's text in 6 styles** (the bill number is said once, in the small line, A-14). From 1100px the slide is the left column
+and More about this bill is open on the right. Checked by `tests/v2_bill.py`. The My issues tab stays (Nate).
 
 *Reason.* "Show the next one" sat right on testimony slides and left on hearing asks, which had no More ways (199px apart on
 a phone, up to 87px up or down as the words changed length): a control that moves has to be found again on every slide

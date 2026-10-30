@@ -215,6 +215,15 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   Each screen keeps its own desktop rules in its own CSS.
 - Screen contract: `{ tab, tabs?, noTabs?, title?, render(route), wire(route), bar?(route) }`. Screens reach
   the frame through `app.render / app.go / app.openHelper` on the `app` object exported by `core.js`.
+- **Version 2 (R-357, Nate 30 Oct 2026: "make the bold changes but keep the my issues tab"), behind `?v2=1`.** `V2()` in `pub/app.js`
+  (opt-in for now; one later flip to `!== '0'` makes it everyone's) is read by a screen as `app.v2()`; the router keeps the query, so
+  the flag lasts the visit, and the body carries `.v2`. A v2 screen is its own lazy module under `pub/v2/` picked in `app.js` (the bill
+  page: `./v2/bill.js`), and `V2_CSS` brings `pub/v2/v2.css` after `rec/rec.css` (and the idle prefetch leaves it out without the flag),
+  so nothing of version 2 is fetched and v1 is unchanged without it. Part 1, the bill page as a slide: `pub/v2/bill.js` draws only the
+  slide and its "More about this bill" row; everything else is `pub/bill.js`, whose `screen(draw)` takes the page's drawing (loading,
+  bars and `wire()` are v1's) and which exports the parts the v2 page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...);
+  `pub/v2/slide.js` holds the slide's words (goal, sentences, times) for the pages that say them, to be shared with Home when its v2 part lands.
+  Test: `tests/v2_bill.py`.
 - **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
   tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`
   is the state, the client, the catalog, the follows, the first visit's state and the page's small helpers; `pub/core.js`
