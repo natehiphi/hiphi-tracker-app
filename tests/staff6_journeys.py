@@ -218,7 +218,7 @@ JOURNEYS = [
   # The prep steps run inline (V30): two "Looks right", the goal and three talking points typed (the next step opens as
   # soon as what is typed would do it), top issue yes or no, keep it, then Mark ready. Typing is not a click.
   J('prep-issue', 'Prepare one 2027 issue (Kevin, 5 Nov)', 'KV', 8,
-    [Step('My issues$', roles=('link',)), Step(rx(r'^\s*(Start|Next): '), roles=('link', 'button')),
+    [Step('Issues$', roles=('link',)), Step(rx(r'^\s*(Start|Next): '), roles=('link', 'button')),
      Step(r'^\s*Looks right'), Step(r'^\s*Looks right'),
      Type({'main [data-prauto=goal]': 'Keep large cigars out of the mail.',
            'main [data-prauto=points]': 'Cigars by mail reach kids.\nAge checks at the door fail.\nHawaiʻi already limits tobacco by mail.'}),
@@ -234,14 +234,19 @@ JOURNEYS = [
     [Step('Filter'), Step(r'^\s*O.?ahu'), Step(r'^\s*Show \d+ people'), Step('More actions'), Step('Save as segment'), Step(r'^\s*Save segment', fill='Oʻahu supporters (test)')], r'Saved',
     start='/outreach/supporters', needs=('#/outreach/supporters',)),
   J('qr-link', 'Make a partner QR link (Saya)', 'SY', 2,
-    [Step(r'^\s*More tools', roles=('link', 'button')), Step(r'^\s*Make a link')], QR_SHOWN,
-    [Step('My issues$', roles=('link',)), Step('All issues'), Step(rx(r'^More')), Step(r'^\s*First visit'), Step(r'^\s*Make a link')], QR_SHOWN,
+    [Step(r'^\s*More\s*$', roles=('link', 'button')), Step(r'^\s*Make a link')], QR_SHOWN,
+    [Step('Issues$', roles=('link',)), Step('All issues'), Step(rx(r'^More')), Step(r'^\s*First visit'), Step(r'^\s*Make a link')], QR_SHOWN,
     needs=('staff6/tools.js',)),
 ]
 
 # ---- doors: where Inbox, Help and each weekly place are, without opening any menu ----
-WEEKLY = ['Today', 'Hearings', 'Testimony', 'Outreach', 'Bills', 'Legislators', 'My issues', 'Inbox', 'Help', 'Lists']
-WEEKLY_V5 = {'Hearings': 'This week', 'Testimony': 'Review'}
+WEEKLY = ['Today', 'Hearings', 'Testimony', 'Outreach', 'Bills', 'Legislators', 'Issues', 'Inbox', 'Help', 'Lists']
+WEEKLY_V5 = {'Hearings': 'This week', 'Testimony': 'Review', 'Issues': 'My issues'}
+# R-356 round 1: Legislators left the sidebar for the More page's Places section, so it is one click from More at every
+# width (still a labelled tap, never behind a menu); Issues is a sidebar place on a laptop and a More row on a phone.
+# Inbox and Help are header icons beside the search box at every width (aria-labels "Inbox, N unread" and "Help").
+VIA_MORE = {'legislators'}
+TEAM_SEERS = getattr(L, 'TEAM_SEERS', L.LEADS | {'KR'})   # Kris has Sees Team in the practice copy (R-356)
 PARENT = {'Lists': '/outreach'}                # a page tab one labelled tap inside a place (2 taps, in view)
 PARENT_V5 = {'This week': '/', 'Team': '/', 'Lists': '/outreach'}
 FRAME = """(name) => { const want = name.toLowerCase(); const main = document.querySelector('main');
@@ -254,7 +259,7 @@ def doors(b, who, w, h):
   """For each weekly place: 1 (a labelled control always in view), 2 (one labelled tap in: a page tab, or the phone's
   More page), or None (behind a menu or nowhere)."""
   pg = b.page(who, w, h); pg.open('/'); out = {}
-  places = WEEKLY + (['Team'] if who in L.LEADS else [])
+  places = WEEKLY + (['Team'] if who in TEAM_SEERS else [])
   more = None
   for p in places:
     name = WEEKLY_V5.get(p, p) if V5 else p
@@ -264,7 +269,7 @@ def doors(b, who, w, h):
       pg.nav(par)
       if pg.page.evaluate(INMAIN, name): out[p] = 1 if par == '/' else 2; pg.nav('/'); continue
       pg.nav('/')
-    if not V5 and L.PHONE(w):
+    if not V5 and (L.PHONE(w) or name.lower() in VIA_MORE):
       if more is None:
         pg.nav('/more'); more = pg.page.evaluate("() => [...document.querySelectorAll('main a[href], main button')].filter(e => e.getClientRects().length).map(e => (e.innerText || '').trim().split('\\n')[0].toLowerCase())"); pg.nav('/')
       if name.lower() in more and pg.page.evaluate(FRAME, 'More'): out[p] = 2; continue
@@ -273,8 +278,10 @@ def doors(b, who, w, h):
 
 # ---- More tools: every rare tool listed by job, one click in (spec 3.5) ----
 # ("Practice copy" is listed in the live app only: these tests run in the practice copy, which does not link to itself.)
-TOOLS = ['Holding our bills', 'Session calendar', 'Earlier testimony', 'How to file', 'Lists', r'Make a link|QR code', 'First visit numbers',
-         r'Supporters.? groups', 'Sort new bills', 'Muted bills', 'Saved views', 'Bulk change', 'Export', 'Getting started',
+# R-356 round 1: seven rows left the page because each repeated a tab or control on its own place (Sort new bills, Muted
+# bills, Saved views, Bulk change, Export, the Earlier testimony library, Holding our bills); the page is just "More".
+TOOLS = ['Session calendar', 'How to file', 'Lists', r'Make a link|QR code', 'First visit numbers',
+         r'Supporters.? groups', 'Getting started',
          'What moved', 'Keyboard shortcuts', r'Someone else.s list|See as (a )?teammate|See a teammate.s list']
 SEARCHES = [('inbox', r'Inbox'), ('QR code', r'QR|Make a link'), ('sort new bills', r'Sort new bills'), ('responding', r'respond|landing|First visit'),
             ('approve', r'approve|Testimony'), ('arrivals', r'arriv|First visit')]
@@ -401,7 +408,7 @@ TOASTED = r"""() => { const u = [...document.querySelectorAll('button, a')].find
   const live = u.closest('[aria-live], [role=status], [role=alert], [role=log]');
   return { undo: true, live: !!live, polite: live ? (live.getAttribute('aria-live') || live.getAttribute('role')) : '', early: !!(live && live.dataset.live0), text: (live || u.parentElement).innerText.replace(/\s+/g, ' ').trim().slice(0, 80) }; }"""
 TOAST_CASES = [('Resubmit (Patti)', 'PH', [Step('Resubmit')]), ("Approve (Kris, in Review)", 'KR', [Step(*REVIEW6), Step('Approve$', wait=1300)]),
-               ('Looks right (Kevin, prep)', 'KV', [Step('My issues$', roles=('link',)), Step(rx(r'^\s*(Start|Next): '), roles=('link', 'button')), Step(r'^\s*Looks right')])]
+               ('Looks right (Kevin, prep)', 'KV', [Step('Issues$', roles=('link',)), Step(rx(r'^\s*(Start|Next): '), roles=('link', 'button')), Step(r'^\s*Looks right')])]
 
 def toasts(b, R, only):
   print(f'\n{L.APP}: the Undo toast is read aloud (an aria-live region that was on the page before it spoke)')
@@ -477,7 +484,8 @@ def zoom(b, R, only):
   print(f'\n{L.APP}: 200% zoom at 1280x800 (a 640x400 window, twice the pixels): nothing lost')
   out = {}
   for key, route, who in ZOOM_ROUTES:
-    if key in ('team', 'people', 'setup') and who not in L.LEADS: continue
+    if key == 'team' and who not in TEAM_SEERS: continue   # Team is open to leads and people with Sees Team (R-356)
+    if key in ('people', 'setup') and who not in L.LEADS: continue
     a = b.page(who, 1280, 800); a.open(route); full = a.page.evaluate(CONTROLS); a.close()
     ctx = b.b.new_context(viewport={'width': 640, 'height': 400}, device_scale_factor=2, reduced_motion='reduce')
     if L.ROOT: ctx.route(lambda u: not u.startswith(L.HOST), lambda r: r.abort())
@@ -558,8 +566,8 @@ def main():
           hidden = [p for p, v in d.items() if v is None]
           line = ' '.join(f"{p}:{v or '-'}" for p, v in d.items())
           if V5: print(f'  v5   {who} {w}: {len(hidden)} behind a menu  ({line})'); continue
-          inbox = d.get('Inbox') == 1; help_ = d.get('Help') == 1 or (w < 768 and d.get('Help') == 2)
-          R.check(f'{who} {w}: Inbox in one visible tap, Help in ' + ('one' if w >= 768 else 'one or two labelled taps') + ', no weekly place behind a menu',
+          inbox = d.get('Inbox') == 1; help_ = d.get('Help') == 1   # header icons at every width (R-356)
+          R.check(f'{who} {w}: Inbox in one visible tap, Help in one (header icons at every width), no weekly place behind a menu',
                   inbox and help_ and not hidden, ('' if inbox else 'Inbox not in view; ') + ('' if help_ else 'Help not in view; ') + (f"behind a menu: {', '.join(hidden)}" if hidden else ''))
       got['doors'] = {k: sum(1 for v in d.values() if v is None) for k, d in allv.items()}
 
@@ -569,7 +577,7 @@ def main():
       else:
         print(f'\n{L.APP}: More tools')
         pg = b.page('NT', 1440, 900); pg.open('/')
-        door = L.find(pg.page, rx(r'^\s*More tools'), roles=('link', 'button'))
+        door = L.find(pg.page, rx(r'^\s*More\s*$'), roles=('link', 'button'))
         if door is None or L.stub('staff6/tools.js'):
           R.check('More tools lists every rare tool', False, '', skip='not built yet: staff6/tools.js is a placeholder' if L.stub('staff6/tools.js') else None)
         else:
