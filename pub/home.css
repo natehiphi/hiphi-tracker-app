@@ -369,6 +369,22 @@
 .cm .cm-chev { flex: none; color: var(--n400); }
 .cm .cm-show { flex: none; color: var(--p700); font-size: var(--t14); font-weight: 700; }   /* the word says what a tap does: the slide moves to it (A-12) */
 .cm .cm-all { margin: var(--s8) 0 0 -12px; }
+/* Version 2's week (R-357 Part 3, ?v2=1, pub/calm/home.js weekBlock): the box is "This week", by day. Here, and not in pub/v2/v2.css, since
+   Home's stylesheet is the one Home has when it first draws (v2.css is brought only by the bill page, and by the idle load after 2.5 s);
+   everything is under .hm-v2, so Home without the flag is not touched. body.v2 raises the rules over rec.css's (loaded later) for the box.
+   Colours only through base.css's tokens (A-5, A-7); the type is Home's step (--t13..--t16 are one larger on .cm, C-14). */
+body.v2 .cm.hm-v2 .cm-week .cm-h { margin: 0 0 var(--s8); font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n700); }   /* a small key over the box, not a heading to read (the mock's "This week") */
+body.v2 .cm.hm-v2 .cm-wk { align-items: center; }
+body.v2 .cm.hm-v2 .cm-day { flex: 0 0 56px; align-self: baseline; font: 700 var(--t13)/1.25 var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--n500); white-space: nowrap; }   /* Tue, Wed, Mar 30, Today */
+body.v2 .cm.hm-v2 .cm-rstat { color: var(--n700); }
+body.v2 .cm.hm-v2 .cm-rstat.warn, body.v2 .cm.hm-v2 .cm-row.on .cm-rstat.warn { color: var(--warn-text); font-weight: 700; }   /* amber only inside 24 hours (A-5) */
+body.v2 .cm.hm-v2 .cm-row.on .cm-rstat:not(.warn) { color: var(--n700); font-weight: 400; }   /* the lit row says what is due like the others; v1's bold blue was "N more due this week" */
+body.v2 .cm.hm-v2 div.cm-row.on, body.v2 .cm.hm-v2 div.cm-row.on:hover { background: var(--p50); }   /* the slide's own bill: lit, and not a link, so it has no hover and no chevron (A-12) */
+body.v2 .cm.hm-v2 .cm-editrow, body.v2 .cm.hm-v2 .cm-showrow { padding: 0 var(--s16); }
+body.v2 .cm.hm-v2 .cm-showrow:empty { display: none; }   /* "Show all your issues" removes itself when pressed */
+body.v2 .cm.hm-v2 .cm-editrow .cm-edit, body.v2 .cm.hm-v2 .cm-showrow .cm-showall { display: flex; width: fit-content; min-height: 44px; margin: 0 0 0 -12px; }   /* the words line up with the rows' text; the target stays 44px (A-6) */
+body.v2 .cm.hm-v2 .cm-showrow .cm-showall { height: auto; padding-block: var(--s8); align-items: flex-start; text-align: left; white-space: normal; }   /* "Show all your issues · more due this week" may take two lines; its arrow stays by the first */
+body.v2 .cm.hm-v2 .cm-showrow .cm-showall .ic { flex: none; margin-top: 2px; }
 .cm .cm-lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
 .cm .cm-lines .hm-profline { margin: 0; }
 

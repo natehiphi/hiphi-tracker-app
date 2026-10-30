@@ -23,26 +23,35 @@
 // The budget it keeps (A-23, tests/home_calm.py): at most four blocks of at most two shapes, one filled button, each bill
 // named once, under two phone screens for 3 issues and three for 16. What left Home and where it went: the review
 // (backend docs/requests/R-222-assessment.md, section 6).
+// Version 2 (?v2=1, R-357 Part 3, Nate's pick of 30 Oct 2026, "keep the my issues tab"): the greeting and the slide are exactly the
+// same. The box under the slide becomes "This week" (weekBlock): by day, each thing to do with its day, the bill's everyday name and
+// what is due, a tap opening that bill's page (the slide's own bill is the lit row and needs no tap), then "Also due: N HIPHI asks"
+// on issues they do not follow, which opens Find's "Needs voices this week", and "Edit my issues" as the box's last line. "See your
+// 2026 session" moved to the You tab (more.js) and "See them all in My issues" went: the tab is one tap away. Between sessions the
+// box is today's list of issues, with the same words, a title that is not "This week" and the same last line. Without the flag
+// nothing of this runs.
 // Still today's Home: Your session (#/recap) and following nothing. The first visit's ending is the calm Home too (R-248,
 // Nate 10/11: "Yes, queue it"): on the page load that finished it the greeting says "Mahalo, <name>!" with the row of what
 // they did today and the petals once (R-098's celebration, home.js finDid and finFx); a reload says Aloha. It used to hand
 // the whole tab to today's Home, so every new person's first Home was the old one, its wins card included.
 import { S, app, esc, icon, nick, headline, billPath, alive, openActions, dayWord, timeWord, dateLong, hstDay, hiT, HST,
   followedIssues, issueBills, outcomeOf, didKind, sessionInfo, followsAnything, wiz, settledOn, plainStatus, testimonyDraft,
-  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts, myActions, anyBill, anyHearing } from '../core.js';
+  followSummary, winsIn, ensureRecapPool, isResolution, nudge, catOf, issueOf, DEMO, issuesOf, codesOf, agrees, asSentence, chairContacts, myActions, anyBill, anyHearing,
+  issueFollowed, dismissed, suggestionList, recommendations } from '../core.js';
 import { btn, chip, skeleton } from '../ui.js';
 import { actionCard, wireActions, wireNudge, goingPlans, goingCard, moreRow, downloadCutoffIcs, remindWhen, remindDone, testimonyTime } from '../actions.js';
 import { celebrate, bloom, swap, reduced, fxOn, rooster } from '../fx.js';
 import { askedThisVisit } from '../alerts.js';
 import { CAPITOL, issueBand, flower } from '../art.js';
 import { GOAL } from './goals.js';
-import today, { calmParts as P, wireExtras } from '../home.js';
+import today, { calmParts as P, wireExtras, sameIdea } from '../home.js';
 
 // Where the pager stands in the deck (R-300), for this visit: the key of the slide the person moved to (null until they
 // move, so the soonest leads), and its place, so the one after a slide they sent from takes its place.
 S.cmAt ??= null;
 S.cmIdx ??= 0;
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
+const V2 = () => !!app.v2?.();   // version 2 (R-357, ?v2=1; pub/app.js): read when a page is drawn, so v1 never touches any of it
 const nameOf = b => nick(b) || headline(b, 70);
 const time = iso => timeWord(iso);   // as the card writes it ("1:00 PM"), so a row and the card read the same
 // "today", "tomorrow", "Wed" within the week; "Mar 30" further out, where a weekday alone would be ambiguous.
@@ -291,7 +300,8 @@ function stateOf(ids, c) {
   // button then says "Finish sending your testimony"), so a saved letter is never left unmentioned (R-189).
   const dr = c.open.find(x => has(x.b) && testimonyDraft(x.h) && Date.parse(x.h.scheduled_at) > now && x.h.id !== c.card.items?.[0]?.h.id);
   if (dr) { const dl = dr.h.testimony_deadline && Date.parse(dr.h.testimony_deadline) > now ? dr.h.testimony_deadline : '', t = Date.parse(dl || dr.h.scheduled_at);
-    return { g: t - now < 7 * 864e5 ? 'due' : 'hearing', t, warn: !!dl && t - now < 864e5, text: `Your letter is started · ${dl ? `due ${when(dl)}` : `hearing ${when(dr.h.scheduled_at)}`}` }; }
+    return { g: t - now < 7 * 864e5 ? 'due' : 'hearing', t, warn: !!dl && t - now < 864e5, text: `Your letter is started · ${dl ? `due ${when(dl)}` : `hearing ${when(dr.h.scheduled_at)}`}`,
+      week: { b: dr.b, iso: dl || dr.h.scheduled_at, line: `Your letter is started · ${dl ? 'due' : 'hearing'} ${time(dl || dr.h.scheduled_at)}` } }; }
   const ds = c.due.filter(x => has(x.b)), d = ds[0];
   // A second bill due this week on the same issue is said on the row, so nothing to do is left off the page (B-14).
   if (d) { const t = Date.parse(d.h.testimony_deadline), more = ds.length > 1 ? `, and ${ds.length - 1} more this week` : '';
@@ -303,7 +313,8 @@ function stateOf(ids, c) {
     .sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at))[0];
   if (h) { const b = bs.find(x => x.id === h.bill_id), plan = c.plans.some(p => p.h.id === h.id);
     const did = didKind(b, h, 'testimony') ? 'You testified' : didKind(b, h, 'email') ? 'You emailed the chair' : plan ? 'You plan to go' : '';
-    return { g: 'hearing', t: Date.parse(h.scheduled_at), fresh: isNew(Date.parse(h.notice_posted_at || 0)), text: `${did ? `${did} · hearing` : 'Hearing'} ${when(h.scheduled_at)}` }; }
+    return { g: 'hearing', t: Date.parse(h.scheduled_at), fresh: isNew(Date.parse(h.notice_posted_at || 0)), text: `${did ? `${did} · hearing` : 'Hearing'} ${when(h.scheduled_at)}`,
+      week: { b, iso: h.scheduled_at, line: `${did ? `${did} · Hearing` : 'Hearing'} ${time(h.scheduled_at)}` } }; }
   const a = c.asksAll.find(x => has(x.b));
   if (a) { const t = hiT(a.st.deadline.date) + 12 * 36e5;   // the end of the cut-off day
     return { g: 'needs', t, warn: t - now < 864e5, pick: 'ask|' + a.b.id, text: `Needs a hearing by ${dateLong(a.st.deadline.date + 'T12:00:00-10:00')}` }; }
@@ -358,9 +369,86 @@ function issuesBlock(rows) {
   const long = rows.length > FOLD && rows.every(r => r.g), nIss = rows.filter(r => !r.b).length, nB = rows.length - nIss;
   const head = nB && nIss ? 'Your issues and bills' : nB ? 'Your bills' : 'Your issues', noun = nB && nIss ? 'issues and bills' : nB ? 'bills' : 'issues';
   return `<section class="cm-issues" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">${head}</h2>
-    <ul class="cm-rows" role="list">${rows.map((r, n) => long && n >= FOLD ? rowHtml(r).replace('<li>', '<li data-cm-more hidden>') : rowHtml(r)).join('')}</ul>
+    <ul class="cm-rows" role="list">${rows.map((r, n) => long && n >= FOLD ? rowHtml(r).replace('<li>', '<li data-cm-more hidden>') : rowHtml(r)).join('')}${V2() ? editRow : ''}</ul>
     ${long ? btn(`Show all your ${noun}${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } }) : ''}
-    ${btn('See them all in My issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all', attrs: long ? { 'data-cm-more': '', hidden: '' } : {} })}</section>`;
+    ${V2() ? '' : btn('See them all in My issues', { kind: 'text', iconEnd: 'chevron-right', href: '#/bills', cls: 'hm-link cm-all', attrs: long ? { 'data-cm-more': '', hidden: '' } : {} })}</section>`;
+}
+
+// ---------------- 3b. this week (version 2, R-357 Part 3) ----------------
+// The box under the slide as the week, by day (Nate's pick of 30 Oct 2026, the mock's "Moderate"; the walk of 28 Oct found Your issues
+// said what the My issues tab says, so two doors led to one room). A row is one thing: a day, the bill's everyday name, what is due. A
+// tap opens that bill's page, not the slide (v1 keeps decision 5a, a tap moves the slide); the slide's own bill is the lit row, with
+// no chevron, since it is the slide above. An issue with nothing to do keeps its row, with where it stands (as v1's), after the days,
+// so the box still holds one row for every issue (A-23). Then one row for HIPHI's asks on issues they do not follow, and the link to
+// edit what they follow: the last line of the box.
+// "Edit my issues" opens My issues in its edit state. That screen draws its Edit button and keeps the state in S.rcEdit, which it
+// clears whenever it opens from another screen, so Home cannot set it first: it asks for the page and presses the button once it is
+// there (wireWeek).
+const editRow = `<li class="cm-editrow">${btn('Edit my issues', { kind: 'text', href: '#/bills', cls: 'hm-link cm-edit', attrs: { 'data-hm-edit': '' } })}</li>`;
+// "Tue" within the week, "Today", "Mar 30" further out (the mock's labels); the box sets them in small capitals.
+const dayTag = iso => { const d = dayShort(iso); return d === 'today' ? 'Today' : d === 'tomorrow' ? new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' }) : d; };
+// A time never breaks across lines in a row ("1:00 / PM"), as whole() keeps a day and its time.
+const keepTime = t => t.replace(/\b(\d{1,2}:\d{2} [AP]M)/g, '<span class="cm-when">$1</span>');
+const NEWDOT = '<span class="cm-new" title="New since your last visit"><span class="sr"> New since your last visit</span></span>';
+function weekRowHtml(r) {
+  const inner = `<span class="cm-day"${r.day ? '' : ' aria-hidden="true"'}>${esc(r.day || '')}</span><span class="cm-rtext"><span class="cm-rname">${esc(r.name)}${r.fresh ? NEWDOT : ''}</span>
+    ${r.text ? `<span class="cm-rstat${r.warn ? ' warn' : ''}">${keepTime(esc(r.text))}</span>` : ''}</span>`;
+  return r.on ? `<li><div class="cm-row cm-wk on" aria-current="true">${inner}</div></li>`
+    : `<li><a class="cm-row cm-wk" href="${esc(r.href)}">${inner}${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
+}
+// How many HIPHI asks on issues the person does not follow have a hearing this week: the rows Find's "Needs voices this week" draws
+// (pub/rec/find.js voices(), written there for that page: the same short list and ranking from core.js, the same rule that the
+// hearing is within 7 days, a bill the person put aside is left out, an issue followed leaves out its bills, one row an issue or a bill
+// on no issue). It never records a showing (noteShown), since nothing here is shown as a suggestion, and nothing between sessions.
+// The count is the page it opens: if the two ever disagreed Find's would win, so the row is drawn only when the count is above 0.
+function alsoDue() {
+  if (sessionInfo().phase !== 'in') return 0;
+  const skip = dismissed(), now = Date.now(), week = now + 7 * 864e5, seen = new Set();
+  const ok = r => { const h = r.st?.hearing; return !!h && !skip.has(r.b.id) && Date.parse(h.scheduled_at) > now && Date.parse(h.scheduled_at) < week; };
+  const add = r => { const on = issuesOf(r.b); if (on.some(issueFollowed)) return; seen.add(on[0] ? on[0].id : 'b:' + r.b.id); };
+  suggestionList(4).filter(ok).forEach(add);
+  recommendations(200).filter(ok).forEach(add);
+  return seen.size;
+}
+// The week's rows. todo: what the deck's slides are made of (testimony due, late testimony, a hearing ask), one row each for the bill,
+// twins as one (the deck's own list), so nothing due is left off the page (B-14). Every other issue, and every bill followed on its
+// own, keeps one row: a hearing ahead (or a letter started for one) goes by its day with the bill named; where it stands otherwise
+// has no day and comes after, in v1's order. The slide's own bill is the lit row.
+function weekRows(c, iss, own, entry) {
+  const now = Date.now(), out = [], row = (kind, key, t, iso, b, text, warn, extra = {}) => out.push({ kind, key, t, day: dayTag(iso), name: nameOf(b), text, warn, href: billPath(b), b, ...extra });
+  for (const x of c.due) { const dl = x.h.testimony_deadline, t = Date.parse(dl);
+    row('due', skipKey(x), t, dl, x.b, `${testimonyDraft(x.h) ? 'Your letter is started · due' : 'Testimony due'} ${time(dl)}`, t - now < 864e5, { g: 'due', fresh: isNew(Date.parse(x.h.notice_posted_at || 0)) }); }
+  for (const x of c.late) { const dl = x.h.scheduled_at, t = Date.parse(dl);
+    row('late', skipKey(x), t, dl, x.b, `Late testimony until ${time(dl)}`, t - now < 864e5, { g: 'due' }); }
+  // A hearing ask for the twin of a bill whose late testimony is a row above says the same name again (oneIdeaAsks takes out only the twins of
+  // testimony still due), so it has no row (its slide is still in the deck, and no row is lit while the pager is on it): each bill named once (A-14).
+  for (const x of c.asksAll) { if (c.late.some(l => sameIdea(l.b, x.b))) continue;
+    const at = hiT(x.st.deadline.date) + 12 * 36e5, chairs = chairContacts(x.st.committee).length > 1 ? 'chairs' : 'chair';
+    row('ask', 'ask|' + x.b.id, at, x.st.deadline.date + 'T12:00:00-10:00', x.b, `Ask the ${chairs} for a hearing`, at - now < 864e5, { g: 'needs' }); }
+  const has = new Set(out.map(r => r.b.id));
+  for (const u of [...iss.map(i => ({ i, ids: new Set(issueBills(i)) })), ...own.map(b => ({ b, ids: new Set([b.id]) }))]) {
+    if ([...u.ids].some(id => has.has(id))) continue;   // the unit's bill is already a row above
+    const st = stateOf(u.ids, c);
+    if (st.week) row('hearing', 'hearing|' + st.week.b.id, st.t, st.week.iso, st.week.b, st.week.line, false, { g: st.g, fresh: st.fresh });
+    else out.push({ kind: 'issue', g: st.g, rank: st.rank, i: u.i, name: u.i ? u.i.name : headline(u.b), text: u.b ? `${spaced(u.b)} · ${st.text}` : st.text, fresh: st.fresh,
+      href: u.i ? `#/issue/${u.i.slug}` : billPath(u.b), b: u.b });
+  }
+  // By day. A long list puts what is to do first, so the fold hides a hearing before it hides something due (B-14).
+  const dated = out.filter(r => r.t != null).sort((x, y) => x.t - y.t), quiet = out.filter(r => r.t == null).sort(byImportance);
+  const todo = r => r.g === 'due' || r.g === 'needs', long = out.length > FOLD;
+  const rows = [...(long ? [...dated.filter(todo), ...dated.filter(r => !todo(r))] : dated), ...quiet];
+  for (const r of rows) r.on = !!entry && r.key === entry.key;
+  return rows;
+}
+function weekBlock(rows, also) {
+  if (!rows.length) return '';
+  const long = rows.length > FOLD;
+  const more = long ? `<li class="cm-showrow">${btn(`Show all your issues${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } })}</li>` : '';
+  const li = (r, n) => { const h = weekRowHtml(r); return long && n >= FOLD ? h.replace('<li>', '<li data-cm-more hidden>') : h; };
+  const alsoRow = also ? `<li><a class="cm-row cm-wk cm-also" href="#/find" data-hm-voices><span class="cm-day">Today</span><span class="cm-rtext"><span class="cm-rname">Also due: ${plural(also, 'HIPHI ask')}</span>
+    <span class="cm-rstat">On issues you don’t follow</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>` : '';
+  return `<section class="cm-issues cm-week" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">This week</h2>
+    <ul class="cm-rows" role="list">${rows.map((r, n) => (long && n === FOLD ? more : '') + li(r, n)).join('')}${alsoRow}${editRow}</ul></section>`;
 }
 
 // ---------------- 1. the greeting ----------------
@@ -418,7 +506,9 @@ function inSession(si, { welcome, fin }) {
   const slideRow = (i, st) => { const ids = issueBills(i); if (!onSlide || !ids.includes(onSlide)) return st;
     const more = due.filter(x => ids.includes(x.b.id) && x.b.id !== onSlide).length;
     return { ...st, on: true, warn: false, text: more ? `${more} more due this week` : '' }; };
-  const rows = [...iss.map(i => slideRow(i, issueRow(i, c))), ...own.map(b => billRow(b, c))].sort(byImportance)
+  // Version 2: the week by day (weekRows), the slide's own bill the lit row. Without the flag, one row an issue as ever.
+  const v2 = V2(), lit = onSlide ? entry : null;
+  const rows = (v2 ? weekRows(c, iss, own, lit) : [...iss.map(i => slideRow(i, issueRow(i, c))), ...own.map(b => billRow(b, c))].sort(byImportance))
     // Nothing is new seconds after the first visit: everything on the page was just seen there.
     .map(r => ({ ...r, fresh: !welcome && r.fresh }));
   c.freshN = rows.filter(r => r.fresh).length; c.noun = !iss.length && looseBills().length ? 'bills' : 'issues';   // someone who follows only bills has no issues
@@ -426,11 +516,12 @@ function inSession(si, { welcome, fin }) {
   const head = greeting(c);
   S.cmMoments = c.moments;
   S.cmShown = card.kind === 'due' || card.kind === 'late' ? { b: card.items[0].b, h: card.items[0].h } : null;
-  const lines = [welcome ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
-  return `<div class="hm cm${welcome ? '' : ' cm-met'}${finCls(welcome)}">
+  // Version 2: "See your 2026 session" is a row on the You tab (more.js), not a line here.
+  const lines = [welcome || v2 ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
+  return `<div class="hm cm${welcome ? '' : ' cm-met'}${finCls(welcome)}${v2 ? ' hm-v2' : ''}">
     ${head}
     ${theSlide(c)}
-    ${issuesBlock(rows)}
+    ${v2 ? weekBlock(rows, alsoDue()) : issuesBlock(rows)}
     ${lines ? `<div class="cm-lines">${lines}</div>` : ''}
   </div>`;
 }
@@ -453,8 +544,8 @@ function offSession(si, { welcome }) {
   // The Mahalo says where they are, as in session (the fresh-eyes review of R-248); the ticks below say what they did, so the
   // lede does not count their issues again (A-14).
   const hello = fin ? `<h1 class="hero" id="hm-finh">${mahalo(name)}</h1><p class="lede">This is your home page. ${lede}</p>${P.finDid()}`
-    : `<p class="cm-hi"><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> <span>${lede}</span></p>${welcome ? '' : P.sessionLink(yr)}`;
-  return `<div class="hm cm cm-off${finCls(welcome)}">
+    : `<p class="cm-hi"><b>Aloha${name ? `, ${esc(name)}` : ''}.</b> <span>${lede}</span></p>${welcome || V2() ? '' : P.sessionLink(yr)}`;   // version 2: the session is a row on You (more.js)
+  return `<div class="hm cm cm-off${finCls(welcome)}${V2() ? ' hm-v2' : ''}">
     <header class="cm-head">${hello}</header>
     ${card}
     ${issuesBlock(rows)}
@@ -489,6 +580,33 @@ export function myRows() {
 // so the ticks rise once and a redraw as data lands does not replay them (home.css).
 const afterSwap = (moved, fn) => moved && typeof moved.then === 'function' ? moved.then(fn, fn) : requestAnimationFrame(fn);
 const finCls = welcome => welcome && P.finNow() ? ` cm-fin${S.hmFinDrawn ? '' : ' hm-anim'}` : '';
+// Version 2's controls (R-357 Part 3), wired after the slide's own (wireActions). Home draws these under ?v2=1 only.
+// Something a person opened from Home has to be waited for: the next screen's module and data come lazily, so each wait looks for the
+// thing on the page asked for until it is there, and stops when the person has gone somewhere else or after six seconds.
+function whenThere(find, then, here) {
+  const t0 = performance.now(), tick = () => { const el = find(); if (el) return then(el); if (performance.now() - t0 < 6000 && here()) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+function wireWeek(root) {
+  // The slide's letter buttons (its testimony button, "Finish sending your testimony" when a letter is started, the quick email, and the same
+  // two inside More ways to help): the new three-screen letter, app.openLetter2(bill, kind, opts) (R-357 Part 2; opts { resume: true } for a
+  // letter already started), the moment that sheet exists; until then today's walkthroughs, which wireActions put on them. Looked for when
+  // the button is pressed, since another module may add it after Home was drawn.
+  root.querySelectorAll('.cm-slide [data-helper], .cm-slide [data-mailwalk]').forEach(el => {
+    const was = el.onclick, email = el.hasAttribute('data-mailwalk'), [bid, hid] = email ? el.dataset.mailwalk.split('|') : [el.dataset.bill, el.dataset.helper];
+    el.onclick = e => {
+      const b = anyBill(bid);
+      if (!(V2() && app.openLetter2 && b)) return was?.call(el, e);
+      app.openLetter2(b, email ? 'email' : 'testimony', !email && testimonyDraft(anyHearing(hid)) ? { resume: true } : undefined);
+    };
+  });
+  // "Edit my issues": My issues, then its Edit button once it is drawn (see editRow).
+  root.querySelectorAll('[data-hm-edit]').forEach(el => el.addEventListener('click', () => whenThere(() => document.querySelector('#main [data-rc-edit]'),
+    b => { if (b.getAttribute('aria-label') !== 'Done editing') b.click(); }, () => /^#\/bills/.test(location.hash))));
+  // "Also due": Find, then down to its "Needs voices this week" (the heading has an id; the page's scroll padding clears the header).
+  root.querySelectorAll('[data-hm-voices]').forEach(el => el.addEventListener('click', () => whenThere(() => document.getElementById('fd-voices-h'),
+    h => { h.setAttribute('tabindex', '-1'); h.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' }); h.focus({ preventScroll: true }); }, () => /^#\/find/.test(location.hash))));
+}
 let delegated = false;
 export default {
   tab: 'home',
@@ -508,6 +626,7 @@ export default {
     if (delegated) { today.wire && today.wire(route); return; }
     const root = document.querySelector('#main .cm'); if (!root) return;
     wireActions(root); wireNudge(root); wireExtras(root); P.finFx();
+    if (V2()) wireWeek(root);
     // Moving through the deck (R-300): the pager's arrows, a swipe across the slide and a row with something to do all move the
     // one position. The slide changes in place with onboarding's short slide, the way the person is going (fx.js swap, A-10);
     // the button, More ways and the pager stay where they are. After an arrow the focus stays on it (so it can be pressed
