@@ -55,6 +55,25 @@ JOURNEYS = [
         # "Mahalo!" page after it; either proves the follow.
         reach="(()=>{const m=document.querySelector('.st-thanks'); return (!!m && /following/i.test(m.innerText)) || !!document.querySelector('.st-alertspage #st-h');})()"),
  ]),
+ # Version 2's first visit, welcome to Home, in seven taps (R-357 part 4, Nate 30 Oct 2026; ?v2=1): the same welcome and two topics, Your
+ # issues with two ticked under each, one teaching screen ("Why your note counts"), the profile ask, and Home after its cover by itself.
+ # DESIGN B-2's new row; tests/v2_first_visit.py checks the screens themselves.
+ dict(name='public: first visit, welcome to Home (v2)', app=PUBLIC + '&v2=1', budget=7, start='#/', steps=[
+   dict(what="Let's begin, past the welcome", do=click_text('.st-bar [data-stnext]', '^Let.s begin$'),
+        reach="(()=>!document.querySelector('.st-hellopage') && !!document.querySelector('[data-stissue]'))()"),
+   dict(what='tick a topic', do="""(()=>{const e=[...document.querySelectorAll('[data-stissue]')].find(x=>x.offsetParent!==null && x.getAttribute('aria-pressed')!=='true'); if(!e)return false; e.click(); return true;})()""",
+        reach="(()=>document.querySelectorAll('[data-stissue][aria-pressed=true]').length===1)()"),
+   dict(what='tick a second topic', do="""(()=>{const e=[...document.querySelectorAll('[data-stissue]')].find(x=>x.offsetParent!==null && x.getAttribute('aria-pressed')!=='true'); if(!e)return false; e.click(); return true;})()""",
+        reach="(()=>document.querySelectorAll('[data-stissue][aria-pressed=true]').length===2)()"),
+   dict(what='Next, to its issues', do=click_text('.st-bar [data-stnext]', '^Next$'),
+        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Your issues' && !!document.querySelector('[data-stpick]'))()"),
+   dict(what='read the ticked issues and follow them', do=click_text('.st-bar [data-stnext]', 'Follow \\d+ issue'),
+        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Why your note counts')()"),
+   dict(what='Next, past why a note counts', do=click_text('.st-bar [data-stnext]', '^Next$'),
+        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Save your profile')()"),
+   dict(what='skip the profile ask: its cover, then Home', do=click_text('.st-bar [data-stskip]', '^Skip this part$'),
+        reach="(()=>location.hash==='#/' && document.body.dataset.screen==='home')()"),
+ ]),
  dict(name='public: arrive -> understand what one bill does', app=PUBLIC, budget=3, start='#/', skip_wizard=True, steps=[
    dict(what='open a bill from the list', do="(()=>{const a=document.querySelector('main a[href*=\"#/bill/\"]'); if(!a)return false; a.click(); return true;})()",
         reach="(()=>/#\\/bill\\//.test(location.hash))()"),
