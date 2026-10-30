@@ -95,6 +95,13 @@ const onbAsk = () => { if (!ONB) onbLoad().then(() => app.render()).catch(e => c
 const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
+// Version 2's first visit (R-357 part 4, Nate 30 Oct 2026: "the first visit in seven taps", behind ?v2=1): welcome, two topics, Your
+// issues (two ticked per topic), one screen on why a note counts (the step the private counts know as 'voice', so no migration), the
+// profile ask, and then Home. The story's four pages, "This Year and Next" and "You're all set" are not in it: the story is a card
+// on Home (pub/v2/story.js), and Home is the ending (DESIGN C-12, C-13). A shared bill's visit ends on the profile ask too.
+const FLOW_V2 = ['topics', 'issues', 'voice', 'alerts'];
+const FLOW_LINK_V2 = ['followask', 'alerts'];
+export const v2 = () => { try { return !!(app.v2 && app.v2()); } catch { return false; } };
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
 // very brief page"): one page on why your voice matters stands where the lesson was, and the lessons are offered where
 // they are needed (#/learn/..., linked from bill pages and Help; the short page offers the drawn story). It is tested
@@ -106,6 +113,7 @@ const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 // where the celebration plays (pub/home.js). Since R-293 (Nate 10/15) it has no "Coming up on your issues" either: the
 // bill's story goes straight to Home, which already shows each bill under "What you can do right now".
 const flowOf = off => { const p = planOn(); if (p) return planFlow(p, off);
+  if (v2()) return wiz().via ? FLOW_LINK_V2 : FLOW_V2;
   const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done' && n !== 'soon') : f; };
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
 export const stepOf = (name, off) => flowOf(off).indexOf(name) + 1;
@@ -213,9 +221,12 @@ const CHAPTERS = [T('Your issues'), T('A bill’s story'), T('Stay connected')];
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 // The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
 // email and you're done".
-const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : [CHAPTERS[0], SHORT() ? T('Why your voice matters') : CHAPTERS[1], endHome() ? T('Your home page') : CHAPTERS[2]];
+const CHAPTER_OF_V2 = { topics: 0, issues: 0, followask: 0, voice: 1, alerts: 2 };
+// Version 2's three parts are the three things asked of the person: their issues, why their voice counts, their profile. A shared
+// bill's visit has no teaching step, so its profile ask stays in the first part (the strip never ticks a part nobody saw).
+const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : v2() ? [CHAPTERS[0], 'Your voice', 'Your profile'] : [CHAPTERS[0], SHORT() ? T('Why your voice matters') : CHAPTERS[1], endHome() ? T('Your home page') : CHAPTERS[2]];
 // A plan names its own parts (pub/plans.js).
-const chapterOf = name => (planOn() ? PLAN_CHAPTER_OF[planOn()][name] : CHAPTER_OF[name]) ?? -1;
+const chapterOf = name => (planOn() ? PLAN_CHAPTER_OF[planOn()][name] : v2() ? (wiz().via && name === 'alerts' ? 0 : CHAPTER_OF_V2[name]) : CHAPTER_OF[name]) ?? -1;
 let lastChapter = -1;
 // The "Mahalo!" page ends "Your issues" (R-140): there the part shows as done and the next one is not yet current, so the
 // row says what the button says, that more follows (the review, 11 Oct).
@@ -528,7 +539,8 @@ function wire(route) {
   const step = route.step || 1, off = isOff(), name = nameAt(step, off);
   const $ = s => document.querySelector(s), $$ = s => document.querySelectorAll(s);
   const to = redirectFor(step, off);
-  if (to) { setTimeout(() => app.go('#/start/' + to, { replace: true }), 0); return; }
+  // Past the last step is Home (version 2 ends on the profile ask, which is passed over when there is nothing to ask).
+  if (to) { setTimeout(() => to > total(off) ? finish() : app.go('#/start/' + to, { replace: true }), 0); return; }
   if (wiz().step !== step || !wiz().begun) wizSet({ step, begun: true });   // begun: the welcome is not shown again (R-297)
   const back = !!S.stBack; S.stBack = false;
   // The lesson pages put their button right under the lesson on a wide screen (start.css).
@@ -657,6 +669,7 @@ export default {
     if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
     if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
     if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
+    if (n === 'voice' && v2()) return 'Why your note counts';
     return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);

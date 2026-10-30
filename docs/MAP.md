@@ -224,6 +224,18 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   bars and `wire()` are v1's) and which exports the parts the v2 page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...);
   `pub/v2/slide.js` holds the slide's words (goal, sentences, times) for the pages that say them, to be shared with Home when its v2 part lands.
   Test: `tests/v2_bill.py`.
+- **Version 2's first visit, in seven taps (R-357 part 4, Nate 30 Oct 2026; `?v2=1`).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
+  flow: `FLOW_V2 = ['topics', 'issues', 'voice', 'alerts']` after the welcome, and `FLOW_LINK_V2 = ['followask', 'alerts']` for a shared bill's visit;
+  past the last step is Home (`goStep`/`wire` call `finish()`). Welcome and topics are unchanged; Your issues starts two ticked per topic, at least one
+  (`model2` in `start-rest.js`), under the line "The two most active under each topic are ticked; change them as you like."; then `stepWhy`
+  (`start-rest.js`; the step the private counts know as `voice`, so no migration), "Why your note counts": the VOICES drawing from `art.js`, two sentences,
+  two plain rows (testimony; an email to the committee chair, each with its time) and Next, seen once (`wiz().why`, so "Edit my issues" does not teach
+  twice); then the profile ask as today (`alerts.js`, unchanged). Its Mahalo is the same cover (`coverAndFold`) with `end: true`: no band to fold into
+  because Home comes next, so it carries the button "See How I Can Help" (`GO_HELP`), moves on by itself after 2.8 s or at any tap, and fades off Home. The
+  story, "This Year and Next" and "You're all set" are not in the v2 visit (v1 keeps them). The story is `storyCard()` in `pub/v2/story.js`, a card Home draws
+  for a newcomer (`{ html, wire }`, no side effects on import; "Read it" opens `#/learn/story`, whose Done returns to Home and calls `storyMark()`; "Not now"
+  does too). The first visit's pages have no `body.v2` or v2.css (`app.js` leaves `FIRST_VISIT` routes out), so v2's first-visit rules are at the end of
+  `pub/start.css` and the card's are inline in its markup. Test: `tests/v2_first_visit.py`.
 - **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
   tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`
   is the state, the client, the catalog, the follows, the first visit's state and the page's small helpers; `pub/core.js`

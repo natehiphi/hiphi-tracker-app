@@ -2,7 +2,7 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, lessonErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, lessonErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn, v2 } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
@@ -15,6 +15,7 @@ import { testimonyTime } from './actions.js';   // and its one time promise (R-3
 import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
+import { storyMark } from './v2/story.js';   // reading the story to its end hides Home's card for it (R-357 part 4; no side effects on import)
 import { afterMove, bloom, burst, drift, later, reduced, petals, swap, fxOn, rooster, coverFold } from './fx.js';
 // R-307's words on trial, with the two others offered for Nate's pick (?fxw=2 or 3 on the practice copy).
 const VOICE_WORDS = () => ['You’re ready to speak up.', 'Your voice is ready.', 'Now you know how to be heard.'][(+new URLSearchParams(location.search).get('fxw') || 1) - 1] || 'You’re ready to speak up.';
@@ -61,6 +62,12 @@ function model2() {
   const all = per.flatMap(p => p.rows);
   // What is ticked: what the person chose on this screen once they have touched it, else HIPHI's defaults.
   let picks = w.picksFor === sig && w.picks && !Array.isArray(w.picks) ? w.picks : null;
+  if (!picks && v2()) {
+    // Version 2 (R-357 part 4, Nate's R-218 ask of 9 Oct, replacing R-245's four): the two most active issues under each topic start
+    // ticked, at least one (a topic that shows one issue ticks it), so someone who only presses on follows something from every topic
+    // they chose. Only issues on screen start ticked (B-12); the line under the heading says so (stepIssues).
+    picks = { issues: per.flatMap(p => p.rows.slice(0, 2)).map(x => x.i.id), cats: [] };
+  }
   if (!picks) {
     // R-245 (Nate 10/11: "a max of 4 issues, or at minimum 1 per category and max of 2 per category"): each picked topic's
     // best issue, then the second best of the topics, most important first, until four are ticked. Five or six topics
@@ -140,6 +147,7 @@ function stepIssues(step) {
   // R-138 (Nate 10/4): "Most important first" left visitors asking important to whom, and nothing asked them to pick
   // more than one. The lede now asks for every issue they care about; the top heading says whose top issues they are.
   const lede = !total ? `Nothing is moving on ${andList(quiet.map(c => c.key))} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
+    : v2() ? 'The two most active under each topic are ticked; change them as you like.'   // version 2 (R-357 part 4): what the ticks are, said once (C-14, A-14)
     : off ? `Tick every issue you care about, as many as you like, and their ${next} bills come to you.`
     : ticked ? `Tick every issue you care about. We ticked ${ticked === 1 ? 'one' : ticked} to start.` : 'Tick every issue you care about, as many as you like.';
   return shell('st2', `${topRow('issues', step)}
@@ -243,7 +251,26 @@ function example() {
 // own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062). The lede says others
 // write in and theirs joins them, not that lawmakers hear from "far fewer people than you'd think": telling people few
 // others act makes not acting sound normal, and messages saying many take part do better (R-171, R-164's research).
+// ================= Version 2's teaching screen: why your note counts (R-357 part 4, Nate's pick of draft A, 30 Oct 2026) =================
+// One screen between Your issues and the profile ask (the first visit's step 'voice', so the private counts need no migration): the
+// drawing of speaking up (a bill, a raised hand, a phone: art.js VOICES, in the ʻohana style), two sentences, and the two ways to act
+// with their times as two plain rows. No question (C-13: a quiz that checks a lesson is not covered) and no Skip: it is short enough
+// to read and its one button is Next. Said as Nate chose: lawmakers read what people send, and a few sentences in your own words are
+// testimony, which the tracker helps write. Nothing here says or implies that few people act (R-171). The two times are the one promise
+// the tracker keeps wherever testimony is offered (R-357 Light fixes e: "about 10 min the first time, 3 after"; the email "about 2 min").
+const WHY_WAYS = [
+  ['notebook-pen', 'Testimony', 'Goes on the hearing’s record · about 10 min the first time, 3 after'],
+  ['mail', 'An email to the committee chair', 'about 2 min'],
+];
+function stepWhy(step) {
+  return shell('st1 st-whypage', `${topRow('voice', step)}${artFor('followask')}
+    <h1 class="hero" id="st-h">Why your note counts</h1>
+    <p class="lede">Lawmakers decide on these bills in committee hearings, and they read what people send in.</p>
+    <p class="lede">A few sentences from you, in your own words, is testimony. The tracker writes the first draft; you make it yours.</p>`,
+    `<ul class="st-voice st-whyways" role="list" aria-label="Two ways to be heard">${WHY_WAYS.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ul>`);
+}
 function stepVoice(step) {
+  if (v2()) return stepWhy(step);
   // No example bill is named on this page (R-203: a bill's title under the three points read as clutter, and nobody could
   // tell what it was for). The story link below still needs the bill the lesson would teach, so only its id is taken.
   const off = isOff(), b = exampleBill();
@@ -418,7 +445,7 @@ function thanksWords(r) {
     // Its button names what comes next (C-6, C-7): right after a sign-up, a plain "Continue" read as the end of the visit.
     // The next part's name is in title case, as a name (Nate 10/6, R-186); both versions of the test 'fv' alike.
     // It names the next part as the strip and the page do, "A bill’s story" (C-15, R-249; it said "How a Bill Becomes Law").
-    go: armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: A Bill’s Story',
+    go: v2() ? GO_HELP : armOf('fv') === 'short' ? 'Next: Why Your Voice Matters' : 'Next: A Bill’s Story',   // version 2 ends here: the button is the visit's last (R-357 part 4)
     given: !!(r && (r.kind === 'phone' || r.kind === 'email')) };
 }
 // What was given: this visit's answer if it was a number or an email, else what the page already holds (Back, a reload).
@@ -446,8 +473,12 @@ function stepThanks(step) {
 // in it, the words fade, and the band's own words rise as it lands (0.65 s, then a 0.18 s cross-fade). Under Reduce Motion there is no cover:
 // the story opens with the band. `go` moves the flow on; it runs under the cover.
 const COVER_MS = 1800, FOLD_MS = 650;   // the flower opens from 0.3 s to about 1.2 s and the words have risen by 1.25 s
-function coverAndFold(go) {
-  S.stBand = true; S.stBandSeen = true;
+const COVER_END_MS = 2800;   // version 2's end holds a little longer: its button rises at 0.95 s and is there to be read
+// end (version 2, R-357 part 4): the cover is the visit's last page, since Home comes next and has no band to fold into. It carries the
+// first visit's last button, "See How I Can Help" (GO_HELP: every version ends on it, Nate 10/6, R-190); a tap on it, or anywhere, or a
+// key, moves on at once, and it moves on by itself after COVER_END_MS, so the seven taps stay seven. It fades off Home.
+function coverAndFold(go, { end = false } = {}) {
+  S.stBand = !end; S.stBandSeen = true;
   if (reduced()) { go(); return; }
   const W = thanksWords(thanksGiven());
   document.getElementById('st-cover')?.remove();
@@ -456,7 +487,7 @@ function coverAndFold(go) {
   // 0.3 s, after the story is drawn under the cover), then flown into the band like the flower.
   const art = fxOn('follow') ? rooster('small-win', { size: 168, cls: 'st-cvro', delay: 420 }) : bloom();
   el.innerHTML = `<div class="st-cvin" role="status" aria-live="polite"><div class="st-cvflower">${art}${drift()}</div>
-    <p class="st-cvtitle">${esc(W.title)}</p><p class="st-cvsub">${esc(W.sub)}</p></div>`;
+    <p class="st-cvtitle">${esc(W.title)}</p><p class="st-cvsub">${esc(W.sub)}</p>${end ? btn(GO_HELP, { kind: 'primary', iconEnd: 'arrow-right', cls: 'st-cvgo' }) : ''}</div>`;
   document.body.appendChild(el);
   S.stBandHold = true;
   let moved = false, timeUp = false, folded = false;
@@ -465,7 +496,7 @@ function coverAndFold(go) {
   el.addEventListener('pointerdown', early);
   const onKey = e => { if (!['Tab', 'Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) early(); };
   document.addEventListener('keydown', onKey, true);
-  setTimeout(early, COVER_MS);
+  setTimeout(early, end ? COVER_END_MS : COVER_MS);
   // The flow moves on under the cover once it has faded in (0.16 s), without a slide, and before the flower starts to open
   // (0.3 s, fx.css): drawing the story is the heaviest moment, so it happens while nothing on the cover moves.
   setTimeout(() => { go(); window.scrollTo(0, 0); moved = true; tryFold(); }, 170);
@@ -514,7 +545,7 @@ export function leaveAlerts(step, r = null) {
   if (wiz().via) { goStep(step, step + 1); return; }
   S.stThanks = r || { kind: 'none' }; S.stThanksSeen = false;
   // R-306: the cover goes up over this screen first, the story is drawn under it, then the cover folds into the band.
-  if (coverOn()) { coverAndFold(() => goStep(step, step + 1, { quiet: true })); return; }
+  if (coverOn()) { coverAndFold(() => goStep(step, step + 1, { quiet: true }), { end: v2() }); return; }
   // The old page (?demo=1&mahalo=old, a plan): the same address, drawn again as the "Mahalo!" page: it slides in like a new screen, and focus goes to its heading
   // (the button that had it, "Text me a code" or "Confirm", is gone).
   afterMove(swap(() => { app.render(); window.scrollTo(0, 0); }, 'fwd'), () => document.getElementById('st-h')?.focus({ preventScroll: true }));
@@ -861,7 +892,8 @@ export function wireLearn(route) {
     nb.innerHTML = `<span>${last ? 'Done' : 'Next'}</span>${icon(last ? 'check' : 'arrow-right')}`; };
   label();
   document.querySelector('[data-stlearnback]')?.addEventListener('click', () => { if (lessons().lessonPrev(name)) label(); else leave(); });
-  if (nb) nb.onclick = () => { if (lessons().lessonNext(name, E)) label(); else leave(); };   // past its last step the lesson is done
+  // Past its last step the lesson is done; reading the story to the end hides version 2's Home card for it for good (pub/v2/story.js).
+  if (nb) nb.onclick = () => { if (lessons().lessonNext(name, E)) label(); else { if (name === 'story') storyMark(); leave(); } };
 }
 // Change on the "Mahalo!" (the page's line, or R-306 b's band): the alerts box again, with what was given in it.
 function alertChange() {
@@ -954,6 +986,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       const ids = m.all.filter(m.ticked).map(x => x.i.id);
       await commitIssues(m);
       track(name, 'next', { counts: { cats: m.sel.length, issues: new Set(ids).size }, issue_ids: [...new Set(ids)] });
+      // Version 2 (R-357 part 4): the teaching screen is next; it passes to the profile ask, and the profile ask to Home.
+      // The teaching screen is seen once: someone who comes back to change their issues (Home's "Edit my issues") has seen it (wiz().why,
+      // set by its Next) and goes straight on (C-8); Back still finds it.
+      if (v2() && !wiz().via) { goStep(step, wiz().why ? step + 2 : step + 1); return; }
       // The alerts ask comes next, and the "Mahalo!" page after it (R-146, R-140). With nothing to ask (signed in, already
       // told us how to reach them), the alerts screen is the "Mahalo!" page at once, with no ask on it (noAsk). A shared
       // bill's visit has no "Mahalo!" and passes the screen over.
@@ -988,7 +1024,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // next screen with a small burst (tickChapter, C-7), as the short version's page does. Until 10/4 this was a moment
       // that filled the screen with three ticks over the Capitol, which read as the end with Stay connected still to
       // come (Nate: "makes it feel like everything is done", R-140).
-      S.stLearned = true;
+      S.stLearned = true; storyMark();   // read to its end here: version 2's Home card for it need not come later
       // R-307 on trial (?demo=1&fx=voice; Nate 19 Oct: "a celebration at the end of the bills story", not on the page after
       // it, which the ending on Home no longer has): the issues' cover with the rooster over the story's last stage; as it
       // fades, the visit moves on, so the next screen (Home, with its own welcome) arrives after it, never under it.
@@ -1044,7 +1080,21 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'soon') document.querySelectorAll('.st-soon [data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
   if (name === 'voice') {
     wireBand();
-    const nb = $('[data-stnext]'); if (nb) nb.onclick = () => { S.stBand = false; next(); };
+    const nb = $('[data-stnext]');
+    if (v2()) {
+      // Version 2's teaching screen: its Next goes to the profile ask (and the issues' Next skips it for someone who has seen it). Where something is followed and there
+      // is nothing to ask (signed in, a number or a link already given) the cover is the follow's celebration and Home follows it, as
+      // the issues' Next does in version 1; someone who followed nothing (Skip on Your issues) goes on quietly, and the ask and the
+      // cover are passed over.
+      if (nb) nb.onclick = () => {
+        wizSet({ why: true }); track(name, 'next');
+        if (followsAnything() && !askAlerts() && !wiz().via) {
+          S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
+          if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true }), { end: true }); return; }
+        }
+        goStep(step, step + 1);
+      };
+    } else if (nb) nb.onclick = () => { S.stBand = false; next(); };
   }
   if (name === 'soon') {
     abSeen('act');   // the test 'act' (R-150): the two versions differ on this page and nowhere else
@@ -1110,7 +1160,7 @@ export function barStep(name, step, off) {
     }
     case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU() (wireStep)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
-    case 'voice': return wiz().via && wiz().viaActed
+    case 'voice': return v2() ? bar1('Next') : wiz().via && wiz().viaActed
       ? `<div class="st-bar"><div class="st-btns">${btn(GO_HELP, { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
       : bar2(GO_YOU(), { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
