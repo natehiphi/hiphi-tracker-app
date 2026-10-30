@@ -397,7 +397,7 @@
 .cm .cm-time { display: flex; align-items: baseline; gap: var(--s8); margin: 0; font-size: var(--t14); color: var(--n700); }
 .cm .cm-time .ic { flex: none; align-self: center; color: var(--p700); }
 .cm .cm-time .warn { color: var(--warn-text); }   /* amber only inside 24 hours (A-5) */
-.cm .cm-time .cm-bill { color: var(--p700); font-weight: 700; text-underline-offset: 3px; padding: 12px 0; white-space: nowrap; }   /* the tap reaches past the text's height (A-6); "HB 2300" never splits */
+.cm .cm-time .cm-bill { color: var(--p700); font-weight: 700; text-underline-offset: 3px; padding: 13px 0; white-space: nowrap; }   /* the tap reaches past the text's height to 44px (A-6; 43 before R-357's measure); "HB 2300" never splits */
 .cm .cm-go { display: flex; flex-direction: column; gap: var(--s8); }
 .cm .cm-more { display: flex; margin: 0 -12px; }
 .cm .cm-more .btn { padding-inline: 12px; }   /* lined up with the words; its padding keeps the 44px target */
