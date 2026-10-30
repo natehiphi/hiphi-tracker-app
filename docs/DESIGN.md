@@ -425,12 +425,15 @@ nothing to do**. A row is a day label (Today, Tue, Mar 30: the day it runs out, 
 "You testified ·" when they did) or "Your letter is started · due 1:00 PM". An issue with nothing to do keeps v1's row, its name and where it
 stands, after the days, with no day label. **A tap opens the bill's page** (an issue with nothing to do, the issue's page), and the row ends in a
 chevron (A-12); the slide's own bill is the **lit row**: pale blue, not a link, no chevron and no "Show", since it is the slide above. Decision 5a (a tap
-moves the slide, R-295) stays in v1 only; in version 2 the pager moves the slide. The last row, only when it is above 0, is **"Also due: N HIPHI asks" /
-"On issues you don't follow"**, the rows Find's "Needs voices this week" lists (the same ranking and the same 7-day rule, from `core.js`), which it
+moves the slide, R-295) stays in v1 only; in version 2 the pager moves the slide. The last row, only when there is at least one, is **"Also due: HIPHI asks" /
+"On issues you don’t follow"**, under the day the soonest is due and with **no number** (Nate, R-300: "If it's a lot it can be overwhelming"; the sandbox's
+Monday has ten): it stands for the rows Find's "Needs voices this week" lists (the same ranking and the same 7-day rule, from `core.js`), which it
 opens scrolled to that heading, so a weekday never passes unseen. The box's **last line is "Edit my issues"** in link blue, opening My issues in its
 edit state. "See them all in My issues" is gone (the tab is one tap away, and stays), and **"See your 2026 session" is a row on You** ("Your 2026
 session", the same page). More than 8 rows (Nate 10/11, kept): the first 8, what is to do first, then "Show all your issues · more due this week" inside
 the box, above the last two lines. Between sessions the box is today's list with the same words, headed "Your issues", with the same last line.
+A newcomer has one more block between the slide and the box, the story as a card ("New here? How a bill becomes law", `pub/v2/story.js`, R-357 Part 4, C-12): the
+fourth block of the budget for a newcomer only, and gone for good once it is read or put aside; Home asks for it by dynamic import and draws the same without it.
 The budget does not change: four blocks of two shapes, one filled button, each bill named once (a row names its bill; the slide names it by number on
 its detail line; a hearing ask for the twin of a bill whose late testimony is a row has none), under two phone screens for 3 issues and three for 16
 (Leilani's sixteen make 19 rows in the sandbox), the first phone screen under 60 words and 6 text styles. "One row per issue" now reads one row per

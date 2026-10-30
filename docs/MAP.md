@@ -226,7 +226,7 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   Test: `tests/v2_bill.py`.
   Part 3, Home's week: `pub/calm/home.js` (the calm Home, everyone's) draws, with `app.v2()` on, the white box under the slide as "This week"
   (`weekRows`, `weekBlock`; between sessions `issuesBlock` with a different last line): rows by day (a day label, the bill's name, what is due), a tap
-  opening the bill, the slide's own bill lit and not a link, "Also due: N HIPHI asks" (`alsoDue`, the same ranking as Find's "Needs voices this week":
+  opening the bill, the slide's own bill lit and not a link, "Also due: HIPHI asks", no number (`alsoDue` finds the soonest: the same ranking as Find's "Needs voices this week":
   `suggestionList`/`recommendations` in `core.js`, without recording a showing) opening Find at that heading, and "Edit my issues" as the box's last
   line (it asks for `#/bills` and presses its Edit button once drawn: `S.rcEdit` is cleared on arrival, so Home cannot set it). Its rules are in
   `pub/home.css` under `.hm-v2` and `body.v2` (not `pub/v2/v2.css`: that file comes with the bill page, and with Home only after the idle
@@ -234,6 +234,8 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   for You's row ("Your 2026 session", set in `pub/more.js` over `rec/you.js`'s). The slide's letter buttons call `app.openLetter2(bill, kind, opts)`
   when it exists (Part 2; `{ resume: true }` for a letter started) and otherwise open today's walkthrough. Home does not import `pub/v2/slide.js`
   (a static import would put it in Home's tree, which `check_split.mjs` rule 5 wants named in `track.html`); it already holds the same day words.
+  A newcomer's story card (`pub/v2/story.js`, Part 4: `storyCard()` -> `{ html, wire }`) is asked for by a dynamic import that Home does not await (a
+  top-level await would deadlock on an import back into this file) and is drawn between the slide and the box; one redraw draws a card found late.
   Tests: `tests/v2_home.py`, and the version 2 set (three people, phone and laptop) in `tests/home_calm.py`.
 - **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
   tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`

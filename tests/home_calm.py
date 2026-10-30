@@ -175,7 +175,7 @@ with sync_playwright() as pw:
             ctx.add_init_script(scene(who, day))
             pg = ctx.new_page(); errs = []
             pg.on('pageerror', lambda e: errs.append(str(e)))
-            pg.on('console', lambda m: errs.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text else None)
+            pg.on('console', lambda m: errs.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'v2/story.js' not in (m.location.get('url') or '') else None)   # Part 4's story card file may be absent: its 404 is no error of Home's
             pg.goto(f"{BASE}/track.html?demo=1&abrest=today&ab=layout.calm&v2=1{'&season=off' if o.get('off') else ''}#/")
             pg.wait_for_function("() => !!document.querySelector('#main .cm, #main .hm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
             m = pg.evaluate(MEASURE2); tag = f'{size} v2 {label}'

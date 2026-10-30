@@ -6,8 +6,11 @@
 #       everyday name and what is due ("Testimony due 1:00 PM"; amber only inside 24 hours)
 #     - the slide's own bill is the lit row: not a link, no chevron, no "Show"; the others end in a chevron and a tap opens that bill's page
 #       (#/bill/...), not the slide
-#     - "Also due: N HIPHI asks / On issues you don't follow", only when there are some: its N is the number of rows in Find's "Needs voices
-#       this week", which it opens, scrolled to that heading; Leilani, who follows what the week holds, has none and so no row
+#     - "Also due: HIPHI asks / On issues you don't follow" with no number (Nate, R-300), only when there are some, under the day the soonest is
+#       due; it opens Find's "Needs voices this week", scrolled to that heading, where the asks are listed; Leilani, who follows what the week
+#       holds, has none and so no row
+#     - a newcomer's story card (pub/v2/story.js, Part 4: storyCard() -> { html, wire }) is drawn between the slide and the box when that module
+#       gives one, wired, gone when put aside; with the file absent Home draws as before (no page error); without ?v2=1 it is never asked for
 #     - "Edit my issues" is the box's last line, in link blue, and opens My issues in its edit state
 #     - "See your 2026 session" and "See them all in My issues" are not on Home; the You tab has "Your 2026 session" opening the same page
 #     - A-23: at most 4 blocks of at most 2 shapes, one filled button, each bill named once, under 2 phone screens for 3 issues and 3 for 16,
@@ -56,14 +59,27 @@ BLUE = 'rgb(0, 105, 142)'   # --p700, the link blue
 def url(v2=True, off=False, day='mon'):
     return f"{BASE}/track.html?demo=1{'' if day == 'mon' else '&day=' + day}&abrest=today&ab=layout.calm{'&season=off' if off else ''}{'&v2=1' if v2 else ''}#/"
 
-def open_home(br, kw, who, v2=True, off=False, day='mon', errs=None):
+# Part 4's story card (pub/v2/story.js) may or may not be in the tree yet, so a test says which it wants: a stub module, or none (a 404). The
+# 404 the browser logs for an absent file is expected, and is the only console error allowed for it.
+STORY_STUB = """import { app } from '../core.js';
+let read = false;
+export const storyCard = () => read ? { html: '' } : { html: '<section class="cm-story" aria-label="How a bill becomes law"><p>New here? How a bill becomes law</p><button type="button" data-story-no>Not now</button></section>',
+  wire: root => { window.__storyWired = (window.__storyWired || 0) + 1; const b = root.querySelector('[data-story-no]'); if (b) b.onclick = () => { read = true; app.render(); }; } };"""
+def story_route(ctx, how):
+    if how == 'stub': ctx.route('**/pub/v2/story.js', lambda r: r.fulfill(status=200, content_type='text/javascript', body=STORY_STUB))
+    elif how == 'absent': ctx.route('**/pub/v2/story.js', lambda r: r.fulfill(status=404, body='not found'))
+def console_bad(m): return m.type == 'error' and 'favicon' not in m.text and 'v2/story.js' not in (m.location.get('url') or '')
+
+def open_home(br, kw, who, v2=True, off=False, day='mon', errs=None, story='absent', reqs=None):
     ctx = br.new_context(**kw)
     ctx.add_init_script("Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:()=>true});")
     ctx.add_init_script(scene(who, day))
+    story_route(ctx, story)
     pg = ctx.new_page()
+    if reqs is not None: pg.on('request', lambda r: reqs.append(r.url))
     if errs is not None:
         pg.on('pageerror', lambda e: errs.append('pageerror ' + str(e)))
-        pg.on('console', lambda m: errs.append('console ' + m.text[:160]) if m.type == 'error' and 'favicon' not in m.text else None)
+        pg.on('console', lambda m: errs.append('console ' + m.text[:160]) if console_bad(m) else None)
     pg.goto(url(v2, off, day))
     pg.wait_for_function("() => !!document.querySelector('#main .cm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
     return ctx, pg
@@ -125,8 +141,8 @@ with sync_playwright() as pw:
     ok(all(r['link'] and r['chev'] and not r['show'] for r in others), 'every other row is a link ending in a chevron, never "Show" (a tap opens the thing itself, not the slide)')
     ok(pg.locator('#main [data-cm-pick]').count() == 0 and 'On the slide above' not in pg.inner_text('#main'), 'no row moves the slide, and none says "On the slide above"')
     ok(not any(r['warn'] for r in rows), f'Monday 9 AM: nothing is due inside 24 hours, so nothing is amber ({[r["warn"] for r in rows]})')
-    ok(rows[-1]['also'] and re.fullmatch(r'Also due: \d+ HIPHI asks?', rows[-1]['name']) and rows[-1]['line'] == 'On issues you don’t follow' and rows[-1]['day'] == 'Today' and rows[-1]['link'] == '#/find',
-       f'the last row is "{rows[-1]["name"]}" / "{rows[-1]["line"]}", opening Find')
+    ok(rows[-1]['also'] and rows[-1]['name'] == 'Also due: HIPHI asks' and not re.search(r'\d', rows[-1]['name']) and rows[-1]['line'] == 'On issues you don’t follow' and rows[-1]['day'] == 'Today' and rows[-1]['link'] == '#/find',
+       f'the last row is "{rows[-1]["name"]}" / "{rows[-1]["line"]}" with no number, under Today, opening Find')
     edit = pg.evaluate("""() => { const li = [...document.querySelectorAll('#main .cm-rows > li')].pop(), a = li?.querySelector('a');
       return { text: a?.textContent.trim(), href: a?.getAttribute('href'), color: a && getComputedStyle(a).color, h: a && Math.round(a.getBoundingClientRect().height) }; }""")
     ok(edit['text'] == 'Edit my issues' and edit['href'] == '#/bills' and edit['color'] == BLUE and edit['h'] >= 44, f'"Edit my issues" is the box\'s last line, in link blue, a 44px target ({edit})')
@@ -178,17 +194,34 @@ with sync_playwright() as pw:
        'Edit my issues opens My issues in its edit state (Done, and a Stop on each row)')
     pg.go_back(); pg.wait_for_selector('#main .cm-rows', timeout=15000); pg.wait_for_timeout(500)
     # Also due -> Find's "Needs voices this week"
-    n = int(re.search(r'\d+', pg.inner_text('#main .cm-also .cm-rname')).group())
     pg.click('#main .cm-also'); pg.wait_for_function("() => !!document.getElementById('fd-voices-h')", timeout=20000); pg.wait_for_timeout(1500)
     f = pg.evaluate("""() => { const h = document.getElementById('fd-voices-h'); return { hash: location.hash, top: Math.round(h.getBoundingClientRect().top), text: h.textContent.trim(),
       rows: h.closest('section').querySelectorAll('li').length, focus: document.activeElement === h }; }""")
     ok(f['hash'] == '#/find' and f['text'] == 'Needs voices this week' and 0 <= f['top'] < 200 and f['focus'], f'Also due opens Find scrolled to "Needs voices this week" ({f})')
-    ok(f['rows'] == n, f'its N is the number of rows Find lists there ({n} and {f["rows"]})')
+    soon = pg.evaluate("() => [...document.getElementById('fd-voices-h').closest('section').querySelectorAll('li')].map(l => l.innerText.replace(/\\s+/g, ' '))")
+    ok(f['rows'] >= 1 and any(re.search(r'due today', s) for s in soon), f'Find lists the asks there, the soonest due today, as the row\'s "Today" says ({f["rows"]} rows)')
     # You
     pg.goto(url().replace('#/', '#/more')); pg.wait_for_selector('#main .yu-you', timeout=15000)
     ses = pg.evaluate("""() => { const a = document.querySelector('#main .yu-you a.rc-row[href="#/recap"]'); return a ? { name: a.querySelector('.rc-rname')?.textContent.trim(), text: a.querySelector('.rc-rstat')?.textContent.trim() } : null; }""")
     ok(ses and ses['name'] == 'Your 2026 session' and sum(1 for _ in pg.query_selector_all('#main .yu-you a[href="#/recap"]')) == 1, f'the You tab has one row, "Your 2026 session", opening the same page ({ses})')
     ok(not errs, f'no console errors on the way {errs[:2]}')
+    ctx.close()
+
+    # ---------------- a newcomer's story card (Part 4's pub/v2/story.js): a stub module, and none ----------------
+    errs = []; ctx, pg = open_home(br, PHONE, 'kai', story='stub', errs=errs)
+    kinds = pg.evaluate("[...document.querySelector('#main .cm').children].filter(e => e.offsetHeight > 0).map(e => e.className.split(' ')[0])")
+    ok(kinds == ['cm-head', 'cm-slide', 'cm-story', 'cm-issues'], f'the story card is the block between the slide and the box, four blocks in all ({kinds})')
+    ok(pg.evaluate('window.__storyWired') >= 1, "its wire(root) ran after the draw")
+    m = pg.evaluate(MEASURE)
+    ok(m['blocks'] == 4 and m['filled'] == 1 and len(m['shapes']) <= 2 and not m['wide'], f"with the card: {m['blocks']} blocks, {m['shapes']}, {m['filled']} filled, no sideways scroll")
+    pg.click('#main [data-story-no]'); pg.wait_for_timeout(600)
+    kinds = pg.evaluate("[...document.querySelector('#main .cm').children].filter(e => e.offsetHeight > 0).map(e => e.className.split(' ')[0])")
+    ok(kinds == ['cm-head', 'cm-slide', 'cm-issues'], f'put aside, the card is gone and the box is where it was ({kinds})')
+    ok(not errs, f'no console errors with a story card {errs[:2]}')
+    ctx.close()
+    errs = []; reqs = []; ctx, pg = open_home(br, PHONE, 'kai', story='absent', errs=errs, reqs=reqs)
+    ok(pg.locator('#main .cm-story').count() == 0 and pg.locator('#main .cm-rows').count() == 1 and any('v2/story.js' in u for u in reqs), 'with the file absent (a 404) Home draws as before, with no card')
+    ok(not errs, f'and with no page error or console error but the 404 itself {errs[:2]}')
     ctx.close()
 
     # ---------------- Kai, Tuesday: what is due today is amber, in the same rows ----------------
@@ -253,7 +286,8 @@ with sync_playwright() as pw:
         ctx.close()
 
     # ---------------- today's page, without the flag ----------------
-    errs = []; ctx, pg = open_home(br, PHONE, 'kai', v2=False, errs=errs)
+    errs = []; reqs = []; ctx, pg = open_home(br, PHONE, 'kai', v2=False, errs=errs, reqs=reqs)
+    ok(not any('v2/story.js' in u for u in reqs), "without ?v2=1 the story module is never asked for")
     rows = pg.evaluate(ROWS); txt = pg.inner_text('#main')
     ok(pg.locator('#main .cm.hm-v2, #main .cm-day, #main .cm-week').count() == 0 and not pg.evaluate("document.body.classList.contains('v2')"), 'without ?v2=1 nothing of version 2 is drawn')
     ok(sum(1 for r in rows if r['show']) >= 1 and all(r['chev'] or r['show'] for r in rows), f"today's rows keep their \"Show\" and chevrons ({[(r['name'], r['show']) for r in rows]})")

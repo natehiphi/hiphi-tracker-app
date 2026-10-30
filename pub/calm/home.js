@@ -25,8 +25,9 @@
 // (backend docs/requests/R-222-assessment.md, section 6).
 // Version 2 (?v2=1, R-357 Part 3, Nate's pick of 30 Oct 2026, "keep the my issues tab"): the greeting and the slide are exactly the
 // same. The box under the slide becomes "This week" (weekBlock): by day, each thing to do with its day, the bill's everyday name and
-// what is due, a tap opening that bill's page (the slide's own bill is the lit row and needs no tap), then "Also due: N HIPHI asks"
-// on issues they do not follow, which opens Find's "Needs voices this week", and "Edit my issues" as the box's last line. "See your
+// what is due, a tap opening that bill's page (the slide's own bill is the lit row and needs no tap), then "Also due: HIPHI asks" (no
+// number: Nate, R-300) on issues they do not follow, which opens Find's "Needs voices this week", and "Edit my issues" as the box's last
+// line. A newcomer has one more block between the slide and the box, the story as a card (pub/v2/story.js, Part 4; storyCard). "See your
 // 2026 session" moved to the You tab (more.js) and "See them all in My issues" went: the tab is one tap away. Between sessions the
 // box is today's list of issues, with the same words, a title that is not "This week" and the same last line. Without the flag
 // nothing of this runs.
@@ -52,6 +53,15 @@ S.cmAt ??= null;
 S.cmIdx ??= 0;
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
 const V2 = () => !!app.v2?.();   // version 2 (R-357, ?v2=1; pub/app.js): read when a page is drawn, so v1 never touches any of it
+// The newcomer's story as one card between the slide and the box (R-357 Part 4, pub/v2/story.js: storyCard() returns { html, wire }, with
+// html '' once it has been read or put aside, a mark that module keeps). Version 2 only, by dynamic import in a try, so Home draws the same
+// whether the file is there or not (Part 4 may land after this part) and the static import tree (check_split rule 5) is untouched. Not
+// awaited at the top of the module: that would hold Home until story.js and everything it imports are in, and an import of this file from
+// it would never finish. A card found after Home first drew is drawn by one redraw (inSession, storyNow).
+let storyMod = null, storyNow = null;
+if (V2()) import('../v2/story.js').then(m => { storyMod = m; if (document.querySelector('#main .cm.hm-v2') && m.storyCard?.()?.html) app.render(); })
+  .catch(() => { /* the file is not there yet */ });
+function storyCard() { try { const c = storyMod?.storyCard?.(); return c?.html ? c : null; } catch (e) { console.error(e); return null; } }
 const nameOf = b => nick(b) || headline(b, 70);
 const time = iso => timeWord(iso);   // as the card writes it ("1:00 PM"), so a row and the card read the same
 // "today", "tomorrow", "Wed" within the week; "Mar 30" further out, where a weekday alone would be ambiguous.
@@ -396,19 +406,23 @@ function weekRowHtml(r) {
   return r.on ? `<li><div class="cm-row cm-wk on" aria-current="true">${inner}</div></li>`
     : `<li><a class="cm-row cm-wk" href="${esc(r.href)}">${inner}${icon('chevron-right', { cls: 'cm-chev' })}</a></li>`;
 }
-// How many HIPHI asks on issues the person does not follow have a hearing this week: the rows Find's "Needs voices this week" draws
-// (pub/rec/find.js voices(), written there for that page: the same short list and ranking from core.js, the same rule that the
-// hearing is within 7 days, a bill the person put aside is left out, an issue followed leaves out its bills, one row an issue or a bill
-// on no issue). It never records a showing (noteShown), since nothing here is shown as a suggestion, and nothing between sessions.
-// The count is the page it opens: if the two ever disagreed Find's would win, so the row is drawn only when the count is above 0.
+// When the soonest of the HIPHI asks on issues the person does not follow runs out, or null when there are none: the rows Find's "Needs
+// voices this week" draws (pub/rec/find.js voices(), written there for that page: the same short list and ranking from core.js, the same
+// rule that the hearing is within 7 days, a bill the person put aside is left out, an issue followed leaves out its bills, one row an issue
+// or a bill on no issue). It never records a showing (noteShown), since nothing here is shown as a suggestion, and nothing between sessions.
+// No count is said (Nate, R-300: "If it's a lot it can be overwhelming"): the row only says there are some, under the day the soonest is due
+// (Find's own "Testimony due today 2:00 PM": the written deadline while it is ahead, else the hearing). If the two ever disagreed Find's
+// would win, so the row is drawn only when there is at least one.
 function alsoDue() {
-  if (sessionInfo().phase !== 'in') return 0;
+  if (sessionInfo().phase !== 'in') return null;
   const skip = dismissed(), now = Date.now(), week = now + 7 * 864e5, seen = new Set();
+  let soon = Infinity;
   const ok = r => { const h = r.st?.hearing; return !!h && !skip.has(r.b.id) && Date.parse(h.scheduled_at) > now && Date.parse(h.scheduled_at) < week; };
-  const add = r => { const on = issuesOf(r.b); if (on.some(issueFollowed)) return; seen.add(on[0] ? on[0].id : 'b:' + r.b.id); };
+  const add = r => { const on = issuesOf(r.b); if (on.some(issueFollowed)) return; seen.add(on[0] ? on[0].id : 'b:' + r.b.id);
+    const h = r.st.hearing, at = h.testimony_deadline && Date.parse(h.testimony_deadline) > now ? h.testimony_deadline : h.scheduled_at; soon = Math.min(soon, Date.parse(at)); };
   suggestionList(4).filter(ok).forEach(add);
   recommendations(200).filter(ok).forEach(add);
-  return seen.size;
+  return seen.size ? new Date(soon).toISOString() : null;
 }
 // The week's rows. todo: what the deck's slides are made of (testimony due, late testimony, a hearing ask), one row each for the bill,
 // twins as one (the deck's own list), so nothing due is left off the page (B-14). Every other issue, and every bill followed on its
@@ -440,12 +454,12 @@ function weekRows(c, iss, own, entry) {
   for (const r of rows) r.on = !!entry && r.key === entry.key;
   return rows;
 }
-function weekBlock(rows, also) {
+function weekBlock(rows, also) {   // also: when the soonest ask is due (alsoDue), or null
   if (!rows.length) return '';
   const long = rows.length > FOLD;
   const more = long ? `<li class="cm-showrow">${btn(`Show all your issues${dueAfter(rows)}`, { kind: 'text', icon: 'chevron-down', cls: 'hm-link cm-showall', attrs: { 'data-cm-showall': '' } })}</li>` : '';
   const li = (r, n) => { const h = weekRowHtml(r); return long && n >= FOLD ? h.replace('<li>', '<li data-cm-more hidden>') : h; };
-  const alsoRow = also ? `<li><a class="cm-row cm-wk cm-also" href="#/find" data-hm-voices><span class="cm-day">Today</span><span class="cm-rtext"><span class="cm-rname">Also due: ${plural(also, 'HIPHI ask')}</span>
+  const alsoRow = also ? `<li><a class="cm-row cm-wk cm-also" href="#/find" data-hm-voices><span class="cm-day">${esc(dayTag(also))}</span><span class="cm-rtext"><span class="cm-rname">Also due: HIPHI asks</span>
     <span class="cm-rstat">On issues you don’t follow</span></span>${icon('chevron-right', { cls: 'cm-chev' })}</a></li>` : '';
   return `<section class="cm-issues cm-week" aria-labelledby="cm-iss-h"><h2 id="cm-iss-h" class="cm-h">This week</h2>
     <ul class="cm-rows" role="list">${rows.map((r, n) => (long && n === FOLD ? more : '') + li(r, n)).join('')}${alsoRow}${editRow}</ul></section>`;
@@ -518,9 +532,11 @@ function inSession(si, { welcome, fin }) {
   S.cmShown = card.kind === 'due' || card.kind === 'late' ? { b: card.items[0].b, h: card.items[0].h } : null;
   // Version 2: "See your 2026 session" is a row on the You tab (more.js), not a line here.
   const lines = [welcome || v2 ? '' : P.sessionLink(si.yr), P.profileLine()].filter(Boolean).join('');
+  storyNow = v2 ? storyCard() : null;   // a newcomer's fourth block (A-23), gone for good once it is read or put aside
   return `<div class="hm cm${welcome ? '' : ' cm-met'}${finCls(welcome)}${v2 ? ' hm-v2' : ''}">
     ${head}
     ${theSlide(c)}
+    ${storyNow ? storyNow.html : ''}
     ${v2 ? weekBlock(rows, alsoDue()) : issuesBlock(rows)}
     ${lines ? `<div class="cm-lines">${lines}</div>` : ''}
   </div>`;
@@ -606,6 +622,7 @@ function wireWeek(root) {
   // "Also due": Find, then down to its "Needs voices this week" (the heading has an id; the page's scroll padding clears the header).
   root.querySelectorAll('[data-hm-voices]').forEach(el => el.addEventListener('click', () => whenThere(() => document.getElementById('fd-voices-h'),
     h => { h.setAttribute('tabindex', '-1'); h.scrollIntoView({ block: 'start', behavior: reduced() ? 'auto' : 'smooth' }); h.focus({ preventScroll: true }); }, () => /^#\/find/.test(location.hash))));
+  storyNow?.wire?.(root);   // the story card's own buttons (Read it, Not now)
 }
 let delegated = false;
 export default {
@@ -613,6 +630,7 @@ export default {
   title: route => today.title(route),
   render(route) {
     if (!S.featured || !S.pool) return skeleton(4);
+    storyNow = null;
     const welcome = P.welcomed(), fin = !!wiz().finale;
     delegated = route?.name === 'recap' || !followsAnything();
     if (delegated) return today.render(route);
