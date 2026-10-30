@@ -8,7 +8,7 @@ import { errArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blu
   dueInfo, dayWord, timeWord, hearingWhen, dateLong, fmtDate, posInfo, issueOf, countOk, openActions, actedOn, didKind, doneKey, markDone, saveDone, ensureBill,
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
-  issuesOf, issueFollowed, setFollows, issueLead, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourHeld, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf,
+  issuesOf, issueFollowed, setFollows, issueLead, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf,
   codesOf, cmteWords, theCmteWords, cmteStack, actionWords } from './core.js';
 import { actionRank } from './capitol.js';   // a same-day action's place in the day (R-212 #45)
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
@@ -818,8 +818,11 @@ function newcomer(b, x) {
 // tips are seen (tour.js), so a person who never wants them sees one line, not a tour over the button they came for.
 // Not on a bill a newcomer has just followed, for the rest of this visit: its story line is that page's one "New to
 // this?" (A-14; R-212 #47). It can come back on a later visit.
+// Since R-357 Light fixes (b) a bill opened from a link never gets the tour by itself (tour.js cameToLook, R-114), so this line is
+// the way in for them too, held or not (it used to wait for billTourHeld, because everyone else was shown the tour); it goes
+// once the tips are seen, so someone shown the tour on arrival from Home has no line left under it.
 function tourOffer(b) {
-  if (firstVisit() || !billTourHeld() || billTourSeen() || S.blFollowedNew.has(b?.id)) return '';
+  if (firstVisit() || billTourSeen() || S.blFollowedNew.has(b?.id)) return '';
   return `<p class="bl-tourline">${icon('sparkles')}<span>New to this? ${btn('Take the tour', { kind: 'text', sm: true, attrs: { 'data-bl-billtour': '1' } })}</span></p>`;
 }
 // After a newcomer's Follow on a shared bill (R-212 #47) the visit ends on the bill, and the part of the first visit they
