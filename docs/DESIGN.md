@@ -494,6 +494,7 @@ anything that lengthens one needs a reason in the commit message.
 | Journey | Budget |
 |---|---|
 | Public: arrive → follow a first issue | 3 steps |
+| Public: first visit, welcome to Home (version 2, `?v2=1`) | 8 taps (R-357 part 4, Nate's pick 30 Oct 2026, "the first visit in seven taps" counting up to the profile ask: Let's begin, a topic, a second topic, Next, Follow N issues, Next on "Why your note counts", Skip this part on the profile ask (or the number's own steps), and the eighth, See How I Can Help on the Mahalo cover, which holds still until it is pressed: a button that leaves on a timer is a control that does not look like what it does, A-12, and every version's visit ends on that button, R-190). Version 1's is 14 taps and about 1,450 words (the newcomer walk). `tests/v2_first_visit.py` and `tests/journeys.py` count them. If Nate chooses the cover that moves on by itself at his check (`COVER_END_MS` in `pub/start-rest.js`), the count is 7 again) |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
 | Public: testimony sent again on the same bill (its letter kept from an earlier hearing) | 6 steps (R-148, 10/4: Send my letter again, Next on "Where do you stand?" with their answer chosen (R-167, 10/5), Use my letter, read it and Next, copy it and open the Capitol page, I saw the green box. The account step never shows again. "Update my letter" puts the bill step and About you back, as the main button only when staff marked the new draft as changing what people should say or HIPHI's position moved) |
@@ -629,7 +630,7 @@ on the bill page." and their answer chosen).
 bills the team recommends are what we are asking people to back, and a tick is how we say so. Three
 conditions: every selected item is on screen when the person decides (nothing is chosen unseen), one tap
 removes it, and skipping the step selects nothing. The first visit's screen 2 is the example: HIPHI's
-strongly supported and staff-recommended issues among the four shown start ticked, and Skip follows nothing. *Reason.* Most people keep a default and read
+strongly supported and staff-recommended issues among the four shown start ticked, and Skip follows nothing. In version 2 (`?v2=1`, R-357 part 4, Nate's R-218 ask of 9 Oct) the two most active issues under each topic start ticked, at least one, and the line under the heading says so ("The two most active under each topic are ticked; change them as you like."); the three conditions hold. *Reason.* Most people keep a default and read
 it as advice, so a default is a recommendation made in their name; evidence **mixed** (defaults are strongly
 sticky; "fewer choices is better" is not reliable). A pre-ticked box is not valid consent under EU law
 (Planet49); a lawyer should confirm what US email and state privacy law require of the sign-up.
@@ -875,6 +876,18 @@ comes only after the lesson that answers it. (Added 9/21 for R-023.)
 tedious manner". The review measured 60% of "Reading a bill" and 54% of "What a hearing is" hidden
 behind taps, so anyone who pressed Next learned almost nothing.
 
+**Version 2 (`?v2=1`): the story is shown from Home, not in the first visit (R-357 part 4, Nate's pick, 30 Oct 2026).** The newcomer
+walk found the story placed too early: 14 taps and about 1,450 words stood between the welcome and Home, and the useful moment was
+tap 5. In version 2 the first visit is eight taps and ends on Home, and the story's four pages are one card on Home for a newcomer,
+"New here? How a bill becomes law" / "Four short pages on your own bill · 2 min", with "Read it" and a quiet "Not now"
+(`pub/v2/story.js` `storyCard()`; Home draws it, `pub/calm/home.js`). "Read it" opens the same four pages on the person's own bill in the first
+visit's frame (`#/learn/story`: the drawing, Back, Next, and a last button "Done" that returns to Home); "Not now", or reading to the end,
+hides the card for good (a mark kept in this browser). What this rule asks of the pages is unchanged (one idea per step, on their own bill,
+every word visible when its step is showing, a choice only after the lesson that answers it); only where they stand moved, to the moment the
+person has a bill of their own to care about. "This Year and Next" and "You're all set" are not in version 2's visit: Home is the ending, and
+the profile ask's cover carries the first visit's last button, "See How I Can Help". Whether more people send a note when the story waits on Home
+is a guess until the testers (the week of 23 Nov) and January's counts show it (how many later visits open the card).
+
 ### C-13 Every question changes what the person sees next
 
 A question in the first visit (and anywhere a person is asked about themselves) earns its place only if
@@ -884,6 +897,11 @@ matter or drop the question. A quiz that checks a lesson is not covered. (Added 
 
 **Nate may waive it case by case.** A question that stays without a visible effect needs his yes, recorded
 as an exception in `DESIGN-AUDIT.md` with the reason and date. Without that, it is a defect.
+
+**Version 2's teaching screen asks no question (R-357 part 4, Nate 30 Oct 2026: "no quiz").** "Why your note counts" stands between Your issues and
+the profile ask: one drawing, two sentences, two plain rows (testimony, an email to the committee chair, each with its time) and one button,
+Next. It teaches that a note counts and what the two ways to send one are, and it checks nothing, so C-13 has nothing to cover. Version 1's
+story keeps its two choices (they change what the next page says, which is what C-13 asks).
 
 *Reason.* Every question is a place to stop (C-5), and people answer more willingly when they can see the
 answer being used; evidence **strong** that relevant, personalized experiences keep people engaged, and a

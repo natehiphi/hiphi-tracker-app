@@ -658,3 +658,30 @@ button.st-way:active { transform: scale(.99); }
    (.fit1 88px, .fit2 64px tall, and so on), so the drawing gives way before the words do. */
 .st:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: 100%; max-width: 420px; height: auto; max-height: none; }
 .st .st-art svg.art-nb { width: auto; }
+
+/* ================= Version 2's first visit (R-357 part 4, Nate 30 Oct 2026; ?v2=1; DESIGN C-12, C-13, C-14) =================
+   Welcome, two topics, Your issues, one teaching screen, the profile ask, Home. */
+
+/* The teaching screen, "Why your note counts" (start-rest.js stepWhy): the drawing of speaking up, the heading, two sentences at the
+   first visit's reading size (.lede, 18px), and two plain rows: no card, no control, nothing to tap but Next. On a phone the drawing
+   keeps 120px of height, which lets the screen fit a 375x812 window with the practice band on; when the window is shorter the generic
+   levels (fit1 on, above) shrink it first, as on every other step, and the words are never made smaller (C-14). */
+@media (max-width: 899px) {
+  .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: auto; max-width: 100%; height: 120px; }
+}
+.st-whyways { gap: var(--s12); }
+.st-whyways li { align-items: center; }
+.st-whyways b { margin-bottom: 0; }
+.st-whypage.fit2 .st-whyways { gap: var(--s8); }
+.st-whypage.fit3 .st-whyways .st-vic { display: none; }
+.st-whypage.fit3 .st-whyways li { grid-template-columns: minmax(0, 1fr); }
+
+/* The cover that ends version 2's visit (start-rest.js coverEnd): the profile ask's celebration is the last page, since Home comes next
+   and has no band to fold into. It plays as the cover always does, then holds still with the visit's last button, "See How I Can Help",
+   which rises after the words and stays until it is pressed (A-12: a button that leaves on a timer does not look like what it does).
+   Under Reduce Motion it is the same page standing still: nothing opens, rises or drifts, and the button is there at once. */
+.st-cvin .st-cvgo { margin-top: var(--s24); min-width: min(100%, 280px); animation: fx-rise .5s var(--ease) .95s both; }
+@media (prefers-reduced-motion: reduce) {
+  .st-cover.st-cvend, .st-cover.st-cvend :is(*, *::before, *::after) { animation: none !important; transition: none !important; }
+  .st-cover.st-cvend .fx-spark { display: none; }
+}

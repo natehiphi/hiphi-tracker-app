@@ -237,6 +237,20 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   A newcomer's story card (`pub/v2/story.js`, Part 4: `storyCard()` -> `{ html, wire }`) is asked for by a dynamic import that Home does not await (a
   top-level await would deadlock on an import back into this file) and is drawn between the slide and the box; one redraw draws a card found late.
   Tests: `tests/v2_home.py`, and the version 2 set (three people, phone and laptop) in `tests/home_calm.py`.
+- **Version 2's first visit, in eight taps (R-357 part 4, Nate 30 Oct 2026, "seven taps" up to the profile ask; `?v2=1`).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
+  flow: `FLOW_V2 = ['topics', 'issues', 'voice', 'alerts']` after the welcome, and `FLOW_LINK_V2 = ['followask', 'alerts']` for a shared bill's visit;
+  past the last step is Home (`goStep`/`wire` call `finish()`). Welcome and topics are unchanged; Your issues starts two ticked per topic, at least one
+  (`model2` in `start-rest.js`), under the line "The two most active under each topic are ticked; change them as you like."; then `stepWhy`
+  (`start-rest.js`; the step the private counts know as `voice`, so no migration), "Why your note counts": the VOICES drawing from `art.js`, two sentences,
+  two plain rows (testimony; an email to the committee chair, each with its time) and Next, seen once (`wiz().why`, so "Edit my issues" does not teach
+  twice); then the profile ask as today (`alerts.js`, unchanged). Its Mahalo is the same cover (`coverAndFold`, which hands `end: true` to `coverEnd`): no band to fold into
+  because Home comes next, so it plays, then holds still with the button "See How I Can Help" (`GO_HELP`, the eighth tap) until it is pressed (Enter or Space too; the
+  page under it is inert, Reduce Motion shows it without animation), draws Home, and fades off it. `COVER_END_MS` (0) is the one-line switch to a cover that moves on by
+  itself after that many milliseconds (2800 was tried), which Nate may choose at his check: then the visit is 7 taps again. The
+  story, "This Year and Next" and "You're all set" are not in the v2 visit (v1 keeps them). The story is `storyCard()` in `pub/v2/story.js`, a card Home draws
+  for a newcomer (`{ html, wire }`, no side effects on import; "Read it" opens `#/learn/story`, whose Done returns to Home and calls `storyMark()`; "Not now"
+  does too). The first visit's pages have no `body.v2` or v2.css (`app.js` leaves `FIRST_VISIT` routes out), so v2's first-visit rules are at the end of
+  `pub/start.css` and the card's are inline in its markup. Test: `tests/v2_first_visit.py`.
 - **How the page loads (R-122, 10/2; `tests/perf.py` measures it, `tests/boot_live.py` checks it, `node
   tools/check_split.mjs` guards it in CI).** The first screen must not wait for everything. **The kernel:** `pub/kernel.js`
   is the state, the client, the catalog, the follows, the first visit's state and the page's small helpers; `pub/core.js`
