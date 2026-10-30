@@ -260,6 +260,8 @@ chip, a coloured tab). Disabled controls look disabled and say why when it is no
 
 Follow is an outlined button and Following is the same outlined pill with a check for the star, never a filled dark button: a dark
 filled "Following" read as the page's main action (the returner walk, 28 Oct; the bill page in version 2, R-357, Nate 30 Oct 2026).
+In version 2's Home the box's rows are links that end in a chevron, which now keeps its promise (a tap opens the bill's page, R-357 Part 3); the
+one row that is not a link, the slide's own bill, is lit and has no chevron and no hover, so nothing that cannot be pressed looks pressable.
 
 *Reason.* Signifiers are how an interface explains itself. This is the load-bearing rule for P-4: an
 app nobody needs a tutorial for is an app where every control is self-evident.
@@ -414,6 +416,31 @@ repeated in the stage card. Budget, in the slide's words: the goal heading withi
 **the slide block under 60 words and the first screen's text in 6 styles**. From 1100px the slide is the left column and the sections
 are open on the right with no heading of their own. "About 10 min the first time" belongs to the letter's first screen (Part 2), not to
 this line. Checked by `tests/v2_bill.py`. The My issues tab stays (Nate).
+
+**Home's box is the week (version 2, `?v2=1`, R-357 Part 3, Nate's pick of 30 Oct 2026: the box is the week by day; rows open the bill; My
+issues stays a tab at Nate's word).** The greeting and the slide are exactly as Nate checked them on 20 Oct. The white box under the slide is headed
+"This week" (a small key, no count) and is the week by day, soonest first: **one row for each bill with something to do, and one for each issue with
+nothing to do**. A row is a day label (Today, Tue, Mar 30: the day it runs out, small capitals), the bill's everyday name in bold, and one line under it:
+"Testimony due 1:00 PM" (amber only inside 24 hours, A-5), "Late testimony until 1:10 PM", "Ask the chair for a hearing", "Hearing 9:30 AM" (with
+"You testified ·" when they did) or "Your letter is started · due 1:00 PM". An issue with nothing to do keeps v1's row, its name and where it
+stands, after the days, with no day label. **A tap opens the bill's page** (an issue with nothing to do, the issue's page), and the row ends in a
+chevron (A-12); the slide's own bill is the **lit row**: pale blue, not a link, no chevron and no "Show", since it is the slide above. Decision 5a (a tap
+moves the slide, R-295) stays in v1 only; in version 2 the pager moves the slide. The last row, only when there is at least one, is **"Also due: HIPHI asks" /
+"On issues you don’t follow"**, under the day the soonest is due and with **no number** (Nate, R-300: "If it's a lot it can be overwhelming"; the sandbox's
+Monday has ten): it stands for the rows Find's "Needs voices this week" lists (the same ranking and the same 7-day rule, from `core.js`), which it
+opens scrolled to that heading, so a weekday never passes unseen. The box's **last line is "Edit my issues"** in link blue, opening My issues in its
+edit state. "See them all in My issues" is gone (the tab is one tap away, and stays), and **"See your 2026 session" is a row on You** ("Your 2026
+session", the same page). More than 8 rows (Nate 10/11, kept): the first 8, what is to do first, then "Show all your issues · more due this week" inside
+the box, above the last two lines. Between sessions the box is today's list with the same words, headed "Your issues", with the same last line.
+A newcomer has one more block between the slide and the box, the story as a card ("New here? How a bill becomes law", `pub/v2/story.js`, R-357 Part 4, C-12): the
+fourth block of the budget for a newcomer only, and gone for good once it is read or put aside; Home asks for it by dynamic import and draws the same without it.
+The budget does not change: four blocks of two shapes, one filled button, each bill named once (a row names its bill; the slide names it by number on
+its detail line; a hearing ask for the twin of a bill whose late testimony is a row has none), under two phone screens for 3 issues and three for 16
+(Leilani's sixteen make 19 rows in the sandbox), the first phone screen under 60 words and 6 text styles. "One row per issue" now reads one row per
+bill with something to do, plus one per issue with nothing to do. Checked by `tests/v2_home.py` and the version 2 set in `tests/home_calm.py`.
+A guess until the testers' round of the week of 23 Nov: what settles it is whether more of them send testimony or an email in the session (baseline 0
+of 21, R-357 Part 7), and, from January, the counts of actions started from Home. Its open question is Nate's (d): whether v1 takes rows that open the
+bill when version 2 is everyone's.
 
 *Reason.* "Show the next one" sat right on testimony slides and left on hearing asks, which had no More ways (199px apart on
 a phone, up to 87px up or down as the words changed length): a control that moves has to be found again on every slide
@@ -644,6 +671,11 @@ fourteen full cards made Home a 7,000px wall). Evidence **moderate** for the fol
 words (first-person "my" won by 90% on one page and lost 25% on another, both run by the same copywriter); whether
 more people act from Home is a guess until January's counts. The exception: Nate, 10/11 (R-222), for Leilani's sixteen and more: "Option number 2, but still grouped by status";
 a list of dozens on one screen hides the urgent among the quiet more than a fold after the first 8 does.
+
+*Version 2 (R-357 Part 3, Nate's pick of 30 Oct 2026; A-23 has the whole box).* Home's box lists every thing to do as its own row, by day, so a row is
+never silent about something due and none needs ", and 1 more this week": a bill with testimony due, late testimony or a hearing ask has a row of
+its own, opening the bill, and the pager alone moves the slide. The fold for more than 8 rows keeps what is to do first and says "more due this
+week" when something due is behind it, as above.
 
 ---
 

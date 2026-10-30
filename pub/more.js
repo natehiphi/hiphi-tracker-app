@@ -24,7 +24,7 @@
 // deleting the account asks on the page instead of a browser pop-up, and every error is a sentence.
 import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSuggest, looksLikeAddress, legTitle,
   CONSENT_KEY, LOCAL_KEY, DONE_KEY, DONE_AT_KEY, LISTS_KEY, STANCE_KEY, ISSUES_KEY, CATS_KEY, SKIPS_KEY, recomputeWatch, fmtDate,
-  sendEmailLink, validEmail, textSaved, followsAnything } from './core.js';
+  sendEmailLink, validEmail, textSaved, followsAnything, sessionInfo } from './core.js';
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
@@ -289,8 +289,13 @@ function meRow() {
 // from You, Help and the footer"). Put in from here until rec/you.js draws it itself; if its footer's markup changes, the
 // link is simply left out.
 const withJoin = html => html.replace(/(<a class="yu-fl" href="#\/privacy">[^<]*<\/a>)/, (m) => `${m}<a class="yu-fl" href="#/groups">${t('For advocacy groups')}</a>`);
+// Version 2 (?v2=1, R-357 Part 3, Nate 30 Oct 2026): "See your 2026 session" left Home, so the one way to that page is this row, which
+// says the year as that link did ("Your 2026 session") and opens the same page (#/recap). The row is rec/you.js's, drawn for everyone;
+// its name is set here, for version 2 only, by the page it opens.
+const withYear = html => !app.v2?.() ? html : html.replace(/(href="#\/recap"[^>]*>(?:(?!<\/a>)[\s\S])*?<span class="rc-rname">)[^<]*(<\/span>)/,
+  (_, a, z) => `${a}Your ${sessionInfo().recapYear} session${z}`);
 function moreView() {
-  if (REC()) return withJoin(youView());   // You draws the partner's "Your group" card itself (rec/you.js, R-328)
+  if (REC()) return withYear(withJoin(youView()));   // You draws the partner's "Your group" card itself (rec/you.js, R-328)
   const d = myDistricts(), s = d && seat('S', d.senate), h = d && seat('H', d.house);
   const legSub = s && h ? t('{a} and {b}', { a: esc(legName(s)), b: esc(legName(h)) }) : t('Find your senator and representative');
   // The person comes first (R-147, Nate 10/4: "located where profiles usually sit"): their profile as the page's first row,

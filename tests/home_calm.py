@@ -10,13 +10,18 @@
 # R-300 (Nate's picks, 17 Oct): the greeting is one line with no count; the button, More ways to help and the pager sit at the
 # same x/y on every slide of a moment (walked with the pager, phone and laptop), with at most 5 dots and no "1 of N"; the
 # first phone screen is under 60 words and 6 text styles (the amber A-5 asks for inside 24 hours aside).
+# R-357 Part 3 (Nate, 30 Oct 2026, ?v2=1): a second set, "version 2", three moments (Kai's 3 issues, Leilani's 16, Kai between sessions) at
+# both sizes, where the box under the slide is "This week" (pub/calm/home.js weekBlock): the same A-23 budget (4 blocks, 2 shapes, one filled
+# button, each bill named once, 2 phone screens for 3 issues and 3 for 16, the first phone screen under 60 words and 6 text styles), the same
+# slide controls at the same place on every slide, nothing amber outside 24 hours, and every issue still has a row. What the box says and does
+# is tests/v2_home.py's.
 #   python3 -m http.server 8832   (in this folder, once)
-#   python3 tests/home_calm.py [base]     base defaults to http://localhost:8832
+#   python3 tests/home_calm.py [base]     base defaults to http://localhost:8832; HOME_CALM_OUT sets where the screenshots go
 import sys, os, re
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, 'tests', 'out', 'home_calm'); os.makedirs(OUT, exist_ok=True)
+OUT = os.environ.get('HOME_CALM_OUT') or os.path.join(ROOT, 'tests', 'out', 'home_calm'); os.makedirs(OUT, exist_ok=True)
 src = open(os.path.join(ROOT, 'compare.html')).read()
 WHO = src[src.index('const WHO = {'):src.index('const pick =')]   # the same people as the compare page
 res = []
@@ -143,6 +148,63 @@ with sync_playwright() as pw:
                     pg.evaluate('window.scrollTo(0, 0)'); pg.wait_for_timeout(200); f1 = pg.evaluate(FIRST)
                     ok(f1['words'] < 60 and len(f1['styles']) <= 6, f"{tag}: the first screen under 60 words and 6 text styles ({f1['words']} words, {len(f1['styles'])} styles)")
                 walk(pg, tag)
+            ctx.close()
+    # ---- R-357 Part 3: version 2's Home (?v2=1), the box as "This week" ----
+    V2CASES = [('Kai, Monday', 'kai', 'mon', {}, 3), ('Leilani, Monday', 'leilani', 'mon', {}, 16), ('Kai, between sessions', 'kai', 'mon', {'off': True}, 3)]
+    MEASURE2 = """async () => {
+      const main = document.querySelector('#main'), root = main.querySelector('.cm');
+      if (!root) return null;
+      const vis = e => e.offsetHeight > 0, blocks = [...root.children].filter(vis), shapes = new Set();
+      if (root.querySelector('.cm-slide, .acard, .hm-ask, .hm-ready, .goitem, .card')) shapes.add('card');
+      if (root.querySelector('.cm-rows')) shapes.add('rows');
+      const { S, nick } = await import('./pub/core.js'), text = root.innerText, twice = [];
+      for (const b of S.bills) {   // each bill named once: its number and its everyday name appear once (the rows are bills' names here)
+        const num = b.bill_number.replace(/^([A-Z]+)(\\d+)$/, '$1 $2'), nm = nick(b), c1 = text.split(num).length - 1, c2 = nm && nm.length > 8 ? text.split(nm).length - 1 : 0;
+        if (c1 > 1 || c2 > 1) twice.push(`${num} ${nm || ''} (${c1}, ${c2})`);
+      }
+      const rows = [...root.querySelectorAll('.cm-rows .cm-row:not(.cm-also)')], names = rows.map(r => r.querySelector('.cm-rname').firstChild.textContent.trim());
+      return { blocks: blocks.length, kinds: blocks.map(e => e.className.split(' ')[0]).join(','), shapes: [...shapes], filled: [...root.querySelectorAll('.btn.primary')].filter(vis).length, twice,
+        h: Math.round(main.scrollHeight), wide: document.documentElement.scrollWidth > window.innerWidth + 1, rows: rows.length, dup: names.filter((n, i) => names.indexOf(n) !== i),
+        shown: rows.filter(r => !r.closest('li').hidden).length, warn: [...root.querySelectorAll('.cm-rstat.warn')].map(e => e.textContent.trim()),
+        showall: [...root.querySelectorAll('[data-cm-showall]')].map(e => e.textContent.trim()), week: root.querySelector('.cm-issues h2')?.textContent.trim() || '' };
+    }"""
+    for size, (w, h) in [('phone', (390, 844)), ('laptop', (1366, 900))]:
+        for label, who, day, o, n in V2CASES:
+            ctx = br.new_context(viewport={'width': w, 'height': h}, is_mobile=size == 'phone', has_touch=size == 'phone')
+            ctx.add_init_script("Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:()=>true});")
+            ctx.add_init_script(scene(who, day))
+            pg = ctx.new_page(); errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('console', lambda m: errs.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text and 'v2/story.js' not in (m.location.get('url') or '') else None)   # Part 4's story card file may be absent: its 404 is no error of Home's
+            pg.goto(f"{BASE}/track.html?demo=1&abrest=today&ab=layout.calm&v2=1{'&season=off' if o.get('off') else ''}#/")
+            pg.wait_for_function("() => !!document.querySelector('#main .cm, #main .hm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
+            m = pg.evaluate(MEASURE2); tag = f'{size} v2 {label}'
+            ok(m is not None, f'{tag}: Home is drawn')
+            if m is None: ctx.close(); continue
+            ok(m['week'] == ('Your issues' if o.get('off') else 'This week'), f"{tag}: the box is headed {m['week']!r}")
+            ok(m['blocks'] <= 4, f"{tag}: at most 4 blocks ({m['blocks']}: {m['kinds']})")
+            ok(len(m['shapes']) <= 2, f"{tag}: at most 2 shapes ({m['shapes']})")
+            ok(m['filled'] == 1, f"{tag}: one filled button ({m['filled']})")
+            ok(not m['twice'] and not m['dup'], f"{tag}: each bill named once {m['twice'][:3]} {m['dup'][:3]}")
+            ok(m['rows'] >= n, f"{tag}: a row for every issue ({m['rows']} rows, {n} issues)")
+            if size == 'phone': ok(m['h'] <= (2 if n <= 3 else 3) * h, f"{tag}: under {2 if n <= 3 else 3} phone screens ({m['h']}px)")
+            ok(all(re.match(r'^(Testimony due|Your letter is started · due|Late testimony until|Ask the chairs? for a hearing)', t) for t in m['warn']), f"{tag}: amber only for what is due within a day {m['warn'][:3]}")
+            if n > 8 and not o.get('off'):
+                ok(m['shown'] == 8 and len(m['showall']) == 1 and m['showall'][0].startswith('Show all your issues'), f"{tag}: the first 8 shown, then a Show all ({m['shown']}, {m['showall']})")
+                pg.click('[data-cm-showall]'); pg.wait_for_timeout(300)
+                m2 = pg.evaluate(MEASURE2); ok(m2['shown'] == m2['rows'] and not m2['showall'], f"{tag}: Show all opens all {m2['rows']} rows")
+            else: ok(not m['showall'], f'{tag}: no Show all')
+            ok(not m['wide'], f'{tag}: no sideways scroll')
+            if not o.get('off'):
+                hi = pg.evaluate("(() => { const e = document.querySelector('#main .cm-hi'); if (!e) return ['', 0]; const lh = parseFloat(getComputedStyle(e).lineHeight); return [e.innerText.trim(), Math.round(e.getBoundingClientRect().height / lh)]; })()")
+                ok(hi[0] and not re.search(r'\d|things you can do|more result', hi[0]) and hi[1] == 1, f"{tag}: the greeting is one line with no count ({hi[0]!r}, {hi[1]} lines)")
+                if size == 'phone':
+                    pg.evaluate('window.scrollTo(0, 0)'); pg.wait_for_timeout(200); f1 = pg.evaluate(FIRST)
+                    ok(f1['words'] < 60 and len(f1['styles']) <= 6, f"{tag}: the first screen under 60 words and 6 text styles ({f1['words']} words, {len(f1['styles'])} styles)")
+                walk(pg, tag)
+            ok(not errs, f'{tag}: no page errors {errs[:2]}')
+            pg.add_style_tag(content='.tabs{visibility:hidden !important}'); pg.wait_for_timeout(100)
+            pg.screenshot(path=os.path.join(OUT, f"{size}_{who}_{day}{'_off' if o.get('off') else ''}_v2.png"), full_page=True)
             ctx.close()
     # ---- R-250 (Nate 10/11, "Yes, go on R-250 as recommended"): what the calm Home first left out ----
     # 1. Late testimony: HB 1562 is heard Monday 1:10 PM, its written deadline passed Sunday. Followed through its issue, with
