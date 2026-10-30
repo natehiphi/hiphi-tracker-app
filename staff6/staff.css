@@ -183,6 +183,8 @@ body.staff6 .actionbar .btn, body.staff6 .sv-sheet .btn.primary { min-height: 48
      search box, 40px targets (A-6 on v6). The unread count is the phone's, from messagesCount. */
   .sv-hdr .sv-helpbtn, .sv-hdr .sv-bell { display: inline-flex; flex: none; width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
   .v6-more-list > li:has(> .v6-phone-only), .v6-more-row.v6-phone-only { display: none; }   /* Outreach and Issues are in the sidebar */
+  /* A-8: the hidden rows still precede Legislators as list items, so it drew a hairline with nothing above it */
+  .v6-more-list > li:has(> .v6-phone-only) + li:not(:has(> .v6-phone-only))::before { content: none; }
   .sv-hdr .sv-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .sv-hdr .sv-search { display: block; position: relative; flex: 0 1 560px; min-width: 0; }
   .sv-hdr .sv-search input { width: 100%; min-height: 44px; padding: 10px 72px 10px 44px; border: 1px solid var(--v6-field); border-radius: var(--v6-r12);
@@ -1403,3 +1405,10 @@ body.staff6 .t6-head.tm6-whohead { align-items: center; column-gap: 12px; }
 body.staff6 .t6-head.tm6-whohead > .sv-av { font-size: var(--v6-t16); }
 /* a supporter's page (person.js): a team note's writer as a small face inside its meta line */
 body.staff6 .sp-person .sp-nwho .sv-av { margin: 0 4px -5px 0; font-size: 10px; }
+
+/* B-13 on v6, P-4: the scope said in words for people with no Mine | Team switch: one quiet plain line under it, body colour,
+   never a link (R-356 round 1, critic fixes). */
+.bl-scope { margin: 0; font: 600 var(--v6-t16)/24px var(--font); color: var(--v6-ink); }
+.bl-scope-more, .hw-scope-more { margin: 0; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-ink); }
+.hw-scope { margin: 0; font: 600 var(--v6-t16)/24px var(--font); color: var(--v6-ink); }
+.hw-picks:has(> .hw-scope) { display: block; }

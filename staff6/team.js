@@ -303,7 +303,7 @@ function loadHTML(rows = loads()) {
 }
 
 // ---- the seasonal blocks ----
-const block = (id, title, body, { count = '' } = {}) => `<section class="tm6-block" data-block="${esc(id)}" aria-labelledby="tm6-${esc(id)}"><h2 class="tm6-h" id="tm6-${esc(id)}">${esc(title)}${count !== '' ? ` <span class="tm6-c">${esc(count)}</span>` : ''}</h2>${body}</section>`;
+const block = (id, title, body, { count = '', sr = false } = {}) => `<section class="tm6-block" data-block="${esc(id)}" aria-labelledby="tm6-${esc(id)}"><h2 class="tm6-h${sr ? ' sr' : ''}" id="tm6-${esc(id)}">${esc(title)}${count !== '' ? ` <span class="tm6-c">${esc(count)}</span>` : ''}</h2>${body}</section>`;
 const quiet = (ic, text) => `<p class="t6-quiet">${icon(ic)}<span>${esc(text)}</span></p>`;
 const door = (href, ic, html) => `<a class="t6-line" href="${esc(href)}">${icon(ic)}<span class="t6-lt">${html}</span>${icon('chevron-right', { cls: 't6-chev' })}</a>`;
 // The 2027 issues: admins only (W4); a prep date passed is "still to finish", never red (V30). First on the page between
@@ -382,7 +382,7 @@ function chairTab() {
 function slipTab() {
   ALERTS.clear(); reachOf(null);   // who Slack can reach, asked once (admins), so an Alert's words are right the first time
   const off = SESSION_OVER;
-  const sl = slipping(), risk = off ? [] : atRisk(), sch = off ? [] : schedule(), prep = prepSlip();
+  const sl = slipping(), risk = off ? [] : atRisk(), prep = prepSlip();
   const ranked0 = ranked(sl, risk), rows = ranked0.filter(x => !mineRow(x)), mine = ranked0.length - rows.length;
   const all = !!S.tmSlipAll || rows.length <= TOP, n = rows.length + (prep ? 1 : 0);
   const more = rows.length > TOP ? btn(S.tmSlipAll ? 'Show fewer' : `See all ${rows.length}`, { kind: 'text', icon: S.tmSlipAll ? 'chevron-up' : 'chevron-down', attrs: { 'data-tmslipall': '1', 'aria-expanded': String(!!S.tmSlipAll) } }) : '';
@@ -390,14 +390,13 @@ function slipTab() {
   const yours = mine ? `<p class="tm6-sub tm6-yours">${esc(mine === 1 ? 'Your own one is on your Today, not here.' : `Your own ${mine} are on your Today, not here.`)}</p>` : '';
   const foot = more ? `<p class="tm6-more">${more}</p>` : '';
   const slip = block('slip', 'Slipping', n ? `${yours}${prep}${rows.length ? rankedHTML(rows, all) : ''}${foot}`
-    : `${yours}${quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.')}`, { count: n || '' });
-  const hear = off ? '' : `<div class="t6-doors tm6-lines" role="group" aria-label="Hearings">${sch.some(d => d.rows.length)
-    ? fold('sched', 'calendar-days', schedLine(sch), sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join(''))
-    : quiet('calendar-days', 'No hearings on our bills today or tomorrow.')}</div>`;
+    : `${yours}${quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.')}`, { count: n || '', sr: true });
+  // R-356 round 1 critic fixes (A-14): the tab already says "Slipping 5", so the heading is for screen readers only; the
+  // folded "Hearings · 2 today, 4 tomorrow" card is gone, because the tab beside this one (The team's hearings) is that list.
   const people = loads(), busy = people.filter(r => r.n > 0).length;
   const who = block('who', 'Who is on what', `<p class="tm6-sub">${esc(busy ? `${plural(busy, 'person', 'people')} with open steps, chair asks included.` : 'Nothing open on the team.')}</p>${loadHTML(people)}`);
   const partners = partnersHTML();
-  return `<div class="tm6-cols"><div class="tm6-main">${prepBlock()}${slip}${hear}</div>
+  return `<div class="tm6-cols"><div class="tm6-main">${prepBlock()}${slip}</div>
     <aside class="tm6-side" aria-label="The team">${who}${partners ? `<nav class="t6-doors tm6-lines" aria-label="Partners">${partners}</nav>` : ''}</aside></div>`;
 }
 function teamPage(route) {

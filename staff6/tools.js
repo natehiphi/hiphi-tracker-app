@@ -7,7 +7,7 @@
 // the library on Testimony) is not a row here: the place already shows it.
 import { S, DEMO, esc } from './data.js';
 import { icon, menuSheet, avatar } from './ui.js';
-import { placeRow, placeList, leadKeys, seesTeam, syncWords, syncNote, syncStale, youName } from './more.js';
+import { placeRow, placeList, leadKeys, isLead, seesTeam, syncWords, syncNote, syncStale, youName } from './more.js';
 import { messagesCount } from './inbox.js';   // the Inbox page's own count, so the row's number matches it (A-14)
 import { admitsPartners } from './partnerq.js';
 import { canSort, showMutedTab } from './billshead.js';
@@ -27,8 +27,8 @@ function groups() {
   const admin = !!S.me?.is_admin;
   return [
     ['Getting hearings', [
+      // A-14, A-12: Legislators’ profiles was a second row to Legislators › Everyone, which Places above already opens.
       ['Session calendar', '#/help/calendar', 'flag', 'The session’s deadlines, day by day'],
-      DEMO ? ['Legislators’ profiles', '#/legislators?view=everyone', 'landmark', 'Everyone at the Capitol, and what each cares about (practice copy)'] : null,
     ]],
     ['Testimony', [
       ['How to file', '#/help/file', 'clipboard-check', 'Filing at the Capitol, step by step'],
@@ -72,6 +72,8 @@ function footLine() {
   if (bills.length) out.push(`Bill and coalition owners also have ${bills.join(' and ')} tabs on Bills.`);
   return out.join(' ');
 }
+// C-15: Kris sees Team without being a lead, so the one row Team is not under "Lead tools" (app.js says the same).
+export const leadHead = leads => !isLead() && leads.length === 1 && leads[0] === 'team' ? 'Team' : 'Lead tools';
 const teammates = () => (S.advocates || []).filter(x => x.is_active !== false && x.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name));
 
 // You (spec 3.2): the account menu's items as rows (app.js accountItems), so My settings is two labelled taps on a phone.
@@ -94,7 +96,7 @@ export default {
       <section class="v6-more-sec" aria-labelledby="tl-places"><h2 class="v6-more-h" id="tl-places">Places</h2>${placeList(places)}</section>
       ${groups().map(([h, rows], i) => sec(h, rows.map(asRow), i)).join('')}
       ${sec('Someone else’s list', [rowBtn('data-tlwho aria-haspopup="dialog"', 'scan-eye', 'See a teammate’s list', 'Their Today, to read, when you cover for them')], 'who')}
-      ${leads.length ? sec('Lead tools', [...leads.map(k => placeRow(k)),
+      ${leads.length ? sec(leadHead(leads), [...leads.map(k => placeRow(k)),
         // F165: the admins' Prep board, a view on All issues (issues.js, prep.js)
         admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null], 'lead') : ''}
       ${sec('Other versions', versions(admin), 'ver')}

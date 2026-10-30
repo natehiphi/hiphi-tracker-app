@@ -26,7 +26,7 @@ import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAG
 import { factsOf, stopOf, whyDead, billNum, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
-import { bl, save, setCompact, shownBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
+import { bl, save, setCompact, shownBills, baseBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
   views, curView, viewName, openEditViews, scopeOpts, posWord, openCoalition, viewState } from './filters.js';
 import { openLook } from './look.js';
 import { bulkBar, wireBulkBar, startSelect, stopSelect, dropSelect, selIds, FIELD } from './bulk.js';
@@ -187,6 +187,11 @@ function scopeSwitch() {
 // (F95, V19) is gone: "bills need a hearing" is said once on Hearings (the line under its days) and once as a line on Today,
 // each with the pile's one count (push.js toAskWords). Bills lists the bills; it does not count the ask pile.
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").
+function scopeWords(q, n) {
+  const v = bl(), mine = v.scope === 'coal' ? 'Your coalitions’ bills' : 'Your bills';
+  const total = baseBills().length, rest = Math.max(0, baseBills('all').length - total);
+  return `<p class="bl-sum bl-scope">${mine} · ${total.toLocaleString()}</p>${rest ? `<p class="bl-sum bl-scope-more">The team tracks ${rest.toLocaleString()} more · search finds any bill</p>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span>`;
+}
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
 function toolbar() {
@@ -231,7 +236,9 @@ function parts() {
   const more = q && v.scope !== 'all' && seesTeam() && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
   // Searching, the line under the head is about the search; with any filter on (the deadline link's own included) there
   // is none; over the whole list, the deadline line.
-  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : '';   // no ask-pile line over the list (see above)
+  // B-13 on v6, P-4, C-15: a person with no switch (no Sees Team, no coalition) never sees the word Mine, so the page says whose
+  // bills these are, in words and with no link to Team. Their count line is the summary; the team's extra is one quiet line.
+  const solo = !scopeSwitch(), lead = solo ? scopeWords(q, list.length) : !list.length ? '' : q ? moreLine(list.length, more, q) : '';   // no ask-pile line over the list (see above)
   const selHead = v.selecting && list.length ? (() => { const all = NAV.length && NAV.every(id => v.sel.has(id)), ids = selIds(), vis = new Set(list.map(b => b.id)), hid = ids.filter(id => !vis.has(id)).length;
     return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} you picked ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : wideNow() ? 'Click bills to pick them.' : 'Tap bills to pick them.'}</span>${btn(all ? 'Pick none' : `Pick the ${NAV.length} shown`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
   const body = !list.length ? emptyState(q, act.length) : tableOn() ? tableView(groups) : rowsView(groups);

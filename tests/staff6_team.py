@@ -49,9 +49,9 @@ def main():
     # R-356: the five page tabs are navigation links (the No owner card moved to its own tab)
     check('1440: at most 12 controls on the first screen, the 5 tab links included (A-2 on v6)', m['controls'] <= 13, m['controls'])
     check('1440: fewer words on the first screen than before R-336 (246)', m['words'] < 200, m['words'])
-    # the Hearings line: closed, a count; nothing a lead must do is in a fold (B-14 on v6)
+    # R-356 critic fixes (A-14): the folded Hearings card left Slipping (The team's hearings tab is that list), so no fold at all
     lines = p.evaluate("""() => [...document.querySelectorAll('.tm6-root details')].map(d => ({ id: d.dataset.tmfold, open: d.open }))""")
-    check('1440: Hearings is the one quiet line that opens in place, closed', [l['id'] for l in lines] == ['sched'] and not any(l['open'] for l in lines), lines)
+    check('1440: Slipping holds no folded card (Hearings is its own tab; nothing a lead must do is in a fold, B-14 on v6)', lines == [], lines)
     red = p.evaluate(f"""() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && e.childElementCount === 0 && e.textContent.trim() && getComputedStyle(e).color === '{BAD}')
       .map(e => (e.closest('.v6-row-line') || e).innerText.trim()).filter((t, i, a) => a.indexOf(t) === i)""")
     check('1440: red only on an overdue step', all(re.search(r'(?i)overdue', t) for t in red), red[:3])
@@ -86,12 +86,6 @@ def main():
       if fewer.count(): fewer.click(); pg.ready()
       check('1440: Show fewer goes back to 3', p.evaluate(ROWS, '[data-block="slip"] .v6-list > *') == min(3, n), '')
       pg.shot(os.path.join(os.environ.get('SHOTS', '/tmp'), 'team-1440-see-all.png'), full=True) if os.environ.get('SHOTS') else None
-    # the Hearings line opens the sittings it counts
-    p.click('details[data-tmfold="sched"] > summary'); p.wait_for_timeout(250)
-    t = p.inner_text('details[data-tmfold="sched"] > summary')
-    days = p.evaluate("""() => [...document.querySelectorAll('details[data-tmfold="sched"] h3')].map(h => { let e = h.nextElementSibling; return [h.innerText, e ? e.children.length : 0]; })""")
-    got = {d: c for d, c in days}
-    check('1440: Hearings opens the sittings it counts', num(r'(\d+) today', t, 0) == got.get('Today', 0) and num(r'(\d+) tomorrow', t, 0) == got.get('Tomorrow', 0), f'"{t}" vs {got}')
     # the same count as its own page
     pg.nav('/team?who=none'); whole = num(r'(\d+) bills? with a position', pg.text('main'))
     check('1440: No owner\'s count is the old teammate page\'s', whole == nc, f'{whole} vs {nc}')
@@ -110,16 +104,15 @@ def main():
     pg.nav('/team?tab=noowner')
     check('1440: ?tab= opens the same tab as the address', bool(p.query_selector('[data-block="noown"]')), '')
     pg.nav('/team')
-    check('1440: an opened line stays open after a redraw', p.evaluate("() => document.querySelector('details[data-tmfold=\"sched\"]')?.open") is True, '')
+    check('1440: the Slipping heading is for screen readers only (the tab says Slipping and its count, A-14)', p.evaluate("() => { const h = document.querySelector('[data-block=\"slip\"] h2'); return !!h && h.classList.contains('sr') && h.getBoundingClientRect().width <= 1; }"), '')
     check('1440: no page errors', not pg.errors, pg.errors[:1]); pg.close()
 
     # ---- phone, 390 ----
     pg = b.page('NT', 390, 844); pg.open('/team'); p = pg.page
     order = p.evaluate("() => [...document.querySelectorAll('.tm6-root [data-block]')].map(e => [e.dataset.block, Math.round(e.getBoundingClientRect().top)])")
     ids = [o[0] for o in order]; ys = [o[1] for o in order]
-    check('390: one column: Slipping, Hearings, then Who is on what', ids[:3] == ['slip', 'sched', 'who'] and ys == sorted(ys), order)
+    check('390: one column: Slipping, then Who is on what', ids[:2] == ['slip', 'who'] and ys == sorted(ys), order)
     check('390: the 3 most urgent with their actions', p.evaluate(ROWS, '[data-block="slip"] .v6-list > *') == 3 and p.evaluate(ROWS, '[data-block="slip"] .v6-list > * :is(button, .btn)') == 3, '')
-    p.click('details[data-tmfold="sched"] > summary'); p.wait_for_timeout(200)
     see = p.get_by_role('button', name=re.compile(r'^See all \d+'))
     if see.count(): see.click(); pg.ready()
     hs = p.evaluate('document.documentElement.scrollWidth > innerWidth + 1')
@@ -128,7 +121,7 @@ def main():
 
     # ---- between sessions: no hearings blocks, nothing broken ----
     pg = b.page('NT', 1440, 900); pg.open('/team', L.CLOCKS['off'])
-    check('off season: no hearings line', not pg.page.query_selector('details[data-tmfold="sched"]'), '')
+    check('off season: no folded hearings card', not pg.page.query_selector('details[data-tmfold]'), '')
     check('off season: no page errors', not pg.errors, pg.errors[:1]); pg.close()
     # ---- R-356: who has a Team option (Kevin none, Kris all four) and who reaches Team ----
     OPT = "() => [...document.querySelectorAll('[data-seg=\"hscope\"],[data-seg=\"blscope\"],[data-seg=\"lgask\"],[data-seg=\"otwho\"]')].filter(e => e.textContent.trim() === 'Team').length"

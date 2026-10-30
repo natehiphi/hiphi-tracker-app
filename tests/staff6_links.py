@@ -38,9 +38,10 @@ MOVED = [
   ('#/legislators?view=holding', 'KV', r'^#/legislators\?view=holding', 'More', r'Holding our bills'),
   ('#/setup/people', 'NT', r'^#/people', 'People', None),
 ]
-# every other v5 address: (address, who, the v6 place lit)
+# every other v5 address: (address, who, the v6 place lit; '' for Inbox and Help, whose header icon is the one current place and
+# the sidebar lights nothing, R-356 critic fixes, A-12)
 V5_ADDRESSES = [
-  ('#/', 'KV', 'Today'), ('#/review', 'KR', 'Testimony'), ('#/review/dd1', 'KR', 'Testimony'), ('#/inbox', 'KV', 'More'),
+  ('#/', 'KV', 'Today'), ('#/review', 'KR', 'Testimony'), ('#/review/dd1', 'KR', 'Testimony'), ('#/inbox', 'KV', ''),
   ('#/my-issues', 'KV', 'Issues'), ('#/bills', 'KV', 'Bills'), ('#/bills/new', 'NT', 'Bills'), ('#/bills/muted', 'KV', 'Bills'),
   (f'#/bill/{B}', 'KV', 'Bills'), (f'#/bill/2026/{B}', 'KV', 'Bills'), (f'#/bill/{B}/public', 'KV', 'Bills'),
   ('#/legislators', 'KV', 'More'), (f'#/legislator/{L.LEGISLATOR}', 'KV', 'More'),
@@ -51,7 +52,7 @@ V5_ADDRESSES = [
   ('#/issue/' + L.ISSUE, 'KV', 'Issues'), ('#/search?q=tobacco', 'KV', None), ('#/me', 'KV', 'You'),
   ('#/setup', 'NT', 'Session setup'), ('#/setup/email', 'NT', 'Session setup'), ('#/setup/coalitions', 'NT', 'Session setup'),
   ('#/setup/alerts', 'NT', 'Session setup'), ('#/setup/templates', 'NT', 'Session setup'), ('#/setup/privacy', 'NT', 'Session setup'),
-  ('#/help', 'KV', 'More'), ('#/help/file', 'KV', 'More'), ('#/help/keys', 'KV', 'More'), ('#/partners', 'NT', 'Partners'),
+  ('#/help', 'KV', ''), ('#/help/file', 'KV', ''), ('#/help/keys', 'KV', ''), ('#/partners', 'NT', 'Partners'),
 ]
 
 LOOK = r"""() => { const main = document.querySelector('main'); const t = main ? main.innerText : '';
@@ -107,7 +108,7 @@ def main():
       sub = (v5.get('h2') or '').strip() if re.match(r'#/(setup|help)/', addr) else ''
       same = (not title or title.lower() in shown) and (not sub or sub.lower() in shown)
       if sub and sub.lower() not in shown: title = f'{title}: {sub}'
-      lit = place is None or placename(x) == place or (place == 'You' and placename(x) in ('You', 'My settings'))
+      lit = place is None or (placename(x) or '') == place or (place == 'You' and placename(x) in ('You', 'My settings'))
       ok = not x['broken'] and x['len'] > 20 and not x['errors'] and same and lit and not (x['hash'] in ('#/', '') and addr not in ('#/',))
       phone = not ph['broken'] and ph['len'] > 20 and not ph['errors']
       R.check(f'{addr} opens {place or "its page"}' + (f' ("{title}")' if title else '') + ', on a laptop and a phone', ok and phone,
