@@ -264,7 +264,7 @@ def targets(r):
   if r['clock'] == 'off': T('amber/red marks on a day when nothing is late', m['marks'], 0)
   T('sideways scroll (rule 10)', int(bool(m['hscroll'])), 0)
   if r['w'] >= 768:   # the sidebar is always shown from 768px, every place labelled (3.1), and stays short
-    lim = 12 if who in L.LEADS else 8   # staff 8 (6 places, More, You); a lead 9 (Team); an admin 12 (People, Partners, Session setup)
+    lim = 12 if who in L.TEAM_SEERS else 8   # staff 8 (6 places, More, You); a lead or Sees Team 9 (Team); an admin 12 (People, Partners, Session setup)
     T('sidebar rows (always shown from 768px, 8 or more: Today, Testimony, Hearings, Issues, Outreach, Bills, More, You)', m['side_rows'], lim, 8 <= m['side_rows'] <= lim)
   else: T('phone tab bar: Today · Hearings · Testimony · Bills · More (D2)', ' · '.join(m['tabs']) or 'none', 'Today · Hearings · Testimony · Bills · More',
           [x.lower() for x in m['tabs']] == ['today', 'hearings', 'testimony', 'bills', 'more'])
