@@ -22,7 +22,7 @@
 // words where it can, the bill number kept (D15); R-336 (Nate 25 Oct) made every column sort, a team cell (position, owner,
 // nickname) a button that opens its picker with Undo (no Edit mode), added Priority and Nickname, and Copy for Google Sheets. Keys on a laptop (F96): j/k walk the rows, Space or o opens
 // the bill beside the list, Enter opens its page, x selects, Esc closes, "/" puts the cursor in the filter box (app.js).
-import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks } from './data.js';
+import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks, seesTeam } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, sessionClock, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
@@ -171,10 +171,19 @@ const rowStep = b => { const s = stepOf(b); if (!s) return s;
 
 // ---- the page ----
 const whoseWords = () => ({ me: 'your bills', coal: 'your coalitions’ bills', all: 'the team’s bills' })[bl().scope] || 'your bills';
+// R-356 decision 2: Team (scope 'all') is a choice only for people who see Team; with one choice left no switch is drawn.
+// A remembered or linked Team scope (a saved view, a coalition's bills opened from Issues) for someone without it falls back
+// to My coalitions when they have some, else Mine, so the page is never empty or in error. Done on every draw, before any
+// count is worked out from bl().scope.
+function clampScope() {
+  const v = bl(); if (v.scope !== 'all' || seesTeam()) return;
+  v.scope = scopeOpts().some(([k]) => k === 'coal') && !S.bills.some(isMine) ? 'coal' : 'me'; if (v.view) v.view = '';
+}
 function scopeSwitch() {
-  const v = bl(), three = scopeOpts().length > 2;
+  const v = bl(), co = scopeOpts().some(([k]) => k === 'coal'), team = seesTeam();
+  if (!co && !team) return '';
   // C-15's words from ui.js WHOSE, as Hearings, Legislators and Outreach say them ("Mine · My coalitions · Team").
-  return whoseSeg('blscope', { mine: 'me', coal: three ? 'coal' : null, team: 'all' }, v.scope, { label: 'Whose bills' });
+  return whoseSeg('blscope', { mine: 'me', coal: co ? 'coal' : null, team: team ? 'all' : null }, v.scope, { label: 'Whose bills' });
 }
 // The one line about the bills still to ask for a hearing (F95, V19), in the words and the count of Today and Hearings
 // (push.js toAskWords, rule 6, A-14; Nate's walk: Bills said "16 of your bills need a hearing by Mon 3/30 · 14 to ask · Get
@@ -226,19 +235,19 @@ function onRow() {
 function emptyState(q, nf) {
   const v = bl(), whose = { me: 'of yours ', coal: 'in your coalitions ' }[v.scope] || '';
   if (q) {
-    const elsewhere = v.scope !== 'all' ? shownBills('all').length : 0;
+    const elsewhere = v.scope !== 'all' && seesTeam() ? shownBills('all').length : 0;   // "N match under Team" only for people who see Team
     return empty({ title: `No bills ${whose}match “${esc(q)}”`, text: elsewhere ? `${elsewhere} match under Team.` : nf ? 'Your filters may be hiding it.' : 'Bills the team does not track yet are found by the search box at the top.',
       action: elsewhere ? btn('Show the team’s', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) : nf ? btn('Clear all filters', { kind: 'secondary', attrs: { 'data-fclearall': '1' } }) : btn('Search every bill', { kind: 'secondary', href: '#/search?q=' + encodeURIComponent(q) }) });
   }
   if (nf) return empty({ title: 'No bills match these filters', text: 'Take one off, or clear them all.', action: btn('Clear all filters', { kind: 'secondary', attrs: { 'data-fclearall': '1' } }) });
   if (v.scope === 'me') return empty({ title: 'You have no bills yet', text: 'Your bills are the ones you own or follow, and those on your issues. Follow a bill from its page.',
-    action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { kind: 'secondary', attrs: { 'data-scopecoal': '1' } }) : btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) });
-  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you help on show here. Choose them in My settings.', action: btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) });
+    action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { kind: 'secondary', attrs: { 'data-scopecoal': '1' } }) : seesTeam() ? btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) : '' });
+  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you help on show here. Choose them in My settings.', action: seesTeam() ? btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) : '' });
   return empty({ title: 'No bills are tracked yet', text: 'Sort the new bills to start.', action: btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' }) });
 }
 function parts() {
   const v = bl(), q = v.q.trim(), { list, groups } = build(), act = activeFilters();
-  const more = q && v.scope !== 'all' && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
+  const more = q && v.scope !== 'all' && seesTeam() && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
   // Searching, the line under the head is about the search; with any filter on (the deadline link's own included) there
   // is none; over the whole list, the deadline line.
   const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : v.due || act.length ? '' : leadLine(list);
@@ -867,6 +876,7 @@ export default {
   wide: r => !r.muted,
   narrow: r => !!r.muted,
   render(route) {
+    clampScope();
     const v = bl();
     loadSortCount(() => { if (S.route?.name === 'bills') refreshTabs(route.muted ? 'muted' : 'bills'); });
     if (route.muted) { dropSelect(); const html = renderMuted(); v.lastMuted = true; return html; }

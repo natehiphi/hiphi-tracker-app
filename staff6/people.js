@@ -12,7 +12,7 @@
 //   - Every change here saves the moment it is made, with Undo (B-5); typed details save from their sheet.
 // The data calls are v5's (data.js team*, setOwner, saveCampaign, updateIssue, updateTodo, attend, sendMessage,
 // partnerSetApprover): nothing new is asked of the database.
-import { S, DB, esc, fmtDate, advocate, APP_URL, hooks } from './data.js';
+import { S, DB, esc, fmtDate, advocate, APP_URL, hooks, DEMO } from './data.js';
 import { diedish, billRoute, whenAt } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, switchRow, field, notice, empty, avatar, pickerSheet, friendly, faceLead } from './ui.js';
 import { itemRow, listDetail, placeHead, nameWords, numWords } from './steps.js';
@@ -45,7 +45,9 @@ const live = a => !!a && a.is_active !== false;
 const isMe = a => !!a && a.id === S.me?.id;
 const wide = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return true; } };
 // All of a person's roles in one place (V28): "Admin and partner approver".
-const roleList = a => [a.is_admin ? 'Admin' : '', a.can_approve ? 'Approver' : '', a.is_reviewer ? 'Second approver' : '', a.approves_partners ? 'Partner approver' : ''].filter(Boolean);
+const roleList = a => [a.is_admin ? 'Admin' : '', a.can_approve ? 'Approver' : '', a.is_reviewer ? 'Second approver' : '', a.approves_partners ? 'Partner approver' : '',
+  // R-356: Sees Team is a role only for someone who does not already see Team as an admin or second approver
+  a.sees_team && !a.is_admin && !a.is_reviewer ? 'Sees Team' : ''].filter(Boolean);
 const rolesWords = a => { const r = roleList(a); return r.length ? andList(r.map((x, i) => i ? x.toLowerCase() : x)) : ''; };
 function signWords(a) {
   const s = P(), l = s.logins?.[a.id];
@@ -163,7 +165,7 @@ function listPage(route) {
 
 // ---- one person's record ----
 function roleSwitches(a) {
-  const me = isMe(a), dis = a.email ? {} : { disabled: true };
+  const me = isMe(a), dis = a.email ? {} : { disabled: true }, lead = !!a.is_admin || !!a.is_reviewer;   // leads see Team whatever the switch says (data.js seesTeam)
   const others = S.advocates.filter(x => x.is_admin && live(x) && x.id !== S.me?.id);
   const adminHelp = me ? (others.length ? `You cannot take away your own admin. Ask ${esc(andList(others.map(firstOf)))}.` : 'You are the only admin: give Admin to someone you trust, so the team is not stuck if you are away.')
     : 'Approves testimony, and opens Session setup and People.';
@@ -172,6 +174,9 @@ function roleSwitches(a) {
     ${switchRow('pe-r-admin', 'Admin', !!a.is_admin, adminHelp, { 'data-perole': 'is_admin', ...(me ? { disabled: true } : dis) })}
     ${switchRow('pe-r-appr', 'Approver', !!a.can_approve, 'Approves testimony and supporter emails.', { 'data-perole': 'can_approve', ...dis })}
     ${switchRow('pe-r-rev', 'Second approver', !!a.is_reviewer, 'Gives a bill’s first testimony its second look.', { 'data-perole': 'is_reviewer', ...dis })}
+    ${switchRow('pe-r-team', 'Sees Team', lead || !!a.sees_team, 'Sees the Team page and the team’s lists on Hearings, Bills, Legislators and Outreach. Admins and second approvers see them anyway.',
+      { 'data-perole': 'sees_team', ...(lead || !DEMO ? { disabled: true } : dis) })}
+    ${DEMO ? '' : '<p class="pe-p pe-quiet">Works once the database change is applied.</p>'}
     ${switchRow('pe-r-part', 'Partner approver', !!a.approves_partners, 'Approves partner groups and every word they write.', { 'data-perole': 'approves_partners' })}</div>`;
 }
 function record(a, { head = true } = {}) {
@@ -259,7 +264,7 @@ function leavingPage(a, route) {
 async function busy(el, fn) { if (el?.getAttribute('aria-busy')) return; el?.setAttribute('aria-busy', 'true'); try { await fn(); } catch (e) { toast(e, { err: true }); } finally { if (el?.isConnected) el.removeAttribute('aria-busy'); } }
 // team_save takes the whole record; every caller changes one thing and passes the rest as it is.
 const saveP = (a, patch) => DB.teamSave(a.id, { full_name: a.full_name, initials: a.initials || '', email: a.email || '', is_admin: !!a.is_admin, is_reviewer: !!a.is_reviewer, can_approve: !!a.can_approve, is_active: a.is_active !== false, ...patch });
-const ROLE_SAY = { is_admin: 'an admin', can_approve: 'an approver', is_reviewer: 'a second approver', approves_partners: 'a partner approver' };
+const ROLE_SAY = { is_admin: 'an admin', can_approve: 'an approver', is_reviewer: 'a second approver', approves_partners: 'a partner approver', sees_team: 'someone who sees Team' };
 async function setRole(a, key, on, el) {
   const set = v => key === 'approves_partners' ? DB.partnerSetApprover(a.id, v).then(() => { queueChanged(); wantQueue({ force: true }); }) : saveP(a, { [key]: v });
   try { await set(on); } catch (e) { if (el) el.checked = !on; toast(e, { err: true }); return; }

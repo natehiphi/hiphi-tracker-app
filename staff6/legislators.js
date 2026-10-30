@@ -15,10 +15,10 @@
 // or without the ʻokina and macrons; a street address looks up its districts on the live app (rule 3: the address is never
 // kept, only the districts it finds). The tab comes from the address (route.view): v5's ?view=all|hold|week still open
 // Everyone, Holding and Everyone's this-week preset.
-import { S, DB, esc, DEMO, islandOf, SESSION_OVER } from './data.js';
+import { S, DB, esc, DEMO, islandOf, SESSION_OVER, seesTeam } from './data.js';
 import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, chairIdsOf, stopOf, diedish, legById } from './model.js';
 import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav, andWords } from './ui.js';
-import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairEmail, replyBtn, chairGroups, askItems, askScopes, askScope, scopeWhose } from './holding.js';
+import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairEmail, replyBtn, chairGroups, askItems, askScopes as allScopes, askScope as anyScope, scopeWhose } from './holding.js';
 import * as PUSH from './push.js';   // Hearings > Get hearings' board (askBoard), drawn here (spec 6: one component)
 import { photo, legName, legHref, seatsOf, roleWord, RANK, wireLinks, surname } from './pathway.js';
 import { PROFILES, caresIds, caresCounts, issueSheet } from './profile.js';   // R-335 (practice copy)
@@ -167,6 +167,11 @@ function groupHTML(g) {
     <div class="lg6-rows" role="list" aria-label="${esc(`Our bills with ${legName(l)}`)}">${g.rows.map(x => billRow(x.b, { line: nw(esc(x.line)), button: askRowBtn(x, l), cls: 'lg6-wrap' })).join('')}</div>
   </section>`;
 }
+// R-356 decision 2: Team is a choice only for people who see Team (data.js seesTeam); holding.js askScopes, which this page
+// does not own, still lists it, so it is taken out here. Someone with nothing of their own and no coalitions keeps Mine.
+// A remembered or linked team scope for someone without Sees Team falls back to the first choice left, never an empty page.
+const askScopes = () => { const l = allScopes().filter(x => x[0] !== 'team' || seesTeam()); return l.length ? l : [['mine', 'Mine']]; };
+const askScope = want => { const ok = askScopes().map(x => x[0]); return ok.includes(want) ? want : ok.includes(anyScope(want)) ? anyScope(want) : ok[0]; };
 function askHTML(v) {
   if (SESSION_OVER) return empty({ title: 'No asks between sessions', text: 'Asking chairs for hearings starts when the session opens in January.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) });
   const scope = askScope(v.ask);
@@ -406,7 +411,7 @@ function searchHTML(v) {
 
 function bodyHTML(tab, v) {
   if (searching(v)) return searchHTML(v);
-  if (tab === 'holding') return holdingHTML({ scope: v.ask });
+  if (tab === 'holding') return holdingHTML({ scope: askScope(v.ask) });
   if (tab === 'everyone') return everyoneHTML(v);
   return askHTML(v);
 }
