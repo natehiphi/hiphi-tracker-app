@@ -23,7 +23,7 @@
 // nickname) a button that opens its picker with Undo (no Edit mode), added Priority and Nickname, and Copy for Google Sheets. Keys on a laptop (F96): j/k walk the rows, Space or o opens
 // the bill beside the list, Enter opens its page, x selects, Esc closes, "/" puts the cursor in the filter box (app.js).
 import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks, seesTeam } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, sessionClock, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
+import { factsOf, stopOf, whyDead, billNum, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
@@ -37,7 +37,6 @@ import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
 import { issuesOfBill } from './issues.js';
 import { issueLead } from './issuestand.js';   // R-352 D: each row's issue tile
-import { askSummary, toAskWords, decideWords, nwParts, askTabGo } from './push.js';   // the bills still to ask, in Today's and Hearings' words (rule 6)
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -170,7 +169,6 @@ const rowStep = b => { const s = stepOf(b); if (!s) return s;
   return line === s.line ? s : { ...s, line }; };
 
 // ---- the page ----
-const whoseWords = () => ({ me: 'your bills', coal: 'your coalitions’ bills', all: 'the team’s bills' })[bl().scope] || 'your bills';
 // R-356 decision 2: Team (scope 'all') is a choice only for people who see Team; with one choice left no switch is drawn.
 // A remembered or linked Team scope (a saved view, a coalition's bills opened from Issues) for someone without it falls back
 // to My coalitions when they have some, else Mine, so the page is never empty or in error. Done on every draw, before any
@@ -185,26 +183,9 @@ function scopeSwitch() {
   // C-15's words from ui.js WHOSE, as Hearings, Legislators and Outreach say them ("Mine · My coalitions · Team").
   return whoseSeg('blscope', { mine: 'me', coal: co ? 'coal' : null, team: team ? 'all' : null }, v.scope, { label: 'Whose bills' });
 }
-// The one line about the bills still to ask for a hearing (F95, V19), in the words and the count of Today and Hearings
-// (push.js toAskWords, rule 6, A-14; Nate's walk: Bills said "16 of your bills need a hearing by Mon 3/30 · 14 to ask · Get
-// hearings" beside Today's and Hearings' "20 to ask · first by Mon 3/23"): "20 to ask · first by Mon 3/23 · Bills That Need
-// Hearings", the tab's name (ui.js ASK_TAB) the way to it, on the scope the list is in. With nothing left to ask, the bills
-// heard but not voted on (decideWords), else the asked ones still waiting (askSummary's own words). Nothing is amber: a
-// deadline coming is not late (D3). It is drawn only over the whole list (the caller leaves it out under a search or a
-// filter, P-5). It names the ask pile, not a group's bills, so it no longer stands aside for the group under it. A phone's wraps at
-// its dots, each part kept whole (push.js nwParts), so the first bill stays in view (A-1). The link is the line's one way
-// on, drawn as a way on ("Bills That Need Hearings ›", no underline: R-352), in Nate's words for the tab (10/25).
-const ASK_SCOPE = { me: 'mine', coal: 'coal', all: 'team' };
-function leadLine(list) {
-  const c = sessionClock(list); if (!c) return '';
-  const x = c.noHearing.length ? c : c.then && c.then.noHearing.length ? c.then : null;
-  if (!x) return `<p class="bl-dls">${icon('calendar-check')}<span>Every one of ${esc(whoseWords())} racing the next deadline has a hearing.</span></p>`;
-  const scope = ASK_SCOPE[bl().scope] || 'mine';
-  let sm = null; try { sm = askSummary({ scope }); } catch { sm = null; }
-  const t = toAskWords(sm) || decideWords(sm?.decide || 0) || sm?.words || ''; if (!t) return '';
-  const said = t.split(' · ').map((p, i) => i ? esc(p) : `<b>${esc(p)}</b>`).join(' · ');
-  return `<p class="bl-dls">${icon('calendar-clock')}<span class="bl-dlw">${nwParts(said)} · ${askTabGo(`#/hearings/ask?scope=${scope}`)}</span></p>`;
-}
+// R-356 round 1, decision 5 (A-14, D1): the "N to ask · first by … · Bills That Need Hearings" line that stood over this list
+// (F95, V19) is gone: "bills need a hearing" is said once on Hearings (the line under its days) and once as a line on Today,
+// each with the pile's one count (push.js toAskWords). Bills lists the bills; it does not count the ask pile.
 // A filter in Mine (or My coalitions) says when the team has more, and offers the switch (F83 "N more under Team").
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
@@ -250,7 +231,7 @@ function parts() {
   const more = q && v.scope !== 'all' && seesTeam() && list.length ? (() => { const n = shownBills('all').length; return n > list.length ? n - list.length : 0; })() : 0;
   // Searching, the line under the head is about the search; with any filter on (the deadline link's own included) there
   // is none; over the whole list, the deadline line.
-  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : v.due || act.length ? '' : leadLine(list);
+  const lead = !list.length ? '' : q ? moreLine(list.length, more, q) : '';   // no ask-pile line over the list (see above)
   const selHead = v.selecting && list.length ? (() => { const all = NAV.length && NAV.every(id => v.sel.has(id)), ids = selIds(), vis = new Set(list.map(b => b.id)), hid = ids.filter(id => !vis.has(id)).length;
     return `<div class="bl-selhead"><span>${hid ? `${hid} of the ${ids.length} you picked ${hid === 1 ? 'is' : 'are'} hidden by your filters.` : wideNow() ? 'Click bills to pick them.' : 'Tap bills to pick them.'}</span>${btn(all ? 'Pick none' : `Pick the ${NAV.length} shown`, { kind: 'text', sm: true, attrs: { 'data-selall': all ? 'none' : 'all' } })}</div>`; })() : '';
   const body = !list.length ? emptyState(q, act.length) : tableOn() ? tableView(groups) : rowsView(groups);

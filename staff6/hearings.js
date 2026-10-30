@@ -129,7 +129,7 @@ const dayHead = d => { const now = Date.now(); return d === hst(now) ? `Today ·
 const monNums = h => [...new Set((S.hearings || []).filter(r => r.committee === h.committee && r.scheduled_at === h.scheduled_at && r.status !== 'cancelled')
   .map(r => billById(r.bill_id)).filter(b => b && b.tracked !== false && isMon(b)).map(b => numWords(b)))];
 function weekCard(h) {
-  let html = hearingCard(h, { from: 'week' });
+  let html = hearingCard(h, { from: 'week', buttons: false });   // R-356 decision 5 (A-14): testimony status as words here; its button is on Today and Testimony
   const nums = monNums(h);
   if (nums.length && nums.length <= 3) html = html.replace(/(<a class="v6-hcard-mon"[^>]*><span>[^<]*?)(?:\d+ bills? we monitor)/, `$1${nums.length === 1 ? '1 bill' : `${nums.length} bills`} we monitor: ${esc(nums.join(', '))}`);
   html = html.replace(/(<p class="v6-hcard-day">)[^<]*/, '$1');
