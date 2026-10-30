@@ -6,6 +6,7 @@
 // (committees.js slotLine; taking only the first was a live bug).
 import { S, app, esc, icon, nextSitting, nick, spaced, billPath, billRef, posInfo, alive, stopOf, legTitle, legsOf, legPhoto, codesOf, hearingWhen, roomLabel, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
 import { btn, loadFail } from '../ui.js';
+import { testimonyTime } from '../actions.js';   // the one time promise (C-15, R-357 Light fixes e)
 import { recHead, recSec, recRows, recMore, recFold, recFolds, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, backRow, atWords } from './act.js';
 import { allCommittees, billsAt, slotsOf, slotLine, cmteFailed, cmteFail } from '../committees.js';
@@ -91,7 +92,7 @@ export function recDetail(route) {
       text: `${c.name} hears ${spaced(b.bill_number)} ${atWords(h.scheduled_at)}${where}${stance}.${dl ? '' : ' The written deadline has passed, but late testimony is still read.'}`,
       button: btn('Help me write testimony', { kind: 'primary', icon: 'notebook-pen', full: true, href: billPath(b) + '/testify' }),
       // "Email the chair" is in the head, for every committee (R-212 #42), so the card no longer repeats it (A-14).
-      more: 'About 15 minutes the first time, a few after that.' });
+      more: `${testimonyTime().replace(/^a/, 'A')}.` });
   }
   // HIPHI's bills here, by what is due; the card's own bill says so rather than repeating it (A-14).
   const bills = billsAt(c.code).filter(ours).map(b => ({ b, due: dueOf(b, c.code) })).sort(byDue);

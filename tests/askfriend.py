@@ -49,7 +49,7 @@ with sync_playwright() as p:
     asks = pg.evaluate("() => [...document.querySelectorAll('dialog.af-sheet .af-ask b')].map(b => b.textContent.trim())")
     ok(asks == ['Send testimony', 'Email the committee', 'Go to the hearing'], f'C1: three asks for a hearing ahead, testimony first ({asks})')
     subs = pg.evaluate("() => [...document.querySelectorAll('dialog.af-sheet .af-asktx > span')].map(e => e.textContent.trim())")
-    ok(subs and subs[0].startswith('About 15 minutes the first time') and 'due today at 3:00 PM' in subs[0] and subs[1].startswith('About 2 minutes'), f'C1: each ask says how long, what it is, and "today" for a deadline hours away ({subs[:2]})')
+    ok(subs and subs[0].startswith('About 10 min the first time') and 'due today at 3:00 PM' in subs[0] and subs[1].startswith('About 2 minutes'), f'C1: each ask says how long, what it is, and "today" for a deadline hours away ({subs[:2]})')
     card = pg.locator('dialog.af-sheet [data-af-card]').inner_text()
     ok(card.lower().startswith('speak up by') and pg.locator('dialog.af-sheet [data-af-card] img').count() == 1, f'C3: "Your friend sees" is the share page\'s own card ({card[:60]!r})')
     # Since R-212 #33 a phone shows the message in a box to change, with Send to a friend and Copy message at the sheet's foot.

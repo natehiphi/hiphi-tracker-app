@@ -42,7 +42,7 @@ export function weekText(items) {
   const head = `This week at the Hawaiʻi Legislature, ${n === 1 ? 'one bill HIPHI takes a stand on needs' : `${n} bills HIPHI takes a stand on need`} testimony from people like us:`;
   const rows = items.map(x => { const what = nick(x.b) ? '' : ` ${blurb(x.b, 110).replace(/([^.!?…])$/, '$1.')}`, side = posInfo(x.b)?.text;
     return `${named(x.b)}:${what}${side ? ` ${side}.` : ''} Testimony is due ${dueWords(x.h.testimony_deadline)}.\n${via(billShareUrl(x.b, 'testify'))}`; });
-  return `${head}\n\n${rows.join('\n\n')}\n\nThe tracker walks you through it: about 15 minutes the first time, a few after that. This week’s list: ${pageUrl()}`;
+  return `${head}\n\n${rows.join('\n\n')}\n\nThe tracker walks you through it: about 10 min the first time, about 3 after. This week’s list: ${pageUrl()}`;
 }
 
 function row(x) {

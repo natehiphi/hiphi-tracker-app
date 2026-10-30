@@ -21,7 +21,7 @@
 // message they send themselves.
 import { S, esc, icon, nick, spaced, didKind, markDone, dueWords, dayWord, dateLong, timeWord, roomLabel, issueShareUrl, issuesLink, followNames, HEARING_ASKS, app } from './core.js';   // dueWords: the email's subject, read later
 import { btn } from './ui.js';
-import { shareFor, shareIssueText, remindFor, remindDone } from './actions.js';
+import { shareFor, shareIssueText, remindFor, remindDone, testimonyTime } from './actions.js';   // testimonyTime: the one time promise (C-15, R-357 Light fixes e)
 import { abSeen } from './variant.js';
 import { picSeen } from './sharepic.js';
 
@@ -47,7 +47,7 @@ export function choicesFor(b, h, { did = '', ask = '' } = {}) {
     const list = [
       // The person sharing reads "today" and "tomorrow" (the review: a deadline hours away read as a calendar date); the
       // friend's own message, read later, keeps the date (shareFor). Each says how long it takes and what it is (C-10).
-      open ? { ask: 'testify', sub: `About 15 minutes the first time · on the public record · ${h.testimony_deadline ? `due ${when(h.testimony_deadline)}` : 'before the hearing'}` } : null,
+      open ? { ask: 'testify', sub: `${testimonyTime().replace(/^a/, 'A')} · on the public record · ${h.testimony_deadline ? `due ${when(h.testimony_deadline)}` : 'before the hearing'}` } : null,
       { ask: 'email', sub: `About 2 minutes · a short note to the committee before ${when(h.scheduled_at).replace(/ at .*$/, '')}` },
       { ask: 'attend', sub: `Anyone can come · ${when(h.scheduled_at)}, ${roomLabel(h.room)}` },
     ].filter(Boolean);

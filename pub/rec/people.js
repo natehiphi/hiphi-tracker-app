@@ -10,6 +10,7 @@
 // Street addresses never reach a web address and are never kept (people.js): only the districts and the town are.
 import { S, app, esc, icon, spaced, nick, billPath, filedBy, legById, legTitle, legPhoto, posInfo, cmteLabel, codesOf, stopOf, alive, agrees, didKind, hearingWhen, CHAMBER_NAME, sessionInfo, HST } from '../core.js';
 import { btn, chip, notice, loadFail } from '../ui.js';
+import { testimonyTime } from '../actions.js';   // the one time promise (C-15, R-357 Light fixes e)
 import { recHead, recBack, recSec, recRows, recMore, recFold, recFolds, recWay, recEmpty, wireKit, BOX } from './kit.js';
 import { recAct, dueOf, byDue, billRow, billWords, pillFor, daysLeft, backRow, atWords } from './act.js';
 import { slotsOf, slotLine } from '../committees.js';
@@ -67,7 +68,7 @@ function billCard(x, { own, ways = '' } = {}) {
   const when = x.h ? `Hearing ${hearingWhen(x.h.scheduled_at)}` : x.when === 'next' ? '' : due.kind === 'needs' || due.kind === 'floor' ? due.text : '';
   const at = x.h?.scheduled_at || '', left = at ? pillFor(at) : when ? daysLeft(due.t) : '';
   // With testimony open, the walkthrough is the one more way (A-20), unless the card already offers the other lawmaker.
-  const more = ways || (dl && !open ? recWay('notebook-pen', 'Help me write testimony', `Due ${hearingWhen(dl)} · your own words to the committee, about 15 minutes`, { href: billPath(b) + '/testify' }) : '');
+  const more = ways || (dl && !open ? recWay('notebook-pen', 'Help me write testimony', `Due ${hearingWhen(dl)} · your own words to the committee, ${testimonyTime()}`, { href: billPath(b) + '/testify' }) : '');
   return recAct({ id: 'pp-act-h', when, left, warn: at ? Date.parse(at) - Date.now() < 864e5 : due.warn,
     title: v ? `Ask ${W} to ${v} ${name}` : `Write to ${W} about ${name}`, text: why,
     button: mailBtn(l, k, open), more: open ? '' : 'About 2 minutes', after: open ? composer(l, b, k, own ? townOf(saved()) : '') : '', ways: more });
