@@ -2,7 +2,8 @@
 #   - the bill's number follows its name in the title, and the old number line over the title is gone
 #   - a bill on an issue shows the band: "Its issue:", the issue's name (a link to its page), a badge and a sentence
 #   - an issue with the bill's own name says its name too, "Its issue: <name>" (R-346, Nate 10/27: "of the same name" read oddly)
-#   - the band is in the topic's colour (data-topic), a returning visitor gets Follow the issue in it, a newcomer does not
+#   - the band is in the topic's colour (data-topic), and Follow the issue is in it for everyone, a newcomer too (R-357, Nate 30 Oct:
+#     this layout draws no "New here?" card, so a newcomer from a link had no way to follow from the page)
 #   - nothing scrolls sideways and the page has no errors
 # usage: python3 tests/issue_band.py [BASE]   (BASE defaults to http://localhost:8832)
 import sys, asyncio
@@ -19,7 +20,7 @@ READ = """() => { const h = document.querySelector('.bl-rhead'), band = h && h.q
   return { h1: h?.querySelector('h1')?.textContent.trim(), num: h?.querySelector('h1 .bl-hnum')?.textContent.trim(), eye: !!h?.querySelector('.bl-reye'),
     band: !!band, topic: band?.dataset.topic, label: band?.querySelector('.bl-ib-l')?.textContent.trim(), name: band?.querySelector('.bl-ib-n a')?.textContent.trim(),
     href: band?.querySelector('.bl-ib-l a')?.getAttribute('href'), badge: band?.querySelector('.bl-ib-badge')?.textContent.trim(), says: band?.querySelector('.bl-ib-s')?.textContent.trim(),
-    follow: band?.querySelector('[data-bl-followissue],[data-bl-unfollowissue]')?.textContent.trim() || '', wide: document.documentElement.scrollWidth > innerWidth + 1 }; }"""
+    follow: band?.querySelector('[data-bl-followissue],[data-bl-unfollowissue],[data-bl-newfollow]')?.textContent.trim() || '', wide: document.documentElement.scrollWidth > innerWidth + 1 }; }"""
 
 CASES = [('HB2300', 'HB 2300', 'food', 'More local food in school meals', False), ('HB2121', 'HB 2121', 'tobacco', None, True)]
 
@@ -42,7 +43,7 @@ async def main():
           check((r['href'] or '').startswith('#/issue/'), f'{tag}: the band opens the issue page ({r["href"]})')
           check(r['label'].startswith('Its issue:') and 'same name' not in r['label'] and (r['name'] == name if name else bool(r['name'])), f'{tag}: "Its issue:" and the issue named ({r["label"]!r}, {r["name"]!r})')
           check(r['badge'] == 'Still moving' and 'each chamber' in (r['says'] or ''), f'{tag}: badge and sentence ({r["says"]!r})')
-          check(('Follow the issue' in r['follow'] or 'Following' in r['follow']) if back else not r['follow'], f'{tag}: Follow the issue {"in the band" if back else "left to the newcomer card"} ({r["follow"]!r})')
+          check('Follow the issue' in r['follow'] or 'Following' in r['follow'], f'{tag}: Follow the issue in the band, for a {who} ({r["follow"]!r})')
           check(not r['wide'], f'{tag}: nothing scrolls sideways')
         check(not errs, f'{size} {who}: no page errors {errs[:2]}')
         await ctx.close()

@@ -1,6 +1,7 @@
 # Getting around (R-238: the A4 picks, Nate 10/10). Public tracker, sandbox, phone and laptop.
-#   A4-1 a first visit that arrived on a friend's link: the bill page's Back and the logo lead to Find, the browse
-#        page, never into the sign-up; a returning person's Back from a bill opened first goes Home
+#   A4-1 a first visit that arrived on a friend's link: the logo leads to Find, the browse page, never into the sign-up; the bill
+#        page's Back says Home and goes Home (R-357, Nate 30 Oct: "Find" was never seen, and no tab is lit); an old-form link has Find
+#        behind it for real, so its Back is real Back; a returning person's Back from a bill opened first goes Home
 #   A4-3 search finds a legislator or a committee by name: the header's list ("People and committees") and Find's results
 #   A4-4 "/" puts the cursor in the header's box on a laptop (the page stays), in Find's own box on a phone; Find shows one box
 #   A4-5 the bill page's Back names the screen behind it (Home, Find, an issue's name)
@@ -35,11 +36,11 @@ with sync_playwright() as pw:
         p.goto(f'{HOST}/track.html?demo=1&via=share#/bill/HB1523'); p.wait_for_timeout(3500)
         ok(h(p).startswith(('#/bill/HB1523', '#/bill/2026/HB1523')) and p.locator('.bl-head').count() == 1, f'{tag}: the link opens the bill, not the sign-up ({h(p)})')
         ok(p.locator('a.brand').get_attribute('href') == '#/find', f'{tag}: for a link newcomer the logo leads to Find (the browse page)')
-        ok(back_text(p) == 'Find', f'{tag}: and Back says Find ("{back_text(p)}")')
+        ok(back_text(p) == 'Home', f'{tag}: but Back says Home, the page nothing is behind ("{back_text(p)}")')
+        ok(p.locator('.tabs [aria-current], .hnav [aria-current]').count() == 0, f'{tag}: and no tab is lit (Find was never seen)')
         if phone: p.screenshot(path=f'{OUT}/newcomer_bill_{w}.png')
         p.locator('[data-bl-back]').first.click(); p.wait_for_timeout(1200)
-        ok(h(p) == '#/find' and p.locator('#q').count() == 1, f'{tag}: Back opens Find, never the sign-up ({h(p)})')
-        ok(phone == (p.locator('.tabs').count() == 1 and p.locator('.tabs').is_visible()), f'{tag}: Find has the tab bar on a phone, so "just looking" is possible')
+        ok(h(p) in ('#/', '#/start/0') and p.locator('#q').count() == 0, f'{tag}: Back goes Home, a newcomer\'s front door ({h(p)})')
         p.go_back(); p.wait_for_timeout(1200)
         ok(h(p).startswith(('#/bill/HB1523', '#/bill/2026/HB1523')), f'{tag}: the browser\'s Back returns to the bill ({h(p)})')
         p.locator('a.brand').click(); p.wait_for_timeout(1200)

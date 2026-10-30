@@ -163,6 +163,10 @@ pasted into Slack.
 Inline links inside running text are exempt. On pointer-only widths, 32px is allowed for controls
 inside a dense table.
 
+On the public bill page the issue band's "Its issue" link and the issue's name, and the names of the people who introduced
+the bill, are padded to 44px (inline padding: the tap reaches past the text without moving a line); they measured 83x17 and
+17px tall in the walk of 28 Oct (R-357, Nate 30 Oct 2026).
+
 *Reason.* Fitts's law, and a thumb is about 44px wide. The exemption for dense tables is real: a
 desktop table with 44px cells everywhere holds fewer rows and makes scanning worse, which costs more
 than it saves.
@@ -253,6 +257,9 @@ A thing that can be pressed looks pressable; a thing that cannot, does not. Butt
 buttons and links look like links — never a link styled as a button to borrow its weight. Selected,
 active and current states are visible without comparison (`aria-current`, `aria-pressed`, a filled
 chip, a coloured tab). Disabled controls look disabled and say why when it is not obvious.
+
+Follow is an outlined button and Following is the same outlined pill with a check for the star, never a filled dark button: a dark
+filled "Following" read as the page's main action (the returner walk, 28 Oct; the bill page in version 2, R-357, Nate 30 Oct 2026).
 
 *Reason.* Signifiers are how an interface explains itself. This is the load-bearing rule for P-4: an
 app nobody needs a tutorial for is an app where every control is self-evident.
@@ -392,6 +399,22 @@ row lit pale blue inside it and each day kept whole with its time. **On a phone 
 6 text styles** (the amber of A-5 aside), measured with a style as one face, size, weight and colour. Checked by
 `tests/home_calm.py` on every slide of each moment, phone and laptop.
 
+**The bill page opens as the same slide (version 2, `?v2=1`, R-357 Part 1, Nate's pick of 30 Oct 2026: "Make the bold changes but
+keep the my issues tab").** Under the back row: a small line that names the bill ("HB 2300 · Local food buying rules for schools",
+two lines at most; HIPHI's side is the chip inside More), the goal heading (the slide's, from `calm/goals.js`; without one, the bill's
+everyday name), one plain sentence on what happens next and why a note helps, one detail line on **one line** ("By tomorrow 1:00 PM ·
+about 10 min"; "about 3 min" once the person has sent testimony; amber only inside 24 hours; between hearings the date only, "Needs a
+hearing by Mon, Mar 30", since the button says the ask; between sessions the state in a phrase), the one filled button (today's main
+action), a plain link with the app's envelope ("Email the chair instead · 2 min", only with a hearing ahead) and an outlined "Follow this
+issue" (outlined with a check, "Following", once followed; one Follow label on the page). Then one row, "More about this bill: What it
+does, where it is, who decides", which opens today's sections inline (what it does, Where it is now, where you stand, who decides, About
+the bill, More details, Others following); there are no stance chips on the first screen, since the letter asks. Say it once (A-14): the
+step is in the card, not on the row; the top Share pill stands aside when the main button is Share; a dead bill's sentence is not
+repeated in the stage card. Budget, in the slide's words: the goal heading within 320px of the top (A-1), one filled button (A-3),
+**the slide block under 60 words and the first screen's text in 6 styles**. From 1100px the slide is the left column and the sections
+are open on the right with no heading of their own. "About 10 min the first time" belongs to the letter's first screen (Part 2), not to
+this line. Checked by `tests/v2_bill.py`. The My issues tab stays (Nate).
+
 *Reason.* "Show the next one" sat right on testimony slides and left on hearing asks, which had no More ways (199px apart on
 a phone, up to 87px up or down as the words changed length): a control that moves has to be found again on every slide
 (Fitts; NN/g on consistency). Nate tried each way to the next one on a playground and picked the pager with the swipe; a
@@ -488,8 +511,10 @@ public-sector services: you complete something and the service just stops.
 Browser Back, the header back button and the phone's system gesture all do the same predictable
 thing. A screen with unsaved work registers a leave guard (`S.leaveGuards`). Closing a sheet is Back.
 A page's own Back names the screen it returns to ("← Find", "← Home", the issue's name), as iOS and
-GOV.UK do, and never leads forward into a form: someone whose first page was a friend's link gets
-Find, the browse page, behind it, not the sign-up (R-238).
+GOV.UK do, and never leads forward into a form: someone whose first page was an old-form link gets
+Find, the browse page, behind it, not the sign-up (R-238). A bill opened first (a friend's link) has nothing of
+the tracker behind it, so its Back says Home and goes Home, and no tab is lit: it said "Find" and lit the Find tab
+for someone who had never seen Find (the walk of 28 Oct; R-357, Nate 30 Oct 2026).
 
 *Reason.* NN/g heuristic 3. On the public page most people are on a phone using the system back
 gesture, which we do not control and must not surprise.

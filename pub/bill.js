@@ -59,7 +59,7 @@ const tel = p => { const d = String(p || '').replace(/\D/g, ''); return d.length
 // page is drawn for the layout in use, and drawn again when the window crosses the line, instead of being reordered
 // with CSS: that would leave keyboard and screen-reader order out of step with what is on screen.
 const WIDE = window.matchMedia('(min-width: 1100px)');
-const wide = () => WIDE.matches;
+export const wide = () => WIDE.matches;
 const onBill = () => document.body.dataset.screen === 'bill';
 WIDE.addEventListener?.('change', () => { if (onBill()) app.render(); });
 
@@ -67,7 +67,7 @@ WIDE.addEventListener?.('change', () => { if (onBill()) app.render(); });
 // A bill opened from a shared link or search is not in the followed set; ensureBill fetches it with its hearings.
 S.blLoading ??= new Set(); S.blMissing ??= new Set(); S.blErr ??= new Set(); S.blTried ??= new Set(); S.blSocial ??= new Set();
 S.blOpen ??= new Set();   // which folds are open ("<bill id>|steps"), so a redraw never closes what the person opened
-const lookup = (num, year) => pickBill([...S.bills, ...Object.values(S.extra || {})].filter(x => x.bill_number === num), year);
+export const lookup = (num, year) => pickBill([...S.bills, ...Object.values(S.extra || {})].filter(x => x.bill_number === num), year);
 const ready = b => S.bills.some(x => x.id === b.id) || !!(S.xh || {})[b.id];
 // The bill, once its page can be drawn: it is known and its hearings are in. (A bill that is known but whose hearings
 // never arrived is still drawn after one try, rather than never.)
@@ -169,15 +169,17 @@ function stampRoot() {
   if (!isRoot() || history.state?.blRoot) return;
   try { history.replaceState({ ...(history.state || {}), blRoot: true }, ''); } catch { /* ignore */ }
 }
-// A first visit that arrived on this link gets Find, the browse page, not the sign-up (R-238 A4-1; app.calmPlace).
-const goBack = () => { if (history.state?.arrived || !(history.state?.blRoot || isRoot())) history.back(); else app.go(app.calmPlace ? app.calmPlace() : '#/'); };
+// Nothing of this app behind a bill opened first (a shared link): Back says Home and goes to Home (R-357, Nate 30 Oct: it said
+// "Find" and lit the Find tab for someone who never saw Find; R-238 A4-1's Find is for an old-form link, which has Find behind
+// it for real, history.state.arrived, so its Back is real Back).
+const goBack = () => { if (history.state?.arrived || !(history.state?.blRoot || isRoot())) history.back(); else app.go('#/'); };
 // The Back button names the screen it returns to (R-238 A4-5: a follower of thirty should know where Back goes): the
 // page this one was opened from (app.js keeps it in history.state.prev), or Home or Find when the bill was the first
 // page opened. "Back" alone when nothing is known (a page reached by the browser's own history).
 function backName() {
   const st = history.state || {};
   if (!app.placeName) return '';
-  const name = isRoot(st) || st.blRoot ? app.placeName(app.calmPlace ? app.calmPlace() : '#/') : st.prev ? app.placeName(st.prev) : '';
+  const name = isRoot(st) || st.blRoot ? app.placeName('#/') : st.prev ? app.placeName(st.prev) : '';
   // A long name (an issue's) on a phone is cut at a whole word, never mid-word ("More local f…" read as broken, the
   // fresh-eyes review 10/11); the full name is on the page in its "Part of" line.
   if (wide() || name.length <= 16) return name;
@@ -334,28 +336,35 @@ function mailFor(b, x, chairs, mode) {
 const mailMode = x => x.differs ? 'own' : x.kind === 'hold' ? 'hold' : x.kind === 'ask' || (x.waiting && x.pos && !/oppose/.test(x.pos.verb)) ? 'ask' : x.waiting && x.pos ? 'hold' : 'about';
 
 // A newcomer from a link whose card is showing (newcomer() below draws it on the same terms).
-const newbie = b => firstVisit() && !S.blLooking?.has(b.id);
+export const newbie = b => firstVisit() && !S.blLooking?.has(b.id);
 // The stopped bill's main button is "Follow the issue" (mainButton), so no other Follow is drawn beside it (B3-3, A-14).
-const followIsMain = (b, x) => x.kind === 'stopped' && (i => !!i && !issueFollowed(i))(issuesOf(b)[0]);
+export const followIsMain = (b, x) => x.kind === 'stopped' && (i => !!i && !issueFollowed(i))(issuesOf(b)[0]);
 // Between sessions, what happens next to a stopped bill (B3-1, R-199): which year it stopped, whether it can come back and
 // when its idea can. Hawaiʻi's two-year term: a bill alive at the end of an odd year's session carries over to the next
 // year, but every bill still not passed at the end of the even year is gone, and its idea needs a new bill. The words
 // follow whatever R-144 settles for "stopped". With the follow as the main button, "Find your legislators" is the second
 // choice, here, for someone whose legislators the page doesn't know yet.
-function stoppedNext(b, x) {
-  const si = sessionInfo(); if (!x.stopped || si.phase === 'in') return '';
+// stoppedWords: the two halves apart (what happened, what can happen next) for version 2's slide (R-357), the sentence they make here.
+export function stoppedWords(b, x) {
+  const si = sessionInfo(); if (!x.stopped || si.phase === 'in') return null;
   const yr = +b.session_year || si.recapYear, when = si.nextOpen ? new Date(si.nextOpen + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'long', day: 'numeric' }) : '';
   const meets = when ? `when the Legislature meets on ${when}` : 'when the Legislature meets in January';
-  const text = yr % 2 === 0 || b.stage === 'vetoed' ? `Did not advance in ${yr}. This bill can’t come back, but its idea can, as a new bill ${meets}.`
-    : `Did not advance in ${yr}. It may be taken up again ${meets}.`;
+  return { was: `Did not advance in ${yr}.`, next: yr % 2 === 0 || b.stage === 'vetoed' ? `This bill can’t come back, but its idea can, as a new bill ${meets}.` : `It may be taken up again ${meets}.` };
+}
+// words: false leaves the sentence out when the page's first screen already says it (version 2's slide, A-14), keeping the second choice.
+function stoppedNext(b, x, { words = true } = {}) {
+  const sw = stoppedWords(b, x); if (!sw) return '';
+  const text = `${sw.was} ${sw.next}`;
   const second = followIsMain(b, x) && !myDistricts() ? btn('Find your legislators', { kind: 'text', sm: true, icon: 'map-pin', href: `#/legislators?from=${encodeURIComponent(billRef(b))}` }) : '';
-  return `<div class="bl-after"><p>${esc(text)}</p>${second}</div>`;
+  return words || second ? `<div class="bl-after">${words ? `<p>${esc(text)}</p>` : ''}${second}</div>` : '';
 }
 
+// Words version 2 says another way (pub/v2/bill.js sets them as it loads, so today's page is untouched): one Follow label on the page.
+export const WORDS = { followIssue: 'Follow the issue' };
 // The page's one main button. On a phone it sits in the sticky bottom bar; on a wide screen it sits in the side panel,
 // inside the action card when there is one. While the email composer is open its own "Open in my mail app" is the
 // main button, so this one steps aside (two blue buttons competed before).
-function mainButton(b, x) {
+export function mainButton(b, x) {
   // After the mail app opened: one question, so a sent email counts.
   const sentWord = x.kind === 'governor' ? 'message' : 'email';
   if (S.sentq?.[x.qKey]) return `<div class="bl-barq" role="group" aria-label="Did you send your ${sentWord}?"><p class="bl-barq-t">Did you send your ${sentWord}?</p>
@@ -388,7 +397,7 @@ function mainButton(b, x) {
       // a link gets their card's own follow here (the profile ask, its moment, and the visit ends on this bill: R-212 #47),
       // so the page asks once.
       const off = sessionInfo().phase !== 'in', bi = issuesOf(b)[0];
-      if (bi && !issueFollowed(bi)) return btn('Follow the issue', { kind: 'primary', icon: 'star', full: true, attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : bi.id, 'aria-label': `Follow the issue: ${bi.name}` }, cls: 'bl-barbtn' });
+      if (bi && !issueFollowed(bi)) return btn(WORDS.followIssue, { kind: 'primary', icon: 'star', full: true, attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : bi.id, 'aria-label': `${WORDS.followIssue}: ${bi.name}` }, cls: 'bl-barbtn' });
       if (off && !myDistricts()) return btn('Find your legislators', { kind: 'primary', icon: 'map-pin', full: true, href: `#/legislators?from=${encodeURIComponent(billRef(b))}` });
       if (bi) return btn(`See ${esc(bi.name)}`, { kind: 'primary', icon: 'arrow-right', full: true, href: `#/issue/${encodeURIComponent(bi.slug)}`, cls: 'bl-barbtn' });
       return btn(off ? 'Find bills' : 'Find bills still moving', { kind: 'primary', icon: 'search', full: true, href: '#/find' });
@@ -434,7 +443,7 @@ function cmteSpan(list, j) {
   return { from, m, T, at };
 }
 const sameCmte = (a, b) => String(a).split('/').some(k => String(b).split('/').includes(k));
-function railInfo(b, x) {
+export function railInfo(b, x) {
   const st = x.st, o = originOf(b), t = o === 'H' ? 'S' : 'H', res = isResolution(b), one = res && isOneChamber(b);
   // A constitutional amendment goes from the Legislature to the voters, not the Governor ("PROPOSING AMENDMENTS TO ...").
   const conAm = !res && (b.stage === 'ballot' || /proposing (?:an )?amendments? to/i.test(b.title || ''));
@@ -542,7 +551,7 @@ function railInfo(b, x) {
 export function railBrief(b, x) { const r = railInfo(b, x); return `${r.lead === 'Now: ' ? '' : r.lead}${r.pic}`.trim(); }
 // After a stop, the later steps were never reached; "still ahead" told a screen reader the bill could still get there (B3-3, WCAG 1.3.1).
 const STEP_WORD = { done: 'done', now: 'now', stop: 'got this far', next: 'still ahead', unreached: 'not reached' };
-const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
+export const fold = (b, name) => `data-bl-fold="${name}"${S.blOpen.has(`${b.id}|${name}`) ? ' open' : ''}`;
 // Each step as a dot, with its name for a screen reader (and on screen where there is room).
 const stepAt = (r, x) => s => x.law || s < r.idx ? 'done' : s === r.idx ? (x.stopped ? 'stop' : 'now') : 'next';
 const dotItems = (r, x, at = stepAt(r, x)) => r.names.map((nm, i) => { const s = at(i), n = r.names.length, tag = s === 'now' ? 'Now' : s === 'stop' ? 'Got this far' : '';
@@ -728,7 +737,7 @@ function friendOf(b, x) {
 }
 const FRIEND_ASK = { testify: 'send testimony', email: 'email the committee', attend: 'come to the hearing', floor: 'email your legislator',
   conference: 'email lawmakers', governor: 'write to the Governor' };
-function friendCard(b, x) {
+export function friendCard(b, x) {
   const f = friendOf(b, x); if (!f || f.here) return '';
   // The action card below already says "You sent testimony. Mahalo!" for the hearing ahead, and leads with its deadline:
   // the card says neither again (the review, A-14). What it adds there is that the walkthrough did not open.
@@ -819,14 +828,14 @@ function tourOffer(b) {
 // the sentence, as Home's, so the comma and the words after it wrap as text. The lesson's Back and Done go back in
 // history, to this bill.
 S.blFollowedNew ??= new Set();   // bills a newcomer followed from this visit
-const storyLine = b => S.blFollowedNew.has(b.id) && !wiz().viaLearned
+export const storyLine = b => S.blFollowedNew.has(b.id) && !wiz().viaLearned
   ? `<p class="bl-tourline bl-storyline">${icon('sparkles')}<span>New to this? <a href="#/learn/story/${esc(b.id)}" data-bl-learn="1">See how a bill becomes law</a>, about a minute.</span></p>` : '';
 // "Just looking" (was "Not now") sits beside the main button (the phone bar; the side panel on a laptop). It used to
 // start the whole first visit, 13 taps, for someone who only wanted to read the bill (R-067). Now it closes the card
 // and stays on the bill; one quiet line offers the tour, which is what "Not now" used to start.
 const notNow = () => btn('Just looking', { kind: 'text', attrs: { 'data-bl-newlater': '1' } });
 // The page's main button is an ask (not following or sharing): "Just looking" sits beside it in the bar instead.
-const asking = x => !!x.act || ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind);
+export const asking = x => !!x.act || ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'].includes(x.kind);
 // On to the rest of the first visit, on this bill: the tour offered after "Just looking" (no longer after a follow, R-212 #47).
 const viaStart = (b, extra = {}) => { wizSet({ via: b.bill_number, viaId: b.id, viaName: nick(b) || spaced(b.bill_number), step: 1, ...extra }); app.go('#/start/1'); };
 // After a first action from a shared link, the visit ends on that success, at Home (X10-2, R-180; the confirmation-page
@@ -894,7 +903,7 @@ app.newcomerNext = b => {
 // Without an everyday name the headline is what the bill does: HIPHI's plain summary; without one, the first sentence
 // of the official description (the whole of it sits under More details, so nothing is lost to "..."). With neither,
 // what the official title is about.
-function plainHead(b) {
+export function plainHead(b) {
   if (b.hiphi_summary) return blurb(b, 200);
   const d = cleanDesc(b.description);
   if (d) { const m = /^(.{20,220}?[.!?])(\s|$)/.exec(d); return m ? m[1] : blurb(b, 170); }
@@ -920,13 +929,13 @@ function head(b, x) {
 // that HIPHI hasn't taken a position, so nothing in the head reads as HIPHI's (A-5: the words say whose, not the colour).
 // HIPHI's own "HIPHI has comments" chip stays beside it; "HIPHI is watching it" gives way to the line, which says HIPHI's
 // stance once (A-14). '' where HIPHI has a side or no partner has approved words: the head is as it was.
-function partnerSide(b) {
+export function partnerSide(b) {
   const rows = hiphiSide(b) ? [] : partnerRows(b); if (!rows.length) return '';
   return `<div class="pw-noside bl-pwside">${rows.map(sideChip).join('')}<p>${esc(noSideLine(rows, b))}</p></div>`;
 }
 // What a partner's link (?via=) says on one of its bills, once, near the top (R-328 batch D). The old pages' "New here?"
 // card already leads with the partner's welcome on a first visit, so the line is left out wherever that card is drawn.
-const welcomeLine = (b, card = false) => card ? '' : viaWelcome(b);
+export const welcomeLine = (b, card = false) => card ? '' : viaWelcome(b);
 // One sentence is not enough to decide on (R-178, Nate 10/5): right under it, "Read more about the bill" opens the
 // Legislature's own summary, HIPHI's reasons and the whole bill on the Capitol website (pub/billtext.js). Folded, so the
 // page reads as before for anyone who doesn't want it; it stays open through redraws like the page's other folds.
@@ -939,8 +948,8 @@ const aboutFold = (b, shown) => `<details class="bl-about" ${fold(b, 'about')} d
 // (the review, 17 Oct: the issue's name is said once, A-14), and Change opens the issue page's sliding switch under it (via
 // 'text', for the counts), so the level is one tap from the text with no extra characters in it. The issue followed when
 // a bill is on several and the person follows another of them. Nothing for a bill whose issues the person does not follow.
-const textIssue = b => visitVia() === 'text' ? issuesOf(b).find(issueFollowed) || null : null;
-const TXT = { via: 'text', word: 'Texts', key: 'bl-txt', id: 'bl-lvl' };
+export const textIssue = b => visitVia() === 'text' ? issuesOf(b).find(issueFollowed) || null : null;
+export const TXT = { via: 'text', word: 'Texts', key: 'bl-txt', id: 'bl-lvl' };
 function issueLine(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss[0], tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '', box = t ? levelBox(t, TXT) : '';
@@ -961,7 +970,7 @@ function issueLine(b, x) {
 // say; before that it stays on this device. Never only "private", which was untrue for anyone with a profile.
 const stanceWho = () => signedIn() ? 'Only you and HIPHI staff see your answer. Others see totals.' : 'Your answer stays on this device. Others see only totals.';
 const STANCES = [['support', 'Support'], ['oppose', 'Oppose'], ['unsure', 'Not sure yet']];
-function stanceInner(b, x, { said = false } = {}) {
+export function stanceInner(b, x, { said = false } = {}) {
   const mine = myStance(b.id);
   // Someone who sees it differently from HIPHI is never handed HIPHI's letter; where no action card says so, say it here.
   // said: layout 3's action card already says it (A-14).
@@ -1069,7 +1078,7 @@ function stepCard(b, x) {
   return null;
 }
 // Wide screens, no hearing ahead: the side panel still leads with the one thing worth doing, and says why.
-function doWords(b, x) {
+export function doWords(b, x) {
   const off = sessionInfo().phase !== 'in', many = x.chairs.length > 1;
   return stepCard(b, x) || {
     ask: ['Ask for a hearing', `The committee ${many ? 'chairs decide' : 'chair decides'} if this bill gets a hearing. A short, polite email helps.`],
@@ -1191,11 +1200,11 @@ function deferredTo(h, o) {
   const later = hearingsOf(b).find(x => x.id !== h.id && x.committee === h.committee && x.scheduled_at > h.scheduled_at && x.status !== 'cancelled' && o.reported_at >= x.scheduled_at);
   return later ? later.scheduled_at : null;
 }
-function page(num, b) {
+function page(num, b, draw = recPage) {
   // Every hearing of the bill, with its recording (R-033): the lists load only 30 days, so the rest comes once, here.
   if (!S.hist?.[b.id]) ensureHistory(b).then(more => { if (more && normNum(numFromHash()) === normNum(b.bill_number)) app.render(); });
   const x = situation(b);
-  if (REC()) return recPage(num, b, x);
+  if (REC()) return draw(num, b, x);   // draw: layout 3, or version 2's slide (pub/v2/bill.js, R-357)
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
   if (!wide()) return `<div class="bl-page">${topbar(num, b)}${welcomeLine(b, newbie(b))}${head(b, x)}${friendCard(b, x)}${newcomer(b, x)}${storyLine(b)}${tourOffer(b)}
     ${x.live ? `<section class="card bl-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : ''}${note}
@@ -1225,9 +1234,9 @@ const saveFold = (name, open) => { try { const s = new Set(recFolds()); if (open
 // A card opened by a #/bill/.../changes link (R-212 #50, showDrafts) stays open through this visit's redraws, and is never
 // remembered for the next: the person did not open it. "<bill id>|<name>"; closing it by hand takes it out.
 S.blRShow ??= new Set();
-const recFold = (name, title, prev, inner, b = null) => `<details class="bl-rfold" data-bl-rfold="${name}"${recFolds().includes(name) || (b && S.blRShow.has(`${b.id}|${name}`)) ? ' open' : ''}><summary><span><span class="bl-rft">${esc(title)}</span>${prev ? `<span class="bl-rfp">${esc(prev)}</span>` : ''}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rin">${inner}</div></details>`;
+export const recFold = (name, title, prev, inner, b = null) => `<details class="bl-rfold" data-bl-rfold="${name}"${recFolds().includes(name) || (b && S.blRShow.has(`${b.id}|${name}`)) ? ' open' : ''}><summary><span><span class="bl-rft">${esc(title)}</span>${prev ? `<span class="bl-rfp">${esc(prev)}</span>` : ''}</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary><div class="bl-rin">${inner}</div></details>`;
 // "Mon 3/30"; a deadline row's date is a plain day, read at noon in Hawaiʻi.
-const dayLongD = d => dateLong(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d);   // "Mon, Mar 30", Home's (calm/home.js stateOf)
+export const dayLongD = d => dateLong(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d);   // "Mon, Mar 30", Home's (calm/home.js stateOf)
 const dayShort = d => fmtDate(/^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00-10:00' : d, { weekday: 'short' }).replace(',', '');
 // A committee report's vote: "9 Ayes: ...; Noes: none; and Excused: none." -> "9 yes, 0 no".
 const votesOf = rep => { const y = /(\d+)\s+Ayes?\b/i.exec(rep || ''), n = /(\d+)\s+No(?:e)?s\b/i.exec(rep || '');
@@ -1306,7 +1315,7 @@ function sayOnce(t, code, b) {
     .replace(/\bthe next (?:committee|one), the ((?:two|three|four|five|six) committees),/g, 'the next $1')
     .replace(/Waiting for a hearing in the (?:committee|(?:two|three|four|five|six) committees)\./, 'Waiting for its hearing.');
 }
-function recWhere(b, x, { title = 'Where it is now' } = {}) {
+export function recWhere(b, x, { title = 'Where it is now', words = true } = {}) {
   const r = railInfo(b, x), n = r.names.length, s = r.steps[r.idx], C = N[s.ch] || (s.kind === 'gov' || s.kind === 'law' ? '' : N[r.ci <= 2 ? r.o : r.t]);
   // The step line says where it is in plain words, the committee named once, as its steps name it (C-15, A-14, R-212 #45):
   // "Step 6 of 10" over "In the Senate Judiciary Committee", or "In two Senate committees, together:" with each committee's
@@ -1319,11 +1328,11 @@ function recWhere(b, x, { title = 'Where it is now' } = {}) {
   return `<section class="bl-sec bl-rwhere" aria-labelledby="bl-rw-h"><h2 class="bl-rh" id="bl-rw-h">${esc(title)}</h2><div class="card">
     <div class="bl-rail${x.stopped ? ' bl-railstop' : x.law ? ' bl-raillaw' : ''}${n > 8 ? ' bl-many' : ''}" style="--n:${n}"><ol class="bl-dots bl-n${n}" aria-label="The ${n} steps ${isResolution(b) ? 'to adoption' : 'from bill to law'}">${dotItems(r, x)}</ol></div>
     <p class="bl-rnow"><small>${esc(small)}</small>${nameHtml}</p>
-    ${x.stopped ? `<p class="bl-rsay">${esc(sayOnce(stopDetail(b), cm, b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x, cm))}</p>`}${stoppedNext(b, x)}
+    ${x.stopped ? `<p class="bl-rsay">${esc(sayOnce(stopDetail(b), cm, b))}</p>${sameLine(b)}` : `<p class="bl-rsay">${x.law ? flower(22) : ''}${esc(recSay(b, x, cm))}</p>`}${stoppedNext(b, x, { words })}
     <details class="bl-steps bl-rall" ${fold(b, 'steps')}><summary><span>See all ${n} steps</span>${icon('chevron-down', { cls: 'bl-chev' })}</summary>${steps.html}
       <p class="bl-learn"><a href="#/learn/session/${esc(b.id)}">${icon('play')}<span>Watch this bill’s trip through the Capitol, about a minute</span></a></p></details></div></section>`;
 }
-const RMAIL = ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'];
+export const RMAIL = ['ask', 'hold', 'remind', 'floor', 'conference', 'governor'];
 // The action card without a hearing: the deadline it races and the days left, what to do and why, the button, how long
 // it takes and how many have done it (only from 10 people), then More ways to help inside the card.
 function recDo(b, x, { lead = '' } = {}) {
@@ -1369,10 +1378,11 @@ export function billParts(b, { lead = '', where } = {}) {
   return { x, act: recAct(b, x, { lead }), where: recWhere(b, x, { title: where }), line: recLine(b, x), main: mainButton(b, x) };
 }
 // Back, Share and ⋯ (Follow this bill alone, Add to a list, the Capitol's page). The number moved to the title's label.
-function recTop(b) {
+// share: false leaves the Share pill out when the page's main button is itself Share (version 2, A-14).
+export function recTop(b, { share = true } = {}) {
   const on = S.watch.has(b.id), alone = issuesOf(b).length ? ' alone' : '', to = backName();
   return `<div class="bl-top bl-rtop${wide() ? ' bl-topw' : ''}"><button type="button" class="btn text bl-back" data-bl-back="1"${to ? ` aria-label="Back to ${esc(to)}"` : ''}>${icon('arrow-left')}<span>${esc(to || 'Back')}</span></button>
-    <div class="bl-tools"><button type="button" class="bl-sharebtn" data-bl-share="1">${icon('share-2')}<span>Share</span></button>
+    <div class="bl-tools">${share ? `<button type="button" class="bl-sharebtn" data-bl-share="1">${icon('share-2')}<span>Share</span></button>` : ''}
       <div class="bl-menuwrap">${iconBtn('ellipsis', 'More options', { 'data-bl-menu': '1', 'aria-expanded': 'false', 'aria-controls': 'bl-menu' })}
         <div class="bl-menu" id="bl-menu" hidden>
           <button type="button" class="bl-mi" data-bl-star="1" aria-pressed="${on}">${icon(on ? 'check' : 'star')}<span>${on ? `Following this bill${alone}` : `Follow this bill${alone}`}</span></button>
@@ -1381,13 +1391,19 @@ function recTop(b) {
           ${printItem}
         </div></div></div></div>`;
 }
-function recHead(b, x) {
-  const name = nick(b), mine = myStance(b.id), lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '', pw = partnerSide(b);
-  const chips = [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted' : 'Did not advance', '', 'archive') : '',
+// The chips under a bill's name (where it ended up, HIPHI's side, what the person said once it is over) and "Read the bill", shared
+// with version 2's "More about this bill" (R-357).
+export function headChips(b, x) {
+  const mine = myStance(b.id), pw = partnerSide(b);
+  return [x.law ? chip(isResolution(b) ? 'Adopted' : 'Became law', 'ok', 'circle-check') : x.ballot ? chip('Goes to the voters', 'ok', 'circle-check') : x.stopped ? chip(isResolution(b) ? 'Not adopted' : 'Did not advance', '', 'archive') : '',
     posInfo(b) ? posChip(b) : b.hiphi_position === 'monitor' && !pw ? chip('HIPHI is watching it', '', 'eye') : '',
     !x.live && (mine === 'support' || mine === 'oppose') ? chip(mine === 'support' ? 'You supported it' : 'You opposed it', '', 'user-check') : ''].filter(Boolean).join('');
-  // "Read the bill" opens the Capitol's text for now; the reading view in the app waits for its migration (R-302).
-  const read = `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
+}
+// "Read the bill" opens the Capitol's text for now; the reading view in the app waits for its migration (R-302).
+export const readLink = b => `<a class="bl-rread" href="${esc(billTextUrl(b))}" target="_blank" rel="noopener" data-ab-go="text">${icon('book-open')}<span>Read the bill</span>${icon('external-link', { cls: 'bl-ext' })}</a>`;
+function recHead(b, x) {
+  const name = nick(b), lede = name && (b.hiphi_summary || cleanDesc(b.description)) ? blurb(b, 320) : '', pw = partnerSide(b);
+  const chips = headChips(b, x), read = readLink(b);
   // The issue's line (Part of ..., ✓ Following the issue) for a text's link, and after a newcomer's follow here (R-212
   // #47, the critic's high, 24 Oct): once the toast has gone it is what says they follow the issue, and stops it (B-5).
   // The bill's number follows its name, smaller (Nate, 26 Oct, R-340: "bill pages should include bill number in the name of the
@@ -1400,16 +1416,18 @@ function recHead(b, x) {
 // Follow the issue: the one follow on a bill page (R-067). It replaced "Part of <issue>", which this layout showed only after
 // a text's link or a follow (R-212 #47); both still say what they said: a text's level line, and "Following the issue".
 // "Its issue: <name>", the name said even when it is the bill's own (R-346, Nate 10/27: "of the same name" read oddly).
-// A stopped bill's main button is already Follow the issue, and a newcomer has it on their own card, so then the band has none.
+// A stopped bill's main button is already Follow the issue, so then the band has none. A newcomer has it too (R-357, Nate 30 Oct):
+// this layout draws no "New here?" card, and the band's Follow was left out for them on the card's account, so a newcomer from a link
+// had no way to follow from the page. Theirs is the card's own follow (data-bl-newfollow): the profile ask, the moment, the visit's end.
 const plainN = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f\u02bb\u2018\u2019']/g, '').toLowerCase().trim();
 const TONE_IC = { ok: 'circle-check', warn: 'circle-alert', stop: 'circle-minus' };
 function issueBand(b, x) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0], on = issueFollowed(i), hx = issueHealth(i, b);
   const badge = hx?.word ? `<span class="bl-ib-badge bl-ib-${hx.tone}">${icon(TONE_IC[hx.tone] || 'circle')}<span>${esc(hx.word)}</span></span> ` : '';
-  const follow = (x && followIsMain(b, x)) || firstVisit() ? ''
+  const follow = x && followIsMain(b, x) ? ''
     : on ? btn('Following the issue', { kind: 'secondary', sm: true, icon: 'check', cls: 'on bl-ib-btn', attrs: { 'data-bl-unfollowissue': i.id, 'aria-pressed': 'true', title: 'Following. Press to stop following.' } })
-    : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', cls: 'bl-ib-btn', attrs: { 'data-bl-followissue': i.id, 'aria-pressed': 'false' } });
+    : btn('Follow the issue', { kind: 'secondary', sm: true, icon: 'star', cls: 'bl-ib-btn', attrs: { [newbie(b) ? 'data-bl-newfollow' : 'data-bl-followissue']: newbie(b) ? '1' : i.id, 'aria-pressed': 'false' } });
   const tx = t ? ` <span class="bl-txt">${levelLine(t, TXT)}</span>` : '';
   return `<section class="bl-iband" data-topic="${esc(i.category || '')}" aria-label="Part of an issue">
     <span class="bl-ib-ic" aria-hidden="true">${icon(issueLead(i))}</span>
@@ -1420,7 +1438,7 @@ function issueBand(b, x) {
 }
 // Who introduced it, up top (R-212 #41: sponsors were on 734 of 734 bills, folded under More details and cut at six). The first
 // name links to their page; "and 6 others" opens every name in place, each linked (S.blSpons, for the visit).
-function sponsorLine(b) {
+export function sponsorLine(b) {
   const list = sponsorsOf(b); if (!list.length) return '';
   const from = `?from=${encodeURIComponent(billRef(b))}`, open = S.blSpons?.has(b.id);
   const link = s => s.l ? `<a href="#/legislator/${s.l.id}${from}">${esc(s.name)}</a>` : esc(s.name);
@@ -1461,23 +1479,29 @@ function recDetails(b, x) {
     ${grp('actions', 'Every official action', acts.map(a => item(actLine(a), dayShort(a.occurred_at))))}</div>
     <p class="bl-rorig">${acts.length ? 'The Capitol’s own wording for each action is on the' : 'Every official action is on the'} <a href="${esc(capitolUrl(b))}" target="_blank" rel="noopener" data-ab-go="capitol">Capitol bill page${icon('external-link', { cls: 'bl-ext' })}</a>.</p>`;
 }
-function recPage(num, b, x) {
-  // A newcomer from a link is counted as before (R-023 decision 8); the action card's own words now do the "New here?" card's job.
-  if (firstVisit() && !S.blNew.has(b.id)) { logVisit('arrive', 'view', { path: 'link' }); S.blNew.add(b.id); }
-  const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
+// The closed cards under the action (Who decides next, About the bill, More details, Others following this bill), which this
+// browser remembers (recFold). Version 2's "More about this bill" draws the same ones (pub/v2/bill.js, R-357).
+export function recCards(b, x, { noEmails = false } = {}) {
   const pos = posInfo(b), why = pos ? `why HIPHI ${pos.verb === 'comment on' ? 'comments on' : pos.verb + 's'} it, ` : '';
   // The partners' reasons follow HIPHI's inside About the bill (R-328 batch D), and the card's line names them too.
   const pw = partnerRows(b), theirs = pw.length === 1 ? `${pw[0].partner_name}’s reasons, ` : pw.length ? 'partners’ reasons, ' : '';
-  // What the action card without a hearing (recDo) already says, so the parts below do not say it again (A-14): how many
-  // have emailed, and "You see this one differently from HIPHI".
-  const doCard = !x.act && !!mainButton(b, x), cardSays = doCard && /differently from HIPHI/.test(doWords(b, x)[1] || '');
   // Others following this bill: group numbers only from 10 people (countOk); no card at all without one.
-  const others = othersBlock(b, { bare: true, noEmails: doCard && RMAIL.includes(x.kind) });
-  const folds = recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
+  const others = othersBlock(b, { bare: true, noEmails });
+  return recFold('who', 'Who decides next', recWhoPrev(x), recWho(b, x))
     + recFold('about', 'About the bill', `In the Legislature’s words, ${why}${theirs}what each draft changed`, aboutBill(b, { reasons: true, pfx: 'bl-rab', partners: aboutHtml(b) }) + draftsSection(b).replace(/^<details[^>]*><summary>[\s\S]*?<\/summary>/, '<div class="bl-rdrafts"><h3 class="ab-h">What each draft changed</h3>').replace(/<\/details>$/, '</div>'), b)
     // "every ... official action" only when the list is there to open (most visitors' pages have only the Capitol's link).
     + recFold('more', 'More details', `Official title, ${companionsOf(b).length ? `companion ${spaced(companionsOf(b)[0])}, ` : ''}every draft${billActs(b).length ? ' and official action' : ''}`, recDetails(b, x), b)
     + (others ? recFold('others', 'Others following this bill', 'How people lean and what they have done', others) : '');
+}
+// A newcomer from a link is counted as before (R-023 decision 8); the action card's own words now do the "New here?" card's job.
+export function arrived(b) { if (firstVisit() && !S.blNew.has(b.id)) { logVisit('arrive', 'view', { path: 'link' }); S.blNew.add(b.id); } }
+function recPage(num, b, x) {
+  arrived(b);
+  const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
+  // What the action card without a hearing (recDo) already says, so the parts below do not say it again (A-14): how many
+  // have emailed, and "You see this one differently from HIPHI".
+  const doCard = !x.act && !!mainButton(b, x), cardSays = doCard && /differently from HIPHI/.test(doWords(b, x)[1] || '');
+  const folds = recCards(b, x, { noEmails: doCard && RMAIL.includes(x.kind) });
   // Where do you stand? (R-303, Nate 19 Oct: back on the calm page) A quiet card after the action, never above it: on a
   // phone under Where it is now, on a wide screen under the action card in the side panel. Only while the bill can move.
   const stance = x.live ? `<section class="card flat bl-stance bl-rstance" aria-labelledby="bl-stance-h">${stanceInner(b, x, { said: cardSays })}</section>` : '';
@@ -1494,7 +1518,7 @@ function recPage(num, b, x) {
 // Any page in layout 3 (#main .bl-rec): the bill page, and the issue page that draws its card (R-303).
 export function recDock() {
   if (!REC() || wide() || !document.querySelector('#main .bl-rec')) return;
-  const card = document.querySelector('#main .bl-rec .bl-ract, #main .bl-rec .bl-act'), bar = document.querySelector('.actionbar');
+  const card = document.querySelector('#main .bl-rec .bl-ract, #main .bl-rec .bl-act, #main .bl-rec .v2-go'), bar = document.querySelector('.actionbar');
   const off = (document.querySelector('.hdr')?.offsetHeight || 0) + (document.querySelector('.bl-top')?.offsetHeight || 0);
   // the card's own button, not its last line: on a short page the card's foot can stay in view after its button has gone
   const btnEl = card?.querySelector('.btn.primary') || card;
@@ -1526,7 +1550,7 @@ function openComposer(k) {
 // Follow or unfollow from this page. Unfollowing drops the bill from the followed set; keep it (and its hearings and
 // committee reports) here so nothing jumps. Following brings its hearings with the followed set, so the copy loaded
 // by link goes. quiet: no toast (the caller gives its own feedback).
-async function flipFollow(b, { quiet = false } = {}) {
+export async function flipFollow(b, { quiet = false } = {}) {
   const hs = hearingsOf(b), was = S.watch.has(b.id), keep = hs.map(h => S.outcomes[h.id]).filter(Boolean);
   if (was) { S.extra[b.id] = b; if (!S.xh[b.id]) S.xh[b.id] = hs; }
   if (quiet) await toggleWatch(b.id); else await followToggle(b.id, spaced(b.bill_number));
@@ -1624,9 +1648,12 @@ export function wireBillParts(roots, b, { bar = null, x = situation(b) } = {}) {
 }
 
 // ---------------- the screen ----------------
-export default {
+// screen(draw): the page's loading, bars and wiring, with its drawing (layout 3's recPage unless another is passed). Version 2 draws
+// its own page and keeps all the rest (pub/v2/bill.js, R-357).
+export const screen = draw => ({
   // No tab bar here (the page has its own bars); on wide screens the header nav marks where bills live.
-  get tab() { const r = refFromHash(), b = lookup(r.num, r.year); return b && S.watch.has(b.id) ? 'bills' : 'find'; },
+  // A bill opened first (a shared link) lights no tab: Find was never seen (R-357, Nate 30 Oct; Back says Home, goBack).
+  get tab() { const r = refFromHash(), b = lookup(r.num, r.year); return b && S.watch.has(b.id) ? 'bills' : isRoot() || history.state?.blRoot ? '' : 'find'; },
   // Layout 3 (R-302) keeps the tab bar; its button docks above it once the action card scrolls away.
   get tabs() { return REC(); },
   title: route => { const num = normNum(route.num), b = lookup(num, +route.year || 0), sp = spaced(num) || 'Bill'; return b && nick(b) ? `${nick(b)} · ${sp}` : sp; },
@@ -1643,7 +1670,7 @@ export default {
     keepOutcomes(b, hearingsOf(b));
     loadSocial(b);
     loadDrafts(b);
-    return page(num, b);
+    return page(num, b, draw);
   },
   // Phones and tablets: the main button in the sticky bottom bar. Wide screens have it in the side panel instead.
   bar(route) {
@@ -1756,4 +1783,5 @@ export default {
     const side = root.querySelector('.bl-side');
     if (side) { fitSide(); sideWatch?.observe(side); }
   },
-};
+});
+export default screen();

@@ -42,6 +42,13 @@ const oldA = () => !REC() && armOf('layout') === 'a';   // the layout test ended
 // The calm redesign of the rest of the public pages (R-303, Nate 10/17), with the bill page in layout 3 (R-302):
 // everyone's since Nate's 19 Oct "make the new rec version the main version"; ?rec=0 brings back the old pages everywhere.
 const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // everyone's since 19 Oct (Nate); ?rec=0 brings back the old pages
+// Version 2 of the public tracker (R-357, Nate 30 Oct 2026: "Make the bold changes but keep the my issues tab. Make this a version 2 for
+// the public."), behind ?v2=1 on the practice copy the way ?rec=1 was: the bill page as a slide (pub/v2/bill.js, pub/v2/v2.css), then
+// the rest of its parts as they land. The hash router keeps the query, so the flag lasts the visit. One later flip to !== '0' makes it
+// everyone's (then ?v2=0 brings the old page back for a while, as ?rec=0 did). A screen reads it as app.v2() (this file is on the
+// first wave and every screen reaches `app` through the kernel; none imports this file).
+const V2 = () => new URLSearchParams(location.search).get('v2') === '1';
+app.v2 = V2;
 const calmHome = () => REC() || armOf('layout') === 'calm';   // the redesign is built on the calm Home (everyone's since 11 Oct)
 const start = lazy('start', () => './start.js', { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? './a/home.js' : calmHome() ? './calm/home.js' : './home.js', { tab: 'home', title: 'Home' });
 const find = lazy('find', () => REC() ? './rec/find.js' : './find.js', { tab: 'find', title: 'Find' }), people = lazy('people', () => './people.js', { tab: 'more', title: 'Your legislators' });
@@ -49,7 +56,7 @@ const more = lazy('more', () => './more.js', { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => './profile.js', { tab: 'more', title: 'Your profile' });   // R-147
 const nextask = lazy('next', () => './nextask.js', { tabs: false, title: 'Welcome back' });   // R-237
 const quiz = lazy('quiz', () => './quiz.js', { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
-const bill = lazy('bill', () => oldA() ? './a/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
+const bill = lazy('bill', () => oldA() ? './a/bill.js' : V2() ? './v2/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => './mylists.js', { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => './committees.js'), allbills = lazy('allbills', () => './allbills.js');
 const week = lazy('week', () => './week.js', { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
@@ -66,7 +73,7 @@ const recIssue = lazy('issue', () => './rec/issue.js', { tab: 'find', title: 'Is
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -84,7 +91,11 @@ const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[
 // The issue page draws the bill page's own action card and "Where it is now" (bill.css), and it and the category page have
 // a few rules of their own (rec/issue.css).
 const REC_CSS = { issue: ['bill', 'rec/issue'], category: ['rec/issue'] };
-const cssFor = name => REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
+// Version 2 (?v2=1, R-357) brings pub/v2/v2.css after the calm redesign's, so a v2 screen's own rules win over rec.css's and its
+// screen's. Only the screens that have a v2 page (V2_CSS) ask for it.
+const V2_CSS = { bill: ['v2/v2'] };
+const cssFor = name => { const base = REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
+  return V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base; };
 const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
@@ -333,6 +344,7 @@ export function render() {
   document.body.classList.toggle('hasbar', !!bar);
   document.body.dataset.screen = route.name;
   document.body.classList.toggle('rec', REC() && !FIRST_VISIT.includes(route.name));   // R-303, behind ?rec=1
+  document.body.classList.toggle('v2', V2() && !FIRST_VISIT.includes(route.name));   // R-357, behind ?v2=1
   // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands.
   const need = cssFor(route.name), styled = cssReady(need);
   if (!styled) ensureCss(need).then(() => render()).catch(e => console.error(e));
@@ -539,7 +551,7 @@ async function boot() {
     render();
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
     // (Not the partner corner's or For advocacy groups': few people open them, R-328.)
-    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1)
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')) && (V2() || !n.startsWith('v2/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1, version 2's only with ?v2=1)
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
