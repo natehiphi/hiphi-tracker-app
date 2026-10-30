@@ -110,6 +110,10 @@ export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute
 export const daysAgo = d => d ? Math.floor((Date.now() - new Date(d)) / 864e5) : null;
 export const effStage = b => b.stage_override || b.stage || 'introduced';
 export const advocate = id => S.advocates.find(a => a.id === id);
+// R-356 decision 2: who sees Team and the team's lists (the Team page, and Team on Hearings, Bills, Legislators and Outreach).
+// Admins and second approvers always do (more.js isLead); anyone else only with the "Sees Team" switch on People. This is
+// about what the app shows, not about access: the database still decides who can read what.
+export const seesTeam = (a = S.me) => !!a && a.is_active !== false && (!!a.is_admin || !!a.is_reviewer || !!a.sees_team);
 export const owners = b => (S.assignments[b.id] || []).map(advocate).filter(Boolean);
 export const capitolUrl = b => {
   const m = (b.bill_number||'').match(/^([A-Z]+)(\d+)$/);
@@ -815,6 +819,7 @@ export const DB = {
   async teamSave(id, p) {
     const row = { full_name: p.full_name.trim(), initials: p.initials.trim().toUpperCase(), email: p.email.trim().toLowerCase(), is_admin: !!p.is_admin, is_reviewer: !!p.is_reviewer, is_active: p.is_active !== false };
     if (p.can_approve !== undefined) row.can_approve = !!p.can_approve;   // 098: the Approver switch (team_set_approver)
+    if (p.sees_team !== undefined) row.sees_team = !!p.sees_team;   // R-356: the Sees Team switch; the practice copy keeps it on the record
     if (DEMO) {
       const other = S.advocates.filter(a => a.id !== id);
       if (other.some(a => (a.email || '').toLowerCase() === row.email)) throw new Error(`Someone on the team already has the email ${row.email}.`);
@@ -822,6 +827,9 @@ export const DB = {
       if (id) Object.assign(advocate(id), row); else { id = crypto.randomUUID(); S.advocates.push({ id, color: '#9A4E9E', ...row }); }
       S.advocates.sort((a, b) => a.full_name.localeCompare(b.full_name)); return id;
     }
+    // R-356: row.sees_team is NOT sent below, the column does not exist yet. The migration (advocates.sees_team boolean, Nate's
+    // yes) adds a `p_sees_team boolean default null` argument to team_save; then add `p_sees_team: row.sees_team` to this call
+    // (undefined is left out of the request, so an unchanged person keeps theirs).
     const { data, error } = await S.supa.rpc('team_save', { p_id: id || null, p_full_name: row.full_name, p_initials: row.initials, p_email: row.email, p_is_admin: row.is_admin, p_is_reviewer: row.is_reviewer, p_is_active: row.is_active });
     if (error) throw error;
     if (row.can_approve !== undefined) { const r2 = await S.supa.rpc('team_set_approver', { p_id: data, p_on: row.can_approve }); if (r2.error) throw r2.error; }
@@ -1740,6 +1748,9 @@ export async function demoInit() {
   S.me = S.advocates.find(a => a.is_admin) || S.advocates[0];
   // R-328 B: Nate and Jess approve partners (Nate 10/22); a practice change to who does is kept with the sample partner.
   { const ap = PRACTICE?.partners?.approvers || S.advocates.filter(a => ['NT', 'JS'].includes(a.initials)).map(a => a.id); for (const a of S.advocates) a.approves_partners = ap.includes(a.id); }
+  // R-356 decision 2: "Sees Team" is on for the four leads of the practice copy (Nate, Jess, Jaylen, Kris), off for everyone else.
+  // Live, the field is advocates.sees_team once the migration adds it; until then it is undefined, which reads as off.
+  for (const a of S.advocates) a.sees_team = ['NT', 'JS', 'JN', 'KR'].includes(a.initials);
   const byIni = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
   S.campaigns = snap.campaigns; hooks.afterLoad();
   S.slots = snap.slots;

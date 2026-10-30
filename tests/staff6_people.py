@@ -171,6 +171,23 @@ def main():
     check('Saya: sharing one click from Today', share is not None, '')
     pg.close()
 
+    # ---- R-356 round 1 (decision 2): Team is for leads and people with Sees Team (Nate, Jess, Jaylen, Kris) ----
+    # Kevin, Saya, Patti, Julie have no Team option on Hearings, Bills, Legislators or Outreach; Kris has one on all four and
+    # reaches Team. Saya has no switch at all on Outreach (her list is the asks she writes, HB 2121's among them).
+    if not V5:
+      OPT = "() => [...document.querySelectorAll('[data-seg=hscope],[data-seg=blscope],[data-seg=lgask],[data-seg=otwho]')].filter(e => e.textContent.trim() === 'Team').length"
+      for who, want in (('KV', 0), ('SY', 0), ('PH', 0), ('JMM', 0), ('KR', 1)):
+        n = 0
+        for path in ('/hearings/week', '/bills', '/legislators?view=ask', '/outreach'):
+          pg = b.page(who); pg.open(path); n += pg.page.evaluate(OPT); pg.close()
+        check(f'{L.NAMES[who]}: {"no Team option" if not want else "a Team option"} on Hearings, Bills, Legislators and Outreach', n == 4 * want, f'{n} of 4')
+      pg = b.page('KR'); pg.open('/team')
+      check('Kris: Team opens with its tabs (Sees Team)', bool(pg.page.query_selector('nav.sv-secnav[aria-label="Team"]')), main_text(pg)[:60]); pg.close()
+      pg = b.page('KV'); pg.open('/team')
+      check('Kevin: #/team is the teammate picker, never an error', not pg.page.query_selector('nav.sv-secnav[aria-label="Team"]') and not pg.errors, main_text(pg)[:60]); pg.close()
+      pg = b.page('SY'); pg.open('/outreach'); sw = pg.page.query_selector('[data-seg="otwho"]')
+      check('Saya: Outreach draws no switch (her list follows the asks she writes)', sw is None and bool(pg.page.query_selector('.ot-card')), ''); pg.close()
+
     # ---- Lauren: on a phone on her hearing day, her hearing and its testimony first; the partner update in 2 clicks ----
     pg = b.page('LR', 390, 844)
     if V5:

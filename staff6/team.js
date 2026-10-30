@@ -1,5 +1,11 @@
 // Team (#/team), Staff v6 (R-336; V6-SPEC section 6 "Team", V15, D2, D5; F72-F76): what is slipping and who is on what,
-// for the leads (admins and second approvers: Nate, Jess, Jaylen). v5 spread this over Mine | Team, an "Everyone" menu,
+// for the leads (admins, second approvers and anyone with the Sees Team switch on People: Nate, Jess, Jaylen, Kris).
+// R-356 decision 2 (round 1): the Mine | Team switch came off Hearings, Bills, Legislators and Outreach for everyone else, so
+// the team-wide looks live here as page tabs, the way Hearings has its tabs: Slipping (#/team: Slipping, Hearings at risk, the
+// schedule, Who is on what) · The team's hearings (#/team/hearings: this week's cards at team scope) · No owner
+// (#/team/noowner: every bill nobody holds, with Give to… / Take it) · Chair asks (#/team/asks: the team's board) · Public
+// asks (#/team/public: Outreach's list at team scope). Hiding Team is about what the app shows, not about access.
+// v5 spread this over Mine | Team, an "Everyone" menu,
 // the hearings line and folds (assessment X1, X17, X24: Nate's own work and the team's in one list; Team one tap from
 // Patti). Now its own place, open blocks in this order:
 //   - Slipping: v5's logic (today5.js slipping), one button per row (your own step's button; a teammate's "Alert Kevin",
@@ -8,7 +14,7 @@
 //   - today's and tomorrow's hearings as a plain schedule (D5): time, room, "Going: Kris" / "Going: no one yet", no counts,
 //     no colour, no to-do rows (R-276);
 //   - No owner (R-352, B-14 on v6): a card, the soonest 3 with Give to… (Take it for a non-admin lead), then "All N bills
-//     with no owner ›";
+//     with no owner ›" (since R-356 it is its own tab with every bill, below);
 //   - Who is on what: one bar per person counting what they hold, each step once (their own steps, their chair asks, the
 //     public asks they write); a helper with nothing of their own says whom they help ("helps HEAL"), never 0; read-only,
 //     in the column beside the lists from 1360px with the Partners line under it (23 Oct's layout), one column below;
@@ -18,7 +24,7 @@
 // #/team?who=<id> is "See as teammate" for everyone (More tools links it): that person's Today, read-only, never in colour,
 // worked out by today.js exactly as their own Today is. #/team?who=none lists the steps nobody holds yet ("Anyone can take
 // these steps"). Someone who is not a lead and opens #/team gets the picker, never an error.
-import { S, DB, SESSION_OVER, esc, advocate, hooks } from './data.js';
+import { S, DB, SESSION_OVER, esc, advocate, hooks, seesTeam } from './data.js';
 import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk, partnersLine } from './today.js';
 import { billRoute, billById, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar, faceLead } from './ui.js';
@@ -26,7 +32,9 @@ import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, status
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
 import { plainCodes } from './terms.js';
 import { dropVerb, actIcon, jobKind } from './verbs.js';   // R-344: one verb per row (A-25); R-352: the kind of job's icon
-import { isLead } from './more.js';
+import { teamHearingsHTML, wireTeamHearings } from './hearings.js';   // R-356: the week's hearings at team scope
+import { teamAsksHTML, wireTeamAsks } from './asks.js';   // R-356: Outreach's list at team scope
+import { askBoard } from './push.js';   // R-356: the chair-ask board at team scope
 import { ownerProgress, BOARD_HREF, dueEnd as prepDue } from './prep.js';
 import { pqItems, admitsPartners, wantQueue } from './partnerq.js';
 
@@ -348,7 +356,30 @@ function schedLine(sch) {
 // line; the bills with no owner are a card of their own, the soonest 3 with Give to… (B-14 on v6: a lead's jobs are never
 // folded); Who is on what and the Partners line sit in the column beside from 1360px, as 23 Oct had it, one column below.
 const mineRow = x => x.risk ? x.owner === S.me?.id : !!x.mine;
-function teamPage() {
+// R-356 decision 2: the page's tabs, the way Hearings has them (ui.js sectionNav's look). The team-wide looks that left the
+// Mine | Team switch on Hearings, Bills, Legislators and Outreach live here, one tab each. Addresses: #/team (Slipping),
+// #/team/hearings, #/team/noowner, #/team/asks, #/team/public; the tab is read from route.view, else from ?tab=.
+const TABS = [['slip', '', 'Slipping'], ['hearings', 'hearings', 'The team’s hearings'], ['noowner', 'noowner', 'No owner'], ['asks', 'asks', 'Chair asks'], ['public', 'public', 'Public asks']];
+const tabOf = route => { const w = route?.view || route?.q?.tab || ''; return TABS.find(t => t[1] && t[1] === w)?.[0] || 'slip'; };
+function tabsHTML(cur, counts = {}) {
+  const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="Team">${TABS.map(([k, v, l]) => { const n = counts[k] || 0;
+    return `<a href="#/team${v ? '/' + v : ''}"${k === cur ? ' aria-current="page"' : ''}>${tl(l)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(n)}</span>` : ''}</a>`; }).join('')}</nav>`;
+}
+const head = () => `<header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>`;
+// No owner: every bill with a position that nobody holds, soonest first, each with its one button (Give to… for an admin,
+// Take it for another lead); it was a card of the soonest 3 on Team before the tabs (R-352, B-14 on v6).
+function noOwnerTab() {
+  const nob = nobodySteps();
+  return nob.length ? block('noown', 'No owner', `<p class="tm6-sub">Bills with a position that nobody holds yet, soonest first.</p><div class="v6-list" role="list">${nob.map(x => nobodyRow(x)).join('')}</div>`, { count: nob.length })
+    : quiet('circle-check', 'Every bill with a position has an owner.');
+}
+// Chair asks: Hearings > Get hearings' board at team scope (one component, rule 7.5), with its quiet lines as Hearings draws them.
+function chairTab() {
+  if (SESSION_OVER) return quiet('calendar', 'The session is over, so no bill is waiting for a hearing. The next session’s calendar is loaded in December.');
+  return `<div class="hw-page v-ask">${askBoard({ scope: 'team' })}<p class="hg-how"><a href="#/help/hearing">How to ask for a hearing</a> · <a href="#/help/calendar">Session calendar</a> · <a href="#/legislators?view=holding">Holding our bills</a></p></div>`;
+}
+function slipTab() {
   ALERTS.clear(); reachOf(null);   // who Slack can reach, asked once (admins), so an Alert's words are right the first time
   const off = SESSION_OVER;
   const sl = slipping(), risk = off ? [] : atRisk(), sch = off ? [] : schedule(), prep = prepSlip();
@@ -360,26 +391,23 @@ function teamPage() {
   const foot = more ? `<p class="tm6-more">${more}</p>` : '';
   const slip = block('slip', 'Slipping', n ? `${yours}${prep}${rows.length ? rankedHTML(rows, all) : ''}${foot}`
     : `${yours}${quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.')}`, { count: n || '' });
-  // No owner: the soonest 3 not already drawn in Slipping above (a bill is said once on the page, A-14), each with its one
-  // button, then the whole list.
-  const nob = nobodySteps(), shown = new Set((all ? rows : rows.slice(0, TOP)).map(x => x.b?.id));
-  const nob3 = nob.filter(x => !shown.has(x.b.id)).slice(0, TOP);
-  const noown = nob.length ? block('noown', 'No owner', `<p class="tm6-sub">Bills with a position that nobody holds yet, soonest first.</p>
-      ${nob3.length ? `<div class="v6-list" role="list">${nob3.map(x => nobodyRow(x)).join('')}</div>` : ''}
-      <p class="tm6-all"><a href="#/team?who=none">All ${esc(plural(nob.length, 'bill'))} with no owner<span aria-hidden="true">&nbsp;›</span></a></p>`, { count: nob.length }) : '';
   const hear = off ? '' : `<div class="t6-doors tm6-lines" role="group" aria-label="Hearings">${sch.some(d => d.rows.length)
     ? fold('sched', 'calendar-days', schedLine(sch), sch.map(d => d.rows.length ? `<h3 class="tm6-day">${d.label}</h3><div class="v6-list" role="list">${d.rows.map(sitRow).join('')}</div>` : '').join(''))
     : quiet('calendar-days', 'No hearings on our bills today or tomorrow.')}</div>`;
   const people = loads(), busy = people.filter(r => r.n > 0).length;
   const who = block('who', 'Who is on what', `<p class="tm6-sub">${esc(busy ? `${plural(busy, 'person', 'people')} with open steps, chair asks included.` : 'Nothing open on the team.')}</p>${loadHTML(people)}`);
   const partners = partnersHTML();
-  return `<div class="tm6-root tm6-page">
-    <header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>
-    <div class="tm6-cols"><div class="tm6-main">${prepBlock()}${slip}${hear}${noown}</div>
-    <aside class="tm6-side" aria-label="The team">${who}${partners ? `<nav class="t6-doors tm6-lines" aria-label="Partners">${partners}</nav>` : ''}</aside></div></div>`;
+  return `<div class="tm6-cols"><div class="tm6-main">${prepBlock()}${slip}${hear}</div>
+    <aside class="tm6-side" aria-label="The team">${who}${partners ? `<nav class="t6-doors tm6-lines" aria-label="Partners">${partners}</nav>` : ''}</aside></div>`;
+}
+function teamPage(route) {
+  const tab = tabOf(route), body = tab === 'hearings' ? teamHearingsHTML() : tab === 'noowner' ? noOwnerTab() : tab === 'asks' ? chairTab() : tab === 'public' ? teamAsksHTML() : slipTab();
+  // The counts the tabs carry: what is slipping and how many bills have no owner (each worked out by its own tab's code).
+  let counts = {}; try { counts = { slip: teamSlipCount(), noowner: nobodySteps().length }; } catch { counts = {}; }
+  return `<div class="tm6-root tm6-page" data-tmtab="${tab}">${head()}${tabsHTML(tab, counts)}${body}</div>`;
 }
 // The way back above the title (B-4; the sitting page opened from Team has one): Team for a lead, More tools for anyone else.
-const backLink = () => { const b = isLead() ? { href: '#/team', label: 'Team' } : { href: '#/tools', label: 'More tools' };
+const backLink = () => { const b = seesTeam() ? { href: '#/team', label: 'Team' } : { href: '#/tools', label: 'More tools' };
   return `<a class="tm6-back" href="${b.href}">${icon('chevron-left')}<span>${esc(b.label)}</span></a>`; };
 // A teammate's Today, read-only (F76): their next step and groups as their own Today draws them, no buttons, no colour.
 function asTeammate(id) {
@@ -414,20 +442,21 @@ function render(route) {
   if (admitsPartners()) wantQueue();
   const who = route?.who || '';
   if (who && (who === 'none' || advocate(who))) return asTeammate(who);
-  return isLead() ? teamPage() : pickerPage();
+  return seesTeam() ? teamPage(route) : pickerPage();
 }
 function wire(route, root) {
   const main = root.querySelector('.tm6-root'); if (!main) return;
   wireSteps(main, { after: redraw });
   main.querySelectorAll('[data-tmalert]').forEach(b => b.onclick = () => alertThem(b, b.dataset.tmalert));
   main.querySelectorAll('[data-tmundo]').forEach(b => b.onclick = () => unalert(b.dataset.tmundo));
+  if (main.dataset.tmtab === 'hearings') wireTeamHearings(root); else if (main.dataset.tmtab === 'public') wireTeamAsks(root);
   main.querySelector('[data-tmslipall]')?.addEventListener('click', () => { S.tmSlipAll = !S.tmSlipAll; redraw(); });
   main.querySelectorAll('[data-tmfold]').forEach(d => d.addEventListener('toggle', () => { S.tmOpen[d.dataset.tmfold] = d.open; }));
   main.querySelector('[data-tmpick]')?.addEventListener('click', () => pickerSheet({ title: 'See a teammate’s list', value: route?.who || '',
     options: [...teammates().filter(a => a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name)).map(a => [a.id, a.full_name, 'user-round', '']), ['none', 'No owner', 'user-round', 'Bills with no owner']],
     onPick: id => S.go(`#/team?who=${encodeURIComponent(id)}`) }));
 }
-const titleOf = route => route?.who === 'none' ? 'No owner' : route?.who && advocate(route.who) ? `${first(route.who)}’s list` : isLead() ? 'Team' : 'A teammate’s list';
+const titleOf = route => route?.who === 'none' ? 'No owner' : route?.who && advocate(route.who) ? `${first(route.who)}’s list` : seesTeam() ? 'Team' : 'A teammate’s list';
 
 // What Team's Slipping heading counts (its ranked rows plus the 2027 prep line), so Today's door says the same number.
 // R-352: the lead's own rows are on their Today, not Team's list, so they are not in this count either.
@@ -439,6 +468,6 @@ export default {
   tab: 'team',
   title: titleOf,
   // A teammate's list goes back to Team for a lead, to More tools for anyone else (the door they came by).
-  back: route => route?.who ? (isLead() ? { href: '#/team', label: 'Team' } : { href: '#/tools', label: 'More tools' }) : null,
+  back: route => route?.who ? (seesTeam() ? { href: '#/team', label: 'Team' } : { href: '#/tools', label: 'More tools' }) : null,
   render, wire,
 };

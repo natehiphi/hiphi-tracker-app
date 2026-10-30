@@ -1,10 +1,13 @@
 # Staff v6 Team (#/team), Nate's walk 4 (R-336): "It's still too crowded. This needs to be more calm and roomy. I'm not
 # sure where I'm supposed to look." His pick, "One list, top 3": Slipping and Hearings at risk as one ranked list with its
 # three most urgent rows shown, each with its one action, and "See all N" opening the N. R-352 (Nate 27 Oct): the lead's own
-# steps are on their Today, so Slipping leaves them out and says how many in one quiet line; the bills with no owner are a
-# card, never a fold (B-14 on v6), the soonest 3 with their button and "All N bills with no owner ›"; Who is on what is
+# steps are on their Today, so Slipping leaves them out and says how many in one quiet line; Who is on what is
 # read-only, faces and counts, in the column beside the lists at 1440 (23 Oct's layout), with the Partners line under it;
 # one column on a phone. Red only on a step whose deadline passed (A-5 on v6); 12 controls on the first screen (A-2 on v6).
+# R-356 round 1 (decision 2): Team has page tabs, Slipping (#/team) · The team's hearings (#/team/hearings) · No owner
+# (#/team/noowner, every bill nobody holds, with its button; it was a card of 3 on Slipping's page) · Chair asks
+# (#/team/asks) · Public asks (#/team/public); Team opens for admins, second approvers and people with Sees Team (Kris);
+# Kevin has no Team option on Hearings, Bills, Legislators or Outreach, Kris has all four.
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_team.py      (otherwise HOST, :8832)
 import os, re, sys
@@ -43,7 +46,8 @@ def main():
     yours = p.inner_text('[data-block="slip"] .tm6-yours') if p.query_selector('[data-block="slip"] .tm6-yours') else ''
     check("1440: one quiet line says how many of the lead's own are on Today, not a link", re.search(r'Your own (one|\d+) (is|are) on your Today', yours) and not p.query_selector('.tm6-yours a'), yours)
     m = pg.measure()
-    check('1440: at most 12 controls on the first screen (A-2 on v6)', m['controls'] <= 12, m['controls'])
+    # R-356: the five page tabs are navigation links (the No owner card moved to its own tab)
+    check('1440: at most 12 controls on the first screen, the 5 tab links included (A-2 on v6)', m['controls'] <= 13, m['controls'])
     check('1440: fewer words on the first screen than before R-336 (246)', m['words'] < 200, m['words'])
     # the Hearings line: closed, a count; nothing a lead must do is in a fold (B-14 on v6)
     lines = p.evaluate("""() => [...document.querySelectorAll('.tm6-root details')].map(d => ({ id: d.dataset.tmfold, open: d.open }))""")
@@ -51,16 +55,11 @@ def main():
     red = p.evaluate(f"""() => [...document.querySelectorAll('main *')].filter(e => e.getClientRects().length && e.childElementCount === 0 && e.textContent.trim() && getComputedStyle(e).color === '{BAD}')
       .map(e => (e.closest('.v6-row-line') || e).innerText.trim()).filter((t, i, a) => a.indexOf(t) === i)""")
     check('1440: red only on an overdue step', all(re.search(r'(?i)overdue', t) for t in red), red[:3])
-    # No owner: a card, the soonest 3 not already in Slipping, each with its button, then the whole list
-    nc = num(r'(\d+)', p.inner_text('[data-block="noown"] h2'), 0) if p.query_selector('[data-block="noown"]') else 0
-    nrows = p.evaluate("""() => [...document.querySelectorAll('[data-block="noown"] .v6-list > *')].map(e => ({ n: (e.querySelector('.v6-row-num') || {}).innerText, btn: !!e.querySelector('.v6-row-act :is(button, .btn)') }))""")
-    slipnums = p.evaluate("""() => [...document.querySelectorAll('[data-block="slip"] .v6-list > * .v6-row-num')].map(e => e.innerText)""")
-    check('1440: No owner is a card, not a fold (B-14 on v6), its soonest 3 shown', nc > 0 and 0 < len(nrows) <= 3 and not p.query_selector('details [data-block="noown"], details[data-block="noown"]'), f'{len(nrows)} rows of {nc}')
-    check('1440: each No owner row has its one button (Give to… for an admin)', nrows and all(r['btn'] for r in nrows), nrows)
-    check('1440: a bill is said once: No owner leaves out the rows Slipping shows', not set(r['n'] for r in nrows) & set(slipnums), [r['n'] for r in nrows])
-    allA = p.query_selector('[data-block="noown"] a[href="#/team?who=none"]')
-    at = allA.inner_text() if allA else ''
-    check('1440: "All N bills with no owner ›" says the card\'s count', num(r'All (\d+) bills?', at) == nc, f'"{at}" vs {nc}')
+    # R-356: the tabs, in this order, Slipping current; no No owner card on this tab (it is its own tab now)
+    tabs = p.evaluate("() => [...document.querySelectorAll('nav.sv-secnav[aria-label=\"Team\"] a')].map(a => [a.querySelector('.sv-tl').innerText, a.getAttribute('aria-current') === 'page'])")
+    check("1440: Team's tabs are Slipping, The team's hearings, No owner, Chair asks, Public asks, Slipping current", [t[0] for t in tabs] == ['Slipping', 'The team’s hearings', 'No owner', 'Chair asks', 'Public asks'] and [t[1] for t in tabs] == [True, False, False, False, False], tabs)
+    check('1440: the No owner card is not on Slipping any more', not p.query_selector('[data-block="noown"]'), '')
+    tn = p.query_selector('nav.sv-secnav a:nth-child(3) .sv-tn'); nc = num(r'(\d+)', tn.inner_text() if tn else '', 0)   # No owner's tab count
     # Who is on what: read-only, its count the rows it shows
     wsub = p.inner_text('[data-block="who"] .tm6-sub')
     bars = p.evaluate(ROWS, '[data-block="who"] .tm6-load:not(.tm6-helps)')
@@ -95,7 +94,21 @@ def main():
     check('1440: Hearings opens the sittings it counts', num(r'(\d+) today', t, 0) == got.get('Today', 0) and num(r'(\d+) tomorrow', t, 0) == got.get('Tomorrow', 0), f'"{t}" vs {got}')
     # the same count as its own page
     pg.nav('/team?who=none'); whole = num(r'(\d+) bills? with a position', pg.text('main'))
-    check('1440: No owner\'s count is its page\'s', whole == nc, f'{whole} vs {nc}')
+    check('1440: No owner\'s count is the old teammate page\'s', whole == nc, f'{whole} vs {nc}')
+    # R-356: each tab opens, with its own content and no page errors
+    pg.nav('/team/noowner')
+    nrows = p.evaluate("""() => [...document.querySelectorAll('[data-block="noown"] .v6-list > *')].map(e => ({ btn: !!e.querySelector('.v6-row-act :is(button, .btn)') }))""")
+    nh = num(r'(\d+)', p.inner_text('[data-block="noown"] h2'), 0)
+    check('1440: No owner tab lists every bill nobody holds (not 3), each with its one button', len(nrows) == nh == nc and nh > 3 and all(r['btn'] for r in nrows), f'{len(nrows)} rows, heading {nh}, tab count {nc}')
+    check('1440: No owner tab is current', 'No owner' in p.inner_text('nav.sv-secnav a[aria-current="page"]'), '')
+    pg.nav('/team/hearings')
+    check("1440: The team's hearings tab draws the week's cards", bool(p.query_selector('.hw-page .hw-day, .hw-page .hw-none')) and 'hearings' in p.inner_text('nav.sv-secnav a[aria-current="page"]').lower(), p.inner_text('main')[:80])
+    pg.nav('/team/asks')
+    check('1440: Chair asks tab draws the team board', bool(p.query_selector('.hg-sec, .hg-empty, [data-hg], .hg-how')) and 'Chair asks' in p.inner_text('nav.sv-secnav a[aria-current="page"]'), p.inner_text('main')[:80])
+    pg.nav('/team/public')
+    check('1440: Public asks tab draws Outreach\'s list at team scope', bool(p.query_selector('.ot-card, .ot-empty')) and 'Public asks' in p.inner_text('nav.sv-secnav a[aria-current="page"]'), p.inner_text('main')[:80])
+    pg.nav('/team?tab=noowner')
+    check('1440: ?tab= opens the same tab as the address', bool(p.query_selector('[data-block="noown"]')), '')
     pg.nav('/team')
     check('1440: an opened line stays open after a redraw', p.evaluate("() => document.querySelector('details[data-tmfold=\"sched\"]')?.open") is True, '')
     check('1440: no page errors', not pg.errors, pg.errors[:1]); pg.close()
@@ -104,7 +117,7 @@ def main():
     pg = b.page('NT', 390, 844); pg.open('/team'); p = pg.page
     order = p.evaluate("() => [...document.querySelectorAll('.tm6-root [data-block]')].map(e => [e.dataset.block, Math.round(e.getBoundingClientRect().top)])")
     ids = [o[0] for o in order]; ys = [o[1] for o in order]
-    check('390: one column: Slipping, Hearings, No owner, then Who is on what', ids[:4] == ['slip', 'sched', 'noown', 'who'] and ys == sorted(ys), order)
+    check('390: one column: Slipping, Hearings, then Who is on what', ids[:3] == ['slip', 'sched', 'who'] and ys == sorted(ys), order)
     check('390: the 3 most urgent with their actions', p.evaluate(ROWS, '[data-block="slip"] .v6-list > *') == 3 and p.evaluate(ROWS, '[data-block="slip"] .v6-list > * :is(button, .btn)') == 3, '')
     p.click('details[data-tmfold="sched"] > summary'); p.wait_for_timeout(200)
     see = p.get_by_role('button', name=re.compile(r'^See all \d+'))
@@ -117,6 +130,17 @@ def main():
     pg = b.page('NT', 1440, 900); pg.open('/team', L.CLOCKS['off'])
     check('off season: no hearings line', not pg.page.query_selector('details[data-tmfold="sched"]'), '')
     check('off season: no page errors', not pg.errors, pg.errors[:1]); pg.close()
+    # ---- R-356: who has a Team option (Kevin none, Kris all four) and who reaches Team ----
+    OPT = "() => [...document.querySelectorAll('[data-seg=\"hscope\"],[data-seg=\"blscope\"],[data-seg=\"lgask\"],[data-seg=\"otwho\"]')].filter(e => e.textContent.trim() === 'Team').length"
+    for who, want in (('KV', 0), ('KR', 1), ('NT', 1)):
+      for path in ('/hearings/week', '/bills', '/legislators?view=ask', '/outreach'):
+        pg = b.page(who, 1440, 900); pg.open(path); got = pg.page.evaluate(OPT)
+        check(f'{who}: {path} has {"no" if not want else "a"} Team option', got == want, got)
+        check(f'{who}: {path} has no page errors', not pg.errors, pg.errors[:1]); pg.close()
+    for who, ok in (('KR', True), ('KV', False)):
+      pg = b.page(who, 1440, 900); pg.open('/team'); p = pg.page
+      check(f'{who}: #/team {"opens Team with its tabs" if ok else "is the teammate picker, not an error"}', bool(p.query_selector('nav.sv-secnav[aria-label="Team"]')) == ok, p.inner_text('main')[:60])
+      check(f'{who}: #/team has no page errors', not pg.errors, pg.errors[:1]); pg.close()
   R.done()
 
 if __name__ == '__main__': main()
