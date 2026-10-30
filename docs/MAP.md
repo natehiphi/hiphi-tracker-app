@@ -237,10 +237,16 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   are in, a later step draws a skeleton and comes back. Shared helpers are exported from `start.js` and imported by the
   rest (read-only: the lessons through `lessons()`, the example bill back through `REST.exampleBill()`). `track.html`
   carries the base styles and the first wave's `modulepreload` lines; an inline script at the top of the head reads what
-  the browser remembers and preloads what it will draw first (a first visit still to do: `start.js`; anyone else:
-  `home.js`, `core.js`, `stops.js`, `rank.js` and the database library's parts; a `#/bill/` address: the bill page and the
-  lists), and fetches the catalog with plain `fetch` and the public key in the address (no preflight) before any module
-  arrives, the issues slim (only what the topics show; the full rows come with the library). `app.js` draws a newcomer's
+  the browser remembers and preloads what it will draw first, every module of its static import tree by name (a first visit
+  still to do: `start.js` with `langpick.js` and `plans.js`; anyone else: the calm Home, `calm/home.js` with `home.js`, `goals.js`,
+  `rec/kit.js`, `myletters.js` and the rest, with `core.js`, `stops.js`, `rank.js` and the database library's parts; a `#/bill/`
+  address: the bill page with its twelve helpers and `bill.css`, `rec/rec.css`; `check_split.mjs` rule 5 fails when a module of
+  these trees is not named), and fetches the catalog with plain `fetch` and the public key in the address (no preflight) before any module
+  arrives, the issues slim (only what the topics show; the full rows come with the library). **Nothing in the head blocks the
+  first paint** (R-357 5a): the rules the skeleton, the header and the welcome need are inline (`<style id="crit">`, same
+  selectors as `base.css` and `start.css` and earlier in the page, so the real sheets win when they arrive), and Google Fonts
+  and the four head stylesheets are `media="print"` links with a preload, switched to every screen as each loads (a listener,
+  not `onload=`: `app.js` `cssOne` sets its own). `app.js` draws a newcomer's
   topics from that (or the copy kept from last time) before the library, the lists or the bills are asked for
   (`earlyFirst`), then `boot()` loads the rest. Every other screen is a `lazy()` stand-in in `SCREENS` that loads its module
   and stylesheet on first use (`SCREEN_CSS`, in `CSS_ORDER` so `wide.css` stays last); the walkthrough, the tour, the

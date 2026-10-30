@@ -59,7 +59,16 @@
   var h = location.hash || '', onBill = /^#\/bill\//.test(h);
   // core.js (the bill-level code, with stops.js and rank.js) comes after a newcomer's first screen; everyone else needs it first.
   var core = ['pub/core.js', 'stops.js', 'pub/rank.js'];
-  var paths = onBill ? core.concat(['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js']) : first ? ['pub/start.js', 'pub/rank.js'] : core.concat(['pub/home.js', 'pub/actions.js', 'pub/speakup.js']);
+  // Every module the screen imports, named here and not left for the browser to find: a module's own imports are known only
+  // once it has arrived and been read, so each hop costs a round trip (400 ms on a slow phone). The lists are the screens'
+  // static imports, all the way down (R-357 5a; node tools/check_split.mjs names any that goes missing). Home is the calm
+  // Home (pub/calm/home.js, everyone's since 19 Oct), which imports today's pub/home.js too.
+  var start = ['pub/start.js', 'pub/rank.js', 'pub/langpick.js', 'pub/plans.js'];
+  var bill = ['pub/bill.js', 'pub/mylists.js', 'pub/mybills.js', 'pub/actions.js', 'pub/speakup.js', 'pub/capitol.js', 'pub/letters.js', 'pub/titles.js', 'pub/hello.js',
+    'pub/myprofile.js', 'pub/alerts.js', 'pub/billtext.js', 'pub/issuehealth.js', 'pub/partners.js', 'pub/stands.js', 'pub/sharepic.js', 'pub/phone.js'];
+  var home = ['pub/calm/home.js', 'pub/home.js', 'pub/calm/goals.js', 'pub/rec/kit.js', 'pub/myletters.js', 'pub/actions.js', 'pub/speakup.js', 'pub/alerts.js', 'pub/letters.js',
+    'pub/capitol.js', 'pub/stands.js', 'pub/sharepic.js', 'pub/phone.js'];
+  var paths = onBill ? core.concat(bill) : first ? start : core.concat(home);
   if (/[?&]demo=1/.test(location.search)) paths = paths.concat(core, ['pub/demo.js']);
   // The library and its parts. A first visit asks for them all at once after its first screen (pub/kernel.js makeClient,
   // from this list), so they come in one round trip, not three (10/5: on a slow line the full catalog waited 5 s for them).
@@ -72,19 +81,112 @@
   for (var i = 0; i < paths.length; i++) { var l = document.createElement('link'); l.rel = 'modulepreload'; l.href = paths[i]; if (paths[i].indexOf('https:') === 0) l.crossOrigin = 'anonymous'; document.head.appendChild(l); }
   // The first screen's stylesheet starts downloading now; pub/app.js puts it in the page in its place (before wide.css,
   // the order of CSS_ORDER) once the module is in, from the cache this preload fills.
-  var css = onBill ? ['bill', 'mylists'] : first ? ['start'] : ['home'];
+  // (rec/rec.css comes with every screen but the first visit's since the calm redesign became everyone's, pub/app.js cssFor.)
+  var css = onBill ? ['bill', 'mylists', 'rec/rec'] : first ? ['start'] : ['home', 'rec/rec'];
   for (var j = 0; j < css.length; j++) { var s = document.createElement('link'); s.rel = 'preload'; s.as = 'style'; s.href = 'pub/' + css[j] + '.css'; document.head.appendChild(s); }
 })();
 </script>
+<!-- Nothing in the head blocks the first paint (R-357 5a: on a slow phone the page stayed blank until the fonts and four
+     stylesheets had all arrived, 4.5 s). The rules the skeleton and the welcome need are here, in the page; the full
+     stylesheets below start at once (the preload gives them their high priority) but are applied when they arrive, and
+     they come later in the page, so where both say something about the same thing, theirs wins. Same selectors as
+     pub/base.css and pub/start.css on purpose, so a rule here never outranks the real one: change a rule there, change it
+     here (or leave it: the real sheet wins within a moment). Text draws at once in the system face and swaps to Poppins and
+     Lato when they arrive (display=swap), through the same font stacks base.css declares. -->
+<style id="crit">
+:root{--p700:#00698E;--o400:#F68B2C;--o700:#984B0B;--n0:#FFFFFF;--n50:#F4F7F9;--n100:#EAEFF2;--n200:#DBE3E7;--n500:#5F6F76;--n700:#344852;--n900:#142B35;
+--font-h:'Poppins','Lato',system-ui,-apple-system,'Segoe UI',sans-serif;--font:'Lato',system-ui,-apple-system,'Segoe UI',sans-serif;
+--t13:.8125rem;--t16:1rem;--t18:1.125rem;--t28:1.75rem;--s4:4px;--s8:8px;--s12:12px;--s16:16px;--s32:32px;--s48:48px;--gutter:16px;
+--r8:8px;--r12:12px;--pill:999px;--sh2:0 2px 8px rgba(20,43,53,.08);--header:56px;--tabbar:64px;--safe-b:env(safe-area-inset-bottom,0px)}
+body[data-screen="start"] main{--t13:.875rem;--t16:1.125rem;--t18:1.375rem;font-size:var(--t16)}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--n50);color:var(--n700);font:400 var(--t16)/1.5 var(--font);-webkit-font-smoothing:antialiased}
+h1{font-family:var(--font-h);font-weight:700;color:var(--n900);letter-spacing:-.02em;line-height:1.15;margin:0;font-size:var(--t28)}
+p{margin:0}
+a{color:var(--p700);text-underline-offset:2px}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+img,svg{display:block}
+.ic{display:inline-block;flex:none;vertical-align:-.2em}
+.skip{position:absolute;left:8px;top:-60px;z-index:100;background:var(--n900);color:#fff;padding:12px 16px;border-radius:var(--r8);text-decoration:none;font-weight:700}
+.hdr{position:sticky;top:0;z-index:40;min-height:var(--header);background:var(--n0);border-bottom:1px solid var(--n200);display:flex;align-items:center;gap:var(--s8);padding:0 var(--s8) 0 var(--gutter)}
+.hdr .hdrin{display:flex;align-items:center;gap:var(--s8);width:100%;min-width:0}
+.hdr .hspace{flex:1 1 auto}
+.hdr .brand{display:flex;align-items:center;gap:var(--s8);min-width:0;min-height:44px;flex:0 1 auto;text-decoration:none;color:inherit}
+.hdr .brand svg{width:30px;height:30px;flex:none}
+.hdr .bname{display:flex;flex-direction:column;min-width:0;line-height:1.1}
+.hdr .bname b{font:700 var(--t18)/1.1 var(--font-h);color:var(--n900);letter-spacing:-.01em;white-space:nowrap}
+.hdr .bname small{font-size:var(--t13);color:var(--n500);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .hbtn{min-width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--pill);color:var(--p700);font-weight:700;padding:0 12px}
+main{display:block;padding:var(--s16) var(--gutter) calc(var(--tabbar) + var(--safe-b) + var(--s32));max-width:720px;margin:0 auto}
+body.notabs main{padding-bottom:calc(var(--s48) + var(--safe-b))}
+body.hasbar main{padding-bottom:calc(var(--tabbar) + var(--safe-b) + 88px)}
+main:focus{outline:none}
+.actionbar{position:fixed;left:0;right:0;bottom:0;z-index:45;background:var(--n0);border-top:1px solid var(--n200);box-shadow:var(--sh2);padding:var(--s12) var(--gutter) calc(var(--s12) + var(--safe-b));display:flex;gap:var(--s8);align-items:center}
+.actionbar .btn{flex:1 1 auto}
+.actionbar .btn.text{flex:0 0 auto}
+.actionbar .inner{display:flex;gap:var(--s8);align-items:center;width:100%;max-width:720px;margin:0 auto}
+.lede{font-size:var(--t16);color:var(--n700);max-width:65ch}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s8);min-height:48px;padding:0 24px;border-radius:var(--pill);font:700 var(--t16)/1.2 var(--font);text-decoration:none;white-space:nowrap;user-select:none}
+.btn .ic{width:20px;height:20px}
+.btn.primary{background:var(--p700);color:#fff}
+.btn.text{min-height:44px;padding:0 12px;color:var(--p700);background:none}
+.skel{background:linear-gradient(90deg,var(--n100) 25%,var(--n50) 37%,var(--n100) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:var(--r12)}
+@keyframes shimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.skelpage{display:flex;flex-direction:column;gap:var(--s12);padding-top:var(--s16)}
+.st{display:flex;flex-direction:column;gap:var(--s12)}
+.st-intro,.st-main{display:flex;flex-direction:column;gap:var(--s12);min-width:0}
+.st h1{margin-top:var(--s4)}
+.st .lede{margin-top:-4px;text-wrap:pretty}
+.st-art{display:none;justify-content:center;margin-top:-4px}
+.st1 .st-art{display:flex}
+.st-art svg{width:100%;height:64px}
+.st-bar{width:100%}
+.st-one{display:flex}
+.st-one .btn{width:100%}
+.st-hellopage{--hw:440px;justify-content:center;min-height:calc(100svh - 210px)}
+.st-hellopage .st-intro{align-items:center;text-align:center;gap:var(--s12)}
+.st-hellopage .st-art.st-scene{display:flex;justify-content:center;width:100%;max-width:calc(var(--hw)*var(--hs,1));margin:0 auto var(--s16)}
+.st-hellopage .st-art.st-scene svg{width:100%;height:auto;max-height:none}
+.st-greet{display:flex;align-items:center;justify-content:center;gap:var(--s8);margin:0;font-family:var(--font-h);font-size:var(--t18);font-weight:700;color:var(--o700)}
+.st-greet .flower{flex:none}
+.st-hellopage .st-greet{margin-bottom:calc(var(--s4)*-1)}
+.st-hellopage h1{margin:0;text-wrap:balance}
+.st-hellopage .lede{margin:0;max-width:24em}
+.st-one.st-hellobar{flex-direction:column;align-items:stretch;gap:2px}
+.st-one.st-hellobar .btn.text{width:auto;min-width:0;align-self:center}
+@media (max-width:22.4375em),(max-width:899px) and (max-height:700px){.st1 .st-art{display:none}.st1.st-hellopage{--hw:300px}}
+@media (max-width:899px){body[data-screen="start"].hasbar:not(:has(.st:is(.st-topics,.st2))) main{padding-bottom:calc(var(--safe-b) + 78px)}.st-hellopage{min-height:calc(100svh - 256px)}body.st-hello[data-screen="start"].hasbar:not(:has(.st:is(.st-topics,.st2))) main{padding-bottom:calc(var(--safe-b) + 124px)}}
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
 <!-- The page's own styles and the first screen's (added by the script below); each other screen's come with it (pub/app.js CSS).
-     wide.css stays last: it overrides the screens' files on wide screens. -->
-<link rel="stylesheet" href="pub/base.css">
-<link rel="stylesheet" href="pub/fx.css">
-<link rel="stylesheet" href="pub/actions.css">
-<link rel="stylesheet" href="pub/wide.css">
+     wide.css stays last: it overrides the screens' files on wide screens. They are in the page from the start with media=print
+     (a sheet that does not match the screen does not block the paint) and the script after them switches each to every screen
+     as it loads: with addEventListener, not onload=, because pub/app.js (cssOne) looks for these links by their address and
+     sets its own onload on one that has not loaded yet. -->
+<link rel="preload" as="style" href="pub/base.css">
+<link rel="preload" as="style" href="pub/fx.css">
+<link rel="preload" as="style" href="pub/actions.css">
+<link rel="preload" as="style" href="pub/wide.css">
+<link rel="stylesheet" href="pub/base.css" media="print" data-late>
+<link rel="stylesheet" href="pub/fx.css" media="print" data-late>
+<link rel="stylesheet" href="pub/actions.css" media="print" data-late>
+<link rel="stylesheet" href="pub/wide.css" media="print" data-late>
+<script>
+(function () {
+  var ls = document.querySelectorAll('link[data-late]');
+  for (var i = 0; i < ls.length; i++) (function (l) {
+    var on = function () { l.media = 'all'; };
+    if (l.sheet) on(); else { l.addEventListener('load', on); l.addEventListener('error', on); }
+  })(ls[i]);
+})();
+</script>
+<noscript><link rel="stylesheet" href="pub/base.css"><link rel="stylesheet" href="pub/fx.css"><link rel="stylesheet" href="pub/actions.css"><link rel="stylesheet" href="pub/wide.css"></noscript>
 <!-- Every module the first load needs, in one wave (R-122): the second wave used to wait for its importers to be parsed.
      The screens load on first use (pub/app.js lazy); the script below preloads the one this browser will draw first. -->
 <link rel="modulepreload" href="pub/app.js">
@@ -99,6 +201,12 @@
 <link rel="modulepreload" href="pub/visitlog.js">
 <link rel="modulepreload" href="pub/keep.js">
 <link rel="modulepreload" href="pub/testerlog.js">
+<!-- ... and what those import (R-357 5a: each of these was found only after its importer arrived, a hop of 400 ms on a slow phone):
+     the words (i18n.js, then words/live.js), and the drawn and share icons that icons.js builds its set from. -->
+<link rel="modulepreload" href="pub/i18n.js">
+<link rel="modulepreload" href="pub/words/live.js">
+<link rel="modulepreload" href="icons-drawn.js">
+<link rel="modulepreload" href="share-icon.js">
 <style>
 /* First paint before any script runs (on a slow connection the page used to stay blank for seconds). */
 .boot0 { max-width: 720px; margin: 0 auto; padding: 72px 16px 0; display: flex; flex-direction: column; gap: 12px; }
