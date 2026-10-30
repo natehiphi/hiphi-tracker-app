@@ -4,7 +4,7 @@
 # another bill does not bring it back; Skip and Esc end it too; the page underneath takes no taps on tips 1-2; tip 3
 # lights the real main button, and using it ends the tour and does what it says; a stopped bill between sessions points
 # tip 3 at Follow; not on the first visit (#/start) and not while the "New here?" card is up, but after "Just looking";
-# the tip stays inside the window; reduced motion; no console errors.
+# the tip stays inside the window; reduced motion; no console errors. Arrival on a link: tests/tour_link.py.
 import json, os, sys
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
@@ -23,8 +23,12 @@ def ctx(b, w=390, h=844, **kw):
 def fresh(p, extra='', returning=True):
     p.goto(BASE + '?demo=1' + extra); p.wait_for_timeout(400)
     p.evaluate('localStorage.clear(); sessionStorage.clear()' + ('; ' + PAST_START if returning else ''))
-def visit(p, h, extra='', wait=2600):
-    p.goto(BASE + '?demo=1' + extra + '#' + h.lstrip('#')); p.reload(); p.wait_for_timeout(wait)
+def visit(p, h, extra='', wait=2600, link=False):
+    # R-357 Light fixes (b): someone who arrived on a link is never shown around by itself (R-114; tests/tour_link.py), so a visit
+    # is Home first and then into the bill inside the app; link=True opens the address directly, as a friend's link does.
+    if link: p.goto(BASE + '?demo=1' + extra + '#' + h.lstrip('#')); p.reload(); p.wait_for_timeout(wait); return
+    p.goto(BASE + '?demo=1' + extra + '#/'); p.reload(); p.wait_for_timeout(900)
+    p.evaluate("h => { location.hash = '#' + h.replace(/^#/, ''); }", h); p.wait_for_timeout(wait)
 def tip(p, timeout=5000):
     try: p.wait_for_selector('.tr-tip', timeout=timeout); return True
     except Exception: return False
@@ -132,7 +136,7 @@ with sync_playwright() as pw:
     # 6. Never during the first visit, and never over the "New here?" card
     c, p = ctx(b); fresh(p, returning=False); visit(p, '/start/1', wait=3000)
     ok(not tip(p, 1500), 'phone: no tour on the first visit (#/start)')
-    visit(p, '/bill/HB2121', wait=3000)
+    visit(p, '/bill/HB2121', wait=3000, link=True)
     ok(p.locator('.bl-newbie').count() == 1, 'phone: a newcomer on a shared bill gets the "New here?" card')
     ok(not tip(p, 1500), 'phone: no tour while the "New here?" card is up')
     p.locator('[data-bl-newlater]').first.click()
@@ -140,7 +144,7 @@ with sync_playwright() as pw:
     ok(not tip(p, 2500) and 'Take the 2-minute tour' in p.locator('main').inner_text(), 'phone: after "Just looking" no tour starts by itself; the quiet line offers it')
     ok(p.locator('.bl-newbie').count() == 0, 'phone: the card is gone after "Just looking"')
     c.close()
-    c, p = ctx(b, 1440, 900); fresh(p, returning=False); visit(p, '/bill/HB2121', wait=3000)
+    c, p = ctx(b, 1440, 900); fresh(p, returning=False); visit(p, '/bill/HB2121', wait=3000, link=True)
     ok(p.locator('.bl-newbie').count() == 1 and not tip(p, 1500), 'laptop: no tour while the "New here?" card is up')
     c.close()
 
