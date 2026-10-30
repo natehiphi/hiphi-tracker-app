@@ -283,3 +283,14 @@ jobs:
       - name: "The bill page as a slide behind ?v2=1, and the small fixes to today's page (R-357 Part 1)"
         if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/v2_bill.py http://localhost:8832
+      # R-357 Parts 2 to 4 (30 Oct 2026): the letter in three screens, Home's week and the eight-tap first visit, all behind ?v2=1. Each takes the
+      # address of this server first (as v2_bill.py does) and goes on a machine with 9 steps, not all on the one with the fewest.
+      - name: "The letter in three screens behind ?v2=1: your letter, the Capitol account once, send; the email; today's walkthrough unchanged (R-357 Part 2)"
+        if: ${{ !cancelled() && matrix.shard == 1 }}
+        run: python3 tests/v2_letter.py http://localhost:8832
+      - name: "Home's week behind ?v2=1: This week by day, the lit row, Also due with no number, Edit my issues last; today's Home unchanged (R-357 Part 3)"
+        if: ${{ !cancelled() && matrix.shard == 7 }}
+        run: python3 tests/v2_home.py http://localhost:8832
+      - name: "The first visit in eight taps behind ?v2=1: Why your note counts, the cover that holds, the story card; today's visit unchanged (R-357 Part 4)"
+        if: ${{ !cancelled() && matrix.shard == 8 }}
+        run: python3 tests/v2_first_visit.py http://localhost:8832
