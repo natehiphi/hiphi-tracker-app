@@ -1,13 +1,16 @@
-# R-357 Part 4 (Nate, 30 Oct 2026): version 2's first visit, in seven taps, behind ?v2=1 (pub/start.js `v2()`, pub/start-rest.js `stepWhy`,
+# R-357 Part 4 (Nate, 30 Oct 2026): version 2's first visit, in eight taps, behind ?v2=1 (pub/start.js `v2()`, pub/start-rest.js `stepWhy`,
 # pub/v2/story.js). DESIGN C-12, C-13, C-14, B-12, B-2's new row.
-#   v2 (?demo=1&v2=1&restart#/, a 375x812 phone), the seven taps from the welcome to Home, each counted:
+#   v2 (?demo=1&v2=1&restart#/, a 375x812 phone), the eight taps from the welcome to Home, each counted:
 #     1 Let's begin   2 a topic   3 a second topic   4 Next   5 Follow N issues   6 Next on "Why your note counts"   7 Skip this part on the profile ask
+#     8 See How I Can Help on the Mahalo cover, which holds still until it is pressed (A-12: a button on a timer is a control that does not look like what it does)
 #     - Your issues: exactly two ticked under each topic shown (at least one), the button "Follow N issues" counts them, and the line
 #       "The two most active under each topic are ticked; change them as you like." is there at reading size (16px or more, C-14)
 #     - "Why your note counts": the drawing, the heading, the two sentences, the two rows with their times, one filled button "Next", no
 #       Skip and no question (C-13), nothing to scroll in a 375x812 window (the first visit fits, R-265), and the sentences at 16px or more
-#     - the profile ask follows as today (Save your profile), its cover carries "See How I Can Help" and Home arrives by itself: seven taps
-#     - Back from the teaching screen is Your issues; the cover's button also moves on, at once
+#     - the profile ask follows as today (Save your profile); its cover plays, then holds with "See How I Can Help": nothing moves on by itself,
+#       a tap elsewhere does nothing, focus is on the button and Tab stays there, and the tap on it goes to Home: eight taps
+#     - Enter on the button does the same; under Reduce Motion the cover still shows, standing still, with the same button
+#     - Back from the teaching screen is Your issues
 #     - coming back to change the issues (#/start/1 after the visit) does not teach again, and does not go through the story
 #     - a shared bill's visit (wiz via) is the follow ask, then the profile ask, then Home
 #   the story card (pub/v2/story.js): importing it touches nothing; storyCard() is { html, wire } with the title, its line, "Read it" and
@@ -108,12 +111,19 @@ with sync_playwright() as pw:
   tap('Skip this part (the profile ask)', '.st-bar [data-stskip]')               # 7
   pg.wait_for_selector('.st-cover .st-cvgo', timeout=4000)
   ok(norm(pg.locator('.st-cover .st-cvgo').inner_text()) == 'See How I Can Help', 'the Mahalo cover carries the first visit\'s last button, See How I Can Help')
-  pg.wait_for_timeout(500)
+  pg.wait_for_timeout(1800)
   pg.screenshot(path=os.path.join(OUT, 'cover.png'))
+  pg.wait_for_timeout(2600)   # longer than the 2.8 s the cover once stayed: it holds
+  hold = pg.evaluate("() => ({ cover: !!document.querySelector('.st-cover'), screen: document.body.dataset.screen, focus: document.activeElement?.className || '', dialog: document.querySelector('.st-cover')?.getAttribute('role'), inert: !!document.getElementById('app')?.inert })")
+  ok(hold['cover'] and hold['screen'] == 'start' and 'st-cvgo' in hold['focus'], f"the cover holds still with its button: nothing moved on by itself after 4.4 s, focus on the button ({hold})")
+  ok(hold['dialog'] == 'dialog' and hold['inert'], 'it is a dialog and the page under it is out of reach until it leaves')
+  pg.mouse.click(40, 300); pg.keyboard.press('Tab'); pg.wait_for_timeout(500)
+  ok(pg.evaluate("() => !!document.querySelector('.st-cover') && document.activeElement.classList.contains('st-cvgo')"), 'a tap elsewhere on it does nothing, and Tab stays on the button')
+  tap('See How I Can Help', '.st-cover .st-cvgo')                                  # 8
   pg.wait_for_selector('.st-cover', state='detached', timeout=9000); settle(pg, 600)
   r = pg.evaluate(LOOK)
-  ok(len(taps) == 7, f"seven taps from the welcome: {taps}")
-  ok(r['hash'] == '#/' and r['screen'] == 'home', f"Home arrives by itself after the cover, no eighth tap ({r['hash']}, {r['screen']})")
+  ok(len(taps) == 8 and taps[-1] == 'See How I Can Help', f"eight taps from the welcome, the last being See How I Can Help: {taps}")
+  ok(r['hash'] == '#/' and r['screen'] == 'home' and not pg.evaluate("() => document.getElementById('app').inert"), f"Home arrives on the tap, and the page is live again ({r['hash']}, {r['screen']})")
   pg.screenshot(path=os.path.join(OUT, 'home.png'))
   # back at Home: a returner changes their issues (Home's "Pick the issues I care about" / Edit my issues is #/start/1): not taught again, not the story
   pg.evaluate("location.hash = '#/start/1'"); settle(pg, 1500)
@@ -125,14 +135,22 @@ with sync_playwright() as pw:
   ok(not errs, f"nothing in the console but what the page always says ({errs[:2]})")
   ctx.close()
 
-  # the cover's own button moves on at once (a tap on it, not a wait)
-  errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs)
-  for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
-  settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1800)
-  pg.locator('.st-bar [data-stskip]').click(); pg.wait_for_selector('.st-cover .st-cvgo', timeout=4000); pg.wait_for_timeout(1300)
-  pg.locator('.st-cover .st-cvgo').click(); pg.wait_for_selector('.st-cover', state='detached', timeout=3000)
-  ok(pg.evaluate("location.hash") == '#/', 'a tap on See How I Can Help lands on Home before the cover would have left by itself')
-  ctx.close()
+  # Enter on the cover's button does the same as a tap (keyboard), and under Reduce Motion the cover still shows, standing still, with the same button
+  for rm in ('no-preference', 'reduce'):
+    errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs, kw=dict(PHONE, reduced_motion=rm))
+    for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
+    settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1800)
+    pg.locator('.st-bar [data-stskip]').click(); pg.wait_for_selector('.st-cover .st-cvgo', timeout=4000); pg.wait_for_timeout(300 if rm == 'reduce' else 1500)
+    if rm == 'reduce':
+      st = pg.evaluate("() => { const t = document.querySelector('.st-cvtitle'), b = document.querySelector('.st-cvgo'), r = b.getBoundingClientRect(); return { title: t.innerText.trim(), op: getComputedStyle(b).opacity, bAnim: getComputedStyle(b).animationName, tAnim: getComputedStyle(t).animationName, vis: r.width > 0 && r.top >= 0 && r.bottom <= innerHeight }; }")
+      ok(st['op'] == '1' and st['bAnim'] == 'none' and st['tAnim'] == 'none' and st['vis'], f"Reduce Motion: the cover shows without animation, the button there at once ({st})")
+      pg.screenshot(path=os.path.join(OUT, 'cover-reduced.png'))
+    pg.wait_for_timeout(1500)
+    ok(pg.locator('.st-cover .st-cvgo').count() == 1, f"({rm}) the cover is still there, holding")
+    pg.keyboard.press('Enter'); pg.wait_for_selector('.st-cover', state='detached', timeout=9000); settle(pg, 500)
+    ok(pg.evaluate("() => [location.hash, document.body.dataset.screen]") == ['#/', 'home'], f"({rm}) Enter on See How I Can Help lands on Home")
+    ok(not errs, f"({rm}) nothing in the console but what the page always says ({errs[:2]})")
+    ctx.close()
 
   # a shared bill's visit: follow it, the profile ask, then Home (the story, Coming up and the recap are not in version 2)
   errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/bill/HB2121', errs)

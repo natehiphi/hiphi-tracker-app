@@ -473,12 +473,52 @@ function stepThanks(step) {
 // in it, the words fade, and the band's own words rise as it lands (0.65 s, then a 0.18 s cross-fade). Under Reduce Motion there is no cover:
 // the story opens with the band. `go` moves the flow on; it runs under the cover.
 const COVER_MS = 1800, FOLD_MS = 650;   // the flower opens from 0.3 s to about 1.2 s and the words have risen by 1.25 s
-const COVER_END_MS = 2800;   // version 2's end holds a little longer: its button rises at 0.95 s and is there to be read
-// end (version 2, R-357 part 4): the cover is the visit's last page, since Home comes next and has no band to fold into. It carries the
-// first visit's last button, "See How I Can Help" (GO_HELP: every version ends on it, Nate 10/6, R-190); a tap on it, or anywhere, or a
-// key, moves on at once, and it moves on by itself after COVER_END_MS, so the seven taps stay seven. It fades off Home.
+// Version 2's end (R-357 part 4): Home comes next and has no band to fold into, so the cover is the visit's last page and holds still with
+// the first visit's last button, "See How I Can Help" (GO_HELP: every version ends on it, Nate 10/6, R-190), until it is pressed (Enter or
+// Space on it too). A button that vanishes on a timer is a control that does not look like what it does (A-12), so the visit is 8 taps.
+// COVER_END_MS is the one-line switch to the other way, which Nate may choose at his check: a number of milliseconds after which the
+// cover moves on by itself (2800 is the length that was tried: the button rises at 0.95 s and is there to be read); 0 holds for the button.
+const COVER_END_MS = 0;
+function coverEnd(go) {
+  S.stBand = false; S.stBandSeen = true;
+  const W = thanksWords(thanksGiven());
+  document.getElementById('st-cover')?.remove();
+  const el = document.createElement('div'); el.id = 'st-cover'; el.className = 'st-cover st-cvend';
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-labelledby', 'st-cvh'); el.setAttribute('aria-describedby', 'st-cvs');
+  const art = fxOn('follow') ? rooster('small-win', { size: 168, cls: 'st-cvro', delay: 420 }) : bloom();
+  el.innerHTML = `<div class="st-cvin"><div class="st-cvflower">${art}${drift()}</div>
+    <p class="st-cvtitle" id="st-cvh">${esc(W.title)}</p><p class="st-cvsub" id="st-cvs">${esc(W.sub)}</p>${btn(GO_HELP, { kind: 'primary', iconEnd: 'arrow-right', cls: 'st-cvgo' })}</div>`;
+  document.body.appendChild(el);
+  // The page under it is out of reach (taps, keys and screen readers) until it leaves: Enter on a button that is still focused under
+  // the cover would press it again. Focus is on the cover's button, and Tab stays there.
+  const page = document.getElementById('app'), go1 = el.querySelector('.st-cvgo');
+  if (page) page.inert = true;
+  go1.focus({ preventScroll: true });
+  const onKey = e => { if (e.key === 'Tab') { e.preventDefault(); go1.focus({ preventScroll: true }); } };
+  document.addEventListener('keydown', onKey, true);
+  let left = false, timer = 0;
+  // Pressed: the flow moves on now, so Home is drawn (and does its own arriving: its tips, its greeting) where it can be seen, and the
+  // cover fades off it once it is up (at most 4 s: a slow phone still gets Home, and the button says it is working).
+  const leave = async () => {
+    if (left) return; left = true; clearTimeout(timer);
+    go1.setAttribute('aria-busy', 'true');
+    try {
+      go();
+      for (const t0 = Date.now(); document.body.dataset.screen === 'start' && Date.now() - t0 < 4000;) await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 120));
+    } finally {
+      document.removeEventListener('keydown', onKey, true);
+      if (page) page.inert = false;
+    }
+    if (reduced() || !el.animate) { el.remove(); return; }
+    el.classList.add('st-cvout'); setTimeout(() => el.remove(), 240);
+  };
+  go1.addEventListener('click', leave);
+  if (COVER_END_MS) timer = setTimeout(leave, COVER_END_MS);
+}
 function coverAndFold(go, { end = false } = {}) {
-  S.stBand = !end; S.stBandSeen = true;
+  if (end) { coverEnd(go); return; }
+  S.stBand = true; S.stBandSeen = true;
   if (reduced()) { go(); return; }
   const W = thanksWords(thanksGiven());
   document.getElementById('st-cover')?.remove();
@@ -487,7 +527,7 @@ function coverAndFold(go, { end = false } = {}) {
   // 0.3 s, after the story is drawn under the cover), then flown into the band like the flower.
   const art = fxOn('follow') ? rooster('small-win', { size: 168, cls: 'st-cvro', delay: 420 }) : bloom();
   el.innerHTML = `<div class="st-cvin" role="status" aria-live="polite"><div class="st-cvflower">${art}${drift()}</div>
-    <p class="st-cvtitle">${esc(W.title)}</p><p class="st-cvsub">${esc(W.sub)}</p>${end ? btn(GO_HELP, { kind: 'primary', iconEnd: 'arrow-right', cls: 'st-cvgo' }) : ''}</div>`;
+    <p class="st-cvtitle">${esc(W.title)}</p><p class="st-cvsub">${esc(W.sub)}</p></div>`;
   document.body.appendChild(el);
   S.stBandHold = true;
   let moved = false, timeUp = false, folded = false;
@@ -496,7 +536,7 @@ function coverAndFold(go, { end = false } = {}) {
   el.addEventListener('pointerdown', early);
   const onKey = e => { if (!['Tab', 'Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) early(); };
   document.addEventListener('keydown', onKey, true);
-  setTimeout(early, end ? COVER_END_MS : COVER_MS);
+  setTimeout(early, COVER_MS);
   // The flow moves on under the cover once it has faded in (0.16 s), without a slide, and before the flower starts to open
   // (0.3 s, fx.css): drawing the story is the heaviest moment, so it happens while nothing on the cover moves.
   setTimeout(() => { go(); window.scrollTo(0, 0); moved = true; tryFold(); }, 170);

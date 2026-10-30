@@ -676,8 +676,12 @@ button.st-way:active { transform: scale(.99); }
 .st-whypage.fit3 .st-whyways .st-vic { display: none; }
 .st-whypage.fit3 .st-whyways li { grid-template-columns: minmax(0, 1fr); }
 
-/* The cover that ends version 2's visit (start-rest.js coverAndFold, end): the profile ask's celebration is the last page, since Home
-   comes next and has no band to fold into. It carries the visit's last button, which rises after the words; a tap on it or anywhere
-   moves on at once, and the cover leaves by itself, so the seven taps stay seven. */
+/* The cover that ends version 2's visit (start-rest.js coverEnd): the profile ask's celebration is the last page, since Home comes next
+   and has no band to fold into. It plays as the cover always does, then holds still with the visit's last button, "See How I Can Help",
+   which rises after the words and stays until it is pressed (A-12: a button that leaves on a timer does not look like what it does).
+   Under Reduce Motion it is the same page standing still: nothing opens, rises or drifts, and the button is there at once. */
 .st-cvin .st-cvgo { margin-top: var(--s24); min-width: min(100%, 280px); animation: fx-rise .5s var(--ease) .95s both; }
-@media (prefers-reduced-motion: reduce) { .st-cvin .st-cvgo { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .st-cover.st-cvend, .st-cover.st-cvend :is(*, *::before, *::after) { animation: none !important; transition: none !important; }
+  .st-cover.st-cvend .fx-spark { display: none; }
+}

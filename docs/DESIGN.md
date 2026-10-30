@@ -467,7 +467,7 @@ anything that lengthens one needs a reason in the commit message.
 | Journey | Budget |
 |---|---|
 | Public: arrive → follow a first issue | 3 steps |
-| Public: first visit, welcome to Home (version 2, `?v2=1`) | 7 taps (R-357 part 4, Nate's pick 30 Oct 2026: Let's begin, a topic, a second topic, Next, Follow N issues, Next on "Why your note counts", Skip this part on the profile ask (or the number's own steps); Home arrives by itself after the profile step's cover. Version 1's is 14 taps and about 1,450 words (the newcomer walk). `tests/v2_first_visit.py` counts them) |
+| Public: first visit, welcome to Home (version 2, `?v2=1`) | 8 taps (R-357 part 4, Nate's pick 30 Oct 2026, "the first visit in seven taps" counting up to the profile ask: Let's begin, a topic, a second topic, Next, Follow N issues, Next on "Why your note counts", Skip this part on the profile ask (or the number's own steps), and the eighth, See How I Can Help on the Mahalo cover, which holds still until it is pressed: a button that leaves on a timer is a control that does not look like what it does, A-12, and every version's visit ends on that button, R-190). Version 1's is 14 taps and about 1,450 words (the newcomer walk). `tests/v2_first_visit.py` and `tests/journeys.py` count them. If Nate chooses the cover that moves on by itself at his check (`COVER_END_MS` in `pub/start-rest.js`), the count is 7 again) |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
 | Public: testimony sent again on the same bill (its letter kept from an earlier hearing) | 6 steps (R-148, 10/4: Send my letter again, Next on "Where do you stand?" with their answer chosen (R-167, 10/5), Use my letter, read it and Next, copy it and open the Capitol page, I saw the green box. The account step never shows again. "Update my letter" puts the bill step and About you back, as the main button only when staff marked the new draft as changing what people should say or HIPHI's position moved) |
@@ -846,7 +846,7 @@ behind taps, so anyone who pressed Next learned almost nothing.
 
 **Version 2 (`?v2=1`): the story is shown from Home, not in the first visit (R-357 part 4, Nate's pick, 30 Oct 2026).** The newcomer
 walk found the story placed too early: 14 taps and about 1,450 words stood between the welcome and Home, and the useful moment was
-tap 5. In version 2 the first visit is seven taps and ends on Home, and the story's four pages are one card on Home for a newcomer,
+tap 5. In version 2 the first visit is eight taps and ends on Home, and the story's four pages are one card on Home for a newcomer,
 "New here? How a bill becomes law" / "Four short pages on your own bill · 2 min", with "Read it" and a quiet "Not now"
 (`pub/v2/story.js` `storyCard()`; Home draws it, `pub/calm/home.js`). "Read it" opens the same four pages on the person's own bill in the first
 visit's frame (`#/learn/story`: the drawing, Back, Next, and a last button "Done" that returns to Home); "Not now", or reading to the end,

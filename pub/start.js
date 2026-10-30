@@ -95,7 +95,7 @@ const onbAsk = () => { if (!ONB) onbLoad().then(() => app.render()).catch(e => c
 const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
-// Version 2's first visit (R-357 part 4, Nate 30 Oct 2026: "the first visit in seven taps", behind ?v2=1): welcome, two topics, Your
+// Version 2's first visit (R-357 part 4, Nate 30 Oct 2026: "the first visit in seven taps" (eight with the last button), behind ?v2=1): welcome, two topics, Your
 // issues (two ticked per topic), one screen on why a note counts (the step the private counts know as 'voice', so no migration), the
 // profile ask, and then Home. The story's four pages, "This Year and Next" and "You're all set" are not in it: the story is a card
 // on Home (pub/v2/story.js), and Home is the ending (DESIGN C-12, C-13). A shared bill's visit ends on the profile ask too.
