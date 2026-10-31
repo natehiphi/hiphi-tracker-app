@@ -99,7 +99,7 @@ export function cardFor(b, ask, state, ctx = {}) {
   if (ask === 'testify') {
     const h = state.open, due = h && h.testimony_deadline && new Date(h.testimony_deadline).getTime() > now ? h.testimony_deadline : null;
     return done(h ? `Speak up by ${dayWords(due || h.scheduled_at)}: ${named}` : `Speak up: ${named}`,
-      `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} It takes about 15 minutes the first time, a few after that; we help you write it.`, 'testify');
+      `${about}Tell ${h ? committeeWords(h.committee, ctx.committees) : 'the committee'} what you think before ${h ? `its hearing on ${dayWords(h.scheduled_at)}` : 'its hearing'}.${due ? ` Testimony is due ${dayWords(due)} at ${timeWords(due)}.` : ''} It takes about 10 minutes the first time, about 3 after that; we help you write it.`, 'testify');
   }
   // The two other ways to help before a hearing (R-205): the committee email (2 minutes) and going in person.
   if (ask === 'email') {
