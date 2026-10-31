@@ -81,7 +81,7 @@ def open_letter(pg):
 def send(pg, line=LINE):   # a letter from the bill page to the Mahalo, for someone with a Capitol account (two screens)
   open_letter(pg)
   if line: pg.fill('#hp-why', line)
-  for sel in ('button[data-hp=next]', '[data-hp=copyopen]', '[data-hp=confirm]'):
+  for sel in ('button[data-hp=next]', '[data-hp=copyopen]', '#hp-dlg .hp-foot [data-hp=sent]'):   # (the send screen's bar: I already sent it)
     pg.click(sel); pg.wait_for_timeout(350)
   pg.wait_for_selector('#hp-dlg .hp-mahalo', timeout=15000); pg.wait_for_timeout(500)
 

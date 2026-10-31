@@ -12,12 +12,14 @@
 //     screen follows, else "Next: send it" ("Next: send your email").
 //   Screen 2, the Capitol account, the first time only: the honest words, today's two choices, the Public Access Room's number, and the
 //     plain way out, "Email the chair instead · 2 min, no account".
-//   Screen 3, send: one button, "Copy and open the Capitol page", then one question, "Did it go through?" (Yes records the act as "I
-//     already sent it" did; Not yet keeps the letter, as "I'll finish later" does). An email has two screens too: the letter, then send
-//     (v2m, R-357 pE, Nate 31 Oct: "why is drafting testimony not the same process as writing an email to the chair. Shouldn't they be
-//     aligned?"): one button, "Open my email app", one small row of other ways (Gmail, Outlook.com, copy the email), then the same
-//     question, "Did it go through?", with the same Yes and Not yet. Only what the Capitol's own rules force stays testimony's (the
-//     Capitol account screen, the green box).
+//   Screen 3, send, in the email's format (R-357 pH, Nate 31 Oct: "I think the previous email format was better, and testimony should
+//     move to match that."): a heading and one sentence, stacked full-width buttons ("Open the Capitol page", filled, which copies the
+//     testimony first and opens the Capitol in a new tab; "Copy my testimony", outlined), the block "Need the parts separately?" (Copy
+//     name · Copy position · Copy testimony), the Capitol's notes, and the bar: Back, then "I already sent it" and "I'll finish later"
+//     as text links ("I already sent it" records the act, as it does in version 1). An email has two screens: the letter, then
+//     helper.js's own send step, "Send your email" (the mail app, Gmail, Outlook.com, each part to copy), unchanged from version 1.
+//     There is no "Did it go through?" question on either path. Only what the Capitol's own rules force stays testimony's (the Capitol
+//     account screen, the green box).
 // "I'll finish later" and Back are on every screen. What About you used to ask (title, email, why it matters, keep my story, the quote
 // question, the sign-off chips) is not asked in the letter (C-5), and each has its place after it (R-357 part A): the profile ask under
 // the Mahalo (email), the story card under it with the quote question after a first story (pub/helper.js), a later visit's page for the
@@ -80,7 +82,7 @@ function build(kind, b, h, o) {
     closing: me.closing || 'Mahalo', why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '', whyStory: !!saved, offer: null,
     points: [], pointsText: '', tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: false, noLive: !!d?.noLive,
     letter: '', subject: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: HP.keyOf(document.activeElement), friend: !!o.friend,
-    stanceOpen: false, touched: false, tried: false, acctNew: false };
+    stanceOpen: false, touched: false, acctNew: false };
   // Where they stand: what they marked on the bill page, else a draft's, else HIPHI's side as the starting point (never recorded as theirs
   // until they tap a chip). "Not sure" on the bill page is "Not sure" here.
   x.stance = mine === 'support' || mine === 'oppose' ? mine : mine === 'unsure' ? 'comments' : d?.stance || HP.hiphiStance(b);
@@ -103,17 +105,18 @@ function build(kind, b, h, o) {
   if (email) x.subject = HP.mailSubject(x);
   if (!email && !d && agrees(b) === false) x.screen = 'v2own';   // they see it differently from HIPHI: the Capitol's own form first
   if (d) {
-    x.resumed = true; x.touched = true; x.tried = !!d.tried; x.acctNew = !!d.acctNew; x.away = !!d.away; x.back = !!d.back; x.leftAt = d.left || 0;
+    x.resumed = true; x.touched = true; x.acctNew = !!d.acctNew; x.away = !!d.away; x.back = !!d.back; x.leftAt = d.left || 0;
     const seq = V2.seq(x);
-    x.screen = seq.includes(d.screen) || d.screen === 'v2own' ? d.screen : seq[seq.length - 1];
-    if (email && x.screen === 'v2m') { x.subject = d.subject || x.subject; x.opened = d.opened || ''; x.tried = !!d.tried || !!d.opened; }   // (a draft kept on the older 'mail' step lands here too: its link was already tapped when `opened` is set)
+    const at = d.screen === 'v2m' ? 'mail' : d.screen;   // (a draft kept on 'v2m', the email's send screen of 31 Oct morning, opens on the mail step that took its place)
+    x.screen = seq.includes(at) || at === 'v2own' ? at : seq[seq.length - 1];
+    if (email && x.screen === 'mail') { x.subject = d.subject || x.subject; x.opened = d.opened || ''; x.asked = !!d.opened; }   // back from the mail app or Gmail: "Did you send it?" waits for them
   }
   return x;
 }
 
 // ---------------- the steps ----------------
-V2.seq = x => isEmail(x) ? ['v2l', 'v2m'] : ['v2l', x.acctStep && 'v2a', 'v2s'].filter(Boolean);
-V2.body = x => x.screen === 'v2l' ? letterScreen(x) : x.screen === 'v2a' ? acctScreen(x) : x.screen === 'v2s' ? sendScreen(x) : x.screen === 'v2m' ? mailScreen(x) : x.screen === 'v2own' ? ownScreen(x) : null;
+V2.seq = x => isEmail(x) ? ['v2l', 'mail'] : ['v2l', x.acctStep && 'v2a', 'v2s'].filter(Boolean);
+V2.body = x => x.screen === 'v2l' ? letterScreen(x) : x.screen === 'v2a' ? acctScreen(x) : x.screen === 'v2s' ? sendScreen(x) : x.screen === 'v2own' ? ownScreen(x) : null;
 
 // ---------------- screen 1: your letter ----------------
 // "Your letter supports it", not "You support it": HIPHI's side is only the starting point until they choose (B-12), so the line claims less.
@@ -199,51 +202,41 @@ function acctScreen(x) {
 }
 
 // ---------------- screen 3: send ----------------
-// "Did it go through?" is one card for both kinds of send, so the two paths ask in the same words (R-357 pE). Yes is helper.js's: for testimony
-// `confirm` (the act is "testimony"), for an email `mailsent` (the act is "email", the Mahalo for an email).
-const askCard = x => x.tried ? `<section class="card v2-ask" aria-labelledby="v2-ask-t"><h4 id="v2-ask-t">Did it go through?</h4>
-      <p>${isEmail(x) ? 'A copy in your Sent folder means it did.' : 'The green box on the Capitol page means it did.'}</p>
-      <div class="v2-answers">${btn('Yes', { kind: 'primary', icon: 'check', attrs: { 'data-hp': isEmail(x) ? 'mailsent' : 'confirm', ...(x.busy ? { 'aria-busy': 'true', disabled: true } : {}) } })}${btn('Not yet', { kind: 'secondary', attrs: { 'data-hp': 'v2-notyet' } })}</div></section>` : '';
+// The email's format (R-357 pH, Nate 31 Oct; helper.js's mailScreen is the model): a heading and one sentence, stacked full-width buttons, the
+// block of parts to copy one by one, the Capitol's notes. The bar holds Back, and "I already sent it" and "I'll finish later" as text links.
+// "Open the Capitol page" is helper.js's copyAndOpen (the copy and the new tab are both inside the tap); the testimony is also copied on the
+// tap that brings them here (advance), so the sentence can say it is copied, "just in case" they open the Capitol some other way.
 function sendScreen(x) {
   const { h } = x, date = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric' });
-  const first = x.acctNew ? `<p>First, make your free account on the Capitol page: choose <b>Submit Testimony</b>, then <b>Register</b>. They email you a link to confirm it.</p>` : '';
-  const ask = askCard(x);
-  return `<div class="hp-top">${HP.screenHead(3, 'Send it at the Capitol')}
-      <p class="hp-sub">One tap copies your letter and opens the Capitol page. It goes to lawmakers under your name, and the Capitol posts it publicly.</p></div>
+  const first = x.acctNew ? `<div class="v2-do"><p>First, make your free account on the Capitol page: choose <b>Submit Testimony</b>, then <b>Register</b>. They email you a link to confirm it.</p></div>` : '';
+  const part = (key, label, ic) => btn(label, { kind: 'text', sm: true, icon: ic, attrs: { 'data-hp': 'v2-copypart', 'data-part': key, id: 'v2-cp-' + key } });
+  return `<div class="hp-top">${HP.screenHead(3, 'Send your testimony')}
+      <p class="hp-sub">Your testimony goes in on the Capitol’s website.${x.autoCopied ? ' It is copied, just in case.' : ''}</p></div>
     ${HP.welcomeBack()}
-    ${DEMO ? notice('Practice: this copies your letter and opens nothing. On the real tracker it takes you to the Capitol website.') : ''}
-    <div class="v2-do">${first}<p>Sign in, pick the hearing on <b class="hp-nw">${esc(date)}</b>, paste your letter, submit. Look for the <b>green box</b>.</p>
-      <p>On the form, choose <b>${HP.formWord(sideOf(x))}</b> and <b>Individual</b>.</p></div>
-    ${ask}
+    ${DEMO ? notice('Practice: this copies your testimony and opens nothing. On the real tracker it takes you to the Capitol website.') : ''}
+    ${first}
+    <ul class="hp-sends" role="list">
+      <li><button type="button" class="btn primary full hp-send" data-hp="copyopen" id="v2-copyopen">${icon('landmark')}<span>Open the Capitol page</span>${icon('external-link', { cls: 'hp-ext' })}</button>
+        <p class="hp-sendsub">Opens in a new tab. Paste your testimony there.</p></li>
+      <li><button type="button" class="btn secondary full hp-send" data-hp="v2-copymine" id="v2-copymine">${icon('copy')}<span>Copy my testimony</span></button>
+        <p class="hp-sendsub v2-sub">${x.chip === 'mine' ? `<span class="okmsg">${icon('check')}Copied</span>` : 'Copies just your testimony.'}</p></li>
+    </ul>
+    <div class="hp-other"><p class="hp-knh">Need the parts separately?</p><p class="small">Copy each part and paste it in.</p>
+      <div class="hp-under hp-copies">${part('name', 'Copy name', 'user')}${part('position', 'Copy position', 'copy')}${part('testimony', 'Copy testimony', 'copy')}
+        ${x.chip && x.chip !== 'mine' && x.chip !== 'fail' ? `<span class="okmsg" role="status">${icon('check')}${BITS[x.chip][0]}</span>` : ''}</div></div>
+    <div class="v2-do"><p>On the Capitol page, pick the hearing on <b class="hp-nw">${esc(date)}</b>. Choose <b>${HP.formWord(sideOf(x))}</b> and <b>Individual</b>. The <b>green box</b> means it went through.</p></div>
     ${HP.capitolNotes(true)}
     ${x.failMsg ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(x.failMsg)}</span></div>` : ''}`;
 }
 const notice = text => `<div class="notice info">${icon('info')}<div><p>${esc(text)}</p></div></div>`;
-
-// ---------------- screen 2 of an email: send (R-357 pE) ----------------
-// The same shape as sendScreen: a heading and one sentence, the bar's one filled button ("Open my email app", a link: the mail app
-// opens inside the tap), one small row of other ways under the sentence, and after any tap the same question. The older step's three
-// stacked buttons, the three copy buttons and "I already sent it" are not here: Yes answers the question, one copy is enough.
-// Whatever is tapped, the message is copied too (the safety net of R-079: a mail app on Windows cuts a long link, and its body is lost).
-const mailText = x => { const to = x.to.map(t => t.email).filter(Boolean).join(', '); return `${to ? `To: ${to}\n` : ''}Subject: ${x.subject}\n\n${x.letter}`; };
-const newTab = { target: '_blank', rel: 'noopener' };
-function mailScreen(x) {
-  const L = HP.sendLinks(x), noAddr = !x.to.some(t => t.email), cut = L.app.cut || L.gmail.cut || L.outlook.cut;
-  const link = (label, via, href) => btn(`${label}<span class="sr"> (opens in a new tab)</span>`, { kind: 'text', sm: true, href, attrs: { 'data-hp': 'send', 'data-via': via, id: 'v2-' + via, ...newTab } });
-  const copy = btn('Copy the email', { kind: 'text', sm: true, attrs: { 'data-hp': 'v2-copyall', id: 'v2-copyall' } });
-  const dot = '<span class="v2-dot" aria-hidden="true">·</span>';
-  const alt = noAddr ? `<p class="v2-alt">${copy}${x.copiedAll ? `<span class="okmsg" role="status">${icon('check')}Copied</span>` : ''}</p>`
-    : `<p class="v2-alt"><span>Or open in</span>${link('Gmail', 'gmail', L.gmail.href)}${dot}${link('Outlook.com', 'outlook', L.outlook.href)}${dot}${copy}${x.copiedAll ? `<span class="okmsg" role="status">${icon('check')}Copied</span>` : ''}</p>`;
-  const noAddrNote = noAddr ? `<div class="notice warn">${icon('triangle-alert')}<div><p>We don’t have an email address for them. Their Capitol page says how to reach them.</p></div></div>
-    ${x.to.filter(t => t.url).map(t => btn(`${esc(t.label)} on the Capitol website`, { kind: 'secondary', iconEnd: 'external-link', full: true, href: t.url, attrs: { 'data-hp': 'send', 'data-via': 'url', ...newTab } })).join('')}` : '';
-  return `<div class="hp-top">${HP.screenHead(2, 'Send your email')}
-      <p class="hp-sub">${noAddr ? 'Copy your email, then send it from their Capitol page.' : 'Your email opens in your mail app with everything filled in. Send it there, then come back.'}</p></div>
-    ${HP.welcomeBack()}
-    ${noAddrNote}
-    ${alt}
-    <p class="v2-small">${cut ? 'Your message is long, so it may open empty. It is copied: paste it into the email.' : 'It also copies your message, just in case.'}</p>
-    ${askCard(x)}
-    ${x.failMsg ? `<div class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(x.failMsg)}</span></div>` : ''}`;
+// The parts of the Capitol's form, one tap each: the name, the position in the words the form uses, and the testimony.
+const BITS = { name: ['Name copied', x => x.name.trim()], position: ['Position copied', x => HP.formWord(sideOf(x))], testimony: ['Testimony copied', x => x.letter] };
+async function copyBit(x, key) {   // key: 'mine' (the big button) or a BITS key; "Copied" says it in place for two and a half seconds
+  const ok = await HP.copyText(key === 'mine' ? x.letter : BITS[key][1](x));
+  if (S.helper !== x || x.screen !== 'v2s') return;
+  x.failMsg = ok ? '' : 'We couldn’t copy it for you. Go back to your letter, select all of it, then copy it yourself.'; x.chip = ok ? key : 'fail';
+  HP.paint({ focus: key === 'mine' ? 'v2-copymine' : 'v2-cp-' + key }); HP.announce(ok ? (key === 'mine' ? 'Copied' : BITS[key][0]) : x.failMsg);
+  const was = x.chip; setTimeout(() => { if (S.helper === x && x.chip === was) { x.chip = ''; if (x.screen === 'v2s') HP.paint(); } }, 2500);
 }
 
 // ---------------- someone who sees the bill differently from HIPHI: the Capitol's own form ----------------
@@ -266,11 +259,10 @@ V2.foot = (x, { row, back, later }) => {
     case 'v2l': return row(`<button type="button" class="btn text hp-back" data-hp="close">${icon('chevron-left')}<span>Back</span></button>`
       + btn(nextWords(x), { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
     case 'v2a': return row(back, later);
-    case 'v2s': return row(back + (x.busy ? busy : btn('Copy and open the Capitol page', { kind: x.tried ? 'secondary' : 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen', id: 'v2-copyopen' } })), x.busy ? '' : later);
-    // An email: Back, then the one filled button, which is the link (the tap opens the mail app); outlined once something was opened, as testimony's is.
-    case 'v2m': return row(back + (x.busy ? busy : x.to.some(t => t.email) ? btn('Open my email app', { kind: x.tried ? 'secondary' : 'primary', icon: 'mail', href: HP.sendLinks(x).app.href, cls: 'hp-main', attrs: { 'data-hp': 'send', 'data-via': 'app', id: 'v2-app' } }) : ''), x.busy ? '' : later);
+    // Testimony's send screen, in the email's format: Back, then "I already sent it" and "I'll finish later" as text links (the buttons are in the page).
+    case 'v2s': return row(back + (x.busy ? busy : ''), x.busy ? '' : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } }) + later);
     case 'v2own': return row(back + HP.capitolLink(x.b, x.h, 'Testify at the Capitol site', { kind: 'primary', cls: 'hp-main' }), later);
-    default: return null;   // every Mahalo is helper.js's own
+    default: return null;   // the email's send step ('mail') and every Mahalo are helper.js's own
   }
 };
 
@@ -288,16 +280,12 @@ V2.click = (a, t) => {
     case 'next': if (x.screen !== 'v2l') return false; toNext(x); return true;
     case 'back': if (x.screen !== 'v2own') return false; HP.goTo('v2l'); return true;
     case 'v2-write': HP.goTo('v2l'); return true;
-    case 'v2-acct-yes': HP.saveMe({ capitolAcct: true }); HP.goNext(); return true;
-    case 'v2-acct-no': x.acctNew = true; HP.goNext(); return true;
+    case 'v2-acct-yes': HP.saveMe({ capitolAcct: true }); advance(x); return true;
+    case 'v2-acct-no': x.acctNew = true; advance(x); return true;
     case 'v2-email': toEmail(x); return true;
-    case 'send': if (x.screen !== 'v2m') return false; tappedSend(x, t.dataset.via); return true;   // a link: the browser opens it; the question is drawn a moment later
-    case 'v2-copyall': copyAll(x); return true;
-    case 'copyopen': x.tried = true; return false;   // the pressed button is helper.js's (copy, then open, inside the tap); the question follows it
+    case 'v2-copymine': copyBit(x, 'mine'); return true;
+    case 'v2-copypart': copyBit(x, t.dataset.part); return true;
     case 'later': x.touched = true; return false;   // "I'll finish later" keeps the letter, even if nothing was changed, and leaves the sheet
-    // Not yet: the question folds away; the button and the steps stay, for someone back from the Capitol tab mid-way. The letter is kept as unfinished.
-    case 'v2-notyet': x.tried = false; x.touched = true; HP.saveDraft(); HP.paint({ focus: isEmail(x) ? 'v2-app' : 'v2-copyopen' });
-      HP.announce(isEmail(x) ? 'Okay. Your email is saved here. Open your mail app again when you are ready.' : 'Okay. Your letter is saved here. Open the Capitol page again when you are ready.'); return true;
     case 'says': x.touched = true; return false;   // a part about them left out or put back (helper.js writes the letter again)
     default: return false;
   }
@@ -311,22 +299,6 @@ function setClosing(x, word) {
 }
 // Written again from the answers after a change of side or of "strongly".
 function rewrite(x) { HP.syncLetter(x); if (isEmail(x)) x.subject = HP.mailSubject(x); }
-// The mail app, Gmail or Outlook.com was tapped (an anchor: it opens by itself). The message goes to the clipboard in the same tap, the draft keeps
-// that it was tried, and the screen is drawn again after 800 ms, never inside the tap, or the new tab or the mail app might not open (as the older step did).
-function tappedSend(x, via) {
-  x.tried = true; x.touched = true; x.opened = via; x.failMsg = '';
-  HP.copyText(x.letter); HP.saveDraft();
-  setTimeout(() => { if (S.helper === x && x.screen === 'v2m' && !x.busy) { HP.paint(); HP.announce('Did it go through?'); } }, 800);
-}
-// One copy of the whole email, for any other mail service: the address, the subject, then the message. "Copied" says it for two seconds.
-async function copyAll(x) {
-  const ok = await HP.copyText(mailText(x));
-  if (S.helper !== x || x.screen !== 'v2m') return;
-  x.touched = true; x.failMsg = ok ? '' : 'We couldn’t copy it. Try opening it in your mail app or Gmail instead.';
-  if (ok) { x.tried = true; x.copiedAll = true; x.opened = x.opened || 'copy'; HP.saveDraft(); }
-  HP.paint({ focus: 'v2-copyall' }); HP.announce(ok ? 'Copied. Did it go through?' : x.failMsg);
-  if (ok) setTimeout(() => { if (S.helper === x && x.copiedAll) { x.copiedAll = false; if (x.screen === 'v2m') HP.paint(); } }, 2500);
-}
 function pickStance(x, v) {
   const b = x.b, hs = HP.hiphiStance(b), was = sideOf(x);
   x.stanceOpen = false;
@@ -364,6 +336,13 @@ function toNext(x) {
   HP.saveMe({ why: x.why, whyBill: x.b.id });   // (the sign-off is kept only when they choose one, setClosing)
   if (x.name.trim() && (x.name.trim() !== x.name0 || x.name.trim() !== myName())) { saveProfile({ name: x.name.trim() }).catch(e => console.warn('profile:', e?.message || e)); x.name0 = x.name.trim(); }
   rewrite(x);
+  advance(x);
+}
+// On to the next screen. Going to testimony's send screen, the letter is copied in the same tap (a phone allows a copy only inside one), as helper.js's
+// email step copies its message on the way in: the sentence there says "It is copied, just in case" once it is.
+function advance(x) {
+  const s = V2.seq(x);
+  if (s[s.indexOf(x.screen) + 1] === 'v2s') { x.autoCopied = false; HP.copyText(x.letter).then(ok => { if (S.helper === x && x.screen === 'v2s') { x.autoCopied = ok; HP.paint(); } }); }
   HP.goNext();
 }
 // The way out of the Capitol account: the same words as an email to the chair, no account. The letter's answers carry over.
@@ -375,7 +354,7 @@ function toEmail(x) {
   rewrite(x);
   HP.openMark.set({ mode: 'email', b: x.b.id, h: x.h.id, o: { mode: 'email', bill: x.b.id, hearing: x.h.id } });
   const d = dlg(); if (d) { d.dataset.key = [x.mode, x.b.id, x.h.id, x.code].join('|'); d.classList.add('hp-mail'); }
-  HP.goTo('v2m');
+  HP.goTo('mail');   // helper.js's send step: it copies the email and shows the three ways to open it
 }
 
 // ---------------- typing ----------------
