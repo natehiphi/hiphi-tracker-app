@@ -1,23 +1,27 @@
-# R-357 Part 4 (Nate, 30 Oct 2026): version 2's first visit, in eight taps, behind ?v2=1 (pub/start.js `v2()`, pub/start-rest.js `stepWhy`,
-# pub/v2/story.js). DESIGN C-12, C-13, C-14, B-12, B-2's new row.
-#   v2 (?demo=1&v2=1&restart#/, a 375x812 phone), the eight taps from the welcome to Home, each counted:
-#     1 Let's begin   2 a topic   3 a second topic   4 Next   5 Follow N issues   6 Next on "Why your note counts"   7 Skip this part on the profile ask
-#     8 See How I Can Help on the Mahalo cover, which holds still until it is pressed (A-12: a button on a timer is a control that does not look like what it does)
+# R-357 Part 4 (Nate, 30 Oct 2026; two teaching screens since his note of 31 Oct): version 2's first visit, in nine taps, behind ?v2=1 (pub/start.js
+# `v2()`, pub/start-rest.js `stepWhy`, pub/v2/story.js). DESIGN C-12, C-13, C-14, B-12, B-2's new row.
+#   v2 (?demo=1&v2=1&restart#/, a 375x812 phone), the nine taps from the welcome to Home, each counted:
+#     1 Let's begin   2 a topic   3 a second topic   4 Next   5 Follow N issues   6 Next on "Testimony: your words on the record"
+#     7 Next on "An email to the chair"   8 Skip this part on the profile ask
+#     9 See How I Can Help on the Mahalo cover, which holds still until it is pressed (A-12: a button on a timer is a control that does not look like what it does)
 #     - Your issues: exactly two ticked under each topic shown (at least one), the button "Follow N issues" counts them, and the line
 #       "The two most active under each topic are ticked; change them as you like." is there at reading size (16px or more, C-14)
-#     - "Why your note counts": the drawing, the heading, the two sentences, the two rows with their times, one filled button "Next", no
-#       Skip and no question (C-13), nothing to scroll in a 375x812 window (the first visit fits, R-265), and the sentences at 16px or more
+#     - the two teaching screens, each with its own drawing (art.js VOICES, then the Capitol), the heading, two sentences, one time line and one
+#       filled button "Next", no Skip and no question (C-13), nothing to scroll in a 375x812 window (the first visit fits, R-265), the words at
+#       16px or more, and under 30 words a screen (C-14: the two sentences and the time line together); the signpost stays on "Your voice" for both
+#     - the private counts: the first screen is 'voice' (as the one screen was) and the second is 'voice' with lesson_step 2, never a step the
+#       database does not know (read from the sandbox's printout, ?debug)
 #     - the profile ask follows as today (Save your profile); its cover plays, then holds with "See How I Can Help": nothing moves on by itself,
-#       a tap elsewhere does nothing, focus is on the button and Tab stays there, and the tap on it goes to Home: eight taps
+#       a tap elsewhere does nothing, focus is on the button and Tab stays there, and the tap on it goes to Home: nine taps
 #     - Enter on the button does the same; under Reduce Motion the cover still shows, standing still, with the same button
-#     - Back from the teaching screen is Your issues
+#     - Back from the first teaching screen is Your issues, from the second the first, from the profile ask the second
 #     - coming back to change the issues (#/start/1 after the visit) does not teach again, and does not go through the story
 #     - a shared bill's visit (wiz via) is the follow ask, then the profile ask, then Home
 #   the story card (pub/v2/story.js): importing it touches nothing; storyCard() is { html, wire } with the title, its line, "Read it" and
 #     "Not now"; Not now removes it and keeps the mark; with the mark it returns no html; Read it's page is the story (#/learn/story) in the
 #     first visit's frame with Back and a last button Done, which returns to Home and marks it
 #   today's page (no v2): the issues step is R-245's (four ticked, "We ticked 4 to start."), and after the profile ask come the story's four
-#     pages, Coming up and "You're all set" with the recap, and no "Why your note counts" anywhere
+#     pages, Coming up and "You're all set" with the recap, and neither teaching screen anywhere
 #   nothing in the console but what the page always says
 # usage: python3 tests/v2_first_visit.py [BASE]   (BASE defaults to http://localhost:8832)
 import os, re, sys
@@ -32,6 +36,13 @@ def ok(cond, what):
   if not cond: fails += 1
 
 PHONE = dict(viewport={'width': 375, 'height': 812}, is_mobile=True, has_touch=True)
+# Nate's pick of 31 Oct 2026 (R-357 part 4): two short screens, each with its own picture, in draft A's words without examples
+TEACH = [
+  dict(h1='Testimony: your words on the record', art='art-voices', time='About 10 minutes the first time, then about 3.',
+       ledes=['Before a committee votes, it reads what people sent in.', "Your note goes on the hearing's record, with your name."]),
+  dict(h1='An email to the chair', art='art-capitol', time='About 2 minutes.',
+       ledes=["One lawmaker, the committee's chair, picks which bills get a hearing.", 'A short email tells them people are watching.']),
+]
 norm = lambda s: re.sub(r'\s+', ' ', (s or '').replace('’', "'").replace(' ', ' ')).strip()
 # what is on the first-visit screen now: the heading, the words, the filled buttons in view, whether it fits the window
 LOOK = """() => {
@@ -40,8 +51,8 @@ LOOK = """() => {
   const px = e => e ? parseFloat(getComputedStyle(e).fontSize) : 0;
   return { h1: h1 && h1.innerText.trim(), text: (document.querySelector('main') || document.body).innerText, over: document.scrollingElement.scrollHeight - innerHeight,
     filled: [...document.querySelectorAll('.btn.primary')].filter(vis).map(e => e.innerText.trim()), skip: [...document.querySelectorAll('[data-stskip]')].filter(vis).length,
-    art: !!document.querySelector('.st-art svg.art-voices') && vis(document.querySelector('.st-art svg')), ledes: [...document.querySelectorAll('.st .lede')].map(e => [e.innerText.trim(), px(e)]),
-    rows: [...document.querySelectorAll('.st-whyways li')].map(li => [li.querySelector('b')?.innerText.trim(), li.querySelector('span:not(.st-vic)')?.innerText.trim()]),
+    art: (document.querySelector('.st-art svg')?.getAttribute('class') || '') + (document.querySelector('.st-art svg') && vis(document.querySelector('.st-art svg')) ? '' : ' hidden'),
+    ledes: [...document.querySelectorAll('.st .lede')].map(e => [e.innerText.trim(), px(e)]), time: (document.querySelector('.st-whytime') || {}).innerText || '',
     strip: [...document.querySelectorAll('.st-chapters .st-cl')].map(e => e.innerText.trim()), choices: document.querySelectorAll('.lx-ch, .lx-quiz, [data-lx-q]').length,
     cls: st ? st.className : '', screen: document.body.dataset.screen, hash: location.hash }; }"""
 ISSUES = """() => [...document.querySelectorAll('.st-tsec')].map(sec => ({ name: sec.querySelector('.st-tname')?.innerText.trim(), cards: sec.querySelectorAll('.st-pcard').length,
@@ -61,7 +72,7 @@ def settle(pg, ms=1800): pg.wait_for_timeout(ms)
 
 with sync_playwright() as pw:
   br = pw.chromium.launch()
-  # ======================= version 2, the seven taps =======================
+  # ======================= version 2, the nine taps =======================
   errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs)
   taps = []
   def tap(what, sel, nth=0):
@@ -81,34 +92,40 @@ with sync_playwright() as pw:
   ok(r['filled'] == ['Follow 4 issues'], f"the button counts them: {r['filled']}")
   pg.screenshot(path=os.path.join(OUT, 'issues.png'))
   tap('Follow 4 issues', '.st-bar [data-stnext]'); settle(pg, 2200)               # 5
+  words = lambda xs: sum(len(x.split()) for x in xs)
+  for k, T in enumerate(TEACH, 1):
+    r = pg.evaluate(LOOK); t = norm(r['text']); ledes = [norm(x) for x, _ in r['ledes']]
+    ok(r['h1'] == T['h1'] and pg.title().startswith(T['h1']) and f'#/start/{k + 2}' in r['hash'], f"teaching screen {k} follows {'the issues' if k == 1 else 'the first'}, before the profile ask ({r['h1']!r}, tab {pg.title()!r}, {r['hash']})")
+    ok(ledes == T['ledes'], f"its two sentences, in Nate's words: {ledes}")
+    ok(norm(r['time']) == T['time'], f"its time line: {r['time']!r}")
+    n = words(ledes); nt = words(ledes + [norm(r['time'])])
+    ok(n < 30 and nt <= 30, f"under 30 words (C-14): {n} in the two sentences, {nt} with the time line")
+    ok(r['filled'] == ['Next'] and r['skip'] == 0, f"one filled button, Next, and no Skip: {r['filled']}")
+    ok(r['choices'] == 0 and '?' not in t, 'no question and no quiz (C-13)')
+    ok(T['art'] in r['art'] and 'hidden' not in r['art'], f"its own drawing from art.js is shown ({r['art']!r})")
+    ok(r['over'] <= 1, f"nothing to scroll in a 375x812 window ({r['over']}px over) ({r['cls']})")
+    ok(all(px >= 16 for _, px in r['ledes']), f"the sentences are 16px or more (C-14): {[px for _, px in r['ledes']]}")
+    ok(r['strip'] == ['Your issues', 'Your voice', 'Your profile'], f"the signpost names the three parts, and stays on Your voice: {r['strip']}")
+    ok(not re.search(r'few people|most people don.t|fewer than', t, re.I) and 'vape' not in t.lower(), 'nothing says or implies that few people act (R-171); no "vape"')
+    pg.screenshot(path=os.path.join(OUT, f'why{k}.png'))
+    if k == 1: tap('Next on Testimony', '.st-bar [data-stnext]'); settle(pg, 1500)   # 6
+  # Back is the screen before, with what was ticked kept; forward again
+  pg.locator('.st-back').first.click(); settle(pg, 1500)
   r = pg.evaluate(LOOK)
-  ok(r['h1'] == 'Why your note counts' and pg.title().startswith('Why your note counts'), f"the teaching step follows the issues, before the profile ask ({r['h1']!r}, tab {pg.title()!r})")
-  t = norm(r['text'])
-  ok('Lawmakers decide on these bills in committee hearings, and they read what people send in.' in t, 'sentence one')
-  ok('A few sentences from you, in your own words, is testimony. The tracker writes the first draft; you make it yours.' in t, 'sentence two')
-  rows = [[norm(a), norm(b)] for a, b in r['rows']]
-  ok(rows == [['Testimony', "Goes on the hearing's record · about 10 min the first time, then about 3 min"], ['An email to the committee chair', 'about 2 min']], f"the two plain rows with their times: {rows}")
-  ok(r['filled'] == ['Next'] and r['skip'] == 0, f"one filled button, Next, and no Skip: {r['filled']}")
-  ok(r['choices'] == 0 and '?' not in t, 'no question and no quiz (C-13)')
-  ok(r['art'], 'the drawing of speaking up (art.js VOICES) is shown')
-  ok(r['over'] <= 1, f"nothing to scroll in a 375x812 window ({r['over']}px over) ({r['cls']})")
-  ok(all(px >= 16 for _, px in r['ledes']), f"the sentences are 16px or more (C-14): {[px for _, px in r['ledes']]}")
-  ok(r['strip'] == ['Your issues', 'Your voice', 'Your profile'], f"the signpost names the three parts: {r['strip']}")
-  ok(not re.search(r'few people|most people don.t|fewer than', t, re.I) and 'vape' not in t.lower(), 'nothing says or implies that few people act (R-171); no "vape"')
-  pg.screenshot(path=os.path.join(OUT, 'why.png'))
-  # Back is Your issues, with the ticks as they were; forward again
+  ok(r['h1'] == TEACH[0]['h1'], f"Back from the second teaching screen is the first ({r['h1']!r})")
   pg.locator('.st-back').first.click(); settle(pg, 1500)
   r = pg.evaluate(LOOK); sec = pg.evaluate(ISSUES)
-  ok(r['h1'] == 'Your issues' and all(s['ticked'] == 2 for s in sec), 'Back from the teaching step is Your issues, ticks kept')
+  ok(r['h1'] == 'Your issues' and all(s['ticked'] == 2 for s in sec), 'Back from the first teaching screen is Your issues, ticks kept')
   pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2200)
   r = pg.evaluate(LOOK)
-  ok(r['h1'] == 'Why your note counts', 'Follow N issues again comes back to the teaching step (the follow is the same)')
-  tap('Next on Why your note counts', '.st-bar [data-stnext]'); settle(pg, 1800)   # 6
+  ok(r['h1'] == TEACH[0]['h1'], 'Follow N issues again comes back to the first teaching screen (the follow is the same)')
+  pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1500)
+  tap('Next on An email to the chair', '.st-bar [data-stnext]'); settle(pg, 1800)   # 7
   r = pg.evaluate(LOOK)
   ok(r['h1'] == 'Save your profile', f"the profile ask follows as today ({r['h1']!r})")
   ok(r['over'] <= 1, f"the profile ask fits ({r['over']}px over)")
   pg.screenshot(path=os.path.join(OUT, 'profile.png'))
-  tap('Skip this part (the profile ask)', '.st-bar [data-stskip]')               # 7
+  tap('Skip this part (the profile ask)', '.st-bar [data-stskip]')               # 8
   pg.wait_for_selector('.st-cover .st-cvgo', timeout=4000)
   ok(norm(pg.locator('.st-cover .st-cvgo').inner_text()) == 'See How I Can Help', 'the Mahalo cover carries the first visit\'s last button, See How I Can Help')
   pg.wait_for_timeout(1800)
@@ -119,10 +136,10 @@ with sync_playwright() as pw:
   ok(hold['dialog'] == 'dialog' and hold['inert'], 'it is a dialog and the page under it is out of reach until it leaves')
   pg.mouse.click(40, 300); pg.keyboard.press('Tab'); pg.wait_for_timeout(500)
   ok(pg.evaluate("() => !!document.querySelector('.st-cover') && document.activeElement.classList.contains('st-cvgo')"), 'a tap elsewhere on it does nothing, and Tab stays on the button')
-  tap('See How I Can Help', '.st-cover .st-cvgo')                                  # 8
+  tap('See How I Can Help', '.st-cover .st-cvgo')                                  # 9
   pg.wait_for_selector('.st-cover', state='detached', timeout=9000); settle(pg, 600)
   r = pg.evaluate(LOOK)
-  ok(len(taps) == 8 and taps[-1] == 'See How I Can Help', f"eight taps from the welcome, the last being See How I Can Help: {taps}")
+  ok(len(taps) == 9 and taps[-1] == 'See How I Can Help', f"nine taps from the welcome, the last being See How I Can Help: {taps}")
   ok(r['hash'] == '#/' and r['screen'] == 'home' and not pg.evaluate("() => document.getElementById('app').inert"), f"Home arrives on the tap, and the page is live again ({r['hash']}, {r['screen']})")
   pg.screenshot(path=os.path.join(OUT, 'home.png'))
   # back at Home: a returner changes their issues (Home's "Pick the issues I care about" / Edit my issues is #/start/1): not taught again, not the story
@@ -131,7 +148,7 @@ with sync_playwright() as pw:
   pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1800)
   pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2200)
   r = pg.evaluate(LOOK)
-  ok('Why your note counts' not in r['text'] and 'bill’s story' not in r['text'] and "story" not in (r['h1'] or '').lower(), f"changing the issues later does not teach again or open the story ({r['h1']!r}, {r['hash']})")
+  ok(not any(T['h1'] in r['text'] for T in TEACH) and not re.search(r'#/start/[34]$', r['hash']) and 'bill’s story' not in r['text'] and "story" not in (r['h1'] or '').lower(), f"changing the issues later does not teach again or open the story ({r['h1']!r}, {r['hash']})")
   ok(not errs, f"nothing in the console but what the page always says ({errs[:2]})")
   ctx.close()
 
@@ -139,7 +156,8 @@ with sync_playwright() as pw:
   for rm in ('no-preference', 'reduce'):
     errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs, kw=dict(PHONE, reduced_motion=rm))
     for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
-    settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1800)
+    settle(pg, 1500)
+    for wait in (2000, 1500, 1800): pg.locator('.st-bar [data-stnext]').click(); settle(pg, wait)   # Follow, then the two teaching screens
     pg.locator('.st-bar [data-stskip]').click(); pg.wait_for_selector('.st-cover .st-cvgo', timeout=4000); pg.wait_for_timeout(300 if rm == 'reduce' else 1500)
     if rm == 'reduce':
       st = pg.evaluate("() => { const t = document.querySelector('.st-cvtitle'), b = document.querySelector('.st-cvgo'), r = b.getBoundingClientRect(); return { title: t.innerText.trim(), op: getComputedStyle(b).opacity, bAnim: getComputedStyle(b).animationName, tAnim: getComputedStyle(t).animationName, vis: r.width > 0 && r.top >= 0 && r.bottom <= innerHeight }; }")
@@ -152,22 +170,52 @@ with sync_playwright() as pw:
     ok(not errs, f"({rm}) nothing in the console but what the page always says ({errs[:2]})")
     ctx.close()
 
-  # the teaching screen on the smallest windows checked (R-265: a first-visit step never scrolls, and nothing sits under the bar): 320x568 and
-  # 360x640 phones, a 390x664 one, and a laptop; the words are all there and none under 16px (C-14), the heading kept for screen readers
-  FITS = """() => { const bar = document.querySelector('.actionbar'), br = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
-    const last = [...document.querySelectorAll('.st-whyways li')].pop().getBoundingClientRect(), px = e => parseFloat(getComputedStyle(e).fontSize);
-    const small = [...document.querySelectorAll('.st .lede, .st-whyways b, .st-whyways li > div > span')].filter(e => e.getClientRects().length && px(e) < 16).map(e => e.innerText.slice(0, 20));
+  # the two teaching screens on the smallest windows checked (R-265: a first-visit step never scrolls, and nothing sits under the bar): 320x568 and
+  # 360x640 phones, a 390x664 one, the 375x812 and 390x844 phones, and a laptop; the words are all there and none under 16px (C-14), the heading stays in
+  # view (it was cut to screen readers at 320x568 when the screen had 36 words; it is not now), and the drawing is there wherever it fits (it gives way first)
+  FITS = """(first) => { const bar = document.querySelector('.actionbar'), br = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
+    const last = document.querySelector('.st-whytime').getBoundingClientRect(), px = e => parseFloat(getComputedStyle(e).fontSize), h = document.getElementById('st-h').getBoundingClientRect();
+    const small = [...document.querySelectorAll('.st .lede, .st-whytime span, #st-h')].filter(e => e.getClientRects().length && px(e) < 16).map(e => e.innerText.slice(0, 20));
+    const art = document.querySelector('.st-art svg'), ar = art && art.getBoundingClientRect();
     return { over: document.scrollingElement.scrollHeight - innerHeight, under: br ? Math.round(last.bottom - br.top) : 0, small, h1: document.getElementById('st-h').textContent.trim(),
-      rows: document.querySelectorAll('.st-whyways li').length, words: document.querySelector('main').innerText.replace(/\\s+/g, ' ').includes('A few sentences from you') }; }"""
-  for w, h in ((320, 568), (360, 640), (390, 664), (375, 812), (1280, 800)):
+      h1vis: h.width > 20 && h.height > 20, art: !!ar && ar.width > 0 && ar.height > 0 && getComputedStyle(art.closest('.st-art')).display !== 'none',
+      lv: (document.querySelector('main > .st').className.match(/fit\\d+/g) || []).join(' '),
+      words: document.querySelector('main').innerText.replace(/\\s+/g, ' ').replace(/\u2019/g, "'").includes(first), time: !!last.width }; }"""
+  os.makedirs(os.path.join(OUT, '..', 'v2_teach'), exist_ok=True)
+  for w, h in ((320, 568), (360, 640), (390, 664), (375, 812), (390, 844), (1280, 800), (1024, 768), (1280, 600)):
     errs = []; m = w < 700; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs, kw=dict(viewport={'width': w, 'height': h}, is_mobile=m, has_touch=m))
     for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
     settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000)
-    r = pg.evaluate(FITS)
-    ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == 'Why your note counts' and r['rows'] == 2 and r['words'], f"{w}x{h}: the teaching screen fits, nothing under the bar, every word kept and 16px or more ({r})")
-    if (w, h) == (320, 568): pg.screenshot(path=os.path.join(OUT, 'why-320x568.png'))
+    for k, T in enumerate(TEACH, 1):
+      r = pg.evaluate(FITS, T['ledes'][0])
+      ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == T['h1'] and r['h1vis'] and r['words'] and r['time'], f"{w}x{h} screen {k}: fits, nothing under the bar, heading in view, every word kept and 16px or more ({r})")
+      if (w, h) in ((320, 568), (390, 844)): pg.screenshot(path=os.path.join(OUT, '..', 'v2_teach', f'{k}-{w}x{h}.png'))
+      if (w, h) in ((375, 812), (390, 844), (1280, 800)): ok(r['art'], f"{w}x{h} screen {k}: its drawing is there")
+      if k == 1: pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1500)
     ok(not errs, f"{w}x{h}: nothing in the console ({errs[:1]})")
     ctx.close()
+
+  # the private counts (R-023 decision 8), read from the sandbox's own printout (?debug), never sent: the first teaching screen is 'voice' as the one
+  # screen was, the second is 'voice' with lesson_step 2, and no step the database does not know is ever sent (pub/start.js COUNTED_AS)
+  INIT = """window.__hiphiCountTests = true; window.__fv = []; window.__warn = [];
+  (() => { const d = console.debug.bind(console), w = console.warn.bind(console);
+    console.debug = (...a) => { if (a[0] === 'first visit (sandbox, not sent):') { try { window.__fv.push(JSON.parse(JSON.stringify(a[1]))); } catch (e) {} } return d(...a); };
+    console.warn = (...a) => { window.__warn.push(String(a[0])); return w(...a); }; })();"""
+  ctx = br.new_context(**PHONE); ctx.add_init_script(INIT); pg = ctx.new_page(); pg.goto(f'{BASE}/track.html?demo=1&v2=1&restart&debug#/'); pg.wait_for_selector('main h1', timeout=40000); pg.wait_for_timeout(1500)
+  for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
+  settle(pg, 1500)
+  for wait in (2000, 1500, 1800): pg.locator('.st-bar [data-stnext]').click(); settle(pg, wait)
+  ev = [(e['step'], e['event'], e.get('lesson_step')) for e in pg.evaluate('window.__fv')]
+  warn = pg.evaluate('window.__warn')
+  print('   counts:', ev)
+  ok(('voice', 'view', None) in ev and ('voice', 'next', None) in ev, 'the first teaching screen is counted as voice, viewed and left by Next')
+  ok(('voice', 'view', 2) in ev and ('voice', 'next', 2) in ev, 'the second is counted as voice with lesson_step 2, viewed and left by Next')
+  ok(not any(e[0] == 'chair' for e in ev) and not [w for w in warn if 'not a first-visit step' in w], f"no step the database does not know is sent ({warn[:1]})")
+  ok([e[0] for e in ev if e[1] == 'view'] == ['arrive', 'topics', 'issues', 'voice', 'voice', 'alerts'], f"the funnel sees the visit's screens in order: {[e[0] for e in ev if e[1] == 'view']}")
+  # Back from the profile ask is the email to the chair (the ask is made once a visit, so going on again from there passes it, as it did from the one screen)
+  pg.locator('.st-back').first.click(); settle(pg, 1500)
+  ok(pg.evaluate(LOOK)['h1'] == TEACH[1]['h1'], 'Back from the profile ask is the second teaching screen')
+  ctx.close()
 
   # a shared bill's visit: follow it, the profile ask, then Home (the story, Coming up and the recap are not in version 2)
   errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/bill/HB2121', errs)
@@ -248,7 +296,7 @@ with sync_playwright() as pw:
     if h and h.startswith('You') and 'all set' in h: break
     pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1500)
   ok(any('all set' in (h or '') for h in seen), f"today's page still ends on You're all set with its recap: {seen}")
-  ok('Why your note counts' not in ' '.join(h or '' for h in seen), 'and never shows Why your note counts')
+  ok(not any(T['h1'] in ' '.join(h or '' for h in seen) for T in TEACH), 'and never shows either teaching screen')
   ok(not errs, f"nothing in the console but what the page always says ({errs[:2]})")
   ctx.close()
   br.close()
