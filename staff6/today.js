@@ -49,7 +49,7 @@ import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
 import { pqItems, pqOthers, wantQueue, wantAsks, admitsPartners, approvesPartners, pqRow, pqItem, pqCard, wirePartner } from './partnerq.js';
 import { dailyWord, HELD_NEXT } from './composer.js';
 // OUTREACH's one rallier rule and due time, and the ask's one home (This week's asks), so Today and Outreach never disagree (V20).
-import { rallierOf, askDueAt, askCardHref } from './asks.js';
+import { rallierOf, askDueAt, askCardHref, askWriteHref } from './asks.js';
 
 // Every name other screens import from './today.js' (v5's today), unchanged.
 export * from './today5.js';
@@ -517,7 +517,7 @@ function miniOf(it, v = S.me) {
       // ordinary to-do's button says what it does, "Mark done", with no check mark (a check means done, D3).
       const title = it.share ? `Write the public ask for the ${it.h ? dayWords(it.h.scheduled_at) : 'next'} hearing` : it.t.title;
       const doneBtn = (k = 'secondary') => btn('Mark done', { kind: k, sm: k !== 'primary', attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } });
-      const card = askCardHref(b), askBtn = (k = 'secondary') => btn('Write the public ask', { kind: k, sm: k !== 'primary', icon: k === 'primary' ? 'megaphone' : '', href: card || `${billRoute(b, 'public')}?focus=ask` });
+      const card = askWriteHref(b), askBtn = (k = 'secondary') => btn('Write the public ask', { kind: k, sm: k !== 'primary', icon: k === 'primary' ? 'megaphone' : '', href: card || `${billRoute(b, 'public')}?focus=ask` });
       return { name: nameWords(b), num: numWords(b), line: [when, clip(title, 64)].filter(Boolean).join(' · '), href: billRoute(b), what: title,
         rowBtn: it.share ? askBtn() : doneBtn(), buttons: k => [it.share ? askBtn(k) : doneBtn(k), it.share ? doneBtn(k === 'primary' ? 'secondary' : 'text') : '',
           // Give to… lives in the open item; the next-step card keeps to the step itself (V01: the first screen stays small)
@@ -554,7 +554,7 @@ function miniOf(it, v = S.me) {
     case 'rally': {
       // The ask is written on its card in This week's asks (OUTREACH, V20), which also copies it out; the bill's Public tab
       // only when the bill has no card this week.
-      const card = askCardHref(b), write = card || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words, label = 'Write the public ask';   // Outreach's button for the same act, wherever it opens (C-15)
+      const card = askWriteHref(b), write = card || `${billRoute(b, 'public')}?focus=ask`, by = actBy({ kind: 'due', due: it.due, verb: 'Write the public ask' }).words, label = 'Write the public ask';   // Outreach's button for the same act, wherever it opens (C-15)
       // The database's share to-do on the same bill is this act (build): its Mark done sits in the open item.
       const done = it.t ? k => btn('Mark done', { kind: k, sm: true, attrs: { 'data-t6act': 'todo', 'data-t6k': it.key } }) : null;
       return { name: nameWords(b), num: numWords(b), line: by, href: write, what: 'Write the public ask', sub: `For the ${committeeName(it.h.committee) || it.h.committee} hearing ${whenAt(it.h.scheduled_at)}.`,

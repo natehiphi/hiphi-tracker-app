@@ -23,7 +23,7 @@
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
-import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach } from './model.js';
+import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, timeFirst } from './model.js';
 import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { versionWords, numWords } from './steps.js';
@@ -33,7 +33,7 @@ import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.j
 const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
 // OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
-import { askCardHref } from './asks.js';
+import { askCardHref, askWriteHref, askWhose, writesAsk } from './asks.js';
 import { emailDoor } from './composer.js';
 
 const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
@@ -223,7 +223,8 @@ export function renderPublic(b) {
   // With a card on This week's asks (a hearing in the next 7 days), the ask, its link and its message are copied there, the
   // share tools' one home (V20, F132); otherwise this tab keeps Copy share link (F125). Email: the composer's one door, so
   // someone who may not send sees "Ask Kevin to email followers" rather than a door that refuses them (X23).
-  const card = askCardHref(b);
+  // R-358, the owner was sent to a card with no button: only the writer gets the Write link (into the open box); the rest see who writes it.
+  const card = askCardHref(b), whose = card ? askWhose(b) : null, askMine = !!card && writesAsk(b);
   // The public's response and the share kit come first: on a phone they were 4,277px down a 4,718px page, and a hearing
   // day's job is to share, not to edit (R-152 C). v4 (R-269): on a laptop too (Saya: Copy share link was 2.3 screens down,
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
@@ -246,8 +247,8 @@ export function renderPublic(b) {
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
-        <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : 'Not written yet.'}</p>
-        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(card)}">${ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks'}</a></p>
+        <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!askMine && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
+        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask ? 'See it on This week’s asks' : 'Open This week’s asks')   /* R-358: with no ask yet there is nothing to "see" */}</a></p>
         <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
       : `<div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
