@@ -233,6 +233,10 @@ JOURNEYS = [
      Step(r'^\s*Save as a group'), Step(r'^\s*Save\b', fill='Oʻahu supporters (test)')], r'Saved',
     [Step('Filter'), Step(r'^\s*O.?ahu'), Step(r'^\s*Show \d+ people'), Step('More actions'), Step('Save as segment'), Step(r'^\s*Save segment', fill='Oʻahu supporters (test)')], r'Saved',
     start='/outreach/supporters', needs=('#/outreach/supporters',)),
+  # R-358: the row's button lands IN the open box (?write=1), so the ask is three moves: the button, the words, Save.
+  J('public-ask', 'Write the public ask (Saya), from Today', 'SY', 2,
+    [Step('Write the public ask', in_view=True), Type({'[data-askbox]': 'Send testimony by Wed 3/18, 9:30 AM. Two sentences in your own words are enough.'}), Step('Save the public ask')], TOAST(r'Saved'),
+    None, needs=('staff6/asks.js',), v5=3, v5_note="v5: Today's Write it, the Public tab's box, Save public page"),
   J('qr-link', 'Make a partner QR link (Saya)', 'SY', 2,
     [Step(r'^\s*More\s*$', roles=('link', 'button')), Step(r'^\s*Make a link')], QR_SHOWN,
     [Step('Issues$', roles=('link',)), Step('All issues'), Step(rx(r'^More')), Step(r'^\s*First visit'), Step(r'^\s*Make a link')], QR_SHOWN,
@@ -519,7 +523,7 @@ def zoom(b, R, only):
   return out
 
 # ---- a link that names a card lands with the card in full view (Outreach's #/outreach?bill=, the critic) ----
-LANDINGS = [('#/outreach?bill=HB1573', 'SY', '.ot-card.hl')]
+LANDINGS = [('#/outreach?bill=HB1573', 'SY', '.ot-card.hl'), ('#/outreach?bill=HB2121&write=1', 'SY', '[data-askbox]')]   # R-358: the second lands in the open box with the cursor in it
 def landing(b, R, only):
   print(f'\n{L.APP}: a link that names a card lands with the card in view')
   for addr, who, sel in LANDINGS:
@@ -529,7 +533,9 @@ def landing(b, R, only):
       tall = box and box['bottom'] - box['top'] > box['h'] - 60
       # fully in view; a card taller than the window starts near the top instead (under the phone's top bar)
       ok = bool(box) and box['top'] >= 0 and (box['bottom'] <= box['h'] or (tall and box['top'] <= 140))
-      R.check(f'{addr} as {L.NAMES[who]} at {w}x{h}: the card in view', ok and not pg.errors, '' if ok else (f"card at {box['top']}..{box['bottom']} of {box['h']}" if box else f'no {sel} on the page'))
+      if sel.startswith('[data-'):   # a box: the cursor is in it (R-358)
+        ok = ok and pg.page.evaluate(f"() => document.activeElement === document.querySelector('{sel}')")
+      R.check(f'{addr} as {L.NAMES[who]} at {w}x{h}: the {"box" if sel.startswith("[data-") else "card"} in view', ok and not pg.errors, '' if ok else (f"card at {box['top']}..{box['bottom']} of {box['h']}" if box else f'no {sel} on the page'))
       pg.close()
 
 def main():

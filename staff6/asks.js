@@ -54,7 +54,9 @@ export function rallierOf(b) {
 // Someone who rallies for a coalition (Saya, a coalition's owner): they see the partners' asks going out (F187).
 export const isRallier = (me = S.me) => !!me && (S.campaigns || []).some(c => leadOf(c) === me.id);
 // Whether the viewer is the one who writes this bill's ask: its rallier, or its owner when it has none (askDue's `mine`).
-const writes = b => { const me = S.me?.id, r = rallierOf(b); return !!me && (r.length ? r.includes(me) : (S.assignments?.[b?.id] || []).includes(me)); };
+// R-358: this is the one rule for who writes a bill's public ask (rallierOf's first names, else the owner). Today's rows, the
+// Public tab's link and the cards' button all read it, so nobody is sent to a card that has no button for them.
+export const writesAsk = b => { const me = S.me?.id, r = rallierOf(b); return !!me && (r.length ? r.includes(me) : (S.assignments?.[b?.id] || []).includes(me)); };
 // Who may write a bill's ask here: its rallier, its owner, an admin (the Public tab is open to the same people).
 const mayWrite = b => !!S.me && (S.me.is_admin || rallierOf(b).includes(S.me.id) || (S.assignments?.[b.id] || []).includes(S.me.id));
 
@@ -68,7 +70,7 @@ const myCoals = () => { const c = S.me?.prefs?.coalitions, ids = (S.campaigns ||
 export function weekAskItems({ mine = false } = {}) {
   const now = Date.now(), end = now + 7 * DAY, seen = new Map(), co = mine ? myCoals() : null;
   const own = co?.size ? b => (S.billCampaigns?.[b.id] || []).some(id => co.has(id)) : b => isMine(b);
-  const keep = !mine ? () => true : b => writes(b) || own(b);
+  const keep = !mine ? () => true : b => writesAsk(b) || own(b);
   for (const h of S.hearings || []) {
     if (h.status === 'cancelled') continue;
     const due = testDue(h), b = billById(h.bill_id);
@@ -80,6 +82,15 @@ export function weekAskItems({ mine = false } = {}) {
 // Where a bill's card is (the bill's Public tab and the hearing page link here instead of keeping their own share kits):
 // '' when the bill has no card this week, so the caller keeps its own Copy share link.
 export const askCardHref = b => b && weekAskItems().some(x => x.b.id === b.id) ? `#/outreach?bill=${encodeURIComponent(String(b.bill_number).replace(/\s/g, ''))}` : '';
+
+// R-358: the address that lands IN the open box (Today's row, no second click); '' without a card, callers use the Public tab.
+export const askWriteHref = b => { const c = askCardHref(b); return c ? `${c}&write=1` : ''; };
+// Whose ask a bill's card is, for a screen that is not the card (the Public tab): the writer's first name, when it is due.
+export function askWhose(b) {
+  const x = b && weekAskItems().find(i => i.b.id === b.id); if (!x) return null;
+  const r = rallierOf(b), own = (S.assignments?.[b.id] || []).filter(live)[0];
+  return { who: r.length ? first(r[0]) : own ? first(own) : '', due: askDueAt(x.h), mine: writesAsk(b) };
+}
 
 // ---- the words that go out (to the public: no codes, the number spaced, the name once; C-15) ----
 const ASK_SAYS = { strongly_support: 'HIPHI strongly supports', support: 'HIPHI supports', support_amend: 'HIPHI supports with changes',
@@ -175,7 +186,7 @@ function partnersHTML() {
 // the followers. The share row shows only once an ask exists (with none, there is nothing true to share yet). ----
 const cardId = b => 'ot-ask-' + String(b.bill_number).replace(/\s/g, '');
 const BASE = new Map();   // the ask as it was when its box was opened (DB.saveBillFields compares against it)
-const boxOpen = b => S.otOpen === b.id && writes(b);
+const boxOpen = b => S.otOpen === b.id && writesAsk(b);
 // Whose ask it is to write and by when, for this viewer. "Mine": the viewer is its rallier (or, with no rallier, its owner).
 // `step`: the ask is a step on the viewer's Today, as today.js makes it (spec 13: the public ask row is for a strong position's
 // bill only). Only a step may be red when late, carry the overdue tile or the page's filled button (spec 11.4); the rallier's
@@ -183,7 +194,7 @@ const boxOpen = b => S.otOpen === b.id && writes(b);
 const STRONG = ['strongly_support', 'strongly_oppose'];
 function askDue(x) {
   const b = x.b, due = askDueAt(x.h), r = rallierOf(b), me = S.me?.id;
-  const mine = writes(b);
+  const mine = writesAsk(b);
   const strong = STRONG.includes(b.position);
   return { due, past: due <= Date.now(), today: hst(due) === hst(Date.now()), mine, strong, step: mine && strong, who: r.length ? first(r[0]) : '' };
 }
@@ -202,12 +213,13 @@ function ownTile(d) {
 // "No ask yet · due Tue 9:00 AM"; once past, "No ask yet · was due Tue 9:00 AM" (no name and no red: only the writer's own
 // Today step is red, P-5; the fresh-eyes check's SB 3076). An optional ask (not a strong position) reads as the viewer's own.
 function otherWords(d) {
-  if (!d.strong) return optionalWords();
+  // R-358: an optional ask read by someone who is not its writer says who can write it, not the writer's own "a post still helps"
+  if (!d.strong) return d.who ? `No ask yet · ${d.who} can write one` : optionalWords();
   if (d.past) return `No ask yet · was due ${whenAt(d.due)}`;
   return d.who ? `No ask yet · ${d.who} writes it by ${timeFirst(d.due)}` : `No ask yet · due ${whenAt(d.due)}`;
 }
-// The clock goes with a time; "a post still helps" has none, so it stands alone.
-const noAskLine = w => w === optionalWords() ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;
+// The clock goes with a time (A-18); "a post still helps" and "Saya can write one" have none, so they stand alone.
+const noAskLine = w => !/\d/.test(w) ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;
 function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
@@ -255,7 +267,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
 // strong-position ask that is the viewer's own), never an optional one above it.
 function leadId(items, want = null) {
   const o = items.find(x => boxOpen(x.b)); if (o) return o.b.id;
-  const open = x => !liveAsk(x.b) && writes(x.b);
+  const open = x => !liveAsk(x.b) && writesAsk(x.b);
   const picked = want && items.find(x => want.has(x.b.id) && open(x)); if (picked) return picked.b.id;
   const w = items.find(x => open(x) && askDue(x).step);
   return w ? w.b.id : null;
@@ -315,6 +327,8 @@ export default {
   wide: () => true,
   render(route) {
     const want = wanted(route), team = weekAskItems(), all = showAll(route, want);
+    // R-358: ?write=1 opens the writer's box once per address (S.otWrote, like S.otSeen: a redraw or Back does not reopen it).
+    if (route?.q?.write === '1' && want?.size === 1 && S.otWrote !== location.hash) { const b = billById([...want][0]); S.otWrote = location.hash; if (b && writesAsk(b) && !liveAsk(b)) S.otOpen = b.id; }
     const items = all ? team : weekAskItems({ mine: true });
     // Team only for people who see it (R-356); with one choice left there is no switch.
     const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';
@@ -361,8 +375,11 @@ function wireAsks(root, items) {
     // a cold arrival), so the page claims the scroll first (app.js S.scrollClaimed), or the card ends screens down.
     const hl = root.querySelector('.ot-card.hl');
     if (hl && S.otSeen !== location.hash) { S.otSeen = location.hash; S.scrollClaimed = true;
+      const box = document.querySelector('.ot-card.hl [data-askbox]');
       // The card is found again when the frame comes: a redraw meanwhile (the partners' asks arriving) replaced it.
-      requestAnimationFrame(() => { const c = document.querySelector('.ot-card.hl') || hl; c.scrollIntoView({ block: 'start' }); c.focus({ preventScroll: true }); }); }
+      requestAnimationFrame(() => { const c = document.querySelector('.ot-card.hl') || hl; c.scrollIntoView({ block: 'start' });
+        // R-358: Today's row lands in the open box, the cursor in it, no second click
+        const t = box && document.querySelector('.ot-card.hl [data-askbox]'); if (t) t.focus(); else c.focus({ preventScroll: true }); }); }
 }
 
 // The switch redraws in place: the address changes (replace, so Back still leaves Outreach) and focus stays on it.
