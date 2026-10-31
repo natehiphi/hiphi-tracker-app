@@ -233,7 +233,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);
   // D3: a deadline today is said with its time in bold (and how long is left once it is under 3 hours); any other day plain.
   const today = hst(x.due) === hst(Date.now()), at = esc(whenAt(x.due));
-  const closes = `Testimony closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)}${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
+  const closes = `Testimony closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)} (Capitol)${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
   // The card's foot is one row: on the left what to do (share, or write the ask), on the right how it is landing; on a
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';
@@ -268,8 +268,8 @@ function emptyHTML(all, n) {
   if (!all && n) return `<div class="ot-empty">${empty({ title: 'No asks this week on your coalitions’ bills', text: `The team has ${plural(n, 'ask')} this week.`, action: btn('Show the team’s asks', { kind: 'secondary', attrs: { 'data-otall': '1' } }) })}</div>`;
   const next = (S.hearings || []).filter(h => h.status !== 'cancelled' && testDue(h) > Date.now() + 7 * DAY).map(h => ({ h, b: billById(h.bill_id) }))
     .filter(x => x.b && x.b.position && x.b.position !== 'monitor' && x.b.is_public).sort((p, q) => testDue(p.h) - testDue(q.h))[0];
-  return `<div class="ot-empty">${empty({ title: 'No asks this week', text: `No bill on the public page with a position has testimony closing in the next 7 days, so there is nothing to send yet.${next ? ` The next: ${esc(nameWords(next.b, 60))}, testimony closes ${esc(whenAt(testDue(next.h)))}.` : ''} Meanwhile, the partner update and supporters are a tab away.`,
-    action: btn('Write a partner update', { kind: 'secondary', href: '#/outreach/partners' }) })}</div>`;
+  return `<div class="ot-empty">${empty({ title: 'No asks this week', text: `No bill on the public page with a position has testimony closing in the next 7 days, so there is nothing to send yet.${next ? ` The next: ${esc(nameWords(next.b, 60))}, testimony closes ${esc(whenAt(testDue(next.h)))}.` : ''} ${seesTeam() ? ' Meanwhile, the partner update and supporters are a tab away.' : ''}`,
+    action: seesTeam() ? btn('Write a partner update', { kind: 'secondary', href: '#/outreach/partners' }) : '' })}</div>`;
 }
 
 const everyOn = route => seesTeam() && route?.q?.all === '1';   // R-356: a linked ?all=1 for someone without Sees Team stays on their own list
@@ -320,8 +320,9 @@ export default {
     const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';
     const head = pageHead(sectionNav('outreach', 'asks'), 'Outreach', '', sw);
     if (!items.length) return `<div class="le-page ot-page">${head}${emptyHTML(all, team.length)}${partnersHTML()}</div>`;
+    // Decision 6: staff see the asks alone; How it's landing is the leads' (Partner update, Emails, Supporters and Lists too)
     return `<div class="le-page ot-page">${head}${listHTML(items, want)}
-      ${partnersHTML()}${landingHTML(items)}</div>`;
+      ${partnersHTML()}${seesTeam() ? landingHTML(items) : ''}</div>`;
   },
   wire(route, root) {
     root.querySelectorAll('[data-seg="otwho"]').forEach(b => b.onclick = () => setAll(b.dataset.val === 'all'));

@@ -43,7 +43,7 @@ import { S, DB, DEMO, esc } from './data.js';
 import { stopOf, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn, toast } from './ui.js';
 import { plural } from './lists.js';
-import { numWords, dayWords, committeeName, nw } from './steps.js';
+import { numWords, dayWords, committeeName, nw, chairStepWords } from './steps.js';
 import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW } from './issuestand.js';
 import { ICONS } from '../icons.js';
 import { issueIcon } from './issuegrid.js';
@@ -132,6 +132,9 @@ function nextOf(j) {
   const { hp, ask, D, kind, x } = j;
   if (kind === 'stopped') return null;
   if (hp) return { ic: hp.ic, html: hp.tone ? `<span class="i6-p1 t-${hp.tone}">${hp.html}</span>` : hp.html, text: hp.text, tone: hp.tone, you: !!(hp.you && (hp.soon || hp.late || hp.tone)) };
+  // Decision 9: one bill to get a hearing says its chair step in the one wording ("HB 756: Follow up, asked Tue 3/10, no reply")
+  if (ask.length === 1 && chairStepWords(ask[0].b, S.me)) { const w = chairStepWords(ask[0].b, S.me), t = `${num(ask[0].b)}: ${w}`;
+    return { ic: 'calendar-plus', html: nw(esc(t)), text: t, ask: `${names(ask.map(y => y.b))} a hearing`, chair: `${num(ask[0].b)}: ${w}`, chairBy: / by /.test(w) }; }
   if (ask.length) { const t = `Get ${names(ask.map(y => y.b))} a hearing by ${dayWords(D.date)}`; return { ic: 'calendar-plus', html: nw(esc(t)), text: t, ask: `${names(ask.map(y => y.b))} a hearing` }; }
   if (kind === 'oppose') return null;
   const later = j.bills.map(y => y.dl).filter(d => d && (!D || d.date > D.date || j.dstate !== 'cleared')).sort((a, b) => a.date.localeCompare(b.date))[0] || D;
@@ -258,6 +261,8 @@ function cellHTML(j, c) {
 function stepUnder(j, under) {
   const nx = j.next; if (!nx) return null;
   if (nx.quiet && under && nx.at === under) return { ...nx, html: '', text: 'Nothing to do yet' };
+  if (nx.chair) { const t = `${j.dstate === 'risk' ? 'At risk, ' : ''}${nx.chair}${nx.chairBy || under ? '' : `, hearing needed by ${dayWords(j.D.date)}`}`;
+    return { ...nx, ic: j.dstate === 'risk' ? 'triangle-alert' : nx.ic, html: nw(esc(t)), text: t }; }
   if (!nx.ask) return nx;
   const t = `${j.dstate === 'risk' ? 'At risk: get' : 'Get'} ${nx.ask}${under ? '' : ` by ${dayWords(j.D.date)}`}`;
   return { ...nx, ic: j.dstate === 'risk' ? 'triangle-alert' : nx.ic, html: nw(esc(t)), text: t };

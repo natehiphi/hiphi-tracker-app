@@ -559,13 +559,21 @@ const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
 // A chair ask's line: the asker's own Follow up after 3 working days with no reply (spec 6), whose first for someone
 // else's ask ("Kevin asks the chair by Fri 3/27"; a joint committee's "the chairs"), and the record once asked ("Asked by
 // Kevin Tue 3/10 · no reply yet").
-function chairLine(s, v) {
-  const a = s.ask, chair = a.m ? a.m.who : 'the chair', ask = a.chair || 'the chair';
-  if ((a.key === 'waiting') && a.followUp && s.you) return `Follow up with ${chair} · asked ${dayWords(a.at)}, ${a.answer === 'left_message' ? 'left a message' : 'no reply'}`;
+export function chairLine(s, v) {
+  const a = s.ask, ask = a.chair || 'the chair';
+  // Decision 9, C-10: the state, then what was done: "Follow up · asked Tue 3/10, no reply" (the chair is named in the open step, and the button)
+  if ((a.key === 'waiting') && a.followUp && s.you) return `Follow up · asked ${dayWords(a.at)}, ${a.answer === 'left_message' ? 'left a message' : 'no reply'}`;
   if (a.key !== 'ask' || s.you) return a.words;
   const by = a.decide ? `to schedule a vote${a.day ? ` by ${a.day}` : ''}` : `by ${a.day}`;
   if (s.nobody) return `${NO_OWNER} · ask ${ask} ${by}`;
   return `${cap(s.whose.words)} ${s.whose.ids.length > 1 ? 'ask' : 'asks'} ${ask} ${by}`;
+}
+// A bill's chair step in the one wording, for a row that has no room for a dot (an issue's line, Today's row): "Ask the chair by
+// Wed 3/25", "Follow up, asked Tue 3/10, no reply", "Asked by Kevin Mon 3/16, no reply yet", "Kris asks the chair by Fri 3/27".
+// '' when the bill's step is not a chair ask. One wording per state on every screen (decision 9).
+export function chairStepWords(b, v) {
+  const s = b ? billStep(b, { viewer: v }) : null;
+  return s?.kind === 'chair' && s.ask?.key !== 'scheduled' ? String(s.line || '').replace(/ · /g, ', ') : '';
 }
 // A hearing card's line for one of its bills (spec 5: "each of our bills on it with its testimony state"; the people
 // test: every card says where its testimony stands): the state first, then one more part, so the row keeps four facts.
@@ -951,7 +959,7 @@ function chairCard(s, v, own, x = '') {
     when: cap(deadlineWords(a.st.deadline.label, a.st.deadline.date)) + '.' };
   const due = shownStatus({ status: status({ due: a.by }), mine: s.mine });
   const calm = ['neutral', 'today'].includes(due.tone);
-  const tile = { ...due, icon: calm ? 'clock' : due.icon, words: calm ? `Ask by ${a.day || a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
+  const tile = { ...due, icon: calm ? 'clock' : due.icon, words: calm ? `${a.by != null && a.by - Date.now() <= 7 * DAY ? 'Ask this week, ' : 'Ask '}by ${a.day || a.aw?.day || dayWords(a.st.deadline.date)}` : due.words };
   const who = cap(s.whose.words), n = s.whose.ids.length;
   // The step itself for the asker and for a step nobody holds ("No owner yet" sits beside Take it); someone else's, who
   // asks: the same verb as the row, handed or not ("Kris asks Sen. DeCoite and Sen. Keohokalole for a hearing", V19).

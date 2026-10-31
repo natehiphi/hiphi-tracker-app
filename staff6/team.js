@@ -230,7 +230,7 @@ function riskRow(x) {
   // R-344 (A-25): the owner's face leads the row and "Alert James" names them, so "· James owns it" goes; yours and an
   // unowned one keep their words.
   const whose = !x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : '';
-  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)}${whose ? ` · ${whose}` : ''}`)), icon: actIcon('chair'), href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
+  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ${x.a.words[0].toLowerCase()}${x.a.words.slice(1)}${whose ? ` · ${whose}` : ''}`)), icon: actIcon('chair'), href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
 }
 
 // ---- today's and tomorrow's hearings (D5): a plain schedule ----

@@ -444,7 +444,7 @@ const JOB_NAME = { nodraft: 'Make the draft', write: 'Send for approval', submit
   moved: 'Your hearing moved', prep: 'Get the issues ready' };
 const withBill = (job, b) => b ? `${job} · ${fullName(b)}` : job;
 // { name, num, line (HTML), tone, icon, bold } for one of the viewer's own rows.
-function rowWords(it, v = S.me) {
+function rowWords(it, v = S.me, soon = false) {
   const b = it.b, sx = sitSuffix(it, v), jk = jobOf(it);
   if (it.s && b && it.kind !== 'stale') {
     const s = it.s, st = shownStatus(s) || {}, a = s.ask;
@@ -452,10 +452,10 @@ function rowWords(it, v = S.me) {
     // "Ask the chair · Disposable e-cigarette ban", then "By Wed 3/25" (whom, in the open item: four facts a row, and the row
     // and its Email the chair keep one line each, so Kevin's first ask stays on his first laptop screen, B-2)
     if (it.kind === 'chair') { job = a?.decide ? 'Ask for a vote' : a?.m?.n > 1 ? 'Ask the chairs' : 'Ask the chair';
-      if (a?.by != null) line = a.by <= endOfDay() ? `By ${dayWords(a.by)}` : `Ask by ${dayWords(a.by)}`; }
+      if (a?.by != null) line = a.by <= endOfDay() ? `By ${dayWords(a.by)}` : soon ? (s.line || line) : `Ask this week, by ${dayWords(a.by)}`; }   // B-11, decision 8: Do today says why it is here (one piece, a comma); Coming up says the step in askWords' one wording
     // the follow-up says when it was asked ("Asked Tue 3/10, no reply"); whom, in the open item (one line a row)
     // R-352 (I, A-25): the button says "Follow up", so the row says what was done, as the ask board does ("Asked by you")
-    else if (it.kind === 'followask') { job = 'Asked the chair'; const m = /^Follow up with .+? · (asked [\s\S]*)$/.exec(s.line || ''); line = m ? cap(m[1]) : s.line || ''; }
+    else if (it.kind === 'followask') { job = 'Asked the chair'; line = (s.line || '').replace(/ · /g, ', '); }   // decision 9: steps.js chairLine's wording ("Follow up, asked Tue 3/10, no reply"), a comma for the dot as this row's name holds one
     else if (newNotice(it)) line = `New hearing ${dayWords(it.h.scheduled_at)} · send by ${dayWords(s.act?.at ?? s.due)}`;
     const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
     // only a step due today or late keeps the amber time (D3): a chair ask due later this week is plain words
@@ -475,7 +475,7 @@ function rowWords(it, v = S.me) {
     case 'fix': return out(withBill('Fix your email', b), 'Sent back · fix it and send it again');
     case 'send': return out(withBill('Send your email', b), 'Approved · send it at 4:30 PM');
     case 'reply': return out(withBill(`Reply to ${it.from}`, b), `“${clip(it.q, 70)}”`);
-    case 'moved': return out(withBill('Your hearing moved', b), `Now ${whenAt(it.h.scheduled_at)} · still going?`);
+    case 'moved': return out(withBill('Your hearing moved', b), `Now ${whenAt(it.h.scheduled_at)}, still going?`);
     case 'askup': return out(withBill('Keep the public ask up?', b), `The hearing moved to ${dayWords(it.h.scheduled_at)}`);
     default: return out(r.what || r.name, r.line, r.num);
   }
@@ -493,7 +493,7 @@ function jobButton(it, v) {
 // `noButton`: Coming up's rows (R-356 round 3, decision 8): the row opens the step; buttons live in Do today only.
 function jobRow(it, { v = S.me, noButton = false } = {}) {
   REG.set(it.key, it);
-  const y = rowWords(it, v), jk = jobOf(it), button = noButton ? '' : jobButton(it, v);
+  const y = rowWords(it, v, noButton), jk = jobOf(it), button = noButton ? '' : jobButton(it, v);
   const r = it.s && it.b ? null : it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
   const href = r ? r.href : billRoute(it.b), pick = r && r.pick === false ? undefined : it.key;
   const lead = `<span class="v6-row-lead t6-kind" aria-hidden="true">${jk !== 'none' && PIC[jk] ? icon(PIC[jk].icon) : ''}</span>`;

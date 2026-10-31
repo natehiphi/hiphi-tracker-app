@@ -59,9 +59,9 @@ with L.browser() as B:
 
   # Kevin: asking a chair for a hearing starts on his first laptop screen (B-2)
   # R-356 round 3 (decision 8): the chair ask's button is in Do today once its ask-by day is within a week (Kevin's Wed 3/25 from Wed 3/18),
-  # says its ask-by day on its row ("Ask by Wed 3/25", decision 9: no "Ask this week" piece, a row keeps four facts), and no Coming up row carries a button
+  # says why on its row ("Ask this week, by Wed 3/25", one piece with a comma, so a row keeps four facts), and no Coming up row carries a button
   pg = B.page('KV', 1440, 900); pg.open('/', L.KEVIN_DAY)
-  R.check("Kevin 3/18: the chair ask is in Do today and says why", pg.page.evaluate("(() => { const g = document.querySelector('#t6-g-today')?.closest('section'); return !!g && /Ask by /.test(g.innerText) && /Email the chairs?/.test(g.innerText); })()"))
+  R.check("Kevin 3/18: the chair ask is in Do today and says why", pg.page.evaluate("(() => { const g = document.querySelector('#t6-g-today')?.closest('section'); return !!g && /Ask this week, by /.test(g.innerText) && /Email the chairs?/.test(g.innerText); })()"))
   R.check("Coming up rows carry no button (decision 8)", pg.page.evaluate("document.querySelectorAll('#t6-g-soon .btn, #t6-g-soon button').length") == 0)
   top = pg.page.evaluate("(() => { const b = [...document.querySelectorAll('main .btn')].find(x => /^\\s*Email the chairs?\\b/.test(x.textContent)); return b ? b.getBoundingClientRect().top : null; })()")
   R.check("Kevin 1440: Email the chair is on his first screen (B-2)", top is not None and top < 900, top); pg.close()
