@@ -101,7 +101,7 @@ dialog[open] :is(.hp-frame, .hp-body, .af-body, .al-body) { display: block !impo
 .hp-dlg #hp-lsub { display: none !important; }
 /* The last page: no celebration (the flower, "Mahalo!", the badges), so How to get there or the Zoom checklist fits one
    page, and none of its asks (a friend, the inbox, a story, the next bill). */
-.hp-dlg :is(.hp-badge, .hp-mahalo, .hp-miles, .hp-friend, .hp-inbox, .hp-storyask, .hp-nextup) { display: none !important; }
+.hp-dlg :is(.hp-badge, .hp-mahalo, .hp-miles, .hp-friend, .hp-inbox, .hp-storyask, .hp-quoteask, .hp-nextup) { display: none !important; }
 .hp-dlg .hp-in { max-width: none !important; padding: 12px 0 0 !important; }
 /* The letter prints whole: track.html's script puts a copy of its words beside each box while printing (a box would cut it
    off at its own height) and hides the box; if the script has not run, the box grows to its text where browsers can. */
