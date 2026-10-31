@@ -17,7 +17,7 @@
 // the Send button on an approved email, behind a confirm, and the server holds everything while email is paused.
 import { S, DB, hooks, esc, fmtDT, advocate, segmentPeople } from './data.js';
 import { alertTarget, agoWords, cleanHTML, htmlToText, textToHtml, escT, billNum, billTag, blurb, roomShort, codesOf, diedish, hearingAhead, billById, PUBLIC_APP, plain, approves, liveAsk, billByRef, whenAt, billRoute, publicResponse } from './model.js';
-import { nameWords, numWords, committeeName } from './steps.js';
+import { nameWords, numWords, committeeName, onBill } from './steps.js';
 import { ICONS } from '../icons.js';
 import { icon, btn, iconBtn, chip, empty, notice, toast, openSheet, closeSheet, confirmSheet, menuSheet, sheetOpen, keysOn } from './ui.js';
 import { listById, listIcon, listRows, plural, afterClose, clip, isSide } from './lists.js';
@@ -51,7 +51,7 @@ const afterCut = () => { const p = Object.fromEntries(new Intl.DateTimeFormat('e
 // "today" or "tomorrow": which 4:30 PM email a Send now joins, or which one a waiting email is in.
 export const dailyWord = (t = null) => t ? (hstDay(t) === hstDay(Date.now()) ? 'today' : hstDay(t) === hstDay(Date.now() + 864e5) ? 'tomorrow' : new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long' })) : afterCut() ? 'tomorrow' : 'today';
 // ---- one email permission rule at every door (R-336 V20; the server's can_alert, migration 049) ----
-// An admin may email anyone's followers; a bill's owner its followers; a list's curator its followers; anyone a saved
+// An admin may email anyone's followers; anyone on a bill (owner, rallier, coalition helper, lead) its followers; a list's curator its followers; anyone a saved
 // group. Every door to "Email followers" (an ask card, a bill, a list, Supporters' results, this composer) asks this, so
 // a door never invites someone the composer then refuses (X23). The practice copy has no server to ask, so this is the
 // rule there too (X29: canAlert said yes to everyone).
@@ -60,7 +60,7 @@ export const billOwners = b => (S.assignments?.[b?.id] || []).filter(liveId);
 export function mayEmail({ bill, list, segment } = {}) {
   const me = S.me; if (!me) return false;
   if (me.is_admin || segment) return true;
-  if (bill) return billOwners(bill).includes(me.id);
+  if (bill) return onBill(bill);   // R-358 (Nate 31 Oct): anyone on the bill; the server lets any staff draft an alert as its author
   if (list) return list.owner_id === me.id;
   return false;
 }
