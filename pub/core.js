@@ -1133,7 +1133,8 @@ export async function ensureBill(num, year) {
   // The Supabase client hands back a dropped connection as an error value, not a throw. Throw it, so a caller can tell
   // "no such bill" (null) from "could not ask" (an error) and never blames the person for a weak signal.
   if (!DEMO && (!b || (!y && +b.session_year !== sessionInfo().yr))) {
-    let q = S.supa.from('public_all_bills').select('*').eq('bill_number', n);
+    const sb = S.supa || await supa();   // a bill opened by its address can ask before the Supabase library has arrived (a failed library throws here, as a failed fetch does)
+    let q = sb.from('public_all_bills').select('*').eq('bill_number', n);
     q = y ? q.eq('session_year', y) : q.order('session_year', { ascending: false });
     const { data, error } = await q.limit(1); if (error) throw error;
     if (data?.[0] && (!b || +data[0].session_year > +b.session_year)) b = data[0];
@@ -1142,7 +1143,8 @@ export async function ensureBill(num, year) {
   if (!S.bills.some(x => x.id === b.id)) S.extra[b.id] = b;
   if (DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) { S.xh[b.id] = D.hearings.filter(h => h.bill_id === b.id); D.outcomes.filter(o => o.bill_id === b.id).forEach(o => { S.outcomes[o.hearing_id] = o; }); }
   if (!DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) {
-    const [h, o] = await Promise.all([S.supa.from('public_all_hearings').select('*').eq('bill_id', b.id), S.supa.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
+    const sb = S.supa || await supa();
+    const [h, o] = await Promise.all([sb.from('public_all_hearings').select('*').eq('bill_id', b.id), sb.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
     if (h.error || o.error) throw (h.error || o.error);   // a bill drawn with no hearings because the fetch failed would read as "no hearing yet"
     S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
   }
@@ -1151,7 +1153,7 @@ export async function ensureBill(num, year) {
   // step with its fallback (your own legislators), never an error.
   if (!S.bills.some(x => x.id === b.id) && !(S.xa ??= {})[b.id] && ['conference', 'governor'].includes(b.stage)) {
     if (DEMO) S.xa[b.id] = (D.activity || []).filter(a => a.bill_id === b.id);
-    else { const { data, error } = await S.supa.from('public_activity').select('*').eq('bill_id', b.id).order('occurred_at', { ascending: false }).limit(100); if (!error) S.xa[b.id] = data || []; }
+    else { const { data, error } = await (S.supa || await supa()).from('public_activity').select('*').eq('bill_id', b.id).order('occurred_at', { ascending: false }).limit(100); if (!error) S.xa[b.id] = data || []; }
   }
   return b;
 }
