@@ -30,6 +30,34 @@ def ok(cond, what):
   print(('PASS ' if cond else 'FAIL ') + what)
   if not cond: fails += 1
 
+# The pixel checks measure the page the way people see it: in its webfonts. Poppins (headings) and Lato (text) come from Google Fonts and
+# are non-blocking since R-357 5a (the text draws at once in the system face and swaps when they arrive), so a measure taken before the
+# swap reads the system face's metrics: with the fonts missing or two seconds late the small line wrapped to two lines and the goal heading
+# started 334px down against a budget of 320 (HB1671 at 390 wide, HB1075 at 360), which read as a layout failure. So before any measurement
+# the three faces the slide sets are loaded (document.fonts.load lists the faces it loaded and is empty until the stylesheet is in;
+# fonts.check() is true for a face nothing declares, so it cannot tell) and the issue's drawing, an <img> for an issue that has its own, is
+# complete. Eight seconds at most. Fonts that never load are one plain FAIL that stops the run (a fonts outage, not a layout to judge); a
+# drawing that never loads is a FAIL of its own.
+READY = """async () => {
+  const nap = ms => new Promise(r => setTimeout(r, ms)), end = performance.now() + 8000;
+  const fontsIn = async () => { try { const got = await Promise.all(['700 1em Poppins', '400 1em Lato', '700 1em Lato'].map(f => document.fonts.load(f)));
+    await document.fonts.ready; return got.every(a => a.length > 0 && a.every(f => f.status === 'loaded')); } catch (e) { return false; } };
+  const picIn = () => [...document.querySelectorAll('#main .v2-art img')].every(i => i.complete && i.naturalWidth > 0);
+  let f = false, p = false;
+  while (performance.now() < end && !(f && p)) {
+    if (!f) f = await Promise.race([fontsIn(), nap(Math.max(0, end - performance.now())).then(() => false)]);
+    p = picIn(); if (!(f && p)) await nap(100);
+  }
+  return { fonts: f, pic: p };
+}"""
+def settled(pg, ms=900):
+  pg.wait_for_selector('#main .v2-slide', timeout=30000)
+  r = pg.evaluate(READY)
+  if not r['fonts']:
+    print('FAIL the webfonts (Poppins, Lato) did not load within 8 s, so no pixel check can be judged (is Google Fonts reachable from this machine?)'); print('1 failed'); sys.exit(1)
+  if not r['pic']: ok(False, "the issue's drawing (<img>) did not finish loading within 8 s")
+  pg.wait_for_timeout(ms)   # then the page's own settling (the slide's entrance, the walkthrough's), as before
+
 RETURNING = "const w = JSON.stringify({step: 9, issues: [], done: true}); localStorage.setItem('hiphi_wiz', w); localStorage.setItem('hiphi_wiz_demo', w)"
 PHONE = dict(viewport={'width': 375, 'height': 812}, is_mobile=True, has_touch=True)
 LAPTOP = dict(viewport={'width': 1280, 'height': 800})
@@ -64,7 +92,7 @@ with sync_playwright() as pw:
   br = pw.chromium.launch()
   # ---------------- version 2, a phone, a newcomer ----------------
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', errs=errs)
-  pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(900)
+  settled(pg, 900)
   r = pg.evaluate(LOOK)
   ok(r['k'] == 'HB 2300 · Local food buying rules for schools' and r['kLines'] <= 2, f"the small line names the bill, the number and its everyday name, in two lines at most ({r['k']!r}, {r['kLines']})")
   ok(r['h1'] == 'Help put more local food in school meals' and r['h1top'] < 320, f"the goal heading, within 320px of the top (A-1): {r['h1']!r} at {r['h1top']}px")
@@ -105,39 +133,39 @@ with sync_playwright() as pw:
   # (the sandbox's HB 2300 hearing of Wed 18 Mar: ids from demo/snapshot.json)
   SENT = "localStorage.setItem('hiphi_done_demo', JSON.stringify(['86f499e6-7bab-4943-ad6e-5f4d23e85e34|62da6ef7-6c9a-4a03-975b-4b5155e564dc|testimony']))"
   errs = []; ctx = br.new_context(**PHONE); ctx.add_init_script(RETURNING + ';' + SENT); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)))
-  pg.goto(f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300'); pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(900)
+  pg.goto(f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300'); settled(pg, 900)
   t = pg.evaluate("() => document.querySelector('.v2-slide').innerText.replace(/\\s+/g, ' ')")
   ok(t.count('reads your testimony before it votes') == 1 and 'Your testimony is in' not in t and 'You sent testimony. Mahalo!' in t, f'after testimony: the committee reads it, said once, and the Mahalo line ({t!r})')
   ok(pg.evaluate(LOOK)['filled'] == ['Ask a friend to speak up'], 'and the one button asks a friend'); ctx.close()
 
   # ---------------- the email walkthrough from the link ----------------
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', returning=True, errs=errs)
-  pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700)
+  settled(pg, 700)
   pg.click('.v2-go .btn.text'); pg.wait_for_timeout(1000)
   ok(pg.evaluate("() => !!document.querySelector('#hp-dlg[open]')"), 'Email the chair instead opens the email walkthrough')
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
   # ---------------- a bill waiting for a hearing; a stopped bill between sessions ----------------
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB1671', errs=errs)
-  pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700); r = pg.evaluate(LOOK)
+  settled(pg, 700); r = pg.evaluate(LOOK)
   ok(re.fullmatch(r'Needs a hearing by \w{3}, \w{3} \d+', r['detail']) is not None, f"between hearings the one thing to do, the date only: the button says the ask ({r['detail']!r})")
   ok(r['say'] == 'A Senate committee hasn’t heard it yet. The committee’s chair decides whether it gets a hearing, and people asking helps.', f"it says who decides and that asking helps ({r['say']!r})")
   ok(r['filled'] == ['Ask the chair for a hearing'] and r['link'] == '' and r['h1top'] < 320, f"the hearing's own ask, one filled button, no email link ({r['filled']}, {r['link']!r})")
   ok(r['follow'] == 'Follow this issue' and not r['wide'], 'Follow this issue, nothing scrolls sideways'); ctx.close()
   ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1&season=off#/bill/HB2121', errs=errs)
-  pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700); r = pg.evaluate(LOOK)
+  settled(pg, 700); r = pg.evaluate(LOOK)
   ok(r['detail'].startswith('Did not advance in 20') and r['filled'] == ['Follow this issue'] and r['follow'] == '', f"between sessions: the state in one phrase, the issue's Follow (one label, Follow this issue) the one button, no second Follow ({r['detail']!r}, {r['filled']}, {r['follow']!r})")
   pg.click('details.v2-more > summary'); pg.wait_for_timeout(400)
   said = pg.evaluate("() => (document.querySelector('#main').innerText.match(/can’t come back/g) || []).length")
   ok(said == 1, f"the dead bill's sentence is said once, the stage card does not repeat it ({said})"); ctx.close()
   ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1&season=off#/bill/HB2300', errs=errs)
-  pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(700); r = pg.evaluate(LOOK)
+  settled(pg, 700); r = pg.evaluate(LOOK)
   ok(r['detail'] == 'Became law' and r['filled'] == ['Share the good news'] and r['share'] == 0, f"a law: its state, one filled button, and no second Share above it ({r['detail']!r}, {r['filled']}, {r['share']} pills)")
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
   # ---------------- version 2, a laptop ----------------
   errs = []; ctx, pg = page(br, LAPTOP, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', errs=errs)
-  pg.wait_for_selector('#main .v2-slide', timeout=30000); pg.wait_for_timeout(900); r = pg.evaluate(LOOK)
+  settled(pg, 900); r = pg.evaluate(LOOK)
   geo = pg.evaluate("() => { const a = document.querySelector('.v2-slide').getBoundingClientRect(), b = document.querySelector('.v2-more').getBoundingClientRect(); return { slideRight: a.right, moreLeft: b.left, sameTop: Math.abs(a.top - b.top) < 120 }; }")
   ok(geo['slideRight'] <= geo['moreLeft'] and geo['sameTop'], f'the slide on the left, More about this bill beside it on the right ({geo})')
   ok(r['moreOpen'] and 'Where it is now' in pg.evaluate("() => document.querySelector('.v2-more').innerText"), 'More about this bill is open')
@@ -159,7 +187,7 @@ with sync_playwright() as pw:
     kw = dict(viewport={'width': w, 'height': h}); 
     if (w < 600 if touch is None else touch): kw.update(is_mobile=True, has_touch=True)
     c = br.new_context(**kw); c.add_init_script(RETURNING); p = c.new_page(); p.on('pageerror', lambda e: errs.append(str(e)))
-    p.goto(f'{BASE}/track.html?demo=1&v2=1{qs}#/bill/{hash}'); p.wait_for_selector('#main .v2-slide', timeout=30000); p.wait_for_timeout(900); return c, p
+    p.goto(f'{BASE}/track.html?demo=1&v2=1{qs}#/bill/{hash}'); settled(p, 900); return c, p
   errs = []
   # a phone, a bill with a hearing: the drawing first, the goal heading within the budget, the one button still in view
   c, p = at(390, 844, 'HB2300'); r = p.evaluate(ART)
