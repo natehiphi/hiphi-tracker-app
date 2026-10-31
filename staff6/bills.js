@@ -7,7 +7,7 @@
 //     (Bills · Sort new bills · Muted, billshead.js);
 //   - over the whole list only, one line about the bills still to ask for a hearing ("20 to ask · first by Mon 3/23 · Bills
 //     That Need Hearings ›", Today's and Hearings' words; leadLine below);
-//   - the list's toolbar: one box that filters this list ("Filter these bills", V32; the header's box searches everything),
+//   - the list's toolbar: one box that finds a bill ("Find a bill by name or number", V32; the header's box searches everything; the Filter button filters),
 //     the one Filter sheet (filters.js: 4 groups, More filters, presets in place of the quick pills, saved views), a visible
 //     Select (bulk.js; on a phone at the right of the first group's heading), and Rows | Spreadsheet (D9: anyone may pick
 //     the spreadsheet; it is remembered for the person). The spreadsheet adds Columns, Export and Copy for Google Sheets on a
@@ -196,7 +196,7 @@ const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="butt
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
 function toolbar() {
   const v = bl(), n = activeFilters().length, wide = wideNow(), tbl = tableOn(), mode = viewMode();
-  const box = `<div class="searchbox bl-search"><label class="sr" for="bl-q">Filter these bills by number or words</label>${icon('list-filter')}<input id="bl-q" class="input" type="search" placeholder="Filter these bills" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search">${iconBtn('x', 'Clear the box', { 'data-qclear': '1', hidden: !v.q })}</div>`;
+  const box = `<div class="searchbox bl-search"><label class="sr" for="bl-q">Find a bill by name or number</label>${icon('search')}<input id="bl-q" class="input" type="search" placeholder="Find a bill by name or number" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search">${iconBtn('x', 'Clear the box', { 'data-qclear': '1', hidden: !v.q })}</div>`;
   // Nothing to pick or lay out in an empty list: Select and Rows | Table wait for bills (Jess's empty Mine, A-24).
   const has = shownBills().length > 0, sel = v.selecting || !has ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
   // The spreadsheet's three tools (F88, F92): Columns, Export (a file) and Copy (R-336: "copy out to Excel / Google Sheets",
