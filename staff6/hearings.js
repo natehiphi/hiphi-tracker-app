@@ -21,7 +21,7 @@
 // Team switch's week, and the two other "who to ask" screens (Legislators > Who to ask and Holding our bills went away in R-356 round 2, decision 4: asking chairs for a hearing lives only here, in Bills That Need Hearings).
 import { S, DB, esc, hooks, SESSION_OVER, seesTeam } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
-import { icon, btn, iconBtn, toast, segmented, pickerChip, pickerSheet, ASK_TAB } from './ui.js';
+import { icon, btn, iconBtn, toast, segmented, filterBtn, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
 import { todayItems } from './today5.js';   // the person's own to-dos and follow-ups, as Today reads them
@@ -58,6 +58,8 @@ function scopeOf(route) {
   return want || safeScope(defaultScope());
 }
 // With one choice left there is nothing to switch: no switch is drawn.
+// Under 768px, This week's Mine | Team switch is the Filter sheet's first choice (R-356 round 3: three controls above the first card).
+const phoneNow = () => { try { return matchMedia('(max-width: 767.98px)').matches; } catch { return false; } };
 const switcher = scope => scopes().length > 1 ? segmented('hscope', scopes(), scope, 'Whose hearings') : '';
 // B-13 on v6, P-4, C-15: with no switch the page says in words whose week this is, and, quietly, that the team has more (no
 // link: Team is not theirs to open). Only on This week's list, for the week in view; the count is the team's sittings that
@@ -91,10 +93,32 @@ function issueOpts(scope) {
 }
 // "No hearings on your bills on Tobacco this week": the empty words name the picked issue, so an empty week says why.
 const issWords = w => { const i = ISS && (S.issues || []).find(x => String(x.id) === ISS); return i ? `${w} on ${i.name}` : w; };
-function issuePick(scope) {
-  const opts = issueOpts(scope); if (!opts.length && !ISS) return '';
+// R-356 round 3 (Nate 31 Oct, A-1, A-12): the issue menu and "See as calendar" are one Filter button, so the line over the first
+// hearing holds the scope switch (for people who have it), Filter and the week's arrows, nothing more. The same Filter sheet
+// holds both choices; a pick applies at once and closes it, as a picker does. An issue picked is named beside the button (the
+// address holds it, and a pick kept out of sight would hide hearings), and the empty words name it too.
+function filterBar(route, scope) {
   const on = (S.issues || []).find(i => String(i.id) === ISS);
-  return pickerChip(on ? on.name : 'All issues', { 'data-hwiss': '1', 'aria-haspopup': 'dialog', 'aria-label': `Issue: ${on ? on.name : 'all issues'}. Change` });
+  // On a phone the scope lives in the sheet, so the button says it when it is not Mine ("Filter · Team"): nothing hidden
+  const sc = phoneNow() && scopes().length > 1 && scope !== 'mine' ? (scopes().find(x => x[0] === scope) || [])[1] : '';
+  const fb = filterBtn(on ? 1 : 0, { 'data-hwfilter': '1', 'aria-label': `Filter${sc ? `, ${sc}` : ''}${on ? `, on: ${on.name}` : ''}` }).replace('<span>Filter</span>', `<span>Filter${sc ? ` · ${esc(sc)}` : ''}</span>`);
+  return `<span class="hw-filt">${fb}${on ? `<span class="hw-fon">${esc(on.name)}</span>` : ''}</span>`;
+}
+function filterSheet(route) {
+  const scope = scopeOf(route), mode = modeOf(route), opts = issueOpts(scope);
+  const group = (title, kind, list, value) => `<h3 class="hw-fh">${esc(title)}</h3><div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${list.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" ${kind}="${esc(v)}"><span class="body"><span class="title">${esc(l)}</span></span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`;
+  const who = phoneNow() && scopes().length > 1;
+  openSheet({ title: 'Filter this week', pop: true,
+    body: `${who ? group('Whose hearings', 'data-pscope', scopes(), scope) : ''}${opts.length || ISS ? group('Show hearings on', 'data-pv', [['all', 'All issues'], ...opts.map(i => [String(i.id), i.name])], ISS || 'all') : ''}${group('Show the week as', 'data-pview', [['list', 'A list'], ['cal', 'A calendar']], mode)}`,
+    wire: d => {
+      d.querySelectorAll('[data-pscope]').forEach(el => el.onclick = async () => { const v = el.dataset.pscope; await closeSheet({ silent: true }); await remember(v);
+        S.hwRefocus = '[data-hwfilter]'; S.go(`#/hearings/week?${viewQuery(route, { scope: v })}`, { replace: true, keepScroll: true }); });
+      d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true });
+        S.hwRefocus = '[data-hwfilter]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, { issue: el.dataset.pv === 'all' ? '' : el.dataset.pv })}`, { replace: true, keepScroll: true }); });
+      d.querySelectorAll('[data-pview]').forEach(el => el.onclick = async () => { const v = el.dataset.pview; await closeSheet({ silent: true });
+        if (v !== mode) await rememberView(v);
+        S.hwRefocus = '[data-hwfilter]'; S.go(`#/hearings/week?${viewQuery(route, { view: v })}`, { replace: true, keepScroll: true }); });
+    } });
 }
 
 // ---- This week: the sittings, day by day ----
@@ -235,9 +259,8 @@ function weekNav(route, mode = '') {
   const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), sun = addDays(mon, 6);
   const range = `${fmt(mon, { month: 'short', day: 'numeric' })} to ${fmt(sun, fmt(mon, { month: 'short' }) === fmt(sun, { month: 'short' }) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
   const words = off === 0 ? range : off === 1 ? `Next week · ${range}` : off === -1 ? `Last week · ${range}` : range;
-  const other = mode === 'cal' ? 'list' : 'cal', q = viewQuery(route, { view: other });
-  const swap = mode ? `<a class="hw-view" href="#/hearings/week?${esc(q)}" data-hwview="${other}">${other === 'cal' ? 'See as calendar' : 'See as list'}${icon('chevron-right', { cls: 'v6-chev' })}</a>` : '';
-  return `<div class="hw-nav${off === 0 ? ' now' : ''}"><p class="hw-range">${esc(words)}</p>${swap}
+  void mode;   // (R-356 round 3: the way to the other view is in Filter now, not a link on this line)
+  return `<div class="hw-nav${off === 0 ? ' now' : ''}"><p class="hw-range">${esc(words)}</p>
     <div class="hw-wbtns">${iconBtn('chevron-left', 'Previous week', { 'data-hweek': off - 1 })}${off ? btn('This week', { kind: 'text', sm: true, attrs: { 'data-hweek': 0 } }) : ''}${iconBtn('chevron-right', 'Next week', { 'data-hweek': off + 1 })}</div></div>`;
 }
 // On a phone, this week's Previous and Next sit under the days instead (the first hearing comes first, critic A-1; a
@@ -558,7 +581,7 @@ export default {
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
       <h1 class="v6-ptitle sv-h1">Hearings</h1>
       ${tabs(view, sum)}
-      <div class="hw-bar"><div class="hw-picks">${switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? issuePick(scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
+      <div class="hw-bar"><div class="hw-picks">${view === 'week' && phoneNow() && scopes().length > 1 ? '' : switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? filterBar(route, scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
   },
@@ -577,19 +600,8 @@ export default {
       const q = viewQuery(route, { w: String(w) });
       S.go(`#/hearings/week${q ? `?${q}` : ''}`, { replace: true, keepScroll: true });
     });
-    // See as calendar / See as list: remembered for the person, and said in the address so a link or Back opens the same
-    // view (a modified click opens the link as it is)
-    page.querySelector('[data-hwview]')?.addEventListener('click', async e => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault();
-      const v = e.currentTarget.dataset.hwview, href = e.currentTarget.getAttribute('href'); await rememberView(v); S.hwRefocus = '[data-hwview]';
-      S.go(href, { replace: true, keepScroll: true });
-    });
-    // One issue's hearings: the plain picker; the pick lives in the address only (see issueOf)
-    page.querySelector('[data-hwiss]')?.addEventListener('click', () => {
-      const scope = scopeOf(route);
-      pickerSheet({ title: 'Show hearings on', value: ISS || 'all', options: [['all', 'All issues'], ...issueOpts(scope).map(i => [String(i.id), i.name])],
-        onPick: v => { S.hwRefocus = '[data-hwiss]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, { issue: v === 'all' ? '' : v })}`, { replace: true, keepScroll: true }); } });
-    });
+    // Filter: the issue and the list-or-calendar choice, in one sheet (see filterSheet); both live in the address
+    page.querySelector('[data-hwfilter]')?.addEventListener('click', () => filterSheet(route));
     wireWeek(page);
     // A redraw after an answer keeps the focus near where it was (B-4).
     if (S.hwRefocus) { const f = page.querySelector(S.hwRefocus); S.hwRefocus = null; f?.focus({ preventScroll: true }); }

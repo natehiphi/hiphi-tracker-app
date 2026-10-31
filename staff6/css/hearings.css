@@ -15,11 +15,13 @@ body.staff6 .hw-bar .sv-seg { flex-wrap: wrap; max-width: 100%; }
 body.staff6 .hw-bar .hw-nav { margin: 0 0 0 auto; }
 /* whose hearings, then the issue picker (R-352), on one line while they fit */
 body.staff6 .hw-picks { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
-/* the week's other view, one plain link after its dates (R-352, A-12 on v6: never a second pill switch) */
-body.staff6 a.hw-view { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-action); text-decoration: none; }
-body.staff6 a.hw-view .v6-chev { width: 18px; height: 18px; }
-@media (hover: hover) and (pointer: fine) { body.staff6 a.hw-view:hover { text-decoration: underline; text-underline-offset: 3px; } }
-body.staff6 a.hw-view:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+/* Filter (R-356 round 3): one button for the issue and the list-or-calendar choice; an issue picked is named after it, kept to
+   one line so a long name never pushes the week's arrows off the row */
+body.staff6 .hw-filt { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+body.staff6 .hw-filt .btn.sv-filter { min-height: 44px; }
+body.staff6 .hw-fon { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-ink); }
+body.staff6 .hw-fh { margin: 16px 0 4px; font: 600 var(--v6-t14)/var(--v6-lh14, 20px) var(--font); color: var(--v6-muted); }
+body.staff6 .hw-fh:first-child { margin-top: 0; }
 @media (max-width: 380px) { body.staff6 .hw-bar .sv-seg { border-radius: var(--v6-r20); } body.staff6 .hw-bar .sv-seg button { padding: 0 12px; } }
 /* this week on a phone: the week's row with its arrows sits under the scope switch, its own line (spec 2: phones
    first-class; Nate's walk: with the arrows hidden Patti could not look at next week) */

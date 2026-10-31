@@ -11,6 +11,9 @@
 //   - "2 bills on your issues have no owner · Take one" (F52): Today's "No owner · Take it" rows leave Today (V01, critic);
 //   - "2 of your top issues have no bill yet · introduction closes Wed 1/28" (F141, the opening weeks): v5 said it only
 //     inside Legislators › Holding, where an issue owner would not look.
+// R-356 round 3 (Nate 31 Oct, A-1): the page is the Issues tabs, then one row (the Deadlines | Status | Topics | Spreadsheet
+// switch and the filter box), then the first issue; the notes above (no owner, no bill yet, your coalition) now come under that
+// row, so nothing but the row stands between the tabs and the list's start.
 // Between sessions My issues is the 2027 prep list (W16, prep.js), as Nate chose for Staff v2 on 10/16.
 // Someone who owns and helps on no issue (Patti, Julie, Saya, Kris, Jess) sees their coalitions instead (v4, R-269 P7):
 // the ones they help on as rows, then the others, each with an I help switch (coalition.js).
@@ -110,8 +113,8 @@ export default {
     const lines = linesHTML();
     return `<div class="le-page i6-page mi6-page">
       ${head}
-      ${lede || lines ? `<div class="i6-lines">${lede}${lines}</div>` : ''}
       ${toolsHTML(Q().q, list.length)}
+      ${lede || lines ? `<div class="i6-lines">${lede}${lines}</div>` : ''}
       <div id="mi-q-body" class="mi-body">${bodyHTML(list, { q: Q().q, opts: opts() })}</div>
     </div>`;
   },
