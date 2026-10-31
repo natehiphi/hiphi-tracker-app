@@ -165,7 +165,7 @@ JOURNEYS = [
     [Step('Resubmit', in_view=True)], needs=('#/',)),
   J('ask-chair', 'Ask a chair for a hearing and record it (Kevin), from Today', 'KV', 2,
     [Step(r'^\s*Email the chairs?\b', in_view=True), Step('Yes, I sent it')], r'asked|Saved',
-    [Step(r'^\s*Email the chairs?\b', in_view=True), Step('Yes, I sent it')], needs=('#/',)),
+    [Step(r'^\s*Email the chairs?\b', in_view=True), Step('Yes, I sent it')], extra=L.KEVIN_DAY, needs=('#/',)),   # R-356 round 3: the button is in Do today once the ask-by day is within a week (Wed 3/18: Wed 3/25)
   # v6's practice copy seeds a chair ask with no reply for 4 days (spec 6, V33): its Follow up row is on Today. v5 had no
   # seeded ask, so its path asks first (not counted) and then records the reply from This week's deadline box.
   J('record-reply', "Record the chair's reply (Kevin), from Today", 'KV', 2,
@@ -343,7 +343,7 @@ KEYBOARD = [   # (key, name, who, steps, done, extra, size)
   ('file', 'File testimony (Kevin), from Today', 'KV',
    [Step(FILE_ROW), Step(*FILE_BTN.names), Step(r'^\s*Mark filed')], FILE_DONE, '', (1440, 900)),
   ('ask-chair', 'Ask a chair for a hearing and record it (Kevin), from Today', 'KV',
-   [Step(r'^\s*Email the chairs?\b'), Step(r'^\s*Yes, I sent it')], r'asked|Saved', '', (1440, 900)),
+   [Step(r'^\s*Email the chairs?\b'), Step(r'^\s*Yes, I sent it')], r'asked|Saved', L.KEVIN_DAY, (1440, 900)),
 ]
 
 def keyboard(b, R, only):
