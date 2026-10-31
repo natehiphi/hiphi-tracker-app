@@ -6,9 +6,12 @@
 #       everyday name and what is due ("Testimony due 1:00 PM"; amber only inside 24 hours)
 #     - the slide's own bill is the lit row: not a link, no chevron, no "Show"; the others end in a chevron and a tap opens that bill's page
 #       (#/bill/...), not the slide
-#     - "Also due: HIPHI asks / On issues you don't follow" with no number (Nate, R-300), only when there are some, under the day the soonest is
-#       due; it opens Find's "Needs voices this week", scrolled to that heading, where the asks are listed; Leilani, who follows what the week
-#       holds, has none and so no row
+#     - "Other bills that need voices this week / On issues you don't follow", last, with no number and no day (Nate, R-300; a day read like a
+#       missed deadline), only when there are some; it opens Find's "Needs voices this week", scrolled to that heading, where the asks are
+#       listed; Leilani, who follows what the week holds, has none and so no row
+#     - a run of rows on one day says the day once (Leilani's six "Today" rows print it once); the "new" dot hangs in the left gutter so every
+#       name starts at the same x, and the first dotted row also says "New"; a laptop's box is as wide as the slide; the slide's detail line keeps
+#       each "·" with the word before it (never a line that starts "· HB 2121")
 #     - a newcomer's story card (pub/v2/story.js, Part 4: storyCard() -> { html, wire }) is drawn between the slide and the box when that module
 #       gives one, wired, gone when put aside; with the file absent Home draws as before (no page error); without ?v2=1 it is never asked for
 #     - "Edit my issues" is the box's last line, in link blue, and opens My issues in its edit state
@@ -84,9 +87,22 @@ def open_home(br, kw, who, v2=True, off=False, day='mon', errs=None, story='abse
     pg.wait_for_function("() => !!document.querySelector('#main .cm') && !document.querySelector('.skelpage')", timeout=60000); pg.wait_for_timeout(1500)
     return ctx, pg
 
+# The slide's detail line: no line of it may start with "·" (the separator stays with the word before it), at any width
+DOT_FIRST = """() => { const el = document.querySelector('#main .cm-slide .cm-time span'), out = [];
+  if (!el) return ['no detail line'];
+  for (const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), n = null; ;) { const n = w.nextNode(); if (!n) break; const t = n.textContent;
+    for (let i = 0; i < t.length; i++) if (t[i] === '·') {
+      const a = document.createRange(), b = document.createRange(); a.setStart(n, i); a.setEnd(n, i + 1);
+      let first = true; if (i > 0) { b.setStart(n, i - 1); b.setEnd(n, i); first = Math.abs(b.getBoundingClientRect().top - a.getBoundingClientRect().top) > 2; }
+      if (first) out.push(t.slice(Math.max(0, i - 8), i + 8)); } }
+  return out; }"""
+
 # What Home holds, read from the page (textContent, not innerText: the day labels and the heading are set in capitals by the style sheet).
 ROWS = """() => [...document.querySelectorAll('#main .cm-rows .cm-row')].map(r => ({
-  day: r.querySelector('.cm-day')?.textContent.trim() || '', name: r.querySelector('.cm-rname')?.firstChild.textContent.trim() || '',
+  day: (d => d && !d.classList.contains('cm-same') ? d.textContent.trim() : '')(r.querySelector('.cm-day')), dayAll: r.querySelector('.cm-day')?.textContent.trim() || '',
+  name: r.querySelector('.cm-rname')?.firstChild.textContent.trim() || '', x: Math.round(r.querySelector('.cm-rname').getBoundingClientRect().left), top: Math.round(r.getBoundingClientRect().top),
+  dot: (d => d ? (b => [Math.round(b.left), Math.round(b.right), Math.round(b.top - r.getBoundingClientRect().top)])(d.getBoundingClientRect()) : null)(r.querySelector('.cm-new')),
+  newword: r.querySelector('.cm-newword')?.textContent.trim() || '', newwordHidden: r.querySelector('.cm-newword')?.getAttribute('aria-hidden') || '',
   line: r.querySelector('.cm-rstat')?.textContent.trim() || '', warn: !!r.querySelector('.cm-rstat.warn'), lit: r.classList.contains('on'),
   link: r.tagName === 'A' ? r.getAttribute('href') : null, chev: !!r.querySelector('.cm-chev'), show: !!r.querySelector('.cm-show'), also: r.classList.contains('cm-also'),
   hidden: !!r.closest('li').hidden, fresh: !!r.querySelector('.cm-new') }))"""
@@ -128,10 +144,14 @@ with sync_playwright() as pw:
     ok(head == 'This week', f'the box is headed "This week" ({head!r})')
     rows = pg.evaluate(ROWS); week = [r for r in rows if not r['also']]
     print('   rows:', [(r['day'], r['name'], r['line'], 'lit' if r['lit'] else '') for r in rows])
-    ok([(r['day'], r['name'], r['line']) for r in week] == [('Tue', 'Free school bus passes', 'Testimony due 1:00 PM'), ('Tue', 'Local food buying rules for schools', 'Testimony due 1:00 PM'),
-                                                            ('Wed', 'Disposable e-cigarette ban', 'Testimony due 9:30 AM')], 'one row for each thing due, by day, each with its day, the bill\'s everyday name and what is due')
-    order = [DAYS.index(r['day']) if r['day'] in DAYS else 99 for r in week]
-    ok(order == sorted(order), f'the days run in order ({[r["day"] for r in week]})')
+    ok([(r['dayAll'], r['name'], r['line']) for r in week] == [('Tue', 'Free school bus passes', 'Testimony due 1:00 PM'), ('Tue', 'Local food buying rules for schools', 'Testimony due 1:00 PM'),
+                                                               ('Wed', 'Disposable e-cigarette ban', 'Testimony due 9:30 AM')], 'one row for each thing due, by day, each with its day, the bill\'s everyday name and what is due')
+    ok([r['day'] for r in week] == ['Tue', '', 'Wed'], f'the two rows on Tuesday say it once, on the first ({[r["day"] for r in week]})')
+    order = [DAYS.index(r['dayAll']) if r['dayAll'] in DAYS else 99 for r in week]
+    ok(order == sorted(order), f'the days run in order ({[r["dayAll"] for r in week]})')
+    ok(len({r['x'] for r in rows}) == 1 and all(r['dot'] and r['dot'][1] <= r['x'] - 16 for r in week), f'the new dots hang in the left gutter and every name starts at the same x ({[r["x"] for r in rows]}, dots {[r["dot"] for r in week]})')
+    nw = [r['newword'] for r in rows]
+    ok(nw == ['New', '', '', ''] and rows[0]['newwordHidden'] == 'true', f'the first dotted row says "New" in words beside its line, and no other does ({nw})')
     lit = [r for r in rows if r['lit']]
     num = pg.evaluate("document.querySelector('#main .cm-slide .cm-bill')?.textContent.trim()")
     slide_nick = pg.evaluate("""async n => { const { S, nick } = await import('./pub/core.js'); const b = S.bills.find(b => b.bill_number.replace(/^([A-Z]+)(\\d+)$/, '$1 $2') === n); return b ? nick(b) : null; }""", num)
@@ -141,8 +161,8 @@ with sync_playwright() as pw:
     ok(all(r['link'] and r['chev'] and not r['show'] for r in others), 'every other row is a link ending in a chevron, never "Show" (a tap opens the thing itself, not the slide)')
     ok(pg.locator('#main [data-cm-pick]').count() == 0 and 'On the slide above' not in pg.inner_text('#main'), 'no row moves the slide, and none says "On the slide above"')
     ok(not any(r['warn'] for r in rows), f'Monday 9 AM: nothing is due inside 24 hours, so nothing is amber ({[r["warn"] for r in rows]})')
-    ok(rows[-1]['also'] and rows[-1]['name'] == 'Also due: HIPHI asks' and not re.search(r'\d', rows[-1]['name']) and rows[-1]['line'] == 'On issues you don’t follow' and rows[-1]['day'] == 'Today' and rows[-1]['link'] == '#/find',
-       f'the last row is "{rows[-1]["name"]}" / "{rows[-1]["line"]}" with no number, under Today, opening Find')
+    ok(rows[-1]['also'] and rows[-1]['name'] == 'Other bills that need voices this week' and not re.search(r'\d', rows[-1]['name']) and rows[-1]['line'] == 'On issues you don’t follow' and rows[-1]['dayAll'] == '' and rows[-1]['link'] == '#/find',
+       f'the last row is "{rows[-1]["name"]}" / "{rows[-1]["line"]}", with no number and no day, opening Find')
     edit = pg.evaluate("""() => { const li = [...document.querySelectorAll('#main .cm-rows > li')].pop(), a = li?.querySelector('a');
       return { text: a?.textContent.trim(), href: a?.getAttribute('href'), color: a && getComputedStyle(a).color, h: a && Math.round(a.getBoundingClientRect().height) }; }""")
     ok(edit['text'] == 'Edit my issues' and edit['href'] == '#/bills' and edit['color'] == BLUE and edit['h'] >= 44, f'"Edit my issues" is the box\'s last line, in link blue, a 44px target ({edit})')
@@ -161,6 +181,14 @@ with sync_playwright() as pw:
     pg.add_style_tag(content='.tabs{visibility:hidden !important}'); pg.wait_for_timeout(100)
     pg.screenshot(path=os.path.join(OUT, 'phone_kai_mon_v2.png'), full_page=True)
     pg.evaluate("document.querySelector('style:last-of-type')?.remove()")
+    dt = pg.evaluate("document.querySelector('#main .cm-slide .cm-time span').textContent")
+    ok(' ·' not in dt and dt.count('\u00a0·') >= 2, f'the detail line keeps each "·" with the word before it (a no-break space): {dt!r}')
+    bad = {}
+    for w in (320, 360, 375, 412, 414, 416):   # 412 and 416 are where today's line breaks before its dot
+        pg.set_viewport_size({'width': w, 'height': 812}); pg.wait_for_timeout(300); r = pg.evaluate(DOT_FIRST)
+        if r: bad[w] = r
+    pg.set_viewport_size({'width': 375, 'height': 812}); pg.wait_for_timeout(300)
+    ok(not bad, f'at 320 to 416px no line of the detail line starts with "·" ({bad})')
     # the letter buttons: the new sheet when it is there, else today's walkthrough
     info = pg.evaluate("() => { const b = document.querySelector('#main .cm-slide [data-helper]'); return { hid: b?.dataset.helper, bid: b?.dataset.bill, label: b?.textContent.trim() }; }")
     ok(info['label'] == 'Help me write testimony', f"the slide's one filled button ({info['label']!r})")
@@ -199,7 +227,7 @@ with sync_playwright() as pw:
       rows: h.closest('section').querySelectorAll('li').length, focus: document.activeElement === h }; }""")
     ok(f['hash'] == '#/find' and f['text'] == 'Needs voices this week' and 0 <= f['top'] < 200 and f['focus'], f'Also due opens Find scrolled to "Needs voices this week" ({f})')
     soon = pg.evaluate("() => [...document.getElementById('fd-voices-h').closest('section').querySelectorAll('li')].map(l => l.innerText.replace(/\\s+/g, ' '))")
-    ok(f['rows'] >= 1 and any(re.search(r'due today', s) for s in soon), f'Find lists the asks there, the soonest due today, as the row\'s "Today" says ({f["rows"]} rows)')
+    ok(f['rows'] >= 1, f'Find lists the asks there ({f["rows"]} rows)')
     # You
     pg.goto(url().replace('#/', '#/more')); pg.wait_for_selector('#main .yu-you', timeout=15000)
     ses = pg.evaluate("""() => { const a = document.querySelector('#main .yu-you a.rc-row[href="#/recap"]'); return a ? { name: a.querySelector('.rc-rname')?.textContent.trim(), text: a.querySelector('.rc-rstat')?.textContent.trim() } : null; }""")
@@ -228,7 +256,7 @@ with sync_playwright() as pw:
     errs = []; ctx, pg = open_home(br, PHONE, 'kai', day='tue', errs=errs)
     rows = pg.evaluate(ROWS); week = [r for r in rows if not r['also']]
     print('   rows:', [(r['day'], r['name'], r['line'], 'amber' if r['warn'] else '') for r in week])
-    ok([(r['day'], r['warn']) for r in week] == [('Today', True), ('Today', True), ('Wed', False)] and all(AMBER.match(r['line']) for r in week if r['warn']),
+    ok([(r['dayAll'], r['warn']) for r in week] == [('Today', True), ('Today', True), ('Wed', False)] and all(AMBER.match(r['line']) for r in week if r['warn']),
        'Tuesday: "Testimony due 1:00 PM" is amber inside 24 hours and only then (A-5)')
     ok(not errs, f'no console errors {errs[:2]}')
     ctx.close()
@@ -238,6 +266,8 @@ with sync_playwright() as pw:
     rows = pg.evaluate(ROWS); m = pg.evaluate(MEASURE)
     ok([r['name'] for r in rows if not r['also']] == ['Free school bus passes', 'Local food buying rules for schools', 'Disposable e-cigarette ban'] and m['filled'] == 1 and m['blocks'] <= 4 and len(m['shapes']) <= 2 and not m['twice'] and not m['wide'],
        f"laptop: the same week, inside the budget ({m['blocks']} blocks, {m['shapes']}, {m['filled']} filled)")
+    wd = pg.evaluate("() => { const s = document.querySelector('#main .cm-slide').getBoundingClientRect(), b = document.querySelector('#main .cm-issues').getBoundingClientRect(); return [Math.round(s.left), Math.round(s.right), Math.round(b.left), Math.round(b.right)]; }")
+    ok(abs(wd[1] - wd[3]) <= 1 and abs(wd[0] - wd[2]) <= 1, f"laptop: the box takes the slide's width, its right edge on the slide's (slide {wd[0]}-{wd[1]}, box {wd[2]}-{wd[3]})")
     pg.screenshot(path=os.path.join(OUT, 'laptop_kai_mon_v2.png'), full_page=True)
     ok(not errs, f'no console errors {errs[:2]}')
     ctx.close()
@@ -249,6 +279,14 @@ with sync_playwright() as pw:
         lbl = pg.evaluate("[...document.querySelectorAll('#main [data-cm-showall]')].map(e => e.textContent.trim())")
         hid_due = [r for r in rows if r['hidden'] and AMBER.match(r['line'] or '') and not r['line'].startswith('Ask')]
         want = 'Show all your issues' + (' · more due this week' if hid_due else '')
+        prev, wrong = None, []
+        for r in rows:
+            if r['also']: continue
+            exp = r['dayAll'] if r['dayAll'] and r['dayAll'] != prev else ''
+            if r['day'] != exp: wrong.append((r['name'], r['day'], exp))
+            prev = r['dayAll'] or None
+        shown_days = [r['day'] for r in rows if r['day']]
+        ok(not wrong and shown_days.count('Today') == 1, f'{tag} Leilani: a run of rows on one day says it once, so "Today" is printed once ({shown_days.count("Today")}, {wrong[:2]})')
         names = [r['name'] for r in rows if not r['also']]
         ok(len(names) == len(set(names)), f'{tag} Leilani: no two rows carry the same name, a bill is named once ({[n for n in names if names.count(n) > 1]})')
         ok(len(shown) == 8 and lbl == [want], f'{tag} Leilani: the first 8 rows, then "{want}" ({len(shown)}, {lbl})')

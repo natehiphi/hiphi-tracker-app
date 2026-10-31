@@ -377,14 +377,23 @@ body.v2 .cm.hm-v2 .cm-week .cm-h { margin: 0 0 var(--s8); font: 700 var(--t13)/1
 body.v2 .cm.hm-v2 .cm-wk { align-items: center; }
 body.v2 .cm.hm-v2 .cm-day { flex: 0 0 56px; align-self: baseline; font: 700 var(--t13)/1.25 var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--n500); white-space: nowrap; }   /* Tue, Wed, Mar 30, Today */
 body.v2 .cm.hm-v2 .cm-rstat { color: var(--n700); }
+/* A run of rows on one day says the day once: the rest keep the column (so the names line up) and say it to a screen reader only (.sr). */
+/* The "new since your last visit" dot hangs in the row's left gutter, so every bill name starts at the same place; the first dotted row says
+   "New" in words beside its line (B-9, A-8). */
+body.v2 .cm.hm-v2 .cm-wk { position: relative; padding-left: var(--s24); }
+body.v2 .cm.hm-v2 .cm-wk .cm-new { position: absolute; left: 8px; top: 19px; order: 0; transform: none; }
+body.v2 .cm.hm-v2 .cm-rline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s8); }
+body.v2 .cm.hm-v2 .cm-newword { flex: none; font: 700 var(--t13)/1.25 var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--p700); }
 body.v2 .cm.hm-v2 .cm-rstat.warn, body.v2 .cm.hm-v2 .cm-row.on .cm-rstat.warn { color: var(--warn-text); font-weight: 700; }   /* amber only inside 24 hours (A-5) */
 body.v2 .cm.hm-v2 .cm-row.on .cm-rstat:not(.warn) { color: var(--n700); font-weight: 400; }   /* the lit row says what is due like the others; v1's bold blue was "N more due this week" */
 body.v2 .cm.hm-v2 div.cm-row.on, body.v2 .cm.hm-v2 div.cm-row.on:hover { background: var(--p50); }   /* the slide's own bill: lit, and not a link, so it has no hover and no chevron (A-12) */
-body.v2 .cm.hm-v2 .cm-editrow, body.v2 .cm.hm-v2 .cm-showrow { padding: 0 var(--s16); }
+body.v2 .cm.hm-v2 .cm-editrow, body.v2 .cm.hm-v2 .cm-showrow { padding: 0 var(--s16) 0 var(--s24); }   /* the words start where the day labels do */
 body.v2 .cm.hm-v2 .cm-showrow:empty { display: none; }   /* "Show all your issues" removes itself when pressed */
 body.v2 .cm.hm-v2 .cm-editrow .cm-edit, body.v2 .cm.hm-v2 .cm-showrow .cm-showall { display: flex; width: fit-content; min-height: 44px; margin: 0 0 0 -12px; }   /* the words line up with the rows' text; the target stays 44px (A-6) */
 body.v2 .cm.hm-v2 .cm-showrow .cm-showall { height: auto; padding-block: var(--s8); align-items: flex-start; text-align: left; white-space: normal; }   /* "Show all your issues · more due this week" may take two lines; its arrow stays by the first */
 body.v2 .cm.hm-v2 .cm-showrow .cm-showall .ic { flex: none; margin-top: 2px; }
+/* A laptop: the box is as wide as the slide, its right edge on the slide's (Home's 640px column was v1's) */
+@media (min-width: 900px) { body.v2 .cm.hm-v2 > .cm-issues { max-width: none; } }
 .cm .cm-lines { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s8); }
 .cm .cm-lines .hm-profline { margin: 0; }
 

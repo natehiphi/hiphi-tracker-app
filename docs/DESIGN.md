@@ -420,15 +420,19 @@ this line. Checked by `tests/v2_bill.py`. The My issues tab stays (Nate).
 **Home's box is the week (version 2, `?v2=1`, R-357 Part 3, Nate's pick of 30 Oct 2026: the box is the week by day; rows open the bill; My
 issues stays a tab at Nate's word).** The greeting and the slide are exactly as Nate checked them on 20 Oct. The white box under the slide is headed
 "This week" (a small key, no count) and is the week by day, soonest first: **one row for each bill with something to do, and one for each issue with
-nothing to do**. A row is a day label (Today, Tue, Mar 30: the day it runs out, small capitals), the bill's everyday name in bold, and one line under it:
+nothing to do**. A row is a day label (Today, Tue, Mar 30: the day it runs out, small capitals; a run of rows on one day says it once, on its first, A-14), the
+bill's everyday name in bold, and one line under it:
 "Testimony due 1:00 PM" (amber only inside 24 hours, A-5), "Late testimony until 1:10 PM", "Ask the chair for a hearing", "Hearing 9:30 AM" (with
 "You testified ·" when they did) or "Your letter is started · due 1:00 PM". An issue with nothing to do keeps v1's row, its name and where it
 stands, after the days, with no day label. **A tap opens the bill's page** (an issue with nothing to do, the issue's page), and the row ends in a
 chevron (A-12); the slide's own bill is the **lit row**: pale blue, not a link, no chevron and no "Show", since it is the slide above. Decision 5a (a tap
-moves the slide, R-295) stays in v1 only; in version 2 the pager moves the slide. The last row, only when there is at least one, is **"Also due: HIPHI asks" /
-"On issues you don’t follow"**, under the day the soonest is due and with **no number** (Nate, R-300: "If it's a lot it can be overwhelming"; the sandbox's
-Monday has ten): it stands for the rows Find's "Needs voices this week" lists (the same ranking and the same 7-day rule, from `core.js`), which it
-opens scrolled to that heading, so a weekday never passes unseen. The box's **last line is "Edit my issues"** in link blue, opening My issues in its
+moves the slide, R-295) stays in v1 only; in version 2 the pager moves the slide. The last row, only when there is at least one, is **"Other bills that need
+voices this week" / "On issues you don’t follow"**, with **no number and no day** (Nate, R-300: "If it's a lot it can be overwhelming"; the sandbox's Monday has ten;
+"HIPHI asks" was insider speak, and a day beside it read like a missed deadline, A-12, C-10): it stands for the rows Find's "Needs voices this week" lists (the
+same ranking and the same 7-day rule, from `core.js`), which it opens scrolled to that heading, so a weekday never passes unseen. A row's "new since your last visit"
+dot hangs in the row's left gutter, so every name starts at the same place, and the first row with a dot also says "New" in words beside its line (B-9, A-8). On a
+laptop the box is as wide as the slide. The slide's own detail line keeps each "·" with the word before it (a no-break space, version 2 only), so a wrap never
+starts a line with "· HB 2121" (A-8). The box's **last line is "Edit my issues"** in link blue, opening My issues in its
 edit state. "See them all in My issues" is gone (the tab is one tap away, and stays), and **"See your 2026 session" is a row on You** ("Your 2026
 session", the same page). More than 8 rows (Nate 10/11, kept): the first 8, what is to do first, then "Show all your issues · more due this week" inside
 the box, above the last two lines. Between sessions the box is today's list with the same words, headed "Your issues", with the same last line.
