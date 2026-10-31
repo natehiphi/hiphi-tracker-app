@@ -17,7 +17,7 @@ import { S, DEMO, HST, esc, icon, nick, headline, blurb, spaced, billPath, alive
   nudge, CONSENT_KEY, textSaved, countOk, anyBill, anyHearing, outcomeOf, plainStatus, whyStopped, cmteLabel, codesOf, CHAMBER_NAME,
   issueIcon, chairContacts, dueInfo, hearingText, dayWord, timeWord, hearingWhen, dateLong, hstDay, hiT, pickedTopic, followSummary, followedIssues,
   issueFollowed, issueBills, catOf, issueLead, billLead, setFollows, app, toast, roomLabel, viaIssue, followsAnything, ensureRecapPool, winsIn, EARLIER_WINS, supa, HELD_RE,
-  results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet, myStance } from './core.js';
+  results, RESULT_MILESTONES, isResolution, sideOf, streamOf, wizSet, myStance, pageHome } from './core.js';
 import { burst, celebrate, petals, later, fxOn, rooster, cheer } from './fx.js';
 import { alertStatus, openAlertsSheet, profileAsk, profileLede, PROFILE_H } from './alerts.js';   // the one status rule for alerts (D1-4)
 import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
@@ -1024,6 +1024,9 @@ function winsCard(yr) {
 // The next HIPHI event or training, when staff have posted one: people who meet the team come back. Asked once per
 // visit; nothing shows when there is none or the request fails. The sandbox shows a sample, labelled.
 function meetCard() {
+  // First load of Home: staff's cards are in the answer track.html asked for at time zero (core.js pageHome; null in every other case).
+  const ph = S.meetCard === undefined && !DEMO ? pageHome() : null;
+  if (ph && Array.isArray(ph.site_cards)) S.meetCard = ph.site_cards.find(r => r.kind === 'meet') || false;
   if (S.meetCard === undefined) {
     S.meetCard = null;
     (DEMO ? Promise.resolve([{ kind: 'meet', title: 'Meet HIPHI at the Keiki Health Fair (sample)', body: 'Saturday, Oct 18, 9 to 1, at Kapiʻolani Park. Come say aloha and learn how to speak up in January.', link_url: 'https://www.hiphi.org', link_label: 'See the event' }])

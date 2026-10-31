@@ -44,6 +44,60 @@ export const cname = n => (S.coalitions || []).find(c => c.name === n)?.public_n
 // Tiles are grouped by public name: two internal coalitions can share one tile.
 export const groupNames = k => (groups().find(g => g.key === k || g.names.includes(k)) || { names: [k] }).names;
 export const dmatch = (b, q) => { const ql = q.toLowerCase(), qn = ql.replace(/\s/g, ''); return b.bill_number.toLowerCase().includes(qn) || (b.title || '').toLowerCase().includes(ql) || (b.description || '').toLowerCase().includes(ql); };
+// ---------------- the one question at time zero (R-357 Part 6) ----------------
+// track.html's inline script asks the database ONE question for the page it opened on, before any module has arrived
+// (window.__hiphiPage): a bill link asks public_bill_page, a returner's plain Home asks public_home (backend migrations 191 and
+// 192). Each read below that the answer can stand in for looks here first, fills the same state its own query would have filled,
+// and otherwise runs as it always did. The answer is for the first load only: it must be for THIS bill or THIS follow set (the bill
+// page checks the bill; Home compares ids with S.watch and asks the old way for any it lacks), it is not older than a minute, and a
+// missing, late, failed or 404 answer (until the functions are applied the database answers 404) is null, so nothing changes.
+// Nothing here runs in the practice copy (?demo=1): its data is in the page.
+const PAGE_WAIT_MS = 4000, PAGE_FRESH_MS = 60000;   // how long after the ask it is waited for; how long after the ask it is trusted
+let pageP = null, pageAns = null, pageAt = 0;
+export function pageAnswer() {
+  return pageP ??= (async () => {
+    const q = typeof window !== 'undefined' && window.__hiphiPage;
+    if (DEMO || !q) return null;
+    let timer;
+    try {
+      const t0 = window.__hiphiPageT || 0;
+      // A late answer is not waited for past a few seconds from the ask (track.html's own race ends at ten): on a slow line the old
+      // reads then start while it is still arriving, which is still no worse than before.
+      const a = await Promise.race([q, new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('page answer slow')), Math.max(0, t0 + PAGE_WAIT_MS - performance.now())); })]);
+      if (!a || typeof a !== 'object' || Array.isArray(a)) return null;
+      pageAt = t0; pageAns = a; return a;
+    } catch { return null; }   // a 404, an error, no answer: today's reads
+    finally { clearTimeout(timer); }
+  })();
+}
+// The answer once pageAnswer has taken it, for the screens that draw at once (partners.js onBill, bill.js sameLine, home.js meetCard).
+export const pageNow = () => pageAns && performance.now() - pageAt < PAGE_FRESH_MS ? pageAns : null;
+const everyArray = (a, keys) => keys.every(k => Array.isArray(a[k]));
+// The bill page's answer, when it is for the bill a link named (its number, and its session when the link named one). A bill that
+// is null in the answer is not trusted to say "no such bill": the page's own lookup (bill.js reallyMissing) still does.
+export async function billAnswer(num, year) {
+  await pageAnswer();
+  const a = pageNow(), b = a && a.bill;
+  return b && typeof b === 'object' && b.bill_number === String(num || '').replace(/\s/g, '').toUpperCase() && (!+year || +b.session_year === +year)
+    && everyArray(a, ['hearings', 'outcomes']) ? a : null;
+}
+// The same answer, for the bill b already in hand (synchronous: ensureBill has taken the answer before the bill page draws).
+export const pageBill = b => { const a = pageNow(); return a && b && a.bill && a.bill.id === b.id ? a : null; };
+// Home's answer: its bills and numbers, whatever follows the person had when it was asked. Home takes from it what it holds
+// for its own followed set (loadBills, loadActions).
+export const pageHome = () => { const a = pageNow(); return a && everyArray(a, ['bills', 'hearings', 'outcomes', 'activity', 'counts', 'stances', 'voices']) && a.week && Array.isArray(a.week.hearings) ? a : null; };
+export async function homeAnswer() { await pageAnswer(); return pageHome(); }
+pageAnswer();   // taken as soon as this module is in, so the screens that draw at once (pageNow, pageBill) find it when it has arrived
+// Home's followed set out of its answer: the answer's rows for the bills this page follows (ids), and the ids it does not hold (a
+// follow this browser did not remember, a signed-in person's server follows, a different session year). A "Not for me" bill is in
+// the answer, which cannot know it, and is simply left out; if that cut the answer's activity, which ends at 300 rows, the activity
+// is asked the old way (activity: null).
+function homeRows(A, ids) {
+  const mine = new Set(ids), held = new Set(A.bills.map(b => b.id)), of = rows => rows.filter(x => mine.has(x.bill_id) && held.has(x.bill_id));
+  return { miss: ids.filter(id => !held.has(id)), bills: A.bills.filter(b => mine.has(b.id)), hearings: of(A.hearings), outcomes: of(A.outcomes),
+    activity: A.activity.length >= 300 && A.bills.some(b => !mine.has(b.id)) ? null : of(A.activity) };
+}
+
 // "I did it" marks: in this browser until sign-in, then in public_actions.
 export async function loadActions(ids) {
   S.done = localDone(); S.doneAt = localDoneAt();
@@ -66,11 +120,16 @@ export async function loadActions(ids) {
       if (r.error) for (const row of up) await S.supa.from('public_actions').upsert(row, { onConflict: 'user_id,bill_id,hearing_id,kind', ignoreDuplicates: true }); }
     server.forEach(k => S.done.add(k)); saveDone(); saveDoneAt();
   }
-  const hids = [...new Set([...S.hearings, ...((S.featured || {}).hearings || [])].map(h => h.id))];
-  const [c, v, st] = await Promise.all([
-    inChunks(ids, ch => S.supa.from('public_action_counts').select('*').in('bill_id', ch)),
-    inChunks(hids.slice(0, 300), ch => S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', ch)),
-    inChunks(ids, ch => S.supa.from('public_bill_stances').select('*').in('bill_id', ch))]);
+  const hs = [...S.hearings, ...((S.featured || {}).hearings || [])], hids = [...new Set(hs.map(h => h.id))];
+  // First load, Home: the numbers for the followed bills and the week's hearings are already in Home's answer; only the bills it
+  // does not cover are asked for (all of them, when there is no answer).
+  const A = await homeAnswer(), seen = A ? new Set([...A.bills.map(b => b.id), ...A.week.hearings.map(h => h.bill_id)]) : null;
+  const idsIn = new Set(ids.filter(id => seen?.has(id))), billOf = new Map(hs.map(h => [h.id, h.bill_id])), hidsIn = new Set(hids.filter(id => seen?.has(billOf.get(id))));
+  const [c0, v0, st0] = await Promise.all([
+    inChunks(ids.filter(id => !idsIn.has(id)), ch => S.supa.from('public_action_counts').select('*').in('bill_id', ch)),
+    inChunks(hids.filter(id => !hidsIn.has(id)).slice(0, 300), ch => S.supa.from('public_hearing_voices').select('hearing_id,people').in('hearing_id', ch)),
+    inChunks(ids.filter(id => !idsIn.has(id)), ch => S.supa.from('public_bill_stances').select('*').in('bill_id', ch))]);
+  const c = A ? [...A.counts.filter(r => idsIn.has(r.bill_id)), ...c0] : c0, v = A ? [...A.voices.filter(r => hidsIn.has(r.hearing_id)), ...v0] : v0, st = A ? [...A.stances.filter(r => idsIn.has(r.bill_id)), ...st0] : st0;
   c.forEach(r => { S.actionCounts[r.bill_id] = r; });
   S.voices = Object.fromEntries(v.map(r => [r.hearing_id, r.people]));
   S.billStances = { ...(S.billStances || {}), ...Object.fromEntries(st.map(r => [r.bill_id, r])) };
@@ -354,15 +413,19 @@ export async function loadBills() {
   }
   if (!ids.length) { S.bills = []; S.hearings = []; S.activity = []; }
   else {
+    // First load, Home: the followed bills, their hearings, outcomes and actions are in Home's answer (core.js pageHome); only the
+    // ids it lacks are asked for, so with no answer (or a 404) this is the four reads it always was.
+    const A = await homeAnswer(), H = A ? homeRows(A, ids) : null, rest = H ? H.miss : ids;
     // Following a whole category can mean 60 or more bills: asked for in slices (inChunks).
     const [b, h, a, o] = await Promise.all([
-      inChunks(ids, ch => S.supa.from('public_all_bills').select('*').in('id', ch)),
-      inChunks(ids, ch => S.supa.from('public_all_hearings').select('*').in('bill_id', ch)),
-      inChunks(ids, ch => S.supa.from('public_activity').select('*').in('bill_id', ch).order('occurred_at', { ascending: false }).limit(300)),
-      inChunks(ids, ch => S.supa.from('public_hearing_outcomes').select('*').in('bill_id', ch)),
+      inChunks(rest, ch => S.supa.from('public_all_bills').select('*').in('id', ch)),
+      inChunks(rest, ch => S.supa.from('public_all_hearings').select('*').in('bill_id', ch)),
+      inChunks(H && !H.activity ? ids : rest, ch => S.supa.from('public_activity').select('*').in('bill_id', ch).order('occurred_at', { ascending: false }).limit(300)),
+      inChunks(rest, ch => S.supa.from('public_hearing_outcomes').select('*').in('bill_id', ch)),
     ]);
-    S.bills = b; S.hearings = h; S.activity = a.sort((x, y) => y.occurred_at.localeCompare(x.occurred_at)).slice(0, 300);
-    Object.assign(S.outcomes, Object.fromEntries(o.map(x => [x.hearing_id, x])));
+    S.bills = H ? [...H.bills, ...b] : b; S.hearings = H ? [...H.hearings, ...h] : h;
+    S.activity = (H?.activity ? [...H.activity, ...a] : a).sort((x, y) => y.occurred_at.localeCompare(x.occurred_at)).slice(0, 300);
+    Object.assign(S.outcomes, Object.fromEntries((H ? [...H.outcomes, ...o] : o).map(x => [x.hearing_id, x])));
   }
   try { await loadActions([...ids, ...((S.featured || {}).bills || []).map(b => b.id)]); } catch { /* counts are decoration */ }
   if (!S.deadlines.length || S.refErr?.any) {
@@ -612,8 +675,11 @@ export async function ensureHistory(b) {
   if (DEMO || !b || S.hist[b.id]) return false;
   S.hist[b.id] = 'loading';
   try {
-    const { data, error } = await (await supa()).rpc('public_bill_hearing_history', { bill: b.id });
-    if (error) throw error;
+    // First load of a bill link: the answer holds the bill's whole history, with the outcomes and recordings (same rows, same columns).
+    const pa = pageBill(b);
+    let data;
+    if (pa && Array.isArray(pa.history)) data = pa.history;
+    else { const r = await (await supa()).rpc('public_bill_hearing_history', { bill: b.id }); if (r.error) throw r.error; data = r.data; }
     const have = new Map(hearingsOf(b).map(h => [h.id, h]));
     // A row already loaded keeps its place; it only gains a recording found since the lists loaded.
     for (const h of data || []) { const o = have.get(h.id); if (o && !o.stream_url && h.stream_url) o.stream_url = h.stream_url; }
@@ -1133,27 +1199,42 @@ export async function ensureBill(num, year) {
   // The Supabase client hands back a dropped connection as an error value, not a throw. Throw it, so a caller can tell
   // "no such bill" (null) from "could not ask" (an error) and never blames the person for a weak signal.
   if (!DEMO && (!b || (!y && +b.session_year !== sessionInfo().yr))) {
-    const sb = S.supa || await supa();   // a bill opened by its address can ask before the Supabase library has arrived (a failed library throws here, as a failed fetch does)
-    let q = sb.from('public_all_bills').select('*').eq('bill_number', n);
-    q = y ? q.eq('session_year', y) : q.order('session_year', { ascending: false });
-    const { data, error } = await q.limit(1); if (error) throw error;
-    if (data?.[0] && (!b || +data[0].session_year > +b.session_year)) b = data[0];
+    // First load of a bill link: the bill, with everything the page reads about it, is in the answer track.html asked for at time
+    // zero (billAnswer is null when it is for another bill, late, failed or a 404: the query below is then what it always was).
+    const pa = await billAnswer(n, y);
+    if (pa) { if (!b || +pa.bill.session_year > +b.session_year) b = pa.bill; }
+    else {
+      const sb = S.supa || await supa();   // a bill opened by its address can ask before the Supabase library has arrived (a failed library throws here, as a failed fetch does)
+      let q = sb.from('public_all_bills').select('*').eq('bill_number', n);
+      q = y ? q.eq('session_year', y) : q.order('session_year', { ascending: false });
+      const { data, error } = await q.limit(1); if (error) throw error;
+      if (data?.[0] && (!b || +data[0].session_year > +b.session_year)) b = data[0];
+    }
   }
   if (!b) return null;
   if (!S.bills.some(x => x.id === b.id)) S.extra[b.id] = b;
   if (DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) { S.xh[b.id] = D.hearings.filter(h => h.bill_id === b.id); D.outcomes.filter(o => o.bill_id === b.id).forEach(o => { S.outcomes[o.hearing_id] = o; }); }
+  const ownAnswer = async () => { const a = await billAnswer(b.bill_number, b.session_year); return a && a.bill.id === b.id ? a : null; };   // (this very bill's, however b came)
   if (!DEMO && !S.bills.some(x => x.id === b.id) && !S.xh[b.id]) {
-    const sb = S.supa || await supa();
-    const [h, o] = await Promise.all([sb.from('public_all_hearings').select('*').eq('bill_id', b.id), sb.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
-    if (h.error || o.error) throw (h.error || o.error);   // a bill drawn with no hearings because the fetch failed would read as "no hearing yet"
-    S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
+    const own = await ownAnswer();
+    if (own) { S.xh[b.id] = own.hearings.slice(); own.outcomes.forEach(x => { S.outcomes[x.hearing_id] = x; }); }
+    else {
+      const sb = S.supa || await supa();
+      const [h, o] = await Promise.all([sb.from('public_all_hearings').select('*').eq('bill_id', b.id), sb.from('public_hearing_outcomes').select('*').eq('bill_id', b.id)]);
+      if (h.error || o.error) throw (h.error || o.error);   // a bill drawn with no hearings because the fetch failed would read as "no hearing yet"
+      S.xh[b.id] = h.data || []; (o.data || []).forEach(x => { S.outcomes[x.hearing_id] = x; });
+    }
   }
   // The bill page's conference and Governor steps read the bill's recent Capitol actions (who chairs the conference, a
   // veto notice); a bill opened without being followed has none loaded yet (R-056). Decoration: a failure leaves the
   // step with its fallback (your own legislators), never an error.
   if (!S.bills.some(x => x.id === b.id) && !(S.xa ??= {})[b.id] && ['conference', 'governor'].includes(b.stage)) {
     if (DEMO) S.xa[b.id] = (D.activity || []).filter(a => a.bill_id === b.id);
-    else { const { data, error } = await (S.supa || await supa()).from('public_activity').select('*').eq('bill_id', b.id).order('occurred_at', { ascending: false }).limit(100); if (!error) S.xa[b.id] = data || []; }
+    else {
+      const own = await ownAnswer();   // the answer's activity is newest first, 100 at most, as the read below; it is filled only where this read was (More details shows no more than before)
+      if (Array.isArray(own?.activity)) S.xa[b.id] = own.activity.slice();
+      else { const { data, error } = await (S.supa || await supa()).from('public_activity').select('*').eq('bill_id', b.id).order('occurred_at', { ascending: false }).limit(100); if (!error) S.xa[b.id] = data || []; }
+    }
   }
   return b;
 }

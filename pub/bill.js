@@ -9,7 +9,7 @@ import { errArt, S, DEMO, SUPABASE_URL, SUPABASE_KEY, app, esc, icon, toast, blu
   pickBill, billRef, billPath, dueWords, toggleWatch, supa, hearingsOf, outcomeOf, OUTCOME_PLAIN, chairContacts, legsOf, legTitle, legPhoto, streamOf, sessionInfo,
   firstVisit, myStance, setStance, agrees, titleCase, reduceMotion, hstDay, CHAMBER_NAME, askMark, askedChair, companionsOf,
   issuesOf, issueFollowed, setFollows, issueLead, wizSet, HST, ensureHistory, followsAnything, myActions, wiz, testimonyDraft, isResolution, isOneChamber, billTourSeen, sameIdeaLaw, sameIdeaWords, sponsorsOf,
-  codesOf, cmteWords, theCmteWords, cmteStack, actionWords } from './core.js';
+  codesOf, cmteWords, theCmteWords, cmteStack, actionWords, pageBill } from './core.js';
 import { actionRank } from './capitol.js';   // a same-day action's place in the day (R-212 #45)
 import { draftName, draftRank, draftLabel, draftNotes, testifyLabel, mailLabel, letterOn } from './letters.js';
 // "Send my email to the Senate chairs" (R-153): who it goes to now, so "again" never reads as "my email failed".
@@ -115,8 +115,11 @@ function loadSocial(b) {
   if (DEMO || S.blSocial.has(b.id) || S.bills.some(y => y.id === b.id)) return;
   S.blSocial.add(b.id);
   (async () => {
-    const sb = await supa();
-    const [st, ac] = await Promise.all([sb.from('public_bill_stances').select('*').eq('bill_id', b.id), sb.from('public_action_counts').select('*').eq('bill_id', b.id)]);
+    // First load of a bill link: both are in the answer track.html asked for at time zero (core.js pageBill; null for any other case).
+    const pa = pageBill(b);
+    let st, ac;
+    if (pa && Array.isArray(pa.stances) && Array.isArray(pa.counts)) { st = { data: pa.stances }; ac = { data: pa.counts }; }
+    else { const sb = await supa(); [st, ac] = await Promise.all([sb.from('public_bill_stances').select('*').eq('bill_id', b.id), sb.from('public_action_counts').select('*').eq('bill_id', b.id)]); }
     let got = false;
     if (st.data?.[0]) { (S.billStances ??= {})[b.id] = st.data[0]; got = true; }
     if (ac.data?.[0] && !S.actionCounts[b.id]) { S.actionCounts[b.id] = ac.data[0]; got = true; }
@@ -1024,6 +1027,13 @@ function sameLine(b) {
   if (!L) {
     const key = `${b.id}`;
     if (!S.sameTried.has(key)) { S.sameTried.add(key);
+      // First load of a bill link: the answer holds the companions (same session, three at most) and the session's enacted bills on the
+      // bill's issues, the rows the two reads below would bring; they only join the bills the page knows (S.extra), and the line draws now.
+      const pa = pageBill(b);
+      if (pa && Array.isArray(pa.companions) && Array.isArray(pa.same_idea)) {
+        for (const c of [...pa.companions, ...pa.same_idea]) if (!S.bills.some(x => x.id === c.id) && !S.extra[c.id]) S.extra[c.id] = c;
+        return sameIdeaLaw(b) ? sameLine(b) : '';
+      }
       // not loaded yet: the companions by number, and the other chamber's bills on its issues by id
       const ids = issuesOf(b).flatMap(i => (i.bill_ids || []).filter((id, k) => +(i.bill_years || [])[k] === +b.session_year && id !== b.id));
       const byId = ids.length && !DEMO ? S.supa.from('public_all_bills').select('*').in('id', [...new Set(ids)].slice(0, 40)).eq('stage', 'enacted').then(r => { (r.data || []).forEach(c => { if (!S.bills.some(x => x.id === c.id)) S.extra[c.id] = c; }); }) : Promise.resolve();

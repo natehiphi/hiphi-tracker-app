@@ -28,7 +28,7 @@ import { S, DEMO, app, esc, icon, ICONS, toast, friendly, yay, supa, fetchAddrSu
 import { btn, row, notice, inlineErr, skeleton } from './ui.js';
 import { MARK } from './art.js';
 import { islandKey } from './people.js';
-import { issuesLink } from './core.js';   // the My issues link (R-123)
+import { issuesLink, pageHome } from './core.js';   // the My issues link (R-123); Home's first answer
 import { pendingPlace } from './mylists.js';
 import { t } from './i18n.js';
 import { langPicker, wireLangPicker } from './langpick.js';
@@ -89,6 +89,9 @@ const extRow = (lead, title, sub, href, leadHtml) => row({ lead, leadHtml, title
 // (it was a card on Home); Home's between-sessions greeting names it in one line (home.js meetLine). Asked once per visit;
 // nothing shows when there is none or the request fails. The sandbox shows a sample, labelled.
 export function meetEvent() {
+  // First load of Home: staff's cards are in the answer track.html asked for at time zero (core.js pageHome; null in every other case).
+  const ph = S.meetCard === undefined && !DEMO ? pageHome() : null;
+  if (ph && Array.isArray(ph.site_cards)) S.meetCard = ph.site_cards.find(r => r.kind === 'meet') || false;
   if (S.meetCard === undefined) {
     S.meetCard = null;
     (DEMO ? Promise.resolve([{ kind: 'meet', title: 'Meet HIPHI at the Keiki Health Fair (sample)', body: 'Saturday, Oct 18, 9 to 1, at Kapiʻolani Park. Come say aloha and learn how to speak up in January.', link_url: 'https://www.hiphi.org', link_label: 'See the event' }])

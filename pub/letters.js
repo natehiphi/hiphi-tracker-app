@@ -16,7 +16,7 @@
 // R-153 (Nate 10/4: "Can we replicate this for emails to chairs to hear a bill if they've already done that before?"; "all
 // of the above"): the emails too, every kind the walkthrough writes, kept beside the letter (one of each per bill), offered
 // again at the bill's next step with the same check; and each one can start from the other's answers.
-import { S, DEMO, supa, companionsOf, sessionInfo, myStance, nick, testimonyDraft, didKind, esc, icon, spaced } from './core.js';
+import { S, DEMO, supa, companionsOf, sessionInfo, myStance, nick, testimonyDraft, didKind, esc, icon, spaced, pageBill } from './core.js';
 
 const ME = 'hiphi_me';
 const readMe = () => { try { return JSON.parse(localStorage.getItem(ME) || '{}') || {}; } catch { return {}; } };
@@ -38,6 +38,10 @@ export function draftNotes(b) {
   const cache = (S.draftNotes ??= new Map());
   if (!cache.has(b.id)) cache.set(b.id, (async () => {
     if (DEMO) { S.demoDrafts ??= fetch('demo/drafts.json?v=20261005a', { cache: 'force-cache' }).then(r => r.json()).catch(() => []); return (await S.demoDrafts).filter(d => d.bill_id === b.id); }
+    // First load of a bill link: this bill's drafts are in the answer track.html asked for at time zero (core.js pageBill); the rows
+    // have the four columns read below and bill_id.
+    const pa = pageBill(b);
+    if (pa && Array.isArray(pa.drafts)) return pa.drafts.slice();
     const r = await (await supa()).from('public_bill_drafts').select('version,summary,changes_letters,letter_note').eq('bill_id', b.id);
     if (r.error) throw r.error;
     return r.data || [];

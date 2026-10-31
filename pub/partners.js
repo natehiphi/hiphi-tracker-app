@@ -11,7 +11,7 @@
 //     sign-in (there was no "signed in" switch in the practice copy): partner=member, new (terms not agreed yet), waiting
 //     and paused show the other states.
 // Rule 1: partner words live in their own tables and never touch HIPHI's columns on bills; nothing here writes a bill.
-import { S, D, DEMO, app, esc, icon, supa, friendly, hstDay } from './core.js';
+import { S, D, DEMO, app, esc, icon, supa, friendly, hstDay, pageNow } from './core.js';
 import { draftName } from './letters.js';
 
 // ---------------- words shared by the screens ----------------
@@ -398,6 +398,21 @@ export async function partnersPublic() {
 // anything to show, so the partner lines appear a moment after the screen; a failed read shows no partner words, never a
 // broken page.
 let PUB = null, PUBP = null, redrawAsked = false;
+// A bill link's first answer (core.js pageBill, R-357 Part 6) carries the approved partner words on THAT bill, so the bill page can
+// say them at once instead of after the three whole-table reads. It is a seed for that one bill's page and nothing more: PUB.byBill
+// holds every bill's rows (Find and the list rows read other bills' from it), so one bill's rows must never be put there, or a bill
+// without words would read as "no partner words anywhere" until the real copy came. Once PUB is in, PUB is what onBill reads; a
+// partner's own change (forgetPublic) retires the seed, which is older than the change. A bill's rows are taken the first time the
+// page asks for them while the answer is fresh and kept for the page's life, so a redraw a minute later does not lose the words.
+const SEED = new Map();
+let seedOff = false;
+const seedRows = id => {
+  if (seedOff || DEMO) return null;
+  if (SEED.has(id)) return SEED.get(id);
+  const a = pageNow();
+  if (!(a && a.bill && a.bill.id === id && Array.isArray(a.partner_bills))) return null;
+  SEED.set(id, a.partner_bills); return a.partner_bills;
+};
 export function loadPublic() {
   if (PUBP) return PUBP;
   const soft = p => p.catch(e => { console.error(e); return []; });
@@ -415,16 +430,21 @@ export function pubNow() {
   return null;
 }
 // After a partner's own change in the corner, the public copy is asked again on the next draw.
-export const forgetPublic = () => { PUB = null; PUBP = null; redrawAsked = false; };
+export const forgetPublic = () => { PUB = null; PUBP = null; redrawAsked = false; seedOff = true; };
 // This visit's partner (?via=<slug>) when it names a group that writes on the tracker; null otherwise (a link-only
-// partner's ?via= keeps its welcome line on the first visit, as before).
+// partner's ?via= keeps its welcome line on the first visit, as before). Without a ?via=, and with one of the words the page's own
+// links carry (a shared bill's ?via=share, text, week, quiz, alert: pub/app.js opens a partner's page for none of them), the answer
+// is null whatever the reads say, so it no longer starts them (R-357 Part 6: every shared bill link asked for all three whole tables
+// just to find that out).
 export const viaSlug = () => VIA;
-export function viaPartner() { const d = pubNow(); return (d && VIA && d.partners.find(p => p.slug === VIA && p.writes)) || null; }
+const NOT_A_GROUP = /^(share|text|week|quiz|alert)$/;
+export function viaPartner() { if (!VIA || NOT_A_GROUP.test(VIA)) return null; const d = pubNow(); return (d && d.partners.find(p => p.slug === VIA && p.writes)) || null; }
 export const partnerOf = slug => (pubNow()?.partners || []).find(p => p.slug === slug) || null;
 const bid = b => (typeof b === 'string' ? b : b?.id) || '';
 // Approved partner words on one bill: this visit's partner first, then the earliest approved.
 export function onBill(b) {
-  const rows = pubNow()?.byBill.get(bid(b)) || [];
+  const id = bid(b), seed = PUB ? null : seedRows(id);   // (the whole copy, once it is in, is the better source)
+  const rows = seed || pubNow()?.byBill.get(id) || [];
   return rows.slice().sort((x, y) => (y.partner_slug === VIA) - (x.partner_slug === VIA) || String(x.approved_at).localeCompare(String(y.approved_at)));
 }
 // HIPHI's side on a bill as partners are bound by it: support or oppose of any strength; Monitor and Neutral are no side.
