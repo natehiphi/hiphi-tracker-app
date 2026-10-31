@@ -352,7 +352,7 @@ export function render() {
   // The start could not finish (R-212 #49): every draw is the card until the page is reloaded, so a later redraw (a
   // language's words arriving, the first visit's own timers) never puts back a screen with nothing to draw from. Except a first
   // visit's welcome, which needs no data (welcomeStays): it stays, and the card comes when they go on (R-357 5c).
-  skelUp = false;
+  skelUp = false; document.body.classList.remove('sk');
   if (bootFailed && !welcomeStays()) { drawBootCard(); return; }
   document.body.classList.remove('bootfail');
   let route = parseRoute();
@@ -496,7 +496,7 @@ const BOOT_WHAT = { bill: 'this bill', issue: 'this issue' };
 const bootCard = () => { const n = parseRoute().name;
   return loadFail({ what: BOOT_WHAT[n] || 'the tracker', note: n === 'bills' ? 'What you follow is still saved.' : '', retry: { onclick: 'location.reload()' } }); };
 function drawBootCard() {
-  skelUp = false;
+  skelUp = false; document.body.classList.remove('sk');
   // No tabs, search or sign-in in the header (the ui-critic's review, A-12): each would only draw this card again.
   document.body.classList.add('notabs', 'bootfail'); document.body.classList.remove('withtabs', 'hasbar');
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header({ name: 'error' }, {})}<main id="main" tabindex="-1">${bootCard()}</main>`;
@@ -645,7 +645,9 @@ app.boot = boot;
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen, on any screen (X9-1)
 // The skeleton keeps the shell (R-357 5c): the real header and tabs (a laptop's links, a phone's bar) under the grey bars, where the page
 // drew an empty header for the seconds the data took. A first visit's has no tabs, as its welcome has none. Until base.css has applied
-// only the brand is drawn (#crit covers it; the links would show unstyled) and the whole is drawn again when it has.
+// only the brand is drawn (#crit covers it; the links would show unstyled) and the whole is drawn again when it has. body.sk draws them
+// in the system face (#crit): text in Poppins or Lato would ask for the web fonts while the page's own code is still arriving, and on a
+// slow line that delayed the real screen by half a second.
 let skelUp = false;
 function drawSkeleton() {
   let head = `<header class="hdr"><div class="hdrin">${brandLink()}</div></header>`, tabs = '', withTabs = false;
@@ -658,7 +660,7 @@ function drawSkeleton() {
       head = header(route, scr, true); tabs = withTabs ? tabbar(route, scr) : '';
     } catch (e) { console.error(e); }
   }
-  document.body.classList.toggle('withtabs', withTabs); document.body.classList.toggle('notabs', !withTabs);
+  document.body.classList.toggle('withtabs', withTabs); document.body.classList.toggle('notabs', !withTabs); document.body.classList.add('sk');
   $app().innerHTML = `${head}<main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>${tabs}`;
   skelUp = true;
 }
