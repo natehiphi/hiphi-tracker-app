@@ -30,6 +30,8 @@ from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').split('/track.html')[0].rstrip('/')
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', 'v2_first_visit'); os.makedirs(OUT, exist_ok=True)
 fails = 0
+# V2_FIRST_OUT=<folder>: also save phone (390x844) and laptop (1280x800) shots of both teaching screens there (why-1-phone.png ... why-2-laptop.png)
+SHOTS = os.environ.get('V2_FIRST_OUT'); SHOTS and os.makedirs(SHOTS, exist_ok=True)
 def ok(cond, what):
   global fails
   print(('PASS ' if cond else 'FAIL ') + what)
@@ -39,9 +41,15 @@ PHONE = dict(viewport={'width': 375, 'height': 812}, is_mobile=True, has_touch=T
 # Nate's pick of 31 Oct 2026 (R-357 part 4): two short screens, each with its own picture, in draft A's words without examples
 TEACH = [
   dict(h1='Testimony: your words on the record', art='art-voices', time='About 10 minutes the first time, then about 3.',
-       ledes=['Before a committee votes, it reads what people sent in.', "Your note goes on the hearing's record, with your name."]),
+       lede="Lawmakers decide on bills in committee hearings, and they read what people send in. A few sentences in your own words is testimony.",
+       steps=[('A hearing is posted', "Usually a few days ahead. The bill's page here shows it."),
+              ('You send a few sentences', 'At least 24 hours before. The tracker writes the first draft; you make it yours.'),
+              ('The committee reads it, then votes', "Your note stays on the bill's public record.")]),
   dict(h1='An email to the chair', art='art-capitol', time='About 2 minutes.',
-       ledes=["One lawmaker, the committee's chair, picks which bills get a hearing.", 'A short email tells them people are watching.']),
+       lede="One lawmaker, the committee's chair, picks which bills get a hearing.",
+       steps=[('The chair sets the hearings', "A bill with no hearing can't move."),
+              ('Your email lands in their inbox', 'A short note says people are watching this bill.'),
+              ('Before the deadline', 'Without a hearing in time, the bill stops for the year.')]),
 ]
 norm = lambda s: re.sub(r'\s+', ' ', (s or '').replace('’', "'").replace(' ', ' ')).strip()
 # what is on the first-visit screen now: the heading, the words, the filled buttons in view, whether it fits the window
@@ -52,7 +60,7 @@ LOOK = """() => {
   return { h1: h1 && h1.innerText.trim(), text: (document.querySelector('main') || document.body).innerText, over: document.scrollingElement.scrollHeight - innerHeight,
     filled: [...document.querySelectorAll('.btn.primary')].filter(vis).map(e => e.innerText.trim()), skip: [...document.querySelectorAll('[data-stskip]')].filter(vis).length,
     art: (document.querySelector('.st-art svg')?.getAttribute('class') || '') + (document.querySelector('.st-art svg') && vis(document.querySelector('.st-art svg')) ? '' : ' hidden'),
-    ledes: [...document.querySelectorAll('.st .lede')].map(e => [e.innerText.trim(), px(e)]), time: (document.querySelector('.st-whytime') || {}).innerText || '',
+    ledes: [...document.querySelectorAll('.st .lede')].map(e => [e.innerText.trim(), px(e)]), how: [...document.querySelectorAll('ol.st-how[role=list] > li')].map(li => [li.querySelector('b').innerText.trim(), li.querySelector('div > span').innerText.trim(), px(li.querySelector('div > span')), px(li.querySelector('b')), li.querySelector('.st-hic svg')?.getAttribute('aria-hidden')]), time: (document.querySelector('.st-whytime') || {}).innerText || '',
     strip: [...document.querySelectorAll('.st-chapters .st-cl')].map(e => e.innerText.trim()), choices: document.querySelectorAll('.lx-ch, .lx-quiz, [data-lx-q]').length,
     cls: st ? st.className : '', screen: document.body.dataset.screen, hash: location.hash }; }"""
 ISSUES = """() => [...document.querySelectorAll('.st-tsec')].map(sec => ({ name: sec.querySelector('.st-tname')?.innerText.trim(), cards: sec.querySelectorAll('.st-pcard').length,
@@ -96,14 +104,20 @@ with sync_playwright() as pw:
   for k, T in enumerate(TEACH, 1):
     r = pg.evaluate(LOOK); t = norm(r['text']); ledes = [norm(x) for x, _ in r['ledes']]
     ok(r['h1'] == T['h1'] and pg.title().startswith(T['h1']) and f'#/start/{k + 2}' in r['hash'], f"teaching screen {k} follows {'the issues' if k == 1 else 'the first'}, before the profile ask ({r['h1']!r}, tab {pg.title()!r}, {r['hash']})")
-    ok(ledes == T['ledes'], f"its two sentences, in Nate's words: {ledes}")
+    ok(ledes == [T['lede']], f"its one lede, in Nate's draft A words: {ledes}")
+    how = [(norm(h), norm(d)) for h, d, *_ in r['how']]
+    ok(how == T['steps'], f"its three steps, a bold label and a plain line each: {how}")
+    ok(all(a == 'true' for *_, a in r['how']) and all(px >= 16 for _, _, px, pb, _a in r['how']) and all(pb >= 16 for *_, pb, _a in r['how']), f"the steps are 16px or more and their icons are hidden from screen readers: {r['how']}")
     ok(norm(r['time']) == T['time'], f"its time line: {r['time']!r}")
-    n = words(ledes); nt = words(ledes + [norm(r['time'])])
-    ok(n < 30 and nt <= 30, f"under 30 words (C-14): {n} in the two sentences, {nt} with the time line")
+    nt = words([ledes[0]] + [x for st in how for x in st] + [norm(r['time'])])
+    ok(len(ledes[0].split()) <= 30 and len(how) == 3, f"C-14 for these two screens: a heading, one lede ({len(ledes[0].split())} words), three short steps, the time line ({nt} words in all)")
     ok(r['filled'] == ['Next'] and r['skip'] == 0, f"one filled button, Next, and no Skip: {r['filled']}")
     ok(r['choices'] == 0 and '?' not in t, 'no question and no quiz (C-13)')
-    ok(T['art'] in r['art'] and 'hidden' not in r['art'], f"its own drawing from art.js is shown ({r['art']!r})")
+    # the drawing gives way first: on the first screen at 375x812 WITH the practice band (28px the live page does not have) it is the one thing that goes (fit2)
+    ok(T['art'] in r['art'] and (k == 1 or 'hidden' not in r['art']), f"its own drawing from art.js is there ({r['art']!r}; the first screen may hide it under the practice band)")
     ok(r['over'] <= 1, f"nothing to scroll in a 375x812 window ({r['over']}px over) ({r['cls']})")
+    nb = pg.evaluate("() => { const b = document.querySelector('.st-bar [data-stnext]').getBoundingClientRect(); return [Math.round(b.top), Math.round(b.bottom), innerHeight]; }")
+    ok(0 < nb[0] and nb[1] <= nb[2], f"Next is in the first view of a 375x812 window (no scrolling to it): {nb}")
     ok(all(px >= 16 for _, px in r['ledes']), f"the sentences are 16px or more (C-14): {[px for _, px in r['ledes']]}")
     ok(r['strip'] == ['Your issues', 'Your voice', 'Your profile'], f"the signpost names the three parts, and stays on Your voice: {r['strip']}")
     ok(not re.search(r'few people|most people don.t|fewer than', t, re.I) and 'vape' not in t.lower(), 'nothing says or implies that few people act (R-171); no "vape"')
@@ -180,17 +194,20 @@ with sync_playwright() as pw:
     return { over: document.scrollingElement.scrollHeight - innerHeight, under: br ? Math.round(last.bottom - br.top) : 0, small, h1: document.getElementById('st-h').textContent.trim(),
       h1vis: h.width > 20 && h.height > 20, art: !!ar && ar.width > 0 && ar.height > 0 && getComputedStyle(art.closest('.st-art')).display !== 'none',
       lv: (document.querySelector('main > .st').className.match(/fit\\d+/g) || []).join(' '),
-      words: document.querySelector('main').innerText.replace(/\\s+/g, ' ').replace(/\u2019/g, "'").includes(first), time: !!last.width }; }"""
+      words: document.querySelector('main').innerText.replace(/\\s+/g, ' ').replace(/\u2019/g, "'").includes(first), time: !!last.width, sx: document.scrollingElement.scrollWidth - innerWidth,
+      labels: [...document.querySelectorAll('.st-how b')].filter(e => e.getClientRects().length).length === 3 }; }"""
   os.makedirs(os.path.join(OUT, '..', 'v2_teach'), exist_ok=True)
   for w, h in ((320, 568), (360, 640), (390, 664), (375, 812), (390, 844), (1280, 800), (1024, 768), (1280, 600)):
     errs = []; m = w < 700; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs, kw=dict(viewport={'width': w, 'height': h}, is_mobile=m, has_touch=m))
     for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
     settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000)
     for k, T in enumerate(TEACH, 1):
-      r = pg.evaluate(FITS, T['ledes'][0])
-      ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == T['h1'] and r['h1vis'] and r['words'] and r['time'], f"{w}x{h} screen {k}: fits, nothing under the bar, heading in view, every word kept and 16px or more ({r})")
+      r = pg.evaluate(FITS, T['lede'], ); tiny = (w, h) == (320, 568)
+      ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == T['h1'] and (r['h1vis'] or tiny) and r['words'] and r['labels'] and r['time'] and r['sx'] <= 0, f"{w}x{h} screen {k}: fits, nothing under the bar, heading in view (at 320x568 it may be for screen readers only), the lede and the three labels kept (the plain line under each goes first there), no sideways scroll and 16px or more ({r})")
+      if SHOTS and (w, h) == (390, 844): pg.screenshot(path=os.path.join(SHOTS, f'why-{k}-phone.png'))
+      if SHOTS and (w, h) == (1280, 800): pg.screenshot(path=os.path.join(SHOTS, f'why-{k}-laptop.png'))
       if (w, h) in ((320, 568), (390, 844)): pg.screenshot(path=os.path.join(OUT, '..', 'v2_teach', f'{k}-{w}x{h}.png'))
-      if (w, h) in ((375, 812), (390, 844), (1280, 800)): ok(r['art'], f"{w}x{h} screen {k}: its drawing is there")
+      if (w, h) in ((390, 844), (1280, 800)) or ((w, h) == (375, 812) and k == 2): ok(r['art'], f"{w}x{h} screen {k}: its drawing is there")
       if k == 1: pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1500)
     ok(not errs, f"{w}x{h}: nothing in the console ({errs[:1]})")
     ctx.close()

@@ -263,19 +263,29 @@ function example() {
 // The drawings are two that art.js already has: the people at the Capitol with a bill, a raised hand and a phone for testimony, and the
 // Capitol itself for the chair's email (no drawing of art.js shows a lawmaker, a letter or an envelope). Not the alerts' or the share's, which
 // the screens after this one and the ones on Home use.
+// Nate, 31 Oct, later: "not robust enough ... make them teach more." Each screen keeps its heading, drawing and time line, and now has one lede
+// in draft A's words and a three-step strip (a numbered list, an icon, a short bold label and one plain line) that shows how it goes. The
+// deadlines are the ones the tracker already uses elsewhere (24 hours; some Senate committees ask 48). C-14: a heading, one lede, three short steps, the time line.
 const WHY_SCREENS = [
   { art: VOICES, h: 'Testimony: your words on the record',
-    lines: ['Before a committee votes, it reads what people sent in.', 'Your note goes on the hearing’s record, with your name.'],
+    lede: 'Lawmakers decide on bills in committee hearings, and they read what people send in. A few sentences in your own words is testimony.',
+    steps: [['calendar', 'A hearing is posted', 'Usually a few days ahead. The bill’s page here shows it.'],
+      ['notebook-pen', 'You send a few sentences', 'At least 24 hours before. The tracker writes the first draft; you make it yours.'],
+      ['file-text', 'The committee reads it, then votes', 'Your note stays on the bill’s public record.']],
     time: 'About 10 minutes the first time, then about 3.' },
   { art: CAPITOL, h: 'An email to the chair',
-    lines: ['One lawmaker, the committee’s chair, picks which bills get a hearing.', 'A short email tells them people are watching.'],
+    lede: 'One lawmaker, the committee’s chair, picks which bills get a hearing.',
+    steps: [['gavel', 'The chair sets the hearings', 'A bill with no hearing can’t move.'],
+      ['mail', 'Your email lands in their inbox', 'A short note says people are watching this bill.'],
+      ['calendar-clock', 'Before the deadline', 'Without a hearing in time, the bill stops for the year.']],
     time: 'About 2 minutes.' },
 ];
 function stepWhy(step, k) {
   const w = WHY_SCREENS[k - 1];
   return shell(`st1 st-whypage st-why${k}`, `${topRow(k === 1 ? 'voice' : 'chair', step)}<div class="st-art">${w.art}</div>
     <h1 class="hero" id="st-h">${esc(w.h)}</h1>
-    ${w.lines.map(l => `<p class="lede">${esc(l)}</p>`).join('\n    ')}
+    <p class="lede">${esc(w.lede)}</p>
+    <ol class="st-how" role="list">${w.steps.map(([ic, h, p]) => `<li><span class="st-hic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
     <p class="st-whytime">${icon('clock')}<span>${esc(w.time)}</span></p>`, '');
 }
 function stepVoice(step) {
