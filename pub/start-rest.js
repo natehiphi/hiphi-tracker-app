@@ -269,9 +269,9 @@ function example() {
 const WHY_SCREENS = [
   { art: VOICES, h: 'Testimony: your words on the record',
     lede: 'Lawmakers decide on bills in committee hearings, and they read what people send in. A few sentences in your own words is testimony.',
-    steps: [['calendar', 'A hearing is posted', 'Usually a few days ahead. The bill’s page here shows it.'],
-      ['notebook-pen', 'You send a few sentences', 'At least 24 hours before. The tracker writes the first draft; you make it yours.'],
-      ['file-text', 'The committee reads it, then votes', 'Your note stays on the bill’s public record.']],
+    steps: [['calendar', 'A hearing is posted', 'A few days ahead, on the bill’s page here.'],
+      ['notebook-pen', 'You send a few sentences', 'At least a day before. The tracker drafts it; you make it yours.'],
+      ['file-text', 'They read it, then vote', 'Your note stays on the public record.']],
     time: 'About 10 minutes the first time, then about 3.' },
   { art: CAPITOL, h: 'An email to the chair',
     lede: 'One lawmaker, the committee’s chair, picks which bills get a hearing.',

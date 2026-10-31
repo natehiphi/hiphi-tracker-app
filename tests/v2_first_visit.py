@@ -42,9 +42,9 @@ PHONE = dict(viewport={'width': 375, 'height': 812}, is_mobile=True, has_touch=T
 TEACH = [
   dict(h1='Testimony: your words on the record', art='art-voices', time='About 10 minutes the first time, then about 3.',
        lede="Lawmakers decide on bills in committee hearings, and they read what people send in. A few sentences in your own words is testimony.",
-       steps=[('A hearing is posted', "Usually a few days ahead. The bill's page here shows it."),
-              ('You send a few sentences', 'At least 24 hours before. The tracker writes the first draft; you make it yours.'),
-              ('The committee reads it, then votes', "Your note stays on the bill's public record.")]),
+       steps=[('A hearing is posted', "A few days ahead, on the bill's page here."),
+              ('You send a few sentences', 'At least a day before. The tracker drafts it; you make it yours.'),
+              ('They read it, then vote', 'Your note stays on the public record.')]),
   dict(h1='An email to the chair', art='art-capitol', time='About 2 minutes.',
        lede="One lawmaker, the committee's chair, picks which bills get a hearing.",
        steps=[('The chair sets the hearings', "A bill with no hearing can't move."),
@@ -203,11 +203,11 @@ with sync_playwright() as pw:
     settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000)
     for k, T in enumerate(TEACH, 1):
       r = pg.evaluate(FITS, T['lede'], ); tiny = (w, h) == (320, 568)
-      ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == T['h1'] and (r['h1vis'] or tiny) and r['words'] and r['labels'] and r['time'] and r['sx'] <= 0, f"{w}x{h} screen {k}: fits, nothing under the bar, heading in view (at 320x568 it may be for screen readers only), the lede and the three labels kept (the plain line under each goes first there), no sideways scroll and 16px or more ({r})")
+      ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == T['h1'] and r['h1vis'] and (r['words'] or tiny) and r['labels'] and r['time'] and r['sx'] <= 0, f"{w}x{h} screen {k}: fits, nothing under the bar, the heading always in view, the lede (at 320x568 it may go, last) and the three labels kept (the plain line under each goes first there), no sideways scroll and 16px or more ({r})")
       if SHOTS and (w, h) == (390, 844): pg.screenshot(path=os.path.join(SHOTS, f'why-{k}-phone.png'))
       if SHOTS and (w, h) == (1280, 800): pg.screenshot(path=os.path.join(SHOTS, f'why-{k}-laptop.png'))
       if (w, h) in ((320, 568), (390, 844)): pg.screenshot(path=os.path.join(OUT, '..', 'v2_teach', f'{k}-{w}x{h}.png'))
-      if (w, h) in ((390, 844), (1280, 800)) or ((w, h) == (375, 812) and k == 2): ok(r['art'], f"{w}x{h} screen {k}: its drawing is there")
+      if (w, h) in ((390, 844), (1280, 800), (375, 812)): ok(r['art'], f"{w}x{h} screen {k}: its drawing is there")
       if k == 1: pg.locator('.st-bar [data-stnext]').click(); settle(pg, 1500)
     ok(not errs, f"{w}x{h}: nothing in the console ({errs[:1]})")
     ctx.close()

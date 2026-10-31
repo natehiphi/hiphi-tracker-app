@@ -679,6 +679,7 @@ button.st-way:active { transform: scale(.99); }
 @media (max-width: 899px) {
   .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: auto; max-width: 100%; height: 104px; }
   .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-capitol { width: auto; max-width: 100%; height: 88px; }
+  .st.st-whypage.fit1:not(.fit2) .st-art svg.art-nb { width: auto; max-width: 100%; height: 80px; }   /* VOICES is wide: at .fit1 it keeps 80px, not the base 64px that read as a thumbnail beside the Capitol's 88 */
   .st-whypage.fit2 .st-art { display: none; }
 }
 /* On a laptop the two columns are the words (left, with Next under them) and the drawing (right): the intro's parts stand in <main>'s own grid
@@ -717,7 +718,7 @@ button.st-way:active { transform: scale(.99); }
   .st-whypage.fit9 .st-how span:not(.st-hic) { display: none; }   /* a very short phone (320x568): the three labels say how it goes; the plain line under each goes before the heading does */
   /* Last: the heading goes to screen readers only (the strip already says "Your voice", A-14; the lessons do the same at .fit1) and the
      page's side room is 12px, which can take a line off the words. */
-  .st-whypage.fit10 h1 { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .st-whypage.fit10 .lede { display: none; }   /* the last to go is the lede, never the heading: the heading and the three labels still teach it */
   body[data-screen="start"]:has(.st-whypage.fit10) main { padding-inline: var(--s12); padding-top: var(--s8); }
   body[data-screen="start"].hasbar:has(.st-whypage.fit6.fit10) main { padding-bottom: calc(var(--safe-b) + 66px); }   /* the bar is 65px once slimmed (fit6), so only then */
 }
