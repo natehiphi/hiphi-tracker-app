@@ -1,4 +1,4 @@
-// HIPHI Staff v2: Sort new bills (#/bills/new, plan 3.5). The current app lists 25 triage rows at once, 213px each,
+// HIPHI Staff v2: Sort new bills (#/issues/bills/new, plan 3.5). The current app lists 25 triage rows at once, 213px each,
 // with the first one 741px down a phone. Here it is one card at a time: the bill, why it was suggested, what it looks
 // like from past sessions, a coalition and a position, then Track, Not for us or Later. Every decision shows a toast
 // with Undo (and Open after Track). Same calls as app.js renderTriage/wireTriage: loadTriage fills S.triage from
@@ -238,7 +238,7 @@ export default {
     if (!t.rows.length) {
       const doneCard = `<div class="st-done">${empty({ title: 'All sorted for now.',
         text: `${t.done ? `You decided ${t.done} bill${t.done === 1 ? '' : 's'} this sitting. ` : ''}${t.matchedOnly ? `Nothing suggested is waiting${t.camp ? ` for ${esc(campName(t))}` : ''}. New bills show up here as they are introduced.` : 'No undecided bills are left.'}`,
-        action: `<div class="btncol">${btn('Back to Bills', { kind: 'secondary', href: '#/bills' })}${t.matchedOnly ? btn('Look through every undecided bill', { kind: 'text', attrs: { 'data-tall': '1' } }) : ''}${t.camp ? btn('Look at every coalition', { kind: 'text', attrs: { 'data-tcampall': '1' } }) : ''}</div>` })}</div>`;
+        action: `<div class="btncol">${btn('Back to Bills', { kind: 'secondary', href: '#/issues/bills' })}${t.matchedOnly ? btn('Look through every undecided bill', { kind: 'text', attrs: { 'data-tall': '1' } }) : ''}${t.camp ? btn('Look at every coalition', { kind: 'text', attrs: { 'data-tcampall': '1' } }) : ''}</div>` })}</div>`;
       // The decisions just made can still be undone from here.
       return desk ? `<div class="${cls}">${head}${filters}<div class="st-tcols"><div class="st-tmain">${doneCard}${followedPanel(t)}${foot}</div><aside class="st-tside" aria-label="Your decisions">${recent(t)}</aside></div></div>`
         : `<div class="${cls}">${head}${filters}${doneCard}${followedPanel(t)}${t.hist.length ? recent(t) : ''}${foot}</div>`;
@@ -399,7 +399,7 @@ const onPage = el => !el || el === document.body || el.id === 'main' || el.id ==
 document.addEventListener('keydown', e => {
   if (S.route?.name !== 'triage' || !keysOn() || !HOVER()) return;
   if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
-  if (e.key === 'Escape') { if (onPage(document.activeElement)) { e.preventDefault(); S.go('#/bills'); } return; }   // back to the Bills tab
+  if (e.key === 'Escape') { if (onPage(document.activeElement)) { e.preventDefault(); S.go('#/issues/bills'); } return; }   // back to the Bills tab
   if (!onPage(document.activeElement) || !onPage(e.target)) return;
   if (e.key === 'g') { lastG = Date.now(); return; }
   if (Date.now() - lastG < 1200) return;

@@ -85,7 +85,7 @@ const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.de
 // ---- routes ----
 // v6 (R-336, spec 3.3, 3.4): the places Hearings, Testimony, Team, People and More join the v5 screens. Every v5
 // address still opens the same thing (V36): an old one is redirected (replaced, never pushed) to its v6 address, keeping its
-// query (#/outreach/issues?view=links opens #/my-issues/all?view=links). tests/staff6_links.py proves it.
+// query (#/outreach/issues?view=links opens #/issues/all?view=links). tests/staff6_links.py proves it.
 const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups,
   hearings, testimony: testimonyplace, team, people, tools, more: tools };   // More and More tools are one page (R-356), drawn by tools.js
 export function parseRoute(h = location.hash) {
@@ -113,13 +113,19 @@ export function parseRoute(h = location.hash) {
     case 'testimony': return { name: 'testimony', view: q.view || '', q };
     case 'review': return { name: 'review', id: seg[1] || '', q };
     case 'inbox': return { name: 'inbox', view: q.view || '', q };
-    // My issues (R-263) with its tabs Coalitions and All issues (spec 3.3): v5's #/coalition and #/outreach/issues move here.
-    // #/my-issues/all?view=cal is All issues' week calendar (R-342; R-352 FIX-3, Nate 28 Oct: kept), drawn by issues.js.
-    case 'my-issues':
-      return seg[1] === 'coalitions' ? { name: 'coalition', id: '', q } : seg[1] === 'all' ? { name: 'issues', q } : { name: 'myissues', q };
-    case 'coalition': return seg[1] ? { name: 'coalition', id: seg[1], q } : { name: 'coalition', id: '', q, redirect: to('#/my-issues/coalitions') };
+    // Issues (R-263; R-356 round 2, decision 3) with its tabs My issues · All issues · Bills · Coalitions: v5's #/coalition and
+    // #/outreach/issues move here, and Bills lives at #/issues/bills (with /new and /muted). #/issues/all?view=cal is All issues'
+    // week calendar (R-342; R-352 FIX-3, Nate 28 Oct: kept), drawn by issues.js. #/my-issues was the address before round 2.
+    case 'issues':
+      if (seg[1] === 'coalitions') return { name: 'coalition', id: '', q };
+      if (seg[1] === 'all') return { name: 'issues', q };
+      if (seg[1] === 'bills') return seg[2] === 'new' ? { name: 'triage', q } : seg[2] === 'memo' ? { name: 'partners', q, redirect: to('#/outreach/partners') } : { name: 'bills', muted: seg[2] === 'muted', q };
+      return { name: 'myissues', q };
+    case 'my-issues': return { name: seg[1] === 'coalitions' ? 'coalition' : seg[1] === 'all' ? 'issues' : 'myissues', id: '', q, redirect: to(seg[1] === 'coalitions' ? '#/issues/coalitions' : seg[1] === 'all' ? '#/issues/all' : '#/issues') };
+    case 'coalition': return seg[1] ? { name: 'coalition', id: seg[1], q } : { name: 'coalition', id: '', q, redirect: to('#/issues/coalitions') };
     case 'issue': return { name: 'issue', id: seg[1] || '', q };
-    case 'bills': return seg[1] === 'new' ? { name: 'triage', q } : seg[1] === 'memo' ? { name: 'partners', q, redirect: to('#/outreach/partners') } : { name: 'bills', muted: seg[1] === 'muted', q };
+    // Bills is a tab of Issues now (round 2): the old addresses redirect, #/bills/memo still to Outreach's Partner update.
+    case 'bills': return seg[1] === 'memo' ? { name: 'partners', q, redirect: to('#/outreach/partners') } : { name: seg[1] === 'new' ? 'triage' : 'bills', muted: seg[1] === 'muted', q, redirect: to(seg[1] === 'new' ? '#/issues/bills/new' : seg[1] === 'muted' ? '#/issues/bills/muted' : '#/issues/bills') };
     // #/bill/HB2121 is the current session's bill; an earlier session's is #/bill/2026/HB2121 (R-152 B, as the public page since R-110).
     // v6 tabs: Next step (the bare address) · Team talk (/talk) · Public. v5's /overview and /activity redirect; /talk reaches
     // bill.js as tab 'activity', the name its code knows, until the BILL builder renames it (route.view says 'talk').
@@ -134,7 +140,7 @@ export function parseRoute(h = location.hash) {
     // v4 (R-269): #/outreach is This week's asks; Supporters is #/outreach/supporters (an older #/outreach?segment= link opens
     // Supporters on that segment, now at its own address).
     case 'outreach':
-      if (seg[1] === 'issues') return { name: 'issues', q, redirect: to('#/my-issues/all') };
+      if (seg[1] === 'issues') return { name: 'issues', q, redirect: to('#/issues/all') };
       if (!seg[1] && q.segment) return { name: 'supporters', q, redirect: to('#/outreach/supporters') };
       return seg[1] === 'lists' ? { name: 'lists', q } : seg[1] === 'emails' ? { name: 'emails', q } : seg[1] === 'supporters' ? { name: 'supporters', q } : seg[1] === 'partners' ? { name: 'partners', q } : { name: 'asks', q };
     case 'person': return { name: 'person', id: seg[1] || '', q };
@@ -157,13 +163,16 @@ export function parseRoute(h = location.hash) {
 // Which place a screen belongs to (spec 3.3): it lights that place in the sidebar and the phone bar, whatever the screen's
 // own v5 `tab` says (Review is Testimony's now, a sitting Hearings', Lists Outreach's).
 const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', testimony: 'testimony', review: 'testimony', outreach: 'outreach', asks: 'outreach', partners: 'outreach', memo: 'outreach',
-  emails: 'outreach', composer: 'outreach', supporters: 'outreach', person: 'outreach', lists: 'outreach', list: 'outreach', bills: 'bills', triage: 'bills', bill: 'bills',
-  legislators: 'legislators', legislator: 'legislators', myissues: 'myissues', issues: 'myissues', issue: 'myissues', coalition: 'myissues', inbox: 'inbox', help: 'help',
+  emails: 'outreach', composer: 'outreach', supporters: 'outreach', person: 'outreach', lists: 'outreach', list: 'outreach', bills: 'issues', triage: 'issues', bill: 'issues',
+  legislators: 'legislators', legislator: 'legislators', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues', inbox: 'inbox', help: 'help',
   team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'more', devui: 'more', more: 'more', me: 'you', search: '' };
 // A stub showing a v5 view keeps its own place lit (route.place, hearings.js and team.js). Team is a lead tool: anyone else
 // reaches #/team?who= ("See a teammate's list") from More, so More is lit for them (B-13, A-12).
-const placeOf = route => !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
-  : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? '';
+// Two place keys died in round 2 (Bills is inside Issues; 'myissues' became 'issues'); a screen that still names one
+// (hearing.js's Back, S.billFrom) lights Issues.
+const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
+const placeOf = route => { const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
+  : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
 // The phone bar lights More for every place that is not one of its five.
 const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
 // The sidebar lights More for a place it does not draw (Legislators, Inbox, Help, the tools): one click from More (R-356).
@@ -646,7 +655,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '?') { e.preventDefault(); go('#/help/keys'); return; }
   if (e.key === '/') { e.preventDefault(); const own = document.querySelector('main .bl-search input'); if (own && own.offsetParent) own.focus(); else focusSearch(); return; }
   if (e.key === 'g') { gPending = Date.now(); return; }
-  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', h: '#/hearings', w: '#/testimony', m: '#/my-issues', b: '#/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
+  if (gPending && Date.now() - gPending < 1200) { gPending = 0; const to = { t: '#/', h: '#/hearings', w: '#/testimony', m: '#/issues', b: '#/issues/bills', l: '#/legislators', o: '#/outreach', r: '#/review', i: '#/inbox' }[e.key]; if (to) { e.preventDefault(); go(to); } }
 });
 
 // ---- sign in and a new password (same calls as the current app) ----

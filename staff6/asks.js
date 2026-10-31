@@ -147,7 +147,7 @@ function landingHTML(items) {
     fv ? tile(fv.ours, `of ${plural(fv.visits, 'first visit')} came from the newsletter or a post`) : ''].filter(Boolean).join('');
   return `<section class="ot-land" aria-labelledby="ot-land-h"><h2 class="ot-h2" id="ot-land-h">How it’s landing</h2>
     <div class="ot-tiles">${tiles}</div>
-    <p class="ot-note">Counts only, never names. What people did on a bill shows once 10 people have acted on it; until then a card shows its followers.${DEMO ? ' The practice copy shows sample numbers.' : ''} <a href="#/my-issues/all?view=first-visit&amp;from=outreach">First visit numbers</a></p></section>`;
+    <p class="ot-note">Counts only, never names. What people did on a bill shows once 10 people have acted on it; until then a card shows its followers.${DEMO ? ' The practice copy shows sample numbers.' : ''} <a href="#/issues/all?view=first-visit&amp;from=outreach">First visit numbers</a></p></section>`;
 }
 
 // ---- the partners' asks going out (F187, R-328 G): read-only for ralliers; the partner approvers act on the Partners screen ----
