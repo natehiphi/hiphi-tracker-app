@@ -20,7 +20,7 @@
 #       3c the "Its issue" link and the sponsors' names are 44px targets (A-6)
 #   nothing in the console but what the page always says
 # usage: python3 tests/v2_bill.py [BASE]   (BASE defaults to http://localhost:8832; try http://localhost:8832/track.html?demo=1 as other tests take)
-import re, sys
+import os, re, sys
 from playwright.sync_api import sync_playwright
 
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').split('/track.html')[0].rstrip('/')
@@ -28,7 +28,15 @@ fails = 0
 def ok(cond, what):
   global fails
   print(('PASS ' if cond else 'FAIL ') + what)
-  if not cond: fails += 1
+  if not cond:
+    fails += 1
+    # On GitHub Actions a FAIL line also goes on the run's summary page, which is readable without signing in (the job logs are not):
+    # the next build can see the numbers that failed (R-357, 31 Oct: a CI-only red whose log nobody could read).
+    sm = os.environ.get('GITHUB_STEP_SUMMARY')
+    if sm:
+      try:
+        with open(sm, 'a', encoding='utf-8') as f: f.write(f'- FAIL v2_bill: {what}\n')
+      except OSError: pass
 
 # The pixel checks measure the page the way people see it: in its webfonts. Poppins (headings) and Lato (text) come from Google Fonts and
 # are non-blocking since R-357 5a (the text draws at once in the system face and swaps when they arrive), so a measure taken before the
