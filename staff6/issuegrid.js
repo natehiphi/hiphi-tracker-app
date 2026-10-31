@@ -26,7 +26,7 @@ import { icon, iconBtn, btn, pickerSheet } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb, byUrgency } from './issuestand.js';
-import { nw, shownStatus, statusLine, billInIssue } from './steps.js';
+import { nw, shownStatus, billInIssue } from './steps.js';
 import { issueKey, stateMark } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape and its word (Decision 4)
 
 // ---- the tints and the icons ----
@@ -115,12 +115,10 @@ function hearNext(x) {
   if (!s?.state) return { text: hp.text };
   const k = s.state.key;
   if (k === 'filed' || k === 'missed') return { text: hp.text };
-  // Decision 9: the status line is steps.js statusLine's one text ("Writing · sent back, due today 2:00 PM (Capitol)"), so the
-  // cell says what Today, Hearings and Bills say for the same step; the bill's number leads it.
-  // (no "testimony:" word: a small card holds two lines, and the state words say it)
+  // Decision 9: hearPart's text is steps.js statusLine's one text; a small card shortens only the label, "(team cut-off)" to "(team)".
   const sh = shownStatus(s) || {};
   const tone = ['late', 'overdue', 'today'].includes(sh.tone) ? sh.tone : '';
-  return { text: `${n}: ${statusLine(s, { who: false, flat: true, soon: false }).replace(' (team cut-off)', ' (team)')}`, tone, ic: tone ? sh.icon || '' : '' };
+  return { text: hp.text.replace(' (team cut-off)', ' (team)'), tone, ic: tone ? sh.icon || '' : '' };
 }
 // The card's next step and its date, one line, or none when there is none (stopped, no bills). At risk and a dying bill lead
 // (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.

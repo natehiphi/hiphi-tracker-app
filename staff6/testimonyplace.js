@@ -19,7 +19,7 @@
 import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
-import { billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK } from './steps.js';
+import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
@@ -131,7 +131,7 @@ function lineOf(it) {
   }
   // Someone else's step in steps.js's one phrase ("Patti or Lauren revises it", "Second look from Jaylen or Jess", "No owner
   // yet"), the same on Today, Team, Bills and the hearing cards (rule 6, spec 5).
-  return [othersWords(s) || st.word, when].filter(Boolean).join(' · ');
+  return statusLine(s);   // decision 9: the one status line, as on every screen
 }
 // Filed and Missed rows are said plainly: the tab already says so, and a column of green ticks or grey crosses is a wall of
 // one colour (status by exception, D3).

@@ -73,13 +73,9 @@ SCAN6 = r"""(arg) => {
   return { items, names };
 }"""
 LABEL_RX = re.compile(r'\b(by|due|was due) ((?:today|tomorrow|[A-Z][a-z]{2} \d{1,2}/\d{1,2}),? \d{1,2}:\d{2} [AP]M|\d{1,2}:\d{2} [AP]M(?: (?:today|tomorrow))?)')
-# Testimony's rows (testimonyplace.js lineOf) say a teammate's step with their own pieces until they call steps.js statusLine; until then
-# that tab is left out of the comparison and said as not built yet, so the other screens are still held to rule 6.
-def testimony_uses_statusline():
-  return b'statusLine' in (L._raw('staff6/testimonyplace.js') or b'')
 def read6(b, who):
   pg = b.page(who, 1440, 900); out = []; names = {}; first = True
-  for r in [x for x in ROUTES6[who] if x != '/testimony' or testimony_uses_statusline()]:
+  for r in ROUTES6[who]:
     if first: pg.open(r); first = False
     else: pg.nav(r)
     x = pg.page.evaluate(SCAN6, {'state': STATE_RX})
@@ -89,7 +85,6 @@ def read6(b, who):
 
 def rule6(R, b):
   print('\nrule 6: one status phrase per state, across screens')
-  R.check('Testimony says each step with steps.js statusLine', testimony_uses_statusline(), skip=None if testimony_uses_statusline() else 'not built yet: testimonyplace.js lineOf still composes its own line')
   for who in ROUTES6:
     items, names = read6(b, who); per = {}; unlabelled = []; both = []
     for it in items:
