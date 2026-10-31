@@ -7,10 +7,10 @@
 //   follow-ups, named by bill ("Email about HB 1563 and HB 756"), so a chair never carries two email buttons.
 // - Committee member lists mark who introduced the bill, or its twin in the other chamber ("Introduced SB3044, the Senate
 //   version"): introChip(b, l) and introSort(b, members), drawn by the bill's Committees (pathway.js) and a hearing's page.
-import { S, esc } from './data.js';
-import { stopOf, billByNum, companionsOf, plain, chairIdsOf, legNotesAll, chairAskMail, legById, ASK_ANSWERS } from './model.js';
+import { S, DB, DEMO, esc } from './data.js';
+import { codesOf, stopOf, billByNum, companionsOf, plain, chairIdsOf, legNotesAll, chairAskMail, legById, ASK_ANSWERS } from './model.js';
 import { icon, btn, menuSheet } from './ui.js';
-import { askWords, billStep, dayWords, firstWords, orWords, numWords } from './steps.js';
+import { askWords, billStep, dayWords, firstWords, orWords, numWords, committeeName } from './steps.js';
 import { askLine, recordAsk } from './chairask.js';
 
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
@@ -135,4 +135,37 @@ if (typeof document !== 'undefined' && !globalThis.__lgReply) {
     const [bid, code, lid] = el.dataset.lgreply.split('|'), b = (S.bills || []).find(x => String(x.id) === bid), l = legById(lid);
     if (b && l) replySheet(b, code, l);
   });
+}
+
+// ---- last contact and the chair's role, for Hearings' Bills That Need Hearings (R-356 round 2, decision 4) ----
+// Who to ask drew "Last contact Mon 3/9, Lauren" and "Chair, House Health" on each legislator's card; they come back on the
+// chair cards of the ask tab (F-ids rule 9: every feature kept). The newest logged talk or chair ask with a legislator (a
+// dated note is not a contact, R-335): the practice copy's rows, each opened legislator page's, the chair asks loaded at
+// sign-in, and the newest row per legislator that DB.legLatestNotes brings in one request; ensureContacts asks once.
+const noteQ = { asked: false, failed: false };
+export function lastContact(l) {
+  let best = null;
+  const hidden = S.cvHidden || new Set();
+  for (const n of [...(S.demoNotes || []), ...(S.legNotes?.[l.id] || []), ...(S.chairAsks || [])]) {
+    if (n.legislator_id !== l.id || n.kind === 'note' || hidden.has('n:' + n.id) || (n.conversation_id && hidden.has('c:' + n.conversation_id))) continue;
+    const t = new Date(n.created_at).getTime(); if (!best || t > best.t) best = { t, n };
+  }
+  const x = S.legLast?.[l.id];
+  if (x && x.kind !== 'note') { const t = new Date(x.created_at).getTime(); if (!best || t > best.t) best = { t, n: x }; }
+  return { loaded: !!S.legLast || noteQ.failed || DEMO, best };
+}
+// "Last contact Mon 3/9, Lauren" (the viewer is "you"), or '' when there is none yet or it is still loading.
+export function contactWords(l) {
+  const { best } = lastContact(l);
+  return best ? `Last contact ${dayWords(best.t)}, ${firstWords(best.n.advocate_id)}` : '';
+}
+export function ensureContacts(after) {
+  if (DEMO || S.legLast || noteQ.asked || noteQ.failed) return;
+  noteQ.asked = true;
+  DB.legLatestNotes().catch(() => { noteQ.failed = true; }).finally(() => { noteQ.asked = false; after?.(); });
+}
+// "Chair, House Health": the committees of this card's code that the legislator chairs.
+export function chairRole(l, codes) {
+  const cs = [...new Set(codes.flatMap(codesOf))].filter(k => (S.committeeMembers || []).some(m => m.committee === k && m.role === 'chair' && m.legislator_id === l.id));
+  return cs.length ? `Chair, ${andList(cs.map(c => committeeName(c)))}` : '';
 }

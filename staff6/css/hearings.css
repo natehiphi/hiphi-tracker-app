@@ -204,8 +204,8 @@ body.staff6 .hg-how a { display: inline-block; min-height: 24px; color: var(--v6
 /* room between the camera and "Watch it live" at every width (the critic: they touched on a phone) */
 body.staff6 .hw-page .v6-hcard-watch a { display: inline-flex; gap: 8px; }
 /* the board's one "Asked another way? Log a talk", above the deadlines (no hairline: it is not a card's foot) */
-body.staff6 .hg-logtop { padding: 0 4px; margin: -8px 0 8px; }
-body.staff6 .hg-logtop::before { display: none; }
+body.staff6 .hg-asktop { margin: 0 0 12px; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
+body.staff6 .hg-logfoot { margin: 12px 0 0; }
 /* "Who replied?" on a joint committee's reply sheet: one chair a line, Both chairs chosen (chairask.js replySheet) */
 body.staff6 .ca-whorep { margin: 0 4px 8px; padding: 0; border: 0; }
 body.staff6 .ca-whorep legend { padding: 0; margin: 0 0 4px; font-size: var(--v6-t16); font-weight: 700; color: var(--v6-ink); }
