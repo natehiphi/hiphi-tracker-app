@@ -84,7 +84,11 @@ with L.browser() as B:
 
   # ---- old calendar addresses' words (Today's who=, day=), as app.js sends them here ----
   pg = B.page('NT', 390, 844); pg.open(CAL + '&who=team&day=2026-03-19')
-  R.check('who=team opens the team\'s week', pg.page.get_attribute('[data-seg="hscope"][data-val="team"]', 'aria-pressed') == 'true')
+  # under 768px the scope is the Filter sheet's first choice and the button says it (R-356 round 3)
+  R.check('who=team opens the team\'s week, and the Filter button says Team', 'Team' in pg.text('[data-hwfilter]'), pg.text('[data-hwfilter]'))
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pscope]')
+  R.check('the Filter sheet has Whose hearings first, Team picked', pg.page.get_attribute('[data-pscope="team"]', 'aria-checked') == 'true')
+  pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
   R.check('day= opens that day on a phone', pg.page.get_attribute('[data-hcpick="2026-03-19"]', 'aria-pressed') == 'true' and 'Triple filing' in pg.text('.hc-day.on'))
   R.check('no page errors (old address)', not pg.errors, pg.errors[:2]); pg.close()
 

@@ -438,3 +438,7 @@ body.staff6 .ut-page .bw-sec > p { font-size: var(--v6-t16); line-height: var(--
   .bl-memo li { margin: 6px 0; }
 }
 @media (prefers-reduced-motion: reduce) { dialog.sv-sheet.bl-fsheet, .bl-fs .bl-fold .chev, .bl-twrap::after { transition: none; } }
+
+/* R-356 round 3: under 768px the Mine | My coalitions | Team choice is the Filter sheet's first group */
+body.staff6 .bl-fwhoh { margin: 0 0 4px; font: 600 var(--v6-t14)/var(--v6-lh14, 20px) var(--font); color: var(--v6-muted); }
+body.staff6 .bl-fwho { margin-bottom: 16px; }

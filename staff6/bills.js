@@ -196,6 +196,12 @@ function scopeWords(q, n) {
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
 // Under 768px the toolbar is one row (R-356 round 3): Select moves into the Filter sheet's foot.
+// With the switch in the sheet on a phone, the button says the scope when it is not Mine ("Filter · Team"): nothing hidden.
+const whoseList = () => { const l = scopeOpts().filter(([k]) => k !== 'all' || seesTeam()); return l.length > 1 && selInFilter() ? l : null; };
+function filterBtnW(n) {
+  const sc = whoseList() && bl().scope !== 'me' ? (whoseList().find(x => x[0] === bl().scope) || [])[1] : '';
+  return filterBtn(n, { 'data-filter': '', ...(sc ? { 'aria-label': `Filter, ${sc}` } : {}) }).replace('<span>Filter</span>', `<span>Filter${sc ? ` · ${esc(sc)}` : ''}</span>`);
+}
 const selInFilter = () => matchMedia('(max-width: 767.98px)').matches;
 function toolbar() {
   const v = bl(), n = activeFilters().length, wide = wideNow(), tbl = tableOn(), mode = viewMode();
@@ -210,7 +216,7 @@ function toolbar() {
     : iconBtn('ellipsis', 'Show as a spreadsheet, or export', { 'data-blmenu': '1', 'aria-haspopup': 'dialog' });
   // R-352 (D): Mine | Team leads the toolbar row, at its left under the tabs, as on Hearings and Legislators (it sat at the
   // title's right); a phone gives it a row of its own at its own compact width, the box and Filter under it.
-  return `<div class="bl-tools" role="group" aria-label="This list"><div class="bl-whose">${scopeSwitch()}</div>${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
+  return `<div class="bl-tools" role="group" aria-label="This list"><div class="bl-whose">${selInFilter() ? '' : scopeSwitch()}</div>${box}${filterBtnW(n)}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
 }
 let BACK_AT = 0;   // when the browser's Back (or the top bar's) last landed, for the focus above
 if (typeof addEventListener === 'function') addEventListener('popstate', () => { BACK_AT = Date.now(); });
@@ -912,7 +918,7 @@ export default {
     qi.oninput = () => { v.q = qi.value; v.folds = {}; qx.hidden = !qi.value; repaintDyn(); };
     qi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); qi.blur(); } if (e.key === 'Escape' && qi.value) { e.stopPropagation(); qi.value = ''; qi.oninput(); } };
     qx.onclick = () => { qi.value = ''; qi.oninput(); qi.focus(); };
-    page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget, selInFilter() ? { onSelect: () => { v.look = null; startSelect(); } } : {});
+    page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget, selInFilter() ? { onSelect: () => { v.look = null; startSelect(); }, ...(whoseList() ? { whose: { list: whoseList(), value: v.scope, pick: val => { if (v.scope === val) return; v.scope = val; v.look = null; changed(); repaint('[data-filter]'); } } } : {}) } : {});
     const cols = page.querySelector('[data-cols]'); if (cols) cols.onclick = e => columnsSheet(e.currentTarget);
     const cp = page.querySelector('[data-copy]'); if (cp) cp.onclick = () => copySheet();
     const ex = page.querySelector('[data-export]'); if (ex) ex.onclick = () => exportSheet();

@@ -468,18 +468,22 @@ const footHTML = (sel = false) => { const n = shownBills().length, any = filterC
   return `${btn('Clear all', { kind: 'text', cls: 'bl-fclear', attrs: { 'data-fclear': '1', disabled: !any } })}${sel ? btn('Select bills', { kind: 'text', icon: 'square-check-big', attrs: { 'data-fselect': '1', title: 'Pick bills to change several at once' } }) : ''}${btn(`Show ${n} bill${n === 1 ? '' : 's'}`, { attrs: { 'data-fdone': '1' } })}`; };
 
 // openFilters(anchor, { focus }): `focus: 'save'` lands on Save this view (More tools › Saved views, with none saved yet).
-export function openFilters(anchor, { focus = '', onSelect = null } = {}) {
+// `whose` ({ list: [[value, label]], value, pick(value) }): under 768px the Mine | My coalitions | Team switch is the sheet's first
+// choice instead of a row on the toolbar (R-356 round 3); a pick closes the sheet and changes the list.
+export function openFilters(anchor, { focus = '', onSelect = null, whose = null } = {}) {
   const wide = wideNow();
   let d = null;
+  const whoseHTML = () => whose ? `<h3 class="bl-fwhoh">Whose bills</h3><div class="sv-pickl bl-fwho" role="radiogroup" aria-label="Whose bills">${whose.list.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(whose.value)}" data-fwho="${esc(v)}"><span class="body"><span class="title">${esc(l)}</span></span>${String(v) === String(whose.value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>` : '';
   const paint = keepSel => {
     freshFacts();
     const body = d.querySelector('.sv-sh-body'), y = body.scrollTop;
-    body.innerHTML = sheetBody(); body.scrollTop = y;
+    body.innerHTML = whoseHTML() + sheetBody(); body.scrollTop = y;
     d.querySelector('.sv-sh-foot').innerHTML = footHTML(!!onSelect);
     wireSheet();
     if (keepSel) d.querySelector(keepSel)?.focus({ preventScroll: true });
   };
   const wireSheet = () => {
+    d.querySelectorAll('[data-fwho]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true }); whose.pick(el.dataset.fwho); });
     d.querySelectorAll('[data-ft]').forEach(el => el.onclick = () => { toggle(el.dataset.ft); hooks.render(); paint(`[data-ft="${CSS.escape(el.dataset.ft)}"]`); });
     d.querySelector('[data-fusual]')?.addEventListener('click', () => { resetView(); hooks.render(); paint('[data-fdone]'); });
     d.querySelectorAll('[data-fview]').forEach(el => el.onclick = () => { const id = el.dataset.fview; if (curView() === id) { resetView(); } else applyView(id); hooks.render(); paint(`[data-fview="${CSS.escape(id)}"]`); });
@@ -495,7 +499,7 @@ export function openFilters(anchor, { focus = '', onSelect = null } = {}) {
     d.querySelector('[data-fselect]')?.addEventListener('click', async () => { await closeSheet({ silent: true }); onSelect?.(); });
   };
   freshFacts();
-  d = openSheet({ title: 'Filter bills', size: wide ? 'auto bl-pop' : 'half bl-fsheet', body: sheetBody(), foot: footHTML(!!onSelect),
+  d = openSheet({ title: 'Filter bills', size: wide ? 'auto bl-pop' : 'half bl-fsheet', body: whoseHTML() + sheetBody(), foot: footHTML(!!onSelect),
     wire: dlg => { d = dlg; wireSheet(); if (wide) placePop(dlg, anchor); else dragToGrow(dlg);
       if (focus === 'save') setTimeout(() => dlg.querySelector('[data-fsave]')?.focus(), 30); } });
   return d;
