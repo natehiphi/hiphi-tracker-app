@@ -77,7 +77,7 @@ const SETUP_PARTS = [
 const PLACES = () => [
   { title: 'Today', href: '#/', icon: 'list-todo', sub: 'Your next step and what is due', key: KEY.today, also: 'home start my list to-do todo tasks due mine' },
   { title: 'Hearings', href: '#/hearings', icon: 'calendar-days', sub: 'This week’s hearings', key: KEY.hearings, also: 'this week week sittings calendar going attend' },
-  { title: ASK_TAB, href: '#/hearings/ask', icon: 'megaphone', sub: 'Hearings › ask the chairs, by deadline', also: 'get hearings chair asks push board deadline box hearing request ask the chair' },
+  { title: ASK_TAB, href: '#/hearings/ask', icon: 'megaphone', sub: 'Hearings › the bills still waiting for a hearing, and the chairs to ask', also: 'who to ask holding chairs get hearings holding our bills get hearings chair asks push board deadline box hearing request ask the chair' },
   { title: 'Testimony', href: '#/testimony', icon: 'file-text', sub: 'Write, approve and file', key: KEY.testimony, also: 'drafts draft letters write' },
   { title: 'To approve', href: '#/testimony?view=approve', icon: 'user-check', sub: 'Testimony › To approve, then Review', key: KEY.review, also: 'review approval approvals second look sign off queue' },
   { title: 'Ready to file', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › the filing card', also: 'file filing capitol submit mark filed' },
@@ -91,8 +91,7 @@ const PLACES = () => [
   { title: 'Bills', href: '#/bills', icon: 'scroll-text', sub: 'Every bill we track', key: KEY.bills, also: 'table all bills tracked' },
   { title: 'Sort new bills', href: '#/bills/new', icon: 'sparkles', sub: 'Bills › track or pass each new bill', also: 'triage new bills track pass introduced' },
   { title: 'Muted bills', href: '#/bills/muted', icon: 'bell-off', sub: 'Bills › Muted', also: 'muted unmute set aside' },
-  { title: 'Legislators', href: '#/legislators', icon: 'landmark', sub: 'Who to ask, and everyone', key: KEY.legislators, also: 'members chairs senators representatives directory' },
-  { title: 'Holding our bills', href: '#/legislators?view=holding', icon: 'landmark', sub: 'Legislators › the chairs who hold our bills', also: 'holding chairs who to ask' },
+  { title: 'Legislators', href: '#/legislators', icon: 'landmark', sub: 'Everyone at the Capitol', key: KEY.legislators, also: 'members chairs senators representatives directory' },
   { title: 'My issues', href: '#/my-issues', icon: 'tag', sub: 'The issues you own or help on', key: KEY.myissues, also: 'issues prep 2027 ready' },
   { title: 'Coalitions', href: '#/my-issues/coalitions', icon: 'users', sub: 'My issues › Coalitions', also: 'coalition help on' },
   { title: 'All issues', href: '#/my-issues/all', icon: 'tag', sub: 'My issues › All issues', also: 'issues catalogue categories' },

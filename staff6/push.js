@@ -7,7 +7,7 @@
 // (askBoard below): under each deadline in words, grouped by chair, soonest notice first, each bill in one plain state:
 // Ask (Email the chair, then "Did you send it?"), Ask the chair to schedule a vote (heard, not voted on), Waiting on a reply ("Asked
 // by Kevin Mon 3/16 · no reply yet", with They replied; Follow up after 3 working days with no reply), Scheduled (a calm
-// check and Say mahalo). Legislators > Who to ask draws the same board (askBoard({ scope })), so there is one board, not two
+// check and Say mahalo). Hearings > Bills That Need Hearings is the only screen that draws this board (Legislators > Who to ask went away in R-356 round 2)
 // that list different bills (X7). The v5 board's exports (chairGroupHTML, chairBoardHTML, wirePush) stay for the screens
 // that still call them until each moves to askBoard.
 import { S, DB, DEMO, esc, advocate } from './data.js';
@@ -20,7 +20,7 @@ import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_T
 import { ACTS as PIC } from './verbs.js';   // one icon per action: Follow up is the mail, as on Today (R-352 FIX-2)
 const PIC_FOLLOW = PIC.follow.btnIcon;
 
-// The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Who to ask, Hearings' week line,
+// The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Hearings' week line,
 // Today's At the Capitol): Nate's words for the tab, teal, with "›" and no underline until hover (A-12: a standalone way
 // on), no icon of its own. askTabGo is the link; askTabWords the same words inside a row that is already the link.
 export const askTabWords = () => `<span class="v6-asktab">${ASK_TAB}<span aria-hidden="true">&nbsp;›</span></span>`;
@@ -188,7 +188,7 @@ export const SCOPES = WHOSE;
 // SB 3234 for Lauren, so its hearing and its ask are hers under My bills, where they were missing ("No hearings on your
 // bills this week" while her Resubmit was due that morning). A step: she writes, approves or files its testimony, was
 // handed its chair ask or asked the chair, or is going to its hearing. Worked out once per draw (billStep is not free):
-// the page clears it when it draws, and it lapses after a moment for a screen that does not (Legislators' Who to ask).
+// the page clears it when it draws, and it lapses after a moment for a screen that does not (it once served Legislators' Who to ask).
 let INV = null;
 export const freshScope = () => { INV = null; };
 function involved(b, v) {
@@ -298,7 +298,7 @@ export function toAskWords(sum) {
   return `${plural(n, 'bill')} ${one ? 'needs' : 'need'} a hearing · ask the chair${one ? '' : 's'}${sum.firstDay ? `${one ? '' : ', first'} by ${sum.firstDay}` : ''}`;
 }
 
-// One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
+// One set of counts per deadline, the board's own: the line under each deadline here (Get hearings)
 // and the one line on Today and Bills (deadlineLine) are worked out by this, so no two screens give two numbers for one
 // pile (P-4, C-10; the fresh-eyes check: Kris's Bills said "54 to ask; 36 face the Mon 3/30 deadline" beside Legislators'
 // "45 need a hearing · 42 to ask"). A bill heard and not voted on does not need a hearing: it is counted apart (decide)
@@ -313,7 +313,7 @@ function dlCounts(items) {
 // replied, so not "waiting on a reply", B-7; spec 5). Only Get hearings says these; every other screen stops at "to ask".
 const dlParts = c => [c.being ? `${c.being} being asked` : '', c.wait ? `${c.wait} waiting on a reply` : '', c.yes ? `${c.yes} will schedule` : '',
   c.later ? `${c.later} put off` : '', c.no ? `${c.no} said no or out of time` : '', c.sch ? `${c.sch} scheduled` : ''].filter(Boolean);
-// Bills heard but not voted on (F105), on a short plain line of their own, only where they matter (Get hearings, Who to ask,
+// Bills heard but not voted on (F105), on a short plain line of their own, only where they matter (Get hearings,
 // and Today when they are not already rows there): "9 bills were heard but not voted on · ask the chair to schedule a vote".
 export const decideWords = k => k ? `${k} ${k === 1 ? 'bill was' : 'bills were'} heard but not voted on · ask the chair to schedule a vote` : '';
 // A count line's " · " parts each kept on one line (the phone walk: "33 to / ask" broke at a line's end): a short part goes in
@@ -479,10 +479,9 @@ function groupHTML(g, v, scope, { primary, shared }) {
 }
 // askBoard({ scope, bills, viewer, primary, id, empty }) -> the board's HTML: under each deadline (soonest first) in words,
 // "Must reach their last committee by Mon 3/30", with how many are to ask, being asked, waiting and scheduled, then each
-// chair's group, soonest notice first. Nothing is folded (V13: one open board). LEGISLATORS' Who to ask calls this with
-// `primary: false` when another filled button owns its screen; buttons need no wiring (one document listener, below, and
+// chair's group, soonest notice first. Nothing is folded (V13: one open board). `primary: false` is for a screen where another filled button owns it; buttons need no wiring (one document listener, below, and
 // steps.js's).
-// `fold` (Legislators' Who to ask): the first deadline in full, each later one a single line that opens it in place
+// `fold` (kept from Legislators' Who to ask, which went away in R-356 round 2; nothing passes it now): the first deadline in full, each later one a single line that opens it in place
 // ("Must clear their last committee by Fri 4/10 · 12 bills · 4 chairs"): other people's asks are not the viewer's to-dos, and Kris's
 // coalitions put 42 asks on 15 phone screens (the fresh-eyes check, A-1, A-2). In a later deadline the chairs holding a
 // step of the viewer's own stay open and only the others fold ("12 more chairs · 30 bills"), so nothing they must do is

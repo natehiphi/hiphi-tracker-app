@@ -377,7 +377,7 @@ function noOwnerTab() {
 // Chair asks: Hearings > Get hearings' board at team scope (one component, rule 7.5), with its quiet lines as Hearings draws them.
 function chairTab() {
   if (SESSION_OVER) return quiet('calendar', 'The session is over, so no bill is waiting for a hearing. The next session’s calendar is loaded in December.');
-  return `<div class="hw-page v-ask">${askBoard({ scope: 'team' })}<p class="hg-how"><a href="#/help/hearing">How to ask for a hearing</a> · <a href="#/help/calendar">Session calendar</a> · <a href="#/legislators?view=holding">Holding our bills</a></p></div>`;
+  return `<div class="hw-page v-ask">${askBoard({ scope: 'team' })}<p class="hg-how"><a href="#/help/hearing">How to ask for a hearing</a> · <a href="#/help/calendar">Session calendar</a></p></div>`;
 }
 function slipTab() {
   ALERTS.clear(); reachOf(null);   // who Slack can reach, asked once (admins), so an Alert's words are right the first time
