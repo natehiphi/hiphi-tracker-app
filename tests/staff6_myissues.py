@@ -9,7 +9,7 @@
 #   - "Needs you today" first, and every issue is drawn once on the page (A-14), counted against the data;
 #   - a heading a deadline, in date order, each with its count; every issue under the deadline issuestand.js says it must
 #     beat next; the heading says what the deadline asks ("Must reach their last committee by Mon 3/30", R-352 FIX-2);
-#   - every row has a House and a Senate cell, each one short thing ("House: hearing today", "Senate: none alive"), the
+#   - every row has a House and a Senate cell, each one short thing ("HB: hearing today", "No SB alive"), the
 #     House cell holding only House-started bills; a split (one chamber cleared, the other not) exists;
 #   - stopped issues last, in a closed fold; the filter box finds an issue by a word and by a bill number;
 #     "N bills on your issues have no owner yet · Take one"; a phone keeps the four buttons and nothing scrolls sideways;
@@ -82,10 +82,10 @@ def main():
     R.check('no heading uses the Capitol\'s name for its deadline, and none repeats it in a plain-words line', not any(re.search(r'lateral|decking|crossover|triple', h['head'], re.I) or h['sub'] for h in heads), [(h['head'], h['sub']) for h in heads])
     R.check('every issue stands under the deadline it must beat next (issuestand.js standOf)', all(r['want'] == h['date'] for h in heads for r in h['rows']), [(r['name'], r['want'], h['date']) for h in heads for r in h['rows'] if r['want'] != h['date']][:3])
     items = pg.page.evaluate(ROWS)
-    R.check('every row has two cells, "House:" then "Senate:"', bool(items) and all(len(x['cells']) == 2 and x['cells'][0].startswith('House:') and x['cells'][1].startswith('Senate:') for x in items), items[0]['cells'] if items else None)
+    R.check('every row has two cells, "HB:" then "SB:"', bool(items) and all(len(x['cells']) == 2 and x['cells'][0].startswith(('HB:', 'No HB alive')) and x['cells'][1].startswith(('SB:', 'No SB alive')) for x in items), items[0]['cells'] if items else None)
     R.check('each cell says one short thing (no "·", 32 characters at most)', all('·' not in c and len(c) <= 32 for x in items for c in x['cells']), [c for x in items for c in x['cells'] if '·' in c or len(c) > 32][:3])
     R.check('House cells hold only House-started bills, Senate cells only Senate-started ones (the title names them)', all(all(n.startswith('H') for n in x['nums'][0]) and all(n.startswith('S') for n in x['nums'][1]) for x in items))
-    R.check('a ring cell says "none alive"; a tick cell says "cleared"; a dot cell says neither', all((c.endswith('none alive')) == o and (not k or c.endswith('cleared')) and (o or k or not c.endswith('cleared')) for x in items for c, o, k in zip(x['cells'], x['off'], x['ok'])), [x['cells'] for x in items][:2])
+    R.check('a ring cell says "No HB alive" / "No SB alive"; a tick cell says "cleared"; a dot cell says neither', all((c.startswith('No ') and c.endswith(' alive')) == o and (not k or c.endswith('cleared')) and (o or k or not c.endswith('cleared')) for x in items for c, o, k in zip(x['cells'], x['off'], x['ok'])), [x['cells'] for x in items][:2])
     split = [x for x in items if not any(x['off']) and x['ok'].count(True) == 1]
     R.check('a split exists (one chamber cleared its heading\'s deadline, the other not yet)', bool(split), [x['name'] for x in items][:3])
     R.check('an issue with no backup bill shows plainly: some rows have one ring cell', any(x['off'].count(True) == 1 for x in items))
@@ -120,7 +120,7 @@ def main():
     budgets(R, pg, 'topics 1440'); shot(pg, 'NT-topics-1440.png')
     e0 = len(pg.errors); pg.page.evaluate(PICK, 'sheet'); pg.page.wait_for_timeout(500)
     sh = pg.page.evaluate("async () => { const d = await import('/staff6/data.js'); return { rows: document.querySelectorAll('#mi-q-body table.mi-tbl tbody tr').length, want: d.myIssueIds().size, heads: [...document.querySelectorAll('.mi-tbl thead th')].map(t => t.innerText.trim()), copy: !!document.querySelector('[data-micopy]') }; }")
-    R.check('Spreadsheet: one row per issue, the seven columns, Copy for Google Sheets', sh['rows'] == sh['want'] and sh['heads'] == ['Issue', 'House-started', 'Senate-started', 'Next deadline', 'Cleared', 'Next step', 'Owner'] and sh['copy'] and len(pg.errors) == e0, (sh, pg.errors[e0:][:1]))
+    R.check('Spreadsheet: one row per issue, the seven columns, Copy for Google Sheets', sh['rows'] == sh['want'] and sh['heads'] == ['Issue', 'HB (House-started)', 'SB (Senate-started)', 'Next deadline', 'Cleared', 'Next step', 'Owner'] and sh['copy'] and len(pg.errors) == e0, (sh, pg.errors[e0:][:1]))
     dl = pg.page.evaluate("() => [...document.querySelectorAll('.mi-td-deadline')].map(t => t.innerText.trim()).filter(Boolean)")
     R.check('Spreadsheet: the next deadline in the headings\' words ("Must ... by Mon 3/30"), never the Capitol\'s name', bool(dl) and all(re.match(r'^Must .+ by \w{3} \d+/\d+$', t) and not re.search(r'lateral|decking|crossover', t, re.I) for t in dl), dl[:3])
     pg.page.click('[data-misort="issue"]'); pg.page.wait_for_timeout(300)
