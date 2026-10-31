@@ -20,6 +20,7 @@
 #   - offline after load: a screen whose code had not come yet says "You're offline", and comes back by itself when the
 #     connection does, with no reload
 #   - what was typed stays: the search box and the address box keep their words through the failure and the retry (C-9)
+#   - the Supabase library never arriving on a first visit: the welcome stays (no card for 3 s); "Let’s begin" then shows the card, which stays; Try again reloads
 #   - pub/app.js never arriving: after 20 s the page says so, with Try again, instead of a skeleton for good
 #   - no page error and no ReferenceError or TypeError in the console anywhere
 import json, logging, os, re, sys, time
@@ -224,12 +225,21 @@ with sync_playwright() as p:
     ok(good, 'back online, it draws by itself, with no reload')
     r.close('offline after load')
 
-    # 12. The Supabase library never arrives (its CDN blocked), on a first visit: the card, and it stays (the first visit's
-    # own redraws used to put its welcome back over it, with nothing behind it); its Try again reloads.
+    # 12. The Supabase library never arrives (its CDN blocked), on a first visit (R-357 5c: pub/app.js welcomeStays, watchDb): the
+    # welcome needs no data, so a newcomer keeps it (no "couldn’t load" card for at least 3 s, the buttons still there); when they go
+    # on ("Let’s begin") the card replaces it, and it stays (the first visit's own redraws used to put the welcome back over it, with
+    # nothing behind it); its Try again reloads.
     r = Run(br, back=False); r.ctx.route(LIB, lambda x: x.abort()); r.go('#/')
+    r.pg.wait_for_selector('.st-hellobar [data-stnext]', timeout=30000)
+    r.pg.wait_for_timeout(3500)
+    s = r.st()
+    ok('couldn’t load' not in s['t'] and r.pg.locator('.st-hellobar [data-stnext]:visible').count() == 1, f'the library never arriving, first visit: the welcome stays and no "couldn’t load" card shows for 3 s ({s["t"][:70]!r})')
+    r.shot('library-missing-welcome-phone')
+    r.pg.locator('.st-hellobar [data-stnext]:visible').first.click()
     t, s = r.failed(15, 'We couldn’t load the tracker')
     r.pg.wait_for_timeout(2000)
-    ok(t is not None and 'We couldn’t load the tracker' in r.st()['t'], f'the library never arriving: "We couldn’t load the tracker" in {t} s, and it stays')
+    ok(t is not None and 'We couldn’t load the tracker' in r.st()['t'], f'tapping "Let’s begin" then says "We couldn’t load the tracker" ({t} s), and it stays')
+    r.shot('library-missing-card-phone')
     r.ctx.unroute(LIB); r.press(); r.pg.wait_for_selector('main#main h1', timeout=45000); r.pg.wait_for_timeout(1500)
     ok('couldn’t load' not in r.st()['t'], 'its Try again reloads into the first visit')
     r.close('the library never arriving')
