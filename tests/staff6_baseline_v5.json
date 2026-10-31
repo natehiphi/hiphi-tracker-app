@@ -2406,6 +2406,11 @@
    "hash": "#/bill/HB1562",
    "place": "Bills"
   },
+  "#/bills/memo|JS": {
+   "h1": "Weekly memo",
+   "hash": "#/bills/memo",
+   "place": "Bills"
+  },
   "#/bills/memo|LR": {
    "h1": "Weekly memo",
    "hash": "#/bills/memo",
@@ -2540,6 +2545,13 @@
    "hash": "#/my-issues",
    "place": "My issues"
   },
+  "#/outreach/emails|JS": {
+   "broken": false,
+   "h1": "Emails",
+   "h2": "",
+   "hash": "#/outreach/emails",
+   "place": "Outreach"
+  },
   "#/outreach/emails|SY": {
    "broken": false,
    "h1": "Emails",
@@ -2558,6 +2570,13 @@
    "h2": "",
    "hash": "#/outreach/lists",
    "place": "Bills"
+  },
+  "#/outreach/partners|JS": {
+   "broken": false,
+   "h1": "Partner update",
+   "h2": "Healthy Eating, Active Living: week of March",
+   "hash": "#/outreach/partners",
+   "place": "Outreach"
   },
   "#/outreach/partners|LR": {
    "broken": false,

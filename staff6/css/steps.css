@@ -563,3 +563,6 @@ body.staff6 .v6-step-num { font: 400 var(--v6-t14)/1 Lato, system-ui, sans-serif
 body.staff6 .v6-asktab { color: var(--v6-action); font-weight: 400; text-decoration: none; white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) { body.staff6 a.v6-asktab:hover, body.staff6 a:hover > * > .v6-asktab, body.staff6 a:hover > .v6-asktab { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; } }
 body.staff6 a.v6-asktab:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 4px; }
+
+/* R-356 round 3 (decision 6): staff have no Outreach tab row; the tab's name stands in its place as a quiet heading */
+body.staff6 .sv-onetab { margin: 0; font: 600 var(--v6-t16)/1.3 var(--font); color: var(--v6-muted); }

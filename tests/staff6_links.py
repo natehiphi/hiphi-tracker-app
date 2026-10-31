@@ -39,7 +39,8 @@ MOVED = [
   ('#/bills/new', 'NT', r'^#/issues/bills/new', 'Issues', r'Sort new bills'),
   ('#/bills/muted', 'KV', r'^#/issues/bills/muted', 'Issues', r'Muted'),
   (f'#/outreach?segment={L.SEGMENT}', 'SY', r'^#/outreach/supporters', 'Outreach', r'Supporters'),
-  ('#/bills/memo', 'LR', r'^#/outreach/partners', 'Outreach', r'Partner update'),
+  ('#/bills/memo', 'JS', r'^#/outreach/partners', 'Outreach', r'Partner update'),   # Partner update is the leads' since round 3 (decision 6); staff land on This week's asks
+  ('#/bills/memo', 'LR', r'^#/outreach$', 'Outreach', r'This week’s asks'),
   ('#/coalition', 'PH', r'^#/issues/coalitions', 'Issues', r'Coalitions'),
   # Holding our bills and Who to ask are gone (R-356 round 2, decision 4): the old addresses draw the plain directory
   ('#/legislators?view=holding', 'KV', r'^#/legislators(\?|$)', 'More', r'Legislators'),
@@ -54,7 +55,7 @@ V5_ADDRESSES = [
   (f'#/bill/{B}', 'KV', 'Issues'), (f'#/bill/2026/{B}', 'KV', 'Issues'), (f'#/bill/{B}/public', 'KV', 'Issues'),   # a bill's page sits under Issues since round 2 (no Bills place)
   ('#/legislators', 'KV', 'More'), (f'#/legislator/{L.LEGISLATOR}', 'KV', 'More'),
   ('#/hearing/' + L.TRN_TUE, 'LR', 'Hearings'), ('#/coalition/' + L.HEAL, 'PH', 'Issues'),
-  ('#/outreach', 'SY', 'Outreach'), ('#/outreach/partners', 'LR', 'Outreach'), ('#/outreach/emails', 'SY', 'Outreach'),
+  ('#/outreach', 'SY', 'Outreach'), ('#/outreach/partners', 'JS', 'Outreach'), ('#/outreach/emails', 'JS', 'Outreach'),   # leads' tabs since round 3 (decision 6)
   ('#/outreach/supporters', 'SY', 'Outreach'), ('#/outreach/lists', 'SY', 'Outreach'), ('#/person/' + L.SUPPORTER, 'SY', 'Outreach'),
   ('#/list/' + L.LIST, 'SY', 'Outreach'), ('#/email/new', 'NT', 'Outreach'), ('#/email/-101', 'NT', 'Outreach'),
   ('#/issue/' + L.ISSUE, 'KV', 'Issues'), ('#/search?q=tobacco', 'KV', None), ('#/me', 'KV', 'You'),

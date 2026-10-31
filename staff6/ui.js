@@ -560,7 +560,9 @@ export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, hre
 export function sectionNav(kind, cur, { only = null, hide = [], counts = {} } = {}) {
   const [label, items] = SECTIONS[kind] || ['', []];
   // Decision 6 (31 Oct): staff see Outreach as one list, This week's asks; its other tabs are the leads' (and More's rows)
-  if (kind === 'outreach' && !seesTeam()) return '';
+  // The page still says what it is (a quiet heading in the tab row's place: "This week’s asks", "Supporters", "Lists"), so
+  // a link from More or an old address lands somewhere named (staff6_links: every old address opens the right place).
+  if (kind === 'outreach' && !seesTeam()) { const t = items.find(([k]) => k === cur); return t ? `<h2 class="sv-onetab">${esc(t[2])}</h2>` : ''; }
   const shown = items.filter(([k]) => (!only || only.includes(k)) && !hide.includes(k));
   // Each label keeps room for its bold self (staff.css .sv-tl), so picking a tab never widens it and the row never reflows:
   // the next tab stays where the thumb left it on a phone (OUTREACH's critic finding).
