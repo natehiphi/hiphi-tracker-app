@@ -1,4 +1,4 @@
-// All issues (#/my-issues/all, the third tab of My issues; #/outreach/issues redirects) and one issue (#/issue/<id>), 063,
+// All issues (#/issues/all, the third tab of My issues; #/outreach/issues redirects) and one issue (#/issue/<id>), 063,
 // R-018. What the public follows. People follow ISSUES - a policy a resident recognises, like "Free school meals for every
 // student" or "Disposable e-cigarette ban" - grouped in six categories, and every bill HIPHI takes a position on that
 // carries a followed issue reaches them. Nate, 9/21: Claude tidies the first list from the nicknames "and staff can
@@ -6,7 +6,7 @@
 // and put bills on issues (also from a bill's Public tab, and from "N position bills with no issue" here).
 // #/issue/:id is one issue: a person comes here to see where it stands and what each of its bills needs (R-226, B-1). Its
 // "Show in the first visit" switch (066, R-023) leaves an issue out of a newcomer's first visit only. Its "Related issues"
-// (095, R-094) are the issues whose bills a follower of this one is shown first. #/my-issues/all?view=first-visit is the
+// (095, R-094) are the issues whose bills a follower of this one is shown first. #/issues/all?view=first-visit is the
 // first visit's numbers and ?view=links makes a link (firstvisit.js, Outreach's; More tools links them).
 // Getting the issues ready for 2027 (091, R-088) is prep.js: ?view=prep is the admins' Prep board (F165), shown as a view
 // of this page, and ?view=mine the prep list in session; the prep card is on an issue's page.
@@ -35,7 +35,7 @@ import { calWeekBar, weekCalHTML, wireWeekCal } from './hearings.js';   // All i
 
 // Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
 const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: BOARD_HREF, label: 'Prep board' }
-  : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/my-issues/all', label: 'All issues' };
+  : route.q?.from === 'mine' ? { href: '#/issues', label: 'My issues' } : { href: '#/issues/all', label: 'All issues' };
 
 // ---- the catalogue ----
 export const catByKey = k => (S.categories || []).find(c => c.key === k) || null;
@@ -257,7 +257,7 @@ function indexBody(v) {
 const index = {
   tab: 'myissues',   // All issues is the third tab of My issues
   title: route => prepTitle(route) || fvTitle(route) || 'All issues',
-  back: route => prepView(route) ? { href: '#/my-issues/all', label: 'All issues' } : fvBack(route),
+  back: route => prepView(route) ? { href: '#/issues/all', label: 'All issues' } : fvBack(route),
   narrow: route => fvView(route) === 'links',
   render(route) {
     if (prepView(route)) return renderPrep(route);
@@ -274,10 +274,11 @@ const index = {
     const sw = SESSION_OVER || boardWaits() ? boardSwitch('') : '';
     // R-342 (Nate 26 Oct), kept by R-352 FIX-3 (Nate 28 Oct, "keep the calendar view"): All issues as a week, the same
     // calendar as Hearings (hearings.js calHTML), the team's bills with each entry's issue by name, so the busy issues show
-    // at a glance. One way in (A-12 on v6): the Calendar tab (ui.js SECTIONS), #/my-issues/all?view=cal; w= keeps the week.
+    // at a glance. One way in (A-12 on v6): the Issues calendar row on More, #/issues/all?view=cal (round 2 took its tab away, so All issues is the
+    // current tab on it); w= keeps the week.
     // Nothing sits over the title.
     if (route.q?.view === 'cal') return `<div class="le-page i6-page is6-index is6-cal">
-      ${headHTML('cal', { action: acts })}
+      ${headHTML('all', { action: acts })}
       <div class="hc-wrap"><div class="hw-bar"><p class="is6-calwho">All the team’s bills, with their issues</p>${calWeekBar(route)}</div>${weekCalHTML(route, { scope: 'team' })}</div>
     </div>`;
     return `<div class="le-page i6-page is6-index">
@@ -293,7 +294,7 @@ const index = {
     if (fvView(route)) return wireFirstVisit(route, root);
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
-    if (root.querySelector('.is6-cal')) { wireWeekCal(root, { href: w => `#/my-issues/all?view=cal${w ? `&w=${w}` : ''}` }); return; }
+    if (root.querySelector('.is6-cal')) { wireWeekCal(root, { href: w => `#/issues/all?view=cal${w ? `&w=${w}` : ''}` }); return; }
     root.querySelector('[data-is="needs"]')?.addEventListener('click', needsSheet);
     const body = root.querySelector('#is-q-body'), sortB = root.querySelector('[data-igsort]');
     // Redraw the cards only, so typing keeps the focus in the box; Sort hides while a search shows its matches.

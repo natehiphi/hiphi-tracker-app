@@ -2,7 +2,7 @@
 // and tab bar, tools.js), so a place has one name, one icon and one line everywhere (V19). The one More page (#/more and
 // #/tools) is drawn by tools.js; it names every place that is not in the sidebar or the bar, so nothing is hidden behind an
 // icon (Nate, 22 Oct: "If people are unable to find things because they are hidden or hard to find, that would be the
-// worst"). The phone's bar has five tabs (Today, Hearings, Testimony, Bills, More).
+// worst"). The phone's bar has five tabs (Today, Hearings, Testimony, Issues, More).
 import { S, DEMO, DEMO_ASOF, esc, seesTeam } from './data.js';
 import { icon, avatar } from './ui.js';
 import { admitsPartners } from './partnerq.js';
@@ -13,9 +13,9 @@ export const PLACES = {
   hearings: ['#/hearings', 'calendar-days', 'Hearings', 'Hearings', 'This week’s hearings, and getting bills heard'],
   testimony: ['#/testimony', 'file-text', 'Testimony', 'Testimony', 'Write, approve and file testimony'],
   outreach: ['#/outreach', 'megaphone', 'Outreach', 'Outreach', 'Rally the public and partners'],
-  bills: ['#/bills', 'scroll-text', 'Bills', 'Bills', 'Every bill we track and where it stands'],
+  // Bills is not a place since R-356 round 2 (decision 3): it is a tab inside Issues (#/issues/bills).
   legislators: ['#/legislators', 'landmark', 'Legislators', 'Legislators', 'Who to ask, and everyone at the Capitol'],
-  myissues: ['#/my-issues', 'tag', 'Issues', 'Issues', 'The issues you own or help on'],
+  issues: ['#/issues', 'tag', 'Issues', 'Issues', 'Your issues, every issue, and every bill we track'],
   inbox: ['#/inbox', 'inbox', 'Inbox', 'Inbox', 'Messages and updates for you'],
   help: ['#/help', 'circle-help', 'Help', 'Help', 'Guides, Capitol words and what moved'],
   team: ['#/team', 'users', 'Team', 'Team', 'What is slipping, and who is on what'],
@@ -26,11 +26,11 @@ export const PLACES = {
   more: ['#/more', 'ellipsis', 'More', 'More', 'Every other place'],
   you: ['#/me', 'circle-user', 'You', 'You', 'My settings and sign out'],
 };
-// The five places and Bills, in the sidebar's order (R-356 decision 1: Today, Testimony, Hearings, Issues, Outreach; the rest
-// is behind More); the phone bar's five (D2). Bills is still here only because round 2 moves it inside Issues, and
-// Legislators has already left (it is a row on More, and search still finds it).
-export const MAIN = ['today', 'testimony', 'hearings', 'myissues', 'outreach', 'bills'];
-export const BAR = ['today', 'hearings', 'testimony', 'bills', 'more'];
+// The five places, in the sidebar's order (R-356 decision 1: Today, Testimony, Hearings, Issues, Outreach; the rest is behind
+// More); the phone bar's five (D2). Bills left the sidebar in round 2 (decision 3): it is a tab of Issues, which takes its
+// slot in the phone bar (decision 7 keeps the five). Legislators is a row on More, and search still finds it.
+export const MAIN = ['today', 'testimony', 'hearings', 'issues', 'outreach'];
+export const BAR = ['today', 'hearings', 'testimony', 'issues', 'more'];
 // Leads (V18): Team for admins and second approvers; People and Session setup for admins; Partners for admins and partner
 // approvers (R-328). Always in the same spot, and absent for everyone else (D8 names them at the foot of More tools).
 export const isLead = (a = S.me) => !!a && a.is_active !== false && (!!a.is_admin || !!a.is_reviewer);

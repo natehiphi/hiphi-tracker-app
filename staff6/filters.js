@@ -38,7 +38,7 @@ export function deskBack(key, to) {   // key: 'triage' | 'memo' | 'muted' (muted
   const again = SUB.key === key && (key === 'muted' ? prev === 'bills' && !!v.lastMuted : prev === key);   // a redraw of the same page
   if (!again) { SUB.key = key; SUB.fromList = prev === 'bills' && !v.lastMuted; }
   if (to) return `<a class="bl-deskback" href="${esc(to.href)}" data-back>${icon('chevron-left')}<span>${esc(to.label)}</span></a>`;
-  return `<a class="bl-deskback" href="#/bills"${SUB.fromList ? ' data-back' : ''}>${icon('chevron-left')}<span>Bills</span></a>`;
+  return `<a class="bl-deskback" href="#/issues/bills"${SUB.fromList ? ' data-back' : ''}>${icon('chevron-left')}<span>Bills</span></a>`;
 }
 
 // ---- whose bills: Mine, My coalitions, Team (R-022, decision 7; v3 calls Everyone "Team", R-264) ----
@@ -282,7 +282,7 @@ export function applyView(id) {
   const w = views().find(x => x.id === id); if (!w) return false;
   const v = bl(); applyFilters(w.f); v.q = ''; changed(); v.view = id; save(); return true;
 }
-// A link that opens Bills on one coalition (#/bills?coalition=<id or slug>, from the coalition page, R-022): every one
+// A link that opens Bills on one coalition (#/issues/bills?coalition=<id or slug>, from the coalition page, R-022): every one
 // of its bills (Team), and nothing else switched on. A one-off: it is not a saved view and is not written over what
 // this browser remembers, so a reload comes back to the person's own list. Whatever they change after it is theirs.
 export function openCoalition(id) { const v = bl(); applyFilters({ ...BLANK, scope: 'all', camps: [id] }); v.q = ''; v.view = ''; v.folds = {}; }

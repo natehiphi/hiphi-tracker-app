@@ -329,7 +329,8 @@ export function wireTools(root, id, { get, set, paint }) {
 // said about the list (a lede, the one-line notes) under the tabs, never between the title and the tabs (the critic: the
 // tab row sat at three heights). A phone's top bar carries the title, so the tabs come first there.
 // The section's title is the section, the same on its three tabs (R-352 FIX-2: All issues showed everyone's issues under
-// "My issues"), as Outreach titles Supporters: "Issues", then My issues · Coalitions · All issues.
+// "My issues"), as Outreach titles Supporters: "Issues", then My issues · All issues · Bills · Coalitions (R-356 round 2; the sidebar says Issues too, the tab says My issues). `cur` is
+// 'mine', 'all', 'bills' or 'coalitions'; the Bills tab's own page (bills.js) passes 'bills'.
 export const headHTML = (cur, { action = '' } = {}) => `<header class="i6-head"><div class="i6-htop"><h1 class="i6-h1">Issues</h1>${action ? `<div class="i6-hacts">${action}</div>` : ''}</div>${sectionNav('issues', cur)}</header>`;
 
 // ---- rule 10: Back from an issue or a coalition puts the focus on the row it was opened from ----

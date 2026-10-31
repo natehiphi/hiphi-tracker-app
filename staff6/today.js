@@ -763,7 +763,7 @@ function doorLines(w, v = S.me, { coal = true, lead = '', leadShown = !!lead } =
   // A lead reads the bills with no owner on Team (its own block, the slipping line's door just above), so the count is not a
   // second door to Team here; an issue's owner, who has no Team, keeps the line to My issues.
   const no = isLead(v) && leadShown ? [] : noOwnerBills(v);
-  if (no.length) out.push(lineA(isLead(v) ? '#/team?who=none' : '#/my-issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b>`));
+  if (no.length) out.push(lineA(isLead(v) ? '#/team?who=none' : '#/issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b>`));
   if (admitsPartners(v)) {
     // R-346: partner words to approve are this line's, not rows in the list (the moderate mock), so it counts them too.
     const pl = partnersLine(v); if (pl) out.push(pl);
@@ -899,7 +899,7 @@ function seasonBody(season, v, w, { skipH = null } = {}) {
     const n = sorts ? S.tdTriage?.suggested || S.tdTriage?.undecided || 0 : 0;
     // Each a one-line door, its subject first (integrator: the season card compact; a sentence and a button under it took two
     // rows for one link).
-    if (n) return { title: 'New bills to sort', html: lineA('#/bills/new', 'sparkles', `<b>Sort new bills</b> · ${plural(n, 'new bill')} to decide on`) };
+    if (n) return { title: 'New bills to sort', html: lineA('#/issues/bills/new', 'sparkles', `<b>Sort new bills</b> · ${plural(n, 'new bill')} to decide on`) };
     return { title: 'The session opens', html: v.is_admin ? lineA('#/setup', 'settings', '<b>Session setup</b> · check it before the first hearings')
       : lineA('#/me', 'bell', '<b>My settings</b> · check how the tracker reaches you before the first hearings') };
   }
@@ -991,7 +991,7 @@ function endedLine() {
   const yr = (S.bills || [])[0]?.session_year;
   const law = (S.bills || []).filter(b => isPos(b) && stopOf(b).phase === 'law').length;
   if (!law) return '';
-  return lineA('#/bills', 'scroll-text', `<b>How the ${esc(yr || 'last')} session ended</b> · ${plural(law, 'of our bills became', 'of our bills became')} law`);
+  return lineA('#/issues/bills', 'scroll-text', `<b>How the ${esc(yr || 'last')} session ended</b> · ${plural(law, 'of our bills became', 'of our bills became')} law`);
 }
 
 // ---- Getting started (V29): new people only, ticking from history, the season's job ----
@@ -1109,9 +1109,9 @@ function clearCard(v, w, ro, n = '') {
   const text = nh && !onPage ? `Next hearing: ${whenAt(nh.scheduled_at)}, ${committeeName(nh.committee) || nh.committee}.` : SESSION_OVER ? 'Hearings return when the next session opens.' : '';
   // With nothing of their own, the one filled button is the next hearing, or Hearings; a helper with the coalition's asks
   // to help with has none (the door is the way, and "Open Get hearings" named a place, not a step).
-  const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/my-issues/coalitions' })
+  const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/issues/coalitions' })
     : nh && !onPage ? btn('Open the hearing', { icon: 'gavel', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : w.coal.size ? ''
-    : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'calendar-days', href: '#/hearings' });
+    : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/issues/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'calendar-days', href: '#/hearings' });
   return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
 }

@@ -1,4 +1,4 @@
-// Coalitions (#/my-issues/coalitions, the second tab of My issues; #/coalition redirects there) and one coalition
+// Coalitions (#/issues/coalitions, the second tab of My issues; #/coalition redirects there) and one coalition
 // (#/coalition/<id>). A person comes here to see where one coalition stands this week (B-1). One coalition is for its owner
 // and for the support staff who help it and keep its partners informed (Kris and Saya, review 9/21): its hearings in the
 // next 7 days, its bills that still need a hearing (at risk first), the live bills nobody owns, and the to-dos on its bills
@@ -83,7 +83,7 @@ const embedCode = c => `<iframe id="hiphi-tracker" src="${embedUrl(c)}" title="$
 // The partner update lives on Outreach's Partner update tab (one way in, B-13), opened on this coalition (v4, R-269).
 const memoHref = c => `#/outreach/partners?coalition=${encodeURIComponent(c.id)}`;
 // Bills, opened on every bill of this coalition (filters.js openCoalition).
-const billsHref = c => `#/bills?coalition=${encodeURIComponent(c.id)}`;
+const billsHref = c => `#/issues/bills?coalition=${encodeURIComponent(c.id)}`;
 const coalHref = c => `#/coalition/${encodeURIComponent(c.id)}`;
 // Its issues, from its bills: each has its own public page, which is what R-018 made the public tracker's unit.
 function issuesOf(c) {
@@ -146,7 +146,7 @@ export function wireHelpBtns(root) {
 export function helpLineHTML() {
   if (!S.me || pref() === 'all') return '';
   const l = (S.campaigns || []).filter(c => supports(c) && !ownsCoal(c)).sort(byOrder); if (!l.length) return '';
-  if (l.length > 2) return `<p class="i6-line">${icon('users')}<span>You help on ${l.length} coalitions</span><a class="i6-inline" href="#/my-issues/coalitions">See them</a></p>`;
+  if (l.length > 2) return `<p class="i6-line">${icon('users')}<span>You help on ${l.length} coalitions</span><a class="i6-inline" href="#/issues/coalitions">See them</a></p>`;
   // A monitored bill's hearing is said, not hidden behind "no hearings this week" (Julie: HIAPA's SB 3142 was heard Wed 3/18).
   const one = c => { const n = weekOf(c).length, mon = n ? [] : monitorWeek(c);
     const w = n ? hearWords(n) : mon.length ? `no hearings on bills we support or oppose · ${mon.length} on ${mon.length === 1 ? 'a bill' : 'bills'} we monitor, ${dayWords(mon[0])}` : hearWords(0);
@@ -348,7 +348,7 @@ function shareHTML(c) {
 }
 
 function pageHTML(c) {
-  const back = `<a class="co6-back" href="#/my-issues/coalitions" data-back>${icon('chevron-left')}<span>Coalitions</span></a>`;
+  const back = `<a class="co6-back" href="#/issues/coalitions" data-back>${icon('chevron-left')}<span>Coalitions</span></a>`;
   const todos = openTodosOf(c), bills = billsOf(c), allUnowned = unownedOf(c);
   const needing = SESSION_OVER ? new Set() : new Set(needsOf(waitingOfBills(bills)).map(x => x.b.id)), unowned = allUnowned.filter(b => !needing.has(b.id));
   const anyTodo = bills.some(b => (S.todos[b.id] || []).some(t => !t.done));
@@ -400,12 +400,12 @@ export default {
   // One coalition is two columns from 1100px, which need more than the reading column.
   wide: route => !!route.id && DESK(),
   title: route => route.id ? coalById(route.id)?.name || 'Coalition' : 'Coalitions',
-  back: route => route.id ? { href: '#/my-issues/coalitions', label: 'Coalitions' } : null,
+  back: route => route.id ? { href: '#/issues/coalitions', label: 'Coalitions' } : null,
   render(route) {
     if (!route.id) return indexHTML();
     const c = coalById(route.id);
     // Never a dead end (B-3): a coalition an admin removed, or a link from another setup.
-    if (!c) return `<div class="co6-page">${empty({ h: 'h1', title: 'We could not find that coalition', text: 'It may have been removed or renamed in Session setup.', action: btn('See all coalitions', { kind: 'secondary', href: '#/my-issues/coalitions' }) })}</div>`;
+    if (!c) return `<div class="co6-page">${empty({ h: 'h1', title: 'We could not find that coalition', text: 'It may have been removed or renamed in Session setup.', action: btn('See all coalitions', { kind: 'secondary', href: '#/issues/coalitions' }) })}</div>`;
     return pageHTML(c);
   },
   wire(route, app) {

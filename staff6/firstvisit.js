@@ -18,8 +18,8 @@ import { billByNum, billYearPart } from './model.js';
 
 // v6 (R-336, spec 3.5): both are More tools > Rally ("First visit numbers", "Make a link / QR code"), at My issues > All
 // issues' addresses; the v5 ones (#/outreach/issues?view=...) still open them (app.js redirects).
-export const FV_HREF = '#/my-issues/all?view=first-visit';
-export const LINKS_HREF = '#/my-issues/all?view=links';
+export const FV_HREF = '#/issues/all?view=first-visit';
+export const LINKS_HREF = '#/issues/all?view=links';
 const TOOLS = { href: '#/tools', label: 'More tools' };
 // Which of the two an Issues route is: 'numbers', 'links', or null for the Issues index itself.
 export const fvView = route => ({ 'first-visit': 'numbers', links: 'links' })[route?.q?.view] || null;
