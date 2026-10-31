@@ -18,6 +18,20 @@ body.rec .rc-iss .rc-ihead .bl-rhrow > .rc-fpill, body.rec .rc-iss .rc-ihead .bl
   body.rec .rc-iss .rc-ihead .rc-fwrap .rc-fmenu { right: auto; left: 0; }
 }
 
+/* ---- version 2 (?v2=1, R-357): the issue's drawing over the heading (Nate, 31 Oct: "The images are not back for issues") ----
+   Home's band (calm/home.js artOf), written out here as the v2 bill page writes it (pub/v2/v2.css): home.css's rules are under .cm,
+   which this page is not, and that file loads only with the bill page. The issue's own picture, else its topic's scene, else the Capitol;
+   the ground stretches and the people stay whole (art.js). A-1: the heading started 166px down at 390x844 before the band, so the band is
+   96px under 480px (the heading near 270px, the budget 320) and Home's 152px from 480px up; on a window 640px tall or less (a 320x568
+   phone) it stands under the Follow row, so the first screen is whole. The band is the head's first child (a flex column), so it moves
+   by `order`. The card on this page draws no scene (bill.js actionSection), so a laptop holds one picture, not two (A-22). */
+body.rec .rc-iss .v2-art { position: relative; flex: none; height: 96px; border-radius: var(--r16, 16px); overflow: hidden; background: #EAF7FD; }
+body.rec .rc-iss .v2-art svg, body.rec .rc-iss .v2-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+body.rec .rc-iss .v2-art .art-capitol { position: static; height: 100%; padding: var(--s8) 0 0; }
+body.rec .rc-iss .v2-art:has(.art-capitol) { background: transparent; }
+@media (min-width: 480px) { body.rec .rc-iss .v2-art { height: 152px; } }
+@media (max-height: 640px) { body.rec .rc-iss .v2-art { order: 9; margin-top: var(--s4); } }
+
 body.rec .rc-fwrap { position: relative; flex: none; }
 body.rec .rc-fwrap .rc-fmenu { min-width: min(330px, calc(100vw - 32px)); z-index: 20; }
 body.rec .rc-fnote { margin: 0; padding: var(--s8) var(--s12); font-size: var(--t14); color: var(--n700); }

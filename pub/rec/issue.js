@@ -20,6 +20,7 @@
 import { S, D, DEMO, app, esc, icon, toast, nick, spaced, billPath, issueFollowed, issuePos, posInfo, setFollows, unfollowIssue, sessionInfo, findBill, supa,
   catOf, calendarUrl, dateLong, stopOf, plainStatus, hearingsOf, openActions, hearingWhen, hiT, fmtDate, issueShareUrl, stopFacts, issuesIn, HST, timed, loadCatalog, recomputeWatch } from '../core.js';
 import { btn, iconBtn, posChip, skeleton, loadFail } from '../ui.js';
+import { issueBand, CAPITOL } from '../art.js';
 import { recHead, recBack, recSec, recRow, recFold, recFolds, recEmpty, recFollow, wireKit, BOX, keep } from './kit.js';
 import { moving, becameLaw, stopped, numCmp, byUrgency, stoppedWhy, what, billsOfIssue, issueOrder } from '../mybills.js';
 import { ensureHearings } from '../find.js';
@@ -151,7 +152,13 @@ function followPill(i) {
 }
 // The name block: the issue's name (the one h1), its one sentence, then a row with HIPHI's side and Follow, laid out as the
 // bill page's chip row with "Read the bill". pill: false in the none shape, where Follow is the card's button.
-const nameBlock = (i, chip, pill = true) => `<div class="bl-head bl-rhead rc-ihead"><h1 class="hero bl-nick">${esc(i.name)}</h1>
+// Version 2 (?v2=1, R-357; Nate, 31 Oct: "The images are not back for issues", and where: "the issue's own page, its drawing at the top"):
+// the page opens with the issue's drawing in Home's band (calm/home.js artOf) over the heading, as the v2 bill page's slide does
+// (pub/v2/bill.js): the issue's own picture, else its topic's scene, else the Capitol (art.js issueBand). Decorative: no alt, aria-hidden.
+// It is in the head, so the loading and error pages draw it too and nothing moves when the bills arrive. The card on this page draws
+// no scene of its own (bill.js actionSection: no band beside a lead line), so the page holds one picture at every width. Rules: issue.css.
+const band = i => app.v2?.() ? `<div class="cm-art v2-art">${issueBand(i, DEMO) || CAPITOL}</div>` : '';
+const nameBlock = (i, chip, pill = true) => `<div class="bl-head bl-rhead rc-ihead">${band(i)}<h1 class="hero bl-nick">${esc(i.name)}</h1>
   ${i.description ? `<p class="lede bl-lede">${esc(i.description)}</p>` : ''}${chip || pill ? `<div class="bl-rhrow">${chip}${pill ? followPill(i) : ''}</div>` : ''}</div>`;
 // The card's first line (option A: "as on Home"): the bill's number, which opens its full record, and its own name where
 // several different bills move, or "House version" where the two moving bills are one bill's two versions.
