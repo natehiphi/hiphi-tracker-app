@@ -392,8 +392,10 @@ const ownsBill = (b, v) => !!v && (!!v.is_admin || (S.assignments?.[b.id] || [])
 // A row's one button (D16): only where this row has a step of its own that the group's buttons do not cover. A bill still to
 // ask has a "…" instead, for its owner: this bill alone in the email, Not now, Not pushing this bill (rule 7.3: rare, and
 // each also on the bill page).
-function rowButton(it, v, scope) {
+function rowButton(it, v, scope, week = true) {
   const { b, a, k, code } = it; if (!actsOn(b, it, v, scope)) return '';
+  // A bill still to ask on a chair who is not due this week shows words only (decision 8): its "…" and take-over wait for the week.
+  if (!week && ['ask', 'later'].includes(k)) return '';
   const name = numWords(b);
   if (k === 'decide') { if (!ownsBill(b, v)) return '';
     const r = chairAskMail(code, [b], { dl: a.st.deadline, heardAt: a.st.hearing?.scheduled_at || new Date().toISOString() });
@@ -462,12 +464,15 @@ function groupHTML(g, v, scope, { primary, shared }) {
   const owners = [...new Set(R.claim.map(x => (S.assignments?.[x.b.id] || []).find(id => live(id) && id !== v?.id)).filter(Boolean))];
   const msg = owners.slice(0, 2).map(id => { const x = R.claim.find(r => (S.assignments?.[r.b.id] || []).includes(id));
     return btn(`Message ${firstOf(id)}`, { kind: 'text', sm: true, icon: 'message-square', href: `${billRoute(x.b, 'talk')}?mention=${advocate(id)?.initials || ''}` }); }).join('');
-  const acts = `${mails}${R.give.length ? btn('Give this ask to…', { kind: 'text', sm: true, attrs: { 'data-hgact': 'give', 'data-hgk': g.key, 'aria-haspopup': 'dialog' } }) : ''}${msg}`;
+  const acts0 = `${mails}${R.give.length ? btn('Give this ask to…', { kind: 'text', sm: true, attrs: { 'data-hgact': 'give', 'data-hgk': g.key, 'aria-haspopup': 'dialog' } }) : ''}${msg}`;
+  // Decision 8: the buttons sit on the chair's line only when an ask here is due this week; on every other chair they are in
+  // "Ask or hand it on", which opens in place, so the first screen holds words, not 15 controls.
+  const acts = !acts0 || g.week ? acts0 : `<details class="hg-more" data-hgmore="${esc(g.key)}"${MORE_OPEN.has(g.key) ? ' open' : ''}><summary>Ask or hand it on${icon('chevron-down', { cls: 'hg-morechev' })}</summary><div class="hg-cacts">${acts0}</div></details>`;
   const who = m ? m.who : 'No chair listed yet', cn = committeeName(g.code) || g.code;
   const foot = '';   // "Asked another way? Log a talk" is said once, at the top of the board (askBoard)
   const hdrDay = mineDue ? askDay(mineDue + 'T12:00:00-10:00') : day || '';   // the day the chair's line says (`when` below)
   const rows = g.rows.map(x => { const [line, ic] = rowLine(x, v, scope, { shared, hdrDay }), mine = ['follow', 'giving'].includes(x.k) && (x.a.asker === v?.id || x.a.todo?.assignee_id === v?.id);
-    return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: ic, tone: x.k === 'scheduled' ? 'done' : '', bold: mine, href: billRoute(x.b), button: rowButton(x, v, scope), cls: `hg-r k-${x.k}` }); }).join('');
+    return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(line)), icon: ic, tone: x.k === 'scheduled' ? 'done' : '', bold: mine, href: billRoute(x.b), button: rowButton(x, v, scope, g.week !== false), cls: `hg-r k-${x.k}` }); }).join('');
   const when = mineDue ? `you ask by ${hdrDay}` : day ? `ask by ${day}` : g.rows.every(x => x.k === 'scheduled') ? 'scheduled' : '';
   // R-352 (A-18 on v6: no letter bubbles): the card starts with the chair's name, and each name is the link to that
   // legislator's page (R-344's B4: people tapped the photo to get there; the photo was mostly a letter). Teal, no underline
@@ -486,20 +491,14 @@ function groupHTML(g, v, scope, { primary, shared }) {
 }
 // askBoard({ scope, bills, viewer, primary, id, empty }) -> the board's HTML: under each deadline (soonest first) in words,
 // "Must reach their last committee by Mon 3/30", with how many are to ask, being asked, waiting and scheduled, then each
-// chair's group, soonest notice first. Nothing is folded (V13: one open board). `primary: false` is for a screen where another filled button owns it; buttons need no wiring (one document listener, below, and
+// chair's group, soonest notice first. One open board, nothing folded (V13).
+// `primary: false` is for a screen where another filled button owns it; buttons need no wiring (one document listener, below, and
 // steps.js's).
-// `fold` (kept from Legislators' Who to ask, which went away in R-356 round 2; nothing passes it now): the first deadline in full, each later one a single line that opens it in place
-// ("Must clear their last committee by Fri 4/10 · 12 bills · 4 chairs"): other people's asks are not the viewer's to-dos, and Kris's
-// coalitions put 42 asks on 15 phone screens (the fresh-eyes check, A-1, A-2). In a later deadline the chairs holding a
-// step of the viewer's own stay open and only the others fold ("12 more chairs · 30 bills"), so nothing they must do is
-// behind a fold (rule 7.3); no step moves into "…". Get hearings stays one open board (V13).
-// Inside the first deadline too (Nate's walk: Kris's Friday Who to ask ran 10,662px on a phone, its first deadline alone 42
-// asks, mostly other people's): the chairs holding a step of the viewer's own stay open, and when more than FOLD_MIN other
-// chairs remain they fold to one line under them that opens in place ("18 more chairs · 30 bills"). Fewer stay open.
-const FOLD_MIN = 8;
-const ownStep = (x, v) => mineGiven(x, v) || (x.k === 'follow' && x.a.asker === v?.id) || (['ask', 'decide', 'follow', 'later'].includes(x.k) && (S.assignments?.[x.b.id] || []).includes(v?.id));
-const FOLD_OPEN = new Set();   // the later deadlines opened this visit (id|date), kept across redraws
-export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null, fold = false } = {}) {
+const MORE_OPEN = new Set();   // the chairs' "Ask or hand it on" opened this visit (date|code), kept across redraws
+const HDAY = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+// R-356 round 3, decision 8 (D16): a chair is "due this week" when one of its asks is to be made (or heard-not-voted-on asked) by a day within 7 days of today or past.
+const dueWeek = x => ['ask', 'decide', 'giving'].includes(x.k) && x.at != null && HDAY(x.at) <= HDAY(Date.now() + 7 * 864e5);
+export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null } = {}) {
   BOARD = new Map(); ensureContacts(() => hooks.render());
   const v = viewer, items = boardItems({ scope, bills, viewer: v });
   if (!items.length) return empty ?? `<p class="hg-empty">${icon('circle-check')}<span>${esc(scope === 'team' ? 'No bill of the team’s is waiting for a hearing right now.' : `None of ${whoseWords(scope, v)} is waiting for a hearing right now.`)}</span></p>`;
@@ -512,45 +511,28 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     const sorted = [...d.groups].map(([code, rows]) => ({ code, rows: rows.sort((p, q) => ORDER[p.k] - ORDER[q.k] || p.b.bill_number.localeCompare(q.b.bill_number, 'en', { numeric: true })),
       at: Math.min(...rows.map(x => ['scheduled', 'later'].includes(x.k) ? Infinity : x.at)) }))
       .sort((p, q) => p.at - q.at || p.code.localeCompare(q.code));
-    // A later deadline folds every chair with no step of the viewer's; the first folds them only when more than FOLD_MIN remain.
-    const others = sorted.filter(g => !g.rows.some(x => ownStep(x, v))).length;
-    const shutOthers = fold && (di > 0 || others > FOLD_MIN);
-    const groups = sorted.map((g, i) => { const key = `${d.dl.date}|${g.code}`, gid = `${hid}-${i}`; const gg = { ...g, key, id: gid, dl: d.dl, scope, folded: shutOthers && !g.rows.some(x => ownStep(x, v)) }; BOARD.set(key, gg); return gg; });
-    // The first deadline itself never folds away: its heading and line stay in sight, with its chairs' one line under them.
-    return { d, hid, groups, folded: di > 0 && groups.every(g => g.folded), fk };
+    const groups = sorted.map((g, i) => { const key = `${d.dl.date}|${g.code}`, gid = `${hid}-${i}`; const gg = { ...g, key, id: gid, dl: d.dl, scope, week: g.rows.some(dueWeek) }; BOARD.set(key, gg); return gg; });
+    return { d, hid, groups };
   });
   // The screen's one filled button (rule 7.1, A-3): the email for an ask handed to this person first (what they just took
   // on keeps the focus: critic A-13), else the first chair this person emails about their own bills. A helper with nothing
   // taken on yet has none: "I'll ask" is tonal, and the filled button would invite asking a teammate's chair unannounced.
-  const all = secs.flatMap(s => s.groups), seen = all.filter(g => !g.folded);   // never the filled button inside a fold
-  const pkey = !primary ? null : (seen.find(g => g.rows.some(x => mineGiven(x, v))) || seen.find(g => groupRoles(g, v, scope).mail.length))?.key || null;
-  const out = secs.map(({ d, hid, groups, folded, fk }, di) => {
+  const all = secs.flatMap(s => s.groups);
+  const pkey = !primary ? null : (all.filter(g => g.week).find(g => g.rows.some(x => mineGiven(x, v))) || all.filter(g => g.week).find(g => groupRoles(g, v, scope).mail.length))?.key || null;
+  const out = secs.map(({ d, hid, groups }) => {
     // The deadline line's own words (needWords: the same function as Today's and Bills'), without the day the heading gives.
-    // Legislators' Who to ask (fold) stops at "to ask" with the door to Get hearings, as Today and Bills do; Get hearings
-    // itself adds who is being asked, waiting and will schedule. Bills heard but not voted on: their own line under it.
+    // Who is being asked, waiting and will schedule are added here; bills heard but not voted on have their own line under it.
     const nwd = needWords(d.items, { scope, viewer: v, day: false }), cn = nwd.c, total = cn.total, nw0 = cn.need;
     const shared = !!nwd.only;   // every bill here one teammate's: said once on this line, not on every row (A-14)
     const head = cap(deadlineWords(d.dl.label, d.dl.date, { n: total }));
-    const door = fold && di === 0 ? ` ·&nbsp;${askTabGo(`#/hearings/ask?scope=${scope}`, 'hg-dlgo')}` : '';
     // The ask part never repeats the count before it (Nate's walk 3: "16 of your bills need a hearing · 16 to ask"): when
     // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask". Only
     // this deadline's bills, never a share of the tab's total ("12 of the 20" mixed two totals: the critic, walk 3, A-14).
     const askT = !nwd.rest ? '' : cn.toAsk >= cn.need ? 'none asked yet' : `${cn.toAsk} still to ask`;
-    const subT = [nwd.head, askT, ...(fold ? [] : dlParts(cn))].filter(Boolean).join(' · ');
-    const sub = `${subT ? `<p class="hg-dls">${nwParts(esc(subT))}${door}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nwParts(esc(nwd.decide))}</p>` : ''}`;
-    const gh = g => groupHTML(g, v, scope, { primary: g.key === pkey, shared }), open = groups.filter(g => !g.folded), shut = groups.filter(g => g.folded);
-    const body = open.map(gh).join('');
-    // A fold's bills are counted as the line above counts them (needWords): the bills still needing a hearing, with the ones
-    // heard but not voted on said apart (KR's "24 more chairs · 44 bills" sat under "36 ... need a hearing": the 9 heard
-    // were inside the 44). Every fold says its chairs first, then its bills ("4 chairs · 12 bills").
-    const shutRows = shut.flatMap(g => g.rows), shutC = { need: shutRows.filter(x => !['scheduled', 'later', 'decide'].includes(x.k)).length, decide: shutRows.filter(x => x.k === 'decide').length };
-    const foldWords = (chairs, c) => [chairs, c.need ? plural(c.need, 'bill') : '', c.decide ? `${c.decide} heard but not voted on` : ''].filter(Boolean).join(' · ');
-    // The viewer's own chairs here open, the rest one line under them that opens in place.
-    const rest = !shut.length || folded ? '' : `<details class="hg-fold hg-foldrest" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><span class="hg-foldt">${nwParts(esc(foldWords(plural(shut.length, open.length ? 'more chair' : 'chair'), shutC)))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
-      <div class="hg-foldin">${shut.map(gh).join('')}</div></details>`;
-    if (folded) return `<details class="hg-dl hg-fold" data-hgfold="${esc(fk)}"${FOLD_OPEN.has(fk) ? ' open' : ''}><summary class="hg-foldsum"><h2 id="${hid}">${esc(head)}</h2><span class="hg-foldn">${nwParts(esc(foldWords(plural(groups.length, 'chair'), { need: nw0, decide: cn.decide })))}</span>${icon('chevron-down', { cls: 'hg-foldchev' })}</summary>
-      <div class="hg-foldin">${sub}${shut.map(gh).join('')}</div></details>`;
-    return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub}</div>${body}${rest}</section>`;
+    const subT = [nwd.head, askT, ...dlParts(cn)].filter(Boolean).join(' · ');
+    const sub = `${subT ? `<p class="hg-dls">${nwParts(esc(subT))}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nwParts(esc(nwd.decide))}</p>` : ''}`;
+    const body = groups.map(g => groupHTML(g, v, scope, { primary: g.key === pkey, shared })).join('');
+    return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub}</div>${body}</section>`;
   }).join('');
   // One "Asked another way? Log a talk" for the whole board, not under every chair (Nate's walk: 11 times on Lauren's My
   // bills; C-15, one name per act). It opens the chair to pick when more than one ask is the viewer's to log.
@@ -585,10 +567,10 @@ function rowMenu(b, code) {
 // The board's own buttons, delegated once for the whole app (as steps.js and chairask.js do), so a screen that draws the
 // board wires nothing. After an action the page redraws (hooks.render), with the action's Undo in its toast.
 const after = () => hooks.render();
-// A later deadline opened in place stays open when the page redraws (a Take this ask, a switch), until the visit ends.
+// A chair's opened "Ask or hand it on" stays open when the page redraws (a Give, a switch), until the visit ends.
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('toggle', e => {
-  const el = e.target; if (!el?.matches?.('details[data-hgfold]')) return;
-  if (el.open) FOLD_OPEN.add(el.dataset.hgfold); else FOLD_OPEN.delete(el.dataset.hgfold);
+  const el = e.target; if (!el?.matches?.('details[data-hgmore]')) return;
+  if (el.open) MORE_OPEN.add(el.dataset.hgmore); else MORE_OPEN.delete(el.dataset.hgmore);
 }, true);
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
   const el = e.target?.closest?.('[data-hgact]'); if (!el) return;

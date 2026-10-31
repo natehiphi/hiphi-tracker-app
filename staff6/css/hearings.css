@@ -128,21 +128,14 @@ body.staff6 .hg-dl { display: grid; grid-template-columns: minmax(0, 1fr); gap: 
 body.staff6 .hg-dlh { display: grid; gap: 4px; }
 body.staff6 .hg-dlh h2 { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t22); line-height: var(--v6-lh22, 28px); color: var(--v6-ink); }
 body.staff6 .hg-dls { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-body); }
-/* Legislators' Who to ask: a later deadline folded to one line that opens it in place (push.js askBoard `fold`) */
-body.staff6 .hg-fold { display: block; }
-body.staff6 .hg-fold > summary { position: relative; list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 56px; padding: 12px 46px 12px 16px;
-  border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
-body.staff6 .hg-fold > summary::-webkit-details-marker { display: none; }
-body.staff6 .hg-fold > summary h2 { flex: 1 1 220px; margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18); line-height: var(--v6-lh18, 26px); color: var(--v6-ink); }
-body.staff6 .hg-foldn { color: var(--v6-muted); font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
-body.staff6 .hg-foldt { flex: 1 1 auto; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
-/* One place for every fold's chevron: the right edge, centred on the fold's words (on a phone a long count pushed it to a line
-   of its own under them, and a later deadline's sat beside its wrapped count). The summary's right padding keeps it clear. */
-body.staff6 .hg-foldchev { position: absolute; right: 16px; top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--v6-muted); transition: transform 150ms ease; }
-body.staff6 .hg-fold[open] > summary .hg-foldchev { transform: rotate(180deg); }
-body.staff6 .hg-fold > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { body.staff6 .hg-fold > summary:hover { background: var(--v6-wash); } }
-body.staff6 .hg-foldin { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding-top: 16px; }
+/* a chair not due this week: its buttons wait inside one quiet line that opens in place (R-356 round 3, decision 8) */
+body.staff6 .hg-more { display: block; }
+body.staff6 .hg-more > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border-radius: var(--v6-r12, 12px); color: var(--v6-action); font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); }
+body.staff6 .hg-more > summary::-webkit-details-marker { display: none; }
+body.staff6 .hg-more > summary:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hg-morechev { width: 16px; height: 16px; transition: transform 150ms ease; }
+body.staff6 .hg-more[open] > summary .hg-morechev { transform: rotate(180deg); }
+body.staff6 .hg-more > .hg-cacts { padding: 0 0 4px; }
 /* a chair: who, the committee in words and the day the notice must post, the group's buttons, then its bills */
 body.staff6 .hg-chair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); min-width: 0; }
 body.staff6 .hg-chead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 8px 8px; }
