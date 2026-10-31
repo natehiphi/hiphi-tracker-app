@@ -340,6 +340,11 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   `.cm-art.v2-art`; rules in pub/v2/v2.css because home.css's are under `.cm`): 96px under 480px wide, 152px from 480px, under the
   buttons on a window 640px tall or less; More's "Its issue" row carries the 40px topic-tinted icon tile (phone and tablet; none from
   1100px, where the drawing is the issue's picture).
+- **The issue page's drawing (pL, 31 Oct; Nate: "The images are not back for issues").** `pub/rec/issue.js` `nameBlock` draws
+  `<div class="cm-art v2-art">issueBand(i, DEMO) || CAPITOL</div>` first in the issue page's head (`app.v2()` only, so also on the
+  loading page); rules in `pub/rec/issue.css` (88px under 480px wide, like the bill page's; 152px from 480px; under the Follow row on
+  a window 640px tall or less; the heading starts at about 270px at 390x844). The action card on this page draws no scene (bill.js
+  `actionSection`: no band beside a lead line), so there is one picture at every width. Test: `tests/v2_issue.py`.
 - **The letter in three screens (Part 2).** `pub/v2/letter.js` + `letter.css`. The walkthrough's frame and everything that writes, keeps
   and sends the letter stay `pub/helper.js`'s; version 2 adds screens to that one dialog through a small registry (`V2`, filled when
   `letter.js` loads) and borrows the letter's code through `HP` (both exported at the bottom and top of `helper.js`). `helperLoad` in

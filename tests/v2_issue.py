@@ -2,7 +2,7 @@
 # drawing at the top"): version 2's issue page opens with the issue's drawing, behind ?v2=1 (pub/rec/issue.js, rules in pub/rec/issue.css).
 #   v2 (?demo=1&v2=1#/issue/more-local-food-in-school-meals):
 #     - the page opens with Home's band over the heading: the issue's own drawing (an <img>), else its topic's scene (an <svg>), else the
-#       Capitol; decorative (no alt, aria-hidden); 96px under 480px wide and Home's 152px from 480px up (A-22)
+#       Capitol; decorative (no alt, aria-hidden); 88px under 480px wide and Home's 152px from 480px up (A-22)
 #     - A-1: the heading starts within 320px of the top at 390x844 (it started 166px down before the band); on a laptop inside the 400px
 #       limit (152px band, as the bill page's)
 #     - a window 640px tall or less (a 320x568 phone): the band stands under the Follow row, so Follow is on the first screen
@@ -82,7 +82,7 @@ with sync_playwright() as pw:
   p.screenshot(path=os.path.join(OUT, 'phone-390x844.png'))
   ok(r['v2'] and r['has'] and r['inHead'] and r['first'] and r['kind'] in ('svg', 'img') and r['quiet'], f"the issue page opens with the drawing, first in its head (decorative: no alt, aria-hidden) ({r['kind']}, {r['cls']})")
   ok(r['kind'] == 'svg' and 'art-food' in r['cls'], f"an issue with no drawing of its own shows its topic's scene, as Home does ({r['cls']})")
-  ok(r['aTop'] < r['h1top'] and r['h'] == 96, f"it stands over the heading, 96px tall on a phone ({r['aTop']} < {r['h1top']}, {r['h']}px)")
+  ok(r['aTop'] < r['h1top'] and r['h'] == 88, f"it stands over the heading, 88px tall on a phone ({r['aTop']} < {r['h1top']}, {r['h']}px)")
   ok(r['h1'] == 'More local food in school meals' and r['h1count'] == 1 and r['h1top'] <= 320, f"A-1: the heading still starts within 320px at 390x844 ({r['h1top']}px; it was 166px before the drawing)")
   ok(r['fText'] == 'Follow' and r['fBottom'] <= r['tabTop'] and r['fTop'] >= 0, f"Follow is on the first screen ({r['fTop']}-{r['fBottom']} vs the tab bar at {r['tabTop']})")
   ok(r['pics'] == 1 and r['bands'] == 0, f"one picture on the screen: the card draws no scene of its own ({r['pics']} pictures, {r['bands']} card scenes)")
@@ -90,7 +90,7 @@ with sync_playwright() as pw:
 
   # ---------------- a narrow phone with a short window: the drawing under the Follow row ----------------
   c, p = at(320, 568); r = p.evaluate(LOOK)
-  ok(r['h'] == 96 and r['has'] and r['inHead'], f"320x568: the drawing is there, 96px ({r['h']}px)")
+  ok(r['h'] == 88 and r['has'] and r['inHead'], f"320x568: the drawing is there, 88px ({r['h']}px)")
   ok(r['fText'] == 'Follow' and r['fBottom'] <= r['tabTop'] and r['fTop'] >= 0, f"320x568: Follow is on the first screen ({r['fTop']}-{r['fBottom']} vs the tab bar at {r['tabTop']})")
   ok(r['aTop'] >= r['fBottom'] and r['h1top'] < 320, f"320x568: the drawing is under the Follow row, not over the heading ({r['aTop']} >= {r['fBottom']}; heading at {r['h1top']}px)")
   ok(r['pics'] == 1 and not r['wide'], '320x568: one picture, nothing scrolls sideways'); c.close()
@@ -101,7 +101,7 @@ with sync_playwright() as pw:
                            ('disposable-e-cigarette-ban', 'an issue with its own drawing (several bills moving)', 'img'),
                            ('single-payer-health-care', 'an issue with nothing moving', 'svg')):
     c, p = at(390, 844, slug); r = p.evaluate(LOOK)
-    ok(r['has'] and r['kind'] == kind and r['quiet'] and r['h'] == 96 and r['h1top'] <= 320 and r['pics'] == 1, f"{what}: the band, {kind}, 96px, heading at {r['h1top']}px, one picture (shape {r['shape']}, {r['cls']})")
+    ok(r['has'] and r['kind'] == kind and r['quiet'] and r['h'] == 88 and r['h1top'] <= 320 and r['pics'] == 1, f"{what}: the band, {kind}, 96px, heading at {r['h1top']}px, one picture (shape {r['shape']}, {r['cls']})")
     c.close()
   # a tablet: Home's 152px
   c, p = at(768, 1024); r = p.evaluate(LOOK)
