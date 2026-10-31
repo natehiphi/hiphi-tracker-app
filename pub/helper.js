@@ -773,7 +773,7 @@ function restoreBox(x, d) {
 }
 function saveDraft() {
   const x = S.helper; if (!x || x.view) return;   // a sent letter being read is not a draft (W1-1)
-  const later = x.v2 ? ['v2a', 'v2s', 'mail'].includes(x.screen) : x.screen === 2 || x.screen === 3 || x.screen === 'acct' || x.screen === 'mail';   // past the bill step
+  const later = x.v2 ? ['v2a', 'v2s', 'v2m'].includes(x.screen) : x.screen === 2 || x.screen === 3 || x.screen === 'acct' || x.screen === 'mail';   // past the bill step
   const kept = later || (x.v2 ? !!x.touched : x.edited || x.points.length > 0);
   if (isMail(x)) {
     const mail = { ...(loadMe().mail || {}) }, k = mailKey(x);
@@ -838,7 +838,7 @@ function inner() {
   const head = done ? `<p class="hp-title">${esc(title)}</p>`
     : x.view ? `<h2 class="hp-title" id="hp-title" tabindex="-1">${esc(title)}</h2>`
     : `<h2 class="hp-title" id="hp-title" tabindex="-1">${esc(title)}</h2><span class="hp-count" aria-hidden="true">${x.v2 ? '' : 'Part '}${step} of ${total}</span>`;
-  const v2body = !done && x.v2 ? V2.body?.(x) : null;   // version 2's own screens; its email send step and every Mahalo are this file's
+  const v2body = !done && x.v2 ? V2.body?.(x) : null;   // version 2's own screens; every Mahalo is this file's
   const body = done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : v2body != null ? v2body : x.screen === 'again' ? againScreen() : x.screen === 'view' ? viewScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
     : x.screen === 2 ? letterScreen() : x.screen === 'mail' ? mailScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
   return `<div class="hp-frame">
@@ -1691,7 +1691,7 @@ function foot() {
   const x = S.helper, row = (html, more = '') => `<div class="hp-footin">${html}</div>${more ? `<div class="hp-footmore">${more}</div>` : ''}`;
   const back = `<button type="button" class="btn text hp-back" data-hp="back">${icon('chevron-left')}<span>Back</span></button>`;
   const later = btn('I’ll finish later', { kind: 'text', sm: true, attrs: { 'data-hp': 'later' } });
-  if (x.v2) { const f = V2.foot?.(x, { row, back, later }); if (f != null) return f; }   // version 2's screens; its email send step is the one below
+  if (x.v2) { const f = V2.foot?.(x, { row, back, later }); if (f != null) return f; }   // version 2's screens (the email's send screen, v2m, among them)
   // The three answers are the buttons, and tapping one moves on. Someone who already answered and came Back sees their
   // answer chosen, so Next keeps it (Nate 10/5, R-167: with only Close here, the way on was to tap the chosen answer again).
   // A sent letter (W1-1): Copy is what it is opened for (a call from the committee, a closed Capitol tab), so it is the bar's
@@ -2259,6 +2259,7 @@ export const HP = {
   loadMe, saveMe, keyOf, begin, linkAlready, openMark, PAR_TEL, PAR_SHOW,
   paint, paintFoot, announce, grow, goTo, goNext, goBack, saveDraft, finishLater, requestClose, copyAndOpen, confirmSent, setErr, errHTML, screenHead, welcomeBack,
   syncLetter, partsOf, pointGroups, pointsOf, pointsLine, hiphiStance, sameAsHiphi, own2For, mailSubject, mailKey, chairsTo, catsOf, keepFirst,
+  sendLinks, copyText,   // the email's send screen (R-357 pE): the three links, and the copy that also works on an older phone
   friendLine, lateBanner, aboutNote, saysBox, whyHelp, capitolLink, practiceNote, capitolNotes, formWord, CLOSINGS,
 };
 

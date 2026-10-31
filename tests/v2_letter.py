@@ -13,12 +13,16 @@
 #     - Not yet folds the question away and leaves the button and the steps; I'll finish later keeps the letter: the bill page says
 #       "Finish sending your testimony", Home offers it, and it comes back on "3 of 3"
 #   a profile and a Capitol account: the name is plain text in the letter, no account screen, "1 of 2", 4 taps
-#   the email: "Email the chair instead" is the same letter as an email, "1 of 2", then today's send step; the account screen's way out lands there
+#   the email (R-357 pE, Nate 31 Oct: "why is drafting testimony not the same process as writing an email to the chair. Shouldn't they be aligned?"):
+#     "Email the chair instead" is the same letter as an email, "1 of 2", then a send screen in testimony's shape: one filled button in the bar
+#     ("Open my email app"), one small row of other ways (Gmail, Outlook.com, Copy the email), no "I already sent it", no three copy buttons; a tap
+#     on any of them (the link is followed, the message is copied too) brings the same question, "Did it go through?" (Yes records the email and
+#     shows the Mahalo; Not yet keeps the sheet and the draft); 4 taps from the bill page to Yes; the account screen's way out lands there
 #   "change" shows Support / Oppose / Not sure; the opposite side goes to the Capitol's own form
-#   today's page (no v2): the six-part walkthrough, none of version 2 loaded
+#   today's page (no v2): the six-part walkthrough, none of version 2 loaded, and its email path still ends on "Send your email" with its three buttons
 #   nothing in the console but what the page always says
 # usage: python3 tests/v2_letter.py [BASE]   (BASE defaults to http://localhost:8832); V2_LETTER_OUT=<folder> also saves the screenshots
-import os, re, sys
+import os, re, sys, urllib.parse
 from playwright.sync_api import sync_playwright
 
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').split('/track.html')[0].rstrip('/')
@@ -39,6 +43,11 @@ KAI = """try { const set = (k, v) => localStorage.setItem(k + '_demo', typeof v 
   set('hiphi_onb', { lastVisit: new Date(Date.parse('2026-03-15T19:00:00-10:00')).toISOString() }); set('hiphi_done', []); set('hiphi_done_at', {}); set('hiphi_stances', {});
   set('hiphi_demo_seeded', '0'); localStorage.setItem('hiphi_tour_bill_demo', '{"how":"test"}'); localStorage.setItem('hiphi_tour_home_demo', '{"how":"test"}'); } } catch {}"""
 PHONE = dict(viewport={'width': 375, 'height': 812}, is_mobile=True, has_touch=True)
+PHONE390 = dict(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)   # the email's send screen is judged at the phone Nate uses
+# a link that would leave the page (the mail app, a Gmail tab) is recorded, not followed; the dialog's own click handler still runs
+CATCH = """document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[data-hp=send]'); if (!a) return;
+  e.preventDefault(); (window.__opened ||= []).push(a.href); }, true);"""
+MAILDRAFTS = "() => Object.values(JSON.parse(localStorage.getItem('hiphi_me') || '{}').mail || {}).map(v => ({ screen: v.screen, v2: v.v2, tried: v.tried }))"
 H = '86f499e6-7bab-4943-ad6e-5f4d23e85e34'   # HB 2300 in the sandbox; its hearing of Wed 18 Mar is 62da6ef7-6c9a-4a03-975b-4b5155e564dc
 # what the sheet shows: its title, count, heading, filled buttons in view, the fields it asks, the text (for words)
 SHEET = """() => {
@@ -182,8 +191,8 @@ with sync_playwright() as pw:
   ok('Finish sending your testimony' in home or 'Finish sending it' in home or 'Your letter is started' in home, 'Home (today\'s, no v2) offers to finish it')
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
-  # ---------------- the email: the same letter, then today's send step ----------------
-  errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', [RETURNING, PROFILE], errs, 2)
+  # ---------------- the email: the same letter, then send in testimony's shape; 4 taps ----------------
+  errs = []; ctx, pg = page(br, PHONE390, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', [RETURNING, PROFILE, CATCH], errs, 2)
   ready(pg); tap = Taps(pg)
   tap('.v2-go .btn.text'); pg.wait_for_selector('#hp-dlg[open] .v2-paper', timeout=10000); pg.wait_for_timeout(300)
   r = pg.evaluate(SHEET)
@@ -193,11 +202,69 @@ with sync_playwright() as pw:
   shot(pg, 'letter-1-email')
   tap('button[data-hp=next]')
   r = pg.evaluate(SHEET)
-  ok(r['count'] == '2 of 2' and r['h'] == 'Send your email' and all(w in r['text'] for w in ('Open in my mail app', 'Open in Gmail', 'Open in Outlook.com', 'Copy address', 'Copy subject', 'Copy message')), "then today's send step: mail app, Gmail, Outlook, copy each part")
-  ok('I already sent it' in r['foot'] and 'I’ll finish later' in r['foot'], f"with today's closing in the bar ({r['foot']!r})")
-  shot(pg, 'letter-2-email-send')
+  ok(r['count'] == '2 of 2' and r['h'] == 'Send your email' and r['title'] == 'Email about HB 2300', f"then send: \"2 of 2\", the heading Send your email ({r['count']!r}, {r['h']!r})")
+  ok('Your email opens in your mail app with everything filled in. Send it there, then come back.' in r['text'], 'one sentence says what the button does and what to do after')
+  ok(r['filled'] == ['Open my email app'], f"one filled button, the bar's, as testimony's send screen has (A-3): {r['filled']}")
+  ok(re.search(r'Or open in Gmail .*· Outlook\.com .*· Copy the email', r['text']) is not None, f"under it one small row of other ways: Or open in Gmail · Outlook.com · Copy the email ({r['text'][:200]!r})")
+  ok(not any(w in r['text'] for w in ('Copy address', 'Copy subject', 'Copy message', 'Open in my mail app', 'Open in Gmail', 'Use another email service', 'Send your email Choose')) and pg.locator('#hp-dlg [data-hp=copypart], #hp-dlg .hp-send, #hp-dlg [data-hp=mailsent]').count() == 0,
+     "today's three stacked buttons, the three copy buttons and the \"Use another email service\" block are gone")
+  ok('It also copies your message, just in case.' in r['text'] and 'Did it go through?' not in r['text'], 'one small line says the message is copied too; the question waits for a tap')
+  ok('Back' in r['foot'] and r['foot'].endswith('I’ll finish later') and 'Open my email app' in r['foot'] and 'I already sent it' not in r['foot'] and 'Something went wrong' not in r['foot'], f"the bar: Back, the one button, I'll finish later, and no \"I already sent it\" ({r['foot']!r})")
+  hs = pg.evaluate("() => [...document.querySelectorAll('#hp-dlg .v2-alt .btn')].map(e => Math.round(e.getBoundingClientRect().height))")
+  ok(len(hs) == 3 and all(h >= 44 for h in hs) and not r['wide'], f"each of the three small links is a 44px target and nothing runs sideways ({hs})")
+  hrefs = pg.evaluate("() => Object.fromEntries([...document.querySelectorAll('#hp-dlg [data-hp=send]')].map(a => [a.dataset.via, a.href]))")
+  qs = lambda u: {k: v[0] for k, v in urllib.parse.parse_qs(urllib.parse.urlsplit(u).query).items()}
+  m, g, o = urllib.parse.urlsplit(hrefs['app']), qs(hrefs['gmail']), qs(hrefs['outlook'])
+  mq = qs(hrefs['app']); to = urllib.parse.unquote(m.path)
+  body = mq.get('body', '').replace('\r\n', '\n')
+  ok(m.scheme == 'mailto' and '@' in to and mq['subject'].startswith('HB 2300: please vote yes on ') and re.match(r'(Aloha|Dear) Senator', body) is not None and 'Leilani Kahale' in body, f"the button is the mail app's link, with the chair's address, the subject and the whole message ({to}, {mq.get('subject')!r})")
+  ok(hrefs['gmail'].startswith('https://mail.google.com/mail/?view=cm&fs=1&') and g['to'] == to and g['su'] == mq['subject'] and g['body'].replace('\r\n', '\n') == body
+     and hrefs['outlook'].startswith('https://outlook.live.com/mail/0/deeplink/compose?') and o['to'] == to and o['subject'] == mq['subject'] and o['body'].replace('\r\n', '\n') == body, 'Gmail and Outlook.com carry the same address, subject and message')
+  ok(pg.evaluate("() => [...document.querySelectorAll('#hp-dlg .v2-alt a')].every(a => a.target === '_blank' && /noopener/.test(a.rel))"), 'Gmail and Outlook.com open in a new tab')
+  shot(pg, 'send-before')
+  tap('#hp-dlg .hp-foot [data-via=app]'); pg.wait_for_selector('#hp-dlg .v2-ask', timeout=8000); pg.wait_for_timeout(300)
+  r = pg.evaluate(SHEET)
+  ok(pg.evaluate("window.__opened") == [hrefs['app']], 'the tap opens the mail app (the link is followed once, not by a script)')
+  ok('Did it go through?' in r['text'] and r['filled'] == ['Yes'] and 'Not yet' in r['text'] and 'A copy in your Sent folder means it did.' in r['text'], f"then the same question as testimony's, Yes the one filled button ({r['filled']})")
+  ok(pg.evaluate("() => document.querySelector('#hp-dlg .hp-foot .hp-main').classList.contains('secondary')") and 'Open my email app' in r['foot'], 'and the bar\'s button is outlined now, still there to open it again')
+  ok(pg.evaluate("() => navigator.clipboard.readText()").replace('\r\n', '\n') == body, 'the message is on the clipboard too, as the older step kept it, "just in case"')
+  ok(pg.evaluate(MAILDRAFTS) == [{'screen': 'v2m', 'v2': 1, 'tried': True}], f"the email is kept as started, at this screen ({pg.evaluate(MAILDRAFTS)})")
+  shot(pg, 'send-after')
   tap('[data-hp=mailsent]'); pg.wait_for_selector('#hp-dlg .hp-mahalo', timeout=15000)
-  ok('Mahalo, Leilani!' in pg.evaluate(SHEET)['text'] and any(m.endswith('|email') for m in pg.evaluate(MARKS)), 'I already sent it: the Mahalo, and the email is kept')
+  r = pg.evaluate(SHEET)
+  ok('Mahalo, Leilani!' in r['text'] and any(m.endswith('|email') for m in pg.evaluate(MARKS)), 'Yes: the Mahalo, and the email is kept as sent')
+  ok(pg.evaluate(MAILDRAFTS) == [], 'no draft is left behind')
+  ok(tap.n == 4, f'from the bill page: {tap.n} taps to Yes (Email the chair, Next: send your email, Open my email app, Yes), 3 to the mail app opening')
+  ok(not errs, f'no errors {errs[:2]}'); ctx.close()
+
+  # ---------------- the email's other ways, Not yet, and finishing later ----------------
+  errs = []; ctx, pg = page(br, PHONE390, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', [RETURNING, PROFILE, CATCH], errs)
+  ready(pg)
+  pg.click('.v2-go .btn.text'); pg.wait_for_selector('#hp-dlg[open] .v2-paper', timeout=10000); pg.wait_for_timeout(300)
+  pg.click('button[data-hp=next]'); pg.wait_for_timeout(400)
+  ok(pg.evaluate(MAILDRAFTS) == [{'screen': 'v2m', 'v2': 1, 'tried': False}], f"arriving at the send screen already keeps the email, as testimony's does ({pg.evaluate(MAILDRAFTS)})")
+  pg.click('#v2-copyall'); pg.wait_for_selector('#hp-dlg .v2-ask', timeout=5000); pg.wait_for_timeout(200)
+  clip = pg.evaluate("() => navigator.clipboard.readText()").replace('\r\n', '\n'); r = pg.evaluate(SHEET)
+  ok(re.match(r'To: \S+@\S+\nSubject: HB 2300: please vote yes on [^\n]+\n\n(Aloha|Dear) Senator', clip) is not None and clip.endswith('Leilani Kahale'), f"Copy the email copies the address, the subject and the message as one text ({clip[:90]!r})")
+  ok('Copied' in r['text'] and 'Did it go through?' in r['text'] and r['filled'] == ['Yes'], 'a small "Copied" says so, and the question follows, as after the button')
+  ok(pg.evaluate("() => document.activeElement.id") == 'v2-copyall', 'the focus stays on the link that was tapped')
+  shot(pg, 'send-copied')
+  pg.wait_for_timeout(2800)
+  ok('Copied' not in pg.evaluate(SHEET)['text'] and 'Did it go through?' in pg.evaluate(SHEET)['text'], '"Copied" goes after a moment; the question stays')
+  pg.click('#hp-dlg [data-hp=v2-notyet]'); pg.wait_for_timeout(400)
+  r = pg.evaluate(SHEET)
+  ok(r is not None and 'Did it go through?' not in r['text'] and r['filled'] == ['Open my email app'] and r['count'] == '2 of 2', f"Not yet folds the question away, keeps the sheet and puts the one button back ({r and r['filled']})")
+  ok(pg.evaluate(MAILDRAFTS) == [{'screen': 'v2m', 'v2': 1, 'tried': False}] and pg.evaluate("() => document.activeElement.id") == 'v2-app', 'the email is kept as unfinished, and the focus goes to the button')
+  ok('Your email is saved here. Open your mail app again when you are ready.' in pg.evaluate("() => document.querySelector('#hp-live').textContent"), 'and a screen reader is told: Okay. Your email is saved here. Open your mail app again when you are ready.')
+  pg.click('#v2-gmail'); pg.wait_for_selector('#hp-dlg .v2-ask', timeout=8000)
+  ok(pg.evaluate("window.__opened").pop().startswith('https://mail.google.com/mail/?view=cm&fs=1&'), 'Gmail opens the same way, and brings the question back')
+  pg.click('#hp-dlg .hp-foot [data-hp=later]'); pg.wait_for_function("() => !document.querySelector('#hp-dlg[open]')", timeout=8000); pg.wait_for_timeout(300)
+  ok(pg.evaluate(MAILDRAFTS) == [{'screen': 'v2m', 'v2': 1, 'tried': True}], f"I'll finish later keeps the email at the screen it left ({pg.evaluate(MAILDRAFTS)})")
+  pg.evaluate("window.scrollTo(0, 0)")
+  pg.click('.v2-go .btn.text'); pg.wait_for_selector('#hp-dlg[open] .v2-ask', timeout=10000); pg.wait_for_timeout(300)
+  r = pg.evaluate(SHEET)
+  ok(r['count'] == '2 of 2' and 'Welcome back. Your email is saved right where you left it.' in r['text'] and 'Did it go through?' in r['text'], 'it comes back on the send screen with its question')
+  pg.keyboard.press('Escape'); pg.wait_for_timeout(500)
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
   # ---------------- the Capitol account screen's way out is the email ----------------
@@ -207,7 +274,8 @@ with sync_playwright() as pw:
   pg.fill('#hp-name', 'Leilani Kahale'); pg.click('button[data-hp=next]'); pg.wait_for_timeout(350)
   pg.click('[data-hp=v2-email]'); pg.wait_for_timeout(700)
   r = pg.evaluate(SHEET)
-  ok(r['title'] == 'Email about HB 2300' and r['count'] == '2 of 2' and r['h'] == 'Send your email', f"Email the chair instead goes to the email's send step ({r['title']!r}, {r['count']!r})")
+  ok(r['title'] == 'Email about HB 2300' and r['count'] == '2 of 2' and r['h'] == 'Send your email' and r['filled'] == ['Open my email app'], f"Email the chair instead goes to the email's send screen ({r['title']!r}, {r['count']!r}, {r['filled']})")
+  ok(pg.evaluate(MAILDRAFTS) == [{'screen': 'v2m', 'v2': 1, 'tried': False}], f"and keeps the email at that screen ({pg.evaluate(MAILDRAFTS)})")
   pg.click('[data-hp=back]'); pg.wait_for_timeout(400)
   t = pg.evaluate(SHEET)['text']
   ok(re.search(r'(Aloha|Dear) Senator', t) is not None and 'Leilani Kahale' in t, 'Back shows the email, written from the same answers')
@@ -255,6 +323,20 @@ with sync_playwright() as pw:
   r = pg.evaluate(SHEET)
   ok(r['count'] == 'Part 1 of 6' and r['h'].startswith('Where do you stand on HB 2300?'), f"no v2: today's six parts ({r['count']!r}, {r['h']!r})")
   ok(pg.evaluate("() => !document.querySelector('#hp-dlg').classList.contains('hp-v2') && !document.querySelector('link[href=\"pub/v2/letter.css\"]')"), 'and version 2\'s stylesheet is not loaded')
+  ok(not errs, f'no errors {errs[:2]}'); ctx.close()
+
+  # ---------------- today's email path (no v2): "Send your email" with its three buttons, as it was ----------------
+  errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1#/bill/HB2300', [RETURNING, PROFILE], errs)
+  pg.wait_for_selector('#main [data-bl-go=testify]', timeout=30000); pg.wait_for_timeout(600)
+  pg.evaluate("document.querySelector('[data-bl-compose]').click()"); pg.wait_for_selector('#hp-dlg[open]', timeout=10000); pg.wait_for_timeout(500)
+  step = lambda rx: pg.evaluate("""rx => { const e = [...document.querySelectorAll('#hp-dlg button, #hp-dlg a')].filter(x => x.offsetParent !== null).find(x => new RegExp(rx, 'i').test((x.innerText || '').trim()));
+    if (!e) return false; e.click(); return true; }""", rx)
+  for rx in ('^I support it', '^Next', '^See my email', '^Next'): step(rx); pg.wait_for_timeout(600)
+  r = pg.evaluate(SHEET)
+  ok(r['count'] == 'Part 5 of 5' and r['h'] == 'Send your email' and 'Choose where you write email' in r['text'], f"no v2: the older email walkthrough ends on Send your email ({r['count']!r}, {r['h']!r})")
+  ok(pg.evaluate("() => [...document.querySelectorAll('#hp-dlg .hp-send')].map(a => a.innerText.trim())") == ['Open in my mail app', 'Open in Gmail', 'Open in Outlook.com'] and all(w in r['text'] for w in ('Copy address', 'Copy subject', 'Copy message')) and 'I already sent it' in r['foot'],
+     "with its three buttons, its three copy buttons and \"I already sent it\", unchanged")
+  ok(pg.evaluate("() => !document.querySelector('#hp-dlg').classList.contains('hp-v2') && !document.querySelector('.v2-alt')"), 'and none of version 2')
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
   br.close()
