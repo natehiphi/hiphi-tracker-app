@@ -347,12 +347,13 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   `openMail()` (a chair's email at a hearing) hand every new letter to `V2.open` first, so every "Help me write testimony" button,
   Home's "Finish sending your testimony" included, opens the new sheet without a change of its own; a draft started in the older
   walkthrough still finishes there. Screens: `v2l` (the letter: stance line, tappable points, own line, name), `v2a` (the Capitol
-  account, first time only), `v2s` (send, then "Did it go through?"), `v2own` (the Capitol's own form, for the other side); an email is
-  `v2l` then `v2m` (R-357 pE, 31 Oct, Nate: the two paths aligned): the send screen has testimony's shape, a heading and one line,
-  the bar's one filled button "Open my email app" (a mailto link), one small row "Or open in Gmail · Outlook.com · Copy the email",
-  then the same "Did it go through?" card (`askCard`, shared with `v2s`: Yes is `confirm` for testimony and `mailsent` → `confirmMail`
-  for an email; Not yet is `v2-notyet`); any tap sets `x.tried`, copies the message and draws the card 800 ms later so a link still
-  opens; the draft keeps `v2m` and `tried`; `HP.sendLinks` and `HP.copyText` are new exports. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })` opens it by name
+  account, first time only), `v2s` (send, in the email's format since 31 Oct, R-357 pH, Nate: "I think the previous email format was better, and testimony
+  should move to match that."), `v2own` (the Capitol's own form, for the other side); an email is `v2l` then helper.js's own `mail`
+  step, unchanged from version 1 (`V2.seq` names it; a draft kept on the short-lived `v2m` opens there). `v2s`: "Send your testimony",
+  one sentence, "Open the Capitol page" (`copyopen`: copies, opens the Capitol in a new tab) and "Copy my testimony" stacked as the
+  email's buttons are, "Need the parts separately?" (Copy name · Copy position · Copy testimony, `copyBit`), the hearing and form line,
+  `capitolNotes`, and a bar of Back, "I already sent it" (the act as in version 1) and "I'll finish later". No "Did it go through?" on
+  either path; `HP.copyText` is the one new export. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })` opens it by name
   (`resume: true` only when a letter is waiting; it returns true when the sheet opened, a promise until the files are in). A draft is
   kept once the person has gone past the first screen, changed something, or chosen "I'll finish later" or "Not yet" (`x.touched`), with
   `v2: 1` in it. Test: `tests/v2_letter.py`.
