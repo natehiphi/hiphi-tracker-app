@@ -64,8 +64,8 @@ def main():
   R = L.Results()
   with L.browser() as b:
     # ---- Nate on a laptop ----
-    pg = b.page('NT', 1440, 900); pg.open('/my-issues')
-    pg.page.evaluate("() => { try { localStorage.clear(); } catch {} }"); pg.open('/my-issues')
+    pg = b.page('NT', 1440, 900); pg.open('/issues')
+    pg.page.evaluate("() => { try { localStorage.clear(); } catch {} }"); pg.open('/issues')
     R.check('opens on Deadlines (the default), four views: Deadlines, Status, Topics and Spreadsheet', pg.page.evaluate(PRESSED) == 'deadlines' and pg.page.evaluate("() => [...document.querySelectorAll('[data-miview]')].map(b => b.innerText.trim()).join('|')") == 'Deadlines|Status|Topics|Spreadsheet', pg.page.evaluate(PRESSED))
     R.check('the switch has no icons and there is no select', pg.page.evaluate("() => !document.querySelector('.mi-seg svg') && !document.querySelector('[data-misel]')"))
     calm = pg.page.evaluate(CALM)
@@ -130,7 +130,7 @@ def main():
     budgets(R, pg, 'sheet 1440'); shot(pg, 'NT-sheet-1440.png')
     pg.page.evaluate(PICK, 'status'); pg.page.wait_for_timeout(300)
     # remembered
-    pg.open('/my-issues')
+    pg.open('/issues')
     R.check('the view is remembered after a reload', pg.page.evaluate(PRESSED) == 'status', pg.page.evaluate(PRESSED))
     # a saved Topics or Spreadsheet, from this browser or from the person's prefs, opens it again (R-352 FIX-3); walk 3's
     # "cover" opens Deadlines
@@ -151,8 +151,8 @@ def main():
     pg.close()
 
     # ---- Nate on a phone ----
-    ph = b.page('NT', 390, 844); ph.open('/my-issues')
-    ph.page.evaluate("() => { try { localStorage.clear(); } catch {} }"); ph.open('/my-issues')
+    ph = b.page('NT', 390, 844); ph.open('/issues')
+    ph.page.evaluate("() => { try { localStorage.clear(); } catch {} }"); ph.open('/issues')
     R.check('phone: the switch is the same four buttons, in view, each word whole', ph.page.evaluate("() => { const bs = [...document.querySelectorAll('[data-miview]')].filter(b => b.offsetParent); return bs.length === 4 && bs.every(b => b.scrollWidth <= b.clientWidth + 1 && b.getBoundingClientRect().right <= innerWidth); }"))
     for v in VIEWS:
       ph.page.evaluate(PICK, v); ph.page.wait_for_timeout(500)
@@ -167,7 +167,7 @@ def main():
 
     # ---- someone with no issues: their coalitions (Saya) ----
     for w, h in ((1440, 900), (390, 844)):
-      sy = b.page('SY', w, h); sy.open('/my-issues')
+      sy = b.page('SY', w, h); sy.open('/issues')
       R.check(f'Saya ({w}): one line says why she sees coalitions', 'No issues are yours yet.' in sy.text())
       R.check(f'Saya ({w}): no issues, so her coalitions show and no switch', not sy.page.query_selector('[data-miview], [data-misel]') and bool(sy.page.query_selector('main')) and 'My issues' in sy.text(), sy.text()[:80])
       shot(sy, f'SY-{w}.png'); R.check(f'Saya ({w}): no page errors', not sy.errors, sy.errors[:2]); sy.close()

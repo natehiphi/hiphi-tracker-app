@@ -20,8 +20,8 @@ BILL_ROWS = os.environ.get('ICONS_BILL_ROWS') == '1'   # on once the shared bill
 # Every screen a person can reach from the sidebar or a row, with practice ids (demo/snapshot.json).
 SCREENS = [('Today', '/'), ('Hearings', '/hearings'), ('Hearings, This week', '/hearings/week'), ('Hearings, Ask', '/hearings/ask'),
   ('Testimony', '/testimony'), ('Testimony, Filed', '/testimony?view=filed'), ('Testimony, Team', '/testimony?view=team'),
-  ('Inbox', '/inbox'), ('All issues', '/my-issues/all'), ('Coalitions', '/my-issues/coalitions'), ('A coalition', f'/coalition/{L.HEAL}'),
-  ('An issue', f'/issue/{L.ISSUE}'), ('Bills', '/bills'), ('A bill', '/bill/HB10'), ('Legislators', '/legislators'),
+  ('Inbox', '/inbox'), ('All issues', '/issues/all'), ('Coalitions', '/issues/coalitions'), ('A coalition', f'/coalition/{L.HEAL}'),
+  ('An issue', f'/issue/{L.ISSUE}'), ('Bills', '/issues/bills'), ('A bill', '/bill/HB10'), ('Legislators', '/legislators'),
   ('A legislator', f'/legislator/{L.LEGISLATOR}'), ('Outreach', '/outreach'), ('Outreach, Partners', '/outreach/partners'),
   ('A supporter', f'/person/{L.SUPPORTER}'), ('Search', '/search?q=school'), ('Team', '/team'), ('Partners', '/partners'), ('Review', '/review')]
 MY_VIEWS = ['deadlines', 'status', 'topics', 'sheet']   # R-352 FIX-3 (Nate 28 Oct): four views again, Topics and Spreadsheet back
@@ -77,7 +77,7 @@ with L.browser() as B:
     R.check(f'{w}: the practice data names issues to look for', (pg.page.evaluate(SETUP) or 0) > 20)
     for label, route in SCREENS:
       pg.open(route); pg.page.evaluate(SETUP); check(pg, label, w)
-    pg.open('/my-issues'); pg.page.evaluate(SETUP)
+    pg.open('/issues'); pg.page.evaluate(SETUP)
     for v in MY_VIEWS:
       pg.page.click(f'[data-miview="{v}"]', timeout=3000)   # the same four-button switch at every width (no phone picker)
       pg.page.wait_for_timeout(600); pg.ready()

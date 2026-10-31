@@ -2,7 +2,7 @@
 # and bookmarks carry the old app's, Staff v2's and Staff v5's addresses; each must land on its v6 home, never on a blank
 # page, an error or a quiet Today. Two lists:
 #   1. the addresses the spec moves (#bill=, #emails, #calendar=, #/tasks, #/?view=week, #/?scope=team, the bill's old tabs,
-#      #/outreach/issues, #/outreach?segment=, #/bills/memo, #/coalition, #/legislators?view=holding, #/setup/people);
+#      #/outreach/issues, #/outreach?segment=, #/bills/memo, #/coalition, #/my-issues..., #/bills..., #/legislators?view=holding|ask, #/setup/people);
 #   2. every other Staff v5 address, which must open the same thing it opened in v5 (the same place lit, and v5's page
 #      title still on the page).
 # Each address is opened as a fresh arrival (a full page load), at 1440x900 (the place lit in the sidebar) and at 390x844
@@ -19,8 +19,8 @@ B = 'HB1562'
 # old address, who opens it, the v6 address it must end on (a regex on location.hash), the v6 place lit in the sidebar,
 # and words the page must show (a regex), or None
 MOVED = [
-  (f'#bill={B}', 'NT', rf'^#/bill/{B}$', 'Bills', r'HB ?1562'),        # v6 writes 'HB 1562' (D15), v5 'HB1562'
-  (f'#bill=HB 1562', 'NT', rf'^#/bill/{B}$', 'Bills', r'HB ?1562'),
+  (f'#bill={B}', 'NT', rf'^#/bill/{B}$', 'Issues', r'HB ?1562'),        # v6 writes 'HB 1562' (D15), v5 'HB1562'
+  (f'#bill=HB 1562', 'NT', rf'^#/bill/{B}$', 'Issues', r'HB ?1562'),
   ('#emails', 'NT', r'^#/review', 'Testimony', r'Review'),
   ('#calendar=Calendar%20connected', 'NT', r'^#/me', 'You', None),
   ('#/tasks', 'KV', r'^#/$', 'Today', None),
@@ -29,21 +29,29 @@ MOVED = [
   ('#/?scope=team', 'NT', r'^#/team', 'Team', r'Slipping'),
   ('#/?scope=team', 'JS', r'^#/team', 'Team', None),
   ('#/?scope=team', 'KV', r'^#/$', 'Today', None),          # not a lead: Today, never an error
-  (f'#/bill/{B}/overview', 'KV', rf'^#/bill/{B}$', 'Bills', None),
-  (f'#/bill/{B}/activity', 'KV', rf'^#/bill/{B}/talk', 'Bills', r'Team talk'),
-  ('#/outreach/issues', 'KV', r'^#/my-issues/all', 'Issues', r'All issues'),
+  (f'#/bill/{B}/overview', 'KV', rf'^#/bill/{B}$', 'Issues', None),
+  (f'#/bill/{B}/activity', 'KV', rf'^#/bill/{B}/talk', 'Issues', r'Team talk'),
+  ('#/outreach/issues', 'KV', r'^#/issues/all', 'Issues', r'All issues'),
+  ('#/my-issues', 'KV', r'^#/issues$', 'Issues', r'My issues'),
+  ('#/my-issues/all?view=cal', 'KV', r'^#/issues/all\?view=cal', 'Issues', r'All issues'),   # the calendar of All issues, query kept
+  ('#/my-issues/coalitions', 'PH', r'^#/issues/coalitions', 'Issues', r'Coalitions'),
+  ('#/bills', 'KV', r'^#/issues/bills$', 'Issues', r'Bills'),
+  ('#/bills/new', 'NT', r'^#/issues/bills/new', 'Issues', r'Sort new bills'),
+  ('#/bills/muted', 'KV', r'^#/issues/bills/muted', 'Issues', r'Muted'),
   (f'#/outreach?segment={L.SEGMENT}', 'SY', r'^#/outreach/supporters', 'Outreach', r'Supporters'),
   ('#/bills/memo', 'LR', r'^#/outreach/partners', 'Outreach', r'Partner update'),
-  ('#/coalition', 'PH', r'^#/my-issues/coalitions', 'Issues', r'Coalitions'),
-  ('#/legislators?view=holding', 'KV', r'^#/legislators\?view=holding', 'More', r'Holding our bills'),
+  ('#/coalition', 'PH', r'^#/issues/coalitions', 'Issues', r'Coalitions'),
+  # Holding our bills and Who to ask are gone (R-356 round 2, decision 4): the old addresses draw the plain directory
+  ('#/legislators?view=holding', 'KV', r'^#/legislators(\?|$)', 'More', r'Legislators'),
+  ('#/legislators?view=ask', 'KV', r'^#/legislators(\?|$)', 'More', r'Legislators'),
   ('#/setup/people', 'NT', r'^#/people', 'People', None),
 ]
 # every other v5 address: (address, who, the v6 place lit; '' for Inbox and Help, whose header icon is the one current place and
 # the sidebar lights nothing, R-356 critic fixes, A-12)
 V5_ADDRESSES = [
   ('#/', 'KV', 'Today'), ('#/review', 'KR', 'Testimony'), ('#/review/dd1', 'KR', 'Testimony'), ('#/inbox', 'KV', ''),
-  ('#/my-issues', 'KV', 'Issues'), ('#/bills', 'KV', 'Bills'), ('#/bills/new', 'NT', 'Bills'), ('#/bills/muted', 'KV', 'Bills'),
-  (f'#/bill/{B}', 'KV', 'Bills'), (f'#/bill/2026/{B}', 'KV', 'Bills'), (f'#/bill/{B}/public', 'KV', 'Bills'),
+  ('#/my-issues', 'KV', 'Issues'), ('#/bills', 'KV', 'Issues'), ('#/bills/new', 'NT', 'Issues'), ('#/bills/muted', 'KV', 'Issues'),
+  (f'#/bill/{B}', 'KV', 'Issues'), (f'#/bill/2026/{B}', 'KV', 'Issues'), (f'#/bill/{B}/public', 'KV', 'Issues'),   # a bill's page sits under Issues since round 2 (no Bills place)
   ('#/legislators', 'KV', 'More'), (f'#/legislator/{L.LEGISLATOR}', 'KV', 'More'),
   ('#/hearing/' + L.TRN_TUE, 'LR', 'Hearings'), ('#/coalition/' + L.HEAL, 'PH', 'Issues'),
   ('#/outreach', 'SY', 'Outreach'), ('#/outreach/partners', 'LR', 'Outreach'), ('#/outreach/emails', 'SY', 'Outreach'),
