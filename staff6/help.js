@@ -270,7 +270,7 @@ const MOVED_ALL = () => [
     ['A coalition’s late or due cards (for helpers)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
     ['Messages from teammates, and the tracker’s notes', `${go('Inbox', '#/inbox')}, under Messages. A question to you that is not answered yet stays a row on Today.`],
     ['Write the public ask', `${go('Outreach', '#/outreach')}, under This week’s asks: the bill’s card has the box. It is still a row on Today two days before it is due.`],
-    ['A bill with no owner on your issue: Take it', `${go('My issues', '#/my-issues')}: one line, “2 bills on your issue have no owner · Take one”. The bill’s header says “Nobody owns this bill yet · Take it”.`],
+    ['A bill with no owner on your issue: Take it', `${go('Issues', '#/issues')}: one line, “2 bills on your issue have no owner · Take one”. The bill’s header says “Nobody owns this bill yet · Take it”.`],
     ['What changed since yesterday', `${go('Inbox', '#/inbox?view=updates')}, under Updates: since yesterday, your last visit or the last 7 days.`],
     ['A row’s menu (the three dots)', 'Each action is in its home: <b>I’m going</b> and <b>Watch</b> on the hearing’s card, <b>Undo filed</b> on the testimony under Filed, <b>Reply in Team talk</b> in the Inbox, <b>Give to…</b> on the bill, the bill’s owner in its header.'],
     ['Give a to-do to someone else', 'The bill’s Next step tab, under To-dos on this bill: <b>Give to…</b> and <b>Take it yourself</b>. Waiting on others, on Today, has them too.'],
@@ -286,7 +286,7 @@ const MOVED_ALL = () => [
     ['Supporter emails to approve or send, on Today', `${go('Outreach', '#/outreach/emails')}, under Emails, and each email’s own page. Your own step on one stays a row on Today.`],
     ['Deadline reminders in the Inbox', 'They stay on the step itself (its time to act, on Today and in Testimony); the Inbox keeps only what happened.']]],
   ['Bills and a bill', [
-    ['Bills’ menu: Sort new bills, Muted bills', `Tabs of ${go('Bills', '#/bills')} (Sort new bills in the opening weeks; Muted for bill and coalition owners).`],
+    ['Bills’ menu: Sort new bills, Muted bills', `Tabs of ${go('Issues › Bills', '#/issues/bills')} (Sort new bills in the opening weeks; Muted for bill and coalition owners).`],
     ['Bills’ menu: Lists', `${go('Outreach', '#/outreach/lists')}, under Lists, and on More.`],
     ['Bills’ quick filter chips', 'Presets at the top of Bills’ Filter sheet: At risk, Hearing this week, Monitoring.'],
     ['Bills’ menu: Save this view, Saved views', 'Bills’ Filter sheet: <b>Save this view</b>, and your saved views as presets.'],
@@ -310,10 +310,10 @@ const MOVED_ALL = () => [
     ['Log a conversation', 'A legislator’s page: <b>Log a talk</b>. A bill’s Team talk box logs one too. Tick “This was an ask for a hearing” when it was one.'],
     ['Mark where they stand, on a legislator’s page', 'The same page, beside each of our bills in their committees: <b>Mark stand</b> (once set, the stance itself, such as Leaning yes). The bill’s Committees door has it too.']]],
   ['Outreach and My issues', [
-    ['Outreach’s issues, first visit numbers and QR code', `${go('My issues', '#/my-issues/all')}, under All issues; ${go('More', '#/more')} has First visit numbers and Make a link or QR code.`],
-    ['Your issues for 2027 (the prep list)', `${go('My issues', '#/my-issues')} itself, between sessions.`],
-    ['The Prep board, in All issues’ menu (admins)', `${go('All issues', '#/my-issues/all?view=prep')}, its own switch beside the list (between sessions, or while something waits for you).`, isAdmin],
-    ['Coalitions (its own page)', `${go('My issues', '#/my-issues/coalitions')}, under Coalitions.`],
+    ['Outreach’s issues, first visit numbers and QR code', `${go('Issues', '#/issues/all')}, under All issues; ${go('More', '#/more')} has First visit numbers and Make a link or QR code.`],
+    ['Your issues for 2027 (the prep list)', `${go('Issues', '#/issues')} itself, between sessions.`],
+    ['The Prep board, in All issues’ menu (admins)', `${go('All issues', '#/issues/all?view=prep')}, its own switch beside the list (between sessions, or while something waits for you).`, isAdmin],
+    ['Coalitions (its own page)', `${go('Issues', '#/issues/coalitions')}, under Coalitions.`],
     ['Supporters’ menu: Save as segment, Email this segment', `${go('Outreach', '#/outreach/supporters')}, under Supporters: filter, then <b>Save as a group</b> or <b>Email these people</b> in the results bar. Segments are called groups now.`],
     ['Supporters’ menu: Select people, Import CSV, Export', '<b>Select</b> beside Add a person; <b>Import CSV</b> and <b>Export</b> at the foot of Supporters (admins).']]],
   ['Lead tools', [
@@ -366,7 +366,7 @@ const coalWord = me => { const c = me?.prefs?.coalitions;
   const ns = Array.isArray(c) ? c.map(id => (S.campaigns || []).find(x => x.id === id)?.name).filter(Boolean) : [];
   return ns.length === 1 ? `${ns[0]}’s` : ns.length ? 'your coalitions’' : ''; };
 const firstBillHref = me => { const ids = coalIds(me), b = S.bills.find(x => (S.assignments[x.id] || []).includes(me.id)) || S.bills.find(x => x.position && x.position !== 'monitor' && (!ids || (S.billCampaigns?.[x.id] || []).some(c => ids.has(c))));
-  return b ? `#/bill/${encodeURIComponent(b.bill_number)}` : '#/bills'; };
+  return b ? `#/bill/${encodeURIComponent(b.bill_number)}` : '#/issues/bills'; };
 // The person's testimony job, by role (spec 7.6: one wording per act, the same on Today and here). Each ticks from the
 // drafts' record (approved_by, second_approved_by, submitted_by), which keeps what each person did after the draft moves
 // on, so Patti's step stays ticked after she resubmits (X25):
@@ -397,13 +397,13 @@ function newSteps() {
   const steps = [{ k: 'settings', done: !!o.settings, title: 'Choose how the tracker reaches you', sub: 'My settings: Slack, email, or only in the app, then save', href: '#/me' }];
   // Someone who owns no bill, follows none and helps on no coalition starts by picking their coalition (R-316 W7, FR-3).
   // An approver reviews every coalition's testimony, so the coalition pick is not their first step.
-  if (ownsNone && !co && !(me.can_approve || me.is_reviewer || me.is_admin) && !S.bills.some(b => S.follows?.has(b.id))) steps.push({ k: 'coal', done: false, title: 'Pick the coalition you help on', sub: 'My issues, then Coalitions: switch on I help on', href: '#/my-issues/coalitions' });
+  if (ownsNone && !co && !(me.can_approve || me.is_reviewer || me.is_admin) && !S.bills.some(b => S.follows?.has(b.id))) steps.push({ k: 'coal', done: false, title: 'Pick the coalition you help on', sub: 'Issues, then Coalitions: switch on I help on', href: '#/issues/coalitions' });
   if (SESSION_OVER) {
     // November: your 2027 issues first (the season's job), your bills, and (live only) a practice day in last March's copy.
     const t = prepTaskOf(me.id), hasIssue = (S.issues || []).some(i => i.owner_id === me.id) || !!t;
     if (hasIssue) steps.push({ k: 'prep', done: !t || t.ready > 0, title: t && !t.own ? 'Help get your coalition’s issues ready for 2027' : 'Get your issues ready for 2027',
-      sub: 'My issues: the six steps, then Mark ready', href: t ? issueHref(t.back[0] || t.next, 'prep') : '#/my-issues' });
-    steps.push({ k: 'bills', done: !!o.bills, title: co ? `Look over ${co} bills` : 'Look over your bills', sub: 'Bills: each one grouped by where it stands', href: '#/bills' });
+      sub: 'Issues: the six steps, then Mark ready', href: t ? issueHref(t.back[0] || t.next, 'prep') : '#/issues' });
+    steps.push({ k: 'bills', done: !!o.bills, title: co ? `Look over ${co} bills` : 'Look over your bills', sub: 'Issues › Bills: each one grouped by where it stands', href: '#/issues/bills' });
     if (!DEMO) steps.push({ k: 'practice', done: !!o.practice, title: 'Practice a March day', sub: 'Last March’s practice copy: nothing reaches the team', href: practiceHref(), ext: true });
   } else {
     // January to May: the person's job, this week's hearings, a chair ask (owners), a bill (V29).
