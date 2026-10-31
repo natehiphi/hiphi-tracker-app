@@ -87,7 +87,7 @@ with sync_playwright() as pw:
   ok('Lawmakers decide on these bills in committee hearings, and they read what people send in.' in t, 'sentence one')
   ok('A few sentences from you, in your own words, is testimony. The tracker writes the first draft; you make it yours.' in t, 'sentence two')
   rows = [[norm(a), norm(b)] for a, b in r['rows']]
-  ok(rows == [['Testimony', "Goes on the hearing's record · about 10 min the first time, 3 after"], ['An email to the committee chair', 'about 2 min']], f"the two plain rows with their times: {rows}")
+  ok(rows == [['Testimony', "Goes on the hearing's record · about 10 min the first time, then about 3 min"], ['An email to the committee chair', 'about 2 min']], f"the two plain rows with their times: {rows}")
   ok(r['filled'] == ['Next'] and r['skip'] == 0, f"one filled button, Next, and no Skip: {r['filled']}")
   ok(r['choices'] == 0 and '?' not in t, 'no question and no quiz (C-13)')
   ok(r['art'], 'the drawing of speaking up (art.js VOICES) is shown')
@@ -150,6 +150,23 @@ with sync_playwright() as pw:
     pg.keyboard.press('Enter'); pg.wait_for_selector('.st-cover', state='detached', timeout=9000); settle(pg, 500)
     ok(pg.evaluate("() => [location.hash, document.body.dataset.screen]") == ['#/', 'home'], f"({rm}) Enter on See How I Can Help lands on Home")
     ok(not errs, f"({rm}) nothing in the console but what the page always says ({errs[:2]})")
+    ctx.close()
+
+  # the teaching screen on the smallest windows checked (R-265: a first-visit step never scrolls, and nothing sits under the bar): 320x568 and
+  # 360x640 phones, a 390x664 one, and a laptop; the words are all there and none under 16px (C-14), the heading kept for screen readers
+  FITS = """() => { const bar = document.querySelector('.actionbar'), br = bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect() : null;
+    const last = [...document.querySelectorAll('.st-whyways li')].pop().getBoundingClientRect(), px = e => parseFloat(getComputedStyle(e).fontSize);
+    const small = [...document.querySelectorAll('.st .lede, .st-whyways b, .st-whyways li > div > span')].filter(e => e.getClientRects().length && px(e) < 16).map(e => e.innerText.slice(0, 20));
+    return { over: document.scrollingElement.scrollHeight - innerHeight, under: br ? Math.round(last.bottom - br.top) : 0, small, h1: document.getElementById('st-h').textContent.trim(),
+      rows: document.querySelectorAll('.st-whyways li').length, words: document.querySelector('main').innerText.replace(/\\s+/g, ' ').includes('A few sentences from you') }; }"""
+  for w, h in ((320, 568), (360, 640), (390, 664), (375, 812), (1280, 800)):
+    errs = []; m = w < 700; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart#/', errs, kw=dict(viewport={'width': w, 'height': h}, is_mobile=m, has_touch=m))
+    for sel, n in (('.st-bar [data-stnext]', 0), ('.st-tile', 0), ('.st-tile', 1), ('.st-bar [data-stnext]', 0)): pg.locator(sel).nth(n).click(); settle(pg, 900)
+    settle(pg, 1500); pg.locator('.st-bar [data-stnext]').click(); settle(pg, 2000)
+    r = pg.evaluate(FITS)
+    ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and r['h1'] == 'Why your note counts' and r['rows'] == 2 and r['words'], f"{w}x{h}: the teaching screen fits, nothing under the bar, every word kept and 16px or more ({r})")
+    if (w, h) == (320, 568): pg.screenshot(path=os.path.join(OUT, 'why-320x568.png'))
+    ok(not errs, f"{w}x{h}: nothing in the console ({errs[:1]})")
     ctx.close()
 
   # a shared bill's visit: follow it, the profile ask, then Home (the story, Coming up and the recap are not in version 2)

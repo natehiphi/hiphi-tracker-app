@@ -257,9 +257,9 @@ function example() {
 // with their times as two plain rows. No question (C-13: a quiz that checks a lesson is not covered) and no Skip: it is short enough
 // to read and its one button is Next. Said as Nate chose: lawmakers read what people send, and a few sentences in your own words are
 // testimony, which the tracker helps write. Nothing here says or implies that few people act (R-171). The two times are the one promise
-// the tracker keeps wherever testimony is offered (R-357 Light fixes e: "about 10 min the first time, 3 after"; the email "about 2 min").
+// the tracker keeps wherever testimony is offered (R-357 Light fixes e, said in C-15's words: "about 10 min the first time, then about 3 min"; the email "about 2 min").
 const WHY_WAYS = [
-  ['notebook-pen', 'Testimony', 'Goes on the hearing’s record · about 10 min the first time, 3 after'],
+  ['notebook-pen', 'Testimony', 'Goes on the hearing’s record · about 10 min the first time, then about 3 min'],   // C-15's wording of the one time promise
   ['mail', 'An email to the committee chair', 'about 2 min'],
 ];
 function stepWhy(step) {

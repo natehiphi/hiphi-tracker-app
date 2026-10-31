@@ -664,10 +664,10 @@ button.st-way:active { transform: scale(.99); }
 
 /* The teaching screen, "Why your note counts" (start-rest.js stepWhy): the drawing of speaking up, the heading, two sentences at the
    first visit's reading size (.lede, 18px), and two plain rows: no card, no control, nothing to tap but Next. On a phone the drawing
-   keeps 120px of height, which lets the screen fit a 375x812 window with the practice band on; when the window is shorter the generic
+   keeps 104px of height, which lets the screen fit a 375x812 window with the practice band on; when the window is shorter the generic
    levels (fit1 on, above) shrink it first, as on every other step, and the words are never made smaller (C-14). */
 @media (max-width: 899px) {
-  .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: auto; max-width: 100%; height: 120px; }
+  .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: auto; max-width: 100%; height: 104px; }
 }
 .st-whyways { gap: var(--s12); }
 .st-whyways li { align-items: center; }
@@ -675,6 +675,22 @@ button.st-way:active { transform: scale(.99); }
 .st-whypage.fit2 .st-whyways { gap: var(--s8); }
 .st-whypage.fit3 .st-whyways .st-vic { display: none; }
 .st-whypage.fit3 .st-whyways li { grid-template-columns: minmax(0, 1fr); }
+/* A short or narrow phone (320x568 is the smallest checked): the words are all kept and never made smaller than 16px (C-14), so after the
+   drawing and the icons what gives is spacing and the two largest sizes, the heading and the rows' names, one level at a time. */
+@media (max-width: 899px) {
+  .st-whypage.fit4 .st-whyways b { font-size: var(--t16); line-height: 1.25; }
+  .st-whypage.fit5 .lede { line-height: 1.35; }
+  .st-whypage.fit5 .st-whyways span { line-height: 1.3; }
+  .st-whypage.fit6 h1 { font-size: var(--t22); }
+  .st-whypage.fit7 .st-whyways { gap: var(--s4); }
+  .st-whypage.fit8 :is(.st-intro, .st-main) { gap: 2px; }
+  .st-whypage.fit9 .lede { line-height: 1.3; margin-top: -6px; }
+  /* Last: the heading goes to screen readers only (the strip already says "Your voice", A-14; the lessons do the same at .fit1) and the
+     page's side room is 12px, which can take a line off the words. */
+  .st-whypage.fit10 h1 { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body[data-screen="start"]:has(.st-whypage.fit10) main { padding-inline: var(--s12); padding-top: var(--s8); }
+  body[data-screen="start"].hasbar:has(.st-whypage.fit6.fit10) main { padding-bottom: calc(var(--safe-b) + 66px); }   /* the bar is 65px once slimmed (fit6), so only then */
+}
 
 /* The cover that ends version 2's visit (start-rest.js coverEnd): the profile ask's celebration is the last page, since Home comes next
    and has no band to fold into. It plays as the cover always does, then holds still with the visit's last button, "See How I Can Help",
