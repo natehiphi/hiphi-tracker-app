@@ -50,18 +50,26 @@
 .hp-v2 .v2-closeown label { font-size: var(--t14); font-weight: 700; color: var(--n700); }
 .hp-v2 .v2-closeown input { max-width: 16em; }
 
-/* screen 2: the choices, the Public Access Room's number, the plain way out */
+/* the plain way out on testimony's send screen */
 .hp-v2 .v2-par { margin: 0; }
 .hp-v2 .v2-escape { display: flex; justify-content: flex-start; margin-left: calc(-1 * var(--s12)); }
 .hp-v2 .v2-escape .btn { white-space: normal; text-align: left; justify-content: flex-start; }
 
-/* screen 3: what to do at the Capitol (its buttons, parts and notes are helper.js's send step's own classes: hp-sends, hp-other, hp-copies) */
+/* screen 2, send: what to do at the Capitol (its buttons, parts and notes are helper.js's send step's own classes: hp-sends, hp-other, hp-copies) */
 .hp-v2 .v2-do { display: flex; flex-direction: column; gap: var(--s8); }
 .hp-v2 .v2-do p { margin: 0; }
 .hp-v2 .v2-do b { color: var(--n900); }
 .hp-v2 .v2-do .hp-nw { white-space: nowrap; }
 /* the line under "Copy my testimony" holds its words or the small "Copied", the same height, so nothing below it moves when it shows (A-12) */
 .hp-v2 .v2-sub { display: flex; align-items: center; justify-content: center; min-height: 21px; }
+
+/* "What you're sending" (R-357 pI): the whole text read only, in the paper of screen 1, with "Change it" at the end of its heading line */
+.hp-v2 .v2-sending { display: flex; flex-direction: column; gap: var(--s8); margin-top: var(--s16); }
+.hp-v2 .v2-sending-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s8); }
+.hp-v2 .v2-sending-top .hp-knh { margin: 0; }
+.hp-v2 .v2-sending-top .btn { margin-right: calc(-1 * var(--s12)); }
+.hp-v2 .v2-sent { background: var(--n50); }
+.hp-v2 .v2-acct { padding: var(--s12); border-radius: var(--r8); background: var(--p50); }
 
 /* the Mahalo (R-357 part A): the quote question right where "Saved in your profile" is, after a first story, once; while it is open the bar holds
    its Save (filled) and Not now (outlined), and Done comes back when it is answered */

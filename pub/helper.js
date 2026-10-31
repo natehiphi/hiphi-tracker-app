@@ -841,7 +841,7 @@ function inner() {
   const v2body = !done && x.v2 ? V2.body?.(x) : null;   // version 2's own screens; its email send step and every Mahalo are this file's
   const body = done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : v2body != null ? v2body : x.screen === 'again' ? againScreen() : x.screen === 'view' ? viewScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
     : x.screen === 2 ? letterScreen() : x.screen === 'mail' ? mailScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
-  return `<div class="hp-frame">
+  return `<div class="hp-frame" data-screen="${esc(String(x.screen))}">
     <header class="hp-head">${iconBtn('x', 'Close', { 'data-hp': 'close' }, 'hp-x')}${head}</header>
     <div class="hp-prog${done ? ' done' : ''}" aria-hidden="true"${x.view ? ' hidden' : ''}>${Array.from({ length: total }, (_, i) => `<i class="${i + 1 < step || done ? 'on' : i + 1 === step ? 'on now' : ''}"></i>`).join('')}</div>
     <div class="hp-body" id="hp-body"><div class="hp-in">${body}</div></div>
@@ -2260,6 +2260,7 @@ export const HP = {
   paint, paintFoot, announce, grow, goTo, goNext, goBack, saveDraft, finishLater, requestClose, copyAndOpen, confirmSent, setErr, errHTML, screenHead, welcomeBack,
   syncLetter, partsOf, pointGroups, pointsOf, pointsLine, hiphiStance, sameAsHiphi, own2For, mailSubject, mailKey, chairsTo, catsOf, keepFirst,
   copyText,   // testimony's send screen (R-357 pH): the copy that also works on an older phone
+  sendLinks, SEND, onPhone, shortName,   // the email's send buttons, drawn by version 2's own send screen (pub/v2/letter.js), one for both kinds
   friendLine, lateBanner, aboutNote, saysBox, whyHelp, capitolLink, practiceNote, capitolNotes, formWord, CLOSINGS,
 };
 
