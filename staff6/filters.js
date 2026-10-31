@@ -463,18 +463,19 @@ function sheetBody() {
     <p class="bl-fhow">Inside a group, a bill needs any one choice. Across groups, it needs all of them.</p>
   </div>`;
 }
-const footHTML = () => { const n = shownBills().length, any = filterCount();
-  return `${btn('Clear all', { kind: 'text', cls: 'bl-fclear', attrs: { 'data-fclear': '1', disabled: !any } })}${btn(`Show ${n} bill${n === 1 ? '' : 's'}`, { attrs: { 'data-fdone': '1' } })}`; };
+// R-356 round 3: under 768px Select is not on the list's toolbar (one row of controls); it is a text button here instead.
+const footHTML = (sel = false) => { const n = shownBills().length, any = filterCount();
+  return `${btn('Clear all', { kind: 'text', cls: 'bl-fclear', attrs: { 'data-fclear': '1', disabled: !any } })}${sel ? btn('Select bills', { kind: 'text', icon: 'square-check-big', attrs: { 'data-fselect': '1', title: 'Pick bills to change several at once' } }) : ''}${btn(`Show ${n} bill${n === 1 ? '' : 's'}`, { attrs: { 'data-fdone': '1' } })}`; };
 
 // openFilters(anchor, { focus }): `focus: 'save'` lands on Save this view (More tools › Saved views, with none saved yet).
-export function openFilters(anchor, { focus = '' } = {}) {
+export function openFilters(anchor, { focus = '', onSelect = null } = {}) {
   const wide = wideNow();
   let d = null;
   const paint = keepSel => {
     freshFacts();
     const body = d.querySelector('.sv-sh-body'), y = body.scrollTop;
     body.innerHTML = sheetBody(); body.scrollTop = y;
-    d.querySelector('.sv-sh-foot').innerHTML = footHTML();
+    d.querySelector('.sv-sh-foot').innerHTML = footHTML(!!onSelect);
     wireSheet();
     if (keepSel) d.querySelector(keepSel)?.focus({ preventScroll: true });
   };
@@ -491,9 +492,10 @@ export function openFilters(anchor, { focus = '' } = {}) {
     d.querySelectorAll('details[data-fkey]').forEach(el => el.ontoggle = () => { const s = bl().fopen; el.open ? s.add(el.dataset.fkey) : s.delete(el.dataset.fkey); });
     d.querySelector('[data-fclear]').onclick = () => { clearAll(); hooks.render(); paint(); };
     d.querySelector('[data-fdone]').onclick = () => closeSheet();
+    d.querySelector('[data-fselect]')?.addEventListener('click', async () => { await closeSheet({ silent: true }); onSelect?.(); });
   };
   freshFacts();
-  d = openSheet({ title: 'Filter bills', size: wide ? 'auto bl-pop' : 'half bl-fsheet', body: sheetBody(), foot: footHTML(),
+  d = openSheet({ title: 'Filter bills', size: wide ? 'auto bl-pop' : 'half bl-fsheet', body: sheetBody(), foot: footHTML(!!onSelect),
     wire: dlg => { d = dlg; wireSheet(); if (wide) placePop(dlg, anchor); else dragToGrow(dlg);
       if (focus === 'save') setTimeout(() => dlg.querySelector('[data-fsave]')?.focus(), 30); } });
   return d;

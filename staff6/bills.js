@@ -195,11 +195,13 @@ function scopeWords(q, n) {
 }
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
+// Under 768px the toolbar is one row (R-356 round 3): Select moves into the Filter sheet's foot.
+const selInFilter = () => matchMedia('(max-width: 767.98px)').matches;
 function toolbar() {
   const v = bl(), n = activeFilters().length, wide = wideNow(), tbl = tableOn(), mode = viewMode();
   const box = `<div class="searchbox bl-search"><label class="sr" for="bl-q">Find a bill by name or number</label>${icon('search')}<input id="bl-q" class="input" type="search" placeholder="Find a bill by name or number" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search">${iconBtn('x', 'Clear the box', { 'data-qclear': '1', hidden: !v.q })}</div>`;
   // Nothing to pick or lay out in an empty list: Select and Rows | Table wait for bills (Jess's empty Mine, A-24).
-  const has = shownBills().length > 0, sel = v.selecting || !has ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
+  const has = shownBills().length > 0, sel = v.selecting || !has || selInFilter() ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
   // The spreadsheet's three tools (F88, F92): Columns, Export (a file) and Copy (R-336: "copy out to Excel / Google Sheets",
   // pasted straight in). No Edit mode: a team cell is a button that opens its picker, so editing needs no mode to enter.
   const tools = tbl && switchNow() ? `<span class="bl-ttools">${btn('Columns', { kind: 'text', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${btn('Export', { kind: 'text', sm: true, icon: 'download', attrs: { 'data-export': '1', title: 'These bills, with your filters, as a spreadsheet file' } })}${btn(COPY_LABEL, { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copy': '1', title: 'The rows and columns shown, ready to paste into Google Sheets or Excel' } })}</span>` : '';
@@ -295,9 +297,9 @@ function rowsView(groups) {
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
   const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: issueSlot(b) }), b, { twins });
-  // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
-  // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
-  const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
+  // A phone's toolbar holds the filter box and Filter only; Select (F91) is in the Filter sheet's foot there (R-356 round 3: one
+  // row of controls above the first group), and a long press on a row still starts picking.
+  const selBtn = pick && !selInFilter() ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
   const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(b => rowOf(b, g)).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
   if (!pick) return `<div class="bl-groups bl-selecting">${html}</div>${keysHint()}`;
   const b = v.look ? S.bills.find(x => x.id === v.look) : null;
@@ -910,7 +912,7 @@ export default {
     qi.oninput = () => { v.q = qi.value; v.folds = {}; qx.hidden = !qi.value; repaintDyn(); };
     qi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); qi.blur(); } if (e.key === 'Escape' && qi.value) { e.stopPropagation(); qi.value = ''; qi.oninput(); } };
     qx.onclick = () => { qi.value = ''; qi.oninput(); qi.focus(); };
-    page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget);
+    page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget, selInFilter() ? { onSelect: () => { v.look = null; startSelect(); } } : {});
     const cols = page.querySelector('[data-cols]'); if (cols) cols.onclick = e => columnsSheet(e.currentTarget);
     const cp = page.querySelector('[data-copy]'); if (cp) cp.onclick = () => copySheet();
     const ex = page.querySelector('[data-export]'); if (ex) ex.onclick = () => exportSheet();

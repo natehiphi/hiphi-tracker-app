@@ -37,10 +37,12 @@
 #   scr     the page's height in screens (1 = it fits the window)
 #   net     Today only: its height in screens without the person's own rows (spec 13): 1.2 on a laptop, 2 on a phone
 #   above   things to press or type in that sit above the first list item or card in the work column (R-356 round 3, Nate 31 Oct:
-#           the page's tabs, then at most one row of controls, then the first item). Counted as ctl is (links, buttons, boxes,
-#           tabs, each segment of a switch), page tabs included; the sidebar and the header's search box are not the work column.
+#           the page's tabs, then at most one row of controls, then the first item). Counted as ctl is (links, buttons, boxes),
+#           the page's tabs and a switch counted by the rule below; the sidebar and the header's search box are not the work column.
 #           Measured on today, hearings, get-hearings, testimony, my-issues, bills, outreach and team: 5 at most on a laptop
 #           (1024 or wider), 3 on a phone (under 768). "-": no list item or card on that screen to count above.
+#           The plan's rule, not a raw count: the place's tab rows (sectionNav, and Bills' sub-tab row) are not counted, and a
+#           segmented switch (Mine | Team, Deadlines | Status | Topics | Spreadsheet, Rows | Spreadsheet) is ONE control.
 #   ctl-n   Today only: first-screen controls without the person's own rows: 12 at most
 #   grp     section headings on the page ("Your next step" aside): Today 4 at most
 #   side    rows in the sidebar, shown from 768px wide: 7 for staff (5 places, More, You), up to 12 for leads (Team, People, Partners, Session setup)
@@ -116,6 +118,8 @@ ABOVE = r"""() => { const main = document.querySelector('main'); if (!main) retu
   const CTRL = 'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=switch], [role=checkbox], [tabindex="0"]';
   let c = [...main.querySelectorAll(CTRL)].filter(e => !e.disabled && ok(e) && e.getBoundingClientRect().top + scrollY < y - 1);
   c = c.filter(e => !c.some(o => o !== e && o.contains(e) && o.matches('a[href], button')));
+  c = c.filter(e => !e.closest('.sv-secnav, .bl-subtabs, [role=tablist]'));   // the place's tabs are not controls here
+  const segs = new Set(); c = c.filter(e => { const g = e.closest('.sv-seg'); if (!g) return true; if (segs.has(g)) return false; segs.add(g); return true; });   // a switch is one control
   return c.length; }"""
 
 METRICS = ['above', 'controls', 'controls_page', 'filled', 'labelled_buttons', 'words', 'words_page', 'codes', 'row_codes', 'facts_max',
