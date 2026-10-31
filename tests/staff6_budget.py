@@ -36,6 +36,11 @@
 #           "late" or "missed" beside them (always 0: never colour alone)
 #   scr     the page's height in screens (1 = it fits the window)
 #   net     Today only: its height in screens without the person's own rows (spec 13): 1.2 on a laptop, 2 on a phone
+#   above   things to press or type in that sit above the first list item or card in the work column (R-356 round 3, Nate 31 Oct:
+#           the page's tabs, then at most one row of controls, then the first item). Counted as ctl is (links, buttons, boxes,
+#           tabs, each segment of a switch), page tabs included; the sidebar and the header's search box are not the work column.
+#           Measured on today, hearings, get-hearings, testimony, my-issues, bills, outreach and team: 5 at most on a laptop
+#           (1024 or wider), 3 on a phone (under 768). "-": no list item or card on that screen to count above.
 #   ctl-n   Today only: first-screen controls without the person's own rows: 12 at most
 #   grp     section headings on the page ("Your next step" aside): Today 4 at most
 #   side    rows in the sidebar, shown from 768px wide: 7 for staff (5 places, More, You), up to 12 for leads (Team, People, Partners, Session setup)
@@ -97,7 +102,23 @@ ROUTES = [
   ('more', '/more', None, None, False),          # the phone's More page (D2)
 ]
 BY = {r[0]: r for r in ROUTES}
-METRICS = ['controls', 'controls_page', 'filled', 'labelled_buttons', 'words', 'words_page', 'codes', 'row_codes', 'facts_max',
+# Controls above the first item (R-356 round 3). The first item is the first row or card of the work column: the lib's row
+# selector plus the cards (hearing, step, to-do). Everything pressable that starts above its top edge is counted once.
+ABOVE_KEYS = {'today', 'hearings', 'get-hearings', 'testimony', 'my-issues', 'bills', 'outreach', 'team'}
+ABOVE = r"""() => { const main = document.querySelector('main'); if (!main) return null;
+  const vis = e => { const s = getComputedStyle(e); if (s.visibility === 'hidden' || s.display === 'none' || +s.opacity === 0) return false; const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const ok = e => vis(e) && !e.closest('.sr, .band, dialog, [hidden]') && !e.closest('details:not([open]) > :not(summary)');
+  const ROW = '.row, .td-row, li, tr, article, [data-row], .sv-billrow, .v6-row, [role=row], [role=listitem], [class$="row"], [class*="row "], .v6-hcard, .hw-slot, .v6-step, .t6-card, .t6-step, .mi-card, .hg-chair, .i6-card, .ot-card';
+  let rows = [...main.querySelectorAll(ROW)].filter(e => ok(e) && e.getBoundingClientRect().height >= 24 && e.getBoundingClientRect().width >= 200
+    && !e.closest('nav, [role=tablist], [role=menu], .sv-secnav, .hw-nav, .hw-bar') && !e.querySelector('h1, nav, [role=tablist]'));
+  if (!rows.length) return null;
+  const y = Math.min(...rows.map(e => e.getBoundingClientRect().top + scrollY));
+  const CTRL = 'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=switch], [role=checkbox], [tabindex="0"]';
+  let c = [...main.querySelectorAll(CTRL)].filter(e => !e.disabled && ok(e) && e.getBoundingClientRect().top + scrollY < y - 1);
+  c = c.filter(e => !c.some(o => o !== e && o.contains(e) && o.matches('a[href], button')));
+  return c.length; }"""
+
+METRICS = ['above', 'controls', 'controls_page', 'filled', 'labelled_buttons', 'words', 'words_page', 'codes', 'row_codes', 'facts_max',
            'rows_over4', 'row_buttons_max', 'colors', 'bordered', 'radii', 'small_pct', 'px13_pct', 'bold_pct', 'marks',
            'marks_unworded', 'screens', 'groups', 'side_rows', 'hscroll', 'filter_controls', 'setup_parts', 'setup_part_screens',
            'colors_status', 'colors_all', 'bold_all_pct', 'controls_net', 'screens_net', 'own_step']
@@ -201,6 +222,7 @@ def _run_job(job):
       if key == 'today' and not L.V5:
         row.update(controls_net=m['controls'] - m['controls_own'], screens_net=pg.page.evaluate(NET_SCREENS, OWN_ROWS),
                    own_step=pg.page.evaluate(OWN_STEP))
+      if key in ABOVE_KEYS and not L.V5: row['above'] = pg.page.evaluate(ABOVE)
       special(pg, key, row)
       row.update(h1=m['h1'], tabs=m['tabs'], worst_row=m['worst_row'], marks_list=m['marks_list'], labelled_list=m['labelled_list'][:12],
                  colors_list=m.get('colors_list'), colors_status_list=m.get('colors_status_list'), radii_where=m.get('radii_where'),
@@ -240,6 +262,9 @@ def targets(r):
     if not own_today: T('Today phone: screens, net of the person\'s own rows (spec 13)', m.get('screens_net', m['screens']), 2)
     T('Today phone: controls on the whole page', m['controls_page'], 30)
   if key == 'today' and who == 'PH': T("Patti's Today: labelled buttons in view", m['labelled_buttons'], 4)
+  if key in ABOVE_KEYS and not L.V5:
+    if LAPTOP(r): T('controls above the first item (page tabs included): laptop', m.get('above'), 5)
+    elif r['w'] < 768: T('controls above the first item (page tabs included): phone', m.get('above'), 3)
   if key == 'bills' and LAPTOP(r): T('Bills first laptop screen: controls', m['controls'], 25)
   if key == 'bills': T('Bills: codes in rows', m['row_codes'], 0)
   if key == 'legislators' and LAPTOP(r):
@@ -297,7 +322,7 @@ def main():
   if a['json']: json.dump(rows, open(a['json'], 'w'), indent=0)
 
   # ---- the table: per screen and window size, the most any person or clock reached ----
-  cols = [('ctl', 'controls'), ('page', 'controls_page'), ('fill', 'filled'), ('btns', 'labelled_buttons'), ('words', 'words'),
+  cols = [('above', 'above'), ('ctl', 'controls'), ('page', 'controls_page'), ('fill', 'filled'), ('btns', 'labelled_buttons'), ('words', 'words'),
           ('wpage', 'words_page'), ('codes', 'codes'), ('rowc', 'row_codes'), ('facts', 'facts_max'), ('r/btn', 'row_buttons_max'),
           ('col', 'colors'), ('stat', 'colors_status'), ('bord', 'bordered'), ('rad', 'radii'), ('<=14', 'small_pct'), ('bold', 'bold_pct'), ('marks', 'marks'),
           ('bare', 'marks_unworded'), ('scr', 'screens'), ('net', 'screens_net'), ('ctl-n', 'controls_net'), ('grp', 'groups'), ('side', 'side_rows')]

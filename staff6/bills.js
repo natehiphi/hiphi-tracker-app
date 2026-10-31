@@ -34,7 +34,7 @@ import { offTag, teamName, teamFirst, newOwnerTag, FACTS } from './model.js';   
 import { GROUPS, groupKey, stanceMark } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
-import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
+import { billsHead, loadSortCount, refreshTabs, setBillsCount, subTabsShown } from './billshead.js';
 import { issuesOfBill } from './issues.js';
 import { issueLead } from './issuestand.js';   // R-352 D: each row's issue tile
 
@@ -190,7 +190,8 @@ function scopeSwitch() {
 function scopeWords(q, n) {
   const v = bl(), mine = v.scope === 'coal' ? 'Your coalitions’ bills' : 'Your bills';
   const total = baseBills().length, rest = Math.max(0, baseBills('all').length - total);
-  return `<p class="bl-sum bl-scope">${mine} · ${total.toLocaleString()}</p>${rest ? `<p class="bl-sum bl-scope-more">The team tracks ${rest.toLocaleString()} more · search finds any bill</p>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span>`;
+  // With the sub-tab row on the page the count is the By stage tab's number (billshead.js); the line stays only when that row is not drawn
+  return `${subTabsShown('bills') ? '' : `<p class="bl-sum bl-scope">${mine} · ${total.toLocaleString()}</p>`}${rest ? `<p class="bl-sum bl-scope-more">The team tracks ${rest.toLocaleString()} more · search finds any bill</p>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span>`;
 }
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
@@ -873,6 +874,7 @@ export default {
     v.lastMuted = false;
     this._after = arrival(route);
     const p = parts();
+    setBillsCount(baseBills().length, { me: 'of your bills', coal: 'bills in your coalitions' }[v.scope] || 'bills of the team');
     return `<div class="bl-page ${tableOn() ? 'bl-tablev' : 'bl-rowsv'}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
       <div class="bl-stick">${toolbar()}<div id="bl-chips">${p.chips}</div></div><div id="bl-dyn">${p.body}</div></div>`;
   },
