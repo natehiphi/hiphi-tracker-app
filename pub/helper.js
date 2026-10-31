@@ -1543,17 +1543,21 @@ function storyCard(x) {
   if (x.askStory === 'saved') return `<p class="okmsg hp-saved">${icon('circle-check')}<span>Saved in your profile as your story${t ? ` about “${esc(topicName(t))}”` : ''}.</span></p>${quoteCard(x)}`;
   if (!x.askStory) return '';
   return `<section class="card hp-storyask" aria-labelledby="hp-sa-t"><h3 id="hp-sa-t">Save a sentence on why this matters to you?</h3>
-    <div class="field"><label for="hp-sa">${esc(storyAsk(!!x.b))}</label>
+    <div class="field"><label${x.v2 ? ' class="sr"' : ''} for="hp-sa">${esc(storyAsk(!!x.b))}</label>
       <textarea id="hp-sa" rows="3" maxlength="600" autocapitalize="sentences" aria-describedby="hp-sa-h">${esc(x.storyDraft || '')}</textarea>
-      <span class="help" id="hp-sa-h">${esc(STORY_HINT)} We’ll put it in your next ${isMail(x) ? 'emails' : 'letters'}${t ? ` about “${esc(topicName(t))}”` : ''}, and you can change it each time. HIPHI staff can see it.</span></div>
+      <span class="help" id="hp-sa-h">${x.v2 ? `HIPHI staff can see it. We put it in your next ${isMail(x) ? 'emails' : 'letters'}${t ? ' on this topic' : ''}; change it any time.`   /* the heading above asks the question; this says who sees it first (A-14, P-4) */
+        : `${esc(STORY_HINT)} We’ll put it in your next ${isMail(x) ? 'emails' : 'letters'}${t ? ` about “${esc(topicName(t))}”` : ''}, and you can change it each time. HIPHI staff can see it.`}</span></div>
     <div id="hp-sa-msg"></div>
-    <div class="btnrow">${btn('Save to my profile', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'storysave' } })}${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hp': 'storyno' } })}</div></section>`;
+    ${x.v2 ? '' : `<div class="btnrow">${btn('Save to my profile', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'storysave' } })}${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hp': 'storyno' } })}</div>`}</section>`;   // version 2: its answers are the bar's (foot), so Done never closes the sheet over the question
 }
 // Version 2 only (R-357 part A; Nate 28 Oct, R-304: the quote question is asked only once a first story is saved): right where the
 // "Saved in your profile" line is, once, after a FIRST story saved on this Mahalo. The words and the three choices are the profile's own
 // (profile.js, myprofile.js QUOTE; a lawyer is to confirm them), none chosen until the person chooses (B-12); Save is the small outlined
 // button and Not now an equal text button, so the bar's Done stays the one filled button (A-3). A Not now is kept (hiphi_me.quoteAsked)
 // so the Mahalo never asks again; the profile page keeps the question. No second ask shows while this one does (friendOpen, askOpen).
+// (The critic, 30 Oct: with the answers in the card, below the fold of a phone, the only button in view was Done, which closed the sheet over a
+// pre-filled sentence unsaved. So while the story card or this question is open, the bar holds its answers, as it holds the profile ask's.)
+const QUOTE_LATER = 'Okay. You can answer any time on your profile.';
 function quoteCard(x) {
   if (x.quoteDone) return `<p class="okmsg hp-quoted" role="status">${icon('circle-check')}<span>${esc(x.quoteDone)}</span></p>`;
   if (!x.quoteOpen) return '';
@@ -1561,8 +1565,7 @@ function quoteCard(x) {
   return `<section class="card hp-quoteask" aria-labelledby="hp-qa-t"><h3 id="hp-qa-t" tabindex="-1">Can HIPHI quote your stories?</h3>
     <p class="small muted" id="hp-qa-p">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
     <div class="hp-qa-set" role="radiogroup" aria-labelledby="hp-qa-t" aria-describedby="hp-qa-p">${QUOTE.map(([v, l]) => `<label class="check mr-check" for="hp-qa-${v}"><input type="radio" name="hp-qa" id="hp-qa-${v}" value="${v}"${pick === v ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(l)}</span></span></label>`).join('')}</div>
-    <div id="hp-qa-msg"></div>
-    <div class="btnrow">${btn('Save', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'quotesave' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hp': 'quoteno' } })}</div></section>`;
+    <div id="hp-qa-msg"></div></section>`;   // its answers, Save and Not now, are the bar's (foot)
 }
 // The profile, named once after a letter (R-156 C2): what was kept and where it is. Decided at the send (x.tellProfile).
 function profileLine(x) {
@@ -1718,6 +1721,12 @@ function foot() {
     : x.back ? btn(DEMO ? 'Finish practice' : 'Yes, I saw the green box', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'confirm' } })
     : btn(DEMO ? 'Copy my letter' : 'Copy my letter and open the Capitol page', { kind: 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })),
     x.busy ? '' : (x.back ? (DEMO ? '' : btn('Something went wrong', { kind: 'text', sm: true, attrs: { 'data-hp': 'trouble' } })) : btn('I already sent it', { kind: 'text', sm: true, attrs: { 'data-hp': 'sent' } })) + later);
+  // Version 2: while the story card or the quote question waits for an answer, its answers are the bar's, a filled one and an outlined
+  // one (A-3, A-13): Done is back once it is answered. Never both at once (the quote question follows the story).
+  if (x.v2 && x.askStory === 'ask') return row(btn('No thanks', { kind: 'secondary', cls: 'hp-back', attrs: { 'data-hp': 'storyno' } })
+    + btn('Save to my profile', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'storysave' } }));
+  if (x.v2 && x.quoteOpen) return row(btn('Not now', { kind: 'secondary', cls: 'hp-back', attrs: { 'data-hp': 'quoteno' } })
+    + btn('Save', { kind: 'primary', icon: 'check', cls: 'hp-main', attrs: { 'data-hp': 'quotesave' } }));
   // While "Save your profile" waits for an answer (R-184), its button is the bar's main one: with "Done" filled beside a
   // typed number, people tapped Done and left believing they had saved (the fresh-eyes review, 10/6). Its other answer, "Not
   // now", sits beside it (R-205 C4): "Done" there closed the Mahalo before the share ask, so few would ever see it.
@@ -2027,8 +2036,8 @@ function onClick(e) {
     }, e => { const m = dlg?.querySelector('#hp-qa-msg'); if (m) m.innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(friendly(e))}</span></p>`; });
   }
   else if (a === 'quoteno') {   // asked once: Not now is kept, and the profile page keeps the question
-    const x = S.helper; saveMe({ quoteAsked: true }); x.quoteOpen = false; x.quoteDone = '';
-    paint({ focus: 'hp-done-t' }); announce('Okay. You can answer in your profile any time.');
+    const x = S.helper; saveMe({ quoteAsked: true }); x.quoteOpen = false; x.quoteDone = QUOTE_LATER;
+    paint({ focus: 'hp-done-t' }); announce(QUOTE_LATER);
   }
   else if (a === 'storyforget') {   // R-212 #26: the story kept on this phone at the send, taken back
     const x = S.helper, k = x.storyKept; if (!k || k === 'gone') return;

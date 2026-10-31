@@ -42,9 +42,8 @@
 .hp-v2 .v2-rename { margin-left: calc(-1 * var(--s4)); font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
 .hp-v2 .v2-hint { margin: 0; font-size: var(--t14); color: var(--n700); }   /* one line, directly under the stance line */
 
-/* the sign-off (R-357 part A): the closing word is a tap target, drawn like "change" on the stance line; a tap opens the ideas and a small box in place */
-.hp-v2 .v2-closing { margin: 0; }
-.hp-v2 .v2-signoff { margin-left: calc(-1 * var(--s16)); font-size: var(--t16); font-weight: 400; }
+/* the sign-off (R-357 part A): the closing word with a "change" beside it, as the name has; a tap opens the ideas and a small box below the name */
+.hp-v2 .v2-closing { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); margin: 0; }
 .hp-v2 .v2-closeopt { display: flex; flex-direction: column; gap: var(--s8); padding: var(--s8) 0 var(--s4); }
 .hp-v2 .v2-closeopt .v2-chips { margin: 0; }
 .hp-v2 .v2-closeown { gap: var(--s4); }
@@ -68,8 +67,8 @@
 .hp-v2 .v2-answers .btn { width: 100%; justify-content: center; }
 .hp-v2 .v2-ask .hp-inl { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
 
-/* the Mahalo (R-357 part A): the quote question right where "Saved in your profile" is, after a first story, once; Save is the small outlined
-   button and Not now an equal text button, so Done in the bar stays the one filled button */
+/* the Mahalo (R-357 part A): the quote question right where "Saved in your profile" is, after a first story, once; while it is open the bar holds
+   its Save (filled) and Not now (outlined), and Done comes back when it is answered */
 .hp-v2 .hp-quoteask { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s12); }
 .hp-v2 .hp-quoteask h3 { margin: 0; font-size: var(--t18); }
 .hp-v2 .hp-quoteask p { margin: 0; }
