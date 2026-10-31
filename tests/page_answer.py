@@ -255,6 +255,16 @@ with sync_playwright() as p:
     ok(h5['words'] == h4['words'], 'k. with a bill put away ("Not for me") the answer\'s extra bill is left out: the same words' + ('' if h5['words'] == h4['words'] else f'\n   without: {h4["words"][:300]}\n   with:    {h5["words"][:300]}'))
     ok(not (hr5['bills'] or hr5['hearings']), f'k. and the followed set\'s reads still do not happen (asked: {names(hr5)})')
     ok(h5['state'] == h4['state'], 'k. and Home holds the same state' + ('' if h5['state'] == h4['state'] else '\n   ' + diff(h5['state'], h4['state'])))
+    # k2. the answer's activity ends at 300 rows; when a put-away bill's rows took some of them, the rest of the followed set's are asked
+    # the old way (made-up rows: production has none between sessions). 200 newest rows on the put-away bill, then 100 of the other's 150.
+    b1, b2 = sorted(ids)[0], sorted(ids)[1]
+    mk = lambda b, n, d0: [{'bill_id': b, 'bill_number': 'X', 'title': f'Action {d0}-{i}', 'details': '', 'occurred_at': (datetime(2026, 5, 1, tzinfo=timezone.utc) - timedelta(hours=d0 + i)).isoformat()} for i in range(n)]
+    rows1, rows2 = mk(b1, 200, 0), mk(b2, 150, 300)
+    Hc = {**H, 'activity': sorted(rows1 + rows2[:100], key=lambda r: r['occurred_at'], reverse=True)}
+    ok(len(Hc['activity']) == 300, 'k2. (the made-up answer is cut at 300 rows)')
+    c0 = load(br, HOME, rpc=('status', 404), init=returner(X['id'], skips=[b1]), ready=HREADY, rest_mocks={r'public_activity\?': rows2})
+    c1 = load(br, HOME, rpc=('json', Hc), init=returner(X['id'], skips=[b1]), ready=HREADY, rest_mocks={r'public_activity\?': rows2})
+    ok(c0['state']['activity'] == 150 and c1['state']['activity'] == 150 and home_reads(c1, ids)['activity'], f'k2. the cut answer\'s activity is asked again for the followed set ({c1["state"]["activity"]} rows, as the reads give {c0["state"]["activity"]})')
     # l. an answer made for a bill page is not Home's
     hb = load(br, HOME, rpc=('json', A), init=returner(X['id']), ready=HREADY); ok(hb['words'] == h0['words'] and home_reads(hb, ids)['bills'], 'l. a bill\'s answer given to Home is ignored')
 
@@ -288,5 +298,4 @@ with sync_playwright() as p:
     first = load(br, BASE + 'track.html#/', rpc=('json', H), ready="() => !!document.querySelector('.st-hellobar, .st-topics, .st1')")
     ok(not any('rpc/public_home' in p for _, p, _ in first['reqs']), 'p. a first visit (no hiphi_wiz) asks no Home question')
     br.close()
-bad = [i for i, r in enumerate(res) if not r]
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)
