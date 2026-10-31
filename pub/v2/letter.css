@@ -67,6 +67,15 @@
 .hp-v2 .v2-answers .btn { width: 100%; justify-content: center; }
 .hp-v2 .v2-ask .hp-inl { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
 
+/* an email's send screen (R-357 pE): the other ways are one small row of links under the sentence, and one small line says what a tap also does.
+   The links keep their 44px height (A-6); the dots between them are only for the eye. */
+.hp-v2 .v2-alt { display: flex; flex-wrap: wrap; align-items: center; margin: 0; font-size: var(--t14); color: var(--n700); }
+.hp-v2 .v2-alt .btn { padding: 0 var(--s8); text-decoration: underline; text-underline-offset: 3px; }
+.hp-v2 .v2-alt > span:first-child { margin-right: var(--s4); }
+.hp-v2 .v2-alt .v2-dot { color: var(--n500); }
+.hp-v2 .v2-alt .okmsg { margin-left: var(--s8); }
+.hp-v2 .v2-small { margin: calc(-1 * var(--s8)) 0 0; font-size: var(--t14); color: var(--n700); }
+
 /* the Mahalo (R-357 part A): the quote question right where "Saved in your profile" is, after a first story, once; while it is open the bar holds
    its Save (filled) and Not now (outlined), and Done comes back when it is answered */
 .hp-v2 .hp-quoteask { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s12); }
