@@ -531,10 +531,10 @@ const boardHas = scope => !!askSummary({ scope });
 // rule above, so the tabs name their views). Get hearings carries how many bills are still to ask (sectionNav's count), so
 // the number is in view without a card over the week (critic A-1).
 function tabs(view, sum) {
-  const n = tabCounts() ? sum?.toAsk || 0 : 0;
+  const n = tabCounts() ? sum?.need || 0 : 0;   // decision 9: the bills still needing a hearing, as the board's line and Today's door say it
   // Each label keeps room for its bold self (staff.css .sv-tl, as sectionNav's), so the row never shifts when a tab is picked.
   const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
-  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} to ask</span>` : ''}</a></nav>`;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} ${n === 1 ? 'needs' : 'need'} a hearing</span>` : ''}</a></nav>`;
 }
 
 // The buttons a week's cards carry besides the cards' own (wireSteps): shared by this page and Team's "The team's hearings" tab.

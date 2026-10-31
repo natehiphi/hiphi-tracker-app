@@ -26,7 +26,7 @@ import { icon, iconBtn, btn, pickerSheet } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb, byUrgency } from './issuestand.js';
-import { nw, shownStatus } from './steps.js';
+import { nw, shownStatus, billInIssue } from './steps.js';
 import { issueKey, stateMark } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape and its word (Decision 4)
 
 // ---- the tints and the icons ----
@@ -111,14 +111,14 @@ const afterLabel = t => String(t || '').replace(/^[^:]+:\s/, '');
 // step keeps its colour (shownStatus), anyone else's is neutral. Due today is plain with a clock and its time in bold.
 function hearNext(x) {
   const hp = hearPart(x); if (!hp) return null;
-  const s = hp.s, n = numNb(x.hear.b);
+  const s = hp.s, n = billInIssue(x.hear.b, x.i, { max: 16 });   // one name per bill (decision 9): its nickname, as Bills says it, when it fits a small card; else its number
   if (!s?.state) return { text: hp.text };
   const k = s.state.key;
   if (k === 'filed' || k === 'missed') return { text: hp.text };
-  const sh = shownStatus(s) || {}, lead = `${n} testimony: ${s.state.word}${s.state.sentBack ? ', sent back' : ''}`;
-  const when = sh.words ? lower(sh.words) : s.due != null ? `due ${whenAt(s.due)}` : '';
+  // Decision 9: hearPart's text is steps.js statusLine's one text; a small card shortens only the label, "(team cut-off)" to "(team)".
+  const sh = shownStatus(s) || {};
   const tone = ['late', 'overdue', 'today'].includes(sh.tone) ? sh.tone : '';
-  return { text: `${lead}${when ? `, ${when}` : ''}`, tone, ic: tone ? sh.icon || '' : '' };
+  return { text: hp.text.replace(' (team cut-off)', ' (team)'), tone, ic: tone ? sh.icon || '' : '' };
 }
 // The card's next step and its date, one line, or none when there is none (stopped, no bills). At risk and a dying bill lead
 // (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.
@@ -143,7 +143,7 @@ function issueCard(x, { tags = [], why = null, anchor = '' } = {}) {
   let nx = nextOf(x);
   // A search that found it by a bill says which, unless the line names that bill already (numbers carry a no-break space).
   const sp = s => String(s || '').replace(/ /g, ' '), nb = why ? numNb(why) : '';
-  if (why && !sp(nx?.text).includes(sp(nb))) nx = { text: `Found by its bill ${sp(nb)}` };
+  if (why && !sp(nx?.text).includes(sp(nb)) && !sp(nx?.text).includes(sp(billInIssue(why, x?.i)))) nx = { text: `Found by its bill ${sp(billInIssue(why, x?.i))}` };
   // "Not in the first visit" is a setting of the public first visit (issues.js, 066), not a fact about the issue: it stays on
   // the issue's own page with its switch (R-344 D10).
   const shown = tags.filter(t => !/first visit/i.test(t));

@@ -34,7 +34,7 @@ import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billByI
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
-  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML } from './steps.js';
+  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML, statusLine } from './steps.js';
 import { issueIcon, tintOf } from './issuegrid.js';
 import { iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // one icon per job (A-18 on v6), every button its icon
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -320,7 +320,7 @@ function groupsOf(w) {
   const eod = endOfDay(), horizon = endOfDay(Date.now() + LATER_DAYS * DAY), today = [], soon = [], later = [], partner = [];
   // Partner words to approve have no deadline: their own small group after Coming up (R-328), never "Do today" or the badge.
   // R-356 round 3, decision 8 (D16, rule 7.3): a chair ask whose asking window is open (its ask-by day within a week) is in Do today,
-  // where its button is, and says why on its row ("Ask this week · by Wed 3/18"); a later one waits in Coming up with no button.
+  // where its button is, and says why on its row ("Ask by Wed 3/18"); a later one waits in Coming up with no button.
   const askOpen = it => it.kind === 'chair' && it.at != null && it.at <= endOfDay(Date.now() + 7 * DAY);
   for (const it of w.own) (it.kind === 'partner' ? partner : (it.tone === 'overdue' || it.tone === 'late' || it.kind === 'missed' || it.at == null || it.at <= eod || askOpen(it)) ? today
     : it.at > horizon && !['moved', 'askup', 'chair', 'followask'].includes(it.kind) && !newNotice(it) ? later : soon).push(it);
@@ -448,16 +448,15 @@ function rowWords(it, v = S.me) {
   const b = it.b, sx = sitSuffix(it, v), jk = jobOf(it);
   if (it.s && b && it.kind !== 'stale') {
     const s = it.s, st = shownStatus(s) || {}, a = s.ask;
-    let job = JOB_NAME[jk] || PIC[jk]?.word || 'Next step', line = s.you ? dropVerb(s.line || '', s.act?.verb) : s.line || '';
+    let job = JOB_NAME[jk] || PIC[jk]?.word || 'Next step', line = s.state ? statusLine(s, { flat: true }) : s.you ? dropVerb(s.line || '', s.act?.verb) : s.line || '';   // decision 9: the one status line (a comma for the dot, as this row's name holds one)
     // "Ask the chair · Disposable e-cigarette ban", then "By Wed 3/25" (whom, in the open item: four facts a row, and the row
     // and its Email the chair keep one line each, so Kevin's first ask stays on his first laptop screen, B-2)
     if (it.kind === 'chair') { job = a?.decide ? 'Ask for a vote' : a?.m?.n > 1 ? 'Ask the chairs' : 'Ask the chair';
-      if (a?.by != null) line = a.by <= endOfDay() ? `By ${dayWords(a.by)}` : `Ask this week · by ${dayWords(a.by)}`; }
+      if (a?.by != null) line = a.by <= endOfDay() ? `By ${dayWords(a.by)}` : `Ask by ${dayWords(a.by)}`; }
     // the follow-up says when it was asked ("Asked Tue 3/10, no reply"); whom, in the open item (one line a row)
     // R-352 (I, A-25): the button says "Follow up", so the row says what was done, as the ask board does ("Asked by you")
     else if (it.kind === 'followask') { job = 'Asked the chair'; const m = /^Follow up with .+? · (asked [\s\S]*)$/.exec(s.line || ''); line = m ? cap(m[1]) : s.line || ''; }
     else if (newNotice(it)) line = `New hearing ${dayWords(it.h.scheduled_at)} · send by ${dayWords(s.act?.at ?? s.due)}`;
-    else if (s.state?.key === 'second' && s.you && s.act?.words) line = cap(s.act.words.replace(/^Approve\s+/, ''));
     const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
     // only a step due today or late keeps the amber time (D3): a chair ask due later this week is plain words
     const calm = it.kind === 'chair' && a?.by != null && a.by > endOfDay() && !tone;

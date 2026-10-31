@@ -27,6 +27,7 @@
 import { S, SESSION_YEAR, SESSION_OVER, esc } from './data.js';
 import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
 import { icon, iconBtn, sectionNav } from './ui.js';
+import { statusLine, billInIssue } from './steps.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { itemRow, billStep, shownStatus, numWords, dayWords, nw } from './steps.js';
@@ -118,10 +119,18 @@ export function hearPart(x) {
   const st = s.state, sh = shownStatus(s) || {}, late = s.status?.tone === 'late';
   const tone = sh.tone && sh.tone !== 'neutral' ? sh.tone : '';
   const soon = !tone && !late && !!(sh.soon || s.status?.soon) && !['filed', 'missed'].includes(st.key) && s.due != null;
-  const lead = `${num(b)} testimony: ${st.word}${st.sentBack ? ', sent back' : ''}`;
-  const when = st.key === 'filed' ? `hearing ${whenAt(h.scheduled_at)}` : st.key === 'missed' ? '' : late ? lateLine(s.until, { lower: true }) : s.due != null ? `due ${whenAt(s.due)}` : '';
-  const text = `${lead}${when ? `, ${when}` : ''}`;
-  const html = soon ? `${nw(esc(lead))}, due <b class="i6-time">${nw(esc(whenAt(s.due)))}</b>` : nw(esc(text));
+  // Decision 9: the words are steps.js statusLine's, as every screen says them, under the bill's nickname (billInIssue; its number
+  // when the nickname is the issue's own name or too long for a small card). Filed and missed keep their own record.
+  const nm = billInIssue(b, x.i, { max: 24 });
+  let text, html;
+  if (st.key === 'filed' || st.key === 'missed') {
+    const lead = `${nm} testimony: ${st.word}`, when = st.key === 'filed' ? `hearing ${whenAt(h.scheduled_at)}` : '';
+    text = `${lead}${when ? `, ${when}` : ''}`; html = nw(esc(text));
+  } else {
+    text = `${nm}: ${statusLine(s, { who: false, flat: true, soon: false })}`;
+    html = nw(esc(text));
+    if (soon) html = html.replace(/(<span class="v6-nw v6-tm">[^<]*<\/span>)/, '<b class="i6-time">$1</b>');
+  }
   return { ic: tone ? sh.icon : late ? 'alarm-clock' : soon ? 'clock' : st.key === 'filed' ? 'circle-check' : 'calendar-days', text, html, tone, soon, late, you: !!s.you, s };
 }
 // The row's one line: risk and a dying bill lead (Nate: "see what issues are at risk of dying"); otherwise the hearing's
@@ -135,7 +144,7 @@ export function lineOf(x, { under = null, why = null } = {}) {
   const markUseful = m && (urgent || ['safe', 'stopped', 'none', 'off', 'oppose'].includes(x.state) || (x.state === 'ahead' && x.facing?.length));
   let parts = urgent ? [m, hp] : [hp, markUseful || !hp ? m : null];
   // Found by a bill: the line says which, unless the line already names that bill ("HB 2121 testimony: ...").
-  if (why) { const lead = urgent ? m : hp || m; parts = lead?.text?.includes(num(why)) ? [lead] : [{ ic: 'search', text: `Found by its bill ${num(why)}` }, lead]; }
+  if (why) { const lead = urgent ? m : hp || m; parts = lead?.text?.includes(num(why)) || lead?.text?.includes(billInIssue(why, x.i, { max: 24 })) ? [lead] : [{ ic: 'search', text: `Found by its bill ${num(why)}` }, lead]; }
   parts = parts.filter(p => p && p.text);
   const first = parts[0] || null;
   const ph = (p, k) => { const h = p.html || nw(esc(p.text)); return k === 0 && p.tone ? `<span class="i6-p1 t-${p.tone}">${h}</span>` : h; };

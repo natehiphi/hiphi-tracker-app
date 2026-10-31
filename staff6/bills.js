@@ -404,7 +404,7 @@ const timeFirst = (what, when) => `${nw(esc(cap(when)))} · ${nw(esc(what))}`;
 const WHEN_AT = /(?:^|\s)(?:due|by|until) ((?:today|tomorrow|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b|\d{1,2}:\d\d).*)$/;
 function compactLine(line) {
   const m = WHEN_AT.exec(line); if (!m) return null;
-  let what = line.slice(0, m.index).replace(/\s*·\s*$/, '').trim(), when = m[1];
+  let what = line.slice(0, m.index).replace(/[\s,·]+$/, '').trim(), when = m[1];   // the line is now "<state> · <flag>, due …" (steps.js statusLine)
   if (/late, still accepted$/.test(what)) { what = what.replace(/\s*·?\s*late, still accepted$/, ''); when = `late, until ${when}`; }
   return what ? timeFirst(what, when) : null;
 }
@@ -869,7 +869,7 @@ function arrival(route) {
 
 export default {
   tab: 'bills',
-  title: r => r.muted ? 'Muted bills' : 'Bills',
+  title: r => r.muted ? 'Muted bills' : 'Issues · Bills',
   wide: r => !r.muted,
   narrow: r => !!r.muted,
   render(route) {

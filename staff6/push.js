@@ -285,14 +285,17 @@ export function askSummary({ scope = defaultScope(), viewer = S.me } = {}) {
   const first = fx ? fx.a.aw.a.notice || fx.a.aw.a.at : null;
   const dl = open.map(x => x.dl).sort((p, q) => p.date.localeCompare(q.date))[0];
   const n = open.length, asks = open.filter(x => x.k === 'ask'), toAsk = asks.length, decide = open.filter(x => x.k === 'decide').length;
-  return { n, toAsk, decide, first, firstDay: fx ? fx.a.aw.day : '', dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
+  // R-356 round 3, decision 9 (A-14, C-10): `need` is THE count, the bills still needing a hearing (dlCounts's need: every open one but
+  // those heard and not voted on), said by the tab's badge, the board's first line and Today's door alike.
+  const need = n - decide;
+  return { n, need, toAsk, decide, first, firstDay: fx ? fx.a.aw.day : '', dl, words: toAsk ? `${countWords(toAsk, scope, viewer)} to ask` : `${countWords(n, scope, viewer)} asked, waiting for a hearing`, firstWords: fx ? `ask the first chair by ${fx.a.aw.day}` : '' };
 }
 // One count and one wording for the bills still to ask for a hearing, on Today, Bills and Hearings alike (rule 6, A-14;
 // Nate's walk: "20 of your bills to ask", "16 of your bills with no hearing yet", "No hearing yet 20" and "Get hearings 20"
 // for one pile): "20 bills need a hearing · ask the chairs, first by Mon 3/23", the day being the first chair's ask-by day (never a Capitol deadline's:
 // the critic read "16 by Mon 3/30" as "ask 16 by Mon 3/30", a week late). '' when nothing is left to ask.
 export function toAskWords(sum) {
-  const n = sum?.toAsk || 0; if (!n) return '';
+  const n = sum?.need || 0; if (!n || !sum?.toAsk) return '';   // one count, `need` (decision 9): the same number as the tab's badge and the board's first line
   // Said as what it is (R-352 FIX-2: "20 to ask" did not say to ask whom, or for what): "20 bills need a hearing · ask the
   // chairs, first by Mon 3/23"; one: "1 bill needs a hearing · ask the chair by Mon 3/23".
   const one = n === 1;
@@ -529,7 +532,10 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
     // every bill here is still to ask it says "none asked yet"; otherwise how many are still to ask, "12 still to ask". Only
     // this deadline's bills, never a share of the tab's total ("12 of the 20" mixed two totals: the critic, walk 3, A-14).
     const askT = !nwd.rest ? '' : cn.toAsk >= cn.need ? 'none asked yet' : `${cn.toAsk} still to ask`;
-    const subT = [nwd.head, askT, ...dlParts(cn)].filter(Boolean).join(' · ');
+    // One count (decision 9): the board's first line says all the bills needing a hearing; a deadline's own line, when other
+    // deadlines hold some of them, says how many of those race this one, never a second "N need a hearing".
+    const allNeed = askSummary({ scope, viewer: v })?.need || 0, partOf = allNeed > cn.need && !nwd.only;
+    const subT = [partOf ? `${cn.need} ${cn.need === 1 ? 'races' : 'race'} this deadline` : nwd.head, askT, ...dlParts(cn)].filter(Boolean).join(' · ');
     const sub = `${subT ? `<p class="hg-dls">${nwParts(esc(subT))}</p>` : ''}${nwd.decide ? `<p class="hg-dls hg-dld">${nwParts(esc(nwd.decide))}</p>` : ''}`;
     const body = groups.map(g => groupHTML(g, v, scope, { primary: g.key === pkey, shared })).join('');
     return `<section class="hg-dl" aria-labelledby="${hid}"><div class="hg-dlh"><h2 id="${hid}">${esc(head)}</h2>${sub}</div>${body}</section>`;
@@ -537,7 +543,9 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
   // One "Asked another way? Log a talk" for the whole board, not under every chair (Nate's walk: 11 times on Lauren's My
   // bills; C-15, one name per act). It opens the chair to pick when more than one ask is the viewer's to log.
   const logs = all.filter(g => groupRoles(g, v, scope).log.length);
-  const top = `<p class="hg-asktop">Ask each committee’s chair to hear these bills before the deadline.</p>`;
+  // The board's first line says the tab's own count in the tab's words (toAskWords), so the badge, this line and Today's door agree.
+  const said = toAskWords(askSummary({ scope, viewer: v }));
+  const top = `<p class="hg-asktop">${said ? `${nwParts(esc(said))}. ` : ''}Ask each committee’s chair to hear ${said ? 'them' : 'these bills'} before the deadline.</p>`;
   const foot = logs.length ? `<p class="hg-log hg-logfoot"><span>Asked another way?</span>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-hgact': 'anotherall', 'data-hgboard': id, 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk: an ask made by phone, in person or another way' } })}</p>` : '';
   return `<div class="hg-board" data-hgboard="${esc(id)}">${top}${out}${foot}</div>`;
 }

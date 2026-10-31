@@ -23,7 +23,7 @@ import { plural, afterClose, iconName } from './lists.js';
 import { issuesOfBill } from './issues.js';
 import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile } from './issuestand.js';
 import { isPos, byPri, waitingOfBills } from './standing.js';
-import { itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
+import { statusLine, itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
 import { cardHTML, picHTML, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
 import { ICONS } from '../icons.js';
 
@@ -213,7 +213,9 @@ export function billLineRow(b, { line, button = '', cls = '' } = {}) {
 function sittingRow(s, from) {
   const h = s.rows[0], items = s.rows.map(r => ({ h: r, b: billById(r.bill_id) })).filter(x => x.b).sort((x, y) => byPri(x.b, y.b));
   const states = items.map(x => testimonyState(sittingDraft(x.h, x.b.id) || null, x.b, { h: x.h })).filter(Boolean);
-  const said = items.length === 1 && states[0] ? `${numNb(items[0].b)}: ${states[0].word}${states[0].sentBack ? ', sent back' : ''}`
+  // Decision 9: one bill says its status line as every screen does, under its own name (nameWords: one name per bill).
+  const one = items.length === 1 ? billStep(items[0].b, { d: sittingDraft(items[0].h, items[0].b.id) || null, h: items[0].h }) : null;
+  const said = one?.state ? `${nameWords(items[0].b, 40)}: ${statusLine(one, { who: false })}`
     : `${plural(items.length, 'bill')}${states.length ? `: ${[...new Set(states.map(x => x.word))].join(', ')}` : ''}`;
   const href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return itemRow({ key: h.id, name: committeeName(h.committee) || h.committee, line: [cap(whenAt(h.scheduled_at)), goingWords(h), said].map(t => nw(esc(t))).join(' · '), icon: 'calendar-days', href, cls: 'i6-row' });
@@ -223,7 +225,8 @@ function sittingRow(s, from) {
 // bill, whose page holds the hearing.
 function billHearRow(h, b) {
   const st = testimonyState(sittingDraft(h, b.id) || null, b, { h });
-  const where = nw(esc(`Hearing ${whenAt(h.scheduled_at)} in ${committeeName(h.committee) || h.committee}`)), state = st ? `<span class="v6-nw">${esc(`${st.word}${st.sentBack ? ', sent back' : ''}`)}</span>` : '';
+  const stp = st ? billStep(b, { d: sittingDraft(h, b.id) || null, h }) : null;
+  const where = nw(esc(`Hearing ${whenAt(h.scheduled_at)} in ${committeeName(h.committee) || h.committee}`)), state = stp?.state ? nw(esc(statusLine(stp, { who: false }))) : '';
   return itemRow({ key: `${h.id}|${b.id}`, name: nameWords(b), num: numWords(b), line: [where, state].filter(Boolean).join(' · '), icon: 'calendar-days', href: billRoute(b), cls: 'i6-row', bill: b.id });
 }
 export function hearingsSec(bills, { key = '', from = '', byBill = false } = {}) {
@@ -399,7 +402,7 @@ export default {
   tab: 'myissues',   // the second tab of My issues
   // One coalition is two columns from 1100px, which need more than the reading column.
   wide: route => !!route.id && DESK(),
-  title: route => route.id ? coalById(route.id)?.name || 'Coalition' : 'Coalitions',
+  title: route => route.id ? coalById(route.id)?.name || 'Coalition' : 'Issues · Coalitions',
   back: route => route.id ? { href: '#/issues/coalitions', label: 'Coalitions' } : null,
   render(route) {
     if (!route.id) return indexHTML();

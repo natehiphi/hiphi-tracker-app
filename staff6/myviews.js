@@ -93,7 +93,7 @@ export function judge(x) {
   // Bills that must still get a hearing for D, in a chamber with no bill past D yet: someone has to ask a chair.
   const chPast = c => bills.some(y => y.ch === c && y.past);
   const ask = !alive || oppose || !D ? [] : bills.filter(y => !y.past && y.dl?.date === D.date && y.st.column === 'a' && !hearingAhead(y.b) && !chPast(y.ch));
-  const hp = hearPart(x);
+  const hp = hearPart(x);   // its words are steps.js statusLine's (issuestand.js hearPart, decision 9)
   const open = hp && hp.s && !['filed', 'missed'].includes(hp.s.state?.key);
   // The testimony's own due time when it has one (a Monday hearing's testimony is due the day before), else the hearing.
   const soon = !!(x.hear && new Date(hp?.s?.due ?? x.hear.h.scheduled_at) - Date.now() <= WEEK);

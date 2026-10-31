@@ -117,7 +117,7 @@ with L.browser() as B:
     bad = [c['stat'] for c in cs if not re.fullmatch(STAND, c['stat'])]
     R.check(f'{w}: how it stands, in one word on every card', not bad, bad[:4])
     R.check(f'{w}: the stands vary (on track, stopped, won, at risk)', len({c['state'] for c in cs}) >= 3, sorted({c['state'] for c in cs}))
-    NEXT = r'(.+ needs? a hearing by \w{3} \d+/\d+|.+ testimony: .+|.+ hearing \w+.*|.+ past .+|Next deadline: .+|Bills must .+|No hearing set.*|.+ reached .+|.+ (was|were) settled|Through its committees)'
+    NEXT = r'(.+ needs? a hearing by \w{3} \d+/\d+|.+ testimony: .+|.+: (?:Writing|With an approver|Second look|Ready to file).+|.+ hearing \w+.*|.+ past .+|Next deadline: .+|Bills must .+|No hearing set.*|.+ reached .+|.+ (was|were) settled|Through its committees)'
     bad = [c['next'] for c in cs if c['next'] and not re.fullmatch(NEXT, c['next'])]
     R.check(f'{w}: the next step and its date in one line', not bad, bad[:4])
     R.check(f'{w}: every issue that can still move says its next step', all(c['next'] for c in cs if c['state'] in ('issue:ontrack', 'issue:risk')), [c['name'] for c in cs if c['state'] in ('issue:ontrack', 'issue:risk') and not c['next']][:3])
@@ -158,7 +158,7 @@ with L.browser() as B:
     cs3 = cards(pg)
     R.check(f'{w}: By next deadline: every issue once', sorted(c['id'] for c in cs3) == sorted(by), len(cs3))
     wk = [c for c in cs3 if c['group'] == 'This week']
-    R.check(f'{w}: This week holds the issues at risk or with a hearing', wk and all(c['state'] == 'issue:risk' or re.search(r'testimony|hearing \w', c['next']) for c in wk), [c['next'] for c in wk][:4])
+    R.check(f'{w}: This week holds the issues at risk or with a hearing', wk and all(c['state'] == 'issue:risk' or re.search(r'testimony|hearing \w|: (?:Writing|With an approver|Second look|Ready to file)', c['next']) for c in wk), [c['next'] for c in wk][:4])
     fold = pg.page.evaluate("[...document.querySelectorAll('#is-q-body details.ig6-fold')].map(d => [d.querySelector('summary').innerText.trim(), d.open])")
     R.check(f'{w}: what is not moving and what has no bills wait in folds', all(not o for _, o in fold) and len(fold) >= 1, fold)
     fc = [x for x in chips(pg) if x.startswith('Nothing moving') or x.startswith('No bills')]
