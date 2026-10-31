@@ -327,6 +327,13 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   (`resume: true` only when a letter is waiting; it returns true when the sheet opened, a promise until the files are in). A draft is
   kept once the person has gone past the first screen, changed something, or chosen "I'll finish later" or "Not yet" (`x.touched`), with
   `v2: 1` in it. Test: `tests/v2_letter.py`.
+- **After the Mahalo (part A, 30 Oct).** What the v2 letter no longer asks follows the Mahalo instead: `pub/helper.js` draws the story
+  card under the thank-you (v2 only; `lateStory` brings it once a number was saved on the same Mahalo) and `quoteCard` once, after a
+  first story (`hiphi_me.quoteAsked` remembers the answer or the Not now); the title is a later visit's page in `pub/nextask.js` (kind
+  `title`, after `alerts`: `app.v2()`, a profile, an action sent, no titles yet; not counted by `logAsk` until migration 170's list
+  gains `title`); the sign-off is a tap on the closing word in `pub/v2/letter.js` (`signoff`, `setClosing`, `V2.key`) and a "How you
+  sign off" section on the profile page (`pub/profile.js`, v2 only); `pub/myprofile.js` holds `CLOSINGS`, `myClosing` and
+  `saveProfile({ closing })`, device-only. Test: `tests/v2_after.py`.
 - **Home's week (Part 3).** `pub/calm/home.js` (the calm Home, everyone's) draws, with `app.v2()` on, the white box under the slide as
   "This week" (`weekRows`, `weekBlock`; between sessions `issuesBlock` with a different last line): rows by day (a day label, the bill's
   name, what is due; a run of rows on one day shows the day once, on its first, and the rest keep the column and say it to a screen reader

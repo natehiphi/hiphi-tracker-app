@@ -543,8 +543,7 @@ testimony the main action (R-068) and the email sharing the frame (R-079): the s
 the stance starts as HIPHI's, which the exception for HIPHI's own recommendations allows: it is on screen, one tap changes it, nothing
 is sent unseen, and nothing is kept as the person's own until they tap a chip. A person who picks the side opposite HIPHI's is offered
 the Capitol's own form, with a way back to a letter of their own words. **C-5:** title, email, why it matters, keep my story, the quote
-question and the sign-off chips are not asked in the letter; they belong after the Mahalo, beside the profile ask (that move is not part
-of this build, so until it lands those asks are simply not made). The timing of the consent words moves, the words do not: the note that
+question and the sign-off chips are not asked in the letter; they belong after the Mahalo, beside the profile ask (they follow the Mahalo since 30 Oct, R-357 part A: the story card sits under the thank-you with the quote question once after a first story, the title is a later visit's page (C-16), and the sign-off is a tap on the closing word and a section on the profile page). The timing of the consent words moves, the words do not: the note that
 testimony is public (for an email, the note that it goes from their own account and that a copy only they can see is kept) now sits
 under the letter, and "the Capitol posts it publicly" stays on the send screen; a lawyer should confirm the new timing. Measured by
 `tests/v2_letter.py`; v1's budgets stand until the flip.
@@ -1002,7 +1001,7 @@ synonym is a small tax on every reader; for people reading in a second language 
 
 Nate: "Instead of cards on the home page, it should be a full page similar to what someone would have experienced during
 onboarding. That should hold for any of the post onboarding asks we have of people." Home's asks to give or join (find
-my legislators, save your profile, new issues in a followed topic, the three moments, bring a friend, keep the tracker on
+my legislators, save your profile, add a title to your letters (version 2, after the profile ask: R-357 part A, 30 Oct 2026), new issues in a followed topic, the three moments, bring a friend, keep the tracker on
 your phone) are pages in the first visit's frame (`pub/nextask.js`), not Home cards. Exactly one may open on the first
 arrival of a new day, before Home, in that order, and only when the person opened the tracker itself: never on arrival
 from an alert, an email or a shared link (they came for that page), and never when testimony on something they follow is
