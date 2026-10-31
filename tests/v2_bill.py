@@ -200,7 +200,7 @@ with sync_playwright() as pw:
   # a phone, a bill with a hearing: the drawing first, the goal heading within the budget, the one button still in view
   c, p = at(390, 844, 'HB2300'); r = p.evaluate(ART)
   ok(r['has'] and r['first'] and r['kind'] in ('svg', 'img') and r['quiet'], f"the slide opens with a drawing (decorative: no alt, aria-hidden) ({r['kind']}, {r['cls']})")
-  ok(r['aTop'] < r['kTop'] and r['h'] == 96, f"it stands over the small line, 96px tall on a phone ({r['aTop']} < {r['kTop']}, {r['h']}px)")
+  ok(r['aTop'] < r['kTop'] and r['h'] == 88, f"it stands over the small line, 88px tall on a phone ({r['aTop']} < {r['kTop']}, {r['h']}px)")
   ok(r['h1top'] <= 320, f"A-1: the goal heading still starts within 320px at 390x844 ({r['h1top']}px)")
   ok(r['btnBottom'] <= r['tabTop'] and not r['tileShown'] and not r['wide'], f"the one button is above the tab bar and no second picture (the tile) is on the first screen ({r['btnBottom']} <= {r['tabTop']}, tile shown {r['tileShown']})")
   c.close()
