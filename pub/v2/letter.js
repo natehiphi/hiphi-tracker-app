@@ -148,17 +148,18 @@ function ownBox(x) {
     ${saved && x.why.trim() === saved.text ? `<span class="help" id="hp-why-help">${HP.whyHelp(x)}</span>` : ''}</div>`;
 }
 // The sign-off (R-357 part A; Nate 28 Oct: the sign-off moves out of the letter). The closing word is where the letter ends, so the choice
-// is there: a tap, styled as "change" is on the stance line, opens in place the ideas (v1's chips) and a small box for their own words.
+// is there: "change" beside it, drawn as the name's is, opens in place the ideas (v1's chips) and a small box for their own words.
 // A pick or a typed word is theirs from then on: written into the letter, kept on this device (the profile page's "How you sign off" reads
 // the same place). The default "Mahalo" is not kept as if they had written it. Empty words fall back to it.
-function signoff(x) {
-  const open = !!x.closeOpen, word = closingOf(x.closing) || 'Mahalo,';
-  const tap = btn(esc(word), { kind: 'text', sm: true, cls: 'v2-change v2-signoff', attrs: { 'data-hp': 'v2-closing', id: 'v2-closing', 'aria-expanded': String(open), 'aria-label': `${word} Change how you sign off` } });
-  if (!open) return `<p class="v2-closing">${tap}</p>`;
+// The critic's review (30 Oct): the word has a visible "change" beside it, as the name has (a bare underlined word was the only hint), and the
+// name stays directly under it; the ideas and the box open below both.
+const signoffLine = x => `<p class="v2-closing"><span class="v2-cw">${esc(closingOf(x.closing) || 'Mahalo,')}</span>${btn('change', { kind: 'text', sm: true, cls: 'v2-rename v2-signoff', attrs: { 'data-hp': 'v2-closing', id: 'v2-closing', 'aria-expanded': String(!!x.closeOpen), 'aria-label': `Change how you sign off. Now: ${closingOf(x.closing) || 'Mahalo,'}` } })}</p>`;
+function signoffOptions(x) {
+  if (!x.closeOpen) return '';
   const own = HP.CLOSINGS.includes(x.closing) ? '' : x.closing;
-  return `<p class="v2-closing">${tap}</p><div class="v2-closeopt" id="v2-closeopt" role="group" aria-label="How you sign off">
+  return `<div class="v2-closeopt" id="v2-closeopt" role="group" aria-label="How you sign off">
     <div class="hp-sugs v2-chips">${HP.CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="v2-closing-pick" data-v="${esc(c)}" aria-pressed="${x.closing === c}">${esc(c)}</button>`).join('')}</div>
-    <div class="field v2-closeown"><label for="v2-closing-own">Your own words</label>
+    <div class="field v2-closeown"><label for="v2-closing-own">Or type your own sign-off</label>
       <input id="v2-closing-own" type="text" maxlength="40" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Like Warmly" value="${esc(own)}"></div></div>`;
 }
 function letterScreen(x) {
@@ -175,7 +176,7 @@ function letterScreen(x) {
       ${ls}
       ${ownBox(x)}
       ${parts.ask ? `<p>${esc(parts.ask)}</p>` : ''}
-      <div class="v2-sign">${signoff(x)}${signed(x)}</div>
+      <div class="v2-sign">${signoffLine(x)}${signed(x)}${signoffOptions(x)}</div>
     </article>
     ${says}${HP.aboutNote(x)}`;
 }
@@ -336,7 +337,7 @@ V2.input = (e, t) => {
   }
   if (t.id === 'v2-closing-own') {   // typed as they go, like the name: the word on the letter follows the box
     setClosing(x, t.value);
-    const tap = dlg()?.querySelector('#v2-closing span'); if (tap) tap.textContent = closingOf(x.closing);
+    const word = dlg()?.querySelector('.v2-cw'); if (word) word.textContent = closingOf(x.closing);
     dlg()?.querySelectorAll('[data-hp="v2-closing-pick"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === x.closing)));
     return true;
   }

@@ -276,7 +276,7 @@ const pickerCss = () => { const l = document.querySelector('link[rel="stylesheet
 const titlePage = () => {
   if (!pickerCss()) return `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:240px"></div></div>`;
   return shell('title', VOICES, 'Add a title to your letters', 'A nurse, a parent, a small business owner: a title tells lawmakers who is writing. It goes next to your name.',
-    `<div class="nx-titlepick" id="nx-tp-host">${pickerHTML('nx-t', titleSt(), { legend: 'I’m a…', hint: 'Pick any that fit, or type your own.', quietLegend: true })}</div><div id="nx-t-msg"></div>`);
+    `<div class="nx-titlepick" id="nx-tp-host">${pickerHTML('nx-t', titleSt(), { legend: 'I’m a…', hint: 'Pick one or two that fit, or type your own.', quietLegend: true })}</div><div id="nx-t-msg"></div>`);
 };
 function wireTitle() {
   const host = document.getElementById('nx-tp-host'); if (!host) return;

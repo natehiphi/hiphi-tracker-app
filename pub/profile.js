@@ -329,13 +329,13 @@ function homeScreenNote() {
 function signoffBody() {
   const c = myClosing(), own = CLOSINGS.includes(c) ? '' : c;
   return `<p class="small muted" id="pf-so-h">Your letters end with “Mahalo” unless you pick another word. Your name goes under it.</p>
-    <div class="chips pf-so-chips" role="group" aria-labelledby="pf-signoff-t">${CLOSINGS.map(w => `<button type="button" class="chip" data-pf-so="${esc(w)}" aria-pressed="${c === w}">${esc(w)}</button>`).join('')}</div>
+    <div class="chips pf-so-chips" role="group" aria-labelledby="pf-signoff-t">${CLOSINGS.map(w => `<button type="button" class="chip" data-pf-so="${esc(w)}" aria-pressed="${(c || 'Mahalo') === w}">${esc(w)}</button>`).join('')}</div>
     <div class="field pf-f"><label for="pf-so-own">Your own words</label>
       <input id="pf-so-own" type="text" maxlength="40" value="${esc(own)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Like Warmly"></div>${status('pf-so-st')}`;
 }
 function wireSignoff() {
   const chips = document.querySelectorAll('[data-pf-so]'), own = $('#pf-so-own'); if (!chips.length || !own) return;
-  const show = c => chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pfSo === c)));
+  const show = c => chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pfSo === (c || 'Mahalo'))));   // nothing saved is the default the line names
   const save = w => saveProfile({ closing: w }).then(() => true, e => { flash('pf-so-st', friendly(e), true); return false; });
   const said = w => w ? `Saved. Your letters end with “${w}”.` : 'Saved. Your letters end with “Mahalo”.';
   chips.forEach(b => b.onclick = async () => { const w = b.dataset.pfSo; own.value = ''; show(w); if (await save(w)) { flash('pf-so-st', said(w)); announce(said(w)); } });
