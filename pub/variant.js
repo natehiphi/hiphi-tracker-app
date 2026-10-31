@@ -64,7 +64,9 @@
 // (the moment the versions differ on screen; a share test, every share) and each of its two measures once, within its
 // window of days. No identifier leaves the browser; it remembers itself what it already sent.
 import { DEMO, wiz, hstDay, SUPABASE_URL, SUPABASE_KEY } from './kernel.js';
-import { tlMark } from './testerlog.js';   // a tester's path (R-193): finished the first visit, gave a number or email
+// A tester's path (R-193): finished the first visit, gave a number or email. testerlog.js is not on the first wave (R-357 5c): pub/app.js loads it at
+// boot for a tester's link or session, so by the time anything is marked it has been read; with neither, there is no path to mark.
+const tlMark = k => { import('./testerlog.js').then(m => m.tlMark(k)).catch(() => {}); };
 
 // goal, goal2: [event, days]: the event that is the measure, and within how many days of meeting the test (0: any time).
 export const TESTS = {

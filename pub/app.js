@@ -11,9 +11,14 @@ if (window.__hiphiErrs) window.__hiphiErrs.ran = true;   // track.html's 20-seco
 app.onAct = VL.logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
 // Counts wait for the first screen (R-357 5c): visitlog.js is a small shell; pub/visitlog-send.js sends and loads after it (firstScreenDone).
 VL.holdCounts?.();
-// testerlog.js only changes the sandbox's band, so only the sandbox asks for it here (variant.js still imports it: first wave until that is lazy too).
+// testerlog.js changes the sandbox's band and starts a tester's session when it is evaluated, so it is asked for here only by the sandbox, by a
+// tester's link (?t=, ?ab=, ?end=, ?fv=, ?rank=) or by a tab that already has a session (sessionStorage hiphi_tester*): off the first wave for everyone else (R-357 5c).
+const testerWanted = () => { try {
+  const q = new URLSearchParams(location.search); if (['t', 'ab', 'end', 'fv', 'rank'].some(k => q.has(k))) return true;
+  for (let i = 0; i < sessionStorage.length; i++) if ((sessionStorage.key(i) || '').startsWith('hiphi_tester')) return true;
+} catch { /* no storage: no session to carry on */ } return false; };
 let testerMod = null;
-const testerP = DEMO ? import('./testerlog.js').then(m => (testerMod = m)).catch(() => {}) : null;
+const testerP = DEMO || testerWanted() ? import('./testerlog.js').then(m => (testerMod = m)).catch(() => {}) : null;
 
 // Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
 // Find, People or More; a returning person's carries Home and not the first visit and its lessons (track.html preloads
