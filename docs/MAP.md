@@ -387,18 +387,21 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   for a letter started) and otherwise open today's walkthrough. Home does not import `pub/v2/slide.js` (a static import would put it in
   Home's tree, which `check_split.mjs` rule 5 wants named in `track.html`); it already holds the same day words. Tests:
   `tests/v2_home.py`, and the version 2 set (three people, phone and laptop) in `tests/home_calm.py`.
-- **The first visit, in eight taps (Part 4; "seven taps" up to the profile ask).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
+- **The first visit, in nine taps (Part 4; "eight taps" up to the profile ask; two teaching screens since 31 Oct, pK).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
   flow: `FLOW_V2 = ['topics', 'issues', 'voice', 'alerts']` after the welcome, and `FLOW_LINK_V2 = ['followask', 'alerts']` for a shared
   bill's visit; past the last step is Home (`goStep`/`wire` call `finish()`). Welcome and topics are unchanged; Your issues starts two
   ticked per topic, at least one (`model2` in `start-rest.js`), under the line "The two most active under each topic are ticked; change
-  them as you like."; then `stepWhy` (`start-rest.js`; the step the private counts know as `voice`, so no migration), "Why your note
-  counts": the VOICES drawing from `art.js`, two sentences, two plain rows (testimony; an email to the committee chair, each with its
-  time) and Next, seen once (`wiz().why`, so "Edit my issues" does not teach twice); then the profile ask as today (`alerts.js`,
+  them as you like."; then two short teaching screens (`stepWhy(step, k)` over `WHY_SCREENS` in `start-rest.js`; Nate 31 Oct: "it can
+  be improved", his pick "two short screens", Draft A without examples): `voice`, "Testimony: your words on the record" (the VOICES
+  drawing), and `chair`, "An email to the chair" (the CAPITOL drawing), each two sentences, one time line and Next, under 30 words, no
+  question and no Skip; one column on a phone, words left and drawing right on a laptop (`body.st-onecol`); the private counts know
+  both as `voice` (the second with `lesson_step` 2: `COUNTED_AS` in `start.js`; no migration); seen once (`wiz().why`, set by the
+  second screen's Next, so "Edit my issues" does not teach twice); then the profile ask as today (`alerts.js`,
   unchanged). Its Mahalo is the same cover (`coverAndFold`, which hands `end: true` to `coverEnd`): no band to fold into because Home
-  comes next, so it plays, then holds still with the button "See How I Can Help" (`GO_HELP`, the eighth tap) until it is pressed (Enter
+  comes next, so it plays, then holds still with the button "See How I Can Help" (`GO_HELP`, the ninth tap) until it is pressed (Enter
   or Space too; the page under it is inert, Reduce Motion shows it without animation), draws Home, and fades off it. `COVER_END_MS` (0)
   is the one-line switch to a cover that moves on by itself after that many milliseconds (2800 was tried), which Nate may choose at his
-  check: then the visit is 7 taps again. The story, "This Year and Next" and "You're all set" are not in the v2 visit (v1 keeps them).
+  check: then the visit is 8 taps again. The story, "This Year and Next" and "You're all set" are not in the v2 visit (v1 keeps them).
   The first visit's pages have no `body.v2` or v2.css (`app.js` leaves `FIRST_VISIT` routes out), so v2's first-visit rules are at the
   end of `pub/start.css`. Test: `tests/v2_first_visit.py`.
 - **The story card (Part 4).** `storyCard()` in `pub/v2/story.js` -> `{ html, wire }`, no side effects on import: a card Home draws for a

@@ -500,7 +500,7 @@ anything that lengthens one needs a reason in the commit message.
 | Journey | Budget |
 |---|---|
 | Public: arrive → follow a first issue | 3 steps |
-| Public: first visit, welcome to Home (version 2, `?v2=1`) | 8 taps (R-357 part 4, Nate's pick 30 Oct 2026, "the first visit in seven taps" counting up to the profile ask: Let's begin, a topic, a second topic, Next, Follow N issues, Next on "Why your note counts", Skip this part on the profile ask (or the number's own steps), and the eighth, See How I Can Help on the Mahalo cover, which holds still until it is pressed: a button that leaves on a timer is a control that does not look like what it does, A-12, and every version's visit ends on that button, R-190). Version 1's is 14 taps and about 1,450 words (the newcomer walk). `tests/v2_first_visit.py` and `tests/journeys.py` count them. If Nate chooses the cover that moves on by itself at his check (`COVER_END_MS` in `pub/start-rest.js`), the count is 7 again) |
+| Public: first visit, welcome to Home (version 2, `?v2=1`) | 9 taps (R-357 part 4, Nate's pick 30 Oct 2026, "the first visit in seven taps" counting up to the profile ask, plus one since 31 Oct for the second teaching screen, his pick: Let's begin, a topic, a second topic, Next, Follow N issues, Next on "Testimony: your words on the record", Next on "An email to the chair", Skip this part on the profile ask (or the number's own steps), and the ninth, See How I Can Help on the Mahalo cover, which holds still until it is pressed: a button that leaves on a timer is a control that does not look like what it does, A-12, and every version's visit ends on that button, R-190). Version 1's is 14 taps and about 1,450 words (the newcomer walk). `tests/v2_first_visit.py` and `tests/journeys.py` count them. If Nate chooses the cover that moves on by itself at his check (`COVER_END_MS` in `pub/start-rest.js`), the count is 7 again) |
 | Public: arrive → understand what one bill does | 3 steps |
 | Public: decide to act → testimony sent, first time | 9 steps (R-068, 9/27: testimony became the main action; the Capitol account and its form are steps nobody can remove, so the walkthrough makes each one a single question. 9/28: "Get to know the bill" with its talking points took the town field's place, so still 9) |
 | Public: testimony sent again on the same bill (its letter kept from an earlier hearing) | 6 steps (R-148, 10/4: Send my letter again, Next on "Where do you stand?" with their answer chosen (R-167, 10/5), Use my letter, read it and Next, copy it and open the Capitol page, I saw the green box. The account step never shows again. "Update my letter" puts the bill step and About you back, as the main button only when staff marked the new draft as changing what people should say or HIPHI's position moved) |
@@ -926,9 +926,9 @@ matter or drop the question. A quiz that checks a lesson is not covered. (Added 
 **Nate may waive it case by case.** A question that stays without a visible effect needs his yes, recorded
 as an exception in `DESIGN-AUDIT.md` with the reason and date. Without that, it is a defect.
 
-**Version 2's teaching screen asks no question (R-357 part 4, Nate 30 Oct 2026: "no quiz").** "Why your note counts" stands between Your issues and
-the profile ask: one drawing, two sentences, two plain rows (testimony, an email to the committee chair, each with its time) and one button,
-Next. It teaches that a note counts and what the two ways to send one are, and it checks nothing, so C-13 has nothing to cover. Version 1's
+**Version 2's teaching screens ask no question (R-357 part 4, Nate 30 Oct 2026: "no quiz"; two screens since 31 Oct, his pick).** "Testimony: your
+words on the record" and "An email to the chair" stand between Your issues and the profile ask: each one drawing, two sentences, one time line
+(spelled out: "About 10 minutes the first time, then about 3." and "About 2 minutes.", the C-15 promise in words) and one button, Next. It teaches that a note counts and what the two ways to send one are, and it checks nothing, so C-13 has nothing to cover. Version 1's
 story keeps its two choices (they change what the next page says, which is what C-13 asks).
 
 *Reason.* Every question is a place to stop (C-5), and people answer more willingly when they can see the
