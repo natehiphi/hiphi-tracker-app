@@ -28,7 +28,7 @@ import { S, DB, SESSION_OVER, esc, advocate, hooks, seesTeam } from './data.js';
 import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk, partnersLine } from './today.js';
 import { billRoute, billById, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar, faceLead } from './ui.js';
-import { billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, status, leftSoon, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
+import { statusLine, stepTime, billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, status, leftSoon, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
 import { plainCodes } from './terms.js';
 import { dropVerb, actIcon, jobKind } from './verbs.js';   // R-344: one verb per row (A-25); R-352: the kind of job's icon
@@ -110,8 +110,7 @@ const noOwnBtn = b => S.me?.is_admin ? giveBtn(b) : takeBtn(b);
 // A teammate's step says the team's time, "by …" (steps.js actBy's hand-on time, the one Today, Testimony and Hearings give;
 // the Capitol's own time is in the open item). Late, overdue and due today say steps.js status()'s one wording for that
 // state (R-352 wave 2: "Late, still accepted until 1:10 PM today", "2 days overdue", "Due today 10:00 AM, in 59 min").
-const actTime = a => !a || a.kind === 'none' ? '' : a.kind === 'hand' ? `by ${a.time}${leftSoon(a.at)}` : a.kind === 'late' ? lateLine(a.until, { lower: true })
-  : a.kind === 'overdue' ? lc(status({ due: a.due }).words) : lc(status({ due: a.at }).words);
+// Decision 9: every time here comes from steps.js stepTime / statusLine, the one wording ("by 7:30 AM (team cut-off)", "due 9:30 AM (Capitol)").
 // R-352 (A-18 on v6): Team's list mixes kinds of job, so each row's line carries one small neutral icon for its kind (the
 // job's own icon, verbs.js), except where its time is the news: overdue (the alert), late (the alarm clock) and due today
 // (the clock), by A-5 on v6. The face before the name says whose it is.
@@ -130,7 +129,7 @@ function stepWords(s) {
     }
     return s.line;
   }
-  return [othersWords(s), actTime(s.act)].filter(Boolean).join(' · ');
+  return statusLine(s);
 }
 function slipping() {
   let sl; try { sl = slipList(); } catch (e) { console.error(e); return []; }
@@ -172,7 +171,7 @@ function slipping() {
   // A bill's second row starts with its step's name, so a to-do and an approval on HB 1523 never read as one row twice.
   const seen = new Set();
   for (const x of out) {
-    if (seen.has(x.b.id)) x.line = x.s?.state ? [STEP_NAME[x.s.kind] || x.s.state.word, x.s.you ? actTime(x.s.act) : x.line].filter(Boolean).join(' · ') : `To-do · ${x.line}`;
+    if (seen.has(x.b.id)) x.line = x.s?.state ? [STEP_NAME[x.s.kind] || x.s.state.word, x.s.you ? stepTime(x.s) : x.line].filter(Boolean).join(' · ') : `To-do · ${x.line}`;
     seen.add(x.b.id);
   }
   return out;
@@ -231,7 +230,7 @@ function riskRow(x) {
   // R-344 (A-25): the owner's face leads the row and "Alert James" names them, so "· James owns it" goes; yours and an
   // unowned one keep their words.
   const whose = !x.owner ? NO_OWNER : x.owner === S.me?.id ? 'You own it' : '';
-  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ask ${chair} by ${dayWords(x.a.by)}${whose ? ` · ${whose}` : ''}`)), icon: actIcon('chair'), href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
+  return itemRow({ key, name: nameWords(x.b), num: numWords(x.b), line: nw(esc(`Hearing at risk: ${x.a.words[0].toLowerCase()}${x.a.words.slice(1)}${whose ? ` · ${whose}` : ''}`)), icon: actIcon('chair'), href: billRoute(x.b), button, cls: wideCls(button) + ' v6-face-row', lead: faceLead(x.owner ? [x.owner] : []) });
 }
 
 // ---- today's and tomorrow's hearings (D5): a plain schedule ----
@@ -265,7 +264,7 @@ const NOBODY_STEP = { nodraft: 'Make the draft', write: 'Send testimony for appr
   approve: 'Approve testimony', second: 'Second look', file: 'File testimony' };
 const nobodyLine = s => { const u = unheld(s);
   if (!s?.state || !NOBODY_STEP[s.kind] || ['missed', 'filed'].includes(s.state.key) || s.off) return u;
-  return `${NOBODY_STEP[s.kind]} · ${s.kind === 'nodraft' && /^due /i.test(u) ? 'testimony ' : ''}${lc(u)}`; };
+  return statusLine(s, { who: false }); };   // the list's title says no one holds it; the state and time are the one status line
 const nobodyRow = (x, { button = noOwnBtn(x.b) } = {}) => billRow(x.b, { viewer: S.me, step: { ...x.s, mine: false }, line: nw(esc(nobodyLine(x.s))), button, cls: 'tm6-r' });
 
 // ---- Who is on what: everything each person holds, each step counted once ----

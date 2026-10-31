@@ -438,3 +438,12 @@ body.staff6 .ut-page .bw-sec > p { font-size: var(--v6-t16); line-height: var(--
   .bl-memo li { margin: 6px 0; }
 }
 @media (prefers-reduced-motion: reduce) { dialog.sv-sheet.bl-fsheet, .bl-fs .bl-fold .chev, .bl-twrap::after { transition: none; } }
+
+/* R-356 round 3: under 768px the Mine | My coalitions | Team choice is the Filter sheet's first group */
+body.staff6 .bl-fwhoh { margin: 0 0 4px; font: 600 var(--v6-t14)/var(--v6-lh14, 20px) var(--font); color: var(--v6-muted); }
+body.staff6 .bl-fwho { margin-bottom: 16px; }
+
+/* R-356 round 3 (D16, A-14): the folded groups (Monitoring, Did not advance) are quieter than the open ones: a smaller heading
+   in the body face, the count in the small number style beside it. Their fold behaves as before. */
+.bl-gh:has(> .bl-ghb) { font: 600 var(--v6-t16)/1.2 Lato, system-ui, sans-serif; color: var(--v6-muted); letter-spacing: 0; }
+.bl-gh:has(> .bl-ghb) .bl-gn { font: 400 var(--v6-t14)/1 Lato, system-ui, sans-serif; font-variant-numeric: tabular-nums; }

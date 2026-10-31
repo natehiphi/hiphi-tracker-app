@@ -70,15 +70,24 @@ export const showMutedTab = () => (S.mutes?.size || 0) > 0 || canSort();
 // "Bills", a word that would now sit right under the Bills tab, so this row says "By stage". Same markup as ui.js sectionNav
 // (so selectors and the phone's sideways row work), with a class of its own for the smaller type (staff.css .bl-subtabs).
 // `right` is the page's own controls (the scope switch) and sits on the sub-tabs' line; `sub` is a line of words under them.
+// R-356 round 3 (Nate 31 Oct, A-1/A-14): "Your bills · 35" stood as a line of its own between this row and the search box. The
+// count is now the By stage tab's small number, set by bills.js each time it draws (and read again whenever the row is
+// drawn alone, refreshTabs), so Bills has the Issues tabs, this row, one toolbar and then the first bill.
+let COUNT = null, SAY = '';
+export const setBillsCount = (n, say = '') => { COUNT = n == null ? null : n; SAY = say; };
 function subTabs(cur, hide, counts) {
   const shown = SECTION_TABS('bills').filter(t => !hide.includes(t.key));
   return `<nav class="sv-tabrow sv-secnav bl-subtabs" aria-label="Bills">${shown.map(t => { const l = t.key === 'bills' ? 'By stage' : t.label;
-    return `<a href="${t.href}"${t.key === cur ? ' aria-current="page"' : ''}><span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>${counts[t.key] ? ` <span class="sv-tn">${esc(counts[t.key])}</span>` : ''}</a>`; }).join('')}</nav>`;
+    return `<a href="${t.href}"${t.key === cur ? ' aria-current="page"' : ''}><span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>${counts[t.key] ? ` <span class="sv-tn">${esc(counts[t.key])}</span>` : ''}${t.key === 'bills' && counts.bills ? `<span class="sr">, ${esc(counts.bills)} ${esc(SAY || 'bills')}</span>` : ''}</a>`; }).join('')}</nav>`;
 }
+// Which of the three pages the row would hold, for bills.js: with only By stage the row is left out and the count has no tab
+// to sit on, so Bills says it in a line as before.
+const hidden = cur => [showSortTab() || cur === 'new' ? null : 'new', showMutedTab() || cur === 'muted' ? null : 'muted'].filter(Boolean);
+export const subTabsShown = cur => hidden(cur).length < 2;
 export function billsHead(cur, { right = '', sub = '' } = {}) {
-  const hide = [showSortTab() || cur === 'new' ? null : 'new', showMutedTab() || cur === 'muted' ? null : 'muted'].filter(Boolean);
+  const hide = hidden(cur);
   // On Sort new bills itself the number is the page's headline, so the tab does not say it a second time (A-14).
-  const c = sortCount(), counts = { ...(c?.n && cur !== 'new' ? { new: `${c.n.toLocaleString()}${c.capped ? '+' : ''}` } : {}), ...(S.mutes?.size ? { muted: S.mutes.size } : {}) };
+  const c = sortCount(), counts = { ...(cur === 'bills' && COUNT != null ? { bills: COUNT.toLocaleString() } : {}), ...(c?.n && cur !== 'new' ? { new: `${c.n.toLocaleString()}${c.capped ? '+' : ''}` } : {}), ...(S.mutes?.size ? { muted: S.mutes.size } : {}) };
   // A row with one tab in it says nothing, so it is left out.
   const tabs = hide.length < 2 ? subTabs(cur === 'new' || cur === 'muted' ? cur : 'bills', hide, counts) : '';
   return `<div class="bl-head">${headHTML('bills')}${sub ? `<div class="bl-hsub"><p>${sub}</p></div>` : ''}${tabs || right ? `<div class="bl-hrow">${tabs}${right ? `<div class="bl-hright">${right}</div>` : ''}</div>` : ''}</div>`;

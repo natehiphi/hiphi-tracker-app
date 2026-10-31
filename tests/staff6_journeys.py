@@ -165,7 +165,7 @@ JOURNEYS = [
     [Step('Resubmit', in_view=True)], needs=('#/',)),
   J('ask-chair', 'Ask a chair for a hearing and record it (Kevin), from Today', 'KV', 2,
     [Step(r'^\s*Email the chairs?\b', in_view=True), Step('Yes, I sent it')], r'asked|Saved',
-    [Step(r'^\s*Email the chairs?\b', in_view=True), Step('Yes, I sent it')], needs=('#/',)),
+    [Step(r'^\s*Email the chairs?\b', in_view=True), Step('Yes, I sent it')], extra=L.KEVIN_DAY, needs=('#/',)),   # R-356 round 3: the button is in Do today once the ask-by day is within a week (Wed 3/18: Wed 3/25)
   # v6's practice copy seeds a chair ask with no reply for 4 days (spec 6, V33): its Follow up row is on Today. v5 had no
   # seeded ask, so its path asks first (not counted) and then records the reply from This week's deadline box.
   J('record-reply', "Record the chair's reply (Kevin), from Today", 'KV', 2,
@@ -270,7 +270,7 @@ def doors(b, who, w, h):
       pg.nav(par)
       if pg.page.evaluate(INMAIN, name): out[p] = 1 if par == '/' else 2; pg.nav('/'); continue
       pg.nav('/')
-    if not V5 and (L.PHONE(w) or name.lower() in VIA_MORE):
+    if not V5 and (L.PHONE(w) or name.lower() in VIA_MORE or (name == 'Lists' and who not in TEAM_SEERS)):   # decision 6: staff have no Outreach tabs, so Lists is More's row for them
       if more is None:
         pg.nav('/more'); more = pg.page.evaluate("() => [...document.querySelectorAll('main a[href], main button')].filter(e => e.getClientRects().length).map(e => (e.innerText || '').trim().split('\\n')[0].toLowerCase())"); pg.nav('/')
       if name.lower() in more and pg.page.evaluate(FRAME, 'More'): out[p] = 2; continue
@@ -343,7 +343,7 @@ KEYBOARD = [   # (key, name, who, steps, done, extra, size)
   ('file', 'File testimony (Kevin), from Today', 'KV',
    [Step(FILE_ROW), Step(*FILE_BTN.names), Step(r'^\s*Mark filed')], FILE_DONE, '', (1440, 900)),
   ('ask-chair', 'Ask a chair for a hearing and record it (Kevin), from Today', 'KV',
-   [Step(r'^\s*Email the chairs?\b'), Step(r'^\s*Yes, I sent it')], r'asked|Saved', '', (1440, 900)),
+   [Step(r'^\s*Email the chairs?\b'), Step(r'^\s*Yes, I sent it')], r'asked|Saved', L.KEVIN_DAY, (1440, 900)),
 ]
 
 def keyboard(b, R, only):
@@ -498,6 +498,12 @@ def zoom(b, R, only):
     # The week calendar's other days at 640px (R-342's phone view, one day at a time, on Today's page since R-346): their
     # controls are one tap away on the day buttons ([data-hcpick]), as a day is on Hearings, so they count as on the page.
     zoomed += pg.page.evaluate(CONTROLS.replace("main a[href], main button, main input:not([type=hidden]), main select, main textarea, main [role=tab], main [role=switch]", ".hc-cal:has([data-hcpick]) .hc-day:not(.on) a[href]").replace("e.getClientRects().length && ", ""))
+    # Decision 10: under 768px a control can sit inside the Filter sheet (Bills' "Select bills" is in its foot), so open the sheet and count what is in it
+    fb = pg.page.query_selector('.sv-filter')
+    if fb and fb.is_visible():
+      fb.click(); pg.page.wait_for_timeout(400)
+      zoomed += [[t.strip().lower(), '', '', ''] for t in pg.page.evaluate("() => [...document.querySelectorAll('dialog[open] button, [role=dialog] button, .sheet button, [data-fselect], [data-fdone], [data-fclear]')].map(e => (e.innerText || e.getAttribute('aria-label') || '').replace(/\\s+/g, ' '))") if t.strip()]
+      pg.page.keyboard.press('Escape')
     back = pg.page.evaluate("() => !![...document.querySelectorAll('a[data-back], .sv-back')].find(e => e.getClientRects().length)")
     heads = pg.page.evaluate(HEADS)
     # Today's week strip (R-346, the side column from 1100px): each day goes to its column in the week section of the

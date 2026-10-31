@@ -256,7 +256,7 @@ function indexBody(v) {
 }
 const index = {
   tab: 'myissues',   // All issues is the third tab of My issues
-  title: route => prepTitle(route) || fvTitle(route) || 'All issues',
+  title: route => prepTitle(route) || fvTitle(route) || 'Issues · All issues',
   back: route => prepView(route) ? { href: '#/issues/all', label: 'All issues' } : fvBack(route),
   narrow: route => fvView(route) === 'links',
   render(route) {

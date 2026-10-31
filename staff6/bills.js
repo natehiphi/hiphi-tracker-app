@@ -34,7 +34,7 @@ import { offTag, teamName, teamFirst, newOwnerTag, FACTS } from './model.js';   
 import { GROUPS, groupKey, stanceMark } from './standing.js';
 import { billStep, billRow, listDetail, nameWords, numWords, dayWords, committeeName, whereWords, deadlineWords, nw, wireSteps } from './steps.js';
 import { openItem, closeBtn, aboutBill } from './billpane.js';
-import { billsHead, loadSortCount, refreshTabs } from './billshead.js';
+import { billsHead, loadSortCount, refreshTabs, setBillsCount, subTabsShown } from './billshead.js';
 import { issuesOfBill } from './issues.js';
 import { issueLead } from './issuestand.js';   // R-352 D: each row's issue tile
 
@@ -190,15 +190,24 @@ function scopeSwitch() {
 function scopeWords(q, n) {
   const v = bl(), mine = v.scope === 'coal' ? 'Your coalitions’ bills' : 'Your bills';
   const total = baseBills().length, rest = Math.max(0, baseBills('all').length - total);
-  return `<p class="bl-sum bl-scope">${mine} · ${total.toLocaleString()}</p>${rest ? `<p class="bl-sum bl-scope-more">The team tracks ${rest.toLocaleString()} more · search finds any bill</p>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span>`;
+  // With the sub-tab row on the page the count is the By stage tab's number (billshead.js); the line stays only when that row is not drawn
+  return `${subTabsShown('bills') ? '' : `<p class="bl-sum bl-scope">${mine} · ${total.toLocaleString()}</p>`}${rest ? `<p class="bl-sum bl-scope-more">The team tracks ${rest.toLocaleString()} more · search finds any bill</p>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span>`;
 }
 const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
+// Under 768px the toolbar is one row (R-356 round 3): Select moves into the Filter sheet's foot.
+// With the switch in the sheet on a phone, the button says the scope when it is not Mine ("Filter · Team"): nothing hidden.
+const whoseList = () => { const l = scopeOpts().filter(([k]) => k !== 'all' || seesTeam()); return l.length > 1 && selInFilter() ? l : null; };
+function filterBtnW(n) {
+  const sc = whoseList() && bl().scope !== 'me' ? (whoseList().find(x => x[0] === bl().scope) || [])[1] : '';
+  return filterBtn(n, { 'data-filter': '', ...(sc ? { 'aria-label': `Filter, ${sc}` } : {}) }).replace('<span>Filter</span>', `<span>Filter${sc ? ` · ${esc(sc)}` : ''}</span>`);
+}
+const selInFilter = () => matchMedia('(max-width: 767.98px)').matches;
 function toolbar() {
   const v = bl(), n = activeFilters().length, wide = wideNow(), tbl = tableOn(), mode = viewMode();
   const box = `<div class="searchbox bl-search"><label class="sr" for="bl-q">Find a bill by name or number</label>${icon('search')}<input id="bl-q" class="input" type="search" placeholder="Find a bill by name or number" value="${esc(v.q)}" autocomplete="off" enterkeyhint="search">${iconBtn('x', 'Clear the box', { 'data-qclear': '1', hidden: !v.q })}</div>`;
   // Nothing to pick or lay out in an empty list: Select and Rows | Table wait for bills (Jess's empty Mine, A-24).
-  const has = shownBills().length > 0, sel = v.selecting || !has ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
+  const has = shownBills().length > 0, sel = v.selecting || !has || selInFilter() ? '' : `<span class="bl-tsel">${selectBtn()}</span>`;
   // The spreadsheet's three tools (F88, F92): Columns, Export (a file) and Copy (R-336: "copy out to Excel / Google Sheets",
   // pasted straight in). No Edit mode: a team cell is a button that opens its picker, so editing needs no mode to enter.
   const tools = tbl && switchNow() ? `<span class="bl-ttools">${btn('Columns', { kind: 'text', sm: true, icon: 'columns-3', attrs: { 'data-cols': '1', 'aria-haspopup': 'dialog' } })}${btn('Export', { kind: 'text', sm: true, icon: 'download', attrs: { 'data-export': '1', title: 'These bills, with your filters, as a spreadsheet file' } })}${btn(COPY_LABEL, { kind: 'text', sm: true, icon: 'copy', attrs: { 'data-copy': '1', title: 'The rows and columns shown, ready to paste into Google Sheets or Excel' } })}</span>` : '';
@@ -207,7 +216,7 @@ function toolbar() {
     : iconBtn('ellipsis', 'Show as a spreadsheet, or export', { 'data-blmenu': '1', 'aria-haspopup': 'dialog' });
   // R-352 (D): Mine | Team leads the toolbar row, at its left under the tabs, as on Hearings and Legislators (it sat at the
   // title's right); a phone gives it a row of its own at its own compact width, the box and Filter under it.
-  return `<div class="bl-tools" role="group" aria-label="This list"><div class="bl-whose">${scopeSwitch()}</div>${box}${filterBtn(n, { 'data-filter': '' })}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
+  return `<div class="bl-tools" role="group" aria-label="This list"><div class="bl-whose">${selInFilter() ? '' : scopeSwitch()}</div>${box}${filterBtnW(n)}${sel}<span class="bl-sp"></span>${tools}${sw}</div>`;
 }
 let BACK_AT = 0;   // when the browser's Back (or the top bar's) last landed, for the focus above
 if (typeof addEventListener === 'function') addEventListener('popstate', () => { BACK_AT = Date.now(); });
@@ -294,9 +303,9 @@ function rowsView(groups) {
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
   const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: issueSlot(b) }), b, { twins });
-  // A phone's toolbar holds the filter box and Filter only; Select (F91: a visible tonal button) sits at the right of the
-  // first group's heading, where a list's Select usually is on a phone (CSS shows it below 768px only).
-  const selBtn = pick ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
+  // A phone's toolbar holds the filter box and Filter only; Select (F91) is in the Filter sheet's foot there (R-356 round 3: one
+  // row of controls above the first group), and a long press on a row still starts picking.
+  const selBtn = pick && !selInFilter() ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';
   const html = groups.map((g, i) => `<section class="bl-grp" aria-labelledby="bl-g-${g.k}">${i === 0 && selBtn ? `<div class="bl-ghbar">${groupHead(g)}${selBtn}</div>` : groupHead(g)}${g.open ? `<div class="v6-list" role="list" aria-labelledby="bl-g-${g.k}">${g.shown.map(b => rowOf(b, g)).join('')}</div>${moreRows(g) ? `<div class="bl-more">${moreRows(g)}</div>` : ''}` : ''}</section>`).join('');
   if (!pick) return `<div class="bl-groups bl-selecting">${html}</div>${keysHint()}`;
   const b = v.look ? S.bills.find(x => x.id === v.look) : null;
@@ -395,7 +404,7 @@ const timeFirst = (what, when) => `${nw(esc(cap(when)))} · ${nw(esc(what))}`;
 const WHEN_AT = /(?:^|\s)(?:due|by|until) ((?:today|tomorrow|(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b|\d{1,2}:\d\d).*)$/;
 function compactLine(line) {
   const m = WHEN_AT.exec(line); if (!m) return null;
-  let what = line.slice(0, m.index).replace(/\s*·\s*$/, '').trim(), when = m[1];
+  let what = line.slice(0, m.index).replace(/[\s,·]+$/, '').trim(), when = m[1];   // the line is now "<state> · <flag>, due …" (steps.js statusLine)
   if (/late, still accepted$/.test(what)) { what = what.replace(/\s*·?\s*late, still accepted$/, ''); when = `late, until ${when}`; }
   return what ? timeFirst(what, when) : null;
 }
@@ -860,7 +869,7 @@ function arrival(route) {
 
 export default {
   tab: 'bills',
-  title: r => r.muted ? 'Muted bills' : 'Bills',
+  title: r => r.muted ? 'Muted bills' : 'Issues · Bills',
   wide: r => !r.muted,
   narrow: r => !!r.muted,
   render(route) {
@@ -873,6 +882,7 @@ export default {
     v.lastMuted = false;
     this._after = arrival(route);
     const p = parts();
+    setBillsCount(baseBills().length, { me: 'of your bills', coal: 'bills in your coalitions' }[v.scope] || 'bills of the team');
     return `<div class="bl-page ${tableOn() ? 'bl-tablev' : 'bl-rowsv'}${v.look && !tableOn() ? ' bl-itemopen' : ''}">${billsHead('bills')}<div id="bl-lead">${p.lead}</div>
       <div class="bl-stick">${toolbar()}<div id="bl-chips">${p.chips}</div></div><div id="bl-dyn">${p.body}</div></div>`;
   },
@@ -908,7 +918,7 @@ export default {
     qi.oninput = () => { v.q = qi.value; v.folds = {}; qx.hidden = !qi.value; repaintDyn(); };
     qi.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); qi.blur(); } if (e.key === 'Escape' && qi.value) { e.stopPropagation(); qi.value = ''; qi.oninput(); } };
     qx.onclick = () => { qi.value = ''; qi.oninput(); qi.focus(); };
-    page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget);
+    page.querySelector('[data-filter]').onclick = e => openFilters(e.currentTarget, selInFilter() ? { onSelect: () => { v.look = null; startSelect(); }, ...(whoseList() ? { whose: { list: whoseList(), value: v.scope, pick: val => { if (v.scope === val) return; v.scope = val; v.look = null; changed(); repaint('[data-filter]'); } } } : {}) } : {});
     const cols = page.querySelector('[data-cols]'); if (cols) cols.onclick = e => columnsSheet(e.currentTarget);
     const cp = page.querySelector('[data-copy]'); if (cp) cp.onclick = () => copySheet();
     const ex = page.querySelector('[data-export]'); if (ex) ex.onclick = () => exportSheet();

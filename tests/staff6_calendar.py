@@ -1,7 +1,8 @@
 # Staff v6: Hearings > This week as a calendar (R-336, Nate 25 Oct walk 1: "There still needs to be a calendar view that's
 # easily apparent and accessible"). R-352 (Nate 27 Oct): Hearings is the calendar's one home (B-13 on v6), with an issue
 # filter (the All issues calendar's job) and old calendar addresses' words (who=, day=) read; the view is one plain link on
-# the date line, "See as calendar" / "See as list", never a second pill beside Mine | Team (A-12 on v6). Remembered per
+# the Filter button's sheet ("Show the week as" A list / A calendar; R-356 round 3, one row of controls: it was a link on the
+# date line), never a second pill beside Mine | Team (A-12 on v6). Remembered per
 # person and reachable by address (#/hearings/week?view=cal); Monday to Friday as five columns on a laptop, one day at a time with day buttons on a phone;
 # hearings, testimony due times, Capitol deadlines and the person's own dated to-dos in each day. On the practice copy
 # (Mon 16 Mar 2026).
@@ -20,16 +21,22 @@ def overflow(pg): return pg.page.evaluate('document.documentElement.scrollWidth 
 with L.browser() as B:
   # ---- the way to the calendar is in sight on This week, List first for someone who never picked ----
   pg = B.page('NT', 1440, 900); pg.open('/hearings/week')
-  sw = pg.page.query_selector('.hw-nav a.hw-view[data-hwview="cal"]')
-  R.check('This week\'s date line says "See as calendar"', bool(sw) and sw.is_visible() and 'See as calendar' in sw.inner_text())
+  fb = pg.page.query_selector('.hw-bar [data-hwfilter]')
+  R.check('This week has one Filter button, and no "See as calendar" link on the date line (R-356 round 3)', bool(fb) and fb.is_visible() and 'Filter' in fb.inner_text() and not pg.page.query_selector('a.hw-view'))
+  def show_as(v):
+    pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pview]'); pg.page.click(f'[data-pview="{v}"]'); pg.ready()
   R.check('one switch on the page: Mine | Team only, no List | Calendar pill (A-12 on v6)', pg.page.evaluate("document.querySelectorAll('.hw-bar .sv-seg').length") == 1 and not pg.page.query_selector('[data-seg="hview"]'))
   R.check('List is the view for someone who never picked', not pg.page.query_selector('.hc-cal'))
-  R.check('an "All issues" picker beside the scope (R-352)', 'All issues' in pg.text('.hw-bar .sv-pick[data-hwiss]'))
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pv="all"]')
+  R.check('the Filter sheet holds the issues, All issues first, and the two ways to see the week (R-352, R-356 round 3)', pg.page.evaluate("document.querySelector('[data-pv=\"all\"]').getAttribute('aria-checked')") == 'true' and bool(pg.page.query_selector('[data-pview="cal"]')) and bool(pg.page.query_selector('[data-pview="list"]')))
+  pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
   # ---- picking Calendar: five day columns ----
-  sw.click(); pg.ready()
+  show_as('cal')
   R.check('Calendar shows five day columns on a laptop', pg.page.evaluate(COLS) == 5, pg.page.evaluate(COLS))
   R.check('the address says view=cal', 'view=cal' in pg.hash(), pg.hash())
-  R.check('the calendar\'s date line says "See as list"', 'See as list' in pg.text('.hw-nav a.hw-view'))
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pview]')
+  R.check('the calendar\'s Filter sheet says A calendar is the one picked', pg.page.evaluate("document.querySelector('[data-pview=\"cal\"]').getAttribute('aria-checked')") == 'true')
+  pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
   mon = day_text(pg, '2026-03-16')
   R.check("Nate's Monday: the Senate HHS hearing at 1:10 PM in Room 225 with HB 1562", all(x in mon for x in ['1:10 PM', 'Senate Health and Human Services', 'Room 225', 'HB 1562']), mon[:200])
   R.check('Monday is marked Today', 'Today' in mon and pg.page.query_selector(".hc-day[data-hcday='2026-03-16'][aria-current='date']") is not None)
@@ -49,12 +56,12 @@ with L.browser() as B:
   R.check('due today is not amber in the calendar', pg.page.evaluate("[...document.querySelectorAll('.hc-st.today')].every(e => !/149, 90, 0/.test(getComputedStyle(e).color))"))   # late's amber, #955A00
   # ---- one issue's hearings: the picker narrows the week and says so in the address ----
   nh = pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length")
-  pg.page.click('[data-hwiss]'); pg.page.wait_for_selector('[data-pv]:not([data-pv="all"])')
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pv]:not([data-pv="all"])')
   pick = pg.page.query_selector('[data-pv]:not([data-pv="all"])'); name = ' '.join(pick.inner_text().split()); pick.click(); pg.ready()
   R.check('picking an issue puts it in the address', 'issue=' in pg.hash() and 'view=cal' in pg.hash(), pg.hash())
-  R.check('the picker says the issue picked', name in pg.text('[data-hwiss]'), (name, pg.text('[data-hwiss]')))
+  R.check('the page says the issue picked, beside Filter', name in pg.text('.hw-bar .hw-filt'), (name, pg.text('.hw-bar .hw-filt')))
   R.check('one issue shows no more hearings than all of them', pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length") <= nh)
-  pg.page.click('[data-hwiss]'); pg.page.wait_for_selector('[data-pv="all"]'); pg.page.click('[data-pv="all"]'); pg.ready()
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pv="all"]'); pg.page.click('[data-pv="all"]'); pg.ready()
   R.check('All issues again clears it', 'issue=' not in pg.hash() and pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length") == nh, pg.hash())
   # ---- remembered after a reload, with no view in the address ----
   pg.page.goto(pg.url('/hearings/week')); pg.page.wait_for_timeout(500); pg.ready()
@@ -63,7 +70,7 @@ with L.browser() as B:
   pg.page.click('[data-hweek="1"]'); pg.ready()
   R.check('Next week arrow works in the calendar', 'Next week' in pg.text('.hw-nav') and bool(pg.page.query_selector(".hc-day[data-hcday='2026-03-23']")), pg.hash())
   # ---- back to List, remembered too ----
-  pg.page.click('a.hw-view[data-hwview="list"]'); pg.ready()
+  show_as('list')
   R.check('List can be picked again', not pg.page.query_selector('.hc-cal'))
   R.check('no page errors (Nate, laptop)', not pg.errors, pg.errors[:2]); pg.close()
 
@@ -77,7 +84,11 @@ with L.browser() as B:
 
   # ---- old calendar addresses' words (Today's who=, day=), as app.js sends them here ----
   pg = B.page('NT', 390, 844); pg.open(CAL + '&who=team&day=2026-03-19')
-  R.check('who=team opens the team\'s week', pg.page.get_attribute('[data-seg="hscope"][data-val="team"]', 'aria-pressed') == 'true')
+  # under 768px the scope is the Filter sheet's first choice and the button says it (R-356 round 3)
+  R.check('who=team opens the team\'s week, and the Filter button says Team', 'Team' in pg.text('[data-hwfilter]'), pg.text('[data-hwfilter]'))
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pscope]')
+  R.check('the Filter sheet has Whose hearings first, Team picked', pg.page.get_attribute('[data-pscope="team"]', 'aria-checked') == 'true')
+  pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
   R.check('day= opens that day on a phone', pg.page.get_attribute('[data-hcpick="2026-03-19"]', 'aria-pressed') == 'true' and 'Triple filing' in pg.text('.hc-day.on'))
   R.check('no page errors (old address)', not pg.errors, pg.errors[:2]); pg.close()
 

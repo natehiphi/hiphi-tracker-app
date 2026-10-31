@@ -34,7 +34,7 @@ import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billByI
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
-  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML } from './steps.js';
+  testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML, statusLine } from './steps.js';
 import { issueIcon, tintOf } from './issuegrid.js';
 import { iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // one icon per job (A-18 on v6), every button its icon
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -68,6 +68,7 @@ const spaced = s => String(s || '').replace(/\b(HB|SB|HCR|SCR|HR|SR|GM)(\d)/g, '
 const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s\S*$/, '') + '…' : s; };
 const mq = q => { try { return matchMedia(q).matches; } catch { return false; } };
 const WIDE = () => mq('(min-width: 1100px)');      // the list with the picked item beside it (V17)
+try { matchMedia('(min-width: 1100px)').addEventListener('change', () => { if (S.route?.name === 'today') hooks.render(); }); } catch { /* no media queries: one column */ }
 const PHONE = () => mq('(max-width: 767px)');      // the phone frame (spec 3.2)
 const HOVER = () => mq('(hover: hover) and (pointer: fine)');
 const typing = t => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
@@ -318,7 +319,10 @@ const LATER_DAYS = 7;
 function groupsOf(w) {
   const eod = endOfDay(), horizon = endOfDay(Date.now() + LATER_DAYS * DAY), today = [], soon = [], later = [], partner = [];
   // Partner words to approve have no deadline: their own small group after Coming up (R-328), never "Do today" or the badge.
-  for (const it of w.own) (it.kind === 'partner' ? partner : (it.tone === 'overdue' || it.tone === 'late' || it.kind === 'missed' || it.at == null || it.at <= eod) ? today
+  // R-356 round 3, decision 8 (D16, rule 7.3): a chair ask whose asking window is open (its ask-by day within a week) is in Do today,
+  // where its button is, and says why on its row ("Ask by Wed 3/18"); a later one waits in Coming up with no button.
+  const askOpen = it => it.kind === 'chair' && it.at != null && it.at <= endOfDay(Date.now() + 7 * DAY);
+  for (const it of w.own) (it.kind === 'partner' ? partner : (it.tone === 'overdue' || it.tone === 'late' || it.kind === 'missed' || it.at == null || it.at <= eod || askOpen(it)) ? today
     : it.at > horizon && !['moved', 'askup', 'chair', 'followask'].includes(it.kind) && !newNotice(it) ? later : soon).push(it);
   return { today, soon, later, horizon, partner, next: today[0] || soon[0] || partner[0] || later[0] || w.prep || null };
 }
@@ -440,22 +444,23 @@ const JOB_NAME = { nodraft: 'Make the draft', write: 'Send for approval', submit
   moved: 'Your hearing moved', prep: 'Get the issues ready' };
 const withBill = (job, b) => b ? `${job} · ${fullName(b)}` : job;
 // { name, num, line (HTML), tone, icon, bold } for one of the viewer's own rows.
-function rowWords(it, v = S.me) {
+function rowWords(it, v = S.me, soon = false) {
   const b = it.b, sx = sitSuffix(it, v), jk = jobOf(it);
   if (it.s && b && it.kind !== 'stale') {
     const s = it.s, st = shownStatus(s) || {}, a = s.ask;
-    let job = JOB_NAME[jk] || PIC[jk]?.word || 'Next step', line = s.you ? dropVerb(s.line || '', s.act?.verb) : s.line || '';
+    let job = JOB_NAME[jk] || PIC[jk]?.word || 'Next step', line = s.state ? statusLine(s, { flat: true }) : s.you ? dropVerb(s.line || '', s.act?.verb) : s.line || '';   // decision 9: the one status line (a comma for the dot, as this row's name holds one)
     // "Ask the chair · Disposable e-cigarette ban", then "By Wed 3/25" (whom, in the open item: four facts a row, and the row
     // and its Email the chair keep one line each, so Kevin's first ask stays on his first laptop screen, B-2)
     if (it.kind === 'chair') { job = a?.decide ? 'Ask for a vote' : a?.m?.n > 1 ? 'Ask the chairs' : 'Ask the chair';
-      if (a?.by != null) line = `By ${dayWords(a.by)}`; }
+      if (a?.by != null) line = a.by <= endOfDay() ? `By ${dayWords(a.by)}` : soon ? (s.line || line) : `Ask this week, by ${dayWords(a.by)}`; }   // B-11, decision 8: Do today says why it is here (one piece, a comma); Coming up says the step in askWords' one wording
     // the follow-up says when it was asked ("Asked Tue 3/10, no reply"); whom, in the open item (one line a row)
     // R-352 (I, A-25): the button says "Follow up", so the row says what was done, as the ask board does ("Asked by you")
-    else if (it.kind === 'followask') { job = 'Asked the chair'; const m = /^Follow up with .+? · (asked [\s\S]*)$/.exec(s.line || ''); line = m ? cap(m[1]) : s.line || ''; }
+    else if (it.kind === 'followask') { job = 'Asked the chair'; line = (s.line || '').replace(/ · /g, ', '); }   // decision 9: steps.js chairLine's wording ("Follow up, asked Tue 3/10, no reply"), a comma for the dot as this row's name holds one
     else if (newNotice(it)) line = `New hearing ${dayWords(it.h.scheduled_at)} · send by ${dayWords(s.act?.at ?? s.due)}`;
-    else if (s.state?.key === 'second' && s.you && s.act?.words) line = cap(s.act.words.replace(/^Approve\s+/, ''));
     const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
-    return { name: withBill(job, b), num: numWords(b), line: nw(esc(line + sx)), tone, icon: tone ? st.icon : st.soon ? 'clock' : '', bold: !!st.soon && !tone };
+    // only a step due today or late keeps the amber time (D3): a chair ask due later this week is plain words
+    const calm = it.kind === 'chair' && a?.by != null && a.by > endOfDay() && !tone;
+    return { name: withBill(job, b), num: numWords(b), line: nw(esc(line + sx)), tone, icon: tone ? st.icon : st.soon && !calm ? 'clock' : '', bold: !!st.soon && !tone && !calm };
   }
   const r = miniOf(it, v), due = dueTone(it, false), when = it.at != null ? actBy({ kind: 'due', due: it.at, verb: 'Due' }).words : '';
   const tone = due.tone && !['neutral', 'today'].includes(due.tone) ? due.tone : '', ic = tone ? due.icon : due.icon || '';
@@ -470,7 +475,7 @@ function rowWords(it, v = S.me) {
     case 'fix': return out(withBill('Fix your email', b), 'Sent back · fix it and send it again');
     case 'send': return out(withBill('Send your email', b), 'Approved · send it at 4:30 PM');
     case 'reply': return out(withBill(`Reply to ${it.from}`, b), `“${clip(it.q, 70)}”`);
-    case 'moved': return out(withBill('Your hearing moved', b), `Now ${whenAt(it.h.scheduled_at)} · still going?`);
+    case 'moved': return out(withBill('Your hearing moved', b), `Now ${whenAt(it.h.scheduled_at)}, still going?`);
     case 'askup': return out(withBill('Keep the public ask up?', b), `The hearing moved to ${dayWords(it.h.scheduled_at)}`);
     default: return out(r.what || r.name, r.line, r.num);
   }
@@ -485,9 +490,10 @@ function jobButton(it, v) {
   const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
   return r.rowBtn && (it.tone === 'overdue' || it.at == null || it.at <= endOfDay()) ? iconizeButtons(r.rowBtn) : '';
 }
-function jobRow(it, { v = S.me } = {}) {
+// `noButton`: Coming up's rows (R-356 round 3, decision 8): the row opens the step; buttons live in Do today only.
+function jobRow(it, { v = S.me, noButton = false } = {}) {
   REG.set(it.key, it);
-  const y = rowWords(it, v), jk = jobOf(it), button = jobButton(it, v);
+  const y = rowWords(it, v, noButton), jk = jobOf(it), button = noButton ? '' : jobButton(it, v);
   const r = it.s && it.b ? null : it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
   const href = r ? r.href : billRoute(it.b), pick = r && r.pick === false ? undefined : it.key;
   const lead = `<span class="v6-row-lead t6-kind" aria-hidden="true">${jk !== 'none' && PIC[jk] ? icon(PIC[jk].icon) : ''}</span>`;
@@ -1082,7 +1088,7 @@ export function listHTML(v = S.me, { ro = false, skip = null, hideHear = false }
     const wk = `<p class="t6-weekln"><a href="#/hearings/week?view=cal">See the week on Hearings<span aria-hidden="true">&nbsp;›</span></a></p>`;
     // (with no list at all, no line: nothing above it to end, and Hearings is in the sidebar)
     const tail = today.length || soon.length || later.length ? wk : '';
-    const groups = `${groupHTML('today', 'Do today', [...today].sort(byTime).map(i => jobRow(i, { v })).join(''), '', 'In the order they are due')}${soon.length ? groupHTML('soon', 'Coming up', [...soon].sort(byTime).map(i => jobRow(i, { v })).join(''), laterL + tail) : laterL + tail}`;
+    const groups = `${groupHTML('today', 'Do today', [...today].sort(byTime).map(i => jobRow(i, { v })).join(''), '', 'In the order they are due')}${soon.length ? groupHTML('soon', 'Coming up', [...soon].sort(byTime).map(i => jobRow(i, { v, noButton: true })).join(''), laterL + tail) : laterL + tail}`;
     return { w, g: { today, soon, later, partner, next: nx }, nextH, groups, html: nextH() + groups, rows: today.length + soon.length + (later.length ? 1 : 0) };
   }
   const groups = `${groupHTML('today', 'Do today', today.map(i => rowOf(i, { ro, v })).join(''))}${soon.length ? groupHTML('soon', 'Coming up', soon.map(i => rowOf(i, { ro, v })).join(''), laterL) : laterL}${groupHTML('pq', 'Partner words to approve', partner.map(i => rowOf(i, { ro, v })).join(''))}`;
@@ -1186,7 +1192,9 @@ function render(route) {
   const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${[...sits].sort((a, b) => (b === P.nextSit) - (a === P.nextSit)).map(bigOf).join('')}</section>` : '';
   // Below 1100px (not a phone) the day's other sittings come right under the next step; from 1100px they are in the side
   // column. Any other season card closes the column below 1100px, beside the doors from 768px.
-  const seasonCol = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: P.others, drop: P.drop, skipH: P.skipH });
+  const seasonAll = phone && sits.length ? '' : seasonCard(v, w, { where: 'col', hearings: P.others, drop: P.drop, skipH: P.skipH });
+  // From 1100px the side column draws the season card, so this copy is left out (it was in the page twice, one hidden: A-14); drawn above all the same, since it says which line the doors skip (askSaid).
+  const seasonCol = WIDE() ? '' : seasonAll;
   // The Team lines (slipping, waiting on others, the bills to ask, the partners): short lines with no heading of their own
   // (23 Oct; R-352 item 4). On a phone they come last, after Do today and Coming up: the next step and the first Do today
   // row lead the first screen (R-352 targets), and nothing else is the person's own to do.
@@ -1219,7 +1227,7 @@ const doorsNav = lines => lines.length ? `<nav class="t6-doors" aria-label="More
 // when it waits for a pick (Nate's walk: after an Undo it stood under Getting started and the season card).
 const sideOf = ({ start = '', season = '', doors = '', rows = 0 }) => `${start}${season}${doors}${rows && !start && !season && !doors ? `<p class="t6-pick">${icon('arrow-left')}<span>Pick one to see its steps</span></p>` : ''}`;
 function sideHTML(v, P) {
-  const season = seasonCard(v, P.w, { where: 'side', hearings: P.others, drop: P.drop, skipH: P.skipH });
+  const season = !WIDE() ? '' : seasonCard(v, P.w, { where: 'side', hearings: P.others, drop: P.drop, skipH: P.skipH });
   return sideOf({ start: P.phone ? '' : startCard(v, { n: '-s' }),
     season,
     doors: doorsNav(doorLines(P.w, v, { coal: true, lead: leadLine() })), rows: P.rows });

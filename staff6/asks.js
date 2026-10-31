@@ -175,7 +175,7 @@ function partnersHTML() {
 // the followers. The share row shows only once an ask exists (with none, there is nothing true to share yet). ----
 const cardId = b => 'ot-ask-' + String(b.bill_number).replace(/\s/g, '');
 const BASE = new Map();   // the ask as it was when its box was opened (DB.saveBillFields compares against it)
-const boxOpen = b => S.otOpen === b.id && mayWrite(b);
+const boxOpen = b => S.otOpen === b.id && writes(b);
 // Whose ask it is to write and by when, for this viewer. "Mine": the viewer is its rallier (or, with no rallier, its owner).
 // `step`: the ask is a step on the viewer's Today, as today.js makes it (spec 13: the public ask row is for a strong position's
 // bill only). Only a step may be red when late, carry the overdue tile or the page's filled button (spec 11.4); the rallier's
@@ -230,16 +230,17 @@ function shareHTML(x) {
   return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><span class="ot-cpl" aria-hidden="true">Copy</span>${cb('link', 'link', 'link')}${cb('message', 'message', 'copy')}${cb('post', 'post', 'message-square')}${door ? `<span class="ot-door">${door}</span>` : ''}</div>`;
 }
 function cardHTML(x, { hl = false, lead = false } = {}) {
-  const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), may = mayWrite(b), d = askDue(x), open = boxOpen(b);
+  const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);
   // D3: a deadline today is said with its time in bold (and how long is left once it is under 3 hours); any other day plain.
   const today = hst(x.due) === hst(Date.now()), at = esc(whenAt(x.due));
-  const closes = `Testimony closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)}${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
+  const closes = `Testimony closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)} (Capitol)${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
   // The card's foot is one row: on the left what to do (share, or write the ask), on the right how it is landing; on a
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
-  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${may ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
-  else if (may) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
+  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${d.mine ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
+  // R-356 round 3, decision 6: the button is the writer's alone (writes: the rallier, else the owner); everyone else reads the plain line
+  else if (d.mine) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
   else left = `<p class="ot-nw">${noAskLine(otherWords(d))}</p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
@@ -254,7 +255,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
 // strong-position ask that is the viewer's own), never an optional one above it.
 function leadId(items, want = null) {
   const o = items.find(x => boxOpen(x.b)); if (o) return o.b.id;
-  const open = x => !liveAsk(x.b) && mayWrite(x.b);
+  const open = x => !liveAsk(x.b) && writes(x.b);
   const picked = want && items.find(x => want.has(x.b.id) && open(x)); if (picked) return picked.b.id;
   const w = items.find(x => open(x) && askDue(x).step);
   return w ? w.b.id : null;
@@ -267,8 +268,8 @@ function emptyHTML(all, n) {
   if (!all && n) return `<div class="ot-empty">${empty({ title: 'No asks this week on your coalitions’ bills', text: `The team has ${plural(n, 'ask')} this week.`, action: btn('Show the team’s asks', { kind: 'secondary', attrs: { 'data-otall': '1' } }) })}</div>`;
   const next = (S.hearings || []).filter(h => h.status !== 'cancelled' && testDue(h) > Date.now() + 7 * DAY).map(h => ({ h, b: billById(h.bill_id) }))
     .filter(x => x.b && x.b.position && x.b.position !== 'monitor' && x.b.is_public).sort((p, q) => testDue(p.h) - testDue(q.h))[0];
-  return `<div class="ot-empty">${empty({ title: 'No asks this week', text: `No bill on the public page with a position has testimony closing in the next 7 days, so there is nothing to send yet.${next ? ` The next: ${esc(nameWords(next.b, 60))}, testimony closes ${esc(whenAt(testDue(next.h)))}.` : ''} Meanwhile, the partner update and supporters are a tab away.`,
-    action: btn('Write a partner update', { kind: 'secondary', href: '#/outreach/partners' }) })}</div>`;
+  return `<div class="ot-empty">${empty({ title: 'No asks this week', text: `No bill on the public page with a position has testimony closing in the next 7 days, so there is nothing to send yet.${next ? ` The next: ${esc(nameWords(next.b, 60))}, testimony closes ${esc(whenAt(testDue(next.h)))}.` : ''} ${seesTeam() ? ' Meanwhile, the partner update and supporters are a tab away.' : ''}`,
+    action: seesTeam() ? btn('Write a partner update', { kind: 'secondary', href: '#/outreach/partners' }) : '' })}</div>`;
 }
 
 const everyOn = route => seesTeam() && route?.q?.all === '1';   // R-356: a linked ?all=1 for someone without Sees Team stays on their own list
@@ -319,8 +320,9 @@ export default {
     const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';
     const head = pageHead(sectionNav('outreach', 'asks'), 'Outreach', '', sw);
     if (!items.length) return `<div class="le-page ot-page">${head}${emptyHTML(all, team.length)}${partnersHTML()}</div>`;
+    // Decision 6: staff see the asks alone; How it's landing is the leads' (Partner update, Emails, Supporters and Lists too)
     return `<div class="le-page ot-page">${head}${listHTML(items, want)}
-      ${partnersHTML()}${landingHTML(items)}</div>`;
+      ${partnersHTML()}${seesTeam() ? landingHTML(items) : ''}</div>`;
   },
   wire(route, root) {
     root.querySelectorAll('[data-seg="otwho"]').forEach(b => b.onclick = () => setAll(b.dataset.val === 'all'));
