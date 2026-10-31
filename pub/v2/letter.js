@@ -16,8 +16,9 @@
 //     already sent it" did; Not yet keeps the letter, as "I'll finish later" does). An email has two screens: the letter, then today's
 //     send step (mail app, Gmail, Outlook, copy each part) and today's "Did you send it?".
 // "I'll finish later" and Back are on every screen. What About you used to ask (title, email, why it matters, keep my story, the quote
-// question, the sign-off chips) is not asked here: the profile ask under the Mahalo is where those belong (C-5), and this file does not
-// build that move.
+// question, the sign-off chips) is not asked in the letter (C-5), and each has its place after it (R-357 part A): the profile ask under
+// the Mahalo (email), the story card under it with the quote question after a first story (pub/helper.js), a later visit's page for the
+// title (pub/nextask.js), and the sign-off here, as a tap on the closing word of the letter (signoff below) and on the profile page.
 //
 // Everything that writes, keeps or sends the letter is pub/helper.js's (this file reaches it through HP): the same pieces of the
 // letter, the same drafts, the same Capitol and mail code, the same Mahalo. helper.js calls V2.open for a new letter when ?v2=1 (so
@@ -146,6 +147,20 @@ function ownBox(x) {
     <textarea id="hp-why" name="why" rows="2" placeholder="${need ? 'I think… because…' : esc(storyAsk(true))}" autocapitalize="sentences"${bad ? ' aria-invalid="true" aria-describedby="hp-why-err"' : ''}>${esc(x.why)}</textarea>${bad ? HP.errHTML('why') : ''}
     ${saved && x.why.trim() === saved.text ? `<span class="help" id="hp-why-help">${HP.whyHelp(x)}</span>` : ''}</div>`;
 }
+// The sign-off (R-357 part A; Nate 28 Oct: the sign-off moves out of the letter). The closing word is where the letter ends, so the choice
+// is there: a tap, styled as "change" is on the stance line, opens in place the ideas (v1's chips) and a small box for their own words.
+// A pick or a typed word is theirs from then on: written into the letter, kept on this device (the profile page's "How you sign off" reads
+// the same place). The default "Mahalo" is not kept as if they had written it. Empty words fall back to it.
+function signoff(x) {
+  const open = !!x.closeOpen, word = closingOf(x.closing) || 'Mahalo,';
+  const tap = btn(esc(word), { kind: 'text', sm: true, cls: 'v2-change v2-signoff', attrs: { 'data-hp': 'v2-closing', id: 'v2-closing', 'aria-expanded': String(open), 'aria-label': `${word} Change how you sign off` } });
+  if (!open) return `<p class="v2-closing">${tap}</p>`;
+  const own = HP.CLOSINGS.includes(x.closing) ? '' : x.closing;
+  return `<p class="v2-closing">${tap}</p><div class="v2-closeopt" id="v2-closeopt" role="group" aria-label="How you sign off">
+    <div class="hp-sugs v2-chips">${HP.CLOSINGS.map(c => `<button type="button" class="chip hp-sug" data-hp="v2-closing-pick" data-v="${esc(c)}" aria-pressed="${x.closing === c}">${esc(c)}</button>`).join('')}</div>
+    <div class="field v2-closeown"><label for="v2-closing-own">Your own words</label>
+      <input id="v2-closing-own" type="text" maxlength="40" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Like Warmly" value="${esc(own)}"></div></div>`;
+}
 function letterScreen(x) {
   const { h } = x, mail = isEmail(x), parts = HP.partsOf(x), due = mail ? null : dueInfo(h);
   const to = mail ? `<p class="v2-to"><b>To</b> ${esc(x.to.map(t => t.label).join(', '))}<br><b>Subject</b> ${esc(x.subject)}</p>` : `<p class="v2-head">${parts.head.split('\n').map(esc).join('<br>')}</p>`;
@@ -160,7 +175,7 @@ function letterScreen(x) {
       ${ls}
       ${ownBox(x)}
       ${parts.ask ? `<p>${esc(parts.ask)}</p>` : ''}
-      <div class="v2-sign"><p>${esc(closingOf(x.closing) || '')}</p>${signed(x)}</div>
+      <div class="v2-sign">${signoff(x)}${signed(x)}</div>
     </article>
     ${says}${HP.aboutNote(x)}`;
 }
@@ -232,6 +247,8 @@ V2.click = (a, t) => {
     case 'v2-stance': pickStance(x, t.dataset.v); return true;
     case 'v2-strong': x.mild = !x.mild; x.touched = true; rewrite(x); HP.paint({ focus: 'v2-change' }); return true;
     case 'v2-pt': togglePoint(x, +t.dataset.i, t); return true;
+    case 'v2-closing': x.closeOpen = !x.closeOpen; HP.paint({ focus: 'v2-closing' }); if (x.closeOpen) dlg()?.querySelector('#v2-closeopt')?.scrollIntoView({ block: 'center' }); return true;   // the box is below the word: bring it into view above the bar
+    case 'v2-closing-pick': setClosing(x, t.dataset.v); x.closeOpen = false; HP.paint({ focus: 'v2-closing' }); HP.announce(`You’ll sign off with ${x.closing}.`); return true;
     case 'v2-rename': x.nameEdit = true; HP.paint({ focus: 'hp-name' }); return true;
     case 'next': if (x.screen !== 'v2l') return false; toNext(x); return true;
     case 'back': if (x.screen !== 'v2own') return false; HP.goTo('v2l'); return true;
@@ -247,6 +264,13 @@ V2.click = (a, t) => {
     default: return false;
   }
 };
+// A word of their own for the sign-off: the letter says it, the device keeps it. Empty is the default, which is not kept.
+function setClosing(x, word) {
+  const w = String(word || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  x.closing = w || 'Mahalo'; x.touched = true;
+  saveProfile({ closing: w }).catch(e => console.warn('profile:', e?.message || e));
+  rewrite(x);
+}
 // Written again from the answers after a change of side or of "strongly".
 function rewrite(x) { HP.syncLetter(x); if (isEmail(x)) x.subject = HP.mailSubject(x); }
 function pickStance(x, v) {
@@ -283,7 +307,7 @@ function toNext(x) {
     // A name shown as plain text is never empty; the box that must be filled gets the focus and the plain message.
     d.querySelector('#hp-' + bad[0])?.focus(); d.querySelector('#hp-' + bad[0])?.scrollIntoView({ block: 'center' }); return;
   }
-  HP.saveMe({ why: x.why, whyBill: x.b.id });   // (the sign-off is not asked here, so it is not kept as if they had written it)
+  HP.saveMe({ why: x.why, whyBill: x.b.id });   // (the sign-off is kept only when they choose one, setClosing)
   if (x.name.trim() && (x.name.trim() !== x.name0 || x.name.trim() !== myName())) { saveProfile({ name: x.name.trim() }).catch(e => console.warn('profile:', e?.message || e)); x.name0 = x.name.trim(); }
   rewrite(x);
   HP.goNext();
@@ -310,6 +334,12 @@ V2.input = (e, t) => {
     const o = dlg()?.querySelector('[data-v2-part="open"]'); if (o) o.textContent = HP.partsOf(x).open;   // "My name is ..." follows the box
     return true;
   }
+  if (t.id === 'v2-closing-own') {   // typed as they go, like the name: the word on the letter follows the box
+    setClosing(x, t.value);
+    const tap = dlg()?.querySelector('#v2-closing span'); if (tap) tap.textContent = closingOf(x.closing);
+    dlg()?.querySelectorAll('[data-hp="v2-closing-pick"]').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === x.closing)));
+    return true;
+  }
   if (t.id === 'hp-why') {
     x.why = t.value; x.touched = true; HP.saveMe({ why: t.value, whyBill: x.b.id });
     if (x.errs.why && t.value.trim()) HP.setErr('why', false);
@@ -317,6 +347,12 @@ V2.input = (e, t) => {
     return true;
   }
   return false;
+};
+
+// Enter in the sign-off box is "done": the options fold away, the focus goes back to the word.
+V2.key = e => {
+  if (e.target.id !== 'v2-closing-own') return false;
+  e.preventDefault(); const x = S.helper; x.closeOpen = false; HP.paint({ focus: 'v2-closing' }); return true;
 };
 
 export default { open: V2.open };

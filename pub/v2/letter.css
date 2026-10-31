@@ -42,6 +42,15 @@
 .hp-v2 .v2-rename { margin-left: calc(-1 * var(--s4)); font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
 .hp-v2 .v2-hint { margin: 0; font-size: var(--t14); color: var(--n700); }   /* one line, directly under the stance line */
 
+/* the sign-off (R-357 part A): the closing word is a tap target, drawn like "change" on the stance line; a tap opens the ideas and a small box in place */
+.hp-v2 .v2-closing { margin: 0; }
+.hp-v2 .v2-signoff { margin-left: calc(-1 * var(--s16)); font-size: var(--t16); font-weight: 400; }
+.hp-v2 .v2-closeopt { display: flex; flex-direction: column; gap: var(--s8); padding: var(--s8) 0 var(--s4); }
+.hp-v2 .v2-closeopt .v2-chips { margin: 0; }
+.hp-v2 .v2-closeown { gap: var(--s4); }
+.hp-v2 .v2-closeown label { font-size: var(--t14); font-weight: 700; color: var(--n700); }
+.hp-v2 .v2-closeown input { max-width: 16em; }
+
 /* screen 2: the choices, the Public Access Room's number, the plain way out */
 .hp-v2 .v2-par { margin: 0; }
 .hp-v2 .v2-escape { display: flex; justify-content: flex-start; margin-left: calc(-1 * var(--s12)); }
@@ -58,6 +67,15 @@
 .hp-v2 .v2-answers { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s8); margin-top: var(--s4); }
 .hp-v2 .v2-answers .btn { width: 100%; justify-content: center; }
 .hp-v2 .v2-ask .hp-inl { align-self: flex-start; margin-left: calc(-1 * var(--s12)); }
+
+/* the Mahalo (R-357 part A): the quote question right where "Saved in your profile" is, after a first story, once; Save is the small outlined
+   button and Not now an equal text button, so Done in the bar stays the one filled button */
+.hp-v2 .hp-quoteask { margin-top: var(--s16); display: flex; flex-direction: column; gap: var(--s12); }
+.hp-v2 .hp-quoteask h3 { margin: 0; font-size: var(--t18); }
+.hp-v2 .hp-quoteask p { margin: 0; }
+.hp-v2 .hp-qa-set { display: flex; flex-direction: column; }
+.hp-v2 .hp-quoteask .btnrow { margin: 0; }
+.hp-v2 .hp-quoted { margin-top: var(--s16); }
 
 /* Back on the first screen closes the sheet: icon only on the narrowest phones, as Back is on the others (helper.css) */
 @media (max-width: 379px) {
