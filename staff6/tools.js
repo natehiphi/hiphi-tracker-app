@@ -30,7 +30,7 @@ function groups() {
       // A-14, A-12: Legislators’ profiles was a second row to Legislators › Everyone, which Places above already opens.
       ['Session calendar', '#/help/calendar', 'flag', 'The session’s deadlines, day by day'],
       // All issues' week calendar lost its tab in round 2 (decision 3); this row is its way in (A-12: one way in).
-      ['Issues calendar', '#/issues/all?view=cal', 'calendar', 'The team’s week, each hearing with its issue (the same calendar as Hearings)'],
+      ['Issues calendar', '#/issues/all?view=cal', 'calendar', 'The week by issue: every hearing this week, coloured by issue (Hearings has the same week as a list)'],
     ]],
     ['Testimony', [
       ['How to file', '#/help/file', 'clipboard-check', 'Filing at the Capitol, step by step'],

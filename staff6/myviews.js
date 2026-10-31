@@ -51,6 +51,7 @@ import { issueIcon } from './issuegrid.js';
 const AGAINST = new Set(['strongly_oppose', 'oppose']);
 const THROUGH = new Set(['governor', 'law', 'ballot']);
 const CH = { H: 'House', S: 'Senate' };
+const HBSB = { H: 'HB', S: 'SB' };   // the cell's heading: the chamber a bill STARTED in, never read as where the hearing is (R-356 round 3, C-15)
 const WEEK = 7 * 864e5;
 const origin = b => /^S/.test(String(b.bill_number || '')) ? 'S' : 'H';
 const num = b => numWords(b).replace(' ', ' ');
@@ -238,16 +239,16 @@ function whereLine(y, c) {
   if (st.phase === 'committee' || st.phase === 'floor') return st.chamber && st.chamber !== c ? `now in the ${CH[st.chamber]}` : '';
   return st.phase === 'conference' ? 'being settled by both chambers' : st.phase === 'governor' ? 'on the Governor’s desk' : '';
 }
-// A cell (R-352, Nate 27 Oct): a small glyph and one short thing in plain words, "House: hearing today", "Senate: cleared",
-// "Senate: none alive". The chamber is where the bill STARTED (HB / SB). The glyph: a tick on green when a bill from that
+// A cell (R-352, Nate 27 Oct): a small glyph and one short thing in plain words, "HB: hearing today", "SB: cleared",
+// "No SB alive". The chamber is where the bill STARTED (HB / SB). The glyph: a tick on green when a bill from that
 // chamber cleared the heading's deadline, a teal dot when one is alive, a grey ring when none is; the words say the same
 // (A-5: never colour alone). The furthest-along bill speaks for the chamber; the title names the bills.
 function cellHTML(j, c) {
   const l = c === 'H' ? j.H : j.S, st = !l.length ? 'no' : l.some(y => y.past) ? 'ok' : 'on';
   const y = [...l].sort((a, b) => (b.past ? 1 : 0) - (a.past ? 1 : 0))[0];
-  const words = !y ? 'none alive' : j.D && y.past ? 'cleared' : billShort(y);
+  const words = !y ? `No ${HBSB[c]} alive` : j.D && y.past ? 'cleared' : billShort(y);
   const title = l.map(b => [num(b.b), whereLine(b, c)].filter(Boolean).join(', ')).join('; ');
-  return `<div class="mi-cell ${st}" data-cell="${c}"${title ? ` title="${esc(title)}"` : ''}><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span><span class="mi-cl"><span class="mi-chn">${CH[c]}:</span> ${esc(words)}</span></div>`;
+  return `<div class="mi-cell ${st}" data-cell="${c}"${title ? ` title="${esc(title)}"` : ''}><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span><span class="mi-cl">${y ? `<span class="mi-chn" title="${c === 'H' ? 'House-started bills (HB)' : 'Senate-started bills (SB)'}">${HBSB[c]}:</span> ${esc(words)}` : `<span class="mi-chn" title="${c === 'H' ? 'House-started bills (HB)' : 'Senate-started bills (SB)'}">${esc(words)}</span>`}</span></div>`;
 }
 // A row: the name with its small icon and tags, the next step, and the two cells. No health sentence here: the heading
 // says the deadline and the cells say each chamber, so a third line would only repeat them (C-14 on v6: fewer lines).
@@ -353,8 +354,8 @@ const DSTATE = { cleared: 'Cleared', risk: 'At risk', notyet: 'Not yet' };
 const dlWords = j => j.D && j.alive ? gateHead(j.D.label, dayWords(j.D.date)) : '';
 const COLS = [
   ['issue', 'Issue', j => j.i.name],
-  ['house', 'House-started', j => j.H.length ? j.H.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneH.length ? ` · ${j.goneH.length} stopped` : ''}`],
-  ['senate', 'Senate-started', j => j.S.length ? j.S.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneS.length ? ` · ${j.goneS.length} stopped` : ''}`],
+  ['house', 'HB (House-started)', j => j.H.length ? j.H.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneH.length ? ` · ${j.goneH.length} stopped` : ''}`],
+  ['senate', 'SB (Senate-started)', j => j.S.length ? j.S.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneS.length ? ` · ${j.goneS.length} stopped` : ''}`],
   ['deadline', 'Next deadline', dlWords],
   ['state', 'Cleared', j => j.alive ? (j.kind === 'oppose' ? 'HIPHI opposes' : DSTATE[j.dstate] || '') : 'Stopped'],
   ['next', 'Next step', j => j.next?.text || j.health.text],

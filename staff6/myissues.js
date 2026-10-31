@@ -94,7 +94,7 @@ function topsSheet() {
 
 export default {
   tab: 'myissues',
-  title: () => 'My issues',
+  title: () => 'Issues · My issues',
   render() {
     // R-316 W16: between sessions, My issues opens as the 2027 prep list, as Nate chose for Staff v2 on 10/16 (R-263).
     if (myIssuesPrep()) return renderMinePrep();
