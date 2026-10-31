@@ -126,7 +126,7 @@ const memo = {
   tab: 'bills', tabs: false,
   narrow: true,
   title: () => nameOf(view()),
-  back: route => backOf(route) || { href: '#/bills', label: 'Bills' },
+  back: route => backOf(route) || { href: '#/issues/bills', label: 'Bills' },
   render(route) {
     applyRoute(route);
     const v = view(), m = data(), wide = wideNow(), partners = v.audience === 'partners', tab = onTab(route);

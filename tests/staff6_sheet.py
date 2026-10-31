@@ -34,7 +34,7 @@ def dialog_open(pg): return pg.page.evaluate("!!document.querySelector('dialog[o
 with L.browser() as B:
   # ---- a. folding: never 3 or fewer behind Show all, at a laptop's 8 and a phone's 5 ----
   for who, w, h in [('NT', 1440, 900), ('NT', 390, 844), ('KV', 1440, 900), ('LR', 390, 844)]:
-    pg = B.page(who, w, h); pg.open('/bills')
+    pg = B.page(who, w, h); pg.open('/issues/bills')
     for scope in ['me', 'all']:
       b = pg.page.query_selector(f'[data-seg="blscope"][data-val="{scope}"]')
       if b and b.get_attribute('aria-pressed') != 'true': b.click(); pg.ready(); pg.page.wait_for_timeout(200)
@@ -54,7 +54,7 @@ with L.browser() as B:
   for who in ['NT', 'KV', 'LR']:
     pg = B.page(who, 1440, 900); pg.open('/hearings')
     hw = pg.page.evaluate("document.querySelector('.hw-ask .hw-ask-n')?.innerText.trim() || ''")
-    pg.nav('/bills')
+    pg.nav('/issues/bills')
     b = pg.page.query_selector('[data-seg="blscope"][data-val="me"]')
     if b and b.get_attribute('aria-pressed') != 'true': b.click(); pg.ready()
     lead = pg.page.evaluate("document.querySelector('#bl-lead')?.innerText.trim() || ''")
@@ -73,12 +73,12 @@ with L.browser() as B:
       R.check('NT Team: the link carries the Team scope', href == '#/hearings/ask?scope=team', href)
       pg.nav('/'); tl = pg.text()
       R.check('NT: Today says the same pile in the same words', bool(re.search(re.escape(hw), tl)), hw)
-      pg.nav('/bills'); pg.page.click('[data-seg="blscope"][data-val="me"]'); pg.ready(); pg.page.click('#bl-lead a'); pg.ready()
+      pg.nav('/issues/bills'); pg.page.click('[data-seg="blscope"][data-val="me"]'); pg.ready(); pg.page.click('#bl-lead a'); pg.ready()
       R.check('NT: the link opens Bills That Need Hearings', pg.hash().startswith('#/hearings/ask'), pg.hash())
     R.check(f'{who}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
   # ---- c. the spreadsheet, on a laptop ----
-  pg = B.page('NT', 1440, 900); pg.open('/bills')
+  pg = B.page('NT', 1440, 900); pg.open('/issues/bills')
   sw = pg.page.evaluate("[...document.querySelectorAll('[data-blview]')].map(b => b.innerText.trim())")
   y_rows = pg.page.evaluate("Math.round(document.querySelector('.bl-search').getBoundingClientRect().top)")
   R.check('the switch reads Rows | Spreadsheet', sw == ['Rows', 'Spreadsheet'], sw)
@@ -189,7 +189,7 @@ with L.browser() as B:
   R.check('laptop: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
   # ---- the phone: the menu says spreadsheet, and Copy is there ----
-  pg = B.page('NT', 390, 844); pg.open('/bills')
+  pg = B.page('NT', 390, 844); pg.open('/issues/bills')
   pg.page.click('[data-blmenu]'); pg.page.wait_for_timeout(300)
   items = pg.page.evaluate("[...document.querySelectorAll('dialog[open] .sv-menu .title')].map(t => t.innerText.trim())")
   R.check('phone menu: "Show as a spreadsheet"', 'Show as a spreadsheet' in items and not any('table' in i.lower() for i in items), items)

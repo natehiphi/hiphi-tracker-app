@@ -1,27 +1,20 @@
-// Staff v6 · Legislators (#/legislators; R-336 spec 3.3 and 6, V23; F139-F144, F150). Three page tabs, each with its own
-// address, and one find box on every tab (F143):
-//   Who to ask (#/legislators, ?view=ask): the chairs and the bills each holds, with no step buttons (R-356 round 1, decision
-//     5, A-14: Email the chair, They replied and Follow up are on Today and Hearings > Get hearings, which the foot links to).
-//     Mine · My coalitions · Team (Team only for people who see it) is a visible switch, the same as Hearings'.
-//   Everyone (?view=everyone): the directory as a grid of photo cards, both chambers or one (an All | House | Senate
-//     switch, All first, remembered per person), grouped by island, A to Z or by committee (Sort); each card a photo, the
-//     name, the district, its main towns and one line of what they hold of ours. With the "Hearing our bills this week" preset (F142, v5's This week view) and
-//     the Filter sheet (island, committee, and Cares about on the practice copy, R-335). j and k walk the cards. Between
-//     sessions #/legislators opens here (P10).
-//   Holding our bills (?view=holding): the compact view of the same board, one row per chair (holding.js, F139, F141),
-//     with the same switch, words and button rule as Who to ask.
-// The find box looks at everyone, whatever the tab: a name, a town, a district ("HD 20", "sd5"), a committee ("HLT"), with
-// or without the ʻokina and macrons; a street address looks up its districts on the live app (rule 3: the address is never
-// kept, only the districts it finds). The tab comes from the address (route.view): v5's ?view=all|hold|week still open
-// Everyone, Holding and Everyone's this-week preset.
-import { S, DB, esc, DEMO, islandOf, SESSION_OVER, seesTeam } from './data.js';
-import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, chairIdsOf, stopOf, diedish, legById } from './model.js';
-import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn, sectionNav, andWords } from './ui.js';
-import { HOLDING, holdingHTML, contactWords, lastContact, ensureContacts, chairRole, chairGroups, askItems, askScopes as allScopes, askScope as anyScope, scopeWhose } from './holding.js';
+// Staff v6 · Legislators (#/legislators; R-336 spec 3.3 and 6, V23; F142-F144, F150): a plain directory with no page tabs
+// (R-356 round 2, decision 4: Who to ask and Holding our bills went away; asking chairs for a hearing lives only on
+// Hearings > Bills That Need Hearings). Every address (#/legislators, ?view=ask, ?view=holding, ?view=everyone) draws it.
+//   The directory is a grid of photo cards, both chambers or one (an All | House | Senate switch, All first, remembered per
+//   person), grouped by island, A to Z or by committee (Sort); each card a photo, the name, the district, its main towns and
+//   one line of what they hold of ours. With the "Hearing our bills this week" preset (F142, v5's This week view) and the
+//   Filter sheet (island, committee, and Cares about on the practice copy, R-335). j and k walk the cards.
+// The find box looks at everyone: a name, a town, a district ("HD 20", "sd5"), a committee ("HLT"), with or without the
+// ʻokina and macrons; a street address looks up its districts on the live app (rule 3: the address is never kept, only the
+// districts it finds). v5's ?view=week still opens the this-week preset.
+import { S, DB, esc, DEMO, islandOf, SESSION_OVER } from './data.js';
+import { plain, codesOf, geoSuggest, geoDistricts, ISLANDS, stopOf, diedish, legById } from './model.js';
+import { icon, btn, iconBtn, empty, toast, segmented, pickerSheet, menuSheet, keysOn, filterBtn } from './ui.js';
 import { photo, legName, legHref, seatsOf, roleWord, RANK, wireLinks, surname } from './pathway.js';
 import { PROFILES, caresIds, caresCounts, issueSheet } from './profile.js';   // R-335 (practice copy)
 import { issueById } from './issues.js';
-import { billRow, committeeName, nw } from './steps.js';
+import { committeeName, nw } from './steps.js';
 
 const WEEK = 7 * 864e5;
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent' };
@@ -119,22 +112,13 @@ export function legRow(l, { week, weekMode = false } = {}) {
 }
 
 // ---- state ----
-// One state for every tab, kept for the visit (Back from a legislator finds the list as it was).
-const view = () => (S.lg6 ??= { ask: '', week: false, ch: '', island: '', cmte: '', cares: '', sort: '', q: '', pick: null, addr: null, last: null });
-// The tab from the address. #/legislators is Who to ask in session and Everyone between sessions (P10).
-function tabOf(route) {
-  const w = String(route?.view || route?.q?.view || '').toLowerCase();
-  if (w === 'everyone' || w === 'all') return 'everyone';
-  if (w === 'week') return 'everyone';           // v5's This week: Everyone with its preset
-  if ((w === 'holding' || w === 'hold') && HOLDING()) return 'holding';
-  if (w === 'ask') return 'ask';
-  return SESSION_OVER ? 'everyone' : 'ask';
-}
+// One state for the page, kept for the visit (Back from a legislator finds the list as it was).
+const view = () => (S.lg6 ??= { week: false, ch: '', island: '', cmte: '', cares: '', sort: '', q: '', pick: null, addr: null, last: null });
 // Arriving at an address applies what it asks for once (a later redraw never undoes what the person picked since).
 let arrived = '';
 function arrive(route, v) {
   if (location.hash === arrived) return; arrived = location.hash;
-  // A new arrival (a tab, a link) starts without the last search; Back finds the list as it was left.
+  // A new arrival (a link) starts without the last search; Back finds the list as it was left.
   if (performance.now() - poppedAt > 1000) { v.q = ''; v.pick = null; }
   const w = String(route?.view || '').toLowerCase();
   if (w === 'week') v.week = true;
@@ -145,38 +129,7 @@ const caresOn = v => PROFILES() && !!v.cares;
 const caresName = v => issueById(v.cares)?.name || 'that issue';
 const searching = v => !!(v.q.trim() || v.pick);
 
-// ---- Who to ask: the chairs and the bills each holds (V13, V23) ----
-// R-356 round 1, decision 5 (A-14, D1, D15): a chair ask's button (Email the chair, They replied, Follow up) is drawn on Today
-// and on Hearings > Get hearings (push.js askBoard), nowhere else. This tab used to draw that whole board, buttons and all, so
-// the same ask sat on two screens; it now reads as the directory view of it: each chair a heading with its role and last
-// contact, and our bills under them in the shared row with the chair's own plain status line and no button. The way on to
-// the buttons is one line at the foot (a way on, "Get hearings ›").
-function groupHTML(g) {
-  const l = g.l, hid = `lg6-g${l.id}`;
-  const line = [chairRole(l, g.rows.map(x => x.aw.code)), contactWords(l)].filter(Boolean).join(' · ');
-  return `<section class="lg6-grp" aria-labelledby="${hid}">
-    <div class="lg6-gh"><div class="lg6-gt"><h2 class="lg6-gname" id="${hid}"><a class="lg6-gn" href="#/legislator/${l.id}?from=ask">${esc(legName(l))}</a></h2><p class="lg6-gline">${nw(esc(line))}</p></div></div>
-    <div class="lg6-rows" role="list" aria-label="${esc(`Our bills with ${legName(l)}`)}">${g.rows.map(x => billRow(x.b, { line: nw(esc(x.line)), button: false, cls: 'lg6-wrap' })).join('')}</div>
-  </section>`;
-}
-// R-356 decision 2: Team is a choice only for people who see Team (data.js seesTeam); holding.js askScopes, which this page
-// does not own, still lists it, so it is taken out here. Someone with nothing of their own and no coalitions keeps Mine.
-// A remembered or linked team scope for someone without Sees Team falls back to the first choice left, never an empty page.
-const askScopes = () => { const l = allScopes().filter(x => x[0] !== 'team' || seesTeam()); return l.length ? l : [['mine', 'Mine']]; };
-const askScope = want => { const ok = askScopes().map(x => x[0]); return ok.includes(want) ? want : ok.includes(anyScope(want)) ? anyScope(want) : ok[0]; };
-function askHTML(v) {
-  if (SESSION_OVER) return empty({ title: 'No asks between sessions', text: 'Asking chairs for hearings starts when the session opens in January.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) });
-  const scope = askScope(v.ask);
-  const { items, scheduled: n } = askItems(scope), whose = scopeWhose(scope);
-  const heard = n ? `<p class="lg6-foot">${icon('calendar-check')}<span>${esc(`${n} of ${whose} ${n === 1 ? 'has' : 'have'} a hearing set.`)} <a href="#/hearings">See Hearings</a></span></p>` : '';
-  const go = `<p class="lg6-foot">${icon('mail')}<span>To email a chair or log a reply, open <a href="#/hearings/ask?scope=${esc(scope)}">Get hearings</a>.</span></p>`;
-  if (!items.length) return empty({ title: `None of ${whose} is waiting for a hearing`, text: 'When one is referred to a committee, its chair shows here with the day to ask by.', action: btn('See everyone', { kind: 'secondary', href: '#/legislators?view=everyone' }) }) + heard;
-  const gs = chairGroups(items), bills = new Set(items.map(x => x.b.id)).size;
-  return `<p class="lg6-sum">${esc(`${plural(gs.length, 'chair')} to ask about ${plural(bills, 'bill')}, the soonest ask first.`)}</p>
-    <div class="lg6-board">${gs.map(groupHTML).join('')}</div>${go}${heard}`;
-}
-
-// ---- Everyone: the directory as a grid of faces (F142, F144; R-336 walk 2, Nate: "can this be better organized? Profile
+// ---- The directory as a grid of faces (F142, F144; R-336 walk 2, Nate: "can this be better organized? Profile
 // pictures, easy to identify. Not one big long list?") ----
 // Both chambers or one (the All | House | Senate switch, All first, remembered per person), grouped by island (Hawaiʻi
 // Island, Maui County, Kauaʻi, Oʻahu, Nate's order), A to Z under a heading for each letter, or by
@@ -345,14 +298,6 @@ function everyoneHTML(v) {
   const nav = jumpHTML(gs, `${lead}, ${order}${sortOf(v) === 'committee' ? ', the chair first' : ''}: go to`);
   return `${head(`${on || v.week ? `<p class="lg6-lead">${esc(lead)}</p>${clear}` : ''}${nav}`)}${nav || on || v.week ? '' : `<p class="sr">${esc(lead)}, ${esc(order)}.</p>`}<div class="lg6-groups">${gs[0]?.flow ? grid(gs.map(g => g.inner).join(''), `${lead}, A to Z`) : gs.map(groupOf).join('')}</div>`;
 }
-// Who to ask's and Holding's switch: Mine · My coalitions · Team, the same choices as Hearings > Get hearings
-// (holding.js askScopes), so the two tabs always show the same bills (X7).
-function askTools(v) {
-  if (SESSION_OVER) return '';
-  const opts = askScopes(), scope = askScope(v.ask);
-  return opts.length > 1 ? `<div class="lg6-tools">${segmented('lgask', opts, scope, 'Whose bills')}</div>` : '';
-}
-const toolsHTML = (tab, v) => searching(v) ? '' : tab === 'everyone' ? everyoneTools(v) : askTools(v);
 // The directory's tools: the preset, Filter and Sort, in one row beside the find box, each the same tonal pill; the preset
 // says it is on with a check and aria-pressed. Sort's label stays short (the caption names the order), so pressing the
 // preset never pushes the row onto two lines. On a phone Filter sits beside the box, and the preset and Sort share the
@@ -364,7 +309,7 @@ const narrow = () => { try { return matchMedia('(max-width: 767px)').matches; } 
 // and the All | House | Senate switch shares the next line with the preset, called "This week" there (its full name stays
 // its accessible name); on a laptop the switch stays over the grid, beside the jump chips.
 const UPDOWN = '<svg class="ic ic-arrow-up-down" width="1.25em" height="1.25em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/></svg>';
-function everyoneTools(v) {
+function dirTools(v) {
   const sort = sortWords(sortOf(v)), ph = narrow();
   const preset = SESSION_OVER && !v.week ? '' : btn(ph ? 'This week' : 'Hearing our bills this week', { kind: 'secondary', sm: true, icon: v.week ? 'check' : 'calendar', cls: 'lg6-preset', attrs: { 'data-lgweek': v.week ? '0' : '1', 'aria-pressed': String(!!v.week), 'aria-label': ph ? 'Hearing our bills this week' : undefined } });
   const sortB = ph ? `<button type="button" class="iconbtn lg6-sortb lg6-sorti" data-lgsort="1" aria-haspopup="dialog" aria-label="Sort, now ${esc(sort)}" title="Sort, now ${esc(sort)}">${UPDOWN}</button>`
@@ -376,7 +321,7 @@ function everyoneTools(v) {
   </div>`;
 }
 
-// ---- the find box (every tab, F143) ----
+// ---- the find box (F143) ----
 function searchHTML(v) {
   const q = v.q.trim(), week = weekIndex();
   const clear = btn('Clear', { kind: 'text', sm: true, icon: 'x', attrs: { 'data-lgclear': 'q' } });
@@ -401,36 +346,28 @@ function searchHTML(v) {
   return `${addr}<div class="lg6-cap"><p>${icon(c ? 'users' : 'search')}<span>${cap}</span></p></div>${grid(cards(ls, week, { full: true, q: c ? '' : q }), 'Legislators found')}`;
 }
 
-function bodyHTML(tab, v) {
-  if (searching(v)) return searchHTML(v);
-  if (tab === 'holding') return holdingHTML({ scope: askScope(v.ask) });
-  if (tab === 'everyone') return everyoneHTML(v);
-  return askHTML(v);
-}
-// The page tabs: sectionNav's row (ui.js). Who to ask carries ?view=ask, so it opens between sessions too, when the bare
-// address opens Everyone (shared change asked of ui.js; until then it is put right here).
-const navHTML = tab => sectionNav('legislators', tab, { hide: HOLDING() ? [] : ['holding'] }).replace('href="#/legislators"', 'href="#/legislators?view=ask"');
-
+const bodyHTML = v => searching(v) ? searchHTML(v) : everyoneHTML(v);
+const toolsHTML = v => searching(v) ? '' : dirTools(v);
 export default {
   tab: 'legislators', title: () => 'Legislators', wide: () => false,
   render(route) {
-    const v = view(), tab = tabOf(route); arrive(route, v);
+    const v = view(); arrive(route, v);
     const box = `<form class="lg6-find" role="search" data-lgform novalidate>
         <label class="sr" for="lg-q">Find a legislator by name, town, district, committee or street address</label>
         ${icon('search')}
         <input id="lg-q" class="input" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${narrow() ? 'Name or town' : 'Name, town, district or committee'}" value="${esc(v.q)}" aria-controls="lg-body">
         ${iconBtn('x', 'Clear the search', { 'data-lgclear': 'q', hidden: !v.q }, 'lg6-x')}
       </form>`;
-    return `<div class="lg6" data-lgtab="${tab}">
-      <div class="sv-phead lg6-head"><h1 class="sv-h1">Legislators</h1><span class="sv-phr">${navHTML(searching(v) ? '' : tab)}</span></div>
-      <div class="lg6-bar">${box}${toolsHTML(tab, v)}</div>
+    return `<div class="lg6">
+      <div class="sv-phead lg6-head"><h1 class="sv-h1">Legislators</h1></div>
+      <div class="lg6-bar">${box}${toolsHTML(v)}</div>
       <p class="sr" role="status" id="lg-status"></p>
-      <div id="lg-body">${bodyHTML(tab, v)}</div>
+      <div id="lg-body">${bodyHTML(v)}</div>
     </div>`;
   },
   wire(route, app) {
     const root = app.querySelector('.lg6'); if (!root) return;
-    const v = view(), tab = root.dataset.lgtab, inp = root.querySelector('#lg-q'), form = root.querySelector('[data-lgform]'), body = root.querySelector('#lg-body');
+    const v = view(), inp = root.querySelector('#lg-q'), form = root.querySelector('[data-lgform]'), body = root.querySelector('#lg-body');
     const x = form.querySelector('[data-lgclear]');
     // Repaint the list and the tools only: the box keeps its focus and caret.
     const paint = () => {
@@ -438,15 +375,12 @@ export default {
       const bar = root.querySelector('.lg6-bar'), tools = bar.querySelector('.lg6-tools'), el = document.activeElement;
       const keep = el?.closest?.('.lg6-tools') ? (el.dataset.seg ? `[data-seg="${el.dataset.seg}"][data-val="${el.dataset.val}"]` : `[${[...el.attributes].find(a => /^data-lg/.test(a.name))?.name}]`) : null;
       if (tools) tools.remove();
-      bar.insertAdjacentHTML('beforeend', toolsHTML(tab, v));
+      bar.insertAdjacentHTML('beforeend', toolsHTML(v));
       if (keep) bar.querySelector(`.lg6-tools ${keep}`)?.focus();
-      body.innerHTML = bodyHTML(tab, v); x.hidden = !inp.value;
-      // Search results are their own state: the find box searches everyone, so no tab stays underlined meanwhile (Kevin
-      // searched from Who to ask and read directory results under Who to ask's underline).
-      const phr = root.querySelector('.lg6-head .sv-phr'); if (phr) { const nav = navHTML(searching(v) ? '' : tab); if (phr.innerHTML !== nav) phr.innerHTML = nav; }
-      const n = new Set([...body.querySelectorAll('[data-lgrow], .lg6-grp, [data-v6row^="hold-"]')].map((e, i) => e.dataset.lgrow || 'x' + i)).size;
+      body.innerHTML = bodyHTML(v); x.hidden = !inp.value;
+      const n = new Set([...body.querySelectorAll('[data-lgrow]')].map((e, i) => e.dataset.lgrow || 'x' + i)).size;
       fadeJump();
-      root.querySelector('#lg-status').textContent = searching(v) || tab === 'everyone' ? `${n} ${n === 1 ? 'legislator' : 'legislators'} listed` : '';
+      root.querySelector('#lg-status').textContent = `${n} ${n === 1 ? 'legislator' : 'legislators'} listed`;
     };
     // The chip row slides sideways on a phone: its edge fades where more chips wait, as the page tabs' row does.
     const fadeJump = () => { const r = root.querySelector('.lg6-jrow'); if (!r) return;
@@ -455,7 +389,6 @@ export default {
     fadeJump();
     try { const mq = matchMedia('(max-width: 767px)'), re = () => { if (!root.isConnected) return mq.removeEventListener('change', re); paint(); }; mq.addEventListener('change', re); } catch { /* no matchMedia: laptop layout */ }
     wireLinks(root);
-    ensureContacts(() => { if (root.isConnected && !document.querySelector('dialog[open]')) paint(); });
     // Back from a legislator: the row you opened has the focus again, so j and k carry on from there.
     if (v.last && performance.now() - poppedAt < 1000) body.querySelector(`[data-lglink="${v.last}"]`)?.focus({ preventScroll: true });
     v.last = null;
@@ -502,8 +435,6 @@ export default {
       cmte: () => v.cmte ? committeeName(v.cmte) : 'Any committee', cares: () => caresOn(v) ? caresName(v) : 'Any issue' };
     root.addEventListener('click', async e => {
       const t = e.target;
-      const seg = t.closest('[data-seg="lgask"]');
-      if (seg) { v.ask = seg.dataset.val; paint(); return; }
       // All | House | Senate: remembered for the person; a committee filter of the other chamber no longer applies.
       const chb = t.closest('[data-seg="lgch"]');
       if (chb) { const ch = chb.dataset.val; if (ch !== chamberOf(v)) { v.ch = ch; if (v.cmte && ch !== 'A' && S.committees?.[v.cmte]?.chamber !== ch) v.cmte = ''; rememberCh(ch); paint(); }
@@ -537,7 +468,7 @@ addEventListener('popstate', () => { poppedAt = performance.now(); });
 document.addEventListener('keydown', e => {
   if ((e.key !== 'j' && e.key !== 'k') || S.route?.name !== 'legislators' || !keysOn() || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
   const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-  const rows = [...document.querySelectorAll('.lg6 .v6-row-main, .lg6 .lg6-card, .lg6 .lg6-gn, .lg6 .hg-cname a')]; if (!rows.length) return;
+  const rows = [...document.querySelectorAll('.lg6 .v6-row-main, .lg6 .lg6-card')]; if (!rows.length) return;
   const i = rows.indexOf(document.activeElement); e.preventDefault();
   rows[i < 0 ? 0 : Math.max(0, Math.min(rows.length - 1, i + (e.key === 'j' ? 1 : -1)))].focus();
 });

@@ -46,8 +46,8 @@ STATES = [   # a leading "=" keeps the case (a capitalised label); the rest igno
 # ("Review" is left out: it is a button and a mode opened from To approve, not a place.)
 # 'Get hearings' is the tab's old name (Nate 25 Oct walk 1: "Bills That Need Hearings"), kept so a Help page still using it is caught
 PLACES = ['Today', 'This week', 'Hearings', 'Bills That Need Hearings', 'Get hearings', 'Testimony', 'To write', 'To approve', 'Sent back', 'Ready to file',
-  'Outreach', 'This week’s asks', 'Partner update', 'Emails', 'Supporters', 'Lists', 'Bills', 'Sort new bills', 'Muted bills',
-  'Legislators', 'Who to ask', 'Everyone', 'Holding our bills', 'My issues', 'Coalitions', 'All issues', 'Inbox', 'Messages', 'Updates',
+  'Outreach', 'This week’s asks', 'Partner update', 'Emails', 'Supporters', 'Lists', 'Bills', 'By stage', 'Sort new bills', 'Muted bills',
+  'Legislators', 'My issues', 'Coalitions', 'All issues', 'Inbox', 'Messages', 'Updates',
   'Help', 'What moved', 'Team', 'People', 'Partners', 'Session setup', 'More tools', 'My settings', 'Weekly memo', 'Your menu', 'Tasks',
   'Team view', 'Mine', 'Each person’s list', 'Prep board', 'Next up', 'Next step', 'Team talk', 'Activity', 'deadline box', 'More']
 # ---- 5: one name per act. Each act: the names its buttons might carry (one regex is one name, its optional words the same
@@ -59,7 +59,7 @@ ACTS = [
   ('file testimony', [r'^file$', r'^file it$', r'^file at the capitol$', r'^file testimony$', r'^file now$'], None),
   ('ask the chair for a hearing', [r'^email the chair$', r'^ask the chair$', r'^email about$', r'^ask for a hearing$', r'^email chair$'], None),
   ('follow up with the chair', [r'^follow up$', r'^email (?:the chair )?again(?: about)?$', r'^send a follow.?up$'],
-   {'today', 'hearings', 'get-hearings', 'legislators', 'holding', 'everyone', 'a-legislator', 'a-bill', 'a-hearing'}),
+   {'today', 'hearings', 'get-hearings', 'legislators', 'a-legislator', 'a-bill', 'a-hearing'}),
   ("record the chair's reply", [r'^they replied$', r'^record the reply$', r'^got a reply$', r'^log the reply$'], None),
   ('log a talk with a legislator', [r'^log a talk(?: with a legislator)?$', r'^talk with a legislator$', r'^log one$', r'^log it$', r'^log a conversation$', r'^add a talk$'], None),
   ('copy the public link', [r'^copy link$', r'^copy share link$', r'^copy the link$', r'^copy public link$'], None),
@@ -221,7 +221,7 @@ def main():
     for c in ('off', 'opening'):
       jobs.append((who, 1440, 900, L.CLOCKS[c], [k for k, r6, r5, gate, front in ROUTES if front and not (gate and who not in gate)]))
   jobs += [('KR', 390, 844, L.KRIS_DAY, ['today', 'hearings', 'testimony', 'more']), ('LR', 390, 844, L.LAUREN_DAY, ['today', 'hearings', 'testimony', 'more']),
-           ('PH', 390, 844, '', ['today', 'hearings', 'testimony', 'bills', 'more'])]
+           ('PH', 390, 844, '', ['today', 'hearings', 'testimony', 'my-issues', 'more'])]
   if L.V5: jobs = [(a, b_, c, d, [k for k in e if k != 'more']) for a, b_, c, d, e in jobs]
   reads = []
   print(f'{L.APP}: reading {sum(len(j[4]) for j in jobs)} screens', flush=True)

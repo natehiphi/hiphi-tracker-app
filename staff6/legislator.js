@@ -1,11 +1,11 @@
-// Staff v6 · one legislator (#/legislator/:id, ?from=HB1562 | ask | holding | everyone; R-336 spec 6, V23; F145-F149).
+// Staff v6 · one legislator (#/legislator/:id, ?from=HB1562 | ask | holding | everyone (ask and holding go back to Hearings); R-336 spec 6, V23; F145-F149).
 // The page leads with the ask (V23, A-1): the name and district, then Email · Call · Log a talk. The one filled button is
 // the step the person came to take: on a chair they have open asks with, the approved chair email for those bills, to this
 // chair alone and named by bill ("Email about HB 1563 and HB 756"); otherwise Log a talk (A-3, spec 4). Then Asks and
 // talks, newest first (v5 had them about 1,600px down; a stance's note shows there too, so what a legislator said is in one
 // list). Then, for a chair, "Waiting on them for a hearing": our bills in their committee with no hearing yet, the viewer's
 // own first and never folded (spec 7.3; other people's asks past the fifth wait behind Show all), each in the same words
-// as Who to ask (holding.js chairLine). Then Our bills in their
+// as Hearings' Bills That Need Hearings (holding.js chairLine). Then Our bills in their
 // committees, each with where it stands and "Mark stand" (pathway.js's stance sheet: stance, note, who on our team
 // knows them). Opened from a bill (?from=HB1562) that bill comes first, marked. Then, behind R-335's practice gate
 // (profile.js PROFILES), the Profile: the sections someone has written in, and one "Add what we know" card for the empty
@@ -19,7 +19,7 @@
 // for writing down what happened.
 import { S, DB, esc, hooks } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billByRef, billRoute, chairIdsOf, hstDayOf } from './model.js';
-import { icon, btn, empty, toast } from './ui.js';
+import { icon, btn, empty, toast, ASK_TAB } from './ui.js';
 import { showAllBtn } from './ui.js';
 import { legName, shortName, seatsOf, roleWord, legMail, openStance, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
@@ -31,7 +31,8 @@ import { chairLine, chairMailFor, chairEmail, replyBtn, byChairOrder } from './h
 
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent' };
 const HOVER = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
-const FROM_TAB = { ask: ['#/legislators?view=ask', 'Who to ask'], holding: ['#/legislators?view=holding', 'Holding our bills'], everyone: ['#/legislators?view=everyone', 'Everyone'] };
+// Old ?from=ask and ?from=holding links (Who to ask and Holding our bills went away, R-356 round 2) go back to Hearings.
+const FROM_TAB = { ask: ['#/hearings/ask', ASK_TAB], holding: ['#/hearings/ask', ASK_TAB], everyone: ['#/legislators', 'Legislators'] };
 const fromBill = route => route.from && !FROM_TAB[route.from] ? billByRef(route.from) : null;
 const FOLD = 5;   // a long list shows 5 rows, the rest behind one "Show all N" (U-4); the heading's count is the full count
 
@@ -53,7 +54,7 @@ function inTheirCommittees(l) {
 const hearingT = b => { const h = hearingAhead(b); return h ? new Date(h.scheduled_at).getTime() : Infinity; };
 const byUrgency = (x, y) => hearingT(x) - hearingT(y) || (x.priority || 9) - (y.priority || 9) || x.bill_number.localeCompare(y.bill_number, 'en', { numeric: true });
 // The bills waiting on this legislator for a hearing: in a committee they chair, with no hearing yet. Each in the words
-// Who to ask uses for this chair (holding.js chairLine), the viewer's own first, then by the day to ask.
+// Bills That Need Hearings uses for this chair (holding.js chairLine), the viewer's own first, then by the day to ask.
 function waitingOn(l, from) {
   const pool = [...inTheirCommittees(l), ...(from && !inTheirCommittees(l).some(b => b.id === from.id) ? [from] : [])];
   return pool.map(b => ({ b, ...chairLine(b, l) })).filter(x => x.s && x.s.key !== 'scheduled' && chairIdsOf(x.s.code).includes(l.id)).sort(byChairOrder);
@@ -73,7 +74,7 @@ function stanceBtn(b, l) {
     attrs: { 'data-lgstance': `${b.id}|${l.id}`, 'aria-haspopup': 'dialog', 'aria-label': `Where ${shortName(l)} stands on ${billSay(b)}: ${word}. Change it` } });
 }
 // One of our bills with this legislator: the shared row (name, number, one line) and its one button. In "Waiting on them"
-// the line is the ask in Who to ask's words, and the viewer's own ask that waits for a reply carries "They replied" (that
+// the line is the ask in Bills That Need Hearings' words, and the viewer's own ask that waits for a reply carries "They replied" (that
 // chair's answer only); every other row carries the stance. Elsewhere the line is where the bill stands ("Hearing
 // tomorrow 9:30 AM · House Health", "Waiting in Senate Commerce").
 function standRow(b, l, { from = false, ask = null } = {}) {
@@ -192,7 +193,7 @@ export default {
     return b ? { href: billRoute(b), label: b.bill_number } : t ? { href: t[0], label: t[1] } : { href: '#/legislators', label: 'Legislators' }; },
   render(route) {
     const l = legById(route.id);
-    if (!l) return empty({ title: 'We could not find that legislator', text: 'The link may be from an earlier session.', action: btn('See everyone', { href: '#/legislators?view=everyone' }), h: 'h1' });
+    if (!l) return empty({ title: 'We could not find that legislator', text: 'The link may be from an earlier session.', action: btn('See everyone', { href: '#/legislators' }), h: 'h1' });
     // Asks and talks load once per legislator; the page shows a placeholder until they arrive.
     if (!S.legNotes?.[l.id] && !(S.lgNotesLoading ??= new Set()).has(l.id)) {
       S.lgNotesLoading.add(l.id);

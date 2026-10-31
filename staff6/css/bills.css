@@ -35,6 +35,12 @@
 .bl-sum { font-size: var(--v6-t16); color: var(--v6-muted); margin: 0 0 var(--s12); }
 .bl-sum:not(:has(button)) { margin: 0; }
 #bl-lead:empty { display: none; }
+/* R-356 round 2 (A-8): the lead ("Your bills · 35 / The team tracks 305 more") keeps the list's usual 16px from the filter row. */
+#bl-lead:not(:empty) { margin-bottom: var(--s16); }
+/* An empty Mine | Team slot (someone with no Team) still took a flex gap, pushing the filter box 12px right of the heading. */
+.bl-whose:empty { display: none; }
+/* The rows view stops where My issues and All issues stop (1056px beside the sidebar); the spreadsheet keeps the full width. */
+@media (min-width: 768px) { body.staff6 .bl-page.bl-rowsv { max-width: 1056px; } }
 
 /* ---- the list's toolbar: the filter box, Filter, Select, and (on a laptop) Rows | Table ---- */
 .bl-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin: 0 0 var(--s12); }

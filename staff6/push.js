@@ -7,7 +7,7 @@
 // (askBoard below): under each deadline in words, grouped by chair, soonest notice first, each bill in one plain state:
 // Ask (Email the chair, then "Did you send it?"), Ask the chair to schedule a vote (heard, not voted on), Waiting on a reply ("Asked
 // by Kevin Mon 3/16 · no reply yet", with They replied; Follow up after 3 working days with no reply), Scheduled (a calm
-// check and Say mahalo). Legislators > Who to ask draws the same board (askBoard({ scope })), so there is one board, not two
+// check and Say mahalo). Hearings > Bills That Need Hearings is the only screen that draws this board (Legislators > Who to ask went away in R-356 round 2)
 // that list different bills (X7). The v5 board's exports (chairGroupHTML, chairBoardHTML, wirePush) stay for the screens
 // that still call them until each moves to askBoard.
 import { S, DB, DEMO, esc, advocate } from './data.js';
@@ -16,11 +16,12 @@ import { askLine, askedChip, answerSheet, ASK_TODO, askTodoOf, chairsOf, chairWh
 import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords, sayWords, itemRow, nw, helpersOf, timeWords, dayWords, billStep } from './steps.js';   // v6 words (spec 5)
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
+import { chairRole, contactWords, ensureContacts } from './holding.js';   // the chair's role and last contact, back from Who to ask
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
 import { ACTS as PIC } from './verbs.js';   // one icon per action: Follow up is the mail, as on Today (R-352 FIX-2)
 const PIC_FOLLOW = PIC.follow.btnIcon;
 
-// The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Who to ask, Hearings' week line,
+// The way to Bills That Need Hearings, one look wherever it is offered (R-352 E; Bills, Hearings' week line,
 // Today's At the Capitol): Nate's words for the tab, teal, with "›" and no underline until hover (A-12: a standalone way
 // on), no icon of its own. askTabGo is the link; askTabWords the same words inside a row that is already the link.
 export const askTabWords = () => `<span class="v6-asktab">${ASK_TAB}<span aria-hidden="true">&nbsp;›</span></span>`;
@@ -188,7 +189,7 @@ export const SCOPES = WHOSE;
 // SB 3234 for Lauren, so its hearing and its ask are hers under My bills, where they were missing ("No hearings on your
 // bills this week" while her Resubmit was due that morning). A step: she writes, approves or files its testimony, was
 // handed its chair ask or asked the chair, or is going to its hearing. Worked out once per draw (billStep is not free):
-// the page clears it when it draws, and it lapses after a moment for a screen that does not (Legislators' Who to ask).
+// the page clears it when it draws, and it lapses after a moment for a screen that does not (it once served Legislators' Who to ask).
 let INV = null;
 export const freshScope = () => { INV = null; };
 function involved(b, v) {
@@ -298,7 +299,7 @@ export function toAskWords(sum) {
   return `${plural(n, 'bill')} ${one ? 'needs' : 'need'} a hearing · ask the chair${one ? '' : 's'}${sum.firstDay ? `${one ? '' : ', first'} by ${sum.firstDay}` : ''}`;
 }
 
-// One set of counts per deadline, the board's own: the line under each deadline here (Get hearings, Legislators' Who to ask)
+// One set of counts per deadline, the board's own: the line under each deadline here (Get hearings)
 // and the one line on Today and Bills (deadlineLine) are worked out by this, so no two screens give two numbers for one
 // pile (P-4, C-10; the fresh-eyes check: Kris's Bills said "54 to ask; 36 face the Mon 3/30 deadline" beside Legislators'
 // "45 need a hearing · 42 to ask"). A bill heard and not voted on does not need a hearing: it is counted apart (decide)
@@ -313,7 +314,7 @@ function dlCounts(items) {
 // replied, so not "waiting on a reply", B-7; spec 5). Only Get hearings says these; every other screen stops at "to ask".
 const dlParts = c => [c.being ? `${c.being} being asked` : '', c.wait ? `${c.wait} waiting on a reply` : '', c.yes ? `${c.yes} will schedule` : '',
   c.later ? `${c.later} put off` : '', c.no ? `${c.no} said no or out of time` : '', c.sch ? `${c.sch} scheduled` : ''].filter(Boolean);
-// Bills heard but not voted on (F105), on a short plain line of their own, only where they matter (Get hearings, Who to ask,
+// Bills heard but not voted on (F105), on a short plain line of their own, only where they matter (Get hearings,
 // and Today when they are not already rows there): "9 bills were heard but not voted on · ask the chair to schedule a vote".
 export const decideWords = k => k ? `${k} ${k === 1 ? 'bill was' : 'bills were'} heard but not voted on · ask the chair to schedule a vote` : '';
 // A count line's " · " parts each kept on one line (the phone walk: "33 to / ask" broke at a line's end): a short part goes in
@@ -473,16 +474,21 @@ function groupHTML(g, v, scope, { primary, shared }) {
   // on a standalone link (one link style); a joint referral names each chair, each its own link.
   const chairs = m ? chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean) : [];
   const whoHTML = chairs.length ? andWords(chairs.map(l => `<a class="hg-cnl" href="#/legislator/${encodeURIComponent(l.id)}">${esc(chairWho(l.id))}</a>`)) : esc(who);
+  // R-356 round 2 (F-ids rule 9): the line under the name says the role ("Chair, House Health") and, when there is one, the
+  // last contact ("Last contact Mon 3/9, Lauren"), as Who to ask did. A joint card has one line per chair, each naming that
+  // chair's committee; "ask by" is said once, on the first. One fact per card, not per bill.
+  const subLines = (chairs.length ? chairs : [null]).map((l, i) => {
+    const role = l ? chairRole(l, [g.code]) : '', ct = l ? contactWords(l) : '';
+    return `<p class="hg-csub">${nw(esc([role || cn, i === 0 ? when : '', ct].filter(Boolean).join(' · ')))}</p>`; }).join('');
   return `<section class="hg-chair" aria-labelledby="hg-c-${esc(g.id)}">
-    <div class="hg-chead"><div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${whoHTML}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
+    <div class="hg-chead"><div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${whoHTML}</h3>${subLines}</div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
     <div class="v6-list hg-list" role="list" aria-label="${esc(`Bills for ${who}`)}">${rows}</div>${foot}</section>`;
 }
 // askBoard({ scope, bills, viewer, primary, id, empty }) -> the board's HTML: under each deadline (soonest first) in words,
 // "Must reach their last committee by Mon 3/30", with how many are to ask, being asked, waiting and scheduled, then each
-// chair's group, soonest notice first. Nothing is folded (V13: one open board). LEGISLATORS' Who to ask calls this with
-// `primary: false` when another filled button owns its screen; buttons need no wiring (one document listener, below, and
+// chair's group, soonest notice first. Nothing is folded (V13: one open board). `primary: false` is for a screen where another filled button owns it; buttons need no wiring (one document listener, below, and
 // steps.js's).
-// `fold` (Legislators' Who to ask): the first deadline in full, each later one a single line that opens it in place
+// `fold` (kept from Legislators' Who to ask, which went away in R-356 round 2; nothing passes it now): the first deadline in full, each later one a single line that opens it in place
 // ("Must clear their last committee by Fri 4/10 · 12 bills · 4 chairs"): other people's asks are not the viewer's to-dos, and Kris's
 // coalitions put 42 asks on 15 phone screens (the fresh-eyes check, A-1, A-2). In a later deadline the chairs holding a
 // step of the viewer's own stay open and only the others fold ("12 more chairs · 30 bills"), so nothing they must do is
@@ -494,7 +500,7 @@ const FOLD_MIN = 8;
 const ownStep = (x, v) => mineGiven(x, v) || (x.k === 'follow' && x.a.asker === v?.id) || (['ask', 'decide', 'follow', 'later'].includes(x.k) && (S.assignments?.[x.b.id] || []).includes(v?.id));
 const FOLD_OPEN = new Set();   // the later deadlines opened this visit (id|date), kept across redraws
 export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null, fold = false } = {}) {
-  BOARD = new Map();
+  BOARD = new Map(); ensureContacts(() => hooks.render());
   const v = viewer, items = boardItems({ scope, bills, viewer: v });
   if (!items.length) return empty ?? `<p class="hg-empty">${icon('circle-check')}<span>${esc(scope === 'team' ? 'No bill of the team’s is waiting for a hearing right now.' : `None of ${whoseWords(scope, v)} is waiting for a hearing right now.`)}</span></p>`;
   const dls = new Map();
@@ -549,8 +555,9 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
   // One "Asked another way? Log a talk" for the whole board, not under every chair (Nate's walk: 11 times on Lauren's My
   // bills; C-15, one name per act). It opens the chair to pick when more than one ask is the viewer's to log.
   const logs = all.filter(g => groupRoles(g, v, scope).log.length);
-  const top = logs.length ? `<p class="hg-log hg-logtop"><span>Asked another way?</span>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-hgact': 'anotherall', 'data-hgboard': id, 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk: an ask made by phone, in person or another way' } })}</p>` : '';
-  return `<div class="hg-board" data-hgboard="${esc(id)}">${top}${out}</div>`;
+  const top = `<p class="hg-asktop">Ask each committee’s chair to hear these bills before the deadline.</p>`;
+  const foot = logs.length ? `<p class="hg-log hg-logfoot"><span>Asked another way?</span>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-hgact': 'anotherall', 'data-hgboard': id, 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk: an ask made by phone, in person or another way' } })}</p>` : '';
+  return `<div class="hg-board" data-hgboard="${esc(id)}">${top}${out}${foot}</div>`;
 }
 // A row's "…" (an owner's bill still to ask, or one put off): this bill alone in the email, when the chair's email names
 // others; Not now (back in two weeks, with Undo); Ask now (for one put off); Not pushing this bill (its owner: the bill

@@ -115,7 +115,7 @@ with L.browser() as B:
     shot(pg, 'partners')
 
     # ---- 4. Bills (Team) and search ----
-    pg.nav('/bills')
+    pg.nav('/issues/bills')
     try: pg.page.click('[data-seg="blscope"][data-whose="team"]'); pg.page.wait_for_timeout(600); pg.ready()
     except Exception: pass
     b = pg.page.evaluate("""(() => { const rows = [...document.querySelectorAll('.bl-page .v6-row[data-v6row]')];
@@ -164,7 +164,7 @@ with L.browser() as B:
     shot(pg, 'search')
 
     # ---- 5. All issues ----
-    pg.nav('/my-issues/all')
+    pg.nav('/issues/all')
     c = pg.page.evaluate("""(() => { const cards = [...document.querySelectorAll('#is-q-body .ig6-issue')];
       return { n: cards.length, state: cards.map(x => x.querySelector('.ig6-stat [data-state^="issue:"]')?.dataset.state || ''),
         word: cards.filter(x => (x.querySelector('.ig6-stat .v6-sm-w')?.textContent || '').trim()).length,

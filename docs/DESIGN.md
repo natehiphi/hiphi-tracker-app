@@ -1273,18 +1273,18 @@ none covered chair asks, filing or covering for someone.
 ### B-13 on v6: every job a role does has a visible, labelled door
 
 - **Laptop and tablet (768px and wider): the sidebar**, always shown, always labelled (spec 3.1): Today, Testimony,
-  Hearings, Issues, Outreach, then Bills (five places and Bills until round 2 of R-356), then Lead tools by role, More
-  and You. **Inbox and Help are header icons at every width**, not sidebar rows. More and More tools are one page
+  Hearings, Issues, Outreach (Bills is a tab of Issues, not a sidebar row; R-356 round 2, decisions 3 and 4, Nate 31 Oct),
+  then Lead tools by role, More and You. **Inbox and Help are header icons at every width**, not sidebar rows. More and More tools are one page
   (`#/tools`). **Exactly two counts**, Today's and Inbox's. (Amended 31 Oct 2026, R-356 round 1; it listed Legislators,
   Inbox, Help and More tools in the sidebar.)
-- **Phone: the bar Today · Hearings · Testimony · Bills · More** on every route (D2). More is a labelled page, not a menu,
+- **Phone: the bar Today · Hearings · Testimony · Issues · More** on every route (D2; Issues, not Bills, since R-356 round 2, decisions 3 and 4, Nate 31 Oct). More is a labelled page, not a menu,
   naming every other place; Search and the Inbox sit in the top bar.
 - **Rare tools together in More tools** (`#/tools`), the same at every width, never only inside an account menu.
 - **Places a role never uses are left out**, with D8's one quiet line saying they exist ("Admins also have: Session setup,
   People. Ask Nate.").
 - Sub-pages are one row of page tabs at the top of the page, never in the sidebar as well (D12).
 - **The calendar has two homes, each with one way in (A-12): Hearings** (This week's "See as calendar", with a filter by
-  issue) **and All issues' Calendar tab** (Issues > Calendar, `#/my-issues/all?view=cal`: the team's week, each entry with
+  issue) **and the Issues calendar** (a row on More, `#/issues/all?view=cal`; the Calendar tab is gone: R-356 round 2, decisions 3 and 4, Nate 31 Oct; the team's week, each entry with
   its bill's issue). Both are the one calendar (hearings.js calHTML), so they show the same entries in the same colour of
   time (A-5) and the same words for each state. **Today has no week grid and no day strip**; its Coming up ends with one
   quiet line, "See the week on Hearings" (R-352, Nate 27 Oct; reverses R-346's week on Today). All issues' calendar is
@@ -1299,7 +1299,7 @@ or grid on Today), which is the "too many things in too many places" of R-336, a
 grid also added to its length (Nate's Today grew from about 2 laptop screens on 23 Oct to over 4 by 27 Oct). Nate chose Hearings as its one
 home. The issue filter keeps what All issues' calendar was for, and the line on Today keeps the week one visible, labelled
 click away. *Reason for All issues' calendar (R-352 FIX-3).* Reviewing the result on 28 Oct, Nate kept it: "keep the
-calendar view". It is reached one way only, the Calendar tab, as live had it (R-342's second way in, a Cards | Calendar
+calendar view". It is reached one way only, the More row (the Calendar tab until R-356 round 2), as live had it (R-342's second way in, a Cards | Calendar
 switch beside the tab, was A-12's two doors to one room), and it is drawn by Hearings' code, so the two never drift.
 
 ### B-14 on v6: things to do are never folded away
