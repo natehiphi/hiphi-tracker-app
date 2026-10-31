@@ -1,4 +1,4 @@
-// Staff v6 · Bills (#/bills, #/bills/muted): R-336 spec section 6, V04, V05, V17, V32, D9, D15, D16.
+// Staff v6 · Bills (#/issues/bills, #/issues/bills/muted): R-336 spec section 6, V04, V05, V17, V32, D9, D15, D16.
 // v5's Bills put 90 controls and 42 Capitol codes on Kris's first laptop screen (assessment X4, X28), a second search box
 // 70px under the header's (A-14), three quick pills, a "…" that mixed table tools with places (X6), and on Kris's phone 6.8
 // screens of rows. v6 keeps every job and shows less at once (Nate, 22 Oct: "too much per screen"):
@@ -229,7 +229,7 @@ function emptyState(q, nf) {
   if (v.scope === 'me') return empty({ title: 'You have no bills yet', text: 'Your bills are the ones you own or follow, and those on your issues. Follow a bill from its page.',
     action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { kind: 'secondary', attrs: { 'data-scopecoal': '1' } }) : seesTeam() ? btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) : '' });
   if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you help on show here. Choose them in My settings.', action: seesTeam() ? btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) : '' });
-  return empty({ title: 'No bills are tracked yet', text: 'Sort the new bills to start.', action: btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' }) });
+  return empty({ title: 'No bills are tracked yet', text: 'Sort the new bills to start.', action: btn('Sort new bills', { kind: 'secondary', href: '#/issues/bills/new' }) });
 }
 function parts() {
   const v = bl(), q = v.q.trim(), { list, groups } = build(), act = activeFilters();
@@ -494,7 +494,7 @@ function tableView(groups) {
   return b ? `<div class="bl-split"><div class="bl-main">${table}</div><aside class="bl-dock" aria-label="The bill you picked">${itemHTML(b)}</aside></div>` : table;
 }
 
-// ---- muted bills (#/bills/muted, F93): the page tab, each bill with Unmute and Undo ----
+// ---- muted bills (#/issues/bills/muted, F93): the page tab, each bill with Unmute and Undo ----
 function renderMuted() {
   const rows = S.bills.filter(b => S.mutes?.has(b.id)).sort(byNum);
   ST.clear(); STEP.clear(); freshFacts();
@@ -502,7 +502,7 @@ function renderMuted() {
     <p class="bl-lede">Muted bills stay off your lists and send you no alerts. A new hearing brings a bill back on its own.</p>
     ${rows.length ? `<div class="v6-list" role="list" aria-label="Muted bills">${rows.map(b => billRow(b, { viewer: S.me, line: nw(esc(factsOf(b).stand === 'dead' ? stoppedLine(b) : whereWords(b))),
       button: btn('Unmute', { kind: 'secondary', sm: true, attrs: { 'data-unmute': b.id, 'aria-label': `Unmute ${billSay(b)}` } }) })).join('')}</div>`
-      : empty({ title: 'No muted bills', text: 'Mute a bill from its page when you do not need its alerts for a while.', action: btn('Back to Bills', { href: '#/bills', kind: 'secondary' }) })}
+      : empty({ title: 'No muted bills', text: 'Mute a bill from its page when you do not need its alerts for a while.', action: btn('Back to Bills', { href: '#/issues/bills', kind: 'secondary' }) })}
   </div>`;
 }
 function wireMuted(page) {
@@ -529,7 +529,7 @@ function exportCSV(list) {
   toast(`Downloaded ${list.length} bill${list.length === 1 ? '' : 's'} as a spreadsheet file.`);
 }
 const listInOrder = () => build().groups.flatMap(g => g.rows);
-// More tools › Export (#/bills?export=1), the spreadsheet's Export and the phone's menu: the file downloads at once, and the
+// More tools › Export (#/issues/bills?export=1), the spreadsheet's Export and the phone's menu: the file downloads at once, and the
 // message says how many bills it holds (critic: a sheet with one item in it was a step for nothing).
 const exportSheet = () => exportCSV(listInOrder());
 function columnsSheet(anchor) {
@@ -840,16 +840,16 @@ function holdHead() {
 }
 function edgeCue(box) { box.parentElement?.classList.toggle('bl-end', box.scrollLeft + box.clientWidth >= box.scrollWidth - 2); }
 
-// ---- arriving with a step to take (More tools, spec 3.5): #/bills?select=1 starts picking, ?views=1 opens the saved views
+// ---- arriving with a step to take (More tools, spec 3.5): #/issues/bills?select=1 starts picking, ?views=1 opens the saved views
 // (or, with none yet, the Filter sheet at Save this view), ?export=1 opens Export; ?coalition=<id or slug> opens every bill of
-// one coalition (the coalition page's link, R-022). The address then goes back to plain #/bills, so a reload does not repeat it.
+// one coalition (the coalition page's link, R-022). The address then goes back to plain #/issues/bills, so a reload does not repeat it.
 function arrival(route) {
   const q = route.q || {}, any = q.select || q.views || q.export || q.coalition; if (!any) return null;
   if (q.coalition) {
     const c = S.campaigns.find(x => x.id === q.coalition || x.slug === q.coalition);
     if (c) openCoalition(c.id); else setTimeout(() => toast('That coalition is not in the tracker, so this is your usual list.'), 0);
   }
-  try { history.replaceState(history.state, '', '#/bills'); } catch { /* the list still opens */ }
+  try { history.replaceState(history.state, '', '#/issues/bills'); } catch { /* the list still opens */ }
   if (route.q) route.q = {};
   return () => {
     if (q.select) { bl().look = null; startSelect(); }

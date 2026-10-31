@@ -1221,6 +1221,23 @@ dialog.sv-sheet .toastmsg.insheet { position: sticky; bottom: var(--s8); z-index
   body.staff6 main .sv-phead:has(.sv-secnav) .sv-phr > :is(.sv-seg, [role="group"]:not(nav)) { order: 3; }
   body.staff6 main .sv-phead:has(.sv-secnav) .sv-phr > :is(.sv-seg, [role="group"]:not(nav)) ~ :is(.sv-seg, [role="group"]:not(nav)) { margin-left: var(--s8); }
 }
+/* Bills' head (R-356 round 2, decision 3; A-8, A-13, A-14): Bills is a tab of Issues, so the page opens with the Issues head
+   (h1 and tab row, css/issues.css .i6-head) and Bills' own pages (By stage · Sort new bills · Muted) as a second, quieter row
+   under it: smaller words, the same left edge, no line of its own (spec 4: no lines under tabs). The scope switch sits at the
+   right of that row; on a phone it takes a line under it. The wide list (1440) uses the same head, so nothing jumps. */
+body.staff6 .bl-head { margin: 0 0 var(--s16); }
+body.staff6 .bl-head > .i6-head { margin: 0; }
+body.staff6 .bl-hsub { margin: var(--s8) 0 0; max-width: 70ch; }
+body.staff6 .bl-hsub > p { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .bl-hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s8) var(--s16); margin-top: var(--s4); }
+body.staff6 .bl-hrow > .bl-subtabs { margin-bottom: 0; flex: 0 1 auto; }
+body.staff6 .bl-subtabs > a { min-height: 36px; font-size: var(--v6-t14); }
+body.staff6 .bl-hright { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); }
+@media (max-width: 767px) {
+  body.staff6 .bl-subtabs > a { min-height: 44px; }
+  body.staff6 .bl-hrow { margin-top: 0; }
+  body.staff6 .bl-hrow > .bl-subtabs { flex: 0 0 calc(100% + 2 * var(--s4)); max-width: none; }
+}
 @media (max-width: 767px) {
   body.staff2 main .sv-phead .sv-phr { display: contents; }
   body.staff2 main .sv-phead .sv-secnav { order: -1; flex: 0 0 calc(100% + 2 * var(--s4)); max-width: none; margin: 0 calc(-1 * var(--s4)) var(--s8); }   /* the tabs' 4px of ring room outside the column, as everywhere */

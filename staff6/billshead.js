@@ -1,13 +1,14 @@
 // Staff v6 (R-336, spec 3.3, D12, V19, V30, V35): Bills' place head and the one Sort new bills number, shared by the three
-// pages under Bills (bills.js: Bills and Muted; triage.js: Sort new bills). The head is the place's name as its h1 and one
-// row of page tabs (ui.js sectionNav): Bills · Sort new bills (only in the opening weeks or while new bills wait, and only
+// pages under Bills (bills.js: Bills and Muted; triage.js: Sort new bills). The head is the Issues head with Bills current, then
+// one row of page tabs (billsHead below): By stage · Sort new bills (only in the opening weeks or while new bills wait, and only
 // for whoever sorts them: admins and owners) · Muted (for owners and anyone with a muted bill). A row with one tab in it says
 // nothing, so it is left out. Everyone else reaches both pages from More tools and the search box (spec 3.5, D8).
 // The number (V19, V35: v5 said 788 in one spot and 5,398 in another): how many new bills match the words of the
 // coalitions this person owns or helps on, the list Sort new bills opens on ("12 new bills match CTFH's words"). With no
 // coalition of their own (an admin who owns none), the team's suggested count, said as such.
-import { S, DB, DEADLINES } from './data.js';
-import { sectionNav } from './ui.js';
+import { S, DB, DEADLINES, esc } from './data.js';
+import { SECTION_TABS } from './ui.js';
+import { headHTML } from './issuestand.js';
 import { myCoalitions } from './filters.js';
 
 // The opening weeks of a session: every new bill needs a decision (v5's rule for its banner, kept).
@@ -63,21 +64,33 @@ export const showSortTab = () => canSort() && (openWeeks() || (sortCount()?.n ||
 // Muted is a door for owners (they mute) and for anyone who has muted a bill.
 export const showMutedTab = () => (S.mutes?.size || 0) > 0 || canSort();
 
-// ---- the head: h1 "Bills" and the page tabs; `right` is the page's own controls (the scope switch) ----
+// ---- the head (R-356 round 2, decision 3: Bills lives inside Issues) ----
+// The Issues head (h1 "Issues" and its tab row, Bills current, issuestand.js headHTML), then Bills' own pages as a second,
+// quieter row: By stage · Sort new bills · Muted. The first one is the list of every tracked bill by stage; ui.js calls it
+// "Bills", a word that would now sit right under the Bills tab, so this row says "By stage". Same markup as ui.js sectionNav
+// (so selectors and the phone's sideways row work), with a class of its own for the smaller type (staff.css .bl-subtabs).
+// `right` is the page's own controls (the scope switch) and sits on the sub-tabs' line; `sub` is a line of words under them.
+function subTabs(cur, hide, counts) {
+  const shown = SECTION_TABS('bills').filter(t => !hide.includes(t.key));
+  return `<nav class="sv-tabrow sv-secnav bl-subtabs" aria-label="Bills">${shown.map(t => { const l = t.key === 'bills' ? 'By stage' : t.label;
+    return `<a href="${t.href}"${t.key === cur ? ' aria-current="page"' : ''}><span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>${counts[t.key] ? ` <span class="sv-tn">${esc(counts[t.key])}</span>` : ''}</a>`; }).join('')}</nav>`;
+}
 export function billsHead(cur, { right = '', sub = '' } = {}) {
   const hide = [showSortTab() || cur === 'new' ? null : 'new', showMutedTab() || cur === 'muted' ? null : 'muted'].filter(Boolean);
   // On Sort new bills itself the number is the page's headline, so the tab does not say it a second time (A-14).
   const c = sortCount(), counts = { ...(c?.n && cur !== 'new' ? { new: `${c.n.toLocaleString()}${c.capped ? '+' : ''}` } : {}), ...(S.mutes?.size ? { muted: S.mutes.size } : {}) };
-  const tabs = hide.length < 2 ? sectionNav('bills', cur, { hide, counts }) : '';
-  return `<div class="sv-phead bl-head"><h1 class="sv-h1">Bills</h1>${sub ? `<div class="sv-pht"><p>${sub}</p></div>` : ''}<div class="sv-phr">${tabs}${right}</div></div>`;
+  // A row with one tab in it says nothing, so it is left out.
+  const tabs = hide.length < 2 ? subTabs(cur === 'new' || cur === 'muted' ? cur : 'bills', hide, counts) : '';
+  return `<div class="bl-head">${headHTML('bills')}${sub ? `<div class="bl-hsub"><p>${sub}</p></div>` : ''}${tabs || right ? `<div class="bl-hrow">${tabs}${right ? `<div class="bl-hright">${right}</div>` : ''}</div>` : ''}</div>`;
 }
-// Redraws only the head's tabs when the number lands, so typing in the page's box or an open sheet is never disturbed.
+// Redraws only the sub-tabs when the number lands (never the Issues row), so typing in the page's box or an open sheet is
+// never disturbed.
 export function refreshTabs(cur) {
   const head = document.querySelector('main .bl-head'); if (!head) return;
   const tmp = document.createElement('div'); tmp.innerHTML = billsHead(cur);
-  const now = head.querySelector('.sv-secnav'), next = tmp.querySelector('.sv-secnav');
+  const now = head.querySelector('.bl-subtabs'), next = tmp.querySelector('.bl-subtabs');
   if (now && next) now.replaceWith(next);
-  else if (!now && next) head.querySelector('.sv-phr')?.prepend(next);
+  else if (!now && next) (head.querySelector('.bl-hrow') || head.appendChild(Object.assign(document.createElement('div'), { className: 'bl-hrow' }))).prepend(next);
   // links drawn after the frame wired the page: route them as the frame does
   next?.querySelectorAll('a[href^="#/"]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.defaultPrevented) return; e.preventDefault(); S.go(a.getAttribute('href')); }));
 }
