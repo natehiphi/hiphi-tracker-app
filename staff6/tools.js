@@ -29,14 +29,16 @@ function groups() {
     ['Getting hearings', [
       // A-14, A-12: Legislators’ profiles was a second row to Legislators › Everyone, which Places above already opens.
       ['Session calendar', '#/help/calendar', 'flag', 'The session’s deadlines, day by day'],
+      // All issues' week calendar lost its tab in round 2 (decision 3); this row is its way in (A-12: one way in).
+      ['Issues calendar', '#/issues/all?view=cal', 'calendar', 'The team’s week, each hearing with its issue (the same calendar as Hearings)'],
     ]],
     ['Testimony', [
       ['How to file', '#/help/file', 'clipboard-check', 'Filing at the Capitol, step by step'],
     ]],
     ['Rally', [
       ['Lists', '#/outreach/lists', 'list', 'Shared lists of bills for the public page'],
-      ['Make a link or QR code', '#/my-issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code'],
-      ['First visit numbers', '#/my-issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'],
+      ['Make a link or QR code', '#/issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code'],
+      ['First visit numbers', '#/issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'],
       // F177: an admin's Import CSV and Export sit at the foot of Supporters: one row says both, and ?io=1 opens Supporters at
       // that foot (A-14: one row per place; it used to be two rows to the same top of the page, the second a scroll away).
       admin ? ['Supporters’ groups, import and export', '#/outreach/supporters?io=1', 'heart-handshake', 'Saved groups to email; a spreadsheet in or out at the foot']
@@ -68,8 +70,8 @@ function footLine() {
     const miss = [seesTeam(a) ? null : 'Team', 'People', admitsPartners(a) ? null : 'Partners', 'Session setup'].filter(Boolean);
     out.push(`Admins also have ${miss.length > 1 ? `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}` : miss[0]}. Ask Nate.`);
   }
-  const bills = [canSort() ? null : 'New', showMutedTab() ? null : 'Muted'].filter(Boolean);
-  if (bills.length) out.push(`Bill and coalition owners also have ${bills.join(' and ')} tabs on Bills.`);
+  const bills = [canSort() ? null : 'Sort new bills', showMutedTab() ? null : 'Muted'].filter(Boolean);
+  if (bills.length) out.push(`Bill and coalition owners also have ${bills.join(' and ')} under Issues › Bills.`);
   return out.join(' ');
 }
 // C-15: Kris sees Team without being a lead, so the one row Team is not under "Lead tools" (app.js says the same).
@@ -85,9 +87,9 @@ export default {
   render() {
     const admin = !!S.me?.is_admin, leads = leadKeys(), sync = syncWords(), foot = footLine(), stale = syncStale();
     let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
-    // Outreach and Issues are in the laptop's sidebar, so their rows show on a phone only (staff.css v6-phone-only); Legislators,
+    // Outreach is in the laptop's sidebar, so its row shows on a phone only (staff.css v6-phone-only; Issues is in the phone bar too); Legislators,
     // Inbox and Help are here for everyone, one click from More (Nate, 22 Oct), and search finds each by its name.
-    const places = [placeRow('outreach', { cls: 'v6-phone-only' }), placeRow('myissues', { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
+    const places = [placeRow('outreach', { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
     const sec = (h, rows, id) => `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
     return `<div class="v6-more v6-tools">

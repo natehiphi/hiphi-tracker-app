@@ -531,21 +531,6 @@ body.staff6 .lg6-scope { margin: 0 0 16px; }
 body.staff6 .lg6-wrap .v6-row-line > span { white-space: normal; overflow: visible; text-overflow: clip; }
 body.staff6 .lg6-wrap .v6-row-name { white-space: normal; }
 body.staff6 .lg6-wrap .v6-row-top { flex-wrap: wrap; column-gap: 8px; }
-/* The board: one card per chair, the chair's heading, then our bills under it, separated by an inset hairline. */
-body.staff6 .lg6-board { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-body.staff6 .lg6-grp { min-width: 0; padding: 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
-body.staff6 .lg6-gh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px; }
-body.staff6 .lg6-gt { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-/* The chair is the section's heading (22px Poppins, spec 4), set apart from the 18px bill names under it (A-13, A-19). */
-body.staff6 .lg6-gname { margin: 0; font: 600 var(--v6-t22)/var(--v6-lh22) Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
-body.staff6 .lg6-gn { display: inline-block; padding: 2px 0; border-radius: var(--v6-r12); color: inherit; text-decoration: none; }
-body.staff6 .lg6-gn:hover { text-decoration: underline; text-underline-offset: 4px; }
-body.staff6 .lg6-gn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .lg6-gline { margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-body.staff6 .lg6-gact { flex: none; margin-left: auto; }
-body.staff6 .lg6-gact .btn { margin: 0; }
-body.staff6 .lg6-rows { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 4px; }
-body.staff6 .lg6-rows::before { content: ''; position: absolute; left: 8px; right: 8px; top: 0; height: 1px; background: var(--v6-hair); }
 /* The F140 mark on a bill's committee members and a hearing's (introChip): 14px, the label size, in the body colour. */
 body.staff6 .hb-intro { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; font-size: var(--v6-t14); line-height: var(--v6-lh14); font-weight: 700; color: var(--v6-body); }
 body.staff6 .hb-intro svg { width: 16px; height: 16px; flex: none; color: var(--v6-muted); }
@@ -554,15 +539,11 @@ body.staff6 .hb-intro svg { width: 16px; height: 16px; flex: none; color: var(--
   body.staff6 .lg6-find { flex-basis: 100%; max-width: none; }
   body.staff6 .lg6-tools .btn { min-height: 44px; }
   body.staff6 .lg6-chips .lg6-preset { min-height: 44px; }
-  body.staff6 .lg6-grp { padding: 4px; }
-  body.staff6 .lg6-gname { font-size: var(--v6-t18); line-height: var(--v6-lh18); }
-  body.staff6 .lg6-gact { flex: 0 1 auto; margin-left: 0; max-width: 100%; }
 }
-/* A narrow phone: a long email button ("Email about HB 1563 and HB 756") wraps between bills inside its row or chair
-   heading rather than running past the screen's edge (each "HB 1563" is kept whole by a no-break space). */
+/* A narrow phone: a long email button ("Email about HB 1563 and HB 756") wraps between bills inside its row rather than running past the screen's edge (each "HB 1563" is kept whole by a no-break space). */
 @media (max-width: 420px) {
-  body.staff6 .lg6-wrap .v6-row-act, body.staff6 .lg6-gact { flex: 1 1 100%; min-width: 0; max-width: 100%; }
-  body.staff6 .lg6-wrap .v6-row-act .btn, body.staff6 .lg6-gact .btn { max-width: 100%; height: auto; white-space: normal; text-align: start; padding-top: 8px; padding-bottom: 8px; }
+  body.staff6 .lg6-wrap .v6-row-act { flex: 1 1 100%; min-width: 0; max-width: 100%; }
+  body.staff6 .lg6-wrap .v6-row-act .btn { max-width: 100%; height: auto; white-space: normal; text-align: start; padding-top: 8px; padding-bottom: 8px; }
 }
 
 /* ---- Staff v6 · one legislator (V23): one column, the ask first; the reference after (A-1, A-13) ---- */
@@ -658,7 +639,6 @@ body.staff6 :is(.lg6, .lg6-page) :is(.btn.text, .lg6-foot a, .lg6-note a, .lg6-f
 @media (max-width: 360px) {
   body.staff6 .lg6-tools .sv-seg { max-width: 100%; }
   body.staff6 .lg6-tools .sv-seg button { padding: 0 10px; white-space: nowrap; }
-  body.staff6 .lg6-hold .lg6-sum { margin-bottom: 8px; }   /* the first chair within 400px with three switch choices (A-1) */
 }
 /* Mark stand (an unknown stand): a short text button, 44px tall like every row button (R-352, A-18). */
 body.staff6 .lg6-stand .btn.lg6-standb { min-height: 44px; white-space: nowrap; }

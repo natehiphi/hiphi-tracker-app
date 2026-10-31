@@ -195,7 +195,7 @@ function emptyMessages() {
   const b = nextBill();
   return `<div class="ib-empty"><p class="ib-empty-h">No messages yet</p><p>Messages from teammates, @mentions and the tracker’s notes to you land here.</p>
     <p>To ask a teammate something, open the bill and use Team talk: they get a message${b ? `, and it lands here when they answer` : ''}.</p>
-    ${b ? btn(`Team talk on ${esc(nameWords(b, 40))}`, { kind: 'secondary', icon: 'message-square', href: billRoute(b, 'talk') }) : ''}${btn('Open Bills', { kind: b ? 'text' : 'secondary', iconEnd: 'arrow-right', href: '#/bills' })}</div>`;
+    ${b ? btn(`Team talk on ${esc(nameWords(b, 40))}`, { kind: 'secondary', icon: 'message-square', href: billRoute(b, 'talk') }) : ''}${btn('Open Bills', { kind: b ? 'text' : 'secondary', iconEnd: 'arrow-right', href: '#/issues/bills' })}</div>`;
 }
 function messagesHTML() {
   const v = st(), all = (S.inbox || []).filter(isMsg), rows = messageRows(), un = rows.filter(i => i.unread).length;

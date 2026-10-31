@@ -79,7 +79,7 @@ const cwShort = code => { const cs = codesOf(code); if (cs.length < 2) return cw
 
 // Where an issue's Back goes (R-316 W16): to the prep list or the Prep board it was opened from, to My issues, else All issues.
 const backTo = route => route.q?.from === 'prep' ? { href: prepListHref(), label: 'Your issues for 2027' } : route.q?.from === 'board' ? { href: BOARD_HREF, label: 'Prep board' }
-  : route.q?.from === 'mine' ? { href: '#/my-issues', label: 'My issues' } : { href: '#/my-issues/all', label: 'All issues' };
+  : route.q?.from === 'mine' ? { href: '#/issues', label: 'My issues' } : { href: '#/issues/all', label: 'All issues' };
 
 // ---- where each bill stands: by the chamber it STARTED in (coordinator, 25 Oct, from Nate's goal) ----
 // Nate: "having at least one per chamber is ideal". That is two vehicles, a House bill and a Senate bill still alive, so a
@@ -761,7 +761,7 @@ const foldSec = (key, hid, title, { sum = '', body = '' }, { late = key + 'sum',
   <div class="ip6-sfb">${body}</div></details>`;
 function pageRender(route) {
   const i = issueById(route.id);
-  if (!i) return `<div class="le-page i6-page">${empty({ h: 'h1', title: 'This issue is not here', text: 'It may have been merged into another, or the link is old.', action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div>`;
+  if (!i) return `<div class="le-page i6-page">${empty({ h: 'h1', title: 'This issue is not here', text: 'It may have been merged into another, or the link is old.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>`;
   wantPeople();
   const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), { now, earlier } = billsSplit(i);
   const from = billFrom(route), bk = backTo(route);

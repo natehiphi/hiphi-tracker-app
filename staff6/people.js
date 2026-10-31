@@ -461,7 +461,7 @@ export default {
     on('[data-pekeep]', el => { const a = who(el.dataset.pekeep); if (a) handOver(a, el, { keep: true }); });
     on('[data-peoff]', el => busy(el, () => setActive(who(el.dataset.peoff), false)));
     on('[data-peundo]', el => busy(el, () => undoHandOver(who(el.dataset.peundo))));
-    on('[data-pebills]', el => { try { const v = bl(); v.scope = 'all'; v.owners = new Set([el.dataset.pebills]); saveBills(); } catch { /* Bills opens unfiltered */ } S.go('#/bills'); });
+    on('[data-pebills]', el => { try { const v = bl(); v.scope = 'all'; v.owners = new Set([el.dataset.pebills]); saveBills(); } catch { /* Bills opens unfiltered */ } S.go('#/issues/bills'); });
     main.querySelector('.pe-off')?.addEventListener('toggle', e => { P().offOpen = e.target.open; });
     // listDetail's own Back to the list (drawn below 1100px only, where this page shows the record alone instead).
     main.querySelectorAll('[data-v6ldback]').forEach(b => b.onclick = () => S.go('#/people'));

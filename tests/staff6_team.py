@@ -126,7 +126,7 @@ def main():
     # ---- R-356: who has a Team option (Kevin none, Kris all four) and who reaches Team ----
     OPT = "() => [...document.querySelectorAll('[data-seg=\"hscope\"],[data-seg=\"blscope\"],[data-seg=\"lgask\"],[data-seg=\"otwho\"]')].filter(e => e.textContent.trim() === 'Team').length"
     for who, want in (('KV', 0), ('KR', 1), ('NT', 1)):
-      for path in ('/hearings/week', '/bills', '/legislators?view=ask', '/outreach'):
+      for path in ('/hearings/week', '/issues/bills', '/hearings/ask', '/outreach'):
         pg = b.page(who, 1440, 900); pg.open(path); got = pg.page.evaluate(OPT)
         check(f'{who}: {path} has {"no" if not want else "a"} Team option', got == want, got)
         check(f'{who}: {path} has no page errors', not pg.errors, pg.errors[:1]); pg.close()

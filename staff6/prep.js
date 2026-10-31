@@ -5,7 +5,7 @@
 // for emails or testimonies"); the owner says keep, merge or retire; Nate approves; due Fri 6 Nov.
 //
 // Three places: My issues between sessions (the prep list, W16), the Prep board for admins (All issues › Prep board,
-// #/my-issues/all?view=prep, F165), and the prep card on an issue's own page, which is where every step is done. A new
+// #/issues/all?view=prep, F165), and the prep card on an issue's own page, which is where every step is done. A new
 // issue is a draft until an admin publishes it, and the card on a draft lists what it still needs instead (the database
 // refuses to publish one that lacks any: issue_missing()).
 //
@@ -127,8 +127,8 @@ const ordered = l => l.slice().sort((a, b) => ORDER[stateOf(a)] - ORDER[stateOf(
 // R-316 W16: an issue opened from a prep list comes back to it, and says so (issues.js reads ?from=prep and ?from=board).
 export const issueHref = (i, from = '') => `#/issue/${encodeURIComponent(i.id)}${from ? `?from=${from}` : ''}`;
 // Between sessions My issues is the prep list (myIssuesPrep); otherwise it is a view of All issues.
-export const prepListHref = () => myIssuesPrep() ? '#/my-issues' : '#/my-issues/all?view=mine';
-export const BOARD_HREF = '#/my-issues/all?view=prep';
+export const prepListHref = () => myIssuesPrep() ? '#/issues' : '#/issues/all?view=mine';
+export const BOARD_HREF = '#/issues/all?view=prep';
 // The walk-through (W16): after Mark ready, your next unfinished issue; after Approve, the next one waiting; a helper's
 // next is the next issue they help on whose steps are not all done (X26: it looped back to a finished one).
 const nextToDo = i => ordered(mine().filter(x => x.id !== i.id && !isDone(x)))[0] || null;
@@ -642,7 +642,7 @@ function mineRender({ asMyIssues = false } = {}) {
       ${next ? `<p class="pr6-next">${btn(`${STEPS.some(x => x.done(next)) ? 'Continue' : left.length === own.length && !ready && own.length ? 'Start' : 'Next'}: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: issueHref(next, 'prep') })}</p>` : ''}
       ${isAdmin() ? lineHTML('clipboard-check', esc(`Team: ${nApp} of ${ok.length} approved.`), `<a class="i6-inline" href="${BOARD_HREF}">Open the Prep board</a>`) : ''}
     </section>
-    ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div>` : ''}
+    ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>` : ''}
     ${own.length ? `<section class="i6-sec" aria-labelledby="pr-mine"><h2 class="i6-h" id="pr-mine">Yours</h2>${left.length ? box(left.map(i => prepRow(i)).join('')) : ''}${doneFold('own-done', own.filter(isDone), i => prepRow(i))}</section>` : ''}
     ${help.length ? `<section class="i6-sec" aria-labelledby="pr-help"><h2 class="i6-h" id="pr-help">Helping</h2>${box(help.map(i => prepRow(i, { helper: true })).join(''))}</section>` : ''}
     ${drafts.length ? `<section class="i6-sec" aria-labelledby="pr-dr"><h2 class="i6-h" id="pr-dr">Not public yet</h2>${box(drafts.map(i => prepRow(i)).join(''))}</section>` : ''}
@@ -655,7 +655,7 @@ export const myIssuesPrep = () => !!SESSION_OVER && !!S.me && (mine().length + h
 export const renderMinePrep = () => mineRender({ asMyIssues: true });
 export const wireMinePrep = () => {};
 
-// ---- the Prep board (F165): an admin's view of All issues, #/my-issues/all?view=prep ----
+// ---- the Prep board (F165): an admin's view of All issues, #/issues/all?view=prep ----
 // Every issue, its owner, its steps, and what is waiting for an admin; each owner's progress; Tell the owners.
 const FILTERS = [['all', 'All'], ['wait', 'Waiting for you'], ['sent_back', 'Changes asked'], ['todo', 'No steps done yet'], ['top', 'Top issues'], ['draft', 'Not public yet']];
 const inFilter = (i, f) => f === 'all' ? !isDraft(i) : f === 'top' ? !isDraft(i) && (i.top_pick === 'yes' || !!i.recommended) : f === 'wait' ? stateOf(i) === 'ready' : f === 'draft' ? isDraft(i) : stateOf(i) === f;
@@ -685,7 +685,7 @@ function tellHTML() {
     ${btn(`Tell ${plural(others.length, 'owner')}`, { kind: 'secondary', icon: 'send', attrs: { 'data-pr': 'tell' } })}</section>`;
 }
 // The view switch of All issues for admins: List · Prep board (F165; "List", since the tab above is All issues, C-15). A visible switch, not a "…" menu (rule 3).
-export const boardSwitch = cur => isAdmin() ? `<div class="sv-seg i6-seg pr6-view" role="group" aria-label="All issues as a list, or the Prep board">${[['', 'List', '#/my-issues/all'], ['prep', 'Prep board', BOARD_HREF]].map(([v, l, h]) => `<a href="${h}" role="button" aria-pressed="${cur === v}">${l}</a>`).join('')}</div>` : '';
+export const boardSwitch = cur => isAdmin() ? `<div class="sv-seg i6-seg pr6-view" role="group" aria-label="All issues as a list, or the Prep board">${[['', 'List', '#/issues/all'], ['prep', 'Prep board', BOARD_HREF]].map(([v, l, h]) => `<a href="${h}" role="button" aria-pressed="${cur === v}">${l}</a>`).join('')}</div>` : '';
 function boardRender(route) {
   const st = B(); if (route.q?.f && FILTERS.some(x => x[0] === route.q.f)) st.f = route.q.f;
   // W4: Today's "Behind: Rick 0/7" opens the board on that owner (once per link, so the buttons still change it).

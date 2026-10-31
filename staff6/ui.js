@@ -544,13 +544,13 @@ const SECTIONS = {
   // v4 (R-269): Outreach is for rallying, so it opens on this week's asks; v6 adds Lists as its last tab (spec 3.3).
   outreach: ['Outreach', [['asks', '#/outreach', 'This week\u2019s asks'], ['partners', '#/outreach/partners', 'Partner update'], ['emails', '#/outreach/emails', 'Emails'],
     ['supporters', '#/outreach/supporters', 'Supporters'], ['lists', '#/outreach/lists', 'Lists']]],
-  bills: ['Bills', [['bills', '#/bills', 'Bills'], ['new', '#/bills/new', 'Sort new bills'], ['muted', '#/bills/muted', 'Muted']]],
-  // Who to ask names its view too: between sessions the bare #/legislators opens Everyone (spec 3.3).
-  legislators: ['Legislators', [['ask', '#/legislators?view=ask', 'Who to ask'], ['everyone', '#/legislators?view=everyone', 'Everyone'], ['holding', '#/legislators?view=holding', 'Holding our bills']]],
-  // My issues (R-263): the person's own first, then the coalitions, then every issue (spec 3.3's order), then every issue's
-  // week as a calendar (R-342; R-352 FIX-3, Nate 28 Oct: "keep the calendar view"). The tab is All issues' one way to its
-  // calendar (A-12 on v6: no switch beside it); the calendar's other home is Hearings (B-13 on v6).
-  issues: ['Issues', [['mine', '#/my-issues', 'My issues'], ['coalitions', '#/my-issues/coalitions', 'Coalitions'], ['all', '#/my-issues/all', 'All issues'], ['cal', '#/my-issues/all?view=cal', 'Calendar']]],
+  // The Bills tab of Issues (R-356 round 2, decision 3): its own sub-tabs, drawn by bills.js / billshead.js.
+  bills: ['Bills', [['bills', '#/issues/bills', 'Bills'], ['new', '#/issues/bills/new', 'Sort new bills'], ['muted', '#/issues/bills/muted', 'Muted']]],
+  // Legislators has no tabs since round 2 (a plain directory), so it has no entry here.
+  // Issues (R-263; R-356 round 2, decision 3): the person's own first, then every issue, then every bill, then the coalitions.
+  // All issues' week calendar (R-342; R-352 FIX-3, Nate 28 Oct: "keep the calendar view") has no tab since round 2: it is
+  // #/issues/all?view=cal, reached from the Issues calendar row on More, and All issues is the current tab on it.
+  issues: ['Issues', [['mine', '#/issues', 'My issues'], ['all', '#/issues/all', 'All issues'], ['bills', '#/issues/bills', 'Bills'], ['coalitions', '#/issues/coalitions', 'Coalitions']]],
   inbox: ['Inbox', [['messages', '#/inbox', 'Messages'], ['updates', '#/inbox?view=updates', 'Updates']]],
 };
 export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, href, label]) => ({ key: k, href, label }));

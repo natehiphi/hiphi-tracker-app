@@ -781,7 +781,7 @@ function oneNotice() {
   // Getting the issues ready for 2027 (R-088): an owner's issues left to do, or what is waiting for an admin to approve.
   const sorts = !TEACH() || me.is_admin || S.bills.some(b => owns(me.id, b));   // W39
   const n = sorts ? S.tdTriage?.suggested || S.tdTriage?.undecided : 0;
-  const sort = n ? notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/bills/new' })) : '';
+  const sort = n ? notice('info', 'sparkles', `<b>${plural(n, 'new bill')} to sort.</b>`, btn('Sort new bills', { kind: 'secondary', href: '#/issues/bills/new' })) : '';
   // Session work first (R-118): in the opening weeks and in session, new bills to sort take the slot; the issue prep
   // notice waits for a quiet day.
   if (sort && (openWeeks() || legislativeDay())) return sort;
@@ -2114,7 +2114,7 @@ function coalSection(r, skip = new Set(), quiet = new Set()) {
     asks.length ? `<h3 class="td-ch">${icon('mail')}Chair asks</h3><div class="td-crows">${asks.slice(0, COALDUE_CAP).map(askRow).join('')}</div>${asks.length > COALDUE_CAP ? `<a class="td-cdmore" href="#/?view=week"><span>${esc(`${asks.length - COALDUE_CAP} more on This week`)}</span>${icon('chevron-right', { cls: 'chev' })}</a>` : ''}` : ''].join('');
   // The heading's line: the hearings (or that there are none, said here and nowhere else), the bills with no hearing as a
   // link to them on Bills, and the to-dos.
-  const bills = co.ids.size === 1 && !co.all ? `#/bills?coalition=${encodeURIComponent([...co.ids][0])}` : '#/bills';
+  const bills = co.ids.size === 1 && !co.all ? `#/issues/bills?coalition=${encodeURIComponent([...co.ids][0])}` : '#/issues/bills';
   const monLine = !all && mon.length ? `We monitor ${mon.slice(0, 2).map(x => `<a href="#/hearing/${esc(x.h.id)}?from=today">${esc(`${billNum(x.b)}, ${new Date(x.h.scheduled_at) > Date.now() ? 'hearing' : 'heard'} ${whenLine(x.h.scheduled_at)}`)}</a>`).join(' and ')}${mon.length > 2 ? esc(` and ${mon.length - 2} more`) : ''}` : '';
   const count = [all ? esc(plural(all, 'hearing')) : mon.length ? 'No hearings this week on bills with a position' : 'No hearings this week', monLine,
     racing.length ? `<a href="${esc(bills)}">${esc(`${plural(racing.length, 'bill')} still ${racing.length === 1 ? 'needs' : 'need'} a hearing`)}</a>` : '',
@@ -2421,8 +2421,8 @@ function render(route) {
         : coal ? `<p class="td-quiet" data-top tabindex="-1">${icon('circle-check')}<span>Nothing needs you today.</span></p>`
         // R-316 W7 (G3-12, FR-3): someone who owns no bill, follows none and helps on no coalition was told "All clear… on
         // your bills". Their first step is their coalition, whose switches are on My issues.
-        : scope === 'mine' && !who && !S.bills.some(isMine) && !coalPicked() ? `<div class="td-empty" data-top tabindex="-1">${empty({ title: 'Pick the coalition you help on', text: 'Its hearings and testimony show here once you switch on I help on it. My issues lists every coalition.', action: btn('Pick your coalition', { href: '#/my-issues' }) })}</div>`
-        : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/bills' }) })}</div>`) + ptHtml();
+        : scope === 'mine' && !who && !S.bills.some(isMine) && !coalPicked() ? `<div class="td-empty" data-top tabindex="-1">${empty({ title: 'Pick the coalition you help on', text: 'Its hearings and testimony show here once you switch on I help on it. My issues lists every coalition.', action: btn('Pick your coalition', { href: '#/issues' }) })}</div>`
+        : `<div class="td-empty" data-top tabindex="-1">${empty({ art: scope === 'mine' ? yay() : '', title: who ? `Nothing is waiting on ${esc(name)}.` : scope === 'none' ? 'Nothing is open on the bills nobody owns.' : 'All clear for today.', text: nextHearingText(scope, who), action: scope !== 'mine' ? btn('Back to my list', { kind: 'secondary', attrs: { 'data-seg': 'tdscope', 'data-val': 'mine' } }) : btn('See your bills', { href: '#/issues/bills' }) })}</div>`) + ptHtml();
     // R-316 W4: with the 2027 prep in the list, "All clear" above it said there was nothing to do, and pushed it down.
     } else body = (clear && !cd.cards.length && !groups.some(g => g.cards.some(c => c.p?.kind === 'prep')) ? `<div class="td-clear">${scope === 'mine' ? yay() : ''}<div><p class="td-clear-t">${who ? `Nothing for ${esc(name)} today.` : scope === 'none' ? 'Nothing is due today on the bills nobody owns.' : askSoon ? 'Nothing due today.' : 'All clear for today.'}</p><p class="small muted">${nextHearingText(scope, who)}</p></div></div>` : '')
       + groups.map((g, gi) => (!ptDone && !NOW_GROUPS.has(g.id) && g.id !== 'now' ? ptHtml() : '') + groupHtml(g, gi)).join('') + ptHtml() + coalDueHtml(cd, rows, false);

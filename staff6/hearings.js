@@ -14,11 +14,11 @@
 // else This week (spec 3.3). Old addresses arrive here: #/?view=week&w=1 is #/hearings?w=1 (app.js).
 // The calendar has one home, here (B-13 on v6, R-352): This week shows as a list or as a calendar (#/hearings/week?view=cal),
 // with an issue filter (?issue=<id>, the job All issues' calendar did). Today's old week addresses (#/?view=cal&who=team&w=1
-// &day=2026-03-18) and All issues' (#/my-issues/all?view=cal) are sent here by app.js; this page reads `who` as `scope`
+// &day=2026-03-18) and All issues' (#/issues/all?view=cal) are sent here by app.js; this page reads `who` as `scope`
 // and `day` as the phone's day, so those links keep whose week, which week and which day.
 // What it replaces (A-25, rule 7.8): v5's This week grid (testimony-deadline cards, hearing blocks, Other to-dos: the
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
-// Team switch's week, and the two "who to ask" boards (this one and Holding's: Legislators > Who to ask draws askBoard).
+// Team switch's week, and the two other "who to ask" screens (Legislators > Who to ask and Holding our bills went away in R-356 round 2, decision 4: asking chairs for a hearing lives only here, in Bills That Need Hearings).
 import { S, DB, esc, hooks, SESSION_OVER, seesTeam } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, pickerChip, pickerSheet, ASK_TAB } from './ui.js';
@@ -494,7 +494,7 @@ function openingDay() {
 function askHTML(scope, auto = false) {
   // Opened here by the rule (spec 3.3: a bill waiting and no hearing this week), it says why, once, in a quiet line.
   const why = auto ? `<p class="hg-auto">${icon('calendar')}<span>${esc(`No hearings on ${scope === 'team' ? 'the team’s bills' : whoseWords(scope)} this week, so here is what still needs one.`)}</span></p>` : '';
-  const how = `<p class="hg-how"><a href="#/help/hearing">How to ask for a hearing</a> · <a href="#/help/calendar">Session calendar</a> · <a href="#/legislators?view=holding">Holding our bills</a></p>`;
+  const how = `<p class="hg-how"><a href="#/help/hearing">How to ask for a hearing</a> · <a href="#/help/calendar">Session calendar</a></p>`;
   if (SESSION_OVER) return `<p class="hg-empty">${icon('calendar')}<span>The session is over, so no bill is waiting for a hearing. The next session’s calendar is loaded in December.</span></p>${how}`;
   return why + askBoard({ scope }) + how;
 }

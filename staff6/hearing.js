@@ -260,7 +260,7 @@ function membersHTML(c) {
 // it (B-4) and that place stays lit (D12). Opened from inside the app, Back is real Back anyway (app.js). Unsaid, a sitting
 // belongs to Hearings.
 const FROM = { today: ['#/', 'Today', 'today'], week: ['#/hearings', 'Hearings', 'hearings'], hearings: ['#/hearings', 'Hearings', 'hearings'],
-  bills: ['#/bills', 'Bills', 'bills'], testimony: ['#/testimony', 'Testimony', 'testimony'], team: ['#/team', 'Team', 'team'], legislators: ['#/legislators', 'Legislators', 'legislators'] };
+  bills: ['#/issues/bills', 'Bills', 'bills'], testimony: ['#/testimony', 'Testimony', 'testimony'], team: ['#/team', 'Team', 'team'], legislators: ['#/legislators', 'Legislators', 'legislators'] };
 function backOf(route) {
   const from = String(route.q?.from || '');
   if (FROM[from]) return { href: FROM[from][0], label: FROM[from][1], place: FROM[from][2] };

@@ -1,4 +1,4 @@
-// My issues (#/my-issues, R-263, Nate 10/12): staff own issues and work bills. "Should there instead be an issues tab with
+// My issues (#/issues, R-263, Nate 10/12): staff own issues and work bills. "Should there instead be an issues tab with
 // bills falling within the different issues? And staff instead 'own' issues, rather than bills?" His answers: its own
 // place in the main menu, for everyone on staff, and helpers get the bills too. So this is each person's issues (the ones
 // they own or help on, from the 2027 prep's owners and helpers, 091), soonest work first, each with where it stands. The
@@ -101,7 +101,7 @@ export default {
     // The critic: say why the page shows coalitions, and how an issue would come to be here.
     if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}<p class="i6-lede mi-noiss">No issues are yours yet. Owning or helping on an issue adds it here; helping a coalition shows its week below.</p>${coalSectionsHTML()}</div>`;
     if (!list.length) return `<div class="le-page i6-page mi6-page">${head}
-      <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/my-issues/all' }) })}</div></div>`;
+      <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div></div>`;
     // Under the tabs, one line only when it says something the list does not (the critic: "You own 10 issues" counted the
     // rows below it, and "You help on 2." named no noun): for someone who helps on a coalition, that coalition and its week
     // (Patti: "Your coalition: HEAL · 3 hearings this week"), which replaces the lede (A-25); for a helper on issues only,

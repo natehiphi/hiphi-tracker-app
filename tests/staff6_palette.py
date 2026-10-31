@@ -40,7 +40,7 @@ with sync_playwright() as p:
   shot(pg, 'settings-lilikoi')
   pg.reload(); pg.wait_for_selector('#me-colh', timeout=20000); pg.wait_for_timeout(600)
   check(pg.evaluate("document.documentElement.dataset.palette") == 'lilikoi' and var(pg, '--v6-action') == '#5E3F99', 'the pick survives a reload')
-  for route in ['/', '/bills', '/bill/HB1562', '/hearings', '/testimony', '/legislators', '/inbox', '/team']:
+  for route in ['/', '/issues/bills', '/bill/HB1562', '/hearings', '/testimony', '/legislators', '/inbox', '/team']:
     pg.goto(BASE + '/staff6.html?demo=1&as=NT#' + route); pg.wait_for_timeout(1200)
   shot(pg, 'team-lilikoi')
   check(not errs, 'no errors on eight screens in Lilikoʻi' + (': ' + errs[0] if errs else ''))
