@@ -16,6 +16,7 @@ import { askLine, askedChip, answerSheet, ASK_TODO, askTodoOf, chairsOf, chairWh
 import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords, sayWords, itemRow, nw, helpersOf, timeWords, dayWords, billStep } from './steps.js';   // v6 words (spec 5)
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
+import { chairRole, contactWords, ensureContacts } from './holding.js';   // the chair's role and last contact, back from Who to ask
 import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
 import { ACTS as PIC } from './verbs.js';   // one icon per action: Follow up is the mail, as on Today (R-352 FIX-2)
 const PIC_FOLLOW = PIC.follow.btnIcon;
@@ -473,8 +474,14 @@ function groupHTML(g, v, scope, { primary, shared }) {
   // on a standalone link (one link style); a joint referral names each chair, each its own link.
   const chairs = m ? chairIdsOf(g.code).map(id => (S.legislators || []).find(l => l.id === id)).filter(Boolean) : [];
   const whoHTML = chairs.length ? andWords(chairs.map(l => `<a class="hg-cnl" href="#/legislator/${encodeURIComponent(l.id)}">${esc(chairWho(l.id))}</a>`)) : esc(who);
+  // R-356 round 2 (F-ids rule 9): the line under the name says the role ("Chair, House Health") and, when there is one, the
+  // last contact ("Last contact Mon 3/9, Lauren"), as Who to ask did. A joint card has one line per chair, each naming that
+  // chair's committee; "ask by" is said once, on the first. One fact per card, not per bill.
+  const subLines = (chairs.length ? chairs : [null]).map((l, i) => {
+    const role = l ? chairRole(l, [g.code]) : '', ct = l ? contactWords(l) : '';
+    return `<p class="hg-csub">${nw(esc([role || cn, i === 0 ? when : '', ct].filter(Boolean).join(' · ')))}</p>`; }).join('');
   return `<section class="hg-chair" aria-labelledby="hg-c-${esc(g.id)}">
-    <div class="hg-chead"><div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${whoHTML}</h3><p class="hg-csub">${nw(esc([cn, when].filter(Boolean).join(' · ')))}</p></div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
+    <div class="hg-chead"><div class="hg-cwho"><h3 class="hg-cname" id="hg-c-${esc(g.id)}">${whoHTML}</h3>${subLines}</div>${acts ? `<div class="hg-cacts">${acts}</div>` : ''}</div>
     <div class="v6-list hg-list" role="list" aria-label="${esc(`Bills for ${who}`)}">${rows}</div>${foot}</section>`;
 }
 // askBoard({ scope, bills, viewer, primary, id, empty }) -> the board's HTML: under each deadline (soonest first) in words,
@@ -493,7 +500,7 @@ const FOLD_MIN = 8;
 const ownStep = (x, v) => mineGiven(x, v) || (x.k === 'follow' && x.a.asker === v?.id) || (['ask', 'decide', 'follow', 'later'].includes(x.k) && (S.assignments?.[x.b.id] || []).includes(v?.id));
 const FOLD_OPEN = new Set();   // the later deadlines opened this visit (id|date), kept across redraws
 export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, primary = true, id = 'hg', empty = null, fold = false } = {}) {
-  BOARD = new Map();
+  BOARD = new Map(); ensureContacts(() => hooks.render());
   const v = viewer, items = boardItems({ scope, bills, viewer: v });
   if (!items.length) return empty ?? `<p class="hg-empty">${icon('circle-check')}<span>${esc(scope === 'team' ? 'No bill of the team’s is waiting for a hearing right now.' : `None of ${whoseWords(scope, v)} is waiting for a hearing right now.`)}</span></p>`;
   const dls = new Map();
@@ -548,8 +555,9 @@ export function askBoard({ scope = defaultScope(), bills = null, viewer = S.me, 
   // One "Asked another way? Log a talk" for the whole board, not under every chair (Nate's walk: 11 times on Lauren's My
   // bills; C-15, one name per act). It opens the chair to pick when more than one ask is the viewer's to log.
   const logs = all.filter(g => groupRoles(g, v, scope).log.length);
-  const top = logs.length ? `<p class="hg-log hg-logtop"><span>Asked another way?</span>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-hgact': 'anotherall', 'data-hgboard': id, 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk: an ask made by phone, in person or another way' } })}</p>` : '';
-  return `<div class="hg-board" data-hgboard="${esc(id)}">${top}${out}</div>`;
+  const top = `<p class="hg-asktop">Ask each committee’s chair to hear these bills before the deadline.</p>`;
+  const foot = logs.length ? `<p class="hg-log hg-logfoot"><span>Asked another way?</span>${btn('Log a talk', { kind: 'text', sm: true, icon: 'message-square', attrs: { 'data-hgact': 'anotherall', 'data-hgboard': id, 'aria-haspopup': 'dialog', 'aria-label': 'Log a talk: an ask made by phone, in person or another way' } })}</p>` : '';
+  return `<div class="hg-board" data-hgboard="${esc(id)}">${top}${out}${foot}</div>`;
 }
 // A row's "…" (an owner's bill still to ask, or one put off): this bill alone in the email, when the chair's email names
 // others; Not now (back in two weeks, with Undo); Ask now (for one put off); Not pushing this bill (its owner: the bill

@@ -30,7 +30,7 @@ function groups() {
       // A-14, A-12: Legislators’ profiles was a second row to Legislators › Everyone, which Places above already opens.
       ['Session calendar', '#/help/calendar', 'flag', 'The session’s deadlines, day by day'],
       // All issues' week calendar lost its tab in round 2 (decision 3); this row is its way in (A-12: one way in).
-      ['Issues calendar', '#/issues/all?view=cal', 'calendar', 'Every issue’s week, as a calendar'],
+      ['Issues calendar', '#/issues/all?view=cal', 'calendar', 'The team’s week, each hearing with its issue (the same calendar as Hearings)'],
     ]],
     ['Testimony', [
       ['How to file', '#/help/file', 'clipboard-check', 'Filing at the Capitol, step by step'],
@@ -70,8 +70,8 @@ function footLine() {
     const miss = [seesTeam(a) ? null : 'Team', 'People', admitsPartners(a) ? null : 'Partners', 'Session setup'].filter(Boolean);
     out.push(`Admins also have ${miss.length > 1 ? `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}` : miss[0]}. Ask Nate.`);
   }
-  const bills = [canSort() ? null : 'New', showMutedTab() ? null : 'Muted'].filter(Boolean);
-  if (bills.length) out.push(`Bill and coalition owners also have ${bills.join(' and ')} tabs on Issues › Bills.`);
+  const bills = [canSort() ? null : 'Sort new bills', showMutedTab() ? null : 'Muted'].filter(Boolean);
+  if (bills.length) out.push(`Bill and coalition owners also have ${bills.join(' and ')} under Issues › Bills.`);
   return out.join(' ');
 }
 // C-15: Kris sees Team without being a lead, so the one row Team is not under "Lead tools" (app.js says the same).
