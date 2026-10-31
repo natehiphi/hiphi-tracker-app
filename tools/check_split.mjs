@@ -36,5 +36,15 @@ const unnamed = new Map();
 for (const [what, entry] of [['the first wave', 'pub/app.js'], ['a first visit', 'pub/start.js'], ['a returner\u2019s Home', 'pub/calm/home.js'], ['a bill link', 'pub/bill.js']])
   for (const f of tree(entry)) if (!named(f)) unnamed.set(f, [...(unnamed.get(f) || []), what]);
 for (const [f, whats] of unnamed) bad.push(`track.html does not name ${f}, which ${whats.join(' and ')} import${whats.length > 1 ? '' : 's'}: add it to the modulepreload lines or the inline script's lists`);
+// 6. what a phone's first wave leaves out (R-357 5c). The first screen asks for these in pub/app.js (or, for print.css, track.html's
+//    printer does once the screen is drawn): none is named in track.html outside <noscript>, and the sending half of the counts is
+//    imported by no first-wave module (pub/visitlog.js, the small shell, carries every call and loads it after the first screen).
+const asked = html.replace(/<noscript>[\s\S]*?<\/noscript>/g, '');
+for (const f of ['pub/actions.css', 'pub/wide.css', 'pub/print.css'])
+  if (new RegExp(`(?<![\\w-])href="${f.replace('.', '\\.')}"`).test(asked)) bad.push(`track.html asks for ${f} before the first screen is drawn: pub/app.js loads it (actions.css, wide.css) or the printer does (print.css, data-href)`);
+if (/visitlog-send\.js/.test(asked)) bad.push('track.html names pub/visitlog-send.js: it loads after the first screen (pub/visitlog.js)');
+if (imports('pub/visitlog.js').length) bad.push(`pub/visitlog.js imports ${imports('pub/visitlog.js').join(', ')}: it is the small shell every module carries; what it needs lives in pub/visitlog-send.js`);
+for (const [what, entry] of [['the first wave', 'pub/app.js'], ['a first visit', 'pub/start.js'], ['a returner\u2019s Home', 'pub/calm/home.js'], ['a bill link', 'pub/bill.js']])
+  if (tree(entry).includes('pub/visitlog-send.js')) bad.push(`${what} imports pub/visitlog-send.js statically: only pub/visitlog.js may, by import()`);
 if (bad.length) { console.error('the first load is not what it should be:\n  ' + bad.join('\n  ')); process.exit(1); }
 console.log('split ok: the first wave carries the kernel only');

@@ -34,7 +34,13 @@
   try {
     if (/[?&]demo=1/.test(location.search)) return;
     var U = 'https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/', K = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
-    var get = function (q) { return fetch(U + q + '&apikey=' + K).then(function (r) { if (!r.ok) throw new Error('catalog ' + r.status); return r.json(); }); };
+    /* How the four requests below go (ok, bad: refused or an error status, n: how many), for pub/app.js watchDb: the page says it
+       cannot reach its data within 3 seconds when all failed or none answered (R-357 5c), not after 16 to 18 of grey bars. */
+    var N = window.__hiphiNet = { t0: performance.now(), n: 4, ok: 0, bad: 0, down: false, done: false, check: null };
+    var bad = function () { N.bad++; if (N.check) N.check(); };   /* app.js looks again at once */
+    var get = function (q) {
+      return fetch(U + q + '&apikey=' + K).then(function (r) { if (!r.ok) { bad(); throw new Error('catalog ' + r.status); } N.ok++; return r.json(); }, function (e) { bad(); throw e; });
+    };
     var all = Promise.all([get('public_categories?select=*&order=sort_order'), get('public_issues?select=id,slug,name,description,category,categories,sort_order,first_visit,top_priority&order=sort_order'), get('public_issue_links?select=issue_a,issue_b')]);
     var late = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('catalog slow')); }, 10000); });
     window.__hiphiCatalog = Promise.race([all, late]);   // settles within ten seconds, so nothing waits on it longer
@@ -82,7 +88,9 @@
   // The first screen's stylesheet starts downloading now; pub/app.js puts it in the page in its place (before wide.css,
   // the order of CSS_ORDER) once the module is in, from the cache this preload fills.
   // (rec/rec.css comes with every screen but the first visit's since the calm redesign became everyone's, pub/app.js cssFor.)
-  var css = onBill ? ['bill', 'mylists', 'rec/rec'] : first ? ['start'] : ['home', 'rec/rec'];
+  // actions.css goes with every screen but the first visit's, wide.css only with a window of 900px or more (pub/app.js cssFor; R-357 5c).
+  var css = onBill ? ['actions', 'bill', 'mylists', 'rec/rec'] : first ? ['start'] : ['actions', 'home', 'rec/rec'];
+  if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) css.push('wide');
   for (var j = 0; j < css.length; j++) { var s = document.createElement('link'); s.rel = 'preload'; s.as = 'style'; s.href = 'pub/' + css[j] + '.css'; document.head.appendChild(s); }
 })();
 </script>
@@ -91,7 +99,9 @@
      stylesheets below start at once (the preload gives them their high priority) but are applied when they arrive, and
      they come later in the page, so where both say something about the same thing, theirs wins. Same selectors as
      pub/base.css and pub/start.css on purpose, so a rule here never outranks the real one: change a rule there, change it
-     here (or leave it: the real sheet wins within a moment). Text draws at once in the system face and swaps to Poppins and
+     here (or leave it: the real sheet wins within a moment). A phone's welcome draws from these alone, without waiting
+     for start.css (pub/app.js render): its boxes and styles matched with and without start.css at 40 sizes, 320 to 899 wide by 560 to
+     844 tall (R-357 5c), the fit levels included. Text draws at once in the system face and swaps to Poppins and
      Lato when they arrive (display=swap), through the same font stacks base.css declares. -->
 <style id="crit">
 :root{--p700:#00698E;--o400:#F68B2C;--o700:#984B0B;--n0:#FFFFFF;--n50:#F4F7F9;--n100:#EAEFF2;--n200:#DBE3E7;--n500:#5F6F76;--n700:#344852;--n900:#142B35;
@@ -132,6 +142,7 @@ main:focus{outline:none}
 .btn.primary{background:var(--p700);color:#fff}
 .btn.text{min-height:44px;padding:0 12px;color:var(--p700);background:none}
 .skel{background:linear-gradient(90deg,var(--n100) 25%,var(--n50) 37%,var(--n100) 63%);background-size:400% 100%;animation:shimmer 1.4s ease infinite;border-radius:var(--r12)}
+body.sk .hdr *,body.sk .tabs *{font-family:system-ui,-apple-system,'Segoe UI',sans-serif!important}
 @keyframes shimmer{0%{background-position:100% 50%}100%{background-position:0 50%}}
 @media (prefers-reduced-motion:reduce){.skel{animation:none}}
 .skelpage{display:flex;flex-direction:column;gap:var(--s12);padding-top:var(--s16)}
@@ -156,27 +167,29 @@ main:focus{outline:none}
 .st-hellopage .lede{margin:0;max-width:24em}
 .st-one.st-hellobar{flex-direction:column;align-items:stretch;gap:2px}
 .st-one.st-hellobar .btn.text{width:auto;min-width:0;align-self:center}
+@media (min-width:720px){.st-art svg{height:88px}.st-one{justify-content:flex-end}.st-one .btn{width:auto;min-width:260px}.st-one.st-hellobar{align-items:center}}
+.st-hellopage.fit1{--hs:.85}.st-hellopage.fit2{--hs:.72}.st-hellopage.fit3{--hs:.6}.st-hellopage.fit4{--hs:.5}.st-hellopage.fit5{--hs:.4}
+.st-hellopage .st-partner{display:block;padding:0;background:none;font-weight:400;font-size:var(--t18);line-height:1.4;color:var(--n700);text-wrap:balance}.st-hellopage .st-partner .ic{display:none}
 @media (max-width:22.4375em),(max-width:899px) and (max-height:700px){.st1 .st-art{display:none}.st1.st-hellopage{--hw:300px}}
-@media (max-width:899px){body[data-screen="start"].hasbar:not(:has(.st:is(.st-topics,.st2))) main{padding-bottom:calc(var(--safe-b) + 78px)}.st-hellopage{min-height:calc(100svh - 256px)}body.st-hello[data-screen="start"].hasbar:not(:has(.st:is(.st-topics,.st2))) main{padding-bottom:calc(var(--safe-b) + 124px)}}
+@media (max-width:899px){body[data-screen="start"].hasbar:not(:has(.st:is(.st-topics,.st2))) main{padding-bottom:calc(var(--safe-b) + 78px)}.st-hellopage{min-height:calc(100svh - 256px)}body.st-hello[data-screen="start"].hasbar:not(:has(.st:is(.st-topics,.st2))) main{padding-bottom:calc(var(--safe-b) + 124px)}
+.st.fit1,.st.fit1 :is(.st-intro,.st-main){gap:var(--s8)}.st.fit1 h1{margin-top:0}
+body[data-screen="start"]:has(.st.fit6) .actionbar{padding-top:var(--s8);padding-bottom:calc(var(--s8) + var(--safe-b))}body[data-screen="start"].hasbar:has(.st.fit6) main{padding-bottom:calc(var(--safe-b) + 72px)}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
-<!-- The page's own styles and the first screen's (added by the script below); each other screen's come with it (pub/app.js CSS).
-     wide.css stays last: it overrides the screens' files on wide screens. They are in the page from the start with media=print
-     (a sheet that does not match the screen does not block the paint) and the script after them switches each to every screen
-     as it loads: with addEventListener, not onload=, because pub/app.js (cssOne) looks for these links by their address and
-     sets its own onload on one that has not loaded yet. -->
+<!-- The page's own styles and the first screen's (added by the script above); each other screen's come with it (pub/app.js CSS).
+     wide.css stays last: it overrides the screens' files on wide screens. pub/app.js adds wide.css and actions.css, and print.css
+     (below) comes after the first screen, so a newcomer's phone fetches none of them before it is drawn (R-357 5c). base.css and
+     fx.css are in the page from the start with media=print (a sheet that does not match the screen does not block the paint) and the
+     script after them switches each to every screen as it loads: with addEventListener, not onload=, because pub/app.js (cssOne,
+     baseP) listens on a link that has not loaded yet; its listener runs after this one, so base.css has applied by then. -->
 <link rel="preload" as="style" href="pub/base.css">
 <link rel="preload" as="style" href="pub/fx.css">
-<link rel="preload" as="style" href="pub/actions.css">
-<link rel="preload" as="style" href="pub/wide.css">
 <link rel="stylesheet" href="pub/base.css" media="print" data-late>
 <link rel="stylesheet" href="pub/fx.css" media="print" data-late>
-<link rel="stylesheet" href="pub/actions.css" media="print" data-late>
-<link rel="stylesheet" href="pub/wide.css" media="print" data-late>
 <script>
 (function () {
   var ls = document.querySelectorAll('link[data-late]');
@@ -222,8 +235,9 @@ main:focus{outline:none}
 <div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- On paper (R-212 #48): its own stylesheet, here in <body> so it comes after every screen's (pub/app.js adds those to
-     <head> as they are needed), and the line that says where a printed page came from. -->
-<link rel="stylesheet" href="pub/print.css" media="print">
+     <head> as they are needed), and the line that says where a printed page came from. A browser fetches a print sheet with the
+     first wave all the same, so it has no href until the first screen is drawn (R-357 5c): __hiphiPrint.css below sets it. -->
+<link rel="stylesheet" media="print" data-href="pub/print.css" id="prcss">
 <p id="pr-from"></p>
 <script>
 /* Printing (R-212 #48; the look is pub/print.css). While the page prints: every closed fold opens, and closes again after,
@@ -235,6 +249,9 @@ main:focus{outline:none}
 (function () {
   var on = false, opened = [], quiet = new WeakSet(), boxes = [], copies = [], sheet = null, mo = null;
   var line = document.getElementById('pr-from'), spot = line && line.parentNode, after = line && line.nextSibling;
+  // The paper's stylesheet is asked for after the first screen (pub/app.js), at the load event, or when printing starts (R-357 5c).
+  var pcss = document.getElementById('prcss');
+  function css() { if (pcss && !pcss.getAttribute('href')) pcss.setAttribute('href', pcss.getAttribute('data-href')); }
   // Where to find it again: this address without its one-time parts (restart, via, ...), the practice copy kept, and the
   // screen's own address without the screen it was opened from (?from=).
   function where() {
@@ -269,6 +286,7 @@ main:focus{outline:none}
   }
   function start() {
     if (on) return; on = true;
+    css();
     var day = today();
     // The day at the top of page 1 too, after the brand (pub/print.css puts it there and on a sheet printed alone): the page's
     // deadlines say "today", "tomorrow" or a weekday, and this is the day they mean (docs/DESIGN-AUDIT.md, section 4).
@@ -298,7 +316,8 @@ main:focus{outline:none}
   window.addEventListener('afterprint', end);
   // The bill page's "Print this page" starts it before asking the browser to print (pub/bill.js), for a phone whose browser
   // may not say it is about to print; the end still comes from afterprint or the print media query.
-  window.__hiphiPrint = { start: start, end: end };
+  window.__hiphiPrint = { start: start, end: end, css: css };
+  window.addEventListener('load', function () { setTimeout(css, 3000); });
   try {
     var mq = window.matchMedia('print'), f = function (e) { if (e.matches) start(); else end(); };
     if (mq.addEventListener) mq.addEventListener('change', f); else mq.addListener(f);

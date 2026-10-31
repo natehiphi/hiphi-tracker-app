@@ -5,11 +5,15 @@ import { reportError } from './errlog.js';   // first, so its handlers are in pl
 import { initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, catalogReady, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
 import { skeleton, keepWordsWhole, loadFail, failWords } from './ui.js';
-import { logDay, logAct } from './visitlog.js';
+import * as VL from './visitlog.js';   // the small shell (R-357 5c); a namespace, so a copy cached from before the split has no missing export to break on
 import { abSettled, armOf, abSeen } from './variant.js';
-import { testerActive } from './testerlog.js';   // a tester's path (R-193): starts itself on a tester-sheet link
 if (window.__hiphiErrs) window.__hiphiErrs.ran = true;   // track.html's 20-second message is not needed: this code started (R-212 #49)
-app.onAct = logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
+app.onAct = VL.logAct;   // markDone (core.js) calls it: an action marked done, counted by its kind only
+// Counts wait for the first screen (R-357 5c): visitlog.js is a small shell; pub/visitlog-send.js sends and loads after it (firstScreenDone).
+VL.holdCounts?.();
+// testerlog.js only changes the sandbox's band, so only the sandbox asks for it here (variant.js still imports it: first wave until that is lazy too).
+let testerMod = null;
+const testerP = DEMO ? import('./testerlog.js').then(m => (testerMod = m)).catch(() => {}) : null;
 
 // Screens load on first use (R-122, the assessment's P5): a newcomer's first load carries the first visit and not Home,
 // Find, People or More; a returning person's carries Home and not the first visit and its lessons (track.html preloads
@@ -73,6 +77,8 @@ const recIssue = lazy('issue', () => './rec/issue.js', { tab: 'find', title: 'Is
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
+// Off a phone's first wave (R-357 5c): actions.css comes with every screen but the first visit's (cssFor0), wide.css with the first
+// screen only in a window of 900px or more (cssFor) and a moment after it on a phone, print.css after it too (track.html, __hiphiPrint.css).
 const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
@@ -86,7 +92,8 @@ const SCREEN_CSS = { start: ['start'], learn: ['start'], next: ['start', 'next']
   more: ['more', 'talk', 'profile'], help: ['more', 'talk'], signin: ['more'], alerts: ['more'], settings: ['more', 'profile'], profile: ['more', 'profile'], privacy: ['more'], mylist: ['mybills', 'find', 'mylists'], shared: ['mybills', 'find', 'mylists'], quiz: ['quiz'], partner: ['partner'], groups: ['groups'], link: ['groups'], from: ['mybills', 'find'] };
 // Version A's look (pub/a/a.css, scoped to body.va and its own classes) comes after wide.css, as track-a.html had it, on
 // every screen but the first visit, which both versions share and other tests compare (R-187).
-const cssFor0 = name => oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
+const cssFor0 = name => { const own = oldA() && !FIRST_VISIT.includes(name) ? [...(SCREEN_CSS[name] || []), 'a/a'] : SCREEN_CSS[name];
+  return own && !FIRST_VISIT.includes(name) ? ['actions', ...own] : own; };
 // The calm redesign of the other pages (R-303) brings its one stylesheet to every page after the first visit, with ?rec=1.
 // The issue page draws the bill page's own action card and "Where it is now" (bill.css), and it and the category page have
 // a few rules of their own (rec/issue.css).
@@ -94,8 +101,11 @@ const REC_CSS = { issue: ['bill', 'rec/issue'], category: ['rec/issue'] };
 // Version 2 (?v2=1, R-357) brings pub/v2/v2.css after the calm redesign's, so a v2 screen's own rules win over rec.css's and its
 // screen's. Only the screens that have a v2 page (V2_CSS) ask for it.
 const V2_CSS = { bill: ['v2/v2'] };
+const wideCss = () => matchMedia('(min-width: 900px)').matches ? ['wide'] : [];   // R-357 5c: a wide window's first screen needs it; a phone's comes after
 const cssFor = name => { const base = REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
-  return V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base; };
+  const own = V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base;
+  return own && [...own, ...wideCss()];
+};
 const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
 const cssLink = n => document.querySelector(`link[rel="stylesheet"][href="pub/${n}.css"]`);
 const cssDone = new Set(), cssP = {};
@@ -103,20 +113,31 @@ const cssOne = n => cssP[n] ??= new Promise(res => {
   const done = () => { cssDone.add(n); res(); };
   const have = cssLink(n); if (have && have.sheet) return done();
   const l = have || document.createElement('link'); l.rel = 'stylesheet'; l.href = `pub/${n}.css`; l.onload = l.onerror = done;
+  if (!have && n === 'wide') l.media = '(min-width: 900px)';
   if (!have) { const after = CSS_ORDER.slice(CSS_ORDER.indexOf(n) + 1).map(cssLink).find(Boolean); document.head.insertBefore(l, after || null); }
 });
-const ensureCss = names => Promise.all((names || []).map(cssOne));
-const cssReady = names => (names || []).every(n => cssDone.has(n) || !!cssLink(n)?.sheet);
+// base.css has applied (R-357 5c). track.html loads it with media=print and flips it to every screen when it arrives, so a screen
+// drawn before that showed without its rules for a frame on a slow line. Every ensureCss waits for it and render() draws a skeleton
+// until it is in; after 3 seconds, or on an error, the screens draw as they are (a lost stylesheet must not hold the page).
+// wide.css is all min-width rules, so the media on its link says the same: on a phone it applies to nothing.
+let baseGone = false;
+const baseIn = () => { if (baseGone) return true; const l = cssLink('base'); return !l || (!!l.sheet && l.media !== 'print'); };
+const baseP = baseIn() ? Promise.resolve() : new Promise(res => {
+  const l = cssLink('base'), done = gone => { if (gone) baseGone = true; if (l.media === 'print') l.media = 'all'; res(); };   // (track.html's listener ran first)
+  l.addEventListener('load', () => done(false)); l.addEventListener('error', () => done(true)); setTimeout(() => done(true), 3000);
+});
+const ensureCss = names => Promise.all([baseP, ...(names || []).map(cssOne)]);
+const cssReady = names => baseIn() && (names || []).every(n => cssDone.has(n) || !!cssLink(n)?.sheet);
 // The screen a route needs, module and stylesheet, loaded before its first draw (no skeleton for the first screen).
 const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; return Promise.all([s.load ? s.load() : null, ensureCss(cssFor(route.name))]); };
 // The bill page's and Home's tour (pub/tour.js) loads only when this browser has not finished it.
-let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['tour'])]).then(([m]) => tourMod = m.default);
+let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['actions', 'tour'])]).then(([m]) => tourMod = m.default);   // (the bill page's tip draws an action card)
 app.billTour = () => tourLoad().then(t => t.startBill()).catch(e => console.error(e));   // the bill page's "Take the tour" (X10-4)
 const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
 let helperMod = null;
 // Version 2 (?v2=1, R-357 Part 2): the letter in three screens (pub/v2/letter.js, pub/v2/letter.css) loads with the walkthrough, which hands
 // it every new letter; without the flag neither file is fetched.
-const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['helper', 'profile', ...(V2() ? ['v2/letter'] : [])]), V2() ? import('./v2/letter.js') : null]).then(([m]) => { helperMod = m.default; return helperMod; });
+const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['actions', 'helper', 'profile', ...(V2() ? ['v2/letter'] : [])]), V2() ? import('./v2/letter.js') : null]).then(([m]) => { helperMod = m.default; return helperMod; });
 app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
 app.openMail = o => helperLoad().then(() => app.openMail(o));
 // app.openLetter2(bill, kind, { hearing, resume, friend }): the v2 letter by name, for a screen that wants to open it (Home's "Finish sending
@@ -270,6 +291,8 @@ window.addEventListener('popstate', e => { render(); const y = e.state?.y || 0; 
 try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
 
 // ---- the frame ----
+// A stored sign-in means a session may exist, and that is only known once the library answers (earlyFirst, welcomeStays, the skeleton's header).
+const storedSession = () => { try { return !!localStorage.getItem('hiphi-public-auth'); } catch { return false; } };
 // Who is here (R-147): a profile is an email (signed in) or a text-alert number on this device (Nate 10/4: "only work with
 // an email or phone number"). The name comes from the account, the letter helper or the first visit, whichever has one.
 // Kernel-only on purpose (this file is on the first wave); pub/myprofile.js has the same rules for the lazy screens.
@@ -284,13 +307,16 @@ function whoAmI() {
   return { name, first: String(name.split(/\s+/)[0] || ''), ini: w.length ? (one(w[0]) + (w.length > 1 ? one(w[w.length - 1]) : '')).toUpperCase() : '' };
 }
 const avatar = (me, cls = 'hav') => `<span class="${cls}" aria-hidden="true">${me.ini ? esc(me.ini) : icon('user', { size: 18 })}</span>`;
-function header(route, scr) {
+// The wordmark, one markup for the skeleton and the header, so the real header replaces the skeleton's without a jump (R-357 5c).
+const brandLink = () => `<a class="brand" href="${calmPlace()}" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>`;
+// skel: under the skeleton nobody is known yet, so a possibly signed-in person gets no "Sign in" that would change.
+function header(route, scr, skel = false) {
   const inStart = route.name === 'start';
   // R-147: someone with a profile (an email or a text number) sees their initials at the top right, the usual place on a
   // laptop; everyone else keeps "Sign in" for a returning email.
   const me = whoAmI();
   const account = me ? `<a class="hbtn hacct" href="#/profile" aria-label="Your profile${me.name ? `, ${esc(me.name)}` : ''}">${avatar(me)}<span>${me.name ? esc(me.first) : 'Profile'}</span></a>`
-    : DEMO || route.name === 'link' ? '' : `<a class="hbtn hacct" href="#/signin?by=number">${icon('log-in')}<span>Sign in</span></a>`;   // not beside a sign-in link's own Continue (R-328 H)
+    : DEMO || skel && storedSession() || route.name === 'link' ? '' : `<a class="hbtn hacct" href="#/signin?by=number">${icon('log-in')}<span>Sign in</span></a>`;   // not beside a sign-in link's own Continue (R-328 H)
   // Find has its own search box, so the header's box and its magnifier (phones) stay away there (R-238, A4-4: two
   // boxes kept in step read as two searches, and two ways into one search is one too many).
   // Under ?rec=1 the box says it finds lawmakers too (R-303 decision 4), as search does since R-238.
@@ -301,8 +327,8 @@ function header(route, scr) {
   const tab = tabOf(route, scr), nav = inStart ? '' : `<nav class="hnav" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('')}</nav>`;
   // "nothing is sent" (R-212 #1): the practice copy keeps drafts on this device but sends nothing anywhere. "nothing is saved or
   // sent" wrapped the band to two lines on a phone, pushing every practice screen down (density, 15 Oct); this fits one line at 360px.
-  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is sent' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerActive() ? 'the screens you visit are noted for this test' : 'nothing is sent'}${nextDay()}</p>`}</div>` : ''}
-    <header class="hdr"><div class="hdrin"><a class="brand" href="${calmPlace()}" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>${nav}<span class="hspace"></span>${right}</div></header>`;
+  return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is sent' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerMod?.testerActive() ? 'the screens you visit are noted for this test' : 'nothing is sent'}${nextDay()}</p>`}</div>` : ''}
+    <header class="hdr"><div class="hdrin">${brandLink()}${nav}<span class="hspace"></span>${right}</div></header>`;
 }
 function tabbar(route, scr) {
   // R-147: the More tab carries the person's initials once they have a profile, so having one shows from every screen.
@@ -324,8 +350,10 @@ function nextDay() {
 let lastRouteKey = '';
 export function render() {
   // The start could not finish (R-212 #49): every draw is the card until the page is reloaded, so a later redraw (a
-  // language's words arriving, the first visit's own timers) never puts back a screen with nothing to draw from.
-  if (bootFailed) { drawBootCard(); return; }
+  // language's words arriving, the first visit's own timers) never puts back a screen with nothing to draw from. Except a first
+  // visit's welcome, which needs no data (welcomeStays): it stays, and the card comes when they go on (R-357 5c).
+  skelUp = false; document.body.classList.remove('sk');
+  if (bootFailed && !welcomeStays()) { drawBootCard(); return; }
   document.body.classList.remove('bootfail');
   let route = parseRoute();
   // A "My issues link" (R-123): follow its issues, say so, and land on Home (the first visit is skipped: they have a setup).
@@ -351,9 +379,12 @@ export function render() {
   document.body.dataset.screen = route.name;
   document.body.classList.toggle('rec', REC() && !FIRST_VISIT.includes(route.name));   // R-303, behind ?rec=1
   document.body.classList.toggle('v2', V2() && !FIRST_VISIT.includes(route.name));   // R-357, behind ?v2=1
-  // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands.
-  const need = cssFor(route.name), styled = cssReady(need);
+  // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands. A phone's welcome (step 0)
+  // does not wait for start.css: its look is inline in track.html (#crit, compared frame for frame), start.css finishes it when it
+  // arrives, with no redraw (start.js fits again as the page resizes). A wide window's welcome has rules only start.css holds.
+  const need = cssFor(route.name), inline = route.name === 'start' && route.step === 0 && !wideCss().length && baseIn(), styled = cssReady(need) || inline;
   if (!styled) ensureCss(need).then(() => render()).catch(e => console.error(e));
+  else if (inline) ensureCss(need).catch(e => console.error(e));
   const draw = styled ? scr : { render: () => `<div class="skelpage">${skeleton(4)}</div>`, wire() {} };
   let main;
   try { main = draw.render(route); } catch (e) { console.error(e); reportError('render', e); main = loadFail({ what: 'this page', retry: { onclick: 'location.reload()' } }); }
@@ -376,6 +407,23 @@ export function render() {
   if (key !== lastRouteKey) { lastRouteKey = key; if (document.activeElement === document.body || !$app().contains(document.activeElement)) $app().querySelector('main')?.focus({ preventScroll: true }); }
   // The first bill page anyone opens gets a short tour (R-062, pub/tour.js); it decides for itself, and closes if the page moves on.
   try { if (tourMod) tourMod.after(route); else if (tourWanted(route)) tourLoad().then(t => t.after(parseRoute())).catch(e => console.error(e)); } catch (e) { console.error(e); }
+}
+// ---- after the first screen (R-357 5c) ----
+// Called where a screen has been drawn (the early welcome, boot's last render, the welcome kept after a failed start), not from render():
+// a bill link's first render is a stand-in. The work then waits for the screen to have no skeleton left (at most 6 seconds: these files
+// would compete with the page's own data on a thin line), then for idle time, 2 seconds at most.
+let firstDrawn = false;
+const afterFirst = fn => { let n = 0, done = false; const go = () => { if (done) return; done = true; try { fn(); } catch (e) { console.error(e); } };
+  const idle = () => { if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 2000 }); setTimeout(go, 2000); };
+  const look = () => { if (!document.querySelector('#main .skel') || ++n > 24) idle(); else setTimeout(look, 250); }; look(); };
+function firstScreenDone() {
+  if (firstDrawn) return; firstDrawn = true;
+  try { performance.mark('hiphi-first-screen'); } catch { /* no timeline */ }   // tests/perf.py checks what was asked for before it
+  afterFirst(() => {
+    VL.releaseCounts?.();
+    ensureCss(['wide']).catch(() => {});   // a phone turned into a laptop window
+    window.__hiphiPrint?.css?.();          // the paper's stylesheet (track.html)
+  });
 }
 let findMod = null, suggestMod = null;
 const suggestLoad = () => suggestMod ? Promise.resolve(suggestMod) : import('./suggest.js').then(m => (suggestMod = m));
@@ -433,12 +481,22 @@ function wireFrame() {
 // opening, in the honest words (offline is the person's connection; anything else is ours, and says so). Its Try again
 // reloads the page: the library or the first screen's code may be what failed, and a browser keeps those as failed.
 let bootFailed = false;
+// A first visit's welcome needs no data (R-357 5c): when the start cannot finish, a newcomer still gets it (or keeps it, if it is on the
+// screen) and the card comes when they go on to the topics. Not for anyone who may be signed in: that is known once the library answers.
+const welcomeStays = () => { if (storedSession()) return false; const r = parseRoute(); return (r.name === 'start' && r.step === 0) || (r.name === 'home' && firstVisit()); };
+function failBoot() {
+  bootFailed = true;
+  if (!welcomeStays()) { drawBootCard(); return; }
+  if (!(document.body.dataset.screen === 'start' && document.querySelector('#app .st-hellopage'))) render();
+  firstScreenDone();
+}
 // Named for the link it was opening: a bill, an issue, else the tracker. On My issues it also says the follows are safe: they
 // are kept in this browser (or the account) and a start that fails never changes them (kernel.js loadUser reads them only).
 const BOOT_WHAT = { bill: 'this bill', issue: 'this issue' };
 const bootCard = () => { const n = parseRoute().name;
   return loadFail({ what: BOOT_WHAT[n] || 'the tracker', note: n === 'bills' ? 'What you follow is still saved.' : '', retry: { onclick: 'location.reload()' } }); };
 function drawBootCard() {
+  skelUp = false; document.body.classList.remove('sk');
   // No tabs, search or sign-in in the header (the ui-critic's review, A-12): each would only draw this card again.
   document.body.classList.add('notabs', 'bootfail'); document.body.classList.remove('withtabs', 'hasbar');
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header({ name: 'error' }, {})}<main id="main" tabindex="-1">${bootCard()}</main>`;
@@ -490,8 +548,26 @@ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.inst
 // a clock of its own. The practice copy is one big file (about 6 MB; the testers' links), so it keeps its own, far longer,
 // clocks, as before (R-122).
 const START_MS = 20000;
-const clock = ms => { const p = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)); p.catch(() => {}); return p; };
-let firstClock = DEMO ? null : clock(START_MS);
+// giveUp ends the first clock at once when the database is not answering (watchDb).
+let giveUp = null;
+const clock = (ms, early) => { const p = new Promise((_, rej) => { setTimeout(() => rej(new Error('timeout')), ms); if (early) giveUp = rej; }); p.catch(() => {}); return p; };
+let firstClock = DEMO ? null : clock(START_MS, true);
+// "The tracker can't reach its data" within 3 seconds (R-357 5c), not after 16 to 18 of grey bars (the library, then the clocks).
+// track.html's four early requests count their outcome in window.__hiphiNet (ok, bad: refused or an error status, n): all of them bad,
+// or none answered 3 seconds after they were sent, ends the first clock in the card at once. One answer is enough to say the database
+// is there (a slow line is only slow) and the clocks are what they were; 3 seconds because those requests took 2 on tests/perf.py's slow profile.
+const DB_SILENT_MS = 3000;
+function watchDb() {
+  const net = window.__hiphiNet; if (DEMO || !net || !giveUp) return;
+  const look = () => {
+    if (net.ok > 0 || net.done || net.down) return;
+    if (net.bad >= net.n || performance.now() - net.t0 >= DB_SILENT_MS) { net.down = true; giveUp(new Error('unreachable')); return; }
+    setTimeout(look, 200);
+  };
+  net.check = look;   // a request that fails is looked at at once (track.html), not at the next tick
+  look();
+}
+watchDb();
 async function boot() {
   bootFailed = false;
   await initLang(); if (!isEn()) loadDbTranslations();   // the person's language (R-166 step 3): English at once; another language waits for its words, so no screen is drawn half in each
@@ -517,14 +593,14 @@ async function boot() {
     if (!catalogReady()) throw new Error('The catalog did not load');
     // The practice copy follows the real A/B switches (R-192): its first screen waits for them (they come in a moment,
     // long before the practice copy's one big file), so a version never changes under the person.
-    if (DEMO) await abSettled(5000);
+    if (DEMO) { await abSettled(5000); await testerP; }   // (the sandbox's band says whether a tester's path is being noted)
     // The practice copy's direct link to one step of the first visit (R-188): ?demo=1&fvstep=save (pub/fvjump.js). Before the
     // route is read, so the page opens on that step; the live page never loads that file.
     if (DEMO && /[?&]fvstep=/.test(location.search)) await (await import('./fvjump.js')).fvJumpFromAddress().catch(e => console.error(e));
     await ensureScreen(parseRoute());
     const fresh = welcomeBack();
     // Once a day, privately: did this browser come back, and after how long (R-067; visitlog.js, migration 078).
-    logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
+    VL.logDay({ follows: followsAnything(), signedIn: !!S.session, season: sessionInfo().phase === 'in' ? 'in' : 'off' });
     // Links shared before 9/19 become the new addresses; a first visit that arrives on a shared link gets Find behind
     // it, so Back goes somewhere helpful (R-238: it was the sign-up, and Back should never lead forward into a form).
     // Someone who went to add their email in the middle of a list task comes back to it once the emailed link signs
@@ -554,19 +630,42 @@ async function boot() {
       if (firstVisit()) { history.replaceState({ y: 0 }, '', '#/find'); history.pushState({ y: 0, arrived: true, prev: '#/find' }, '', toHash(r)); }
       else history.replaceState({ y: 0 }, '', toHash(r));
     }
-    render();
+    render(); firstScreenDone();
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
+    if (window.__hiphiNet) window.__hiphiNet.done = true;       // the database was reached: watchDb stops
     // (Not the partner corner's or For advocacy groups': few people open them, R-328.)
     setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')) && (V2() || !n.startsWith('v2/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1, version 2's only with ?v2=1)
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
-    bootFailed = true; drawBootCard();
+    failBoot();
   }
 }
 app.boot = boot;
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen, on any screen (X9-1)
-$app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>`;
+// The skeleton keeps the shell (R-357 5c): the real header and tabs (a laptop's links, a phone's bar) under the grey bars, where the page
+// drew an empty header for the seconds the data took. A first visit's has no tabs, as its welcome has none. Until base.css has applied
+// only the brand is drawn (#crit covers it; the links would show unstyled) and the whole is drawn again when it has. body.sk draws them
+// in the system face (#crit): text in Poppins or Lato would ask for the web fonts while the page's own code is still arriving, and on a
+// slow line that delayed the real screen by half a second.
+let skelUp = false;
+function drawSkeleton() {
+  let head = `<header class="hdr"><div class="hdrin">${brandLink()}</div></header>`, tabs = '', withTabs = false;
+  if (baseIn()) {
+    try {
+      let route = parseRoute();
+      if (route.name === 'home' && firstVisit() && !storedSession()) route = { name: 'start', step: 0 };   // as render() does
+      const scr = SCREENS[route.name] || SCREENS.home;
+      withTabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
+      head = header(route, scr, true); tabs = withTabs ? tabbar(route, scr) : '';
+    } catch (e) { console.error(e); }
+  }
+  document.body.classList.toggle('withtabs', withTabs); document.body.classList.toggle('notabs', !withTabs); document.body.classList.add('sk');
+  $app().innerHTML = `${head}<main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>${tabs}`;
+  skelUp = true;
+}
+drawSkeleton();
+if (!baseIn()) baseP.then(() => { if (skelUp) drawSkeleton(); });
 // The clock starts with the script, so a start that hangs anywhere (the data file, the Supabase client) ends in the
 // "Try again" card instead of a skeleton that never goes away.
 // The first screen before the library (R-122): a browser with no stored sign-in and a first visit to do draws the topics
@@ -575,16 +674,16 @@ $app().innerHTML = `<div class="hdr"></div><main>${DEMO ? '<p class="meta boot-n
 // screen's files go first. boot() redraws once everything is in. A stored sign-in means a session may exist, and that
 // is only known once the library answers, so such a browser goes straight to the library. track.html's catalog promise
 // settles within ten seconds either way, so this never waits longer than that.
-const storedSession = () => { try { return !!localStorage.getItem('hiphi-public-auth'); } catch { return false; } };
 async function earlyFirst() {
   if (DEMO || storedSession() || parseRoute().name !== 'home') return;
   // The A/B switches come in the same moment as the catalog; abSettled waits for them a moment at most (R-135).
-  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await Promise.all([start.load(), ensureCss(SCREEN_CSS.start), abSettled()]); render(); } };
+  // Not for start.css on a phone (R-357 5c): the welcome's look is inline in track.html (render() says more).
+  const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await Promise.all([start.load(), ensureCss(wideCss().length ? cssFor('start') : []), abSettled()]); render(); firstScreenDone(); } };
   if (applyCachedCatalog()) await draw();
   if (window.__hiphiCatalog) { await loadCatalog(); if (S.cats.length) await draw(); }
 }
 // The library and the session, on the start's one clock (the practice copy: its own minute, as before).
-const initP = () => Promise.race([init(), firstClock || clock(DEMO ? 60000 : START_MS)]);
+const initP = () => window.__hiphiNet?.down ? Promise.reject(new Error('unreachable')) : Promise.race([init(), firstClock || clock(DEMO ? 60000 : START_MS)]);   // (the library is not fetched for a database that is not answering)
 // An ended tester link (R-204): track.html is already on its way to test-ended.html, so the app does not start.
 if (!(DEMO && new URLSearchParams(location.search).has('ended'))) (firstClock ? Promise.race([earlyFirst(), firstClock]) : earlyFirst()).catch(e => console.error(e)).then(initP).then(boot)
-  .catch(e => { console.error(e); reportError('boot', e); bootFailed = true; drawBootCard(); });
+  .catch(e => { console.error(e); reportError('boot', e); failBoot(); });
