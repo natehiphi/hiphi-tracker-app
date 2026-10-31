@@ -308,7 +308,9 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
 - **The switch.** `V2()` in `pub/app.js` (opt-in for now; one later flip to `!== '0'` makes it everyone's) is read by a screen as
   `app.v2()`; the router keeps the query, so the flag lasts the visit, and the body carries `.v2`. A v2 screen is its own lazy module
   under `pub/v2/` picked in `app.js` (the bill page: `./v2/bill.js`), and `V2_CSS` brings `pub/v2/v2.css` after `rec/rec.css` (the idle
-  prefetch leaves it out without the flag), so nothing of version 2 is fetched and v1 is unchanged without it.
+  prefetch leaves it out without the flag), so Home, the bill page and the letter load no version 2 file and v1 is unchanged without it.
+  The one file v1 does fetch is `pub/v2/story.js`: the first visit's `start-rest.js` imports `storyMark` from it statically (no side
+  effects on import).
 - **The bill page, a slide (Part 1).** `pub/v2/bill.js` draws only the slide and its "More about this bill" row; everything else is
   `pub/bill.js`, whose `screen(draw)` takes the page's drawing (loading, bars and `wire()` are v1's) and which exports the parts the v2
   page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...). `pub/v2/slide.js` holds the slide's words (goal, sentences, times)
@@ -327,10 +329,16 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   `v2: 1` in it. Test: `tests/v2_letter.py`.
 - **Home's week (Part 3).** `pub/calm/home.js` (the calm Home, everyone's) draws, with `app.v2()` on, the white box under the slide as
   "This week" (`weekRows`, `weekBlock`; between sessions `issuesBlock` with a different last line): rows by day (a day label, the bill's
-  name, what is due), a tap opening the bill, the slide's own bill lit and not a link, "Also due: HIPHI asks", no number (`alsoDue` finds
-  the soonest: the same ranking as Find's "Needs voices this week": `suggestionList`/`recommendations` in `core.js`, without recording a
-  showing) opening Find at that heading, and "Edit my issues" as the box's last line (it asks for `#/bills` and presses its Edit button
-  once drawn: `S.rcEdit` is cleared on arrival, so Home cannot set it). Its rules are in `pub/home.css` under `.hm-v2` and `body.v2` (not
+  name, what is due; a run of rows on one day shows the day once, on its first, and the rest keep the column and say it to a screen reader
+  only: `weekRowHtml`'s `same`), a tap opening the bill, the slide's own bill lit and not a link. A row's "new since your last visit" dot
+  hangs in the row's left gutter, so every name starts at the same place, and the first row with a dot also says "New" in words beside its
+  line (`.cm-newword`). The last row, "Other bills that need voices this week" / "On issues you don't follow", has no number and no day
+  label (a day beside it read like a missed deadline, and "HIPHI asks" was insider speak): `alsoDue` now only says whether there are any,
+  by the same ranking as Find's "Needs voices this week" (`suggestionList`/`recommendations` in `core.js`, without recording a showing),
+  and the row opens Find at that heading. "Edit my issues" is the box's last line (it asks for `#/bills` and presses its Edit button
+  once drawn: `S.rcEdit` is cleared on arrival, so Home cannot set it). On a laptop (from 900px) the box takes the slide's width, not
+  v1's 640px column. In version 2 the slide's detail line keeps each "·" with the word before it (a no-break space in `detailLine`), so
+  a wrap never starts a line with "· HB 2121". Its rules are in `pub/home.css` under `.hm-v2` and `body.v2` (not
   `pub/v2/v2.css`: that file comes with the bill page, and with Home only after the idle load, so Home would draw unstyled); `V2_CSS` in
   `app.js` could take `home: ['v2/v2']` once the rules move. "See your 2026 session" left Home for You's row ("Your 2026 session", set in
   `pub/more.js` over `rec/you.js`'s). The slide's letter buttons call `app.openLetter2(bill, kind, opts)` (Part 2's) when it exists (`{ resume: true }`
