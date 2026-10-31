@@ -239,7 +239,7 @@ for (const i of issues) {
     const b = billsById.get(h.bill_id), n = b.bill_number.replace(/\s/g, ''), name = b.hiphi_nickname ? `${b.hiphi_nickname} (${spaced(n)})` : spaced(n);
     const ref = `${b.session_year ? `${b.session_year}/` : ''}${n}`, url = `${SITE}track.html?via=calendar#/bill/${ref}/testify`;
     const open = h.testimony_deadline && new Date(h.testimony_deadline).getTime() > Date.now();
-    if (open) ev.push(...icsEvent(`${h.bill_id}-${h.scheduled_at}-due`, h.testimony_deadline, 15, `Testimony due: ${name}`, `Send testimony (about 15 minutes the first time, a few after that): ${url}`, url, true));
+    if (open) ev.push(...icsEvent(`${h.bill_id}-${h.scheduled_at}-due`, h.testimony_deadline, 15, `Testimony due: ${name}`, `Send testimony (about 10 minutes the first time, about 3 after that): ${url}`, url, true));
     const cm = committeeWords(h.committee, committees).replace(/^the /, '').replace(/ committees?$/, '');
     ev.push(...icsEvent(`${h.bill_id}-${h.scheduled_at}`, h.scheduled_at, 60, `Hearing: ${name}`, `${cm} hearing${h.room ? `, ${h.room}` : ''}. Anyone can attend. ${url}`, url, false));
   }

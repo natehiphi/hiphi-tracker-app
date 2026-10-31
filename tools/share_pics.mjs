@@ -139,7 +139,7 @@ const T = {
     let date = null, head = '', sub = '';
     if (r.ask === 'testify' && r.due) {
       date = r.due; head = `Last Day to Speak Up ${r.dir === 'oppose' ? 'Against' : 'on'} ${subj}`;
-      sub = `${r.num} · Testimony is due at ${timeWords(r.due)}. About 15 minutes the first time, and we help you write it.`;
+      sub = `${r.num} · Testimony is due at ${timeWords(r.due)}. About 10 minutes the first time, and we help you write it.`;
     } else if (r.ask === 'ask' && r.deadline) {
       date = r.deadline; head = `Last Day for a Hearing on ${subj}`;
       sub = `${r.num} · ${r.dir === 'oppose' ? 'Ask the chair not to hear it.' : 'Without a hearing, it can’t pass this year.'} A short email takes about 2 minutes.`;
@@ -182,7 +182,7 @@ const T = {
     if (!r.subject) return null;
     const subj = titleCase(r.subject), no = r.dir === 'oppose';
     // Testimony names the hearing's day on the picture itself, even before a deadline is posted (R-212 #8).
-    const line = r.ask === 'testify' ? (r.due ? `Testimony is due ${dayWords(r.due)}. About 15 minutes the first time.` : r.h ? `The hearing is ${dayWords(r.h.scheduled_at)}. Testimony takes about 15 minutes the first time.` : 'There’s a hearing coming. Testimony takes about 15 minutes the first time.')
+    const line = r.ask === 'testify' ? (r.due ? `Testimony is due ${dayWords(r.due)}. About 10 minutes the first time.` : r.h ? `The hearing is ${dayWords(r.h.scheduled_at)}. Testimony takes about 10 minutes the first time.` : 'There’s a hearing coming. Testimony takes about 10 minutes the first time.')
       : r.ask === 'ask' ? (no ? 'It’s waiting for a hearing. A short email can ask the chair not to hear it.' : 'It needs a hearing or it can’t pass this year. A short email takes 2 minutes.')
       : r.ask === 'floor' ? 'A vote is coming. A short email to your legislator takes 2 minutes.'
       : r.ask === 'conference' ? 'The final version is being written. A short email takes 2 minutes.'
@@ -208,7 +208,7 @@ const T = {
     // "If it passes" is only true of a bill still alive; an issue's own page says "The goal" (or "The worry" for one HIPHI opposes).
     if (r.b && (!r.st || ['dead', 'vetoed', 'law', 'ballot'].includes(r.st.phase))) return null;
     const label = r.b ? `If ${r.num} Passes` : r.dir === 'oppose' ? 'The Worry' : 'The Goal';
-    const tail = r.ask === 'testify' ? `${r.due ? `Testimony is due ${dayWords(r.due)}. ` : ''}About 15 minutes the first time.` : LOOK_SHORT[r.look];
+    const tail = r.ask === 'testify' ? `${r.due ? `Testimony is due ${dayWords(r.due)}. ` : ''}About 10 minutes the first time.` : LOOK_SHORT[r.look];
     return base(r, 'before', { beforeLabel: 'Today', beforeText: r.words.before, afterLabel: label, afterText: r.words.after, tail, bad: r.dir === 'oppose', cat: r.issue?.category || '' });
   },
   here(r) {
@@ -218,7 +218,7 @@ const T = {
     const hearing = (node === 1 || node === 3) && r.st.phase === 'committee' && r.ask === 'testify' && r.h;
     const steps = labels.map((l, i) => ({ label: hearing && i === node ? 'Committee Hearing' : l, at: i < node ? 'done' : i === node ? 'here' : 'todo' }));
     const subj = titleCase(r.subject);
-    const sub = r.ask === 'testify' ? `${r.num} · The committee hears it ${r.h ? dayWords(r.h.scheduled_at) : 'soon'}. Testimony takes about 15 minutes the first time.`
+    const sub = r.ask === 'testify' ? `${r.num} · The committee hears it ${r.h ? dayWords(r.h.scheduled_at) : 'soon'}. Testimony takes about 10 minutes the first time.`
       : r.ask === 'ask' ? `${r.num} · ${r.dir === 'oppose' ? 'It is waiting for a hearing. Ask the chair not to hear it.' : 'It needs a hearing, or it can’t pass this year.'}`
       : r.ask === 'floor' ? `${r.num} · It goes to a vote of the full ${CHAMBER_NAME[r.st.chamber] || 'House or Senate'}. ${LOOK_SHORT[r.look]}`
       : r.ask === 'conference' ? `${r.num} · The House and Senate are writing one final version. ${LOOK_SHORT[r.look]}`
@@ -229,7 +229,7 @@ const T = {
   ticket(r) {
     if (r.ask !== 'testify' || !r.h || !r.b) return null;
     const cm = titleCase(committeeWords(r.h.committee, r.ctx.committees).replace(/^the /, ''));
-    return base(r, 'ticket', { kicker: 'ADMIT ONE · YOUR VOICE', head: titleCase(r.subject), line1: `${cm} · ${dayWords(r.h.scheduled_at)}`, line2: 'Hawaiʻi State Capitol, or from your phone', num: r.num, minutes: 'About 15 minutes' });
+    return base(r, 'ticket', { kicker: 'ADMIT ONE · YOUR VOICE', head: titleCase(r.subject), line1: `${cm} · ${dayWords(r.h.scheduled_at)}`, line2: 'Hawaiʻi State Capitol, or from your phone', num: r.num, minutes: 'About 10 minutes' });
   },
   crowd(r) {
     const c = r.counts; if (!c) return null;
