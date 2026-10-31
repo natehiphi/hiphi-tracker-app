@@ -248,7 +248,7 @@ export function renderPublic(b) {
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
         <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!askMine && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
-        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask || whose?.who ? 'See it on This week’s asks' : 'See This week’s asks')}</a></p>
+        <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask ? 'See it on This week’s asks' : 'Open This week’s asks')   /* R-358: with no ask yet there is nothing to "see" */}</a></p>
         <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
       : `<div class="field"><label for="bw-pact">The ask</label>
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>

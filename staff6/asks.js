@@ -218,8 +218,8 @@ function otherWords(d) {
   if (d.past) return `No ask yet · was due ${whenAt(d.due)}`;
   return d.who ? `No ask yet · ${d.who} writes it by ${timeFirst(d.due)}` : `No ask yet · due ${whenAt(d.due)}`;
 }
-// The clock goes with a time; "a post still helps" has none, so it stands alone.
-const noAskLine = w => w === optionalWords() ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;
+// The clock goes with a time (A-18); "a post still helps" and "Saya can write one" have none, so they stand alone.
+const noAskLine = w => !/\d/.test(w) ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;
 function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
