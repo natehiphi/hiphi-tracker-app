@@ -258,7 +258,18 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   start.css finishes it (matched at 40 window sizes; a wide window waits for it); the skeleton draws the real header and tabs in the
   system face (`drawSkeleton`, `body.sk`); and when the database's four early requests (`window.__hiphiNet`) all fail or none answers
   in 3 s, `watchDb` ends the start's clock in the card (B-8), except that a first visit's welcome is drawn or left on screen
-  (`welcomeStays`).
+  (`welcomeStays`). **The one question at time zero** (R-357 Part 6, frontend half; the functions wait for Nate's yes): the same inline
+  script starts one more plain GET, `window.__hiphiPage` (started at `__hiphiPageT`): a `#/bill/…` address asks `rpc/public_bill_page`
+  (`p_bill`, `p_year`), a returner's plain Home asks `rpc/public_home` with `hiphi_issue_follows`, `hiphi_cat_follows` and
+  `hiphi_watch_ids` (capped at 60, 20 and 40); skipped for `?demo=1` and a first visit, not counted in `__hiphiNet`. `pub/core.js`
+  `pageAnswer()` takes it as the module loads (waits until 4 s after the ask, trusts it for 60 s). The reads it can stand in for look
+  there first and run exactly as before when the answer is missing, late, failed, a 404 (the signal until the functions are applied),
+  for another bill or `bill: null`: `ensureBill`, `ensureHistory`, bill.js `loadSocial` and `sameLine`, letters.js `draftNotes`,
+  partners.js `onBill` (a per-bill seed, never `PUB`), the Meet HIPHI card, `loadBills` (the followed set's rows for the ids the answer
+  holds; the others asked the old way) and `loadActions`. Left out on purpose (words and layout unchanged): voices and the full
+  activity for an opened bill, committees, deadlines and the week. `viaPartner()` no longer reads the partner tables without a group's
+  `?via=`. Measured on 4G: a bill link 2.8 s → 2.3 s with the answer, Home 2.8 s → 2.2 s; the rest is the library (the slim client,
+  next). Test: `tests/page_answer.py [base]` (live, read-only; shard 2 in CI).
 - **The header search suggests as you type (R-032, 9/21).** From 900px the header box lists what the words so far
   match, seven rows at most, then "See all results" (Find). A word search lists policies: issues (a matching topic
   first), with a bill on an issue shown as that issue, so a House bill and its Senate twin are one row; then HIPHI's

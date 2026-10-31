@@ -146,6 +146,9 @@ jobs:
       - name: The error reporter
         if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/errlog.py
+      - name: "A bill link and a returner's Home ask the database one question at time zero, with today's reads as the fallback (R-357 Part 6)"
+        if: ${{ !cancelled() && matrix.shard == 2 }}
+        run: python3 tests/page_answer.py http://localhost:8832/
       - name: "Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports"
         if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/staff_live.py
