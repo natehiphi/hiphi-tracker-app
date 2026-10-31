@@ -14,7 +14,7 @@
 // else This week (spec 3.3). Old addresses arrive here: #/?view=week&w=1 is #/hearings?w=1 (app.js).
 // The calendar has one home, here (B-13 on v6, R-352): This week shows as a list or as a calendar (#/hearings/week?view=cal),
 // with an issue filter (?issue=<id>, the job All issues' calendar did). Today's old week addresses (#/?view=cal&who=team&w=1
-// &day=2026-03-18) and All issues' (#/my-issues/all?view=cal) are sent here by app.js; this page reads `who` as `scope`
+// &day=2026-03-18) and All issues' (#/issues/all?view=cal) are sent here by app.js; this page reads `who` as `scope`
 // and `day` as the phone's day, so those links keep whose week, which week and which day.
 // What it replaces (A-25, rule 7.8): v5's This week grid (testimony-deadline cards, hearing blocks, Other to-dos: the
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the

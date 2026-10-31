@@ -519,7 +519,10 @@ function placeTitle(main, title) {
   const cur = /aria-current="page">(?:<span class="sv-tl"[^>]*>)?([^<]*)/.exec(m[2]); if (!cur) return '';   // sectionNav wraps each label (.sv-tl)
   const place = plain(m[1]), tab = plain(cur[1]);
   const h1 = /<h1\b[^>]*>([^<]*)<\/h1>/.exec(main);
-  return place && (tab === title || (h1 && plain(h1[1]) === tab)) ? place : '';
+  if (place && (tab === title || (h1 && plain(h1[1]) === tab))) return place;
+  // Bills' pages sit under the Issues head (h1 "Issues", Bills current) with a second row of sub-tabs, so Sort new bills and
+  // Muted are titled "Sort new bills · Issues ·" like the list's "Bills · Issues ·"; never when the screen is itself Issues.
+  return place && main.includes('bl-subtabs') && tab === 'Bills' && title !== place ? place : '';
 }
 function retitle(app, shownT) {
   const nav = app.querySelector('main .sv-secnav'); if (!nav || !shownT) return;
