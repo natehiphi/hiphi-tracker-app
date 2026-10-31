@@ -20,15 +20,15 @@
 .hp-v2 .v2-to { padding-bottom: var(--s12); border-bottom: 1px solid var(--n200); }
 .hp-v2 .v2-to b { color: var(--n900); }
 
-/* each talking point is a line to tap. Kept: the letter's own text, with a thin rule in the margin. Left out: grey, with a plus. */
+/* each talking point is a line to tap. Kept: the letter's own text, with a check and a thin rule in the margin. Left out: grey, with a plus. */
 .hp-v2 .v2-lines { display: flex; flex-direction: column; gap: var(--s4); margin: 0; padding: 0; list-style: none; }
 .hp-v2 .v2-pt { display: flex; align-items: flex-start; gap: var(--s8); width: calc(100% + var(--s16)); min-height: 44px; margin: 0 calc(-1 * var(--s8)); padding: 10px var(--s8) 10px var(--s12);
   border: 0; border-left: 3px solid var(--p200); border-radius: 0 var(--r8) var(--r8) 0; background: none; color: var(--n900); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) { .hp-v2 .v2-pt:hover { background: var(--p50); } }   /* a touch screen keeps :hover on the line just tapped */
 .hp-v2 .v2-pt:active { background: var(--p100); }
 .hp-v2 .v2-pt .v2-ptt { flex: 1 1 auto; min-width: 0; }
+.hp-v2 .v2-pt .ic { flex: none; width: 18px; height: 18px; margin-top: 4px; color: var(--p700); }   /* a check when kept, a plus when left out, in the same slot: the words never move (A-12, A-8) */
 .hp-v2 .v2-pt.out { color: var(--n500); border-left-color: var(--n200); }
-.hp-v2 .v2-pt.out .ic { flex: none; width: 18px; height: 18px; margin-top: 4px; color: var(--p700); }   /* the plus: not by colour alone (A-5) */
 .hp-v2 .v2-from { display: flex; align-items: center; gap: 6px; margin: var(--s8) 0 0; font-size: var(--t14); font-weight: 700; color: var(--n700); }
 .hp-v2 .v2-from .ic { width: 16px; height: 16px; flex: none; color: var(--n500); }
 
@@ -40,7 +40,7 @@
 .hp-v2 .v2-sign { display: flex; flex-direction: column; gap: var(--s4); }
 .hp-v2 .v2-name { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s4); font-weight: 700; }
 .hp-v2 .v2-rename { margin-left: calc(-1 * var(--s4)); font-weight: 400; text-decoration: underline; text-underline-offset: 3px; }
-.hp-v2 .v2-hint { margin: calc(-1 * var(--s4)) 0 0; font-size: var(--t14); color: var(--n700); }
+.hp-v2 .v2-hint { margin: 0; font-size: var(--t14); color: var(--n700); }   /* one line, directly under the stance line */
 
 /* screen 2: the choices, the Public Access Room's number, the plain way out */
 .hp-v2 .v2-par { margin: 0; }

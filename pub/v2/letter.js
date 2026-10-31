@@ -4,10 +4,12 @@
 // a Capitol step with four ways out; the mock is the review page's panel m-letter-bold.
 //
 // A person comes here to send a short letter about one bill, in as few taps as the Capitol allows (B-1).
-//   Screen 1, "Your letter on HB 2300": where they stand as one line ("You support it · change", HIPHI's side chosen: a recommendation
-//     that is on screen, one tap to change, and nothing is sent unseen, B-12), then the letter, already written from HIPHI's talking
-//     points, in today's format. Each point is a line to tap to keep or leave out; "Add a line of your own (optional)" and the name
-//     (the profile's, else a box that must be filled) are in the letter itself. One filled button, "Next: send it".
+//   Screen 1, "Your letter" (the sheet's title names the bill): where they stand as one line ("Your letter supports it · change", HIPHI's
+//     side chosen: a recommendation that is on screen, one tap to change, and nothing is sent unseen, B-12), the one-line hint, then the
+//     letter, already written from HIPHI's talking points, in today's format. Each point is a line to tap to keep or leave out (a check
+//     or a plus in the same slot, so the words never move); "Add a line of your own (optional)" and the name (the profile's, else a box
+//     that must be filled) are in the letter itself. One filled button that says what is next: "Next: your Capitol account" when that
+//     screen follows, else "Next: send it" ("Next: send your email").
 //   Screen 2, the Capitol account, the first time only: the honest words, today's two choices, the Public Access Room's number, and the
 //     plain way out, "Email the chair instead · 2 min, no account".
 //   Screen 3, send: one button, "Copy and open the Capitol page", then one question, "Did it go through?" (Yes records the act as "I
@@ -110,19 +112,21 @@ V2.seq = x => isEmail(x) ? ['v2l', 'mail'] : ['v2l', x.acctStep && 'v2a', 'v2s']
 V2.body = x => x.screen === 'v2l' ? letterScreen(x) : x.screen === 'v2a' ? acctScreen(x) : x.screen === 'v2s' ? sendScreen(x) : x.screen === 'v2own' ? ownScreen(x) : null;
 
 // ---------------- screen 1: your letter ----------------
-const SAYS = { support: ['You ', 'support it'], oppose: ['You ', 'oppose it'], comments: ['You’re ', 'not sure'] };
+// "Your letter supports it", not "You support it": HIPHI's side is only the starting point until they choose (B-12), so the line claims less.
+const SAYS = { support: 'supports it', oppose: 'opposes it', comments: 'shares your thoughts' };
 const CHIPS = [['support', 'Support'], ['oppose', 'Oppose'], ['comments', 'Not sure']];
-function stanceLine(x) {
-  const s = sideOf(x), [a, w] = SAYS[s] || SAYS.comments, hs = HP.hiphiStance(x.b), open = !!x.stanceOpen;
+function stanceLine(x, hint = '') {
+  const s = sideOf(x), w = SAYS[s] || SAYS.comments, hs = HP.hiphiStance(x.b), open = !!x.stanceOpen, word = isEmail(x) ? 'email' : 'letter';
   const verb = s === 'oppose' ? 'oppose' : 'support';
   // HIPHI holds it strongly: the letter says "strongly" only if they choose to (R-212 #11), one tap under the chips.
   const strong = open && s === hs && strongly(x.b) ? btn(x.mild ? `I strongly ${verb} it, as HIPHI does` : `I ${verb} it, but not strongly`, { kind: 'text', sm: true, cls: 'hp-inl v2-strong', attrs: { 'data-hp': 'v2-strong' } }) : '';
   const from = x.fromBill && s === x.fromBill ? `<p class="hp-quiet v2-frombill">You marked ${s === 'oppose' ? 'Oppose' : s === 'support' ? 'Support' : 'Not sure'} on the bill page.</p>` : '';
-  return `<div class="v2-stancebox"><p class="v2-stance" id="v2-stance-l">${a}<b>${w}</b> · ${btn('change', { kind: 'text', sm: true, cls: 'v2-change', attrs: { 'data-hp': 'v2-change', id: 'v2-change', 'aria-expanded': String(open), 'aria-label': 'Change where you stand' } })}</p>
-    ${open ? `<div class="hp-sugs v2-chips" role="group" aria-labelledby="v2-stance-l">${CHIPS.map(([v, l]) => `<button type="button" class="chip hp-sug" data-hp="v2-stance" data-v="${v}" aria-pressed="${s === v}">${l}</button>`).join('')}</div>${strong}` : ''}${from}</div>`;
+  return `<div class="v2-stancebox"><p class="v2-stance" id="v2-stance-l">Your ${word} <b>${w}</b> · ${btn('change', { kind: 'text', sm: true, cls: 'v2-change', attrs: { 'data-hp': 'v2-change', id: 'v2-change', 'aria-expanded': String(open), 'aria-label': 'Change where you stand' } })}</p>
+    ${open ? `<div class="hp-sugs v2-chips" role="group" aria-labelledby="v2-stance-l">${CHIPS.map(([v, l]) => `<button type="button" class="chip hp-sug" data-hp="v2-stance" data-v="${v}" aria-pressed="${s === v}">${l}</button>`).join('')}</div>${strong}` : ''}${from}${hint}</div>`;
 }
-// One talking point: a line in the letter that is a button. Kept it is the letter's own text; left out it is grey with a plus.
-const lineInner = (s, on, word) => `${on ? '' : icon('plus')}<span class="v2-ptt"><span class="sr">${on ? `Kept in your ${word}: ` : `Left out of your ${word}: `}</span>${esc(sentence(s))}</span>`;
+// One talking point: a line in the letter that is a button. Kept it is the letter's own text with a check; left out it is grey with a plus,
+// in the same 18px slot, so the words never move or wrap again when it is tapped (A-12, A-8).
+const lineInner = (s, on, word) => `${icon(on ? 'check' : 'plus')}<span class="v2-ptt"><span class="sr">${on ? `Kept in your ${word}: ` : `Left out of your ${word}: `}</span>${esc(sentence(s))}</span>`;
 function lines(x) {
   const g = HP.pointGroups(x), word = isEmail(x) ? 'email' : 'letter', pt = (s, i) => `<li><button type="button" class="v2-pt${x.points.includes(s) ? '' : ' out'}" id="hp-v2pt-${i}" data-hp="v2-pt" data-i="${i}" aria-pressed="${x.points.includes(s)}">${lineInner(s, x.points.includes(s), word)}</button></li>`;
   let at = g.hiphi.length;
@@ -143,12 +147,12 @@ function ownBox(x) {
     ${saved && x.why.trim() === saved.text ? `<span class="help" id="hp-why-help">${HP.whyHelp(x)}</span>` : ''}</div>`;
 }
 function letterScreen(x) {
-  const { b, h } = x, n = spaced(b.bill_number), mail = isEmail(x), parts = HP.partsOf(x), due = mail ? null : dueInfo(h);
+  const { h } = x, mail = isEmail(x), parts = HP.partsOf(x), due = mail ? null : dueInfo(h);
   const to = mail ? `<p class="v2-to"><b>To</b> ${esc(x.to.map(t => t.label).join(', '))}<br><b>Subject</b> ${esc(x.subject)}</p>` : `<p class="v2-head">${parts.head.split('\n').map(esc).join('<br>')}</p>`;
   const ls = lines(x), says = HP.saysBox(x, ['why']);
-  return `<div class="hp-top">${HP.screenHead(1, `Your ${mail ? 'email' : 'letter'} on ${esc(n)}`)}</div>
+  return `<div class="hp-top">${HP.screenHead(1, `Your ${mail ? 'email' : 'letter'}`)}</div>
     ${HP.friendLine(x)}${due?.late ? HP.lateBanner(h) : ''}${HP.welcomeBack()}
-    ${stanceLine(x)}
+    ${stanceLine(x, ls ? '<p class="v2-hint" id="v2-hint">Tap a line to keep it or leave it out.</p>' : '')}
     <article class="v2-paper" aria-label="Your ${mail ? 'email' : 'letter'}">
       ${to}
       <p>${esc(parts.dear)}</p>
@@ -158,7 +162,6 @@ function letterScreen(x) {
       ${parts.ask ? `<p>${esc(parts.ask)}</p>` : ''}
       <div class="v2-sign"><p>${esc(closingOf(x.closing) || '')}</p>${signed(x)}</div>
     </article>
-    ${ls ? '<p class="v2-hint" id="v2-hint">Tap a line to keep it or leave it out.</p>' : ''}
     ${says}${HP.aboutNote(x)}`;
 }
 
@@ -179,10 +182,10 @@ function acctScreen(x) {
 // ---------------- screen 3: send ----------------
 function sendScreen(x) {
   const { h } = x, date = new Date(h.scheduled_at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric' });
-  const first = x.acctNew ? `<p>First, make your free account on the Capitol page: choose <b>Submit Testimony</b>, then <b>Register</b>. They email you a link to confirm it. Your letter stays saved here.</p>` : '';
+  const first = x.acctNew ? `<p>First, make your free account on the Capitol page: choose <b>Submit Testimony</b>, then <b>Register</b>. They email you a link to confirm it.</p>` : '';
   const ask = x.tried ? `<section class="card v2-ask" aria-labelledby="v2-ask-t"><h4 id="v2-ask-t">Did it go through?</h4>
       <p>The green box on the Capitol page means it did.</p>
-      <div class="v2-answers">${btn('Yes', { kind: 'primary', icon: 'check', attrs: { 'data-hp': 'confirm', ...(x.busy ? { 'aria-busy': 'true', disabled: true } : {}) } })}${btn('Not yet', { kind: 'secondary', attrs: { 'data-hp': 'later' } })}</div></section>` : '';
+      <div class="v2-answers">${btn('Yes', { kind: 'primary', icon: 'check', attrs: { 'data-hp': 'confirm', ...(x.busy ? { 'aria-busy': 'true', disabled: true } : {}) } })}${btn('Not yet', { kind: 'secondary', attrs: { 'data-hp': 'v2-notyet' } })}</div></section>` : '';
   return `<div class="hp-top">${HP.screenHead(3, 'Send it at the Capitol')}
       <p class="hp-sub">One tap copies your letter and opens the Capitol page. It goes to lawmakers under your name, and the Capitol posts it publicly.</p></div>
     ${HP.welcomeBack()}
@@ -207,13 +210,15 @@ function ownScreen(x) {
 }
 
 // ---------------- the footer ----------------
+// What the one button says: where it goes (C-6). The Capitol account when that screen follows, else the send.
+const nextWords = x => isEmail(x) ? 'Next: send your email' : V2.seq(x)[V2.seq(x).indexOf('v2l') + 1] === 'v2a' ? 'Next: your Capitol account' : 'Next: send it';
 V2.foot = (x, { row, back, later }) => {
   const busy = `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`;
   switch (x.screen) {
     case 'v2l': return row(`<button type="button" class="btn text hp-back" data-hp="close">${icon('chevron-left')}<span>Back</span></button>`
-      + btn(isEmail(x) ? 'Next: send your email' : 'Next: send it', { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
+      + btn(nextWords(x), { kind: 'primary', iconEnd: 'arrow-right', cls: 'hp-main', attrs: { 'data-hp': 'next' } }), later);
     case 'v2a': return row(back, later);
-    case 'v2s': return row(back + (x.busy ? busy : btn('Copy and open the Capitol page', { kind: x.tried ? 'secondary' : 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen' } })), x.busy ? '' : later);
+    case 'v2s': return row(back + (x.busy ? busy : btn('Copy and open the Capitol page', { kind: x.tried ? 'secondary' : 'primary', icon: 'copy', cls: 'hp-main', attrs: { 'data-hp': 'copyopen', id: 'v2-copyopen' } })), x.busy ? '' : later);
     case 'v2own': return row(back + HP.capitolLink(x.b, x.h, 'Testify at the Capitol site', { kind: 'primary', cls: 'hp-main' }), later);
     default: return null;   // the email send step and every Mahalo are helper.js's own
   }
@@ -235,7 +240,9 @@ V2.click = (a, t) => {
     case 'v2-acct-no': x.acctNew = true; HP.goNext(); return true;
     case 'v2-email': toEmail(x); return true;
     case 'copyopen': x.tried = true; return false;   // the pressed button is helper.js's (copy, then open, inside the tap); the question follows it
-    case 'later': x.touched = true; return false;   // "I'll finish later" and "Not yet" keep the letter, even if nothing was changed
+    case 'later': x.touched = true; return false;   // "I'll finish later" keeps the letter, even if nothing was changed, and leaves the sheet
+    // Not yet: the question folds away; the button and the steps stay, for someone back from the Capitol tab mid-way. The letter is kept as unfinished.
+    case 'v2-notyet': x.tried = false; x.touched = true; HP.saveDraft(); HP.paint({ focus: 'v2-copyopen' }); HP.announce('Okay. Your letter is saved here. Open the Capitol page again when you are ready.'); return true;
     case 'says': x.touched = true; return false;   // a part about them left out or put back (helper.js writes the letter again)
     default: return false;
   }
@@ -255,7 +262,7 @@ function pickStance(x, v) {
   setStance(b.id, v === 'comments' ? 'unsure' : v).catch(() => {});
   rewrite(x);
   if (!isEmail(x) && agrees(b) === false) { x.screen = 'v2own'; HP.saveDraft(); HP.paint({ focus: 'hp-sh', top: true }); return; }
-  HP.paint({ focus: 'v2-change' }); HP.announce(`Your letter now says ${SAYS[v][0].toLowerCase()}${SAYS[v][1]}.`);
+  HP.paint({ focus: 'v2-change' }); HP.announce(`Your ${isEmail(x) ? 'email' : 'letter'} now ${SAYS[v]}.`);
 }
 // A line kept or left out: the button changes in place (no redraw, so the screen stays where it is), the letter is written again.
 function togglePoint(x, i, el) {

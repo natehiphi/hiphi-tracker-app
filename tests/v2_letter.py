@@ -1,15 +1,17 @@
 # R-357 Part 2 (Nate, 30 Oct 2026): the letter in three screens, behind ?v2=1 (pub/v2/letter.js, pub/v2/letter.css, the hooks in pub/helper.js).
 #   ?demo=1&v2=1#/bill/HB2300, a phone (375x812), a newcomer with no profile:
-#     - Help me write testimony opens one sheet, "1 of 3": the stance as one line ("You support it · change", HIPHI's side chosen), the
-#       letter already written from HIPHI's three talking points (two kept, one left out with a plus), "Add a line of your own (optional)",
-#       "Signed by" with a name box, "Tap a line to keep it or leave it out.", one filled button "Next: send it"; nothing else of About
+#     - Help me write testimony opens one sheet, "1 of 3": the stance as one line ("Your letter supports it · change", HIPHI's side chosen)
+#       with the hint "Tap a line to keep it or leave it out." directly under it, the letter already written from HIPHI's three talking points
+#       (two kept with a check, one left out with a plus, in the same slot), "Add a line of your own (optional)", "Signed by" with a name
+#       box, one filled button that says what is next ("Next: your Capitol account" for a first-timer, else "Next: send it"); nothing else of About
 #       you (no email, no title or sign-off chips, no keep-my-story, no quote question)
 #     - a tap on a point greys it (plus, aria-pressed) and the letter that is copied loses that line; a tap on the grey one puts it back
 #     - Next with no name stops with a plain message at the name box; with a name, "2 of 3": the Capitol account (the honest words, the two
 #       choices, the Public Access Room's number) and the way out, "Email the chair instead · 2 min, no account"
 #     - "No, this is my first time", "3 of 3": one button, "Copy and open the Capitol page"; pressed, "Did it go through?" (Yes, Not yet)
 #     - Yes records the act as "I already sent it" did (the kept mark) and shows today's Mahalo; 5 taps from the bill page in all
-#     - Not yet keeps the letter: the bill page says "Finish sending your testimony", Home offers it, and it comes back on "3 of 3"
+#     - Not yet folds the question away and leaves the button and the steps; I'll finish later keeps the letter: the bill page says
+#       "Finish sending your testimony", Home offers it, and it comes back on "3 of 3"
 #   a profile and a Capitol account: the name is plain text in the letter, no account screen, "1 of 2", 4 taps
 #   the email: "Email the chair instead" is the same letter as an email, "1 of 2", then today's send step; the account screen's way out lands there
 #   "change" shows Support / Oppose / Not sure; the opposite side goes to the Capitol's own form
@@ -47,7 +49,7 @@ SHEET = """() => {
     inputs: [...d.querySelectorAll('.hp-in input:not([type=hidden]), .hp-in textarea, .hp-in select')].map(e => e.id || e.name),
     foot: d.querySelector('.hp-foot').innerText.replace(/\\s+/g, ' ').trim(), prog: d.querySelectorAll('.hp-prog i').length,
     wide: document.documentElement.scrollWidth > innerWidth + 1, dlgW: Math.round(d.getBoundingClientRect().width) }; }"""
-POINTS = "() => [...document.querySelectorAll('#hp-dlg .v2-pt')].map(b => ({ on: b.getAttribute('aria-pressed') === 'true', out: b.classList.contains('out'), plus: !!b.querySelector('.ic'), h: Math.round(b.getBoundingClientRect().height), text: [...b.querySelector('.v2-ptt').childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() }))"
+POINTS = "() => [...document.querySelectorAll('#hp-dlg .v2-pt')].map(b => ({ on: b.getAttribute('aria-pressed') === 'true', out: b.classList.contains('out'), plus: !!b.querySelector('.ic-plus'), check: !!b.querySelector('.ic-check'), x: Math.round(b.querySelector('.v2-ptt').getBoundingClientRect().left), th: Math.round(b.querySelector('.v2-ptt').getBoundingClientRect().height), h: Math.round(b.getBoundingClientRect().height), text: [...b.querySelector('.v2-ptt').childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() }))"
 DRAFTS = "() => Object.values(JSON.parse(localStorage.getItem('hiphi_me') || '{}').drafts || {}).map(v => ({ screen: v.screen, v2: v.v2, tried: v.tried }))"
 MARKS = "() => JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]')"
 
@@ -78,15 +80,17 @@ with sync_playwright() as pw:
   ready(pg); tap = Taps(pg)
   tap('.v2-go .btn.primary'); pg.wait_for_selector('#hp-dlg[open] .v2-paper', timeout=10000); pg.wait_for_timeout(300)
   r = pg.evaluate(SHEET)
-  ok(r['title'] == 'Testimony on HB 2300' and r['count'] == '1 of 3' and r['h'] == 'Your letter on HB 2300' and r['prog'] == 3, f"the frame: title, \"1 of 3\", three parts, and the screen's heading ({r['title']!r}, {r['count']!r}, {r['h']!r})")
-  ok(re.search(r'Your letter on HB 2300 You support it · change Testimony in SUPPORT', r['text']) is not None, f"the stance is one line over the letter, HIPHI's side chosen: {r['text'][:80]!r}")
+  ok(r['title'] == 'Testimony on HB 2300' and r['count'] == '1 of 3' and r['h'] == 'Your letter' and r['prog'] == 3, f"the frame: title, \"1 of 3\", three parts, and the screen's heading ({r['title']!r}, {r['count']!r}, {r['h']!r})")
+  ok(re.search(r'Your letter Your letter supports it · change Tap a line to keep it or leave it out\. Testimony in SUPPORT', r['text']) is not None, f"the stance is one line, the hint is one line under it, then the letter; HIPHI's side chosen: {r['text'][:80]!r}")
   ok('Dear Chair Kim, Vice Chair Kidani, and members of the committee,' in r['text'] and re.search(r'support (of )?HB 2300\.', r['text']) is not None and re.search(r'pass HB 2300', r['text']) is not None, 'the letter is in today\'s format: the greeting, the position, the ask')
   pts = pg.evaluate(POINTS)
-  ok(len(pts) == 3 and [p['on'] for p in pts] == [True, True, False] and pts[2]['out'] and pts[2]['plus'] and not pts[0]['plus'], f"HIPHI's three points are lines in the letter: two kept as plain text, one left out, grey, with a plus ({[(p['on'], p['plus']) for p in pts]})")
+  ok(len(pts) == 3 and [p['on'] for p in pts] == [True, True, False] and pts[2]['out'] and pts[2]['plus'] and not pts[2]['check'] and pts[0]['check'] and not pts[0]['plus'] and pts[0]['x'] == pts[2]['x'], f"HIPHI's three points are lines in the letter: two kept with a check, one left out, grey, with a plus, the words starting at the same place ({[(p['on'], p['check'], p['plus'], p['x']) for p in pts]})")
   ok(all(p['h'] >= 44 for p in pts), f"each line is a 44px target (A-6): {[p['h'] for p in pts]}")
-  ok('Add a line of your own (optional)' in r['text'] and 'Signed by' in r['text'] and 'Tap a line to keep it or leave it out.' in r['text'] and r['text'].count('Mahalo,') == 1, 'the line of your own, the sign-off, "Signed by" and the hint are in the letter')
+  ok('Add a line of your own (optional)' in r['text'] and 'Signed by' in r['text'] and r['text'].count('Tap a line to keep it or leave it out.') == 1 and r['text'].count('Mahalo,') == 1, 'the line of your own, the sign-off and "Signed by" are in the letter')
   ok(r['inputs'] == ['hp-why', 'hp-name'], f"only the line of your own and the name are asked: {r['inputs']} (no email, no titles, no sign-off chips, no story, no quote)")
-  ok(r['filled'] == ['Next: send it'], f"one filled button, Next: send it (A-3): {r['filled']}")
+  ok(r['filled'] == ['Next: your Capitol account'], f"one filled button, and it says the Capitol account is next (A-3, C-6): {r['filled']}")
+  hint = pg.evaluate("() => { const h = document.querySelector('.v2-hint'), s = document.querySelector('.v2-stance'); return [Math.round(h.getBoundingClientRect().height / parseFloat(getComputedStyle(h).lineHeight)), h.getBoundingClientRect().top >= s.getBoundingClientRect().bottom - 1, h.getBoundingClientRect().bottom <= document.querySelector('.v2-paper').getBoundingClientRect().top + 1]; }")
+  ok(hint == [1, True, True], f'the hint is one line, directly under the stance line and above the letter {hint}')
   ok(r['foot'].endswith('I’ll finish later') and 'Back' in r['foot'], f"Back and I'll finish later are in the bar: {r['foot']!r}")
   ok('Testimony is a short letter to the committee' in r['text'] and 'posted on the Capitol website' in r['text'], 'the notice that testimony is public stays on the letter, in its words')
   shot(pg, 'letter-1-newcomer')
@@ -94,7 +98,8 @@ with sync_playwright() as pw:
   first = pts[0]['text'].split('. ')[0][:40]
   pg.click('#hp-v2pt-0'); pg.wait_for_timeout(250)    # (a tap inside the letter, not a step of the journey)
   p2 = pg.evaluate(POINTS)
-  ok(not p2[0]['on'] and p2[0]['out'] and p2[0]['plus'] and p2[1]['on'], 'tapping a kept line leaves it out: grey with a plus')
+  ok(not p2[0]['on'] and p2[0]['out'] and p2[0]['plus'] and not p2[0]['check'] and p2[1]['on'], 'tapping a kept line leaves it out: grey, the check becomes a plus')
+  ok((p2[0]['x'], p2[0]['th']) == (pts[0]['x'], pts[0]['th']), f"and its words stay where they were and keep their lines ({(pts[0]['x'], pts[0]['th'])} then {(p2[0]['x'], p2[0]['th'])})")
   shot(pg, 'letter-1-point-left-out')
   # Next with no name: the plain message at the box, nothing moves on (not a step of the journey: it did not go on)
   pg.click('button[data-hp=next]'); pg.wait_for_timeout(350)
@@ -115,6 +120,7 @@ with sync_playwright() as pw:
   r = pg.evaluate(SHEET)
   ok(r['count'] == '3 of 3' and r['h'] == 'Send it at the Capitol' and r['filled'] == ['Copy and open the Capitol page'], f"3 of 3: one button, Copy and open the Capitol page ({r['count']!r}, {r['filled']})")
   ok('Sign in, pick the hearing' in r['text'] and 'green box' in r['text'] and 'Register' in r['text'] and 'Did it go through?' not in r['text'], 'what to do there, with the account first for a first-timer; the question waits for the button')
+  ok(r['text'].count('Your letter stays saved here') == 1, 'the first-timer\'s screen says the letter is saved once, in the clock note')
   shot(pg, 'letter-3-send')
   tap('[data-hp=copyopen]')
   r = pg.evaluate(SHEET)
@@ -150,9 +156,19 @@ with sync_playwright() as pw:
   errs = []; ctx, pg = page(br, PHONE, f'{BASE}/track.html?demo=1&v2=1#/bill/HB2300', [KAI, PROFILE], errs)
   ready(pg)
   pg.click('.v2-go .btn.primary'); pg.wait_for_selector('#hp-dlg[open] .v2-paper', timeout=10000); pg.wait_for_timeout(300)
+  ok(pg.evaluate(SHEET)['filled'] == ['Next: send it'], 'with an account the one button says Next: send it')
   pg.click('button[data-hp=next]'); pg.wait_for_timeout(350); pg.click('[data-hp=copyopen]'); pg.wait_for_timeout(350)
-  pg.click('#hp-dlg [data-hp=later] >> text=Not yet'); pg.wait_for_function("() => !document.querySelector('#hp-dlg[open]')", timeout=8000); pg.wait_for_timeout(300)
-  ok(pg.evaluate("() => !document.querySelector('#hp-dlg[open]')"), 'Not yet closes the sheet')
+  before = pg.evaluate(SHEET)['text']
+  pg.click('#hp-dlg [data-hp=v2-notyet]'); pg.wait_for_timeout(400)
+  r = pg.evaluate(SHEET)
+  ok(r is not None and 'Did it go through?' not in r['text'] and r['filled'] == ['Copy and open the Capitol page'], f"Not yet folds the question away and leaves the one button ({r and r['filled']})")
+  ok('Sign in, pick the hearing' in r['text'] and 'green box' in r['text'] and 'Did it go through?' in before, 'and the steps stay where they were')
+  ok(pg.evaluate(DRAFTS) == [{'screen': 'v2s', 'v2': 1, 'tried': False}], f"the letter is kept as unfinished ({pg.evaluate(DRAFTS)})")
+  ok(pg.evaluate("() => document.activeElement.id") == 'v2-copyopen', 'and the focus goes to the button')
+  pg.click('[data-hp=copyopen]'); pg.wait_for_timeout(350)
+  ok('Did it go through?' in pg.evaluate(SHEET)['text'], 'pressing it again brings the question back')
+  pg.click('#hp-dlg .hp-foot [data-hp=later]'); pg.wait_for_function("() => !document.querySelector('#hp-dlg[open]')", timeout=8000); pg.wait_for_timeout(300)
+  ok(pg.evaluate("() => !document.querySelector('#hp-dlg[open]')"), "I'll finish later closes the sheet")
   ok(pg.evaluate(DRAFTS) == [{'screen': 'v2s', 'v2': 1, 'tried': True}], f"and keeps the letter, at the screen it left ({pg.evaluate(DRAFTS)})")
   ok(any('Saved on this device' in t for t in pg.evaluate("() => [...document.querySelectorAll('.toastmsg')].map(t => t.innerText)")), 'a line says where it is kept')
   pg.evaluate("window.scrollTo(0, 0)")
@@ -171,7 +187,7 @@ with sync_playwright() as pw:
   ready(pg); tap = Taps(pg)
   tap('.v2-go .btn.text'); pg.wait_for_selector('#hp-dlg[open] .v2-paper', timeout=10000); pg.wait_for_timeout(300)
   r = pg.evaluate(SHEET)
-  ok(r['title'] == 'Email about HB 2300' and r['count'] == '1 of 2' and r['h'] == 'Your email on HB 2300', f"the email kind: two screens ({r['title']!r}, {r['count']!r}, {r['h']!r})")
+  ok(r['title'] == 'Email about HB 2300' and r['count'] == '1 of 2' and r['h'] == 'Your email', f"the email kind: two screens ({r['title']!r}, {r['count']!r}, {r['h']!r})")
   ok(re.search(r'To Sen\. .* Subject HB 2300: please vote yes', r['text']) is not None and re.search(r'(Aloha|Dear) Senator', r['text']) is not None and len(pg.evaluate(POINTS)) == 3, 'to the chair, with a subject, in the email\'s own words, the same tappable points')
   ok(r['filled'] == ['Next: send your email'] and 'goes from your own email account' in r['text'], 'Next: send your email, and the note about where an email goes stays')
   shot(pg, 'letter-1-email')
@@ -207,7 +223,7 @@ with sync_playwright() as pw:
   ok(chips == [['Support', 'true'], ['Oppose', 'false'], ['Not sure', 'false']], f'change: Support / Oppose / Not sure, HIPHI\'s side chosen {chips}')
   pg.click('[data-hp=v2-stance][data-v=comments]'); pg.wait_for_timeout(300)
   r = pg.evaluate(SHEET)
-  ok('You’re not sure' in r['text'] and len(pg.evaluate(POINTS)) == 0 and 'What you think, and why' in r['text'], 'Not sure: no HIPHI points, and the letter is theirs to say')
+  ok('Your letter shares your thoughts' in r['text'] and len(pg.evaluate(POINTS)) == 0 and 'What you think, and why' in r['text'], 'Not sure: no HIPHI points, and the letter is theirs to say')
   pg.click('button[data-hp=next]'); pg.wait_for_timeout(300)
   ok(pg.evaluate(SHEET)['count'] == '1 of 2' and 'Say what you think in a sentence or two' in pg.evaluate(SHEET)['text'], 'and it asks for their words before it goes on')
   pg.click('#v2-change'); pg.click('[data-hp=v2-stance][data-v=support]'); pg.wait_for_timeout(300)
@@ -219,7 +235,7 @@ with sync_playwright() as pw:
   ok(pg.evaluate("() => JSON.parse(localStorage.getItem('hiphi_stances_demo') || localStorage.getItem('hiphi_stances') || '{}')['" + H + "']") == 'oppose', 'their side is kept on the bill, as the older question kept it')
   pg.click('[data-hp=v2-write]'); pg.wait_for_timeout(400)
   r = pg.evaluate(SHEET)
-  ok('You oppose it' in r['text'] and 'Testimony in OPPOSITION to HB 2300' in r['text'] and len(pg.evaluate(POINTS)) == 0, 'they can still write it here, in their own words')
+  ok('Your letter opposes it' in r['text'] and 'Testimony in OPPOSITION to HB 2300' in r['text'] and len(pg.evaluate(POINTS)) == 0, 'they can still write it here, in their own words')
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
   # ---------------- a laptop: the same sheet as a card ----------------
