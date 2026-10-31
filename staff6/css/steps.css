@@ -425,7 +425,8 @@ body.staff6 .v6-step-acts.v6-fit > .btn { flex: 0 1 max(0px, calc((var(--v6-fit)
 @media (max-width: 420px) { body.staff6 .v6-step-acts.v6-fit > .btn:not(.text) { flex-grow: 1; } }
 /* the smallest phones: the step card's tile at 16px (it was a fifth of the first screen's text at 14px, spec 8: at most
    30% of the text 14px or under) */
-@media (max-width: 359.98px) { body.staff6 .v6-step .v6-status { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); } }
+/* decision 9: the card's tile holds the whole status line ("Writing · sent back, due today 2:00 PM (Capitol)"), so on a phone it is body size */
+@media (max-width: 599.98px) { body.staff6 .v6-step .v6-status { font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); } }
 /* the narrowest phones: the viewer's own bill (Today's hearing day, `lead`) right under the committee, before Going, so
    its button is on the first screen (spec 8: the hearing-day approval in 2 taps; at 320x640 Kris's Review sat under the
    bottom bar) */

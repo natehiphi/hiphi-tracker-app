@@ -12,6 +12,11 @@
 #      buttons ("To approve" and "Sent back" are Testimony's tabs). v5 had 10+ wordings of "sent back" alone (X8);
 #   4. every place Help names (on Today, in My settings, under Outreach, a bold place name) exists in the app's navigation:
 #      the sidebar, the phone's tab bar and More page, the account menu, each place's page tabs and More tools;
+#   6. one status phrase per state across screens (R-356 round 3, decision 9): for one bill, the state words ("Writing · sent
+#      back", "Ready to file") and the one time ("due today 2:00 PM (Capitol)", "by Wed 3/18, 7:30 AM (team cut-off)", "late,
+#      still accepted until 1:10 PM") are the same text on Today, Hearings (both tabs), Issues (My issues, Bills, All issues),
+#      Testimony, Team and a coalition page, for Kevin's, Nate's and two more people's own steps; and every "by" time says
+#      "(team cut-off)" (a small issue card says "(team)") and every "due" time "(Capitol)", never both on one row;
 #   5. one name per act (spec 8, C-15): the buttons for the same act say the same words on every screen (v5's chair ask had
 #      9 button names). Each act lists the names a button for it might carry; two or more seen is a miss, with where.
 #
@@ -28,8 +33,9 @@ from staff6_budget import ROUTES
 # ---- 3: the wordings of each testimony state; the first is v6's one wording (spec 5 testimonyState) ----
 STATES = [   # a leading "=" keeps the case (a capitalised label); the rest ignore case. Verbs (Approve, Revise and resubmit)
              # are steps, not states, and are not counted.
-  # "Writing · not started" is the Writing state's one wording for no draft yet (12.6); "not started" alone is another.
-  ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'(?<!Writing\s*[·•]?\s*)\bnot started\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
+  # "Writing · not started" is the Writing state's one wording for no draft yet (12.6); "not started" alone is another. Today's rows say the
+  # same line in one piece, a comma for the dot ("Writing, not started, by ..."), because their name already holds a dot (steps.js statusLine flat).
+  ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'(?<!Writing\s*[·•,]?\s*)\bnot started\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
   # the flag, naming nobody (11.5, 12.6): "sent back", or "Sent back" where a label or a sentence starts (12.6: one
   # wording, any case). A capital in the middle of a sentence ("was Sent back", after a lower-case word or a comma) is
   # another wording, and so is naming who sent it.
@@ -42,6 +48,66 @@ STATES = [   # a leading "=" keeps the case (a capitalised label); the rest igno
   ('Filed', [r'=\bFiled\b(?! under)', r'\bsubmitted to the capitol\b', r'\bmarked filed\b', r'\bsent to the capitol\b']),
   ('Missed', [r'=\bMissed\b', r'\bnot filed\b', r'\bwasn.t filed\b', r'\bno testimony filed\b']),
 ]
+# ---- 6: one status phrase per state (decision 9) ----
+STATE_RX = r'(Writing(?:(?: ·|,) (?:sent back|not started))?|With an approver|Second look|Ready to file)(?![a-z])'   # Today\'s flat rows use a comma for the dot
+TIME_RX = (r'(?:(?:by|due|was due) (?:(?:today|tomorrow|[A-Z][a-z]{2} \d{1,2}/\d{1,2}),? \d{1,2}:\d{2} [AP]M|\d{1,2}:\d{2} [AP]M(?: (?:today|tomorrow))?)'
+           r'|late, still accepted until \d{1,2}:\d{2} [AP]M)')
+ROUTES6 = {'KV': ['/', '/hearings', '/hearings/ask', '/issues', '/issues/bills', '/issues/all', '/testimony'],
+           'NT': ['/', '/hearings', '/hearings/ask', '/issues', '/issues/bills', '/issues/all', '/testimony', '/team', '/coalition/' + L.HEAL],
+           'KR': ['/', '/hearings', '/issues/bills', '/testimony'], 'LR': ['/', '/hearings', '/issues/bills', '/testimony']}
+SCAN6 = r"""(arg) => {
+  const main = document.querySelector('main'); if (!main) return { items: [], names: [] };
+  const vis = e => { const s = getComputedStyle(e); return s.visibility !== 'hidden' && s.display !== 'none' && e.getClientRects().length; };
+  const rx = new RegExp(arg.state), txt = e => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim();
+  const names = [...main.querySelectorAll('.v6-row-name')].map(n => { const r = n.closest('li, .v6-row, div'); const k = r && r.querySelector('.v6-row-num'); return k ? [txt(n), txt(k)] : null; }).filter(Boolean);
+  const items = [];
+  for (const e of main.querySelectorAll('*')) {
+    if (!vis(e) || e.closest('.sr, script, style, nav, [role=tablist], button, a.btn')) continue;
+    const t = txt(e); if (!rx.test(t) || t.length > 300 || !/ [·,] |:/.test(t)) continue;   // a line, not a bare tab or label
+    if ([...e.children].some(c => rx.test(txt(c)))) continue;
+    let row = e, num = '', nm = '';
+    for (let i = 0; i < 6 && row; i++, row = row.parentElement) { const m = /\b((?:HB|SB|HCR|SCR|HR|SR|GM)\s?\d{1,4})\b/.exec(txt(row)); if (m && txt(row).length < 600) { num = m[1].replace(/\s?(\d)/, ' $1'); break; } }
+    const c = /^(.{3,80}?): /.exec(t); if (c) nm = c[1];
+    items.push({ text: t, num, name: nm });
+  }
+  return { items, names };
+}"""
+LABEL_RX = re.compile(r'\b(by|due|was due) ((?:today|tomorrow|[A-Z][a-z]{2} \d{1,2}/\d{1,2}),? \d{1,2}:\d{2} [AP]M|\d{1,2}:\d{2} [AP]M(?: (?:today|tomorrow))?)')
+# Testimony's rows (testimonyplace.js lineOf) say a teammate's step with their own pieces until they call steps.js statusLine; until then
+# that tab is left out of the comparison and said as not built yet, so the other screens are still held to rule 6.
+def testimony_uses_statusline():
+  return b'statusLine' in (L._raw('staff6/testimonyplace.js') or b'')
+def read6(b, who):
+  pg = b.page(who, 1440, 900); out = []; names = {}; first = True
+  for r in [x for x in ROUTES6[who] if x != '/testimony' or testimony_uses_statusline()]:
+    if first: pg.open(r); first = False
+    else: pg.nav(r)
+    x = pg.page.evaluate(SCAN6, {'state': STATE_RX})
+    for nm, num in x['names']: names[nm.lower()] = num
+    for it in x['items']: out.append({**it, 'route': r})
+  pg.close(); return out, names
+
+def rule6(R, b):
+  print('\nrule 6: one status phrase per state, across screens')
+  R.check('Testimony says each step with steps.js statusLine', testimony_uses_statusline(), skip=None if testimony_uses_statusline() else 'not built yet: testimonyplace.js lineOf still composes its own line')
+  for who in ROUTES6:
+    items, names = read6(b, who); per = {}; unlabelled = []; both = []
+    for it in items:
+      key = it['num'] or names.get(it['name'].lower(), '')
+      st = re.search(STATE_RX, it['text']); tm = re.search(TIME_RX, it['text'])
+      lab = next((m for m in LABEL_RX.finditer(it['text']) if not re.match(r' \((?:team cut-off|team|Capitol)\)', it['text'][m.end():])), None)
+      if lab: unlabelled.append(f"{it['route']}: \"{it['text'][:70]}\"")
+      if re.search(r'\((?:team cut-off|team)\)', it['text']) and re.search(r'\(Capitol\)', it['text']): both.append(f"{it['route']}: \"{it['text'][:70]}\"")
+      if not key or not st: continue
+      d = per.setdefault(key, {'state': {}, 'time': {}})
+      d['state'].setdefault(re.sub(r'^Writing,', 'Writing ·', st.group(1)), set()).add(it['route'])
+      if tm: d['time'].setdefault(re.sub(r', in \d+ \w+$', '', tm.group(0)), set()).add(it['route'])
+    clash = [f"{k}: " + '; '.join(f"\"{v}\" on {', '.join(sorted(rs))}" for kind in ('state', 'time') for v, rs in d[kind].items()) for k, d in per.items() if len(d['state']) > 1 or len(d['time']) > 1]
+    R.check(f'{NAMES_[who]}: one status phrase per bill on every screen ({len(per)} bills, {len(items)} lines read)', not clash, ' | '.join(clash[:3]))
+    R.check(f'{NAMES_[who]}: every time says whose it is (team cut-off / Capitol), never both on a row', not unlabelled and not both, ' | '.join((unlabelled + both)[:3]))
+    seen = {k for k, d in per.items() if d['time']}
+    R.check(f'{NAMES_[who]}: the lines read carry times (the check is not empty)', bool(per), '' if per else 'no status lines found')
+NAMES_ = L.NAMES
 # ---- 4: the names of places a Help page might use, the v5 ones v6 retires included ----
 # ("Review" is left out: it is a button and a mode opened from To approve, not a place.)
 # 'Get hearings' is the tab's old name (Nate 25 Oct walk 1: "Bills That Need Hearings"), kept so a Help page still using it is caught
@@ -272,6 +338,9 @@ def main():
   print(f'\nHelp names {len(named)} places: ' + ', '.join(sorted(named)))
   R.check('every place Help names is in the navigation (sidebar, tab bar, More, account menu, page tabs, More tools)', not missing,
           '; '.join(f'"{p}" on {", ".join(ts[:3])}' for p, ts in sorted(missing.items())))
+
+  with L.browser() as b6:
+    if not L.V5: rule6(R, b6)
 
   # 2 again: what the Copy buttons put on the clipboard (V35)
   with L.browser() as b:

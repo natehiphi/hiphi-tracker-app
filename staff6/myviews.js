@@ -43,7 +43,7 @@ import { S, DB, DEMO, esc } from './data.js';
 import { stopOf, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn, toast } from './ui.js';
 import { plural } from './lists.js';
-import { numWords, dayWords, committeeName, nw } from './steps.js';
+import { numWords, dayWords, committeeName, nw, billInIssue, statusLine } from './steps.js';
 import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW } from './issuestand.js';
 import { ICONS } from '../icons.js';
 import { issueIcon } from './issuegrid.js';
@@ -92,7 +92,10 @@ export function judge(x) {
   // Bills that must still get a hearing for D, in a chamber with no bill past D yet: someone has to ask a chair.
   const chPast = c => bills.some(y => y.ch === c && y.past);
   const ask = !alive || oppose || !D ? [] : bills.filter(y => !y.past && y.dl?.date === D.date && y.st.column === 'a' && !hearingAhead(y.b) && !chPast(y.ch));
-  const hp = hearPart(x);
+  // Decision 9: the testimony's words are steps.js statusLine's, under the bill's own nickname (one name per bill), as every
+  // screen says them; hearPart (issuestand.js) still decides which hearing leads and how soon it is.
+  const hp0 = hearPart(x), hs = hp0?.s;
+  const hp = hs?.state && !['filed', 'missed'].includes(hs.state.key) ? (t => ({ ...hp0, text: t, html: nw(esc(t)) }))(`${billInIssue(x.hear.b, i)} testimony: ${statusLine(hs, { who: false, flat: true })}`) : hp0;
   const open = hp && hp.s && !['filed', 'missed'].includes(hp.s.state?.key);
   // The testimony's own due time when it has one (a Monday hearing's testimony is due the day before), else the hearing.
   const soon = !!(x.hear && new Date(hp?.s?.due ?? x.hear.h.scheduled_at) - Date.now() <= WEEK);

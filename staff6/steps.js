@@ -84,6 +84,9 @@ export function orWords(ids, viewer, { and = false } = {}) {
 }
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
 // A bill in a toast or a sheet's title: "Youth mental health app pilot (HB 1562)" (no draft code, D15).
+// One name per bill (decision 9): the bill as a card or row of an ISSUE names it, the nickname Bills uses; when that is the issue's
+// own name (the card's heading says it already) the number stands in, as the issue page's "Its issue" does.
+export const billInIssue = (b, i, { max = 1e4 } = {}) => { const n = nameWords(b, 40); return !n || n.length > max || String(n).trim().toLowerCase() === String(i?.name || '').trim().toLowerCase() ? numWords(b) : n; };
 export const sayWords = b => b ? (b.nickname ? `${b.nickname} (${numWords(b)})` : numWords(b)) : '';
 
 // ---- committees, versions and deadlines in plain words (V05, D15) ----
@@ -514,22 +517,43 @@ export function othersWords(s) {
 }
 function rowLine(s, v) {
   if (s.kind === 'chair') return chairLine(s, v);
-  const st = s.state, late = s.status.tone === 'late';
-  if (st.key === 'filed') return s.doneWords;
+  return statusLine(s);
+}
+// Decision 9 (Nate 31 Oct), C-10, C-14, C-15: THE status line of a testimony step, the same words on Today, Hearings, Issues,
+// Bills, Testimony, Team and the issue page: "<state> · <flag, whose, and the one time, joined by commas>". The state is
+// the step's own word (Writing, With an approver, Second look, Ready to file); the part after the dot holds, in this order,
+// the flag ("sent back", "not started"), whose step it is when it is not the viewer's ("Kris or Nate approves it"), and the
+// one time. Two pieces at most, so a row stays at four facts with its name and number (spec 8, A-14). Each time says whose it
+// is (decision 9, spec 5): "by Wed 3/18, 7:30 AM (team cut-off)" is the team's, "due today 9:30 AM (Capitol)" the Capitol's,
+// and never both on one row. Late and overdue keep their one word, amber and red only by shownStatus.
+// Filed, missed, cancelled, chair asks and no step are said by their own record (s.line).
+// `lateSaid`: the hearing card already says the late window once, so a late row says only "late" (toned) or nothing.
+// `soon: false` leaves out ", in 59 min" (a small card). `flat`: one piece, a comma for the dot, for a row whose name already holds a dot (Today's "File testimony · Bill").
+export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {}) {
+  const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
+  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : lateLine(s.until, { lower: true });
+  if (tone === 'overdue') return `was due ${whenAt(s.due)} (Capitol)`;
+  if (a?.kind === 'hand' && a.at > now) return `by ${timeFirst(a.at)} (team cut-off)${ls(a.at)}`;
+  if (s.due != null) return `due ${whenAt(s.due)} (Capitol)${ls(s.due)}`;
+  return '';
+}
+export function stateWords(s) { const st = s.state; return st ? st.word : ''; }
+export function whoWords(s) {
+  if (s.you) return '';
+  if (s.nobody) return NO_OWNER;
+  if (s.kind === 'second') return `from ${s.whose.words}`;
+  return `${cap(s.whose.words)} ${VERB_OTHER[s.kind] || 'has it'}`;
+}
+export function statusLine(s, { lateSaid = false, toned = false, flat = false, who = true, soon = true } = {}) {
+  if (!s) return '';
+  if (s.kind === 'chair' || s.kind === 'none' || !s.state) return s.line || '';
+  const st = s.state;
+  if (st.key === 'filed') return s.doneWords || s.line || '';
   if (st.key === 'missed') return `Missed · the hearing started ${whenAt(s.h.scheduled_at)}`;
   if (s.off) return `${st.word} · hearing cancelled, no new date yet`;
-  if (s.you) {
-    // One verb per step (V19): "Make the draft" (its button), then the time to send it for approval; late, the same verb.
-    if (late) return `${s.kind === 'nodraft' ? 'Make the draft' : s.act.verb} · ${lateLine(s.until, { lower: true })}`;
-    if (s.kind === 'nodraft') return `Make the draft · ${s.act.words ? lc(s.act.words) : `testimony due ${whenAt(s.due)}`}`;
-    return s.act.words;
-  }
-  // R-352: a teammate's row says the team's time, the one its owner sees ("Kevin files it · by Wed 3/18, 7:30 AM" beside
-  // his own "File by Wed 3/18, 7:30 AM"), as Testimony's rows do (testimonyplace.js lineOf); the open card says the
-  // Capitol's later deadline. "by" is the team's time, "due" the Capitol's, shown only where no team time is still ahead.
-  const hand = s.act?.kind === 'hand' && s.act.at > Date.now();
-  const when = late ? lateLine(s.until, { lower: true }) : s.status.tone === 'overdue' ? `was due ${whenAt(s.due)}` : hand ? `by ${timeFirst(s.act.at)}` : s.due != null ? `due ${whenAt(s.due)}` : '';
-  return [othersWords(s), when].filter(Boolean).join(' · ');
+  const flag = st.sentBack ? 'sent back' : st.noDraft || s.kind === 'nodraft' ? 'not started' : '';
+  const rest = [flag, who ? whoWords(s) : '', stepTime(s, { lateSaid, toned, soon })].filter(Boolean).join(', ');
+  return rest ? `${st.word}${flat ? ', ' : ' · '}${rest}` : st.word;
 }
 const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
 // A chair ask's line: the asker's own Follow up after 3 working days with no reply (spec 6), whose first for someone
@@ -563,29 +587,9 @@ function chairLine(s, v) {
 // `button`: the row carries the viewer's own button (R-352, C-15): the button says the verb, so the line says the state and
 // the time in status()'s one wording ("Ready to file · due today 10:00 AM, in 59 min", "Ready to file · late"); with no
 // button the line keeps "you" and the verb, as Bills' rows keep "File now · ...".
-export function hearingLine(s, { lateSaid = false, toned = false, button = false } = {}) {
+export function hearingLine(s, { lateSaid = false, toned = false } = {}) {
   if (!s) return '';
-  if (s.kind === 'chair' || s.kind === 'none' || !s.state) return s.line || '';
-  const st = s.state, tone = s.status?.tone, hush = lateSaid && tone === 'late';
-  if (st.key === 'filed' || st.key === 'missed' || s.off) return s.line;
-  const own = `${st.word} · ${st.sentBack ? 'sent back, ' : ''}you `;
-  if (s.you && button) {
-    const head = `${st.word}${st.sentBack ? ' · sent back' : ''}`, sep = st.sentBack ? ', ' : ' · ';
-    if (hush) return toned ? `${head}${sep}late` : head;
-    const t = ['late', 'overdue'].includes(tone) ? s.status.words : dropVerb(s.act?.words || '', s.act?.verb);
-    return t ? `${head}${sep}${lc(t)}` : head;
-  }
-  if (s.you && hush) return own + lc(s.kind === 'nodraft' ? 'Make the draft' : s.act?.verb || 'act on it') + (toned ? ', late' : '');
-  // The row's parts joined by a comma ("you file now, due today 10:00 AM"; "you approve, late, still accepted until …").
-  if (s.you) return own + lc(String(s.line || '')).replace(/ · /g, ', ');
-  // Due today carries its words ("due today 9:30 AM"), as late and overdue carry theirs (D3): words, never colour alone
-  const when = tone === 'late' ? (!hush ? lateLine(s.until, { lower: true }) : toned ? 'late' : '') : tone === 'overdue' ? `was due ${whenAt(s.due)}` : tone === 'today' && s.mine && s.due != null ? `due ${whenAt(s.due)}` : '';
-  if (s.nobody) return `${st.word} · ${lc(NO_OWNER)}${when ? `, ${when}` : ''}`;
-  if (!when && st.noDraft) return `${st.word} · not started`;
-  // the Capitol's time in status()'s one wording, with the time left when it is near ("due today 9:30 AM, in 2 hours")
-  if (!when && st.sentBack) return `${st.word} · sent back${s.due != null ? `, due ${whenAt(s.due)}${leftSoon(s.due)}` : ''}`;
-  const who = othersWords(s), lead = who.startsWith(st.word) ? who : `${st.word} · ${who}`;
-  return when ? `${lead}, ${when}` : lead;
+  return statusLine(s, { lateSaid, toned });
 }
 
 // ---- the one step card (V07, V11, V22) ----
@@ -905,11 +909,12 @@ function testimonyCard(s, v, own, x = '') {
   if (st.key === 'filed') return { tile: { ...s.status, words: s.doneWords }, what: `The testimony${on(x)} is filed` };
   if (st.key === 'missed') return { tile: s.status, what: own ? `The hearing${on(x)} has started. Did we file?` : x ? `The testimony on ${x} was not filed before the hearing` : 'Not filed before the hearing',
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
-  const tile = ['late', 'overdue'].includes(s.status.tone) ? shown
-    // R-352 (C-15, one wording per state): the viewer's own card says the time as every row beside its button does, the verb
-    // left to the button: "Due today 2:00 PM, in 1 hour" under Resubmit, "By Wed 3/18, 7:30 AM" under File.
-    : own ? (s.act.words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words: dropVerb(s.act.words, s.act.verb) } : null)
-    : { tone: 'neutral', icon: '', words: st.label };
+  // Decision 9: the tile is statusLine's words (state, flag, the one time and whose it is), as every row says them; the
+  // sentence beside it says who. Colour only from shownStatus (amber late, red overdue, the viewer's own).
+  const words = statusLine(s, { who: false });
+  const tile = ['late', 'overdue'].includes(s.status.tone) ? { ...shown, words }
+    : own ? (words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words } : null)
+    : { tone: 'neutral', icon: '', words };
   // A step nobody holds is titled with the step itself ("File the testimony at the Capitol"); "No owner yet" sits beside
   // Take it, in the bill header's words (the critic: a card titled "No owner" under a header saying "No owner yet").
   const what = own || s.nobody ? SENT[s.kind](s, v, x) : OTHERS[s.kind](cap(s.whose.words), x);
@@ -1054,11 +1059,11 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     const btnHtml = own + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
     return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
-      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late', button: ok && !!own })))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
+      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late'})))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
   // I'm going is the card's tonal button only on a hearing that is today or where the viewer owns a step (theirs to do, or
   // their bill); elsewhere it is a quiet link, so This week is not a column of the same button (A-3, A-2 on v6; R-352 FIX-2).
   const owns = pos.some(x => { const s = stepOf(x); return !!s && (s.you || s.mine); });
-  const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: today || owns ? 'secondary' : 'text', sm: !big });
+  const going = past || cancelled ? '' : goingBtn(goingOn(h, v), { 'data-v6act': 'going', 'data-v6h': leadRow(h).id }, { kind: 'secondary', sm: !big });
   // The lead bill (the viewer's own step, Today's hearing day) in a list of its own, so the narrowest phones can draw it
   // right under the committee, before Going: at 320x640 Kris's Review sat under the bottom bar (steps.css, below 380px).
   const first1 = lead != null && pos.length && String(pos[0].b.id) === String(lead) ? pos[0] : null, rest = first1 ? pos.slice(1) : pos;
