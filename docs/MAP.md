@@ -344,7 +344,11 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   Home's "Finish sending your testimony" included, opens the new sheet without a change of its own; a draft started in the older
   walkthrough still finishes there. Screens: `v2l` (the letter: stance line, tappable points, own line, name), `v2a` (the Capitol
   account, first time only), `v2s` (send, then "Did it go through?"), `v2own` (the Capitol's own form, for the other side); an email is
-  `v2l` then the older `mail` step. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })` opens it by name
+  `v2l` then `v2m` (R-357 pE, 31 Oct, Nate: the two paths aligned): the send screen has testimony's shape, a heading and one line,
+  the bar's one filled button "Open my email app" (a mailto link), one small row "Or open in Gmail · Outlook.com · Copy the email",
+  then the same "Did it go through?" card (`askCard`, shared with `v2s`: Yes is `confirm` for testimony and `mailsent` → `confirmMail`
+  for an email; Not yet is `v2-notyet`); any tap sets `x.tried`, copies the message and draws the card 800 ms later so a link still
+  opens; the draft keeps `v2m` and `tried`; `HP.sendLinks` and `HP.copyText` are new exports. `app.openLetter2(bill, 'testimony' | 'email', { hearing, resume, friend })` opens it by name
   (`resume: true` only when a letter is waiting; it returns true when the sheet opened, a promise until the files are in). A draft is
   kept once the person has gone past the first screen, changed something, or chosen "I'll finish later" or "Not yet" (`x.touched`), with
   `v2: 1` in it. Test: `tests/v2_letter.py`.
