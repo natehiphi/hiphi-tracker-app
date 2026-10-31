@@ -101,6 +101,8 @@ idea stated as structure rather than pixels.
 
 *How to check.* `python3 tests/density.py`.
 
+**The version 2 bill page's drawing is part of the arrival** (R-357, 31 Oct, Nate: "the issue and bill images should be included again"): the phone band is 96px so the goal heading stays at or under 320px even with a two-line small line (297px at 390x844, 318px worst case over the 80 position bills); from 480px it is Home's 152px (353px at 768, 373px on a laptop, inside the 400px limit); on a window 640px tall or less it stands under the buttons. Measured by tests/v2_bill.py.
+
 ### A-2 Choice: at most 15 different kinds of control on the first screenful
 
 **Budget 15 kinds. Limit 25 kinds**, counted **inside the content region only**. Count distinct kinds,

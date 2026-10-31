@@ -335,7 +335,11 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
 - **The bill page, a slide (Part 1).** `pub/v2/bill.js` draws only the slide and its "More about this bill" row; everything else is
   `pub/bill.js`, whose `screen(draw)` takes the page's drawing (loading, bars and `wire()` are v1's) and which exports the parts the v2
   page reuses (`mainButton`, `recWhere`, `recCards`, `recTop`, ...). `pub/v2/slide.js` holds the slide's words (goal, sentences, times)
-  for the pages that say them, to be shared with Home when its v2 part lands. Test: `tests/v2_bill.py`.
+  for the pages that say them, to be shared with Home when its v2 part lands. Test: `tests/v2_bill.py`. Since 31 Oct (Nate: "the issue and bill images
+  should be included again") the slide opens with Home's drawing (`slide()`: `issueBand(issueFor(b), DEMO)` else `CAPITOL`, in
+  `.cm-art.v2-art`; rules in pub/v2/v2.css because home.css's are under `.cm`): 96px under 480px wide, 152px from 480px, under the
+  buttons on a window 640px tall or less; More's "Its issue" row carries the 40px topic-tinted icon tile (phone and tablet; none from
+  1100px, where the drawing is the issue's picture).
 - **The letter in three screens (Part 2).** `pub/v2/letter.js` + `letter.css`. The walkthrough's frame and everything that writes, keeps
   and sends the letter stay `pub/helper.js`'s; version 2 adds screens to that one dialog through a small registry (`V2`, filled when
   `letter.js` loads) and borrows the letter's code through `HP` (both exported at the bottom and top of `helper.js`). `helperLoad` in
