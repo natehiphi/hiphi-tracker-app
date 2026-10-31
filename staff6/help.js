@@ -104,7 +104,7 @@ const TOPICS = [
       ['Too late?', 'Once the notice time for the last regular slot has passed, the bill says so. Call the chair’s office: only the chair can still help.'],
       ['Bills HIPHI opposes', 'They get no hearing ask anywhere in the tracker: HIPHI never asks a chair to hear a bill it opposes.']] },
   { id: 'talk', gate: HOW_TO, title: 'Logging a talk with a legislator', also: 'log call meeting conversation visit talked', icon: 'message-square-plus', sub: () => 'A call, a meeting or a visit, kept where the team finds it',
-    items: () => [['1. Open their page', 'Legislators, then <b>Everyone</b> (type a name, a town or a district), or a name on a bill’s Committees.'],
+    items: () => [['1. Open their page', 'Legislators (from More), then search by name, town or district, or a name on a bill’s Committees.'],
       ['2. Log a talk', 'Press <b>Log a talk</b> at the top of their page. A bill’s Team talk box logs one too, already filed under that bill.'],
       ['3. Fill it in', '<b>Filed under</b>: the issue, and the bill if it was about one. <b>When</b>: the day. <b>What was said</b>: what they said, what they asked for, what we promised. Met several legislators at once? Add each one: it is one record on each of their pages.'],
       ['4. Where they stand', 'If they said how they will vote, set their stance beside their name on the bill’s Committees, or with <b>Mark stand</b> beside the bill on their page.'],
