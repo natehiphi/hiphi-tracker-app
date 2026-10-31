@@ -33,7 +33,7 @@ import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.j
 const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
 // OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
-import { askCardHref, askWriteHref, askWhose, writesAsk } from './asks.js';
+import { askCardHref, askWriteHref, askWhose, writesAsk, onBill } from './asks.js';
 import { emailDoor } from './composer.js';
 
 const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
@@ -223,8 +223,8 @@ export function renderPublic(b) {
   // With a card on This week's asks (a hearing in the next 7 days), the ask, its link and its message are copied there, the
   // share tools' one home (V20, F132); otherwise this tab keeps Copy share link (F125). Email: the composer's one door, so
   // someone who may not send sees "Ask Kevin to email followers" rather than a door that refuses them (X23).
-  // R-358, the owner was sent to a card with no button: only the writer gets the Write link (into the open box); the rest see who writes it.
-  const card = askCardHref(b), whose = card ? askWhose(b) : null, askMine = !!card && writesAsk(b);
+  // R-358 (Nate 31 Oct: anyone on a bill may do its outreach): everyone on the bill gets the Write link (into the open box); the expected writer's line ("Saya writes it by ...") stays as information for those it is not.
+  const card = askCardHref(b), whose = card ? askWhose(b) : null, askMine = !!card && onBill(b);
   // The public's response and the share kit come first: on a phone they were 4,277px down a 4,718px page, and a hearing
   // day's job is to share, not to edit (R-152 C). v4 (R-269): on a laptop too (Saya: Copy share link was 2.3 screens down,
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
@@ -247,7 +247,7 @@ export function renderPublic(b) {
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
-        <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!askMine && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
+        <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!writesAsk(b) && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
         <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask ? 'See it on This week’s asks' : 'Open This week’s asks')   /* R-358: with no ask yet there is nothing to "see" */}</a></p>
         <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
       : `<div class="field"><label for="bw-pact">The ask</label>

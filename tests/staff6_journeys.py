@@ -237,6 +237,13 @@ JOURNEYS = [
   J('public-ask', 'Write the public ask (Saya), from Today', 'SY', 2,
     [Step('Write the public ask', in_view=True), Type({'[data-askbox]': 'Send testimony by Wed 3/18, 9:30 AM. Two sentences in your own words are enough.'}), Step('Save the public ask')], TOAST(r'Saved'),
     None, needs=('staff6/asks.js',), v5=3, v5_note="v5: Today's Write it, the Public tab's box, Save public page"),
+  # R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone on the bill, from Outreach, one click to the open box.
+  J('outreach-ask-kevin', 'Open the box to write a public ask (Kevin, on CTFH bills), from Outreach', 'KV', 1,
+    [Step('Write the public ask', in_view=True)], lambda pg: bool(pg.page.query_selector('main [data-askbox]')),
+    None, start='/outreach', needs=('staff6/asks.js',), v5=1, v5_note='not in v5'),
+  J('outreach-ask-saya', 'Open the box to write a public ask (Saya), from Outreach', 'SY', 1,
+    [Step('Write the public ask', in_view=True)], lambda pg: bool(pg.page.query_selector('main [data-askbox]')),
+    None, start='/outreach', needs=('staff6/asks.js',), v5=1, v5_note='not in v5'),
   J('qr-link', 'Make a partner QR link (Saya)', 'SY', 2,
     [Step(r'^\s*More\s*$', roles=('link', 'button')), Step(r'^\s*Make a link')], QR_SHOWN,
     [Step('Issues$', roles=('link',)), Step('All issues'), Step(rx(r'^More')), Step(r'^\s*First visit'), Step(r'^\s*Make a link')], QR_SHOWN,
@@ -523,7 +530,7 @@ def zoom(b, R, only):
   return out
 
 # ---- a link that names a card lands with the card in full view (Outreach's #/outreach?bill=, the critic) ----
-LANDINGS = [('#/outreach?bill=HB1573', 'SY', '.ot-card.hl'), ('#/outreach?bill=HB2121&write=1', 'SY', '[data-askbox]')]   # R-358: the second lands in the open box with the cursor in it
+LANDINGS = [('#/outreach?bill=HB1573', 'SY', '.ot-card.hl'), ('#/outreach?bill=HB2121&write=1', 'SY', '[data-askbox]'), ('#/outreach?bill=HB2121&write=1', 'KV', '[data-askbox]')]   # R-358: the second lands in the open box with the cursor in it
 def landing(b, R, only):
   print(f'\n{L.APP}: a link that names a card lands with the card in view')
   for addr, who, sel in LANDINGS:

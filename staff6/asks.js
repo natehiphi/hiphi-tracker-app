@@ -17,7 +17,8 @@ import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO, seesTeam } from './da
 import { sharePageUrl, liveAsk, billRoute, whenAt, timeFirst, hstDayOf, publicResponse, billById, spanOf } from './model.js';
 import { icon, btn, empty, toast, sectionNav, whoseSeg } from './ui.js';
 import { pageHead } from './lists.js';
-import { nameWords, numWords, committeeName, statusTile, nw } from './steps.js';
+import { nameWords, numWords, committeeName, statusTile, nw, rallierOf, leadOf, onBill } from './steps.js';
+export { rallierOf, onBill };
 import { emailDoor, paused, dailyWord, HELD_HEAD } from './composer.js';
 import { weekLanding } from './firstvisit.js';
 import { ACTS } from './verbs.js';   // R-344: one icon per action (Write the public ask: the megaphone, the job's own picture)
@@ -42,23 +43,14 @@ export function askDueAt(h) {
   return Math.min(two, four <= cut ? four : four - DAY);
 }
 
-// ---- whose ask it is (spec 6, addendum 6: no rally-lead setting exists, and adding one is a migration, D13) ----
-// Saya rallies for CTFH; any other coalition's rallier is its owner; a bill in no coalition is its owner's to rally.
-const RALLY_LEADS = { CTFH: 'SY' };   // campaign name -> the rally lead's initials, until a setting exists
-const leadOf = c => { const ini = RALLY_LEADS[c.name]; const a = ini && S.advocates.find(x => x.initials === ini && x.is_active !== false); return a ? a.id : live(c.owner_id) ? c.owner_id : null; };
-export function rallierOf(b) {
-  const ids = (S.billCampaigns?.[b?.id] || []).map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean).map(leadOf).filter(Boolean);
-  const own = (S.assignments?.[b?.id] || []).filter(live);
-  return [...new Set(ids.length ? ids : own.slice(0, 1))];
-}
+// ---- whose ask it is (spec 6, addendum 6): the rule lives in steps.js (rallierOf, onBill) so composer.js can use it without a cycle ----
 // Someone who rallies for a coalition (Saya, a coalition's owner): they see the partners' asks going out (F187).
 export const isRallier = (me = S.me) => !!me && (S.campaigns || []).some(c => leadOf(c) === me.id);
 // Whether the viewer is the one who writes this bill's ask: its rallier, or its owner when it has none (askDue's `mine`).
-// R-358: this is the one rule for who writes a bill's public ask (rallierOf's first names, else the owner). Today's rows, the
-// Public tab's link and the cards' button all read it, so nobody is sent to a card that has no button for them.
+// R-358: this is who is EXPECTED to write a bill's public ask (rallierOf's first names, else the owner): Today's row, the red
+// "overdue" tile and the page's one filled button follow it. It is not the gate for the button: anyone on the bill may write
+// (onBill, steps.js; Nate 31 Oct).
 export const writesAsk = b => { const me = S.me?.id, r = rallierOf(b); return !!me && (r.length ? r.includes(me) : (S.assignments?.[b?.id] || []).includes(me)); };
-// Who may write a bill's ask here: its rallier, its owner, an admin (the Public tab is open to the same people).
-const mayWrite = b => !!S.me && (S.me.is_admin || rallierOf(b).includes(S.me.id) || (S.assignments?.[b.id] || []).includes(S.me.id));
 
 // ---- the week's asks ----
 // Bills with a position on the public page whose testimony closes in the next 7 days, soonest first; each bill once, at
@@ -186,7 +178,7 @@ function partnersHTML() {
 // the followers. The share row shows only once an ask exists (with none, there is nothing true to share yet). ----
 const cardId = b => 'ot-ask-' + String(b.bill_number).replace(/\s/g, '');
 const BASE = new Map();   // the ask as it was when its box was opened (DB.saveBillFields compares against it)
-const boxOpen = b => S.otOpen === b.id && writesAsk(b);
+const boxOpen = b => S.otOpen === b.id && onBill(b);
 // Whose ask it is to write and by when, for this viewer. "Mine": the viewer is its rallier (or, with no rallier, its owner).
 // `step`: the ask is a step on the viewer's Today, as today.js makes it (spec 13: the public ask row is for a strong position's
 // bill only). Only a step may be red when late, carry the overdue tile or the page's filled button (spec 11.4); the rallier's
@@ -224,7 +216,7 @@ function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
   const text = (S.otDraft || {})[b.id] ?? (changing ? b.public_action || '' : '');
-  const when = changing ? '' : d.step ? ownTile(d) : d.mine ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet · /, '')))}</span>`;
+  const when = changing ? '' : d.step ? ownTile(d) : d.mine || !d.strong ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet · /, '')))}</span>`;
   return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the public ask' : 'Write the public ask'}</label>${when}</div>
     <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. It shows on the public page and in the hearing alert.</p>
     <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
@@ -250,9 +242,12 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
-  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${d.mine ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
-  // R-356 round 3, decision 6: the button is the writer's alone (writes: the rallier, else the owner); everyone else reads the plain line
-  else if (d.mine) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
+  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${onBill(b) ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
+  // R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone on the bill gets the button; only the
+  // expected writer's own step is red or carries the tile (P-5). Beside the button, the writer reads the clock; someone else on a
+  // strong position reads who writes it and by when; on an optional ask (nobody is expected to write it) everyone on the bill reads
+  // "a post still helps", the reason to write one, rather than "Saya can write one", which says it is not theirs.
+  else if (onBill(b)) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine || !d.strong ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
   else left = `<p class="ot-nw">${noAskLine(otherWords(d))}</p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
@@ -267,9 +262,9 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
 // strong-position ask that is the viewer's own), never an optional one above it.
 function leadId(items, want = null) {
   const o = items.find(x => boxOpen(x.b)); if (o) return o.b.id;
-  const open = x => !liveAsk(x.b) && writesAsk(x.b);
+  const open = x => !liveAsk(x.b) && onBill(x.b);
   const picked = want && items.find(x => want.has(x.b.id) && open(x)); if (picked) return picked.b.id;
-  const w = items.find(x => open(x) && askDue(x).step);
+  const w = items.find(x => open(x) && askDue(x).step);   // a step is the expected writer's own, so Kevin's CTFH cards get no filled button
   return w ? w.b.id : null;
 }
 
@@ -328,7 +323,7 @@ export default {
   render(route) {
     const want = wanted(route), team = weekAskItems(), all = showAll(route, want);
     // R-358: ?write=1 opens the writer's box once per address (S.otWrote, like S.otSeen: a redraw or Back does not reopen it).
-    if (route?.q?.write === '1' && want?.size === 1 && S.otWrote !== location.hash) { const b = billById([...want][0]); S.otWrote = location.hash; if (b && writesAsk(b) && !liveAsk(b)) S.otOpen = b.id; }
+    if (route?.q?.write === '1' && want?.size === 1 && S.otWrote !== location.hash) { const b = billById([...want][0]); S.otWrote = location.hash; if (b && onBill(b) && !liveAsk(b)) S.otOpen = b.id; }
     const items = all ? team : weekAskItems({ mine: true });
     // Team only for people who see it (R-356); with one choice left there is no switch.
     const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';

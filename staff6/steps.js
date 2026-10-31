@@ -294,6 +294,21 @@ export function testimonyState(d, b, { h } = {}) {
 // approver, not a writer) on a bill's coalitions.
 export const helpersOf = b => { const cs = S.billCampaigns?.[b?.id] || [];
   return (S.advocates || []).filter(a => a.is_active !== false && Array.isArray(a.prefs?.coalitions) && a.prefs.coalitions.some(c => cs.includes(c))).map(a => a.id); };
+// ---- whose ask it is (spec 6, addendum 6: no rally-lead setting exists, and adding one is a migration, D13) ----
+// Saya rallies for CTFH; any other coalition's rallier is its owner; a bill in no coalition is its owner's to rally.
+const RALLY_LEADS = { CTFH: 'SY' };   // campaign name -> the rally lead's initials, until a setting exists
+export const leadOf = c => { const ini = RALLY_LEADS[c.name]; const a = ini && S.advocates.find(x => x.initials === ini && x.is_active !== false); return a ? a.id : live(c.owner_id) ? c.owner_id : null; };
+export function rallierOf(b) {
+  const ids = (S.billCampaigns?.[b?.id] || []).map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean).map(leadOf).filter(Boolean);
+  const own = (S.assignments?.[b?.id] || []).filter(live);
+  return [...new Set(ids.length ? ids : own.slice(0, 1))];
+}
+// R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone ON a bill may write or change its
+// public ask and open the email door: its owner(s), its rallier(s), the coalition's helpers, a lead or an admin. This is the one
+// rule for the button, the box, Change, the ?write=1 landing and the email door. Who is EXPECTED to write it (asks.js writesAsk)
+// is a different question: it picks Today's row and the red "overdue" tile, so only that one person is nagged.
+export const onBill = b => { const me = S.me; if (!me || !b) return false;
+  return me.is_admin || me.is_reviewer || (S.assignments?.[b.id] || []).includes(me.id) || rallierOf(b).includes(me.id) || helpersOf(b).includes(me.id); };
 const ownersOf = b => (S.assignments?.[b?.id] || []).filter(live);
 // Who writes a draft (W6, no migration: spec section 6). Whoever sent it for approval holds it, with the bill's owner;
 // a draft nobody has sent yet is the coalition's helpers' and the owner's (Patti writes on Lauren's HEAL bills). The
