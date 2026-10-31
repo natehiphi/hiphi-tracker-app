@@ -66,10 +66,7 @@ with L.browser() as B:
   pg = B.page('NT', 390, 844); pg.open('/hearings/ask')
   ls = dls(pg)
   R.check('390: Bills That Need Hearings says "none asked yet" on the first deadline', ls and 'none asked yet' in ls[0], ls[:1])
-  dot = pg.page.evaluate("[...document.querySelectorAll('.hg-dlgo')].map(a => { const t = a.previousSibling; return t && t.nodeType === 3 && t.nodeValue.endsWith('·\\u00a0'); })")
-  R.check('390: the "·" before Bills That Need Hearings is held to the link (a no-break space)', dot and all(dot), dot)
-  rr = pg.page.evaluate("(() => { const a = document.querySelector('.hg-dlgo'), p = a.closest('.hg-dls'), r = document.createRange(); const t = a.previousSibling; r.setStart(t, t.nodeValue.length - 2); r.setEnd(t, t.nodeValue.length - 1); const d = r.getBoundingClientRect(), l = a.getClientRects()[0]; return [Math.round(d.top), Math.round(l.top)]; })()")
-  R.check('390: the "·" sits on the link\'s line', abs(rr[0] - rr[1]) <= 4, rr)
+  # no door to check: Who to ask (the link to this tab) went away in R-356 round 2 (decision 4)
   R.check('390: no sideways scroll', pg.page.evaluate('document.documentElement.scrollWidth - innerWidth') <= 0)
   pg.close()
 
