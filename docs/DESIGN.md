@@ -593,6 +593,8 @@ working. Nothing ever looks finished before it is.
 
 *Reason.* NN/g heuristic 1. A silent save is indistinguishable from a broken one.
 
+**The skeleton is never an empty shell** (R-357 5c, 30 Oct 2026): it carries the brand, and the tabs where the screen has them, drawn in the system face until the fonts arrive, so the first thing a visitor sees on a slow line is the tracker, not grey bars.
+
 ### B-8 Errors say what happened, in plain words, next to the thing, with the way out
 
 Never a code, never blame, never a dead end. If a save fails because of a column grant, the message
@@ -604,6 +606,8 @@ Try again that asks again in place. A failed load is never drawn as "not found",
 `tests/load_fail.py` checks every screen with the data blocked, failing or hanging.
 
 *Reason.* NN/g heuristic 9, WCAG 3.3.1/3.3.3.
+
+**A start that cannot reach the database says so within 3 seconds** (R-357 5c), not after its clocks (`watchDb` in `pub/app.js`: the card comes when every early request failed or none answered in 3 s); a first visit's welcome needs no data (C-1), so it is drawn or left on screen when the start fails, and the card comes when the person goes on.
 
 ### B-9 Nothing important lives behind hover
 

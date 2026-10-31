@@ -248,7 +248,17 @@ Reads only `public_*` views and RPCs; no account needed; magic-link sign-in.
   name in `STEPS`; a new screen gets a `lazy()` entry, a `SCREEN_CSS` entry and its place in `CSS_ORDER`; a new module
   every screen needs gets a `modulepreload` line; nothing on the early path may touch `S.supa` directly (use `supa()`).
   The split was made by two scripts kept in the handoff's record (HANDOFF 3.77); by hand, keep `kernel.js` free of
-  bill-level code and the first wave free of `core.js`, and the check will say when either slips.
+  bill-level code and the first wave free of `core.js`, and the check will say when either slips. **What a phone's first wave leaves out** (R-357 5c; `check_split.mjs` rule 6 guards it, `tests/perf.py` lists the first wave
+  and checks it against the page's `hiphi-first-screen` mark): `actions.css` comes with every screen but the first visit's (`cssFor0`),
+  `wide.css` with the first screen only in a window of 900px or more (`wideCss`) and after it on a phone (a media-gated link),
+  `print.css` after the first screen (its link in `<body>` has no `href` until `__hiphiPrint.css()`; it stays the last stylesheet).
+  `pub/visitlog.js` is a small shell (quiet, the visit's id, `visitVia`) whose calls wait in order until `app.js` releases them once a
+  screen is drawn and has no skeleton; `pub/visitlog-send.js` sends, and loads then (a page that does not `holdCounts()` loads it at
+  once). Every `ensureCss` waits for `base.css` to have applied (`baseIn`, 3 s cap); a phone's welcome draws from `#crit` alone and
+  start.css finishes it (matched at 40 window sizes; a wide window waits for it); the skeleton draws the real header and tabs in the
+  system face (`drawSkeleton`, `body.sk`); and when the database's four early requests (`window.__hiphiNet`) all fail or none answers
+  in 3 s, `watchDb` ends the start's clock in the card (B-8), except that a first visit's welcome is drawn or left on screen
+  (`welcomeStays`).
 - **The header search suggests as you type (R-032, 9/21).** From 900px the header box lists what the words so far
   match, seven rows at most, then "See all results" (Find). A word search lists policies: issues (a matching topic
   first), with a bill on an issue shown as that issue, so a House bill and its Senate twin are one row; then HIPHI's
