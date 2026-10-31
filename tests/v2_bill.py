@@ -32,6 +32,8 @@ def ok(cond, what):
     fails += 1
     # On GitHub Actions a FAIL line also goes on the run's summary page, which is readable without signing in (the job logs are not):
     # the next build can see the numbers that failed (R-357, 31 Oct: a CI-only red whose log nobody could read).
+    # The run's annotations are readable without signing in too (the API's check-runs/<job>/annotations), so the FAIL line goes there as well.
+    if os.environ.get('GITHUB_ACTIONS'): print('::error title=v2_bill::' + what.replace('%', '%25').replace('\n', ' '))
     sm = os.environ.get('GITHUB_STEP_SUMMARY')
     if sm:
       try:
