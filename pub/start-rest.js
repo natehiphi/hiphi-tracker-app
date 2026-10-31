@@ -12,7 +12,7 @@ import { btn, chip, posChip } from './ui.js';
 import { t } from './i18n.js';   // the bar's "Skip this part" is said in the person's language, as bar2's (start.js)
 import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-296)
 import { testimonyTime } from './actions.js';   // and its one time promise (R-357 Light fixes e; C-15)
-import { CAPITOL, flower } from './art.js';
+import { CAPITOL, VOICES, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
 import { storyMark } from './v2/story.js';   // reading the story to its end hides Home's card for it (R-357 part 4; no side effects on import)
@@ -251,26 +251,35 @@ function example() {
 // own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062). The lede says others
 // write in and theirs joins them, not that lawmakers hear from "far fewer people than you'd think": telling people few
 // others act makes not acting sound normal, and messages saying many take part do better (R-171, R-164's research).
-// ================= Version 2's teaching screen: why your note counts (R-357 part 4, Nate's pick of draft A, 30 Oct 2026) =================
-// One screen between Your issues and the profile ask (the first visit's step 'voice', so the private counts need no migration): the
-// drawing of speaking up (a bill, a raised hand, a phone: art.js VOICES, in the ʻohana style), two sentences, and the two ways to act
-// with their times as two plain rows. No question (C-13: a quiz that checks a lesson is not covered) and no Skip: it is short enough
-// to read and its one button is Next. Said as Nate chose: lawmakers read what people send, and a few sentences in your own words are
-// testimony, which the tracker helps write. Nothing here says or implies that few people act (R-171). The two times are the one promise
-// the tracker keeps wherever testimony is offered (R-357 Light fixes e, said in C-15's words: "about 10 min the first time, then about 3 min"; the email "about 2 min").
-const WHY_WAYS = [
-  ['notebook-pen', 'Testimony', 'Goes on the hearing’s record · about 10 min the first time, then about 3 min'],   // C-15's wording of the one time promise
-  ['mail', 'An email to the committee chair', 'about 2 min'],
+// ================= Version 2's teaching, two short screens (R-357 part 4; Nate 31 Oct 2026) =================
+// Nate, 30 Oct: draft A, "plain", on one screen ("Why your note counts"). Nate, 31 Oct: "I think the quiz teaching about the importance of
+// testimony and emails to chairs is important, but it can be improved." His pick: two short screens instead of one, "each with its own
+// picture", in the words of draft A without its examples. Between Your issues and the profile ask, so the visit is nine taps. The first
+// is testimony (the step the private counts know as 'voice', so no migration) and the second the email to the chair ('chair' in the flow,
+// counted as 'voice' with lesson_step 2: start.js COUNTED_AS). Each is a drawing, a heading, two short sentences, one time line and
+// Next: no question (C-13: a quiz that checks a lesson is not covered), no Skip, and under 30 words a screen (C-14). Nothing here says or
+// implies that few people act (R-171). The times are the one promise the tracker keeps wherever testimony is offered (R-357 Light fixes e)
+// and the quick email's "2 minutes"; the first screen is always a first-timer's, so it says both of testimony's.
+// The drawings are two that art.js already has: the people at the Capitol with a bill, a raised hand and a phone for testimony, and the
+// Capitol itself for the chair's email (no drawing of art.js shows a lawmaker, a letter or an envelope). Not the alerts' or the share's, which
+// the screens after this one and the ones on Home use.
+const WHY_SCREENS = [
+  { art: VOICES, h: 'Testimony: your words on the record',
+    lines: ['Before a committee votes, it reads what people sent in.', 'Your note goes on the hearing’s record, with your name.'],
+    time: 'About 10 minutes the first time, then about 3.' },
+  { art: CAPITOL, h: 'An email to the chair',
+    lines: ['One lawmaker, the committee’s chair, picks which bills get a hearing.', 'A short email tells them people are watching.'],
+    time: 'About 2 minutes.' },
 ];
-function stepWhy(step) {
-  return shell('st1 st-whypage', `${topRow('voice', step)}${artFor('followask')}
-    <h1 class="hero" id="st-h">Why your note counts</h1>
-    <p class="lede">Lawmakers decide on these bills in committee hearings, and they read what people send in.</p>
-    <p class="lede">A few sentences from you, in your own words, is testimony. The tracker writes the first draft; you make it yours.</p>`,
-    `<ul class="st-voice st-whyways" role="list" aria-label="Two ways to be heard">${WHY_WAYS.map(([ic, h, p]) => `<li><span class="st-vic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ul>`);
+function stepWhy(step, k) {
+  const w = WHY_SCREENS[k - 1];
+  return shell(`st1 st-whypage st-why${k}`, `${topRow(k === 1 ? 'voice' : 'chair', step)}<div class="st-art">${w.art}</div>
+    <h1 class="hero" id="st-h">${esc(w.h)}</h1>
+    ${w.lines.map(l => `<p class="lede">${esc(l)}</p>`).join('\n    ')}
+    <p class="st-whytime">${icon('clock')}<span>${esc(w.time)}</span></p>`, '');
 }
 function stepVoice(step) {
-  if (v2()) return stepWhy(step);
+  if (v2()) return stepWhy(step, 1);
   // No example bill is named on this page (R-203: a bill's title under the three points read as clutter, and nobody could
   // tell what it was for). The story link below still needs the bill the lesson would teach, so only its id is taken.
   const off = isOff(), b = exampleBill();
@@ -475,7 +484,7 @@ function stepThanks(step) {
 const COVER_MS = 1800, FOLD_MS = 650;   // the flower opens from 0.3 s to about 1.2 s and the words have risen by 1.25 s
 // Version 2's end (R-357 part 4): Home comes next and has no band to fold into, so the cover is the visit's last page and holds still with
 // the first visit's last button, "See How I Can Help" (GO_HELP: every version ends on it, Nate 10/6, R-190), until it is pressed (Enter or
-// Space on it too). A button that vanishes on a timer is a control that does not look like what it does (A-12), so the visit is 8 taps.
+// Space on it too). A button that vanishes on a timer is a control that does not look like what it does (A-12), so the visit is 9 taps (8 before the teaching became two screens).
 // COVER_END_MS is the one-line switch to the other way, which Nate may choose at his check: a number of milliseconds after which the
 // cover moves on by itself (2800 is the length that was tried: the button rises at 0.95 s and is there to be read); 0 holds for the button.
 const COVER_END_MS = 0;
@@ -1026,10 +1035,10 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       const ids = m.all.filter(m.ticked).map(x => x.i.id);
       await commitIssues(m);
       track(name, 'next', { counts: { cats: m.sel.length, issues: new Set(ids).size }, issue_ids: [...new Set(ids)] });
-      // Version 2 (R-357 part 4): the teaching screen is next; it passes to the profile ask, and the profile ask to Home.
-      // The teaching screen is seen once: someone who comes back to change their issues (Home's "Edit my issues") has seen it (wiz().why,
-      // set by its Next) and goes straight on (C-8); Back still finds it.
-      if (v2() && !wiz().via) { goStep(step, wiz().why ? step + 2 : step + 1); return; }
+      // Version 2 (R-357 part 4): the teaching (two screens) is next; it passes to the profile ask, and the profile ask to Home.
+      // The teaching is seen once: someone who comes back to change their issues (Home's "Edit my issues") has seen it (wiz().why,
+      // set by the second screen's Next) and goes straight on (C-8); Back still finds it.
+      if (v2() && !wiz().via) { goStep(step, wiz().why ? stepOf('alerts', isOff()) : step + 1); return; }
       // The alerts ask comes next, and the "Mahalo!" page after it (R-146, R-140). With nothing to ask (signed in, already
       // told us how to reach them), the alerts screen is the "Mahalo!" page at once, with no ask on it (noAsk). A shared
       // bill's visit has no "Mahalo!" and passes the screen over.
@@ -1121,20 +1130,24 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'voice') {
     wireBand();
     const nb = $('[data-stnext]');
-    if (v2()) {
-      // Version 2's teaching screen: its Next goes to the profile ask (and the issues' Next skips it for someone who has seen it). Where something is followed and there
-      // is nothing to ask (signed in, a number or a link already given) the cover is the follow's celebration and Home follows it, as
-      // the issues' Next does in version 1; someone who followed nothing (Skip on Your issues) goes on quietly, and the ask and the
-      // cover are passed over.
-      if (nb) nb.onclick = () => {
-        wizSet({ why: true }); track(name, 'next');
-        if (followsAnything() && !askAlerts() && !wiz().via) {
-          S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
-          if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true }), { end: true }); return; }
-        }
-        goStep(step, step + 1);
-      };
-    } else if (nb) nb.onclick = () => { S.stBand = false; next(); };
+    // Version 2's first teaching screen (testimony): Next is the second (the email to the chair).
+    if (v2()) { if (nb) nb.onclick = next; }
+    else if (nb) nb.onclick = () => { S.stBand = false; next(); };
+  }
+  if (name === 'chair') {
+    const nb = $('[data-stnext]');
+    // Version 2's second teaching screen: its Next goes to the profile ask (and the issues' Next skips both screens for someone who has seen
+    // them). Where something is followed and there is nothing to ask (signed in, a number or a link already given) the cover is the follow's
+    // celebration and Home follows it, as the issues' Next does in version 1; someone who followed nothing (Skip on Your issues) goes on
+    // quietly, and the ask and the cover are passed over.
+    if (nb) nb.onclick = () => {
+      wizSet({ why: true }); track(name, 'next');
+      if (followsAnything() && !askAlerts() && !wiz().via) {
+        S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
+        if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true }), { end: true }); return; }
+      }
+      goStep(step, step + 1);
+    };
   }
   if (name === 'soon') {
     abSeen('act');   // the test 'act' (R-150): the two versions differ on this page and nowhere else
@@ -1199,6 +1212,7 @@ export function barStep(name, step, off) {
       return bar2(followLabel(m.count), { icon: 'star' });
     }
     case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU() (wireStep)
+    case 'chair': return bar1('Next');   // version 2's second teaching screen (its first is 'voice', below)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
     case 'voice': return v2() ? bar1('Next') : wiz().via && wiz().viaActed
       ? `<div class="st-bar"><div class="st-btns">${btn(GO_HELP, { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
@@ -1227,6 +1241,7 @@ export function renderStep(name, step) {
     case 'issues': return stepIssues(step);
     case 'bill': return stepLesson(step);
     case 'voice': return stepVoice(step);
+    case 'chair': return stepWhy(step, 2);
     case 'you': return stepYou(step);
     case 'soon': return stepSoon(step);
     case 'alerts': return stepAlerts(step);

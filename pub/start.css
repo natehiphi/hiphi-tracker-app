@@ -660,29 +660,45 @@ button.st-way:active { transform: scale(.99); }
 .st .st-art svg.art-nb { width: auto; }
 
 /* ================= Version 2's first visit (R-357 part 4, Nate 30 Oct 2026; ?v2=1; DESIGN C-12, C-13, C-14) =================
-   Welcome, two topics, Your issues, one teaching screen, the profile ask, Home. */
+   Welcome, two topics, Your issues, two teaching screens, the profile ask, Home. */
 
-/* The teaching screen, "Why your note counts" (start-rest.js stepWhy): the drawing of speaking up, the heading, two sentences at the
-   first visit's reading size (.lede, 18px), and two plain rows: no card, no control, nothing to tap but Next. On a phone the drawing
-   keeps 104px of height, which lets the screen fit a 375x812 window with the practice band on; when the window is shorter the generic
-   levels (fit1 on, above) shrink it first, as on every other step, and the words are never made smaller (C-14). */
+/* The teaching, two short screens (start-rest.js stepWhy; Nate 31 Oct 2026: "two short screens instead of one, each with its own picture"):
+   "Testimony: your words on the record" with the people at the Capitol (art.js VOICES), and "An email to the chair" with the Capitol. Each is
+   a drawing, the heading, two sentences at the first visit's reading size (.lede, 18px), one time line and Next: no card, no control, nothing
+   to tap but Next, so it is one column (start.js adds body.st-onecol: on a laptop Next sits under the words, as on "Follow this issue?").
+   The time is read, not a label, so it is 16px like the sentences. */
+.st-whytime { display: flex; gap: var(--s8); align-items: flex-start; margin: 0; font-size: var(--t16); line-height: 1.45; color: var(--n700); }
+.st-whytime .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--p700); }
+.st-whytime span, .st-whypage .lede { text-wrap: pretty; }   /* no single word alone on a last line, where the browser can */
+.st-whytime span { text-wrap: balance; }
+/* The drawing: the other first-visit screens drop theirs on a short or narrow window before anything is measured (above), because they carry
+   lists that must not scroll. These two carry a few words, so the drawing stays while it fits and gives way first when it does not: on a
+   phone VOICES keeps 104px of height and the Capitol 88px, which fits a 375x812 window with the practice band on; at .fit1 it is the base
+   64px, at .fit2 it goes; on a laptop (below) it has a column of its own and goes only at .fit3. The words are never made smaller (C-14). */
+.st1.st-whypage .st-art { display: flex; }
 @media (max-width: 899px) {
   .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-nb { width: auto; max-width: 100%; height: 104px; }
+  .st.st-whypage:not(.fit1):not(.fit2):not(.fit3):not(.fit4):not(.fit5):not(.fit6):not(.fit7):not(.fit8):not(.fit9):not(.fit10) .st-art svg.art-capitol { width: auto; max-width: 100%; height: 88px; }
+  .st-whypage.fit2 .st-art { display: none; }
 }
-.st-whyways { gap: var(--s12); }
-.st-whyways li { align-items: center; }
-.st-whyways b { margin-bottom: 0; }
-.st-whypage.fit2 .st-whyways { gap: var(--s8); }
-.st-whypage.fit3 .st-whyways .st-vic { display: none; }
-.st-whypage.fit3 .st-whyways li { grid-template-columns: minmax(0, 1fr); }
+/* On a laptop the two columns are the words (left, with Next under them) and the drawing (right): the intro's parts stand in <main>'s own grid
+   so the drawing can take the right column, which the page would otherwise leave empty (a wide phone, which Nate turned down twice). */
+@media (min-width: 900px) {
+  .st-whypage .st-intro { display: contents; }
+  .st-whypage .st-intro > :not(.st-art), body.st-onecol:has(.st-whypage) .actionbar { grid-column: 1; grid-row: auto; }
+  .st-whypage .st-main { display: none; }
+  body[data-screen="start"]:has(.st-whypage) main { row-gap: var(--s16); }
+  .st1.st-whypage .st-art { grid-column: 2; grid-row: 1 / span 7; align-self: center; justify-content: center; margin: 0; }
+  .st.st-whypage .st-art svg { width: 100%; max-width: 420px; height: auto; max-height: none; }
+  .st-whypage.fit3 .st-art { display: none; }
+}
 /* A short or narrow phone (320x568 is the smallest checked): the words are all kept and never made smaller than 16px (C-14), so after the
-   drawing and the icons what gives is spacing and the two largest sizes, the heading and the rows' names, one level at a time. */
+   drawing and the clock what gives is spacing and the heading's size, one level at a time. */
+.st-whypage.fit4 .st-whytime .ic { display: none; }
 @media (max-width: 899px) {
-  .st-whypage.fit4 .st-whyways b { font-size: var(--t16); line-height: 1.25; }
   .st-whypage.fit5 .lede { line-height: 1.35; }
-  .st-whypage.fit5 .st-whyways span { line-height: 1.3; }
   .st-whypage.fit6 h1 { font-size: var(--t22); }
-  .st-whypage.fit7 .st-whyways { gap: var(--s4); }
+  .st-whypage.fit7 .st-intro { gap: var(--s4); }
   .st-whypage.fit8 :is(.st-intro, .st-main) { gap: 2px; }
   .st-whypage.fit9 .lede { line-height: 1.3; margin-top: -6px; }
   /* Last: the heading goes to screen readers only (the strip already says "Your voice", A-14; the lessons do the same at .fit1) and the
