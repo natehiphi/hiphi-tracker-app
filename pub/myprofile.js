@@ -73,6 +73,11 @@ export const quoteLevel = () => {
   const q = loadMe().quote; return q === true ? 'first' : ['first', 'name', 'media'].includes(q) ? q : '';
 };
 export const quoteOk = () => !!quoteLevel();
+// How they sign a letter (R-357 part A, version 2: the sign-off moved out of the letter to a tap on the closing word and to the profile
+// page). Ideas only, never filled in for them (Nate 9/28; R-157: "mahalo, thank you, sincerely, etc."). On this device only, like the name's
+// copy in hiphi_me: no account column holds it, so saveProfile({ closing }) never calls the account.
+export const CLOSINGS = ['Mahalo', 'Thank you', 'Sincerely', 'Respectfully', 'Aloha'];
+export const myClosing = () => String(loadMe().closing || '').replace(/\s+/g, ' ').trim();
 // How they'd help (testify in person, host, volunteer); "quote" is asked beside the story instead.
 export const myInterests = () => (signedIn() ? S.profile?.interests || [] : loadMe().interests || []).filter(k => !QK.test(k) && k !== 'story');
 // "LK" for Leilani Kahale; "IK" for ʻIlima Kahale (the ʻokina is a letter to Unicode, never an initial); "L" for one
@@ -83,7 +88,7 @@ export function initials(name = myName()) {
   return w.length ? (first(w[0]) + (w.length > 1 ? first(w[w.length - 1]) : '')).toUpperCase() : '';
 }
 
-// Save part of the profile: { name, titles, story, stories, quote, interests, house, senate }. Only the keys given
+// Save part of the profile: { name, titles, story, stories, quote, interests, house, senate, closing }. Only the keys given
 // change. The device always keeps a copy; the account (signed in, not the sandbox) gets the same through
 // save_my_profile_v2. quote is '' | 'first' | 'name' | 'media' (true reads as 'first'). Throws the account's error.
 export async function saveProfile(patch) {
@@ -92,6 +97,7 @@ export async function saveProfile(patch) {
   if ('titles' in patch) dev.titles = cleanTitles(patch.titles);
   if ('story' in patch) dev.story = String(patch.story || '').trim().slice(0, 600);
   if ('stories' in patch) dev.stories = Object.fromEntries(Object.entries(patch.stories || {}).map(([k, v]) => [k, String(v || '').trim().slice(0, 600)]).filter(([, v]) => v));
+  if ('closing' in patch) dev.closing = String(patch.closing || '').replace(/\s+/g, ' ').replace(/[<>]/g, '').trim().slice(0, 40);
   if ('quote' in patch) dev.quote = patch.quote === true ? 'first' : ['first', 'name', 'media'].includes(patch.quote) ? patch.quote : '';
   if ('interests' in patch) dev.interests = (patch.interests || []).filter(k => !QK.test(k));
   if ('helpNote' in patch) dev.helpNote = String(patch.helpNote || '').replace(/\s+/g, ' ').replace(/[<>]/g, '').trim().slice(0, 200);
@@ -106,8 +112,10 @@ export async function saveProfile(patch) {
       const base = 'interests' in patch ? dev.interests : cur.filter(k => !QK.test(k));
       p.interests = [...new Set([...base, ...quoteKeys('quote' in patch ? dev.quote : quoteFrom(cur))])];
     }
-    const { error } = await (await supa()).rpc('save_my_profile_v2', { p });
-    if (error) throw saveErr(error);
+    if (Object.keys(p).length) {   // (the sign-off is this device's alone: nothing to send for it)
+      const { error } = await (await supa()).rpc('save_my_profile_v2', { p });
+      if (error) throw saveErr(error);
+    }
   }
   saveMe({ ...dev, ...(signedIn() && S.user?.id ? { acct: S.user.id } : {}) });
   // The first visit's name (Home's greeting) follows, so clearing a name never brings back an old one.

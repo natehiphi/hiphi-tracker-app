@@ -14,7 +14,7 @@ import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
 import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY, alertStatus } from './alerts.js';
 import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
-  myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice } from './myprofile.js';
+  myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice, CLOSINGS, myClosing } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
 import { titleLabel, pickTitle, asWords, suggestTitles } from './titles.js';
@@ -323,6 +323,26 @@ function homeScreenNote() {
 }
 
 
+// How you sign off (R-357 part A, version 2 only; Nate 28 Oct: the sign-off chips move out of the letter). The word at the end of a letter,
+// above the name: ideas to tap and a small box for their own words, kept on this device (the same place the letter's tap on its closing word
+// writes). It is not part of the Save bar's draft: like Your voice (R-304) it keeps itself as it is chosen, with a quiet "Saved" (B-7).
+function signoffBody() {
+  const c = myClosing(), own = CLOSINGS.includes(c) ? '' : c;
+  return `<p class="small muted" id="pf-so-h">Your letters end with “Mahalo” unless you pick another word. Your name goes under it.</p>
+    <div class="chips pf-so-chips" role="group" aria-labelledby="pf-signoff-t">${CLOSINGS.map(w => `<button type="button" class="chip" data-pf-so="${esc(w)}" aria-pressed="${c === w}">${esc(w)}</button>`).join('')}</div>
+    <div class="field pf-f"><label for="pf-so-own">Your own words</label>
+      <input id="pf-so-own" type="text" maxlength="40" value="${esc(own)}" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" placeholder="Like Warmly"></div>${status('pf-so-st')}`;
+}
+function wireSignoff() {
+  const chips = document.querySelectorAll('[data-pf-so]'), own = $('#pf-so-own'); if (!chips.length || !own) return;
+  const show = c => chips.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.pfSo === c)));
+  const save = w => saveProfile({ closing: w }).then(() => true, e => { flash('pf-so-st', friendly(e), true); return false; });
+  const said = w => w ? `Saved. Your letters end with “${w}”.` : 'Saved. Your letters end with “Mahalo”.';
+  chips.forEach(b => b.onclick = async () => { const w = b.dataset.pfSo; own.value = ''; show(w); if (await save(w)) { flash('pf-so-st', said(w)); announce(said(w)); } });
+  own.oninput = () => { const w = own.value.replace(/\s+/g, ' ').trim(); show(w); save(w); };   // kept as they type; "Saved" is said when they leave the box
+  own.onchange = () => { const w = own.value.replace(/\s+/g, ' ').trim(); flash('pf-so-st', said(w)); announce(said(w)); };
+  own.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); own.blur(); } };
+}
 const sec = (id, title, body) => `<section class="card pf-sec" id="pf-${id}" aria-labelledby="pf-${id}-t"><h2 id="pf-${id}-t">${title}</h2>${body}</section>`;
 function profileView() {
   if (!hasProfile()) return inviteView();
@@ -340,6 +360,7 @@ function profileView() {
     <p class="small muted pf-auto">${icon('pencil')}<span>Change anything below, then Save.</span></p>
     ${sec('about', 'About you', aboutBody())}
     ${sec('story', 'Your stories', storyBody())}
+    ${app.v2?.() ? sec('signoff', 'How you sign off', signoffBody()) : ''}
     ${sec('letters', 'Your letters', lettersBody(lettersList()))}
     ${sec('help', 'How you’ll help', helpBody())}
     ${rec ? '' : sec('email', 'Alerts', alertsBody())}
@@ -409,7 +430,7 @@ function wireProfile() {
   if (adb) adb.addEventListener('blur', () => setTimeout(() => {
     if (adb.value.trim() && !P.addr.picked && document.activeElement?.closest?.('#pf-ad-sugs') == null) flash('pf-ad-st', 'Pick your address from the list to find your senator and representative.', true);
   }, 250));
-  wireStories();
+  wireStories(); wireSignoff();
   const ls = $('#pf-letters'); if (ls) { wireKept(ls); wireDelete(ls, repaintLetters); }
   document.querySelectorAll('[data-pf-int]').forEach(c => c.onchange = () => {
     const k = c.dataset.pfInt; P.draft.help = c.checked ? [...new Set([...P.draft.help, k])] : P.draft.help.filter(x => x !== k); paintBar(); });

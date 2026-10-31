@@ -63,7 +63,7 @@ import { introMark } from './speakup.js';
 import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
-import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile, quoteLevel, QUOTE } from './myprofile.js';   // R-147, R-156, R-165, R-304
+import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile, quoteLevel, QUOTE, CLOSINGS } from './myprofile.js';   // R-147, R-156, R-165, R-304
 import { pickTitle, asWords, aWords, needsSelf, setSelfPref, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
@@ -1217,9 +1217,7 @@ function topicPick() {
     <div class="hp-sugs">${chips}</div>${toggle ? `<div class="hp-more">${toggle}</div>` : ''}
     <span class="help" id="hp-topic-help">Your letter names this one, and lists up to two others in one line.</span></div>`;
 }
-// Ideas, never filled in for them (Nate 9/28): a tap puts one in the box, where they can change it. Short and plain, the
-// same for testimony and emails (Nate 10/5, R-157: "much simpler. mahalo, thank you, sincerely, etc.").
-const CLOSINGS = ['Mahalo', 'Thank you', 'Sincerely', 'Respectfully', 'Aloha'];
+// (The sign-off ideas, CLOSINGS, live in myprofile.js: the profile page reads them too, R-357 part A.)
 const ERR = { name: 'Enter your name', v2name: 'Add your name to sign the letter', email: 'Enter an email like name@example.com', why: 'Say what you think in a sentence or two' };
 // The letter is the person's own (their stance differs from HIPHI's, or they have comments): their reason is the letter.
 const own2 = () => { const x = S.helper; return !!x && !!x.b && !sameAsHiphi(x.b, x.stance || hiphiStance(x.b)); };
@@ -1481,6 +1479,7 @@ const doneArt = x => { if (!fxOn('sent')) return flower(56); x.roKey ||= `sent-$
 // Confirmation: the reward is what happens next, not points (plan section 1).
 function doneScreen() {
   const x = S.helper, { b, h } = x, n = spaced(b.bill_number), first = firstOf(x.name);
+  lateStory(x);
   const held = new Date(h.scheduled_at) < Date.now(), plural = codesOf(h.committee).length > 1;
   const when = `${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)}`;
   const next = held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${plural ? 'hear' : 'hears'} it ${when}.`;
@@ -1489,7 +1488,7 @@ function doneScreen() {
   // The ask (R-184): right under the thank-you, the first thing seen after it. It sat under "What happens next" and "Going
   // in person?", which on a phone put it below the first screen, so "Done" in the bar came first. The old place is the test
   // 'save''s second version.
-  const ask = emailAsk(x), up = profileAsk();
+  const ask = emailAsk(x), up = profileAsk(), story = storyCard(x);   // version 2 draws the story ask where the profile ask sits, right under the thank-you (R-184's reason: below "What happens next" it is below the first screen)
   return `<div class="hp-hero">
       <div class="hp-badge" aria-hidden="true">${doneArt(x)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
@@ -1497,13 +1496,13 @@ function doneScreen() {
       <p class="hp-lede">${DEMO ? 'When you send it for real, the committee reads it before they vote, and it becomes part of the public record.' : x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
         : `You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.`}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
-    </div>${up ? ask : ''}${friendCard(x)}
+    </div>${up ? ask : ''}${x.v2 ? story : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
       ${unfollowBtn(x)}${levelUp(x)}
       ${held ? '' : goingLine(x)}
       ${watch}${fixLine(h)}</section>${nextUp(x)}
-    ${storyCard(x)}${profileLine(x)}
+    ${x.v2 ? '' : story}${profileLine(x)}
     ${up ? '' : ask}`;
 }
 // The next one (R-212 #29, the walk's Tier 2): after a letter or an email, the soonest other testimony still open on what
@@ -1541,7 +1540,7 @@ function goingLine(x) {
 // the topic's guiding question and their letter's reason ready in the box. Once per topic ("No thanks" is kept).
 function storyCard(x) {
   const t = topicOf(x);
-  if (x.askStory === 'saved') return `<p class="okmsg hp-saved">${icon('circle-check')}<span>Saved in your profile as your story${t ? ` about “${esc(topicName(t))}”` : ''}.</span></p>`;
+  if (x.askStory === 'saved') return `<p class="okmsg hp-saved">${icon('circle-check')}<span>Saved in your profile as your story${t ? ` about “${esc(topicName(t))}”` : ''}.</span></p>${quoteCard(x)}`;
   if (!x.askStory) return '';
   return `<section class="card hp-storyask" aria-labelledby="hp-sa-t"><h3 id="hp-sa-t">Save a sentence on why this matters to you?</h3>
     <div class="field"><label for="hp-sa">${esc(storyAsk(!!x.b))}</label>
@@ -1549,6 +1548,21 @@ function storyCard(x) {
       <span class="help" id="hp-sa-h">${esc(STORY_HINT)} We’ll put it in your next ${isMail(x) ? 'emails' : 'letters'}${t ? ` about “${esc(topicName(t))}”` : ''}, and you can change it each time. HIPHI staff can see it.</span></div>
     <div id="hp-sa-msg"></div>
     <div class="btnrow">${btn('Save to my profile', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'storysave' } })}${btn('No thanks', { kind: 'text', sm: true, attrs: { 'data-hp': 'storyno' } })}</div></section>`;
+}
+// Version 2 only (R-357 part A; Nate 28 Oct, R-304: the quote question is asked only once a first story is saved): right where the
+// "Saved in your profile" line is, once, after a FIRST story saved on this Mahalo. The words and the three choices are the profile's own
+// (profile.js, myprofile.js QUOTE; a lawyer is to confirm them), none chosen until the person chooses (B-12); Save is the small outlined
+// button and Not now an equal text button, so the bar's Done stays the one filled button (A-3). A Not now is kept (hiphi_me.quoteAsked)
+// so the Mahalo never asks again; the profile page keeps the question. No second ask shows while this one does (friendOpen, askOpen).
+function quoteCard(x) {
+  if (x.quoteDone) return `<p class="okmsg hp-quoted" role="status">${icon('circle-check')}<span>${esc(x.quoteDone)}</span></p>`;
+  if (!x.quoteOpen) return '';
+  const pick = x.quotePick || '';
+  return `<section class="card hp-quoteask" aria-labelledby="hp-qa-t"><h3 id="hp-qa-t" tabindex="-1">Can HIPHI quote your stories?</h3>
+    <p class="small muted" id="hp-qa-p">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
+    <div class="hp-qa-set" role="radiogroup" aria-labelledby="hp-qa-t" aria-describedby="hp-qa-p">${QUOTE.map(([v, l]) => `<label class="check mr-check" for="hp-qa-${v}"><input type="radio" name="hp-qa" id="hp-qa-${v}" value="${v}"${pick === v ? ' checked' : ''}><span class="mr-ctext"><span class="mr-ctitle">${esc(l)}</span></span></label>`).join('')}</div>
+    <div id="hp-qa-msg"></div>
+    <div class="btnrow">${btn('Save', { kind: 'secondary', sm: true, icon: 'check', attrs: { 'data-hp': 'quotesave' } })}${btn('Not now', { kind: 'text', sm: true, attrs: { 'data-hp': 'quoteno' } })}</div></section>`;
 }
 // The profile, named once after a letter (R-156 C2): what was kept and where it is. Decided at the send (x.tellProfile).
 function profileLine(x) {
@@ -1561,14 +1575,22 @@ function profileLine(x) {
   return `<p class="hp-profline">${icon('user')}<span>Your ${andList(bits)} ${bits.length > 1 ? 'are' : 'is'} saved in your profile, ready for next time.</span>${btn('See your profile', { kind: 'text', sm: true, cls: 'hp-inl', attrs: { 'data-hp': 'toprofile' } })}</p>`;
 }
 // Decided once, when the letter is sent: the story ask and the profile line, and the kind-only counts (E1).
+const storyDue = x => !x.remind && !x.storySaved && !storyFor(catsOf(x.mode === 'intro' ? null : x.b)) && !(loadMe().storyNo || []).includes(topicOf(x) || 'any');
 function afterSend(x) {
-  const t = topicOf(x), me = loadMe();
-  x.askStory = hasProfile() && !x.remind && !x.storySaved && !storyFor(catsOf(x.mode === 'intro' ? null : x.b)) && !(me.storyNo || []).includes(t || 'any') ? 'ask' : null;
+  const me = loadMe();
+  x.askStory = hasProfile() && storyDue(x) ? 'ask' : null;
+  // Version 2 (R-357 part A): someone with no profile yet meets the profile ask on this Mahalo first, and the story ask is not made
+  // beside it (R-156: one ask at a time). If they answer it with a number, lateStory (below) asks for the story in the same Mahalo.
+  x.storyWait = !!x.v2 && !hasProfile() && !!S.nudge && storyDue(x);
   x.storyDraft = x.noWhy || own2() ? '' : x.why.trim().slice(0, 600);
   x.tellProfile = hasProfile() && !me.toldProfile; if (x.tellProfile) saveMe({ toldProfile: true });
   const two = twoFor(x), L = x.letter || '';
   if (two.length && L.includes(aWords(two))) app.onAct?.('letter_titled');
   if ([myStory(), ...Object.values(myStories())].filter(Boolean).some(st => L.includes(st))) app.onAct?.('letter_story');
+}
+function lateStory(x) {
+  if (!x.v2 || !x.storyWait || x.askStory || !hasProfile()) return;
+  x.storyWait = false; if (storyDue(x)) x.askStory = 'ask';
 }
 // The opt-up after acting (R-299, Nate 17 Oct: "Opt up after acting"; acting is the strongest sign someone cares about an
 // issue). For someone alerts reach (a confirmed number, or an account with an email) whose issue for this bill is followed
@@ -1597,7 +1619,7 @@ const followWords = (x, n) => x.followedIssue ? `We now follow “${esc(x.follow
 // them to keep sharing after they've done it"): a share made here leaves one quiet line.
 const FRIENDED = { shared: 'Sent. Mahalo for bringing a friend.', email: 'Your email to a friend is ready. Mahalo for bringing them along.', copied: 'Copied. Paste it to a friend. Mahalo for passing it on.' };
 // The story ask (R-156 B3) is the profile's own ask for someone who has one; it is answered first, as the profile ask is.
-const friendOpen = x => !!x.b && !x.friended && !askOpen(x) && x.askStory !== 'ask' && !didKind(x.b, x.h, 'share');
+const friendOpen = x => !!x.b && !x.friended && !askOpen(x) && x.askStory !== 'ask' && !x.quoteOpen && !didKind(x.b, x.h, 'share');
 function friendCard(x) {
   if (x.friended) return `<p class="okmsg hp-friended" role="status">${icon('circle-check')}<span>${esc(FRIENDED[x.friended] || FRIENDED.shared)}</span></p>`;
   if (!friendOpen(x)) return '';
@@ -1623,11 +1645,12 @@ function emailAsk(x) {
         ${x.linkDemo || DEMO ? '<p class="small muted">This is the sandbox, so no email was sent.</p>' : ''}</div></div>`
     : gave ? `<div class="hp-linkfail"><p class="hp-quiet" role="status">${icon('info')}<span>We couldn’t send your link to <span class="hp-break">${esc(x.linkTo)}</span> just now. Your testimony is not affected.</span></p>
         ${btn('Try sending it again', { kind: 'text', sm: true, icon: 'rotate-ccw', cls: 'hp-inl', attrs: { 'data-hp': 'relink', id: 'hp-relink' } })}</div>`
-    : S.nudge && x.askStory !== 'ask' ? nudgeCard(x.mode === 'intro' ? 'intro' : 'action', 'hp-ng', { bar: askOpen(x) }) : '';   // the hello letter has no bill to send again; its button in the bar (R-184)   // one ask on the Mahalo, never two (R-156)
+    : S.nudge && ((x.askStory !== 'ask' && !x.quoteOpen) || (x.v2 && (S.nudgeText || S.nudgeSent))) ? nudgeCard(x.mode === 'intro' ? 'intro' : 'action', 'hp-ng', { bar: askOpen(x) }) : '';   // the hello letter has no bill to send again; its button in the bar (R-184)   // one ask on the Mahalo, never two (R-156)
 }
 // The Mahalo for an email (R-079): what they did, in words, and what happens next.
 function mailDoneScreen() {
   const x = S.helper, { b, h } = x, first = firstOf(x.name), names = andList(x.to.map(shortName)), miles = newMilestones(x.before);
+  lateStory(x);
   const n = b ? spaced(b.bill_number) : '', stance = x.stance || (b ? hiphiStance(b) : ''), m = x.moment || {};
   const lede = x.mode === 'intro' ? `You introduced yourself to ${names}. When a bill on your issues comes up, they’ll know who is writing.`
     : x.remind ? `You followed up with ${names} about ${n} before its deadline.`
@@ -1641,7 +1664,7 @@ function mailDoneScreen() {
     : h ? `${held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${codesOf(h.committee).length > 1 ? 'hear' : 'hears'} it ${when}.`} ${followWords(x, n)}`
     : m.kind === 'floor' ? `The full ${CHAMBER_NAME[m.chamber] || 'chamber'} votes on it soon. ${followWords(x, n)}`
     : `If it gets a hearing, you’ll see it in My issues. ${followWords(x, n)}`;
-  const ask = emailAsk(x), up = profileAsk();   // right under the thank-you (R-184), as doneScreen
+  const ask = emailAsk(x), up = profileAsk(), story = storyCard(x);   // right under the thank-you (R-184), as doneScreen
   const v = h && streamOf(h);
   const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
   return `<div class="hp-hero">
@@ -1649,12 +1672,12 @@ function mailDoneScreen() {
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       <p class="hp-lede">${esc(lede)}</p>
       ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
-    </div>${up ? ask : ''}${friendCard(x)}
+    </div>${up ? ask : ''}${x.v2 ? story : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
       ${unfollowBtn(x)}${levelUp(x)}
       ${watch}</section>${nextUp(x)}
-    ${storyCard(x)}${profileLine(x)}
+    ${x.v2 ? '' : story}${profileLine(x)}
     ${up ? '' : ask}`;
 }
 
@@ -1707,7 +1730,7 @@ function foot() {
   return row(btn('Done', { kind: 'primary', cls: 'hp-main', attrs: { 'data-hp': 'done' } }));
 }
 // The profile ask is on the Mahalo and not yet answered (emailAsk draws nudgeCard then; profileAsk's version only).
-const askOpen = x => profileAsk() && !S.session && !S.nudgeText && !S.nudgeSent && !!S.nudge && x.askStory !== 'ask' && !(x.link && x.linkTo);
+const askOpen = x => profileAsk() && !S.session && !S.nudgeText && !S.nudgeSent && !!S.nudge && x.askStory !== 'ask' && !x.quoteOpen && !(x.link && x.linkTo);
 
 // Re-draw the dialog's content in place (the dialog itself stays open, so no flash of the page behind).
 function paint({ focus, top = false } = {}) {
@@ -1987,10 +2010,25 @@ function onClick(e) {
   else if (a === 'storysave') {
     const x = S.helper, box = dlg.querySelector('#hp-sa'), v = (box?.value || '').trim(); x.storyDraft = box?.value || '';
     if (!v) { dlg.querySelector('#hp-sa-msg').innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>Write a sentence, or choose No thanks.</span></p>`; box?.focus(); return; }
-    const tp = topicOf(x);
+    const tp = topicOf(x), firstOne = !!x.v2 && firstStory() && !loadMe().quoteAsked;   // read before this save makes the story (R-304); asked once, ever
     saveProfile(tp ? { stories: { ...myStories(), [tp]: v } } : { story: v }).then(() => {
-      if (S.helper !== x) return; x.askStory = 'saved'; paint({ focus: 'hp-done-t' }); announce('Saved in your profile.');
+      if (S.helper !== x) return; x.askStory = 'saved';
+      if (firstOne) { x.quoteOpen = true; x.quotePick = ''; x.quoteDone = ''; }
+      paint({ focus: firstOne ? 'hp-qa-t' : 'hp-done-t' }); announce(firstOne ? 'Saved in your profile. One more question: can HIPHI quote your stories?' : 'Saved in your profile.');
     }, e => { const m = dlg?.querySelector('#hp-sa-msg'); if (m) m.innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(friendly(e))}</span></p>`; });
+  }
+  else if (a === 'quotesave') {   // version 2: their answer to the first-story question, saved as the profile saves it
+    const x = S.helper, v = x.quotePick || '';
+    if (!QUOTE.some(([k]) => k === v)) { dlg.querySelector('#hp-qa-msg').innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>Pick one, or choose Not now.</span></p>`; dlg.querySelector('input[name="hp-qa"]')?.focus(); return; }
+    saveProfile({ quote: v }).then(() => {
+      if (S.helper !== x) return; saveMe({ quoteAsked: true });
+      x.quoteOpen = false; x.quoteDone = 'Your answer is saved. You can change it in your profile.';
+      paint({ focus: 'hp-done-t' }); announce('Your answer is saved.');
+    }, e => { const m = dlg?.querySelector('#hp-qa-msg'); if (m) m.innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(friendly(e))}</span></p>`; });
+  }
+  else if (a === 'quoteno') {   // asked once: Not now is kept, and the profile page keeps the question
+    const x = S.helper; saveMe({ quoteAsked: true }); x.quoteOpen = false; x.quoteDone = '';
+    paint({ focus: 'hp-done-t' }); announce('Okay. You can answer in your profile any time.');
   }
   else if (a === 'storyforget') {   // R-212 #26: the story kept on this phone at the send, taken back
     const x = S.helper, k = x.storyKept; if (!k || k === 'gone') return;
@@ -2127,6 +2165,8 @@ function onInput(e) {
     if (f === 'why') { grow(t); const n = dlg.querySelector('#hp-savelen'); if (n) n.textContent = t.value.trim().length > 600 ? `${hasProfile() ? 'Your profile keeps' : 'This device keeps'} the first 600 characters.` : ''; }
   } else if (t.id === 'hp-sa') {
     x.storyDraft = t.value;
+  } else if (t.name === 'hp-qa') {
+    if (t.checked) { x.quotePick = t.value; dlg.querySelector('#hp-qa-msg')?.replaceChildren(); }   // version 2's quote question
   } else if (t.id === 'hp-savestory') {
     x.saveStory = t.checked;
     const qf = dlg.querySelector('#hp-quote'); if (qf) qf.hidden = !t.checked;   // the quote question goes with the tick (R-304)
@@ -2158,6 +2198,7 @@ function onBlur(e) {
 }
 function onKey(e) {
   if (e.key !== 'Enter' || e.isComposing) return;
+  if (S.helper?.v2 && V2.key?.(e)) return;   // version 2's own boxes (the sign-off)
   // Version 2's name box is the last thing in the letter: Enter is Next.
   if (e.target.id === 'hp-name' && S.helper?.v2) { e.preventDefault(); dlg.querySelector('[data-hp="next"]')?.click(); return; }
   // Enter moves on to the next field instead of skipping "why".
@@ -2209,7 +2250,7 @@ export const HP = {
   loadMe, saveMe, keyOf, begin, linkAlready, openMark, PAR_TEL, PAR_SHOW,
   paint, paintFoot, announce, grow, goTo, goNext, goBack, saveDraft, finishLater, requestClose, copyAndOpen, confirmSent, setErr, errHTML, screenHead, welcomeBack,
   syncLetter, partsOf, pointGroups, pointsOf, pointsLine, hiphiStance, sameAsHiphi, own2For, mailSubject, mailKey, chairsTo, catsOf, keepFirst,
-  friendLine, lateBanner, aboutNote, saysBox, whyHelp, capitolLink, practiceNote, capitolNotes, formWord,
+  friendLine, lateBanner, aboutNote, saysBox, whyHelp, capitolLink, practiceNote, capitolNotes, formWord, CLOSINGS,
 };
 
 export default {

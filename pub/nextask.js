@@ -14,10 +14,15 @@
 // then 60, then for good; the profile ask keeps its own quiet (kernel nudgeOk), as everywhere. These replaced Home's
 // cards: the later-visit cards of pub/onb-later.js (R-164, R-232), the "Welcome back" profile ask, "Keep the tracker on
 // your phone" and "A new issue in ...".
-import { S, DEMO, app, esc, icon, toast, wiz, nudgeOk, followsAnything, myActions, openActions, actedOn, legTitle, legPhoto,
+// Version 2 (?v2=1, R-357 part A; Nate 28 Oct) adds one ask, `title`: the title that the older letter asked in About you now waits for
+// a later visit, after the profile ask, for someone who has sent a letter or an email, has a profile and no title.
+import { S, DEMO, app, esc, icon, toast, friendly, wiz, nudgeOk, followsAnything, myActions, openActions, actedOn, legTitle, legPhoto,
   issueFollowed, setFollows, followedIssues, CONSENT_KEY, firstVisit } from './core.js';
 import { btn } from './ui.js';
-import { CAPITOL, ALERTS_ART, SHARE_ART, islands } from './art.js';
+import { CAPITOL, ALERTS_ART, SHARE_ART, VOICES, islands } from './art.js';
+import { hasProfile, myTitles, saveProfile } from './myprofile.js';
+import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
+import { TITLES_MAX } from './titles.js';
 import { createAddressPicker } from './addresspicker.js';
 import { alertFields, wireAlertForm, alertButton, alertDoneHTML, codeStep, profileAsk, PROFILE_H, profileLede, alertsGiven } from './alerts.js';
 import { declineNudge, doShare } from './actions.js';
@@ -67,10 +72,12 @@ const standalone = () => { try { return matchMedia('(display-mode: standalone)')
 const gaveEmail = () => { try { return !!(sessionStorage.getItem('hiphi_link_sent') || localStorage.getItem(CONSENT_KEY)); } catch { return false; } };
 // Whoever saw "A bill's story" in their first visit has had the three moments (today's full version, Plan 2's journey).
 const sawStory = () => { const p = wiz().plan; return p ? p === 'p2' : armOf('fv') !== 'short'; };
-// The asks, in order: the first one that applies is the visit's ask.
+const sentOne = () => myActions().some(a => ['testimony', 'email', 'legislators'].includes(a.kind));   // a letter or an email, not a plan to go or a share
+// The asks, in order: the first one that applies is the visit's ask. The title (version 2) comes right after the profile ask.
 const ASKS = {
   legs: () => !districtsKnown(),
   alerts: () => !S.session && !alertsGiven() && !gaveEmail() && nudgeOk() && (followsAnything() || S.done.size > 0),
+  title: () => !!app.v2?.() && hasProfile() && myTitles().length === 0 && sentOne(),
   issues: () => newIssues().some(i => !issueFollowed(i)),
   learn: () => !sawStory(),
   share: () => followsAnything() || myActions().length > 0,
@@ -103,6 +110,7 @@ function notNow(k) {
   if (k === 'alerts') declineNudge();
   else if (k === 'phone') { try { localStorage.setItem('hiphi_hs_no', '1'); } catch { /* ignore */ } }
   else if (k !== 'issues') { const n = (kept()[k]?.no || 0) + 1; mark(k, { no: n, at: new Date().toISOString() }); }
+  if (k === 'title') delete S.nxTitle;
   leave();
 }
 
@@ -257,8 +265,35 @@ const phonePage = () => shell('phone', CAPITOL, 'Keep the tracker on your phone'
         <li><span class="nx-mic" aria-hidden="true">${icon('square-plus')}</span><span><b>Then Add to Home Screen</b><span>The app there starts fresh: save your profile in it to bring your issues along.</span></span></li></ol>`
     : `<ol class="nx-moments" role="list"><li><span class="nx-mic" aria-hidden="true">${icon('menu')}</span><span><b>Open your browser’s menu</b><span>Then choose Add to Home screen, or Install app</span></span></li></ol>`);
 
-const PAGES = { legs: legsPage, alerts: alertsPage, issues: issuesPage, learn: learnPage, share: sharePage, phone: phonePage };
-const TITLES = { legs: 'Who speaks for you', alerts: 'Save your profile', issues: 'New issues', learn: 'The three moments', share: 'Bring a friend along', phone: 'Keep it on your phone' };
+// ---------------- title: add a title to your letters (version 2, R-357 part A) ----------------
+// Nate 28 Oct: the title moves out of the letter. It is asked here, once a visit at most, as a full page (C-16). The picker is the profile's
+// own (titlepick.js), in its normal form rather than the letter's add-only one: this person has no title yet, so there is nothing on the
+// profile for a tap to take off, and a title picked stays in view, ticked (a tap never makes a chip jump out of sight). Save writes the
+// profile as the profile page does (saveProfile); words typed in the box but not added are kept, as the letter's step kept them.
+const titleSt = () => (S.nxTitle ??= { chosen: [], q: '', more: false, active: -1 });
+// The picker's styles are profile.css's, which this screen does not bring: the page waits for them, so no chip is ever drawn bare.
+const pickerCss = () => { const l = document.querySelector('link[rel="stylesheet"][href="pub/profile.css"]'); if (l?.sheet) return true; app.ensureCss?.(['profile']).then(() => app.render()); return false; };
+const titlePage = () => {
+  if (!pickerCss()) return `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:240px"></div></div>`;
+  return shell('title', VOICES, 'Add a title to your letters', 'A nurse, a parent, a small business owner: a title tells lawmakers who is writing. It goes next to your name.',
+    `<div class="nx-titlepick" id="nx-tp-host">${pickerHTML('nx-t', titleSt(), { legend: 'I’m a…', hint: 'Pick any that fit, or type your own.', quietLegend: true })}</div><div id="nx-t-msg"></div>`);
+};
+function wireTitle() {
+  const host = document.getElementById('nx-tp-host'); if (!host) return;
+  wirePicker(host, 'nx-t', titleSt(), () => document.getElementById('nx-t-msg')?.replaceChildren());
+}
+async function saveTitle(go) {
+  const st = titleSt(), msg = document.getElementById('nx-t-msg'), typed = pendingTitle(st), chosen = [...st.chosen];
+  if (typed && !chosen.includes(typed) && chosen.length < TITLES_MAX) chosen.push(typed);
+  const say = t => { if (msg) msg.innerHTML = `<p class="inlinemsg" role="alert">${icon('circle-alert')}<span>${esc(t)}</span></p>`; };
+  if (!chosen.length) { say('Pick a title, or choose Not now.'); return false; }
+  go.setAttribute('aria-busy', 'true');
+  try { await saveProfile({ titles: chosen }); } catch (e) { go.removeAttribute('aria-busy'); say(friendly(e)); return false; }
+  return true;
+}
+
+const PAGES = { legs: legsPage, alerts: alertsPage, title: titlePage, issues: issuesPage, learn: learnPage, share: sharePage, phone: phonePage };
+const TITLES = { legs: 'Who speaks for you', alerts: 'Save your profile', title: 'Add a title', issues: 'New issues', learn: 'The three moments', share: 'Bring a friend along', phone: 'Keep it on your phone' };
 
 export default {
   tabs: false,
@@ -275,6 +310,7 @@ export default {
       case 'legs': return S.nxAddr.pick ? barOne('Done') : barNo();
       case 'alerts': { if (S.nxAlert) return barOne('Done');
         const b = alertButton('nx-a'); return bar(b.label, { icon: b.icon }, { type: 'submit', form: 'nx-aform', id: 'nx-send' }); }
+      case 'title': return bar('Save', { icon: 'check' });
       case 'issues': return newIssues().some(issueFollowed) ? barOne('Done') : barNo();
       case 'learn': return bar('Show Me', { iconEnd: 'arrow-right' });
       case 'share': return bar('Share', { icon: 'share-2' });
@@ -290,8 +326,13 @@ export default {
     if (k === 'legs') wireLegs();
     if (k === 'alerts') wireAlerts();
     if (k === 'issues') wireIssues();
+    if (k === 'title') wireTitle();
     const go = document.querySelector('[data-nxgo]');
     if (!go) return;
+    if (k === 'title') go.onclick = async () => {
+      if (go.getAttribute('aria-busy') || !(await saveTitle(go))) return;
+      did('title'); delete S.nxTitle; toast('Saved to your profile. Your letters can now say it.', { yay: true }); leave();
+    };
     if (k === 'learn') go.onclick = () => { did('learn'); leave('#/learn/bill'); };
     if (k === 'share') go.onclick = async () => {
       const how = await doShare({ title: 'HIPHI Bill Tracker', text: SHARE_TEXT, url: `${location.origin}${location.pathname}${DEMO ? '?demo=1' : ''}` }).catch(() => null);
