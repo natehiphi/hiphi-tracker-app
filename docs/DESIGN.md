@@ -926,9 +926,10 @@ matter or drop the question. A quiz that checks a lesson is not covered. (Added 
 **Nate may waive it case by case.** A question that stays without a visible effect needs his yes, recorded
 as an exception in `DESIGN-AUDIT.md` with the reason and date. Without that, it is a defect.
 
-**Version 2's teaching screens ask no question (R-357 part 4, Nate 30 Oct 2026: "no quiz"; two screens since 31 Oct, his pick).** "Testimony: your
-words on the record" and "An email to the chair" stand between Your issues and the profile ask: each one drawing, two sentences, one time line
-(spelled out: "About 10 minutes the first time, then about 3." and "About 2 minutes.", the C-15 promise in words) and one button, Next. It teaches that a note counts and what the two ways to send one are, and it checks nothing, so C-13 has nothing to cover. Version 1's
+**Version 2's teaching screens ask no question (R-357 part 4, Nate 30 Oct 2026: "no quiz"; two screens since 31 Oct, his pick; made to teach more the same day).** "Testimony: your
+words on the record" and "An email to the chair" stand between Your issues and the profile ask: each one drawing, a heading, one lede in draft A's words, a
+three-step "how it goes" strip (a numbered list, an icon, a bold label and one plain line each), one time line
+(spelled out: "About 10 minutes the first time, then about 3." and "About 2 minutes.", the C-15 promise in words) and one button, Next. It teaches how a note counts and what the two ways to send one are, and it checks nothing, so C-13 has nothing to cover. Nothing says or implies that few people act (R-171). On a laptop the words stand left and the drawing over the steps right; on a phone the drawing shrinks first, then the icons, then the plain lines (the labels stay). Version 1's
 story keeps its two choices (they change what the next page says, which is what C-13 asks).
 
 *Reason.* Every question is a place to stop (C-5), and people answer more willingly when they can see the
@@ -940,7 +941,7 @@ many skip a question, and how many finish after it.
 
 Anything a person reads to choose or to move on is 16px or larger (18px for the sentence under a
 heading, A-4), in `--n700` or darker; 14px is only for a label, a count, a chip, a time or the fine
-print. The sentence under a heading is one or two short sentences, 30 words at most, and nothing on a
+print. The sentence under a heading is one or two short sentences, 30 words at most (version 2's two teaching screens: a heading, one lede, three short steps, the time line), and nothing on a
 screen says again what its heading, another line or the screen before already said (A-14). A long line
 is cut, not made smaller. (Added 10/5, R-174.)
 
