@@ -2,6 +2,19 @@
    Loaded after rec.css (pub/app.js V2_CSS), so these rules win over today's bill page's (bill.css, rec.css) on equal footing; every rule
    here is under .bl-v2, the page's own class, so nothing reaches another screen. Colours only through base.css's tokens (A-5, A-7). */
 
+/* ---- the drawing (R-357, Nate 31 Oct 2026: "the issue and bill images should be included again"; A-22) ----
+   Home's band over the slide (calm/home.js artOf): the issue's own drawing, else its topic's scene, else the Capitol, so a shared link lands on
+   the same warm slide Home shows. home.css's rules are under .cm, which a bill page is not, so they are written out here. The ground stretches
+   and the people stay whole (art.js). A-1: on a 390x844 phone the goal heading sits at about 300px (budget 320; 320px even when the small line takes two
+   lines), so the band is 96px under 480px and Home's 152px from 480px up; on a window too short for the first screen (640px or less, as a 320x568 phone) it stands under the buttons
+   instead, so the one button still shows. */
+.bl-v2 .v2-art { position: relative; flex: none; height: 96px; border-radius: var(--r16, 16px); overflow: hidden; background: #EAF7FD; }
+.bl-v2 .v2-art svg, .bl-v2 .v2-art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.bl-v2 .v2-art .art-capitol { position: static; height: 100%; padding: var(--s8) 0 0; }
+.bl-v2 .v2-art:has(.art-capitol) { background: transparent; }
+@media (min-width: 480px) { .bl-v2 .v2-art { height: 152px; } }
+@media (max-height: 640px) { .bl-v2 .v2-art { order: 9; margin-top: var(--s4); } }
+
 /* ---- the slide ----
    Home's slide reads at onboarding's step, one step larger than the page's body (A-23, C-14: base.css redefines the tokens on .cm;
    the same here, on the slide only), so the words a newcomer reads first are the ones they can read easiest. */
@@ -48,12 +61,23 @@
 .bl-v2 .v2-body > * { margin-top: 0; margin-bottom: 0; }
 .bl-v2 .v2-body .bl-rhrow { margin-top: 0; }
 .bl-v2 .v2-body .bl-rhrow .chip:not(.ok):not(.warn):not(.danger):not(.yay) { background: var(--n0); }   /* a soft label's wash vanishes on the grey page (today's bill.css, X9-1, A-7) */
-/* its issue, one line (it was the issue band); the whole line is the link, 44px tall (A-6) */
-.bl-v2 .v2-issue { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s12); }
-.bl-v2 .v2-issuelink { display: flex; align-items: center; gap: var(--s8); min-height: 44px; color: var(--p700); text-decoration: none; }
+/* its issue, one line (it was the issue band): today's band's look, the topic's tint with the issue's round icon tile (bill.css .bl-iband, Staff v6's
+   tints, so a topic is one colour everywhere; the icon is the catalog's, A-22 keeps the drawing for the slide); the whole line is the link, 44px tall (A-6) */
+.bl-v2 .v2-issue { --ib-wash: var(--n100); --ib-ink: var(--n700); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12);
+  padding: var(--s8) var(--s12); border-radius: var(--r16); background: var(--ib-wash); }
+.bl-v2 .v2-issue[data-topic="food"] { --ib-wash: #FCEBDD; --ib-ink: #8A4F2A; }
+.bl-v2 .v2-issue[data-topic="tobacco"] { --ib-wash: #ECE7F7; --ib-ink: #5A4A8F; }
+.bl-v2 .v2-issue[data-topic="care"] { --ib-wash: #DFEEF2; --ib-ink: #1F6478; }
+.bl-v2 .v2-issue[data-topic="family"] { --ib-wash: #F7EFD5; --ib-ink: #6B5A24; }
+.bl-v2 .v2-issue[data-topic="around"] { --ib-wash: #E2ECF8; --ib-ink: #2D5A8A; }
+.bl-v2 .v2-issue[data-topic="climate"] { --ib-wash: #E3F0E3; --ib-ink: #2F6B3A; }
+.bl-v2 .v2-issuelink { flex: 1 1 auto; display: flex; align-items: center; gap: var(--s12); min-height: 44px; color: var(--p700); text-decoration: none; }
+.bl-v2 .v2-it { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.bl-v2 .v2-tile { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: var(--pill); background: rgba(255,255,255,.75); color: var(--ib-ink); }
+.bl-v2 .v2-tile .ic { width: 22px; height: 22px; }
 .bl-v2 .v2-issuelink b { font-weight: 700; }
 .bl-v2 .v2-issuelink:hover b { text-decoration: underline; text-underline-offset: 3px; }
-.bl-v2 .v2-issuelink .ic { width: 18px; height: 18px; color: var(--n500); }
+.bl-v2 .v2-issuelink > .ic { width: 18px; height: 18px; color: var(--n700); }
 .bl-v2 .v2-issue > .lvl-box { flex: 1 0 100%; max-width: 560px; }
 /* Where it is now keeps its heading's own gap; the sponsors line is a line of text, its names 44px targets (below) */
 .bl-v2 .v2-body .bl-rwhere .bl-rh { margin-top: var(--s8); }
@@ -68,3 +92,8 @@
 .bl-v2.bl-wide .v2-more { margin-top: 0; }
 .bl-v2.bl-wide .v2-body { margin-top: 0; }   /* the right column starts at the bill's own content, level with the slide's first line */
 .bl-v2.bl-wide .v2-go { max-width: none; }
+/* the slide's drawing is the issue's picture here, and More is open beside it: the row drops its tile and tint so the screen holds one picture,
+   not two (the tile is for the phone and the tablet, where the row sits in the closed fold, one tap away) */
+.bl-v2.bl-wide .v2-tile { display: none; }
+.bl-v2.bl-wide .v2-issue { background: none; padding: 0; }
+.bl-v2.bl-wide .v2-issuelink, .bl-v2.bl-wide .v2-it { flex: 0 1 auto; }   /* the chevron stays beside the name on the wide column */
