@@ -12,14 +12,15 @@
 //
 // Everything that is not the page's drawing is today's: pub/bill.js's screen() (loading, errors, the bars), its wire() (the main
 // button, walkthroughs, folds, Follow, Share, the ⋯ menu), and the parts it exports. This file only draws the slide and its row.
-import { S, app, esc, icon, nick, spaced, blurb, cleanDesc, posInfo, issuesOf, issueFollowed, didKind, plainStatus } from '../core.js';
+import { S, app, esc, icon, nick, spaced, blurb, cleanDesc, posInfo, issuesOf, issueFollowed, issueLead, didKind, plainStatus, DEMO } from '../core.js';
+import { issueBand, CAPITOL } from '../art.js';
 import { btn } from '../ui.js';
 import { mailLabel, letterOn, againLine } from '../letters.js';
 import { levelLine, levelBox, wireLevelLine } from '../alerts.js';
 import { onListsLine } from '../mylists.js';
 import { screen, lookup, mainButton, WORDS, headChips, readLink, plainHead, recTop, recWhere, recCards, stanceInner, sponsorLine, partnerSide, welcomeLine,
   friendCard, storyLine, followIsMain, newbie, textIssue, TXT, wide, fold, doWords, stoppedWords, flipFollow, arrived, RMAIL } from '../bill.js';
-import { goalFor, hearingSay, askSay, byWhen, dayLong, soon, cutoffAt, cutoffDay, testimonyTime } from './slide.js';
+import { goalFor, issueFor, hearingSay, askSay, byWhen, dayLong, soon, cutoffAt, cutoffDay, testimonyTime } from './slide.js';
 
 WORDS.followIssue = 'Follow this issue';   // one Follow label on this page: the stopped bill's main button says it as the slide's Follow does (today's page says "the issue")
 const warnWords = (t, warn) => warn ? `<b class="warn">${esc(t)}</b>` : esc(t);
@@ -87,14 +88,17 @@ function followHtml(b, x) {
   return btn(`Follow this ${what}`, { kind: 'secondary', icon: 'star', full: true, attrs: { ...attr, 'aria-pressed': 'false', ...(i ? { 'aria-label': `Follow this issue: ${i.name}` } : {}) } });
 }
 
-// The slide: the small line, the goal, the sentence, the detail, the button, the link, Follow.
+// The slide: the drawing, the small line, the goal, the sentence, the detail, the button, the link, Follow.
 function slide(b, x, main) {
   // The goal; else the bill's everyday name; else, for a bill with neither, what it does in a sentence (smaller: it is a sentence, as today's page sets it).
   const named = goalFor(b) || nick(b), goal = named || plainHead(b), w = wordsFor(b, x);
   // The small line names the bill: its number and, over a goal heading, its everyday name (P-1; HIPHI's side is the chip inside More and the
   // goal's own direction). Two lines at most, then an ellipsis (v2.css).
   const label = [spaced(b.bill_number), nick(b) && nick(b) !== goal ? nick(b) : ''].filter(Boolean).join(' · ');
+  // The drawing is Home's own (calm/home.js artOf: the issue's own picture, else its topic's scene, else the Capitol), so a shared link lands on the
+  // same warm slide Home shows (R-357, Nate 31 Oct: "the issue and bill images should be included again"; A-22). Decorative: no alt, aria-hidden.
   return `<div class="bl-head v2-slide" role="group" aria-labelledby="v2-goal">
+    <div class="cm-art v2-art">${issueBand(issueFor(b), DEMO) || CAPITOL}</div>
     <p class="v2-k">${esc(label)}</p>
     <h1 class="v2-goal${named ? '' : ' v2-plain'}" id="v2-goal">${esc(goal)}</h1>
     ${w.say ? `<p class="v2-say">${esc(w.say)}</p>` : ''}${w.detail ? `<p class="v2-detail">${w.detail}</p>` : ''}
@@ -103,12 +107,12 @@ function slide(b, x, main) {
 }
 
 // ---------------- More about this bill ----------------
-// Its issue, in one line (it was the issue band): the name, a link to the issue's page. Someone who came by a text keeps the text's
-// level line and its switch (R-299) under it.
+// Its issue, in one line (it was the issue band): the issue's round icon tile in the topic's tint (today's band's look, v2.css), the name, a
+// link to the issue's page. Someone who came by a text keeps the text's level line and its switch (R-299) under it.
 function issueLine(b) {
   const iss = issuesOf(b); if (!iss.length) return '';
   const t = textIssue(b), i = t || iss.find(issueFollowed) || iss[0];
-  return `<div class="v2-issue"><a class="v2-issuelink" href="#/issue/${esc(i.slug)}"><span>Its issue: <b>${esc(i.name)}</b></span>${icon('chevron-right')}</a>${t ? `<span class="bl-txt">${levelLine(t, TXT)}</span>${levelBox(t, TXT)}` : ''}</div>`;
+  return `<div class="v2-issue" data-topic="${esc(i.category || '')}"><a class="v2-issuelink" href="#/issue/${esc(i.slug)}"><span class="v2-tile" aria-hidden="true">${icon(issueLead(i))}</span><span class="v2-it">Its issue: <b>${esc(i.name)}</b></span>${icon('chevron-right')}</a>${t ? `<span class="bl-txt">${levelLine(t, TXT)}</span>${levelBox(t, TXT)}` : ''}</div>`;
 }
 // What the row says it holds. (The step is in the card inside, not here: A-14.) A finished bill's is its end.
 const rowLine = (b, x) => `What it does, where ${x.law ? 'it ended up' : x.stopped ? 'it stopped' : 'it is'}, who decides`;

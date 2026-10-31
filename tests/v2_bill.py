@@ -10,6 +10,11 @@
 #       state in one phrase, the issue's Follow ("Follow this issue", the one Follow label) as the one button, its sentence said once
 #     - a law: the top Share pill stands aside when the main button is Share
 #     - Follow this issue becomes the outlined "Following" with a check (never a filled dark button) and back
+#   the drawing and the issue's tile (R-357, Nate 31 Oct: "the issue and bill images should be included again"; A-1, A-22): the slide opens with
+#     Home's drawing (the issue's own, else its topic's scene, else the Capitol) over the small line, 96px on a phone (the goal heading stays within
+#     320px at 390x844, even when the small line takes two lines) and 152px from 480px up; a window 640px tall or less (a 320x568 phone) puts it under
+#     the buttons so the one button still shows; More's "Its issue" row has the topic-tinted round icon tile on a phone and tablet (closed in the fold,
+#     so not on the first screen), and none on a laptop, where the drawing already is the issue's picture: one picture on the screen
 #   today's page (no v2): nothing of version 2 loads or shows, and
 #     - 3a a newcomer has the band's Follow the issue; 3b Back on a bill opened first says Home, goes Home, and lights no tab;
 #       3c the "Its issue" link and the sponsors' names are 44px targets (A-6)
@@ -140,12 +145,66 @@ with sync_playwright() as pw:
   ok(r['filled'] == ['Help me write testimony'] and not r['wide'], f"one filled button, nothing scrolls sideways ({r['filled']})")
   ok(not errs, f'no errors {errs[:2]}'); ctx.close()
 
+  # ---------------- the drawing and the issue's tile ----------------
+  ART = """() => { const a = document.querySelector('#main .v2-slide .v2-art'), k = document.querySelector('.v2-k'), h = document.querySelector('#main h1'), g = document.querySelector('.v2-go .btn.primary');
+    const r = e => e && e.getBoundingClientRect(), pic = a && a.querySelector('svg, img'), tabs = document.querySelector('.tabs');
+    return { has: !!a, first: !!a && a === a.closest('.v2-slide').firstElementChild, kind: pic && pic.tagName.toLowerCase(), cls: pic && (pic.getAttribute('class') || ''),
+      quiet: !!pic && (pic.tagName === 'IMG' ? pic.getAttribute('alt') === '' : pic.getAttribute('aria-hidden') === 'true'), h: a && Math.round(r(a).height),
+      aTop: a && Math.round(r(a).top + scrollY), aBottom: a && Math.round(r(a).bottom + scrollY), kTop: k && Math.round(r(k).top + scrollY), h1top: h && Math.round(r(h).top + scrollY),
+      kLines: k ? Math.round(r(k).height / parseFloat(getComputedStyle(k).lineHeight)) : 0, btnTop: g && Math.round(r(g).top + scrollY), btnBottom: g && Math.round(r(g).bottom + scrollY),
+      tabTop: tabs && r(tabs).top > innerHeight / 2 ? Math.round(r(tabs).top) : innerHeight,
+      tileShown: [...document.querySelectorAll('.v2-tile')].some(e => e.checkVisibility({ visibilityProperty: true }) && r(e).top < innerHeight && r(e).bottom > 0),
+      wide: document.documentElement.scrollWidth > innerWidth + 1 }; }"""
+  def at(w, h, hash, qs='', touch=None):
+    kw = dict(viewport={'width': w, 'height': h}); 
+    if (w < 600 if touch is None else touch): kw.update(is_mobile=True, has_touch=True)
+    c = br.new_context(**kw); c.add_init_script(RETURNING); p = c.new_page(); p.on('pageerror', lambda e: errs.append(str(e)))
+    p.goto(f'{BASE}/track.html?demo=1&v2=1{qs}#/bill/{hash}'); p.wait_for_selector('#main .v2-slide', timeout=30000); p.wait_for_timeout(900); return c, p
+  errs = []
+  # a phone, a bill with a hearing: the drawing first, the goal heading within the budget, the one button still in view
+  c, p = at(390, 844, 'HB2300'); r = p.evaluate(ART)
+  ok(r['has'] and r['first'] and r['kind'] in ('svg', 'img') and r['quiet'], f"the slide opens with a drawing (decorative: no alt, aria-hidden) ({r['kind']}, {r['cls']})")
+  ok(r['aTop'] < r['kTop'] and r['h'] == 96, f"it stands over the small line, 96px tall on a phone ({r['aTop']} < {r['kTop']}, {r['h']}px)")
+  ok(r['h1top'] <= 320, f"A-1: the goal heading still starts within 320px at 390x844 ({r['h1top']}px)")
+  ok(r['btnBottom'] <= r['tabTop'] and not r['tileShown'] and not r['wide'], f"the one button is above the tab bar and no second picture (the tile) is on the first screen ({r['btnBottom']} <= {r['tabTop']}, tile shown {r['tileShown']})")
+  c.close()
+  # the issue's own drawing (the practice copy shows them, art.js ISSUE_ART_LIVE) and the Capitol for a bill on no issue, Home's way
+  c, p = at(390, 844, 'HB1671'); r = p.evaluate(ART)
+  ok(r['kind'] == 'img' and 'art-issue' in r['cls'] and r['quiet'] and r['h1top'] <= 320, f"a bill whose issue has its own drawing shows it ({r['kind']}, {r['cls']}, heading {r['h1top']}px)"); c.close()
+  c, p = at(390, 844, 'HB1005'); r = p.evaluate(ART)
+  ok(r['kind'] == 'svg' and 'art-capitol' in r['cls'] and r['h1top'] <= 320, f"a bill on no issue gets the Capitol ({r['cls']}, heading {r['h1top']}px)"); c.close()
+  # the small line on two lines (a narrow phone, a long name) is the worst case for the budget
+  c, p = at(360, 780, 'HB1075'); r = p.evaluate(ART)
+  ok(r['kLines'] == 2 and r['h1top'] <= 320, f"A-1 with a two-line small line at 360px ({r['kLines']} lines, heading {r['h1top']}px)"); c.close()
+  # a short phone: the drawing stands under the buttons, so the one button stays on the first screen
+  # (HB 1671's five-line sentence already ran its button's lower edge under the tab bar at this size before the drawing; the drawing must not move it)
+  for num, whole in (('HB2300', True), ('HB1671', False)):
+    c, p = at(320, 568, num); r = p.evaluate(ART)
+    ok(r['btnTop'] < r['tabTop'] and (r['btnBottom'] <= r['tabTop'] or not whole) and r['aTop'] > r['btnBottom'], f"{num} at 320x568: the button is on the first screen and the drawing is under the buttons, not above it ({r['btnTop']}-{r['btnBottom']} vs the tab bar at {r['tabTop']}, drawing at {r['aTop']})")
+    ok(not r['tileShown'] and not r['wide'], 'and nothing scrolls sideways'); c.close()
+  # a tablet: Home's 152px
+  c, p = at(768, 1024, 'HB2300'); r = p.evaluate(ART)
+  ok(r['h'] == 152 and r['first'] and not r['tileShown'], f"from 480px the drawing is Home's 152px ({r['h']}px)"); c.close()
+  # More's "Its issue" row on a phone: the round tile in the topic's tint, still one tap to the issue
+  c, p = at(390, 844, 'HB2300'); p.click('details.v2-more > summary'); p.wait_for_timeout(400)
+  t = p.evaluate("""() => { const t = document.querySelector('.v2-issue .v2-tile'), a = document.querySelector('.v2-issue .v2-issuelink'), cs = t && getComputedStyle(t), r = e => e.getBoundingClientRect();
+    return t && { w: Math.round(r(t).width), h: Math.round(r(t).height), round: cs.borderRadius, icon: !!t.querySelector('svg'), topic: document.querySelector('.v2-issue').dataset.topic, bg: getComputedStyle(document.querySelector('.v2-issue')).backgroundColor,
+      href: a.getAttribute('href'), tall: Math.round(r(a).height), shown: t.checkVisibility({ visibilityProperty: true }) }; }""")
+  ok(t and t['w'] == 40 and t['h'] == 40 and t['icon'] and t['shown'] and t['topic'] == 'food' and t['bg'] == 'rgb(252, 235, 221)', f"the Its issue row has the 40px round icon tile in the topic's tint ({t})")
+  ok(t and t['href'].startswith('#/issue/') and t['tall'] >= 44, f"and is still one tap to the issue, a 44px target (A-6) ({t and t['href']}, {t and t['tall']}px)"); c.close()
+  # a laptop: the drawing in the left column over the slide, 152px, and the row has no tile, so the screen holds one picture
+  c, p = at(1280, 800, 'HB2300'); r = p.evaluate(ART)
+  geo = p.evaluate("() => { const a = document.querySelector('.v2-left .v2-art'); return a && { right: a.getBoundingClientRect().right, moreLeft: document.querySelector('.v2-more').getBoundingClientRect().left }; }")
+  ok(r['first'] and r['h'] == 152 and geo and geo['right'] <= geo['moreLeft'], f"a laptop: the drawing is in the left column over the slide, 152px ({r['h']}px, {geo})")
+  ok(not r['tileShown'] and p.evaluate("() => !!document.querySelector('.v2-issue .v2-issuelink[href^=\"#/issue/\"]')") and r['btnBottom'] <= 800 and not r['wide'], f"one picture on the screen: no tile beside it, the issue link stays, the button is in view ({r['btnBottom']}px)")
+  ok(not errs, f'no errors {errs[:2]}'); c.close()
+
   # ---------------- today's page (no ?v2=1): nothing of version 2, and the three fixes ----------------
   errs = []; reqs = []
   ctx = br.new_context(**PHONE); pg = ctx.new_page(); pg.on('request', lambda q: reqs.append(q.url)); pg.on('pageerror', lambda e: errs.append(str(e)))
   pg.goto(f'{BASE}/track.html?demo=1#/bill/HB2300'); pg.wait_for_selector('#main .bl-head h1', timeout=30000); pg.wait_for_timeout(2800)
   ok(not pg.query_selector('.v2-slide') and not pg.evaluate("document.body.classList.contains('v2')"), 'without the flag the page is today\'s')
-  ok(not [u for u in reqs if '/pub/v2/' in u] and not pg.query_selector('link[href="pub/v2/v2.css"]'), 'and nothing of version 2 is fetched')
+  ok(not [u for u in reqs if '/pub/v2/' in u] and not pg.query_selector('link[href="pub/v2/v2.css"]') and not pg.query_selector('.v2-art, .v2-tile'), 'and nothing of version 2 is fetched or drawn (no v2 drawing, no v2 tile)')
   ok(pg.evaluate("() => [...new Set([...document.querySelectorAll('#main .acard .btn.primary')].map(e => e.textContent.trim()))].join('|')") == 'Help me write testimony', 'its main button reads as before')
   b = pg.evaluate("() => { const e = document.querySelector('.bl-iband .bl-ib-btn'); return e && e.textContent.trim(); }")
   ok(b == 'Follow the issue', f'3a: a newcomer has Follow the issue in the band ({b!r})')
