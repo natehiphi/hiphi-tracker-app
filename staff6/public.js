@@ -23,7 +23,7 @@
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc } from './data.js';
-import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, whenAt } from './model.js';
+import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, timeFirst } from './model.js';
 import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { versionWords, numWords } from './steps.js';
@@ -247,7 +247,7 @@ export function renderPublic(b) {
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
       ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
-        <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!askMine && whose?.who ? `${esc(whose.who)} writes it by ${esc(whenAt(whose.due))}.` : 'Not written yet.')}</p>
+        <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!askMine && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
         <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask || whose?.who ? 'See it on This week’s asks' : 'See This week’s asks')}</a></p>
         <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
       : `<div class="field"><label for="bw-pact">The ask</label>
