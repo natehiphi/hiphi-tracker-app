@@ -277,7 +277,7 @@ const WHY_SCREENS = [
     lede: 'One lawmaker, the committee’s chair, picks which bills get a hearing.',
     steps: [['gavel', 'The chair sets the hearings', 'A bill with no hearing can’t move.'],
       ['mail', 'Your email lands in their inbox', 'A short note says people are watching this bill.'],
-      ['calendar-clock', 'Before the deadline', 'Without a hearing in time, the bill stops for the year.']],
+      ['calendar-clock', 'Before the deadline', 'Without a hearing in time, it can’t move forward this year.']],
     time: 'About 2 minutes.' },
 ];
 function stepWhy(step, k) {

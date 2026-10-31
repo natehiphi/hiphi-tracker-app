@@ -49,7 +49,7 @@ TEACH = [
        lede="One lawmaker, the committee's chair, picks which bills get a hearing.",
        steps=[('The chair sets the hearings', "A bill with no hearing can't move."),
               ('Your email lands in their inbox', 'A short note says people are watching this bill.'),
-              ('Before the deadline', 'Without a hearing in time, the bill stops for the year.')]),
+              ('Before the deadline', "Without a hearing in time, it can't move forward this year.")]),
 ]
 norm = lambda s: re.sub(r'\s+', ' ', (s or '').replace('’', "'").replace(' ', ' ')).strip()
 # what is on the first-visit screen now: the heading, the words, the filled buttons in view, whether it fits the window
