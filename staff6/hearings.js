@@ -281,7 +281,14 @@ function weekHTML(route, scope, sum) {
   const monLine = d => { const xs = monDay(d); if (!xs.length) return '';
     const said = xs.map(x => `${monNums(x.h).join(', ')}, ${timeWords(x.h.scheduled_at)}`).join('; ');
     return `<p class="hw-mon">${btn(`+${plural(xs.length, 'hearing')} on ${xs.length === 1 ? 'a bill' : 'bills'} ${who}: ${said}`, { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-hwmon': '1', 'aria-pressed': 'false' } })}</p>`; };
-  const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${capLine(caps.get(d))}${shown.filter(x => x.day === d).map(slot).join('')}${monLine(d)}</section>`;
+  // A day ahead with nothing shown but a hidden monitored sitting draws no section of its own: its line joins one foot
+  // line that names the day ("+1 hearing on a bill you monitor: HB 160 Mon 3/16, 9:30 AM"), so the first card stays the
+  // first thing (R-356 round 3, decision 10: three controls above the first item on a phone; Patti's week was at four).
+  const monOnlyDay = d => ahead.includes(d) && !shown.some(x => x.day === d) && !caps.get(d) && monDay(d).length > 0;
+  const monFoot = () => { const xs = ahead.filter(monOnlyDay).flatMap(d => monDay(d).map(x => ({ d, x }))); if (!xs.length) return '';
+    const said = xs.map(({ d, x }) => `${monNums(x.h).join(', ')} ${dayWords(d)}, ${timeWords(x.h.scheduled_at)}`).join('; ');
+    return `<p class="hw-mon">${btn(`+${plural(xs.length, 'hearing')} on ${xs.length === 1 ? 'a bill' : 'bills'} ${who}: ${said}`, { kind: 'text', sm: true, icon: 'eye', attrs: { 'data-hwmon': '1', 'aria-pressed': 'false' } })}</p>`; };
+  const dayHTML = d => monOnlyDay(d) ? '' : `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-d-${d}"><h2 class="hw-dh" id="hw-d-${d}">${esc(dayHead(d))}</h2>${capLine(caps.get(d))}${shown.filter(x => x.day === d).map(slot).join('')}${monLine(d)}</section>`;
   const n = d => shown.filter(x => x.day === d).length, np = past.reduce((k, d) => k + n(d), 0);
   const earlier = past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>${esc(np ? `Earlier this week: ${plural(np, 'hearing')} held` : 'Earlier this week')}</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(dayHTML).join('')}</details>` : '';
   const whose = issWords(scope === 'team' ? 'the team’s bills' : whoseWords(scope));
@@ -291,7 +298,7 @@ function weekHTML(route, scope, sum) {
   const none = SESSION_OVER && !anyAhead ? `<p class="hw-none">${icon('calendar')}<span>The Legislature is between sessions. Hearings start after opening day, ${esc(dayWords(openingDay()))}. Until then: <a href="#/my-issues">get your issues ready</a>.</span></p>`
     : !anyAhead ? `<p class="hw-none">${icon('calendar')}<span>${esc(`${np ? 'No more hearings' : 'No hearings'} on ${whose}${monAhead ? ' we support or oppose' : ''} ${when}.`)}</span></p>` : '';
   const monBtn = monN && monOn() ? `<p class="hw-mon">${btn(`Hide the ${plural(monN, 'hearing')} on bills ${who}`, { kind: 'text', sm: true, icon: 'eye-off', attrs: { 'data-hwmon': '1', 'aria-pressed': 'true' } })}</p>` : '';
-  return `${earlier}${none}${ahead.map(dayHTML).join('')}${monBtn}${footNav(route)}${off === 0 ? askLine(sum, scope) : ''}${off === 0 ? suggHTML(suggList(scope)) : ''}`;
+  return `${earlier}${none}${ahead.map(dayHTML).join('')}${monFoot()}${monBtn}${footNav(route)}${off === 0 ? askLine(sum, scope) : ''}${off === 0 ? suggHTML(suggList(scope)) : ''}`;
 }
 
 // ---- This week as a calendar (Nate 25 Oct walk 1: "There still needs to be a calendar view that's easily apparent and
