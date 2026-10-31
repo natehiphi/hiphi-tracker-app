@@ -270,7 +270,7 @@ def doors(b, who, w, h):
       pg.nav(par)
       if pg.page.evaluate(INMAIN, name): out[p] = 1 if par == '/' else 2; pg.nav('/'); continue
       pg.nav('/')
-    if not V5 and (L.PHONE(w) or name.lower() in VIA_MORE):
+    if not V5 and (L.PHONE(w) or name.lower() in VIA_MORE or (name == 'Lists' and who not in TEAM_SEERS)):   # decision 6: staff have no Outreach tabs, so Lists is More's row for them
       if more is None:
         pg.nav('/more'); more = pg.page.evaluate("() => [...document.querySelectorAll('main a[href], main button')].filter(e => e.getClientRects().length).map(e => (e.innerText || '').trim().split('\\n')[0].toLowerCase())"); pg.nav('/')
       if name.lower() in more and pg.page.evaluate(FRAME, 'More'): out[p] = 2; continue
@@ -498,6 +498,12 @@ def zoom(b, R, only):
     # The week calendar's other days at 640px (R-342's phone view, one day at a time, on Today's page since R-346): their
     # controls are one tap away on the day buttons ([data-hcpick]), as a day is on Hearings, so they count as on the page.
     zoomed += pg.page.evaluate(CONTROLS.replace("main a[href], main button, main input:not([type=hidden]), main select, main textarea, main [role=tab], main [role=switch]", ".hc-cal:has([data-hcpick]) .hc-day:not(.on) a[href]").replace("e.getClientRects().length && ", ""))
+    # Decision 10: under 768px a control can sit inside the Filter sheet (Bills' "Select bills" is in its foot), so open the sheet and count what is in it
+    fb = pg.page.query_selector('.sv-filter')
+    if fb and fb.is_visible():
+      fb.click(); pg.page.wait_for_timeout(400)
+      zoomed += [[t.strip().lower(), '', '', ''] for t in pg.page.evaluate("() => [...document.querySelectorAll('dialog[open] button, [role=dialog] button, .sheet button, [data-fselect], [data-fdone], [data-fclear]')].map(e => (e.innerText || e.getAttribute('aria-label') || '').replace(/\\s+/g, ' '))") if t.strip()]
+      pg.page.keyboard.press('Escape')
     back = pg.page.evaluate("() => !![...document.querySelectorAll('a[data-back], .sv-back')].find(e => e.getClientRects().length)")
     heads = pg.page.evaluate(HEADS)
     # Today's week strip (R-346, the side column from 1100px): each day goes to its column in the week section of the

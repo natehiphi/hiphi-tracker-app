@@ -5,7 +5,7 @@
 // a text button, 'danger' only inside a confirm. Countdowns and urgency tiles follow A-5 on v6 as Nate decided it on 26 Oct
 // (R-344): amber for due today and while late testimony is still accepted, red only once the deadline has passed, anything
 // further out neutral with its distance in words. sectionNav() knows every v6 place's page tabs (spec 3.3, D12).
-import { S, STAGES, effStage, esc, advocate } from './data.js';
+import { S, STAGES, effStage, esc, advocate, seesTeam } from './data.js';
 import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine, hstDayOf, whenAt } from './model.js';
 export { clockDay, lateLine };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
 import { icon } from '../icons.js';
@@ -559,6 +559,8 @@ export const SECTION_TABS = kind => (SECTIONS[kind] || ['', []])[1].map(([k, hre
 // a tab's word ({ approve: 3 }); a count is a fact, not an alarm, so it is never coloured (D3).
 export function sectionNav(kind, cur, { only = null, hide = [], counts = {} } = {}) {
   const [label, items] = SECTIONS[kind] || ['', []];
+  // Decision 6 (31 Oct): staff see Outreach as one list, This week's asks; its other tabs are the leads' (and More's rows)
+  if (kind === 'outreach' && !seesTeam()) return '';
   const shown = items.filter(([k]) => (!only || only.includes(k)) && !hide.includes(k));
   // Each label keeps room for its bold self (staff.css .sv-tl), so picking a tab never widens it and the row never reflows:
   // the next tab stays where the thumb left it on a phone (OUTREACH's critic finding).

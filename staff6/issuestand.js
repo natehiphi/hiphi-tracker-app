@@ -27,7 +27,7 @@
 import { S, SESSION_YEAR, SESSION_OVER, esc } from './data.js';
 import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
 import { icon, iconBtn, sectionNav } from './ui.js';
-import { statusLine, billInIssue } from './steps.js';
+import { statusLine, billInIssue, chairStepWords } from './steps.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { itemRow, billStep, shownStatus, numWords, dayWords, nw } from './steps.js';
@@ -91,14 +91,20 @@ export function standOf(i) {
 // C-15 (R-277 ui-critic; for everyone since R-352 FIX-2): a deadline is said as what it asks, never its Capitol name:
 // "Bills must reach their last committee by Mon 3/30"; "Safe: SB 659 reached its last committee".
 const pastNeed = (label, n) => gateNeed(label, n).replace(/^(clear|reach|pass)\b/, '$1ed').replace(/^be settled/, n === 1 ? 'was settled' : 'were settled');
+// Decision 9: one bill needing a hearing says its chair step in steps.js's one wording ("HB 756: Follow up, asked Tue 3/10, no
+// reply", "SB 2175: Ask the chair by Wed 3/25"), with the issue's deadline after it when the step does not hold a day.
+export const chairMark = (x, by, lead = '') => {
+  const f = x.facing?.length === 1 ? x.facing[0] : null, w = f && chairStepWords(f, S.me); if (!w || !/^(?:Follow up|Asked by)/.test(w)) return '';   // a card keeps "needs a hearing by" for an ask not yet made (All issues' phone rows stay short); a follow-up or a reply says the one chair wording
+  return `${lead ? `${lead}, ` : ''}${num(f)}: ${w}${/ by /.test(w) ? '' : `, hearing needed${by}`}`;
+};
 export function markOf(x, { under = null } = {}) {
   const { i } = x, by = d => under === d.date ? '' : ` by ${dayAt(d.date)}`;
   switch (x.state) {
-    case 'risk': return { ic: 'triangle-alert', word: 'At risk', text: `At risk: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
-    case 'dying': return { ic: 'circle-alert', word: 'Safe, but a bill on it is dying', text: `Safe, but a bill on it is dying: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
+    case 'risk': return { ic: 'triangle-alert', word: 'At risk', text: chairMark(x, by(x.deadline), 'At risk') || `At risk: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
+    case 'dying': return { ic: 'circle-alert', word: 'Safe, but a bill on it is dying', text: chairMark(x, by(x.deadline), 'Safe, but a bill on it is dying') || `Safe, but a bill on it is dying: ${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` };
     case 'safe': return { ic: 'shield-check', word: 'Safe', text: !x.deadline ? 'Safe: through its committees'
       : `Safe: ${names(x.carried)} ${pastNeed(x.deadline.label, x.carried.length)}` };
-    case 'ahead': return !x.deadline ? null : x.facing?.length ? { ic: 'clock', word: 'Needs a hearing', text: `${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` }
+    case 'ahead': return !x.deadline ? null : x.facing?.length ? { ic: 'clock', word: 'Needs a hearing', text: chairMark(x, by(x.deadline)) || `${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` }
       : { ic: 'clock', word: '', text: under === x.deadline.date ? 'No bill waiting for a hearing' : plainGate(x.deadline.label, dayAt(x.deadline.date)) };
     case 'oppose': return x.hear ? null : { ic: 'circle-x', word: 'HIPHI opposes', text: `HIPHI opposes it: no hearing set${x.next && under !== x.next.date ? `, next deadline ${dayAt(x.next.date)}` : ''}` };
     case 'stopped': return { ic: 'circle-minus', word: '', text: i.stance === 'oppose' ? 'Its bills did not advance' : 'Nothing moving this session' };

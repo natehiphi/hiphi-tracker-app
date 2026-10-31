@@ -188,7 +188,7 @@ def main():
       pg = b.page('SY'); pg.open('/outreach'); sw = pg.page.query_selector('[data-seg="otwho"]')
       check('Saya: Outreach draws no switch (her list follows the asks she writes)', sw is None and bool(pg.page.query_selector('.ot-card')), ''); pg.close()
 
-    # ---- Lauren: on a phone on her hearing day, her hearing and its testimony first; the partner update in 2 clicks ----
+    # ---- Lauren: on a phone on her hearing day, her hearing and its testimony first; the partner update in 2 clicks for a lead ----
     pg = b.page('LR', 390, 844)
     if V5:
       going_v5(pg, L.TRN_TUE, L.LAUREN_DAY); y = at(pg, 'Your hearing today'); y_ok = y is not None and y < 0.3 * 844
@@ -199,12 +199,12 @@ def main():
     check('Lauren, phone, Tuesday: her hearing first', y_ok, y)
     check('Lauren: the card says room 430 and the testimony', '430' in card and (re.search(r'testimony', card, re.I) if V5 else said_state(card)), card[:80].replace('\n', ' '))
     pg.close()
-    pg = b.page('LR'); pg.open('/'); clicks = 0
+    pg = b.page('JS'); pg.open('/'); clicks = 0   # decision 6 (31 Oct): Partner update is the leads' tab; staff like Lauren have This week's asks alone
     o = L.find(pg.page, 'Outreach', roles=('link',))
     if o: o.click(); pg.ready(); clicks += 1
     t = L.find(pg.page, 'Partner update', roles=('link', 'tab'))
     if t: t.click(); pg.ready(); clicks += 1
-    check('Lauren: the partner update in 2 clicks from Today', clicks == 2 and re.search(r'partner update', pg.text('main')[:300], re.I), f'{clicks} clicks, at {pg.hash()}')
+    check('Jess (a lead): the partner update in 2 clicks from Today', clicks == 2 and re.search(r'partner update', pg.text('main')[:300], re.I), f'{clicks} clicks, at {pg.hash()}')
     pg.close()
 
     # ---- Julie: a quiet week says so once; a week with alcohol hearings shows them; others' steps are not her buttons ----

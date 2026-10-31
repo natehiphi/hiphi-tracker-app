@@ -215,7 +215,7 @@ function sittingRow(s, from) {
   const states = items.map(x => testimonyState(sittingDraft(x.h, x.b.id) || null, x.b, { h: x.h })).filter(Boolean);
   // Decision 9: one bill says its status line as every screen does, under its own name (nameWords: one name per bill).
   const one = items.length === 1 ? billStep(items[0].b, { d: sittingDraft(items[0].h, items[0].b.id) || null, h: items[0].h }) : null;
-  const said = one?.state ? `${nameWords(items[0].b, 40)}: ${statusLine(one, { who: false })}`
+  const said = one?.state ? `${nameWords(items[0].b, 40)}: ${statusLine(one, { who: false, flat: true, soon: false })}`
     : `${plural(items.length, 'bill')}${states.length ? `: ${[...new Set(states.map(x => x.word))].join(', ')}` : ''}`;
   const href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return itemRow({ key: h.id, name: committeeName(h.committee) || h.committee, line: [cap(whenAt(h.scheduled_at)), goingWords(h), said].map(t => nw(esc(t))).join(' · '), icon: 'calendar-days', href, cls: 'i6-row' });
@@ -226,7 +226,7 @@ function sittingRow(s, from) {
 function billHearRow(h, b) {
   const st = testimonyState(sittingDraft(h, b.id) || null, b, { h });
   const stp = st ? billStep(b, { d: sittingDraft(h, b.id) || null, h }) : null;
-  const where = nw(esc(`Hearing ${whenAt(h.scheduled_at)} in ${committeeName(h.committee) || h.committee}`)), state = stp?.state ? nw(esc(statusLine(stp, { who: false }))) : '';
+  const where = nw(esc(`Hearing ${whenAt(h.scheduled_at)} in ${committeeName(h.committee) || h.committee}`)), state = stp?.state ? nw(esc(statusLine(stp, { who: false, flat: true, soon: false }))) : '';
   return itemRow({ key: `${h.id}|${b.id}`, name: nameWords(b), num: numWords(b), line: [where, state].filter(Boolean).join(' · '), icon: 'calendar-days', href: billRoute(b), cls: 'i6-row', bill: b.id });
 }
 export function hearingsSec(bills, { key = '', from = '', byBill = false } = {}) {

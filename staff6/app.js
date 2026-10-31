@@ -448,6 +448,8 @@ export function render() {
   const route = parseRoute();
   // v5's #/?scope=team is Team for leads and Today for everyone else (spec 3.4).
   if (route.leads && !seesTeam()) route.redirect = '#/';
+  // Decision 6 (31 Oct): staff have Outreach's This week's asks alone; Partner update and Emails are the leads' (and the approvers', who are sent there to approve)
+  if ((route.name === 'partners' || route.name === 'emails') && !route.redirect && S.me && !seesTeam() && !S.me.is_admin && !S.me.can_approve && !S.me.approves_partners) route.redirect = '#/outreach';
   // The old app's forms (#bill=, #emails, #calendar=) met after the first load (a link opened in the same tab): the same
   // place as boot() gives them.
   if (route.legacy) route.redirect = `#/bill/${route.num}`;
