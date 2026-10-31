@@ -5,7 +5,7 @@
 #   3. A bill's Team talk: Message | What happened | Log a talk on one line at 390px.
 #   4. A legislator's page: the pencil hint once ("on a bill": on a phone it sits under it); a bill they introduced with no
 #      nickname shows its summary cut at a word near 70 characters.
-#   5. Who to ask names each chair as a link to their page, no photo (R-352 part 8b); Everyone shows each legislator's photo (or initial).
+#   5. Bills That Need Hearings names each chair as a link to their page, no photo (R-352 part 8b); the Legislators directory shows each legislator's photo (or initial).
 #   6. A bill's Public tab: one box per talking point, Add a point up to five, remove, 200-character check, preview.
 #
 #   V4_ROOT=/path/to/worktree python3 tests/staff6_walk2.py     exits 1 when a check fails
@@ -74,20 +74,16 @@ with L.browser() as B:
     R.check(f'{w}: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     R.check(f'{w}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 
-  # ---- 5. Who to ask and Bills That Need Hearings: chair names as links, no photos (R-352); Everyone keeps its photos ----
+  # ---- 5. Bills That Need Hearings: chair names as links, no photos (R-352); the Legislators directory keeps its photos ----
   for w, h in [(1440, 900), (390, 844)]:
-    pg = B.page('NT', w, h); pg.open('/legislators')
-    # R-352 part 8b (A-18, A-14 on v6): Who to ask's cards start with the chair's name as the link to their page, no photo or
-    # letter bubble (the photo was mostly a letter); Bills That Need Hearings is the same board
-    cards = pg.page.evaluate("[...document.querySelectorAll('.hg-chair')].map(c => [!!c.querySelector('.hg-cph, .hg-chead .lg-ph'), c.querySelectorAll('.hg-cname a[href^=\"#/legislator/\"]').length])")
-    R.check(f'{w}: Who to ask, no chair card shows a photo or letter bubble', cards and not any(c[0] for c in cards), f'{sum(c[0] for c in cards)} of {len(cards)}')
-    R.check(f'{w}: Who to ask, every chair\'s name is a link to their page', cards and all(c[1] >= 1 for c in cards), f'{sum(c[1] >= 1 for c in cards)} of {len(cards)}')
-    pg.nav('/hearings/ask')
+    pg = B.page('NT', w, h); pg.open('/hearings/ask')
+    # R-352 part 8b (A-18, A-14 on v6): the chair's name is the link to their page, no photo or letter bubble (the photo was
+    # mostly a letter). Who to ask is gone (round 2, decision 4): Bills That Need Hearings is the board that has these cards.
     ask = pg.page.evaluate("[...document.querySelectorAll('.hg-chair')].map(c => [!!c.querySelector('.hg-cph, .hg-chead .lg-ph'), c.querySelectorAll('.hg-cname a[href^=\"#/legislator/\"]').length])")
     R.check(f'{w}: Bills That Need Hearings, the same cards: chair names are links, no photos', ask and all(not c[0] and c[1] >= 1 for c in ask), ask[:4])
-    pg.nav('/legislators?view=everyone')
+    pg.nav('/legislators')
     ev = pg.page.evaluate("[...document.querySelectorAll('[data-lgrow]')].map(r => { const p = r.querySelector('.lg6-rph'); const b = p && p.getBoundingClientRect(); return !!b && b.width >= 38 && b.height >= 38 && (!!p.querySelector('img') || getComputedStyle(p, '::before').content.length > 2); })")
-    R.check(f'{w}: Everyone, every row shows a photo or initial', ev and all(ev), f'{sum(ev)} of {len(ev)}')
+    R.check(f'{w}: The directory, every legislator shows a photo or initial', ev and all(ev), f'{sum(ev)} of {len(ev)}')
     R.check(f'{w}: no sideways scroll', overflow(pg) <= 0, overflow(pg))
     R.check(f'{w}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
 

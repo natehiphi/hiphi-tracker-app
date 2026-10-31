@@ -26,7 +26,7 @@ import staff6_lib as L
 
 R = L.Results()
 SHOTS = sys.argv[sys.argv.index('--shots') + 1] if '--shots' in sys.argv else ''
-ALL, COAL = '/my-issues/all', '/my-issues/coalitions'
+ALL, COAL = '/issues/all', '/issues/coalitions'
 def overflow(pg): return pg.page.evaluate('document.documentElement.scrollWidth - innerWidth')
 CARDS = """[...document.querySelectorAll('#is-q-body .ig6-cell, .co6-index .ig6-cell')].map(c => { const a = c.querySelector('.ig6-link');
   return { id: c.dataset.igcard, href: a.getAttribute('href'), title: a.getAttribute('title') || '', name: a.querySelector('.ig6-name')?.textContent.trim(),

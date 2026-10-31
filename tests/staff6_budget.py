@@ -38,7 +38,7 @@
 #   net     Today only: its height in screens without the person's own rows (spec 13): 1.2 on a laptop, 2 on a phone
 #   ctl-n   Today only: first-screen controls without the person's own rows: 12 at most
 #   grp     section headings on the page ("Your next step" aside): Today 4 at most
-#   side    rows in the sidebar, shown from 768px wide: 8 for staff (6 places, More, You), up to 12 for leads (Team, People, Partners, Session setup)
+#   side    rows in the sidebar, shown from 768px wide: 7 for staff (5 places, More, You), up to 12 for leads (Team, People, Partners, Session setup)
 # Below the table: the headline numbers, Staff v5's beside them (v5 -> v6), then each spec 8 target missed with its worst
 # screens. The run fails (exit 1) when any target is missed or a screen could not be measured.
 import json, os, re, sys, time
@@ -69,19 +69,17 @@ ROUTES = [
   ('a-supporter', '/person/' + L.SUPPORTER, '/person/' + L.SUPPORTER, None, False),
   ('composer', '/email/new', '/email/new', None, False),
   ('a-list', '/list/' + L.LIST, '/list/' + L.LIST, None, False),
-  ('bills', '/bills', '/bills', None, True),
-  ('sort-new-bills', '/bills/new', '/bills/new', None, False),
-  ('muted', '/bills/muted', '/bills/muted', None, False),
+  ('bills', '/issues/bills', '/bills', None, True),   # a tab of Issues since R-356 round 2 (decision 3)
+  ('sort-new-bills', '/issues/bills/new', '/bills/new', None, False),
+  ('muted', '/issues/bills/muted', '/bills/muted', None, False),
   ('a-bill', H1562, H1562, None, False),
   ('team-talk', H1562 + '/talk', H1562 + '/activity', None, False),
   ('bill-public', H1562 + '/public', H1562 + '/public', None, False),
   ('legislators', '/legislators', '/legislators', None, True),
-  ('everyone', '/legislators?view=everyone', '/legislators', None, False),
-  ('holding', '/legislators?view=holding', None, None, False),   # v5 had no address for it (X34)
   ('a-legislator', f'/legislator/{L.LEGISLATOR}', f'/legislator/{L.LEGISLATOR}', None, False),
-  ('my-issues', '/my-issues', '/my-issues', None, True),
-  ('coalitions', '/my-issues/coalitions', None, None, False),
-  ('all-issues', '/my-issues/all', '/outreach/issues', None, False),
+  ('my-issues', '/issues', '/my-issues', None, True),
+  ('coalitions', '/issues/coalitions', None, None, False),
+  ('all-issues', '/issues/all', '/outreach/issues', None, False),
   ('an-issue', '/issue/' + L.ISSUE, '/issue/' + L.ISSUE, None, False),
   ('a-coalition', '/coalition/' + L.HEAL, '/coalition/' + L.HEAL, None, False),
   ('inbox', '/inbox', '/inbox', None, True),
@@ -265,9 +263,9 @@ def targets(r):
   T('sideways scroll (rule 10)', int(bool(m['hscroll'])), 0)
   if r['w'] >= 768:   # the sidebar is always shown from 768px, every place labelled (3.1), and stays short
     lim = 12 if who in L.TEAM_SEERS else 8   # staff 8 (6 places, More, You); a lead or Sees Team 9 (Team); an admin 12 (People, Partners, Session setup)
-    T('sidebar rows (always shown from 768px, 8 or more: Today, Testimony, Hearings, Issues, Outreach, Bills, More, You)', m['side_rows'], lim, 8 <= m['side_rows'] <= lim)
-  else: T('phone tab bar: Today · Hearings · Testimony · Bills · More (D2)', ' · '.join(m['tabs']) or 'none', 'Today · Hearings · Testimony · Bills · More',
-          [x.lower() for x in m['tabs']] == ['today', 'hearings', 'testimony', 'bills', 'more'])
+    T('sidebar rows (always shown from 768px, 7 or more: Today, Testimony, Hearings, Issues, Outreach, More, You)', m['side_rows'], lim, 7 <= m['side_rows'] <= lim)
+  else: T('phone tab bar: Today · Hearings · Testimony · Issues · More (D2)', ' · '.join(m['tabs']) or 'none', 'Today · Hearings · Testimony · Issues · More',
+          [x.lower() for x in m['tabs']] == ['today', 'hearings', 'testimony', 'issues', 'more'])
   if m.get('errors'): T('page errors', len(m['errors']), 0)
   return t
 

@@ -28,7 +28,7 @@ seen = {'none': 0, 'still': 0}
 with L.browser() as B:
   for who in ['NT', 'KV', 'KR', 'LR', 'SY', 'JS']:
     tops = {}
-    for route in ['/legislators?view=ask', '/hearings/ask']:
+    for route in ['/hearings/ask']:
       pg = B.page(who, 1440, 900); pg.open(route)
       for scope in [None] + [s for s in pg.page.evaluate("[...document.querySelectorAll('[data-seg=\"lgask\"], [data-seg=\"hscope\"]')].map(b => b.dataset.val)") if s]:
         if scope: pg.page.click(f'[data-seg="lgask"][data-val="{scope}"], [data-seg="hscope"][data-val="{scope}"]'); pg.page.wait_for_timeout(300); pg.ready()
@@ -44,7 +44,7 @@ with L.browser() as B:
         seen['none'] += sum('none asked yet' in x for x in ls); seen['still'] += sum('still to ask' in x for x in ls)
       R.check(f'{who} {route}: no page errors', not pg.errors, pg.errors[:2]); pg.close()
     # Today, Bills and Hearings: the one top line, its count the board's (the person's own bills)
-    for route in ['/', '/bills', '/hearings']:
+    for route in ['/', '/issues/bills', '/hearings']:
       pg = B.page(who, 1440, 900); pg.open(route)
       m = TOP.search(pg.text('body'))
       if m: tops[route] = int(m.group(1)); seen['top'] = seen.get('top', 0) + 1
@@ -55,7 +55,7 @@ with L.browser() as B:
       if mine: mine.click(); pg.page.wait_for_timeout(300); pg.ready()
       n = toask([x for x in dls(pg) if 'need' in x]); pg.close()
       R.check(f'{who}: Hearings\' "{tops["/hearings"]} to ask" is the board\'s to-ask bills added up', n == tops['/hearings'], (n, tops))
-      R.check(f'{who}: Today and Bills say the same count as Hearings', all(v == tops['/hearings'] for k, v in tops.items() if k in ('/', '/bills')), tops)
+      R.check(f'{who}: Today and Bills say the same count as Hearings', all(v == tops['/hearings'] for k, v in tops.items() if k in ('/', '/issues/bills')), tops)
 
 R.check('the top line ("N bills need a hearing · ask the chairs, first by <day>") is found on Today, Bills or Hearings', seen.get('top', 0) > 0, seen)
 R.check('someone\'s board says "none asked yet"', seen['none'] > 0, seen)
@@ -63,9 +63,9 @@ R.check('someone\'s board says "still to ask"', seen['still'] > 0, seen)
 
 # the phone: the line stays whole parts, no sideways scroll
 with L.browser() as B:
-  pg = B.page('NT', 390, 844); pg.open('/legislators?view=ask')
+  pg = B.page('NT', 390, 844); pg.open('/hearings/ask')
   ls = dls(pg)
-  R.check('390: Who to ask says "none asked yet" on the first deadline', ls and 'none asked yet' in ls[0], ls[:1])
+  R.check('390: Bills That Need Hearings says "none asked yet" on the first deadline', ls and 'none asked yet' in ls[0], ls[:1])
   dot = pg.page.evaluate("[...document.querySelectorAll('.hg-dlgo')].map(a => { const t = a.previousSibling; return t && t.nodeType === 3 && t.nodeValue.endsWith('·\\u00a0'); })")
   R.check('390: the "·" before Bills That Need Hearings is held to the link (a no-break space)', dot and all(dot), dot)
   rr = pg.page.evaluate("(() => { const a = document.querySelector('.hg-dlgo'), p = a.closest('.hg-dls'), r = document.createRange(); const t = a.previousSibling; r.setStart(t, t.nodeValue.length - 2); r.setEnd(t, t.nodeValue.length - 1); const d = r.getBoundingClientRect(), l = a.getClientRects()[0]; return [Math.round(d.top), Math.round(l.top)]; })()")

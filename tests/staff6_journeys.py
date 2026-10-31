@@ -227,7 +227,7 @@ JOURNEYS = [
   J('sort-bill', 'Sort one new bill: pick its position and track it (Kevin, opening weeks), from Today', 'KV', 5,
     [Step(rx(r'sort new bills|new bills? to sort|^\s*Sort\b')), Step(r'^\s*(Monitor|Position|No position)\b'), Step('Support$'), Step(r'^\s*(Track|Save|Next)\b')], r'tracked|sorted',
     [Step(rx(r'sort new bills|new bills? to sort|^\s*Sort\b')), Step(r'^\s*Monitor\b'), Step('Support$'), Step('Track$')], r'tracked',
-    extra=L.CLOCKS['opening'], needs=('#/bills/new',)),
+    extra=L.CLOCKS['opening'], needs=('#/issues/bills/new',)),
   J('save-group', 'Save a group of supporters (Saya), from Supporters', 'SY', 5,
     [Step(r'^\s*(Filter|More filters)\b', unless=r'Oʻahu\s*\d'), Step(r'^\s*O.?ahu'), Step(r'^\s*(Show \d+|Done|Apply)\b', optional=True),
      Step(r'^\s*Save as a group'), Step(r'^\s*Save\b', fill='Oʻahu supporters (test)')], r'Saved',
@@ -240,10 +240,11 @@ JOURNEYS = [
 ]
 
 # ---- doors: where Inbox, Help and each weekly place are, without opening any menu ----
-WEEKLY = ['Today', 'Hearings', 'Testimony', 'Outreach', 'Bills', 'Legislators', 'Issues', 'Inbox', 'Help', 'Lists']
+WEEKLY = ['Today', 'Hearings', 'Testimony', 'Outreach', 'Legislators', 'Issues', 'Inbox', 'Help', 'Lists']
 WEEKLY_V5 = {'Hearings': 'This week', 'Testimony': 'Review', 'Issues': 'My issues'}
 # R-356 round 1: Legislators left the sidebar for the More page's Places section, so it is one click from More at every
 # width (still a labelled tap, never behind a menu); Issues is a sidebar place on a laptop and a More row on a phone.
+# Bills is a tab of Issues (round 2, decision 3), so it is no weekly place of its own; Hearings has two tabs and Legislators none.
 # Inbox and Help are header icons beside the search box at every width (aria-labels "Inbox, N unread" and "Help").
 VIA_MORE = {'legislators'}
 TEAM_SEERS = getattr(L, 'TEAM_SEERS', L.LEADS | {'KR'})   # Kris has Sees Team in the practice copy (R-356)
@@ -365,8 +366,8 @@ FOCUS_CASES = [
   ("Today, the item beside the list, the browser's Back", 'NT', 1440, 900, '/', 'browser'),
   ('Today below 1100px, the item as its own page, Back to the list', 'NT', 1024, 768, '/', 'close'),
   ('Testimony, the item beside the list, its close button', 'KR', 1440, 900, '/testimony?view=approve', 'close'),
-  ("Bills, a bill's page, the browser's Back", 'KV', 1440, 900, '/bills', 'browser'),
-  ("Bills on a phone, a bill's page, the top bar's Back", 'KV', 390, 844, '/bills', 'link'),
+  ("Bills, a bill's page, the browser's Back", 'KV', 1440, 900, '/issues/bills', 'browser'),
+  ("Bills on a phone, a bill's page, the top bar's Back", 'KV', 390, 844, '/issues/bills', 'link'),
 ]
 ROWKEY = r"""() => { const e = document.activeElement; if (!e) return null; const row = e.closest('.v6-row, [role=listitem], li, tr');
   return { key: e.dataset?.v6pick || e.getAttribute('href') || '', row: row ? (row.dataset.v6row || row.innerText.slice(0, 40)) : '', tag: e.tagName.toLowerCase(), name: (e.innerText || e.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 50) }; }"""
@@ -425,7 +426,7 @@ def toasts(b, R, only):
 # pixels. Nothing may be lost: no sideways scroll, no words cut by a box that hides its overflow (or off the right edge),
 # and every control the 100% page shows is still on the 200% page (its name, anywhere on the page). ----
 ZOOM_ROUTES = [('today', '/', 'NT'), ('hearings', '/hearings', 'KV'), ('get-hearings', '/hearings/ask', 'KV'), ('testimony', '/testimony', 'KR'),
-  ('review', '/review', 'KR'), ('outreach', '/outreach', 'SY'), ('supporters', '/outreach/supporters', 'SY'), ('bills', '/bills', 'KV'),
+  ('review', '/review', 'KR'), ('outreach', '/outreach', 'SY'), ('supporters', '/outreach/supporters', 'SY'), ('bills', '/issues/bills', 'KV'),
   ('a-bill', '/bill/HB1562', 'NT'), ('legislators', '/legislators', 'KV'), ('a-legislator', f'/legislator/{L.LEGISLATOR}', 'KV'),
   ('my-issues', '/my-issues', 'KV'), ('inbox', '/inbox', 'KV'), ('help', '/help', 'KV'), ('team', '/team', 'NT'), ('people', '/people', 'NT'),
   ('setup', '/setup', 'NT'), ('more-tools', '/tools', 'NT'), ('my-settings', '/me', 'KV'), ('search', '/search?q=tobacco', 'KV')]

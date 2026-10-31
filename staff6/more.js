@@ -14,7 +14,7 @@ export const PLACES = {
   testimony: ['#/testimony', 'file-text', 'Testimony', 'Testimony', 'Write, approve and file testimony'],
   outreach: ['#/outreach', 'megaphone', 'Outreach', 'Outreach', 'Rally the public and partners'],
   // Bills is not a place since R-356 round 2 (decision 3): it is a tab inside Issues (#/issues/bills).
-  legislators: ['#/legislators', 'landmark', 'Legislators', 'Legislators', 'Who to ask, and everyone at the Capitol'],
+  legislators: ['#/legislators', 'landmark', 'Legislators', 'Legislators', 'Everyone at the Capitol, by island'],
   issues: ['#/issues', 'tag', 'Issues', 'Issues', 'Your issues, every issue, and every bill we track'],
   inbox: ['#/inbox', 'inbox', 'Inbox', 'Inbox', 'Messages and updates for you'],
   help: ['#/help', 'circle-help', 'Help', 'Help', 'Guides, Capitol words and what moved'],
