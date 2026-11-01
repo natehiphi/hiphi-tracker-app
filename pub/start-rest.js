@@ -261,8 +261,6 @@ function example() {
 // followed bill while it is in session and at or before its hearing, else an example, which the words say it is.
 const SUPPORTS = new Set(['strongly_support', 'support', 'support_amend']);
 const supported = b => !!b && SUPPORTS.has(b.hiphi_position);
-// The issue's name in the middle of a sentence: "school food", but "Hawaiʻi Island roads" keeps its capitals.
-const midName = n => /^[A-Z][a-z]/.test(n) && !/[A-Zʻ]/.test(n.slice(1)) && !/[^\x00-\x7f]/.test(n) ? n[0].toLowerCase() + n.slice(1) : n;
 let roadCache = null, roadKey = '';
 // { b, issue: the issue it is about (followed first), mine: that issue is one the person follows, example: it is only an example }, or null
 // while last session's bills are on their way, or { none: true } when HIPHI supports no bill at all (the road is then drawn with no number).
@@ -287,9 +285,12 @@ function roadPick() {
 // (the second stop keeps only the bill: `short`)
 function roadIntro(pk, E) {
   if (!E) return { long: 'A bill about your issues', short: 'A bill about your issues' };
-  const num = `<b>${esc(E.num)}</b>`, nm = pk.issue ? esc(midName(pk.issue.name)) : '';
-  if (pk.example) return { long: `An example bill: ${num}${nm ? `, about ${nm}${pk.mine ? ', one of your issues' : ''}` : ', one HIPHI supports'}.`, short: `An example bill: ${num}.` };
-  return { long: `${num} ${nm ? `is about ${nm}${pk.mine ? ', one of your issues' : ''}` : 'is a bill HIPHI supports'}.`, short: `${num}.` };
+  // The issue's name is a name, kept as written after a colon: the names are phrases ("Let counties regulate tobacco sales"),
+  // so "about <name>" read wrong (the review, 1 Nov).
+  const num = `<b>${esc(E.num)}</b>`, nm = pk.issue ? esc(pk.issue.name) : '';
+  const on = nm ? `on ${pk.mine ? 'one of your issues' : 'the issue'}: ${nm.replace(/[.!?]$/, '')}` : '';
+  if (pk.example) return { long: `An example bill, ${num}, ${on || 'one HIPHI supports'}.`, short: `An example bill: ${num}.` };
+  return { long: `${num} ${on ? `is ${on}` : 'is a bill HIPHI supports'}.`, short: `${num}.` };
 }
 // A bill to stand on the drawing when HIPHI supports none yet: the road with no number. exampleFrom needs a bill, so a bare one stands in.
 const NOBILL = { id: 'road-none', bill_number: 'HB 0', hiphi_position: 'support', stage: 'first', chamber: 'H', referrals: [], session_year: 0 };

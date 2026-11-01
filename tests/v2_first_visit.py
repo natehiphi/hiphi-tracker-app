@@ -86,8 +86,8 @@ def road_ok(pg, key, example, label, shots=None):
   ok(r['picVis'] and r['h1vis'], f"{label} {key}: the drawing and the heading are in view")
   intro = norm(r['intro'])
   if key in ('s1', 's1no'):
-    if example: ok(re.search(r'^An example bill: (HB|SB) \d+, (about .+, one of your issues|about .+|one HIPHI supports)\.$', intro), f"{label} {key}: the first line says it is an example and names an issue ({intro!r})")
-    else: ok(re.search(r'^(HB|SB) \d+ is about .+, one of your issues\.$', intro) and 'example' not in intro, f"{label} {key}: the first line names the bill and an issue of theirs ({intro!r})")
+    if example: ok(re.search(r'^An example bill, (HB|SB) \d+, (on one of your issues: .+|on the issue: .+|one HIPHI supports)\.$', intro), f"{label} {key}: the first line says it is an example and names an issue ({intro!r})")
+    else: ok(re.search(r'^(HB|SB) \d+ is on one of your issues: .+\.$', intro) and 'example' not in intro, f"{label} {key}: the first line names the bill and an issue of theirs ({intro!r})")
   else: ok(re.search(r'^(An example bill: )?(HB|SB) \d+\.$', intro) and intro.startswith('An example bill') == example, f"{label} {key}: from the second stop the first line keeps only the bill ({intro!r})")
   if key == 's1' and example: ok(cap[0].startswith("Say it's waiting for a hearing."), f"{label} s1: an example bill says 'Say it's waiting' ({cap[:1]})")
   ok(r['strip'] == ['Your issues', 'Your voice', 'Your profile'], f"{label} {key}: the signpost stays on Your voice ({r['strip']})")
