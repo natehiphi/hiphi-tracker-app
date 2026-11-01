@@ -55,11 +55,10 @@ JOURNEYS = [
         # "Mahalo!" page after it; either proves the follow.
         reach="(()=>{const m=document.querySelector('.st-thanks'); return (!!m && /following/i.test(m.innerText)) || !!document.querySelector('.st-alertspage #st-h');})()"),
  ]),
- # Version 2's first visit, welcome to Home, in nine taps (R-357 part 4, Nate 30 Oct 2026; ?v2=1; two teaching screens since his note of 31 Oct):
- # the same welcome and two topics, Your issues with two ticked under each, two short teaching screens ("Testimony: your words on the record"
- # and "An email to the chair"), the profile ask, and Home on the tap of the Mahalo cover's See How I Can Help, which holds still until it is
+ # Version 2's first visit, welcome to Home, in ten taps (R-357 part 4, Nate 30 Oct 2026; ?v2=1; the road since his note of 1 Nov):
+ # the same welcome and two topics, Your issues with two ticked under each, one teaching screen ("Where you come in": Email the chair, Send testimony), the profile ask, and Home on the tap of the Mahalo cover's See How I Can Help, which holds still until it is
  # pressed. DESIGN B-2's new row; tests/v2_first_visit.py checks the screens themselves.
- dict(name='public: first visit, welcome to Home (v2)', app=PUBLIC + '&v2=1', budget=9, start='#/', steps=[
+ dict(name='public: first visit, welcome to Home (v2)', app=PUBLIC + '&v2=1', budget=10, start='#/', steps=[
    dict(what="Let's begin, past the welcome", do=click_text('.st-bar [data-stnext]', '^Let.s begin$'),
         reach="(()=>!document.querySelector('.st-hellopage') && !!document.querySelector('[data-stissue]'))()"),
    dict(what='tick a topic', do="""(()=>{const e=[...document.querySelectorAll('[data-stissue]')].find(x=>x.offsetParent!==null && x.getAttribute('aria-pressed')!=='true'); if(!e)return false; e.click(); return true;})()""",
@@ -69,10 +68,12 @@ JOURNEYS = [
    dict(what='Next, to its issues', do=click_text('.st-bar [data-stnext]', '^Next$'),
         reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Your issues' && !!document.querySelector('[data-stpick]'))()"),
    dict(what='read the ticked issues and follow them', do=click_text('.st-bar [data-stnext]', 'Follow \\d+ issue'),
-        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Testimony: your words on the record')()"),
-   dict(what='Next, past testimony', do=click_text('.st-bar [data-stnext]', '^Next$'),
-        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='An email to the chair')()"),
-   dict(what='Next, past the email to the chair', do=click_text('.st-bar [data-stnext]', '^Next$'),
+        reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Where you come in')()"),
+   dict(what='Email the chair, on the road', do=click_text('#rd-doors .lx-door', '^Email the chair$'),
+        reach="(()=>document.getElementById('rd-pic')?.dataset.scene==='c' && !!document.querySelector('#rd-doors .lx-door'))()"),
+   dict(what='Send testimony, then Next wakes', do=click_text('#rd-doors .lx-door', '^Send testimony$'),
+        reach="(()=>document.getElementById('rd-pic')?.dataset.scene==='t' && !document.querySelector('.st-bar [data-stnext]')?.hidden)()"),
+   dict(what='Next, past the road', do=click_text('.st-bar [data-stnext]', '^Next$'),
         reach="(()=>document.getElementById('st-h')?.innerText.trim()==='Save your profile')()"),
    dict(what='skip the profile ask: its cover plays and holds with See How I Can Help', do=click_text('.st-bar [data-stskip]', '^Skip this part$'),
         reach="(()=>/See How I Can Help/.test(document.querySelector('.st-cover .st-cvgo')?.innerText || '') && location.hash.startsWith('#/start/'))()"),

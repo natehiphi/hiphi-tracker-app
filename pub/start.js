@@ -96,13 +96,13 @@ const FLOW_IN = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_OFF = ['topics', 'issues', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
 // Version 2's first visit (R-357 part 4, Nate 30 Oct 2026: "the first visit in seven taps" (eight with the last button), behind ?v2=1): welcome, two topics, Your
-// issues (two ticked per topic), the profile ask, and then Home, with the teaching between the issues and the ask. Nate's note of 31 Oct
-// ("the quiz teaching about the importance of testimony and emails to chairs is important, but it can be improved"; his pick: two short
-// screens, each with its own picture) made that teaching two screens, so the visit is nine taps: 'voice' is testimony (the step the
-// private counts know as 'voice', so no migration) and 'chair' is the email to the chair (counted as 'voice' too, see COUNTED_AS). The
-// story's four pages, "This Year and Next" and "You're all set" are not in it: the story is a card on Home (pub/v2/story.js), and Home
-// is the ending (DESIGN C-12, C-13). A shared bill's visit ends on the profile ask too.
-const FLOW_V2 = ['topics', 'issues', 'voice', 'chair', 'alerts'];
+// issues (two ticked per topic), the profile ask, and then Home, with the teaching between the issues and the ask. The teaching was two
+// text screens (Nate's note of 31 Oct) until he said on 1 Nov that they do not work and missed version 1's road: it is now ONE screen,
+// the road, where people choose and see what emailing the chair and sending testimony do ('voice', the step the private counts know, so
+// no migration; pub/lessons.js roadHTML, pub/start-rest.js stepRoad). The story's four pages, "This Year and Next" and "You're all set"
+// are not in it: the story is a card on Home (pub/v2/story.js), and Home is the ending (DESIGN C-12, C-13). A shared bill's visit ends on
+// the profile ask too.
+const FLOW_V2 = ['topics', 'issues', 'voice', 'alerts'];
 const FLOW_LINK_V2 = ['followask', 'alerts'];
 export const v2 = () => { try { return !!(app.v2 && app.v2()); } catch { return false; } };
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
@@ -139,16 +139,10 @@ function myIsland() {
 
 // ---------- the private visit counts (R-023 decision 8): one row per screen reached and how it was left ----------
 let viewKey = '', viewAt = 0;
-// Version 2's second teaching screen ('chair', the email to the chair) is counted as 'voice' with lesson_step 2: the database accepts only the
-// step names it has (backend 067, 080, 136, 140), the Staff roll-up lists them by name, and a new one would need a migration. The first
-// screen is 'voice' as it was when the teaching was one screen, so the funnel's 'voice' is still "reached the teaching"; the people who
-// left on the second screen are the rows with lesson_step 2, and the difference between 'voice' and 'alerts' says how many went on.
-const COUNTED_AS = { chair: ['voice', { lesson_step: 2 }] };
 export const track = (step, event, extra = {}) => { try {
   // Reaching the end (the finale, or Home in the version that ends there) is the first-visit tests' measure (R-135).
   if ((step === 'done' || step === 'wrap') && (event === 'view' || event === 'done')) abEvent('finished');
-  const [counted, more] = COUNTED_AS[step] || [step, {}];
-  logVisit(counted, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...more, ...extra }); } catch { /* never in the way */ } };
+  logVisit(step, event, { path: pathKey(), seconds: viewAt ? Math.round((Date.now() - viewAt) / 1000) : undefined, ...extra }); } catch { /* never in the way */ } };
 
 // Closing the tab (or leaving the site) mid-visit is counted as leaving that screen, with the seconds spent on it.
 window.addEventListener('pagehide', () => { if (document.body.dataset.screen === 'start' && viewKey) track(viewKey.split('|')[1], 'leave'); });
@@ -230,9 +224,8 @@ const CHAPTERS = [T('Your issues'), T('A bill’s story'), T('Stay connected')];
 const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voice: 1, you: 2, soon: 2, done: 3 };
 // The version that ends on Home (R-098) names its last part after where it ends: "Stay connected" read as "give us your
 // email and you're done".
-const CHAPTER_OF_V2 = { topics: 0, issues: 0, followask: 0, voice: 1, chair: 1, alerts: 2 };
-// Version 2's three parts are the three things asked of the person: their issues, why their voice counts (its two screens, testimony and
-// the email to the chair, are one part), their profile. A shared bill's visit has no teaching step, so its profile ask stays in the first
+const CHAPTER_OF_V2 = { topics: 0, issues: 0, followask: 0, voice: 1, alerts: 2 };
+// Version 2's three parts are the three things asked of the person: their issues, why their voice counts (the road screen), their profile. A shared bill's visit has no teaching step, so its profile ask stays in the first
 // part (the strip never ticks a part nobody saw).
 const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : v2() ? [CHAPTERS[0], 'Your voice', 'Your profile'] : [CHAPTERS[0], SHORT() ? T('Why your voice matters') : CHAPTERS[1], endHome() ? T('Your home page') : CHAPTERS[2]];
 // A plan names its own parts (pub/plans.js).
@@ -476,7 +469,7 @@ export const loadErr = step => shell('', `${topRow('issues', step)}${loadFail({ 
 // card and its own Try again, where a skeleton used to stay for good (R-212 #49). intro: the screen's own top row, the way out.
 export const lessonErr = (intro = '') => shell('st-lesson', `${intro}${loadFail({ what: 'this lesson', id: 'st-h', cls: 'st-err', retry: { 'data-stretry': '1' } })}`, '');
 const LEARN = ['story', 'bill', 'session', 'hearing'];
-const STEPS = ['issues', 'alerts', 'bill', 'voice', 'chair', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
+const STEPS = ['issues', 'alerts', 'bill', 'voice', 'you', 'soon', 'done', 'followask'];   // the steps start-rest.js draws
 export const learnName = route => LEARN.includes(route.lesson) ? route.lesson : 'bill';
 // The alerts screen (R-146) asks only someone who follows something and has no way to be told yet: not signed in, no
 // link sent, no number given, not the email-ask test's second version (it asks after the first action, R-135), and not
@@ -554,10 +547,10 @@ function wire(route) {
   if (wiz().step !== step || !wiz().begun) wizSet({ step, begun: true });   // begun: the welcome is not shown again (R-297)
   const back = !!S.stBack; S.stBack = false;
   // The lesson pages put their button right under the lesson on a wide screen (start.css).
-  document.body.classList.toggle('st-lessonpage', name === 'bill');
+  document.body.classList.toggle('st-lessonpage', name === 'bill' || (v2() && name === 'voice'));   // version 2's road: its Next under the words on a laptop, as the story's
   // The "Mahalo!" page with no card beside it (Skip, or nothing asked) is one column too: its Next sits under the words,
   // not alone in an empty right column (the review, 11 Oct).
-  document.body.classList.toggle('st-onecol', name === 'followask' || (v2() && (name === 'voice' || name === 'chair')) || (thanksUp(name) && !(textSaved() || mailSent())) || !!document.querySelector('#main .st-intro .st-err'));
+  document.body.classList.toggle('st-onecol', name === 'followask' || (thanksUp(name) && !(textSaved() || mailSent())) || !!document.querySelector('#main .st-intro .st-err'));
   const key = `${pathKey()}|${name}`, fresh = key !== viewKey;
   if (fresh) {
     viewKey = key; viewAt = Date.now(); tickChapter(name, back);
@@ -572,6 +565,7 @@ function wire(route) {
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
     if (name === 'bill' || name === 'voice') (S.stSkipped ??= new Set()).add('lesson');   // the strip shows the story as skipped, not done (R-249)
+    if (name === 'voice' && v2()) wizSet({ why: true });   // version 2's road: skipped is as seen, a returner changing their issues is not shown it again
     // The first question has no Skip (R-212 #46): "Leave, go to Home" stands in its place (topicsBar). In the plans it goes on.
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
@@ -665,8 +659,7 @@ document.addEventListener('focusout', fitSoon);   // the keyboard gone: fit agai
 try { if (window.ResizeObserver) new ResizeObserver(fitSoon).observe(document.body); } catch { /* each drawing still fits itself */ }
 
 const TITLE = { topics: 'What do you care about?', issues: 'Your issues', alerts: 'Get alerts on your issues', bill: LESSON_TITLES.story,
-  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters',
-  chair: 'An email to the chair' };
+  you: 'Who speaks for you', soon: 'Coming up on your issues', done: 'You’re all set', followask: 'Follow this issue?', voice: 'Why your voice matters' };
 // The steps after the topics, wired (start-rest.js). ctx: the step, the flow, Back, whether the screen is new, the
 // next() helper and the page's two query helpers from wire().
 export default {
@@ -680,7 +673,7 @@ export default {
     if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
     if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
     if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
-    if (n === 'voice' && v2()) return 'Testimony: your words on the record';
+    if (n === 'voice' && v2()) return 'Where you come in';
     return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);

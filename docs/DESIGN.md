@@ -926,11 +926,9 @@ matter or drop the question. A quiz that checks a lesson is not covered. (Added 
 **Nate may waive it case by case.** A question that stays without a visible effect needs his yes, recorded
 as an exception in `DESIGN-AUDIT.md` with the reason and date. Without that, it is a defect.
 
-**Version 2's teaching screens ask no question (R-357 part 4, Nate 30 Oct 2026: "no quiz"; two screens since 31 Oct, his pick; made to teach more the same day).** "Testimony: your
-words on the record" and "An email to the chair" stand between Your issues and the profile ask: each one drawing, a heading, one lede in draft A's words, a
-three-step "how it goes" strip (a numbered list, an icon, a bold label and one plain line each), one time line
-(spelled out: "About 10 minutes the first time, then about 3." and "About 2 minutes.", the C-15 promise in words) and one button, Next. It teaches how a note counts and what the two ways to send one are, and it checks nothing, so C-13 has nothing to cover. Nothing says or implies that few people act (R-171). On a laptop the words stand left and the drawing over the steps right; on a phone the drawing shrinks first, then the icons, then the plain lines (the labels stay). Version 1's
-story keeps its two choices (they change what the next page says, which is what C-13 asks).
+**Version 2's teaching is one screen, the road (R-357 part 4; Nate 1 Nov 2026: the two text screens "don't work", he missed version 1's road).** "Where you come in" stands between Your issues and the profile ask: the bill at its committee stop on the road, which stays put, and only the words under it change, about 40 at a time. Two stops, each a full choice with two equal buttons: the bill needs a hearing (**Email the chair** / **Do nothing**), then its hearing is set (**Send testimony** / **Do nothing**). The first stop's result stays as one line when the second shows. "Do nothing" greys the road ahead (no "DID NOT ADVANCE" stamp) and leaves one button, "Try emailing the chair" or "Try sending testimony", that plays the other outcome, so everyone sees what speaking up does. The bill is one HIPHI supports: the person's own while it is in session and at or before its hearing, else an example, which the first line says ("An example bill: HB 2300, about school food, one of your issues."). Skip is always on screen; Next wakes (it is hidden, not greyed) when the second stop's good outcome has played. The goals are that people leave knowing "bills stall without people" and feeling "I can do this", the email to the chair first, then testimony; the words say "can", never a promise, and never that few people act (R-171). Under Reduce Motion each step shows its end state at once. A guess until the testers (the week of 23 Nov) and January's counts (`answer` rows on 'voice', the stop as `lesson_step`) say whether it teaches.
+
+**Nate's waiver, 1 Nov 2026 (R-357):** a choice on a teaching screen is fine when it has no right or wrong answer and no score; the road's two stops (Email the chair / Do nothing, Send testimony / Do nothing) play what each does.
 
 *Reason.* Every question is a place to stop (C-5), and people answer more willingly when they can see the
 answer being used; evidence **strong** that relevant, personalized experiences keep people engaged, and a
@@ -941,7 +939,7 @@ many skip a question, and how many finish after it.
 
 Anything a person reads to choose or to move on is 16px or larger (18px for the sentence under a
 heading, A-4), in `--n700` or darker; 14px is only for a label, a count, a chip, a time or the fine
-print. The sentence under a heading is one or two short sentences, 30 words at most (version 2's two teaching screens: a heading, one lede, three short steps, the time line), and nothing on a
+print. The sentence under a heading is one or two short sentences, 30 words at most (version 2's road screen: a heading, a first line and a question, about 40 words in all), and nothing on a
 screen says again what its heading, another line or the screen before already said (A-14). A long line
 is cut, not made smaller. (Added 10/5, R-174.)
 
