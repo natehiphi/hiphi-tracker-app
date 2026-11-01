@@ -273,12 +273,16 @@
 .lx-story[data-scene="no2"] .lx-r3 .lx-b3 { display: none; }
 .lx-roadcap p { margin: 0; font-size: var(--t16); color: var(--n700); }
 .lx-roadcap p + p, .lx-roadcap #rd-stage { margin-top: var(--s8); }
-.lx-roadcap p.rd-intro, .lx-roadcap #rd-q { color: var(--n900); }
+.lx-roadcap p.rd-intro, .lx-roadcap .rd-q { color: var(--n900); }
 .lx-roadcap b { color: var(--n900); }
-.lx-roadcap #rd-q:focus { outline: none; }   /* focus lands on the new words so a screen reader says them; the words are not a control */
-.lx-roadcap #rd-doors { margin-top: var(--s12); }
+.lx-roadcap .rd-q:focus { outline: none; }   /* focus lands on the new words so a screen reader says them; the words are not a control */
+.lx-roadcap .rd-doors { margin-top: var(--s12); }
+.st-roadpage .lx-roadpic.rd-crop svg.lx-sv { height: auto !important; max-height: none !important; }   /* cropped to its row on a short phone: full width, readable labels */
+/* a door's hover wash only where a pointer hovers: on touch it stuck after a tap and made one door look picked (the review, 1 Nov); both doors always look alike */
+@media (hover: none) { .lx-roadcap .lx-ch:hover { border-color: var(--n400); background: var(--n0); } }
+.lx-roadcap .lx-ch:focus:not(:focus-visible) { box-shadow: var(--sh1); }
 .lx-doors.rd-one { grid-template-columns: minmax(0, 1fr); }
-.lx-doors[hidden], #rd-res[hidden] { display: none; }
+.lx-doors[hidden], .rd-res[hidden] { display: none; }
 .actionbar.lx-asleep { display: none; }   /* the lesson page's bar has only Next, asleep until a choice (R-255) */
 .lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
 .lx-saidbox.lx-got, .lx-saidbox.lx-room { margin-top: var(--s12); }   /* lx-room: its room kept before the choice (lessons.js reserveSaid) */

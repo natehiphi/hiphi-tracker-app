@@ -807,7 +807,9 @@ function roadScenesSVG(E, opts = {}) {
   const calendar = (d, pop = true) => `<g${pop ? ` class="lx-pop" style="--d:${d}ms"` : ''}><rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
        <g transform="translate(${cx + 52} ${cy + 32})"><g${pop ? ` class="lx-pop" style="--d:${d + 350}ms"` : ''}><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
   const emptyCalendar = `<rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--n300)" stroke-width="1.5" stroke-dasharray="4 3"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--n300)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n200)" stroke-width="4" stroke-linecap="round"/>`;
-  const chair = `${fly(-140, 80, 0, PROPS.mail(below ? x - 26 : x - 2, below ? y - 32 : y + 36, -8))}${calendar(600)}`;
+  // the road variant (opts.stamp === false): a short thin line joins the Hearing calendar to its stop, so it does not float between the rows (the review, 1 Nov)
+  const tie = opts.stamp === false ? `<path d="${below ? `M${cx} ${cy + 46} L${x + 9} ${y - 17}` : `M${cx + 64} ${cy} L${x - 9} ${y + 15}`}" fill="none" stroke="var(--p300)" stroke-width="1.5" stroke-linecap="round"/>` : '';
+  const chair = `${tie}${fly(-140, 80, 0, PROPS.mail(below ? x - 26 : x - 2, below ? y - 32 : y + 36, -8))}${calendar(600)}`;
   const testimony = `${fly(-150, below ? 60 : 90, 0, PROPS.note(x - 28, ny, -8))}${fly(-160, below ? 64 : 84, 180, PROPS.note(x, ny + (below ? -4 : 4), 4))}${fly(-170, below ? 60 : 90, 360, PROPS.note(x + 28, ny, 10))}
        <path class="lx-draw" style="--len:${Math.abs(nx - x)}px;--d:850ms" d="M${x} ${y} H${nx}" fill="none" stroke="var(--p600)" stroke-width="3.5"/>
        ${tickAt(x, y, 750)}
@@ -821,9 +823,9 @@ function roadScenesSVG(E, opts = {}) {
     ${stops}
     <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:0ms"><path d="${ROAD}" fill="none" stroke="var(--n200)" stroke-width="22" stroke-linecap="round" style="stroke-dasharray:0 ${end.toFixed(1)} ${Math.ceil(ROADLEN + 60)}"/>${greyStops}</g></g>
     <g class="lx-b3" transform="translate(${x} ${y})">${smallBill()}</g>
-    <g class="lx-c3 lx-c3-need">${emptyCalendar}</g>
-    <g class="lx-c3 lx-c3-set">${calendar(0)}</g>
-    <g class="lx-c3 lx-c3-keep">${calendar(0, false)}</g>
+    <g class="lx-c3 lx-c3-need">${tie}${emptyCalendar}</g>
+    <g class="lx-c3 lx-c3-set">${tie}${calendar(0)}</g>
+    <g class="lx-c3 lx-c3-keep">${tie}${calendar(0, false)}</g>
     <g class="lx-c3 lx-c3-c">${chair}</g>
     <g class="lx-c3 lx-c3-t">${testimony}</g>
     <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:300ms"><g transform="translate(${x} ${y})">${smallBill(true)}</g></g>${opts.stamp === false ? '' : stamp3(s === 2 ? 214 : 150, 184)}</g>
@@ -1077,7 +1079,7 @@ function reserveSaid(root) {
 // The first visit measures its screen against the window with the story's lines as they will stand (start.js fitScreen):
 // a level that leaves a line out changes the room the answer needs, so the room is measured again before each check.
 export function storyRoom() { const root = rootOf('story'); if (root && L.E && ST.story.step >= 3) reserveSaid(root);
-  const rd = rootOf('road'); if (rd && RD.o) roadReserve(rd); }
+  const rd = rootOf('road'); if (rd && RD.o) { roadCrop(); roadReserve(rd); } }
 // The first visit's own Back (and the lesson page's Back) walks the story back a stage at a time before it leaves the
 // screen (B-4), showing the earlier stage's still picture.
 export function lessonPrev(name) {
@@ -1100,10 +1102,10 @@ export const lessonLast = name => LAST[name] || 1;   // the hosts' "last stage" 
 // people" and "I can do this"; email the chair first, then testimony.
 // The caller (start-rest.js) says which bill (E), the stop to play at (at: an example bill always its first side's
 // committees), the first caption line (intro, which names the person's issue) and whether the bill is only an example
-// (soft: "Say it's waiting for a hearing"). Nothing here touches the flow: onPick(stop) tells the caller a choice was made.
+// (soft: "Suppose it’s waiting for a hearing"). Nothing here touches the flow: onPick(stop) tells the caller a choice was made.
 const ROAD_RES = 'Your note reaches the chair. A bill people write about is more likely to get a hearing.';
 const roadStates = soft => ({
-  s1: { q: `${soft ? 'Say it’s' : 'It’s'} waiting for a hearing. Chairs decide which bills get one, and they notice who writes in. What would you do?`, res: '',
+  s1: { q: `${soft ? 'Suppose it’s' : 'It’s'} waiting for a hearing. Each committee’s chair decides which bills get one, and they notice who writes in. What would you do?`, res: '',
     btns: [['chair', 'Email the chair'], ['none', 'Do nothing']], scene: 'need' },
   s1no: { q: 'Nobody asked, so it waited. Without a hearing, it can’t pass this year.', res: '', btns: [['chair', 'Try emailing the chair']], scene: 'no' },
   s2: { q: 'Its hearing is set. What would you do?', res: ROAD_RES, btns: [['testimony', 'Send testimony'], ['none', 'Do nothing']], scene: 'c' },
@@ -1116,9 +1118,12 @@ const rdBtns = w => w.btns.map(([v, label]) => `<button type="button" class="lx-
 export const roadMoment = E => momentKind(E);
 export function roadHTML(E, { at = sceneAt(E), intro = '', introShort = '', soft = false } = {}) {
   const w = roadStates(soft), kept = RD.id === E.id && RD.state && w[RD.state] ? RD.state : 's1';
-  const pic = `<div class="lx-pic lx-scene lx-story lx-roadpic" id="rd-pic" data-stage="3" data-scene="${w[kept].scene}" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">${roadScenesSVG(E, { at, stamp: false })}</svg></div>`;
+  // On a short phone (under 700px tall) the drawing is cropped to the bottom row at full width (the row the bill plays on), never scaled to a strip
+  // with unreadable labels: the road is the lesson (the review, 1 Nov). roadCrop() swaps the viewBox.
+  const ry = STOPS[at][1], crop = ry === RB ? `0 ${ry - 100} ${SW} 150` : `0 ${ry - 50} ${SW} 130`;
+  const pic = `<div class="lx-pic lx-scene lx-story lx-roadpic" id="rd-pic" data-stage="3" data-scene="${w[kept].scene}" data-crop="${crop}" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">${roadScenesSVG(E, { at, stamp: false })}</svg></div>`;
   const main = `<div class="lx lx-l-road" data-lx="road"><div class="lx-scap lx-roadcap" id="rd-cap"><p class="rd-intro" id="rd-intro" data-long="${esc(intro)}" data-short="${esc(introShort || intro)}">${intro}</p>
-    <div id="rd-stage"><div id="rd-say" aria-live="polite"><p id="rd-res" hidden></p><p id="rd-q" tabindex="-1"></p></div><div class="lx-doors" id="rd-doors" role="group" aria-label="What would you do?"></div></div></div></div>`;
+    <div id="rd-stage"><div id="rd-say" class="rd-say" aria-live="polite"><p id="rd-res" class="rd-res" hidden></p><p id="rd-q" class="rd-q" tabindex="-1"></p></div><div class="lx-doors rd-doors" id="rd-doors" role="group" aria-label="What would you do?"></div></div></div></div>`;
   return { pic, main };
 }
 // The room of the longest state is kept from the start, so nothing moves under a finger when a choice is made (the first visit
@@ -1129,8 +1134,18 @@ function roadReserve(root) {
   probe.setAttribute('aria-hidden', 'true');
   probe.style.cssText = `position:absolute;left:0;top:0;width:${stage.getBoundingClientRect().width}px;visibility:hidden;pointer-events:none`;
   stage.parentNode.appendChild(probe);
-  let h = 0; Object.values(roadStates(RD.o.soft)).forEach(w => { probe.innerHTML = `<div>${w.res ? `<p>${w.res}</p>` : ''}<p>${w.q}</p></div><div class="lx-doors${w.btns.length === 1 ? ' rd-one' : ''}">${rdBtns(w)}</div>`; h = Math.max(h, probe.getBoundingClientRect().height); });
+  let h = 0; Object.values(roadStates(RD.o.soft)).forEach(w => { probe.className = 'lx-roadcap'; probe.innerHTML = `<div class="rd-say">${w.res ? `<p class="rd-res">${w.res}</p>` : ''}<p class="rd-q">${w.q}</p></div><div class="lx-doors rd-doors${w.btns.length === 1 ? ' rd-one' : ''}">${rdBtns(w)}</div>`; h = Math.max(h, probe.getBoundingClientRect().height); });
+  // the first line keeps the room of its long form in every state, so nothing above or beside it moves when it folds to the short one
+  const intro = $('#rd-intro', root); if (intro) { probe.innerHTML = `<p class="rd-intro">${intro.dataset.long}</p>`; intro.style.minHeight = `${Math.ceil(probe.firstChild.getBoundingClientRect().height)}px`; }
   probe.remove(); stage.style.minHeight = `${Math.ceil(h)}px`;
+  // on a laptop the words start level with the drawing's top, not at the step row
+  const cap = $('#rd-cap', root), pic = $('#rd-pic');
+  if (cap && pic) { cap.style.marginTop = ''; if (matchMedia('(min-width: 900px)').matches) { const d = pic.getBoundingClientRect().top - cap.getBoundingClientRect().top; if (d > 0) cap.style.marginTop = `${Math.round(d)}px`; } }
+}
+function roadCrop() {
+  const pic = $('#rd-pic'), sv = pic && $('svg', pic); if (!sv) return;
+  const small = matchMedia('(max-height: 699px) and (max-width: 899px)').matches;
+  sv.setAttribute('viewBox', small ? pic.dataset.crop : `0 0 ${SW} ${SH}`); pic.classList.toggle('rd-crop', small);
 }
 function roadPaint(root, state) {
   const w = roadStates(RD.o.soft)[state], res = $('#rd-res', root), q = $('#rd-q', root), doors = $('#rd-doors', root);
@@ -1168,12 +1183,12 @@ export function roadStart(E, { back = false, redraw = false, soft = false, onPic
     if (RD.onPick) RD.onPick(stop, v);
     roadGo(root, next, { focus: true });
   };
-  roadGo(root, RD.state, { instant: true });
+  roadCrop(); roadGo(root, RD.state, { instant: true });
   addEventListener('resize', onRoadResize);
   if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (L.name === 'road' && root.isConnected) roadReserve(root); });
 }
 let roadRaf = 0;
-function onRoadResize() { cancelAnimationFrame(roadRaf); roadRaf = requestAnimationFrame(() => { const r = document.querySelector('.lx[data-lx="road"]'); if (r && RD.o) roadReserve(r); }); }
+function onRoadResize() { cancelAnimationFrame(roadRaf); roadRaf = requestAnimationFrame(() => { const r = document.querySelector('.lx[data-lx="road"]'); if (r && RD.o) { roadCrop(); roadReserve(r); } }); }
 export const roadStop = () => { removeEventListener('resize', onRoadResize); cancelAnimationFrame(roadRaf); };
 
 // ---------------------------------------------------------------- the interface

@@ -392,6 +392,9 @@ button.st-way:active { transform: scale(.99); }
   .st-pwhat, .st-phead { max-width: 68ch; }
   .st-clamp { -webkit-line-clamp: 3; }
   .st4 .st-main, .st3 .st-main { grid-row: 1 / span 2; }
+  /* version 2's road: the words and then the bar sit together at the top of the right column, beside the drawing (the extra height goes to a last row) */
+  body[data-screen="start"]:has(.st-roadpage) main { grid-template-rows: auto auto 1fr; }
+  body[data-screen="start"]:has(.st-roadpage) .actionbar { grid-row: 2; }
   .st-form, .st-sent { padding: var(--s24); }
   .st-form .field { max-width: 460px; }
   .st-done .st-intro { align-items: flex-start; text-align: left; }
@@ -539,11 +542,8 @@ button.st-way:active { transform: scale(.99); }
      gaps close, the drawing goes to 72px, and last the heading goes to screen readers only, as the story's does first (the strip says "Your voice").
      Every word of the caption stays at 16px (C-14). */
   .st-roadpage.fit7 .st-intro { gap: var(--s4); }
-  .st-roadpage.fit8 .lx-roadcap #rd-stage { min-height: 0 !important; }
-  .st-roadpage.fit9 .lx-story svg.lx-sv { height: 72px; }
   body[data-screen="start"]:has(.st-roadpage.fit10) main { padding-top: var(--s8); }
   body[data-screen="start"].hasbar:has(.st-roadpage.fit6.fit10) main { padding-bottom: calc(var(--safe-b) + 66px); }   /* the bar is 65px once slimmed (fit6), so only then */
-  .st-roadpage.fit10 #st-h { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   /* 5. Coming up: the cards tighter, the quiet line, the lede; then the last cards (data-fitdrop). */
   .st-soonpage.fit1 :is(.st-soon, .st-ways) { gap: var(--s8); }

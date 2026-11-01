@@ -48,6 +48,10 @@ ROAD = """() => {
     scene: pic && pic.dataset.scene, picHidden: pic && pic.getAttribute('aria-hidden'), live: document.getElementById('rd-say').getAttribute('aria-live'),
     skipVis: !!sk && vis(sk), nextVis: !!nx && vis(nx), nextGreyed: !!nx && (nx.disabled || nx.getAttribute('aria-disabled') === 'true'), over: document.scrollingElement.scrollHeight - innerHeight,
     under: br ? Math.round(last.bottom - br.top) : 0, sx: document.scrollingElement.scrollWidth - innerWidth, small, picVis: !!sv && sv.width > 0 && sv.height > 0, picBox: sv && [Math.round(sv.left), Math.round(sv.right), Math.round(sv.height)],
+    backY: (e => e ? Math.round(e.getBoundingClientRect().top + scrollY) : -1)(document.querySelector('.st-back')), h1Y: Math.round(h1.getBoundingClientRect().top + scrollY), picY: sv ? Math.round(sv.top + scrollY) : -1, picH: sv ? Math.round(sv.height) : 0,
+    labelPx: (() => { const t = pic.querySelector('svg text'), v = pic.querySelector('svg'), vb = v.viewBox.baseVal; return t && vb.width ? Math.round(parseFloat(getComputedStyle(t).fontSize) * v.getBoundingClientRect().width / vb.width * 10) / 10 : 0; })(),
+    capTop: Math.round(cap.getBoundingClientRect().top + scrollY), skipTop: sk ? Math.round(sk.getBoundingClientRect().top + scrollY) : -1, lastBottom: Math.round(last.bottom + scrollY),
+    doorLook: doors.map(b => { const c = getComputedStyle(b); return [c.backgroundColor, c.borderTopColor, c.boxShadow]; }),
     capBox: (r => [Math.round(r.left), Math.round(r.right)])(cap.getBoundingClientRect()), moving, stamp: /DID NOT ADVANCE/i.test(document.querySelector('main').innerText) || !!document.querySelector('#rd-pic .lx-pop rect + text'),
     stampDom: /DID NOT ADVANCE/.test(pic ? pic.innerHTML : ''), focus: ae ? (ae.id || ae.className || ae.tagName) : '', focusInCap: !!ae && cap.contains(ae) || (!!nx && ae === nx),
     h1vis: !!h1 && h1.getBoundingClientRect().height > 20, cls: document.querySelector('main > .st').className, strip: [...document.querySelectorAll('.st-chapters .st-cl')].map(e => e.innerText.trim()), hash: location.hash }; }"""
@@ -57,7 +61,7 @@ words = lambda *xs: sum(len(norm(x).split()) for x in xs)
 
 # the five states of the road: the buttons each shows, the scene, whether Next is awake, and the words that must be there
 STATES = {
-  's1':  dict(btns=['Email the chair', 'Do nothing'], scene='need', next=False, has="waiting for a hearing. Chairs decide which bills get one, and they notice who writes in. What would you do?"),
+  's1':  dict(btns=['Email the chair', 'Do nothing'], scene='need', next=False, has="waiting for a hearing. Each committee's chair decides which bills get one, and they notice who writes in. What would you do?"),
   's1no': dict(btns=['Try emailing the chair'], scene='no', next=False, has="Nobody asked, so it waited. Without a hearing, it can't pass this year."),
   's2':  dict(btns=['Send testimony', 'Do nothing'], scene='c', next=False, has="Its hearing is set. What would you do?", res=True),
   's2no': dict(btns=['Try sending testimony'], scene='no2', next=False, has="With nothing sent, it can be held, and then it can't pass this year.", res=True),
@@ -71,6 +75,7 @@ def road_ok(pg, key, example, label, shots=None):
   ok(r['scene'] == S['scene'] and r['picHidden'] == 'true' and r['live'] == 'polite', f"{label} {key}: scene {r['scene']!r}, the drawing hidden from screen readers, the caption a polite live region")
   ok([b[0] for b in r['btns']] == S['btns'] and all(b[4] == 'BUTTON' for b in r['btns']), f"{label} {key}: the buttons are {S['btns']} ({[b[0] for b in r['btns']]})")
   if len(r['btns']) == 2: ok(r['btns'][0][1] == r['btns'][1][1] and r['btns'][0][2:4] == r['btns'][1][2:4], f"{label} {key}: the two choices are equal, one class and one size ({r['btns']})")
+  if len(r['btns']) == 2: ok(r['doorLook'][0] == r['doorLook'][1], f"{label} {key}: both doors look identical, none tinted as picked ({r['doorLook']})")
   ok(all(b[3] >= 44 and b[2] >= 44 for b in r['btns']), f"{label} {key}: 44px touch targets ({[b[2:4] for b in r['btns']]})")
   want = norm(S['has']); ok(any(c.endswith(want) for c in cap), f"{label} {key}: its words ({cap})")
   if S.get('res'): ok(RES in cap, f"{label} {key}: the first stop's one-line result stays ({cap})")
@@ -89,7 +94,7 @@ def road_ok(pg, key, example, label, shots=None):
     if example: ok(re.search(r'^An example bill, (HB|SB) \d+, (on one of your issues: .+|on the issue: .+|one HIPHI supports)\.$', intro), f"{label} {key}: the first line says it is an example and names an issue ({intro!r})")
     else: ok(re.search(r'^(HB|SB) \d+ is on one of your issues: .+\.$', intro) and 'example' not in intro, f"{label} {key}: the first line names the bill and an issue of theirs ({intro!r})")
   else: ok(re.search(r'^(An example bill: )?(HB|SB) \d+\.$', intro) and intro.startswith('An example bill') == example, f"{label} {key}: from the second stop the first line keeps only the bill ({intro!r})")
-  if key == 's1' and example: ok(cap[0].startswith("Say it's waiting for a hearing."), f"{label} s1: an example bill says 'Say it's waiting' ({cap[:1]})")
+  if key == 's1' and example: ok(cap[0].startswith("Suppose it's waiting for a hearing."), f"{label} s1: an example bill says 'Suppose it's waiting' ({cap[:1]})")
   ok(r['strip'] == ['Your issues', 'Your voice', 'Your profile'], f"{label} {key}: the signpost stays on Your voice ({r['strip']})")
   if shots: pg.screenshot(path=shots)
   return n, r
@@ -256,6 +261,8 @@ with sync_playwright() as pw:
   errs = []; ctx, pg = newpage(br, f'{BASE}/track.html?demo=1&v2=1&restart&season=off#/', errs, kw=dict(viewport={'width': 1280, 'height': 800}))
   to_road(pg)
   r = pg.evaluate(ROAD)
+  ok(abs(r['capTop'] - r['picY']) <= 2, f"laptop: the words start level with the drawing's top ({r['capTop']} vs {r['picY']})")
+  ok(0 <= r['skipTop'] - r['lastBottom'] <= 140, f"laptop: Skip this part sits in the bar right under the choices ({r['skipTop'] - r['lastBottom']}px below them)")
   ok(r['picBox'][1] <= r['capBox'][0] + 4, f"laptop: the drawing is left of the words ({r['picBox']} {r['capBox']})")
   pg.screenshot(path=os.path.join(OUT, 'laptop-s1.png'))
   for what, state in SHORT: door(pg, what); settle(pg, 1400)
@@ -270,11 +277,15 @@ with sync_playwright() as pw:
     to_road(pg)
     pg.evaluate("document.fonts.load('700 16px Lato')"); pg.evaluate("document.fonts.load('700 28px Poppins')"); pg.wait_for_timeout(400)
     states = [('s1', None)] + [(st, wh) for wh, st in LONG]
+    tiny = h < 700 and w < 900; tops = []
     for st, wh in states:
       if wh: door(pg, wh); pg.wait_for_timeout(1500)
-      r = pg.evaluate(ROAD)
-      ok(r['over'] <= 1 and r['under'] <= 1 and not r['small'] and (r['h1vis'] or (w, h) == (320, 568)) and r['picVis'] and r['sx'] <= 0, f"{w}x{h} {st}: fits, nothing under the bar, 16px or more, heading and drawing in view (at 320x568 the heading may go to screen readers, last), no sideways scroll ({r['over']} over, {r['under']} under; heading in view {r['h1vis']}; {r['cls']})")
+      r = pg.evaluate(ROAD); tops.append((r['backY'], r['h1Y'], r['picY']))
+      fits = (r['over'] <= 1 and r['under'] <= 1 and r['sx'] <= 0) or tiny   # under 700px tall the road is never scaled down to fit: the drawing is cropped to its row and the screen may scroll
+      ok(fits and not r['small'] and r['h1vis'] and r['picVis'], f"{w}x{h} {st}: fits (a window under 700px tall may scroll), nothing under the bar, 16px or more, heading and drawing in view, no sideways scroll ({r['over']} over, {r['under']} under; heading in view {r['h1vis']}; {r['cls']})")
+      if tiny: ok(r['picH'] >= 120 and r['labelPx'] >= 10, f"{w}x{h} {st}: the drawing is never a strip: {r['picH']}px tall, its labels {r['labelPx']}px")
       if (w, h) in ((320, 568), (375, 812)): pg.screenshot(path=os.path.join(OUT, f'{st}-{w}x{h}.png'))
+    ok(max(t[0] for t in tops) - min(t[0] for t in tops) <= 1 and max(t[1] for t in tops) - min(t[1] for t in tops) <= 1 and max(t[2] for t in tops) - min(t[2] for t in tops) <= 1, f"{w}x{h}: Back, the heading and the drawing stay put in all five states ({tops})")
     ok(pg.evaluate(ROAD)['skipVis'] and pg.evaluate(ROAD)['nextVis'], f"{w}x{h}: Skip and Next are both on screen at the end")
     ok(not errs, f"{w}x{h}: nothing in the console ({errs[:1]})")
     ctx.close()
