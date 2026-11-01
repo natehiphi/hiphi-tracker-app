@@ -794,16 +794,18 @@ const stamp3 = (x, y, d = 650) => `<g transform="translate(${x} ${y}) rotate(-9)
 // Every scene is drawn where it ends (the still picture) and flown or slid there; the one shown is the picture's data-scene:
 // 'set' a hearing on the list (stage 4 before a choice), 'c' the email that asks for one, 't' the notes that carry the bill
 // on, 'no' no one asking (the road ahead greys, the bill is stamped). Only the stops change with the bill.
-function roadScenesSVG(E) {
-  const s = sceneAt(E), [x, y] = STOPS[s], [nx] = STOPS[s + 1], end = along([x, y]), names = roadNames(E), below = y === RB;
+// opts (version 2's road screen, R-357 Nate 1 Nov): at = the stop to play at whatever the bill's real state (an example bill always plays at
+// its first side's committees); stamp: false = no "DID NOT ADVANCE" (v2 says what doing nothing does in words and a greyed road).
+function roadScenesSVG(E, opts = {}) {
+  const s = opts.at ?? sceneAt(E), [x, y] = STOPS[s], [nx] = STOPS[s + 1], end = along([x, y]), names = roadNames(E), below = y === RB;
   const stops = STOPS.map(([sx, sy], i) => `${i < s ? tickAt(sx, sy) : i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/>` : ''}${svgText(sx, sy === RB ? sy + 34 : sy - 26, names[i])}`).join('');
   const greyStops = STOPS.map(([sx, sy], i) => i > s ? `<circle cx="${sx}" cy="${sy}" r="12" fill="var(--n100)" stroke="var(--n300)" stroke-width="3"/>` : '').join('');
   const ny = below ? y - 30 : y + 30;   // notes land beside the stop, on the side away from its name
   const cx = below ? x + 20 : x - 76, cy = below ? y - 66 : y + 18;   // the calendar, in the open space beside the bill, off the road
   // The calendar's label is 13px like the road's (C-14, the critic); the empty grey one is stage 3's still: a hearing the bill
   // has not got yet, which the chair's email fills and ticks and doing nothing fades with the road.
-  const calendar = d => `<g class="lx-pop" style="--d:${d}ms"><rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
-       <g transform="translate(${cx + 52} ${cy + 32})"><g class="lx-pop" style="--d:${d + 350}ms"><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
+  const calendar = (d, pop = true) => `<g${pop ? ` class="lx-pop" style="--d:${d}ms"` : ''}><rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--p700)" stroke-width="1.5"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--p700)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n300)" stroke-width="4" stroke-linecap="round"/></g>
+       <g transform="translate(${cx + 52} ${cy + 32})"><g${pop ? ` class="lx-pop" style="--d:${d + 350}ms"` : ''}><circle r="7" fill="var(--p700)"/><path d="M-3.2 0 l2.2 2.2 4.2-4.2" fill="none" stroke="var(--n0)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></g>`;
   const emptyCalendar = `<rect x="${cx}" y="${cy}" width="64" height="46" rx="4" fill="var(--n0)" stroke="var(--n300)" stroke-width="1.5" stroke-dasharray="4 3"/><path d="M${cx} ${cy + 4} Q${cx} ${cy} ${cx + 4} ${cy} H${cx + 60} Q${cx + 64} ${cy} ${cx + 64} ${cy + 4} V${cy + 17} H${cx} Z" fill="var(--n300)"/>${svgText(cx + 32, cy + 13, 'Hearing', { size: 13, fill: 'var(--n0)' })}<path d="M${cx + 10} ${cy + 32} h26" stroke="var(--n200)" stroke-width="4" stroke-linecap="round"/>`;
   const chair = `${fly(-140, 80, 0, PROPS.mail(below ? x - 26 : x - 2, below ? y - 32 : y + 36, -8))}${calendar(600)}`;
   const testimony = `${fly(-150, below ? 60 : 90, 0, PROPS.note(x - 28, ny, -8))}${fly(-160, below ? 64 : 84, 180, PROPS.note(x, ny + (below ? -4 : 4), 4))}${fly(-170, below ? 60 : 90, 360, PROPS.note(x + 28, ny, 10))}
@@ -821,9 +823,10 @@ function roadScenesSVG(E) {
     <g class="lx-b3" transform="translate(${x} ${y})">${smallBill()}</g>
     <g class="lx-c3 lx-c3-need">${emptyCalendar}</g>
     <g class="lx-c3 lx-c3-set">${calendar(0)}</g>
+    <g class="lx-c3 lx-c3-keep">${calendar(0, false)}</g>
     <g class="lx-c3 lx-c3-c">${chair}</g>
     <g class="lx-c3 lx-c3-t">${testimony}</g>
-    <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:300ms"><g transform="translate(${x} ${y})">${smallBill(true)}</g></g>${stamp3(s === 2 ? 214 : 150, 184)}</g>
+    <g class="lx-c3 lx-c3-no"><g class="lx-fade" style="--d:300ms"><g transform="translate(${x} ${y})">${smallBill(true)}</g></g>${opts.stamp === false ? '' : stamp3(s === 2 ? 214 : 150, 184)}</g>
   </g>`;
 }
 function storyPic(E) {
@@ -1073,7 +1076,8 @@ function reserveSaid(root) {
 }
 // The first visit measures its screen against the window with the story's lines as they will stand (start.js fitScreen):
 // a level that leaves a line out changes the room the answer needs, so the room is measured again before each check.
-export function storyRoom() { const root = rootOf('story'); if (root && L.E && ST.story.step >= 3) reserveSaid(root); }
+export function storyRoom() { const root = rootOf('story'); if (root && L.E && ST.story.step >= 3) reserveSaid(root);
+  const rd = rootOf('road'); if (rd && RD.o) roadReserve(rd); }
 // The first visit's own Back (and the lesson page's Back) walks the story back a stage at a time before it leaves the
 // screen (B-4), showing the earlier stage's still picture.
 export function lessonPrev(name) {
@@ -1084,6 +1088,93 @@ export function lessonPrev(name) {
 // Which stage the story is on (1-3), so the lesson page can say Done on the last.
 export const lessonStep = name => (L.name === name && ST[name] ? ST[name].step : 1);
 export const lessonLast = name => LAST[name] || 1;   // the hosts' "last stage" check reads this, never a number (R-255)
+
+// ================================================================ 5. Version 2's road (R-357, Nate 1 Nov 2026)
+// Nate: the two text teaching screens "don't work"; he missed version 1's road, where people choose and SEE what speaking up
+// or silence does. So version 2 has ONE screen that keeps the drawing of stage 3 and 4 still (the bill at its committee
+// stop) and changes only the words under it, in two stops: the bill needs a hearing (Email the chair / Do nothing), then its
+// hearing is set (Send testimony / Do nothing). Both choices are equal; "Do nothing" plays the road ahead greying (no
+// "DID NOT ADVANCE" stamp, which read as a verdict) and leaves ONE button, Try ..., that plays the other outcome, so everyone
+// sees what speaking up does. The words follow the rules of stages 3 and 4: "can", never a promise; "can't pass this year",
+// never "dies" (R-144); never that few people act (R-171). Goals he set: people come away knowing "bills stall without
+// people" and "I can do this"; email the chair first, then testimony.
+// The caller (start-rest.js) says which bill (E), the stop to play at (at: an example bill always its first side's
+// committees), the first caption line (intro, which names the person's issue) and whether the bill is only an example
+// (soft: "Say it's waiting for a hearing"). Nothing here touches the flow: onPick(stop) tells the caller a choice was made.
+const ROAD_RES = 'Your note reaches the chair. A bill people write about is more likely to get a hearing.';
+const roadStates = soft => ({
+  s1: { q: `${soft ? 'Say it’s' : 'It’s'} waiting for a hearing. Chairs decide which bills get one, and they notice who writes in. What would you do?`, res: '',
+    btns: [['chair', 'Email the chair'], ['none', 'Do nothing']], scene: 'need' },
+  s1no: { q: 'Nobody asked, so it waited. Without a hearing, it can’t pass this year.', res: '', btns: [['chair', 'Try emailing the chair']], scene: 'no' },
+  s2: { q: 'Its hearing is set. What would you do?', res: ROAD_RES, btns: [['testimony', 'Send testimony'], ['none', 'Do nothing']], scene: 'c' },
+  s2no: { q: 'With nothing sent, it can be held, and then it can’t pass this year.', res: ROAD_RES, btns: [['testimony', 'Try sending testimony']], scene: 'no2' },
+  end: { q: 'The committee reads testimony before it votes. Notes like yours can carry a bill on.', res: ROAD_RES, btns: [], scene: 't' },
+});
+const RD = { state: 's1', id: '', o: null, onPick: null };
+const rdBtns = w => w.btns.map(([v, label]) => `<button type="button" class="lx-ch lx-door" data-rd="${v}">${label}</button>`).join('');
+// Which moment the real bill is at ('chair', 'testimony' or null): start-rest.js uses a followed bill only while it is still at or before its hearing.
+export const roadMoment = E => momentKind(E);
+export function roadHTML(E, { at = sceneAt(E), intro = '', introShort = '', soft = false } = {}) {
+  const w = roadStates(soft), kept = RD.id === E.id && RD.state && w[RD.state] ? RD.state : 's1';
+  const pic = `<div class="lx-pic lx-scene lx-story lx-roadpic" id="rd-pic" data-stage="3" data-scene="${w[kept].scene}" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">${roadScenesSVG(E, { at, stamp: false })}</svg></div>`;
+  const main = `<div class="lx lx-l-road" data-lx="road"><div class="lx-scap lx-roadcap" id="rd-cap"><p class="rd-intro" id="rd-intro" data-long="${esc(intro)}" data-short="${esc(introShort || intro)}">${intro}</p>
+    <div id="rd-stage"><div id="rd-say" aria-live="polite"><p id="rd-res" hidden></p><p id="rd-q" tabindex="-1"></p></div><div class="lx-doors" id="rd-doors" role="group" aria-label="What would you do?"></div></div></div></div>`;
+  return { pic, main };
+}
+// The room of the longest state is kept from the start, so nothing moves under a finger when a choice is made (the first visit
+// fits each screen to the window, R-265, and measures again after every change of the page's height).
+function roadReserve(root) {
+  const stage = $('#rd-stage', root); if (!stage || !RD.o || !stage.parentNode) return;
+  const probe = document.createElement('div');
+  probe.setAttribute('aria-hidden', 'true');
+  probe.style.cssText = `position:absolute;left:0;top:0;width:${stage.getBoundingClientRect().width}px;visibility:hidden;pointer-events:none`;
+  stage.parentNode.appendChild(probe);
+  let h = 0; Object.values(roadStates(RD.o.soft)).forEach(w => { probe.innerHTML = `<div>${w.res ? `<p>${w.res}</p>` : ''}<p>${w.q}</p></div><div class="lx-doors${w.btns.length === 1 ? ' rd-one' : ''}">${rdBtns(w)}</div>`; h = Math.max(h, probe.getBoundingClientRect().height); });
+  probe.remove(); stage.style.minHeight = `${Math.ceil(h)}px`;
+}
+function roadPaint(root, state) {
+  const w = roadStates(RD.o.soft)[state], res = $('#rd-res', root), q = $('#rd-q', root), doors = $('#rd-doors', root);
+  if (res.innerHTML !== w.res) res.innerHTML = w.res;   // the result of stop 1 is said once, not again at each change below it
+  res.hidden = !w.res; q.innerHTML = w.q;
+  // from the second stop on, the first line folds to the bill alone (about 40 words a screen: the issue was named once, at the first stop)
+  const intro = $('#rd-intro', root), want = state === 's1' || state === 's1no' ? intro.dataset.long : intro.dataset.short;
+  if (intro.dataset.now !== want) { intro.innerHTML = want; intro.dataset.now = want; }
+  doors.innerHTML = rdBtns(w); doors.hidden = !w.btns.length; doors.classList.toggle('rd-one', w.btns.length === 1);
+}
+// state -> the scene on the picture; a tap plays it, Back and a redraw show it still. Next wakes only at the end (hidden, not greyed).
+function roadGo(root, state, { instant = false, focus = false } = {}) {
+  const pic = $('#rd-pic'), w = roadStates(RD.o.soft)[state]; if (!pic) return;
+  const was = pic.dataset.scene, scene = w.scene;
+  RD.state = state; pic.dataset.scene = scene; pic.classList.remove('lx-cplay');
+  // "Do nothing" at the second stop greys the road with the hearing still on the list; the scenes that move play, the rest only show
+  const moves = scene !== 'need' && scene !== was;
+  if (instant || reduced() || !moves) { pic.classList.add('lx-cplay'); settle(pic); } else { void pic.getBoundingClientRect(); play(pic, 'lx-cplay'); }
+  roadPaint(root, state);
+  wakeNext(state === 'end');
+  roadReserve(root);
+  if (focus) { const b = $('#rd-doors .lx-door', root); (b && w.btns.length === 1 ? b : $('#rd-q', root)).focus({ preventScroll: true }); }
+}
+export function roadStart(E, { back = false, redraw = false, soft = false, onPick = null } = {}) {
+  lessonStop();
+  const root = document.querySelector('.lx[data-lx="road"]'); if (!E || !root) return;
+  if (!back && !redraw) { RD.state = 's1'; RD.id = E.id; }
+  if (RD.id !== E.id) { RD.state = 's1'; RD.id = E.id; }
+  RD.o = { soft }; RD.onPick = onPick; L.name = 'road'; L.E = E;
+  root.onclick = e => {
+    const b = e.target.closest('[data-rd]'); if (!b || !root.contains(b)) return;
+    const from = RD.state, stop = from === 's1' || from === 's1no' ? 1 : 2, v = b.dataset.rd;
+    const next = from === 's1' ? (v === 'chair' ? 's2' : 's1no') : from === 's1no' ? 's2' : from === 's2' ? (v === 'testimony' ? 'end' : 's2no') : from === 's2no' ? 'end' : null;
+    if (!next) return;
+    if (RD.onPick) RD.onPick(stop, v);
+    roadGo(root, next, { focus: true });
+  };
+  roadGo(root, RD.state, { instant: true });
+  addEventListener('resize', onRoadResize);
+  if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (L.name === 'road' && root.isConnected) roadReserve(root); });
+}
+let roadRaf = 0;
+function onRoadResize() { cancelAnimationFrame(roadRaf); roadRaf = requestAnimationFrame(() => { const r = document.querySelector('.lx[data-lx="road"]'); if (r && RD.o) roadReserve(r); }); }
+export const roadStop = () => { removeEventListener('resize', onRoadResize); cancelAnimationFrame(roadRaf); };
 
 // ---------------------------------------------------------------- the interface
 export function lessonHTML(name, E) {
@@ -1142,7 +1233,7 @@ export function lessonNext(name, E) {
   return false;
 }
 export function lessonStop() {
-  L.run++;
+  L.run++; roadStop();
   L.timers.forEach(clearTimeout); L.timers.clear();
   removeEventListener('resize', onResize); cancelAnimationFrame(resizeRaf);
   stopTravel(document.getElementById('lx-mine')); stopTravel(document.getElementById('lx-letter'));

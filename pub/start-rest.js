@@ -12,7 +12,7 @@ import { btn, chip, posChip } from './ui.js';
 import { t } from './i18n.js';   // the bar's "Skip this part" is said in the person's language, as bar2's (start.js)
 import { HELP_WORDS } from './letters.js';   // the testimony button's words (R-296)
 import { testimonyTime } from './actions.js';   // and its one time promise (R-357 Light fixes e; C-15)
-import { CAPITOL, VOICES, flower } from './art.js';
+import { CAPITOL, flower } from './art.js';
 import { createAddressPicker } from './addresspicker.js';
 import { GO_HELP } from './topics.js';
 import { storyMark } from './v2/story.js';   // reading the story to its end hides Home's card for it (R-357 part 4; no side effects on import)
@@ -251,45 +251,69 @@ function example() {
 // own bill when there is one, and the drawn story one tap away for anyone who wants it (R-062). The lede says others
 // write in and theirs joins them, not that lawmakers hear from "far fewer people than you'd think": telling people few
 // others act makes not acting sound normal, and messages saying many take part do better (R-171, R-164's research).
-// ================= Version 2's teaching, two short screens (R-357 part 4; Nate 31 Oct 2026) =================
-// Nate, 30 Oct: draft A, "plain", on one screen ("Why your note counts"). Nate, 31 Oct: "I think the quiz teaching about the importance of
-// testimony and emails to chairs is important, but it can be improved." His pick: two short screens instead of one, "each with its own
-// picture", in the words of draft A without its examples. Between Your issues and the profile ask, so the visit is nine taps. The first
-// is testimony (the step the private counts know as 'voice', so no migration) and the second the email to the chair ('chair' in the flow,
-// counted as 'voice' with lesson_step 2: start.js COUNTED_AS). Each is a drawing, a heading, two short sentences, one time line and
-// Next: no question (C-13: a quiz that checks a lesson is not covered), no Skip, and under 30 words a screen (C-14). Nothing here says or
-// implies that few people act (R-171). The times are the one promise the tracker keeps wherever testimony is offered (R-357 Light fixes e)
-// and the quick email's "2 minutes"; the first screen is always a first-timer's, so it says both of testimony's.
-// The drawings are two that art.js already has: the people at the Capitol with a bill, a raised hand and a phone for testimony, and the
-// Capitol itself for the chair's email (no drawing of art.js shows a lawmaker, a letter or an envelope). Not the alerts' or the share's, which
-// the screens after this one and the ones on Home use.
-// Nate, 31 Oct, later: "not robust enough ... make them teach more." Each screen keeps its heading, drawing and time line, and now has one lede
-// in draft A's words and a three-step strip (a numbered list, an icon, a short bold label and one plain line) that shows how it goes. The
-// deadlines are the ones the tracker already uses elsewhere (24 hours; some Senate committees ask 48). C-14: a heading, one lede, three short steps, the time line.
-const WHY_SCREENS = [
-  { art: VOICES, h: 'Testimony: your words on the record',
-    lede: 'Lawmakers decide on bills in committee hearings, and they read what people send in. A few sentences in your own words is testimony.',
-    steps: [['calendar', 'A hearing is posted', 'A few days ahead, on the bill’s page here.'],
-      ['notebook-pen', 'You send a few sentences', 'At least a day before. The tracker drafts it; you make it yours.'],
-      ['file-text', 'They read it, then vote', 'Your note stays on the public record.']],
-    time: 'About 10 minutes the first time, then about 3.' },
-  { art: CAPITOL, h: 'An email to the chair',
-    lede: 'One lawmaker, the committee’s chair, picks which bills get a hearing.',
-    steps: [['gavel', 'The chair sets the hearings', 'A bill with no hearing can’t move.'],
-      ['mail', 'Your email lands in their inbox', 'A short note says people are watching this bill.'],
-      ['calendar-clock', 'Before the deadline', 'Without a hearing in time, it can’t move forward this year.']],
-    time: 'About 2 minutes.' },
-];
-function stepWhy(step, k) {
-  const w = WHY_SCREENS[k - 1];
-  return shell(`st1 st-whypage st-why${k}`, `${topRow(k === 1 ? 'voice' : 'chair', step)}<div class="st-art">${w.art}</div>
-    <h1 class="hero" id="st-h">${esc(w.h)}</h1>
-    <p class="lede">${esc(w.lede)}</p>
-    <ol class="st-how" role="list">${w.steps.map(([ic, h, p]) => `<li><span class="st-hic">${icon(ic)}</span><div><b>${esc(h)}</b><span>${esc(p)}</span></div></li>`).join('')}</ol>
-    <p class="st-whytime">${icon('clock')}<span>${esc(w.time)}</span></p>`, '');
+// ================= Version 2's teaching: the road, one screen (R-357 part 4; Nate 1 Nov 2026) =================
+// Nate, 30 Oct: draft A on one screen; 31 Oct: two text screens; 1 Nov: "they don't work", he missed version 1's bill road, where people
+// choose and SEE what speaking up or silence does. Now ONE screen between Your issues and the profile ask, the step the private counts
+// know as 'voice' (no migration): the road stays put and only the words change (pub/lessons.js roadHTML, roadStart), in two stops, each
+// a full choice. Email the chair / Do nothing, then Send testimony / Do nothing; "Do nothing" greys the road ahead and leaves one button
+// that plays the other outcome. His goals: people come away knowing "bills stall without people" and "I can do this", the email to the
+// chair first, then testimony. The bill is a bill HIPHI supports (so "speak up for it" is true to the person's side): the person's own
+// followed bill while it is in session and at or before its hearing, else an example, which the words say it is.
+const SUPPORTS = new Set(['strongly_support', 'support', 'support_amend']);
+const supported = b => !!b && SUPPORTS.has(b.hiphi_position);
+// The issue's name in the middle of a sentence: "school food", but "Hawaiʻi Island roads" keeps its capitals.
+const midName = n => /^[A-Z][a-z]/.test(n) && !/[A-Zʻ]/.test(n.slice(1)) && !/[^\x00-\x7f]/.test(n) ? n[0].toLowerCase() + n.slice(1) : n;
+let roadCache = null, roadKey = '';
+// { b, issue: the issue it is about (followed first), mine: that issue is one the person follows, example: it is only an example }, or null
+// while last session's bills are on their way, or { none: true } when HIPHI supports no bill at all (the road is then drawn with no number).
+function roadPick() {
+  const off = isOff(), R = ranker(), w = wiz(), yr = sessionInfo().recapYear;
+  const issueOf = b => { const is = issuesOf(b).filter(i => shown(i)), f = is.find(issueFollowed); return f ? { issue: f, mine: true } : is[0] ? { issue: is[0], mine: false } : { issue: null, mine: false }; };
+  // 1. the person's own bill (followed, in session, supported), only while it is at or before its hearing: the real road, in the present tense
+  if (!off && !w.via) {
+    const mine = followedBills().filter(b => supported(b) && alive(b)).sort(R.cmp);
+    for (const b of mine) { const E = lessons().exampleFrom(b, { off: false, via: '' }), m = E && lessons().roadMoment(E); if (m === 'chair' || m === 'testimony') return { b, ...issueOf(b), example: false, hypo: m === 'testimony' }; }
+  }
+  // 2. an example HIPHI supports: from the issues they follow (in the order they picked), then any
+  if (off && !(S.recapPool && S.recapPool.yr === yr)) { ensureRecapPool(yr); return S.recapFailed === yr ? { none: true } : null; }
+  const cats = [...new Set([...(w.followedCats || []), ...pickedIssues().map(c => c.topicKey), ...followedIssues().map(i => i.category)])];
+  for (const k of cats) for (const i of issuesIn(k).filter(i => shown(i) && issueFollowed(i))) {
+    const b = issueInfo(i, R).bills.filter(supported).sort(R.cmp)[0]; if (b) return { b, issue: i, mine: true, example: true, hypo: true };
+  }
+  const any = [...poolBills(), ...((S.recapPool && S.recapPool.bills) || [])].filter(supported).sort(R.cmp)[0];
+  return any ? { b: any, ...issueOf(any), mine: issueOf(any).mine, example: true, hypo: true } : { none: true };
+}
+// The first caption line, naming the person's issue (an example says so: "An example bill: ...")
+// (the second stop keeps only the bill: `short`)
+function roadIntro(pk, E) {
+  if (!E) return { long: 'A bill about your issues', short: 'A bill about your issues' };
+  const num = `<b>${esc(E.num)}</b>`, nm = pk.issue ? esc(midName(pk.issue.name)) : '';
+  if (pk.example) return { long: `An example bill: ${num}${nm ? `, about ${nm}${pk.mine ? ', one of your issues' : ''}` : ', one HIPHI supports'}.`, short: `An example bill: ${num}.` };
+  return { long: `${num} ${nm ? `is about ${nm}${pk.mine ? ', one of your issues' : ''}` : 'is a bill HIPHI supports'}.`, short: `${num}.` };
+}
+// A bill to stand on the drawing when HIPHI supports none yet: the road with no number. exampleFrom needs a bill, so a bare one stands in.
+const NOBILL = { id: 'road-none', bill_number: 'HB 0', hiphi_position: 'support', stage: 'first', chamber: 'H', referrals: [], session_year: 0 };
+function roadState() {
+  if (!lessonsAsk()) return null;
+  const pk = roadPick(); if (!pk) return null;
+  const key = `${isOff()}|${pk.b ? pk.b.id : 'none'}|${pk.issue ? pk.issue.id : ''}|${pk.mine}|${pk.example}|${S.bills.length}|${(S.recapPool || {}).yr || ''}`;
+  if (key === roadKey && roadCache) return roadCache;
+  let E = null;
+  if (pk.b) { E = lessons().exampleFrom(pk.b, { off: isOff(), via: '' }); if (E && pk.example) E.id = 'road:' + E.id; }
+  const none = !pk.b;
+  // An example bill always plays at its first side's committees; the person's own bill, wherever it really stands.
+  roadKey = key; roadCache = { pk, E: E || null, none, intro: roadIntro(pk, none ? null : E) };
+  return roadCache;
+}
+function stepRoad(step) {
+  const r = roadState(), top = topRow('voice', step);
+  if (!r) return skel(step, 'Finding a bill to show you');
+  const E = r.E || lessons().exampleFrom(NOBILL, { off: isOff(), via: '' });
+  const { pic, main } = lessons().roadHTML(E, { at: r.pk.example || r.none ? 0 : undefined, intro: r.intro.long, introShort: r.intro.short, soft: !!r.pk.hypo || r.none });
+  return shell('st-lesson st-roadpage', `${top}<h1 class="hero" id="st-h">${t('Where you come in')}</h1>${pic}`, main);
 }
 function stepVoice(step) {
-  if (v2()) return stepWhy(step, 1);
+  if (v2()) return stepRoad(step);
   // No example bill is named on this page (R-203: a bill's title under the three points read as clutter, and nobody could
   // tell what it was for). The story link below still needs the bill the lesson would teach, so only its id is taken.
   const off = isOff(), b = exampleBill();
@@ -421,6 +445,7 @@ function stepAlerts(step) {
   // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted").
   const lede = codeStep('st-a') ? (prof ? 'Type the code to save your profile.' : 'Type the 6-digit code from the text to turn on alerts.')
     // No line under "Save your profile" (R-265, Nate 12 Oct: "the absolute minimum"): the box's one line says what comes.
+    : v2() ? 'When a bill on your issues gets a hearing, we’ll tell you. Three sentences in your own words is enough.'   // version 2 (R-357, Nate 1 Nov): the road just showed why; this is the plan
     : prof ? ''
     : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`;
   return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
@@ -1045,9 +1070,9 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       const ids = m.all.filter(m.ticked).map(x => x.i.id);
       await commitIssues(m);
       track(name, 'next', { counts: { cats: m.sel.length, issues: new Set(ids).size }, issue_ids: [...new Set(ids)] });
-      // Version 2 (R-357 part 4): the teaching (two screens) is next; it passes to the profile ask, and the profile ask to Home.
+      // Version 2 (R-357 part 4): the teaching (the road) is next; it passes to the profile ask, and the profile ask to Home.
       // The teaching is seen once: someone who comes back to change their issues (Home's "Edit my issues") has seen it (wiz().why,
-      // set by the second screen's Next) and goes straight on (C-8); Back still finds it.
+      // set by the road's Next) and goes straight on (C-8); Back still finds it.
       if (v2() && !wiz().via) { goStep(step, wiz().why ? stepOf('alerts', isOff()) : step + 1); return; }
       // The alerts ask comes next, and the "Mahalo!" page after it (R-146, R-140). With nothing to ask (signed in, already
       // told us how to reach them), the alerts screen is the "Mahalo!" page at once, with no ask on it (noAsk). A shared
@@ -1138,26 +1163,28 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
 
   if (name === 'soon') document.querySelectorAll('.st-soon [data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
   if (name === 'voice') {
-    wireBand();
     const nb = $('[data-stnext]');
-    // Version 2's first teaching screen (testimony): Next is the second (the email to the chair).
-    if (v2()) { if (nb) nb.onclick = next; }
-    else if (nb) nb.onclick = () => { S.stBand = false; next(); };
-  }
-  if (name === 'chair') {
-    const nb = $('[data-stnext]');
-    // Version 2's second teaching screen: its Next goes to the profile ask (and the issues' Next skips both screens for someone who has seen
-    // them). Where something is followed and there is nothing to ask (signed in, a number or a link already given) the cover is the follow's
-    // celebration and Home follows it, as the issues' Next does in version 1; someone who followed nothing (Skip on Your issues) goes on
-    // quietly, and the ask and the cover are passed over.
-    if (nb) nb.onclick = () => {
-      wizSet({ why: true }); track(name, 'next');
-      if (followsAnything() && !askAlerts() && !wiz().via) {
-        S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
-        if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true }), { end: true }); return; }
-      }
-      goStep(step, step + 1);
-    };
+    if (v2()) {
+      // Version 2's road (R-357, Nate 1 Nov): the choices are counted as 'answer' (an event the database already takes) with the stop
+      // as lesson_step (1 the email to the chair, 2 testimony), never which choice, as the story's stage 3 and 4 never counted theirs.
+      const r = roadState();
+      if (r) lessons().roadStart(r.E || lessons().exampleFrom(NOBILL, { off: isOff(), via: '' }), { back, redraw: !fresh, soft: !!r.pk.hypo || r.none, onPick: stop => track(name, 'answer', { lesson_step: stop }) });
+      // Next goes to the profile ask (and the issues' Next skips the road for someone who has seen it). Where something is followed and there
+      // is nothing to ask (signed in, a number or a link already given) the cover is the follow's celebration and Home follows it, as the
+      // issues' Next does in version 1; someone who followed nothing (Skip on Your issues) goes on quietly, and the ask and the cover
+      // are passed over. Skip does the same as it does everywhere (start.js), without marking the road seen.
+      if (nb) nb.onclick = () => {
+        wizSet({ why: true }); track(name, 'next');
+        if (followsAnything() && !askAlerts() && !wiz().via) {
+          S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
+          if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true }), { end: true }); return; }
+        }
+        goStep(step, step + 1);
+      };
+    } else {
+      wireBand();
+      if (nb) nb.onclick = () => { S.stBand = false; next(); };
+    }
   }
   if (name === 'soon') {
     abSeen('act');   // the test 'act' (R-150): the two versions differ on this page and nowhere else
@@ -1222,9 +1249,9 @@ export function barStep(name, step, off) {
       return bar2(followLabel(m.count), { icon: 'star' });
     }
     case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU() (wireStep)
-    case 'chair': return bar1('Next');   // version 2's second teaching screen (its first is 'voice', below)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
-    case 'voice': return v2() ? bar1('Next') : wiz().via && wiz().viaActed
+    // Version 2's road: Skip always, Next asleep until the second stop's good outcome has played (lessons.js wakeNext: hidden, not greyed)
+    case 'voice': return v2() ? bar2('Next', { iconEnd: 'arrow-right' }, { 'data-stnext': '1', hidden: '' }) : wiz().via && wiz().viaActed
       ? `<div class="st-bar"><div class="st-btns">${btn(GO_HELP, { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
       : bar2(GO_YOU(), { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();
@@ -1251,7 +1278,6 @@ export function renderStep(name, step) {
     case 'issues': return stepIssues(step);
     case 'bill': return stepLesson(step);
     case 'voice': return stepVoice(step);
-    case 'chair': return stepWhy(step, 2);
     case 'you': return stepYou(step);
     case 'soon': return stepSoon(step);
     case 'alerts': return stepAlerts(step);

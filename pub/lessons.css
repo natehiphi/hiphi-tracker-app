@@ -268,6 +268,17 @@
 /* stages 3 and 4 (R-255): the scene the picture names, 'set' the hearing on the list, 'c' the email that asks for one,
    't' the notes that carry the bill on, 'no' no one asking (the road ahead greys, the bill is stamped) */
 .lx-story[data-scene="no"] .lx-c3-no, .lx-story[data-scene="t"] .lx-c3-t, .lx-story[data-scene="c"] .lx-c3-c, .lx-story[data-scene="set"] .lx-c3-set, .lx-story[data-scene="need"] .lx-c3-need { display: inline; }
+/* version 2's road (R-357, Nate 1 Nov): "no2" = doing nothing at the second stop, the road ahead greyed with the hearing still on the list */
+.lx-story[data-scene="no2"] .lx-c3-no, .lx-story[data-scene="no2"] .lx-c3-keep { display: inline; }
+.lx-story[data-scene="no2"] .lx-r3 .lx-b3 { display: none; }
+.lx-roadcap p { margin: 0; font-size: var(--t16); color: var(--n700); }
+.lx-roadcap p + p, .lx-roadcap #rd-stage { margin-top: var(--s8); }
+.lx-roadcap p.rd-intro, .lx-roadcap #rd-q { color: var(--n900); }
+.lx-roadcap b { color: var(--n900); }
+.lx-roadcap #rd-q:focus { outline: none; }   /* focus lands on the new words so a screen reader says them; the words are not a control */
+.lx-roadcap #rd-doors { margin-top: var(--s12); }
+.lx-doors.rd-one { grid-template-columns: minmax(0, 1fr); }
+.lx-doors[hidden], #rd-res[hidden] { display: none; }
 .actionbar.lx-asleep { display: none; }   /* the lesson page's bar has only Next, asleep until a choice (R-255) */
 .lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
 .lx-saidbox.lx-got, .lx-saidbox.lx-room { margin-top: var(--s12); }   /* lx-room: its room kept before the choice (lessons.js reserveSaid) */
