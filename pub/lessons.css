@@ -381,3 +381,9 @@
 p.lx-count + h1 { margin-top: 0; }
 /* page 5 on a short phone (R-357): the heading and the first field show in the first screenful, so the lede (which the page's own key and the form already say) waits */
 @media (max-height: 699px) and (max-width: 899px) { .st-planpage:not(.st-thanks) .lede { display: none; } }
+/* Page 5 on a laptop (the critic, 1 Nov): the heading and its line come first, then the picture, as on pages 1 to 4; a phone keeps the picture first. */
+@media (min-width: 900px) {
+  .st-planpage:not(.st-thanks) .st-intro { display: flex; flex-direction: column; }
+  .st-planpage:not(.st-thanks) .st-intro > :is(h1, .lede) { order: 1; }
+  .st-planpage:not(.st-thanks) .st-intro > :has(.tr-plan) { order: 2; margin-top: var(--s16); }
+}
