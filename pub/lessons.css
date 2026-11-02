@@ -359,3 +359,25 @@
   .lx, .lx *, .lx *::before, .lx *::after, .lx-story, .lx-story * { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
     transition-duration: .001ms !important; transition-delay: 0ms !important; }
 }
+
+/* ================================================================ Version 2's teaching, "the island road" (R-357, pub/v2/road.js)
+   One picture that stays put (pages 2 to 4 only swap what is drawn on it) and words that slide. On a phone under 400px the picture
+   runs edge to edge (the host may set --tr-bleed to its own side gutter) so the 13px labels stay 11px or more at 320px wide. */
+.tr-pic { position: relative; overflow: hidden; border-radius: var(--r16); background: var(--p100); }
+.tr-sv { display: block; width: 100%; height: auto; }
+.tr-sv text { font-family: var(--font); }
+.tr-sv [data-k^="L"] { transition: fill .25s; }
+.tr-onpaper { background: var(--p50); }
+.tr-band { aspect-ratio: 360 / 130; overflow: hidden; background: var(--p50); }
+.tr-band > * { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tr-onpaper .tr-sv { margin-top: -21%; position: relative; }
+@media (max-width: 399px) { .tr-pic { margin-inline: calc(var(--tr-bleed, 16px) * -1); border-radius: 0; } }
+.tr-cap p.tr-ex { margin: 0 0 2px; font-size: var(--t13); font-weight: 700; letter-spacing: .02em; color: var(--n500); }
+.tr-cap p.tr-q { margin-top: var(--s12); color: var(--n900); font-weight: 700; }
+.tr-cap h2:focus { outline: none; }
+.tr-ch { gap: var(--s8); flex-direction: column; }
+.tr-ch svg { width: 26px; height: 26px; flex: none; }
+.tr-cap .lx-saidbox { margin-top: var(--s12); }
+.tr-swap > * { animation: lx-rise .28s var(--ease) both; }
+.tr-said.tr-swap { animation: lx-rise .28s var(--ease) both; }
+@media (hover: none) { .tr-cap .lx-ch:hover { border-color: var(--n400); background: var(--n0); } }
