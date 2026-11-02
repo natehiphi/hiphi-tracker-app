@@ -74,7 +74,6 @@
   "What we keep and who sees it",
   "What you did and what came of it. Only you see it.",
   "When it’s time, we help you speak up",
-  "Where you come in",
   "Why your voice matters",
   "You see what happened",
   "Your first visit",
@@ -89,7 +88,6 @@
  "files": {
   "pub/langpick.js": 1,
   "pub/more.js": 48,
-  "pub/start-rest.js": 1,
   "pub/start.js": 38
  }
 }

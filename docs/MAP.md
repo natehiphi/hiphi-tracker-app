@@ -387,14 +387,15 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   for a letter started) and otherwise open today's walkthrough. Home does not import `pub/v2/slide.js` (a static import would put it in
   Home's tree, which `check_split.mjs` rule 5 wants named in `track.html`); it already holds the same day words. Tests:
   `tests/v2_home.py`, and the version 2 set (three people, phone and laptop) in `tests/home_calm.py`.
-- **The first visit, in ten taps by the shortest road (Part 4; the road screen since 1 Nov).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
+- **The first visit, in thirteen taps by the shortest road (Part 4; the island road since 1 Nov).** `v2()` in `pub/start.js` (reads `app.v2()`) swaps the
   flow: `FLOW_V2 = ['topics', 'issues', 'voice', 'alerts']` after the welcome, and `FLOW_LINK_V2 = ['followask', 'alerts']` for a shared
   bill's visit; past the last step is Home (`goStep`/`wire` call `finish()`). Welcome and topics are unchanged; Your issues starts two
   ticked per topic, at least one (`model2` in `start-rest.js`), under the line "The two most active under each topic are ticked; change
-  them as you like."; then ONE teaching screen, the road (Nate 1 Nov: the two text screens "don't work"; R-357): `voice`, "Where you come in", `stepRoad` in `start-rest.js` over
-  `roadHTML` / `roadStart` in `lessons.js`, which reuse stage 3 and 4's drawing and scenes (need, c, t, no, plus no2 and no stamp). Two stops, each
-  two equal buttons (Email the chair / Do nothing, then Send testimony / Do nothing); "Do nothing" leaves one "Try ..." button; Skip always, Next
-  hidden until the end (`wakeNext`). `roadPick()` chooses the bill (the person's own supported bill at or before its hearing, else an example HIPHI
+  them as you like."; then the teaching, five pages on one road (Nate 1 Nov; R-357): `voice`, `stepRoad` in `start-rest.js` over `pub/v2/road.js` (re-exported by `lessons.js`;
+  the art is "the island road", one 360x300 svg whose layers change, so the road never jumps). Page 1 "Meet <bill>" (the paper and HIPHI's stamp), 2 its road (the bill rides to its stop),
+  3 "It needs a hearing" (Email the chair / Do nothing), 4 "A hearing is set" (Send testimony / Do nothing), each choice showing a scene and an answer; both choices
+  stay to try. Page 5 is the alerts step (`stepAlerts`: `planPic`, "That's where you come in", then the profile ask; its buttons Tell me when / Not now). The page title is the
+  screen's h1, changed by `teachStart`; Next (`teachNext`) and Back (`start.js`, `teachPrev`) walk the pages before leaving; Skip always; Next hidden on pages 3 and 4 until a choice. `roadPick()` chooses the bill (the person's own supported bill at or before its hearing, else an example HIPHI
   supports, labelled so); the private counts know it as `voice`, each choice an `answer` with the stop as `lesson_step`; one column no more: the
   drawing is beside the words on a laptop; seen once (`wiz().why`, set by Next or Skip, so "Edit my issues" does not teach twice); then the profile ask as today (`alerts.js`,
   unchanged). Its Mahalo is the same cover (`coverAndFold`, which hands `end: true` to `coverEnd`): no band to fold into because Home

@@ -99,7 +99,7 @@ const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
 // issues (two ticked per topic), the profile ask, and then Home, with the teaching between the issues and the ask. The teaching was two
 // text screens (Nate's note of 31 Oct) until he said on 1 Nov that they do not work and missed version 1's road: it is now ONE screen,
 // the road, where people choose and see what emailing the chair and sending testimony do ('voice', the step the private counts know, so
-// no migration; pub/lessons.js roadHTML, pub/start-rest.js stepRoad). The story's four pages, "This Year and Next" and "You're all set"
+// no migration; pub/v2/road.js, pub/start-rest.js stepRoad). The story's four pages, "This Year and Next" and "You're all set"
 // are not in it: the story is a card on Home (pub/v2/story.js), and Home is the ending (DESIGN C-12, C-13). A shared bill's visit ends on
 // the profile ask too.
 const FLOW_V2 = ['topics', 'issues', 'voice', 'alerts'];
@@ -577,7 +577,7 @@ function wire(route) {
     goStep(step, step + 1);
   });
   // Back leaves the screen (B-4). The story walks back through its stages first (lessonPrev).
-  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && LZ?.lessonPrev('story')) return; goBack(+el.dataset.stback); });
+  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && LZ?.lessonPrev('story')) return; if (name === 'voice' && v2() && LZ?.teachPrev()) return; goBack(+el.dataset.stback); });
   // A link straight to a named step (the empty "Coming up" page's way back to the tiles, R-249): backwards, like Back, without
   // Back's step arithmetic.
   $$('[data-stgo]').forEach(el => el.onclick = () => { track(name, 'back'); LZ?.lessonStop(); S.stBack = true; swap(() => app.go('#/start/' + el.dataset.stgo), 'back'); });
@@ -636,7 +636,7 @@ function markDrops(st) {
 }
 // Left whole, and may scroll: the six topics and Your issues (Nate, 12 Oct: "we need to show people many options to choose
 // from, do not cut that down at all"; the topic tiles "so pretty before").
-const FIT_EXEMPT = '.st-topics, .st2';
+const FIT_EXEMPT = '.st-topics, .st2, .st-roadpage, .st-planpage';   // the teaching's road scrolls on a short phone (R-357)
 export function fitScreen() {
   const st = document.querySelector('main > .st'); if (!st || planOn() || st.matches(FIT_EXEMPT)) return;
   markDrops(st);
@@ -673,7 +673,7 @@ export default {
     if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
     if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
     if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
-    if (n === 'voice' && v2()) return 'Where you come in';
+    if (n === 'voice' && v2()) return 'How a bill moves';
     return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);

@@ -32,7 +32,7 @@ const pt = l => mp().getPointAtLength(l);
 const lab = (x, y, s, { k = '', a = 'middle', size = 13 } = {}) => `<text x="${x}" y="${y}"${k} font-size="${size}" font-weight="700" stroke="var(--n0)" stroke-width="4" stroke-linejoin="round" paint-order="stroke" text-anchor="${a}">${s}</text>`;
 const check = (x, y, s = 1) => `<path d="M${x - 4 * s} ${y + .3 * s}l${2.8 * s} ${2.9 * s}l${5.4 * s} ${-6 * s}" stroke="var(--n0)" stroke-width="${2.4 * s}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
 const tick = (i, [x, y], r = 9) => `<g transform="translate(${x} ${y})"><g data-k="t${i}" style="opacity:0"><circle r="${r}" fill="var(--p700)"/>${check(0, 0, r / 9)}</g></g>`;
-const stop = (i, [x, y], r = 9) => `<circle cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/><circle data-k="g${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n50)" stroke="var(--n300)" stroke-width="3" style="opacity:0"/>`;
+const stop = (i, [x, y], r = 9) => `<circle data-k="s${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/><circle data-k="g${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n50)" stroke="var(--n300)" stroke-width="3" style="opacity:0"/>`;
 const sheet = (grey, k) => `<g data-k="${k}"${grey ? ' style="opacity:0"' : ''}><path d="M0 2Q0 0 2 0H22L28 6V38Q28 40 26 40H2Q0 40 0 38Z" fill="${grey ? 'var(--n100)' : 'var(--n0)'}" stroke="${grey ? 'var(--n400)' : 'var(--p800)'}" stroke-width="2"/><rect x="-3" y="5" width="20" height="8" rx="2" fill="${grey ? 'var(--n400)' : 'var(--p700)'}"/><path d="M5 22h16M5 29h16" stroke="${grey ? 'var(--n300)' : 'var(--p200)'}" stroke-width="3" stroke-linecap="round"/></g>`;
 // the Capitol, the one landmark: a thin roof on six slim columns, the two cone chambers between them, the reflecting pool
 const capitol = (x, y) => { const cols = [-50, -30, -10, 10, 30, 50], cone = cx => `M${cx - 23} -3C${cx - 16} -12 ${cx - 10} -30 ${cx - 5} -37H${cx + 5}C${cx + 10} -30 ${cx + 16} -12 ${cx + 23} -3Z`, side = cx => `M${cx} -37H${cx + 5}C${cx + 10} -30 ${cx + 16} -12 ${cx + 23} -3H${cx}Z`;
@@ -99,7 +99,7 @@ function roadSVG(E, o) {
   const grpOf = i => LAB.filter(l => l[0] === i).map(([, x, y, key]) => lab(x, y, esc(text[key]))).join('');
   const d = ROAD;
   return `<svg class="tr-sv" viewBox="0 0 360 300" aria-hidden="true" focusable="false"><defs><mask id="tr-gm" maskUnits="userSpaceOnUse" x="0" y="0" width="360" height="300"><path data-k="creep" d="${d}" stroke="#fff" stroke-width="32" fill="none" style="stroke-dasharray:0 3000"/></mask></defs>
-    ${world()}<g data-k="warm" style="opacity:0">${warm()}</g>${capitol(88, 228)}<g data-k="dim" style="opacity:0">${dim()}</g>
+    ${world()}<g data-k="warm" style="opacity:0">${warm()}</g>${capitol(88, 232)}<g data-k="dim" style="opacity:0">${dim()}</g>
     <path d="${d}" transform="translate(0 2)" stroke="#E6D1A6" stroke-width="14" fill="none" stroke-linecap="round" opacity=".7"/><path d="${d}" stroke="#E6D1A6" stroke-width="14" fill="none" stroke-linecap="round"/><path d="${d}" transform="translate(0 -.6)" stroke="#F3E3C0" stroke-width="10.5" fill="none" stroke-linecap="round"/>
     <path d="${d}" stroke="var(--n0)" stroke-width="2.2" stroke-dasharray="4 6" fill="none" stroke-linecap="round"/><path data-k="trav" d="${d}" stroke="var(--p500)" stroke-width="3.2" fill="none" stroke-linecap="round" style="stroke-dasharray:0 3000"/>
     <g mask="url(#tr-gm)"><path d="${d}" transform="translate(0 2)" stroke="var(--n300)" stroke-width="14" fill="none" stroke-linecap="round" opacity=".7"/><path d="${d}" stroke="var(--n200)" stroke-width="14" fill="none" stroke-linecap="round"/><path d="${d}" transform="translate(0 -.6)" stroke="var(--n100)" stroke-width="10.5" fill="none" stroke-linecap="round"/><path d="${d}" stroke="var(--n300)" stroke-width="2.2" stroke-dasharray="4 6" fill="none" stroke-linecap="round"/></g>
@@ -116,9 +116,9 @@ function roadSVG(E, o) {
     ${P.slice(0, 6).map((_, i) => `<g data-k="L${i}" style="fill:var(--p900)">${grpOf(i)}</g>`).join('')}
     <circle data-k="halo" r="18" fill="none" stroke="var(--p400)" stroke-width="3" style="opacity:0"/>
     <g data-k="bill" transform="translate(${bx.toFixed(1)} ${by.toFixed(1)})"><g transform="scale(.78) translate(-14 -20)">${sheet(0, 'bw')}${sheet(1, 'bg')}</g></g>
-    <g data-k="tag" transform="translate(${tx.toFixed(1)} ${(by + 18).toFixed(1)})"><rect x="${-w / 2}" y="0" width="${w}" height="19" rx="9.5" fill="var(--n0)" opacity=".92"/><text data-k="tagt" y="14" font-size="13" font-weight="700" fill="var(--p700)" text-anchor="middle">${num} is here</text></g>
-    <g data-k="s1" style="opacity:0"><rect x="248" y="208" width="4" height="22" rx="1.5" fill="var(--n400)"/><rect x="212" y="190" width="76" height="24" rx="5" fill="var(--n0)"/><rect x="212" y="190" width="76" height="4" rx="2" fill="var(--n400)"/><text x="250" y="208" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">No hearing</text></g>
-    <g data-k="s2" style="opacity:0"><rect x="248" y="208" width="4" height="22" rx="1.5" fill="var(--n400)"/><rect x="224" y="190" width="52" height="24" rx="5" fill="var(--n0)"/><rect x="224" y="190" width="52" height="4" rx="2" fill="var(--n400)"/><text x="250" y="208" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">Held</text></g></svg>`;
+    ${o.none ? '' : `<g data-k="tag" transform="translate(${tx.toFixed(1)} 161)"><rect x="${-w / 2}" y="0" width="${w}" height="17" rx="8.5" fill="var(--n0)" opacity=".92"/><text data-k="tagt" y="13" font-size="13" font-weight="700" fill="var(--p700)" text-anchor="middle">${num} is here</text></g>`}
+    <g data-k="s1" style="opacity:0"><rect x="248" y="226" width="4" height="12" rx="1.5" fill="var(--n400)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="${CARD.h + 4}" rx="7" fill="var(--n0)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="5" rx="2.5" fill="var(--n400)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 25}" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">No hearing</text></g>
+    <g data-k="s2" style="opacity:0"><rect x="248" y="226" width="4" height="12" rx="1.5" fill="var(--n400)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="${CARD.h + 4}" rx="7" fill="var(--n0)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="5" rx="2.5" fill="var(--n400)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 25}" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">Held</text></g></svg>`;
 }
 
 // ---------------------------------------------------------------- the timeline: every movement is {at, dur, fn(e), ease}; e runs 0 to 1, eased
@@ -274,30 +274,46 @@ const ICON = { mail: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--p700)" 
   note: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--p700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 19h4"/></svg>',
   none: '<svg viewBox="0 0 24 24" fill="none" stroke="var(--n500)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12h7"/></svg>' };
 function said(E, k, v) {
-  const num = esc(E.num), nx = esc(ids(E)[Math.min(stopAt(TS.o) + 1, 4)]);
+  const num = TS.o.none ? 'the bill' : esc(E.num), nx = esc(ids(E)[Math.min(stopAt(TS.o) + 1, 4)]);
   const T = { chair: ['Chairs pick which bills get a hearing, and they notice who writes in. Emails like yours make a hearing more likely.', 'With nobody asking, it can sit without one.'],
     none3: ['With nobody asking, it can sit without a hearing. Then it can’t pass this year.', 'An email to the chair can help it get one.'],
     testimony: [`Testimony is a few sentences saying what you think. The committee reads it before it votes, and it can carry ${num} on to the ${nx}.`, 'With nothing sent, it can be held.'],
     none4: ['With nothing sent, the committee can hold it, and then it can’t pass this year.', 'Testimony can carry it on.'] }[v === 'none' ? `none${k}` : v];
   return `<p class="lx-said${v === 'none' ? ' lx-said-no' : ''}">${T[0]}</p><p class="lx-other">${T[1]}</p>`;
 }
+// non-breaking hyphens: "e-cigarettes" never splits across two lines (applied to the text between tags only)
+const nbh = h => h.replace(/>([^<]+)</g, (m, t) => '>' + t.replace(/\b([\w\u02bb]+(?:-[\w\u02bb]+)+)\b/g, '<span class="tr-nb">$1</span>') + '<');
 function capHTML(E, o, k, { sayAll = '' } = {}) {
-  const ex = k === 1 && o.example ? '<p class="tr-ex">An example bill</p>' : '', head = `${ex}<p class="lx-count">${k} of ${TEACH_LAST}</p><h2 id="tr-h" tabindex="-1">${TITLE[k](E)}</h2>`;
-  if (k < 3) return head + pageWords(E, o, k);
+  if (k < 3) return nbh(pageWords(E, o, k));
   const [q, opts] = ASK[k], pick = TS.picks[k], v = pick || '';
-  return `${head}<p class="tr-q">${q}</p><div class="lx-doors tr-doors" role="group" aria-label="${q}">${opts.map(([val, l, ic]) => `<button type="button" class="lx-ch lx-door tr-ch" data-tr="${val}" aria-pressed="${pick === val}">${ICON[ic]}<span>${l}</span></button>`).join('')}</div>
-    <div class="lx-saidbox lx-got tr-said" id="tr-said" aria-live="polite">${sayAll || (pick ? said(E, k, v) : '')}</div>`;
+  return nbh(`<p class="tr-q">${q}</p><div class="lx-doors tr-doors" role="group" aria-label="${q}">${opts.map(([val, l, ic]) => `<button type="button" class="lx-ch lx-door tr-ch" data-tr="${val}" aria-pressed="${pick === val}">${ICON[ic]}<span>${l}</span></button>`).join('')}</div>
+    <div class="lx-saidbox lx-got tr-said" id="tr-said" aria-live="polite">${sayAll || (pick ? said(E, k, v) : '')}</div>`);
+}
+// The screen's own heading (h1#st-h) says the page: "k of n" and the title above it, and an example's small label on page 1.
+const off = () => (TS.o && TS.o.none ? 1 : 0);   // with no bill at all, page 1 (the paper) is left out and the others count 1 to 3
+function head(E, o, k) {
+  const ex = k === 1 && o.example ? '<p class="tr-ex" id="tr-ex">An example bill</p>' : '';
+  return `${ex}<p class="lx-count" id="tr-count">${k - off()} of ${TEACH_LAST - off()}</p><h1 class="hero" id="st-h" tabindex="-1">${TITLE[k](E)}</h1>`;
+}
+function syncHead(k) {
+  const h = document.getElementById('st-h'); if (!h) return;
+  h.innerHTML = TITLE[k](TS.E);
+  let c = document.getElementById('tr-count'); if (!c) { c = document.createElement('p'); c.className = 'lx-count'; c.id = 'tr-count'; h.before(c); }
+  c.textContent = `${k - off()} of ${TEACH_LAST - off()}`;
+  const ex = document.getElementById('tr-ex'), want = k === 1 && TS.o.example;
+  if (want && !ex) { const e = document.createElement('p'); e.className = 'tr-ex'; e.id = 'tr-ex'; e.textContent = 'An example bill'; c.before(e); } else if (!want && ex) ex.remove();
 }
 const picInner = (E, o, k) => k === 1 ? `<div class="tr-band">${issueBand(o.issue || null, DEMO) || CAPITOL}</div>${paperSVG(E)}` : roadSVG(E, o);
 
 // ---------------------------------------------------------------- the interface
 export const TEACH_LAST = 4;
-export const teachPage = () => TS.k;
-const keyOf = (E, o) => `${E.id}|${(o.issue && o.issue.id) || ''}|${stopAt(o)}`;
-function begin(E, o) { const key = keyOf(E, o); TS.E = E; TS.o = o = { soft: false, example: false, issue: null, mine: false, at: 0, ...o }; if (TS.key !== key) { TS.key = key; TS.k = 1; TS.picks = {}; } return o; }
+export const teachLast = () => TEACH_LAST - off();   // 3 when HIPHI supports no bill at all (o.none): no page 1
+export const teachPage = () => TS.k - off();
+const keyOf = (E, o) => `${E.id}|${(o.issue && o.issue.id) || ''}|${stopAt(o)}|${!!o.none}`;
+function begin(E, o) { const key = keyOf(E, o); TS.E = E; TS.o = o = { soft: false, example: false, issue: null, mine: false, at: 0, ...o }; if (TS.key !== key) { TS.key = key; TS.k = 1 + off(); TS.picks = {}; } return o; }
 export function teachHTML(E, o = {}) {
   o = begin(E, o);
-  return { pic: `<div class="tr-pic${TS.k === 1 ? ' tr-onpaper' : ''}" id="tr-pic" data-page="${TS.k}">${picInner(E, o, TS.k)}</div>`,
+  return { head: head(E, o, TS.k), pic: `<div class="tr-pic${TS.k === 1 ? ' tr-onpaper' : ''}" id="tr-pic" data-page="${TS.k}">${picInner(E, o, TS.k)}</div>`,
     main: `<div class="lx lx-l-road tr-l" data-lx="teach" data-page="${TS.k}"><div class="lx-scap lx-roadcap tr-cap" id="tr-cap">${capHTML(E, o, TS.k)}</div></div>` };
 }
 const root = () => document.querySelector('.lx[data-lx="teach"]');
@@ -312,9 +328,9 @@ function fit() {
     ASK[TS.k][1].forEach(([v]) => { pr.innerHTML = said(TS.E, TS.k, v); h = Math.max(h, pr.getBoundingClientRect().height); }); sb.style.minHeight = `${Math.ceil(h)}px`; }
   pr.remove();
 }
-function paint(k, { still = false, swap = true } = {}) {
+function paint(k, { still = false, swap = true, focus = false } = {}) {
   const r = root(), pic = document.getElementById('tr-pic'); if (!r || !pic) return;
-  const E = TS.E, o = TS.o, was = TS.k; TS.k = k; r.dataset.page = k;
+  const E = TS.E, o = TS.o, was = TS.k; TS.k = k; r.dataset.page = k; syncHead(k);
   const cap = r.querySelector('#tr-cap'); cap.style.minHeight = ''; cap.innerHTML = capHTML(E, o, k);
   if (swap) { cap.classList.remove('tr-swap'); void cap.offsetWidth; cap.classList.add('tr-swap'); }
   pic.dataset.page = k; pic.classList.toggle('tr-onpaper', k === 1);
@@ -325,12 +341,13 @@ function paint(k, { still = false, swap = true } = {}) {
     show(k === 2 ? 'road' : p ? (p === 'none' ? (k === 3 ? 'no1' : 'no2') : p === 'chair' ? 'chair' : 'test') : k === 3 ? 'need' : 'set', { still: still || (k > 2 && !!p) });
   }
   wake(); fit();
-  if (TS.onPage) TS.onPage(k);
+  if (TS.onPage) TS.onPage(k - off());
+  if (focus) { const h = document.getElementById('st-h'); if (h) h.focus({ preventScroll: true }); }
 }
 export function teachStart(E, o = {}, { back = false, redraw = false, onPick = null, onPage = null } = {}) {
   teachStop(); o = begin(E, o); TS.onPick = onPick; TS.onPage = onPage;
   const r = root(); if (!r || !document.getElementById('tr-pic')) return; TS.on = true;
-  if (!back && !redraw) { TS.k = 1; TS.picks = {}; }
+  if (!back && !redraw) { TS.k = 1 + off(); TS.picks = {}; }
   r.onclick = e => {
     const b = e.target.closest('[data-tr]'); if (!b || !r.contains(b)) return;
     const k = TS.k, v = b.dataset.tr; if (k < 3) return;
@@ -338,27 +355,30 @@ export function teachStart(E, o = {}, { back = false, redraw = false, onPick = n
     const box = r.querySelector('#tr-said'); box.innerHTML = said(E, k, v); box.classList.remove('tr-swap'); void box.offsetWidth; box.classList.add('tr-swap');
     if (TS.onPick) TS.onPick(k === 3 ? 1 : 2, v);
     show(v === 'none' ? (k === 3 ? 'no1' : 'no2') : v === 'chair' ? 'chair' : 'test'); wake();
+    const first = box.querySelector('.lx-said'); if (first) { first.tabIndex = -1; first.focus({ preventScroll: true }); }
+    requestAnimationFrame(() => { const m = box.getBoundingClientRect(), bar = document.querySelector('.actionbar, .st-bar, .bar'), bot = (bar ? bar.getBoundingClientRect().top : innerHeight) - 8, need = Math.min(m.bottom, m.top + 72);   // the answer's first lines in view above the bar
+      if (need > bot) scrollBy({ top: need - bot, behavior: reduced() ? 'auto' : 'smooth' }); });
   };
   TS.rz = () => fit(); addEventListener('resize', TS.rz);
   if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (TS.on && root()) fit(); });
-  paint(back ? TEACH_LAST : redraw ? TS.k : 1, { still: back || redraw, swap: false });
+  paint(back ? TEACH_LAST : redraw ? TS.k : 1 + off(), { still: back || redraw, swap: false });
 }
-export function teachNext() { if (!TS.on || TS.k >= TEACH_LAST) return false; if (TS.k + 1 >= 3) TS.picks[TS.k + 1] = null; paint(TS.k + 1); return true; }
-export function teachPrev() { if (!TS.on || TS.k <= 1) return false; paint(TS.k - 1, { still: true }); return true; }
+export function teachNext() { if (!TS.on || TS.k >= TEACH_LAST) return false; if (TS.k + 1 >= 3) TS.picks[TS.k + 1] = null; paint(TS.k + 1, { focus: true }); return true; }
+export function teachPrev() { if (!TS.on || TS.k <= 1 + off()) return false; paint(TS.k - 1, { still: true, focus: true }); return true; }
 export function teachStop() { TS.run++; TS.on = false; if (TS.rz) removeEventListener('resize', TS.rz); TS.rz = null; const r = root(); if (r) r.onclick = null; }
 
 // ---------------------------------------------------------------- page 5: the road, the bill at its stop, the flower, the key
 export function planPic(E, o = {}) {
-  o = begin(E, o); const A = stopAt(o), [sx] = P[A], fx = A === 2 ? sx - 22 : sx + 2, fy = A === 2 ? 173 : 171;
+  o = begin(E, o); const A = stopAt(o), [fx, fy] = P[A];   // the flower opens ON the stop's circle
   let svg = roadSVG(E, o);
   const keyG = `<g data-k="key"><rect x="160" y="186" width="140" height="44" rx="10" fill="var(--o50)" stroke="var(--o200)"/>${bloom(176, 200, 6, 'var(--o400)')}<text x="188" y="205" font-size="13" font-weight="700" fill="var(--o600)">Email the chair</text>${bloom(176, 218, 6, 'var(--o400)')}<text x="188" y="223" font-size="13" font-weight="700" fill="var(--o600)">Send testimony</text></g>`;
-  const fl = `<g transform="translate(${fx} ${fy}) scale(1.25)">${[0, 72, 144, 216, 288].map((r, i) => `<g transform="rotate(${r})"><ellipse data-k="fp${i}" cx="0" cy="-6.5" rx="4.6" ry="6.5" fill="var(--o400)" opacity="0"/></g>`).join('')}<circle data-k="fc" r="3" fill="#F9D56E" opacity="0"/></g>`;
+  const fl = `<g transform="translate(${fx} ${fy}) scale(1.5)">${[0, 72, 144, 216, 288].map((r, i) => `<g transform="rotate(${r})"><ellipse data-k="fp${i}" cx="0" cy="-6.5" rx="4.6" ry="6.5" fill="var(--o400)" opacity="0"/></g>`).join('')}<circle data-k="fc" r="3" fill="#F9D56E" opacity="0"/></g>`;
   svg = svg.replace('</svg>', `${fl}${keyG}</svg>`).replace('<svg class="tr-sv"', '<svg class="tr-sv tr-plan"');
   return `<div class="tr-pic" id="tr-pic" data-page="5">${svg}</div>`;
 }
 export function planStart({ instant = false } = {}) {
   teachStop(); const pic = document.getElementById('tr-pic'); TS.svg = pic && pic.querySelector('.tr-sv'); if (!TS.svg) return;
-  const A = stopAt(TS.o); reset(A, { card: '' }); sty('tag', 'opacity', 0); sty('card', 'opacity', 0); TS.st = 'plan';
+  const A = stopAt(TS.o); reset(A, { card: '' }); sty('tag', 'opacity', 0); sty(`s${A}`, 'opacity', 0); sty('card', 'opacity', 0); TS.st = 'plan';
   const pet = [0, 1, 2, 3, 4].map(i => ({ at: 150 + i * 90, dur: 300, fn: e => { const p = el(`fp${i}`); if (p) { p.setAttribute('opacity', e > 0 ? 1 : 0); p.setAttribute('transform', `scale(${e.toFixed(3)})`); } }, ease: out }));
   run([...pet, { at: 600, dur: 200, fn: opa('fc') }, { at: 750, dur: 450, fn: rise('key', 8), ease: out }], instant);
 }
