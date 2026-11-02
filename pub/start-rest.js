@@ -299,7 +299,7 @@ function roadState() {
 // An example always plays at its first side's committees; the person's own bill at the stop it really stands at.
 function roadArgs(r) {
   const E = r.E || lessons().exampleFrom(NOBILL, { off: isOff(), via: '' }), pk = r.pk;
-  return { E, o: { soft: !!pk.hypo || r.none, example: !!pk.example, issue: pk.issue || null, mine: !!pk.mine, at: pk.example || r.none ? 0 : lessons().roadAt(E), none: r.none } };
+  return { E, o: { soft: !!pk.hypo || r.none, example: !!pk.example, issue: pk.issue || null, mine: !!pk.mine, at: pk.example || r.none ? 2 : lessons().roadAt(E), none: r.none } };
 }
 function stepRoad(step) {
   const r = roadState(), top = topRow('voice', step);

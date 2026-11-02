@@ -60,7 +60,6 @@ import { HELP_WORDS } from './letters.js';
 import { situation, railHTML, railBrief } from './bill.js';
 import { reduced, later, burst, travel, stopTravel } from './fx.js';
 import { endHome } from './variant.js';
-import { teachStop } from './v2/road.js';
 
 import { LESSON_TITLES } from './topics.js';   // moved there (R-122): the first visit needs the titles before the lessons
 export { LESSON_TITLES };
@@ -1096,8 +1095,10 @@ export const lessonLast = name => LAST[name] || 1;   // the hosts' "last stage" 
 // Moved to pub/v2/road.js (R-357, "the island road"): the four teaching pages and page 5's picture. Only which moment a real bill is at stays here.
 export const roadMoment = E => momentKind(E);
 export const roadAt = E => sceneAt(E);   // the committee stop a real bill's teaching plays at: 0 on its first side, 2 on the other
-export { teachHTML, teachStart, teachNext, teachPrev, teachPage, teachLast, TEACH_LAST, planPic, planStart, teachStop } from './v2/road.js';
-export { teachStop as roadStop } from './v2/road.js';
+// Version 2's teaching (pub/v2/road.js) is loaded beside this file only under ?v2=1 (start.js lessonsLoad), so version 1's lessons
+// never carry its 47 KB; leaving a lesson stops its motion through this hook.
+let teachStopHook = null;
+export const onLessonStop = f => { teachStopHook = f; };
 
 // ---------------------------------------------------------------- the interface
 export function lessonHTML(name, E) {
@@ -1156,7 +1157,7 @@ export function lessonNext(name, E) {
   return false;
 }
 export function lessonStop() {
-  L.run++; teachStop();
+  L.run++; if (teachStopHook) teachStopHook();
   L.timers.forEach(clearTimeout); L.timers.clear();
   removeEventListener('resize', onResize); cancelAnimationFrame(resizeRaf);
   stopTravel(document.getElementById('lx-mine')); stopTravel(document.getElementById('lx-letter'));

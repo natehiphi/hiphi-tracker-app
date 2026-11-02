@@ -150,7 +150,7 @@ with sync_playwright() as pw:
       page_ok(pg, 1, 'road', ex, lb, shots=os.path.join(OUT, f'{tag}-p1.png'))
       nxt(pg, taps); r = page_ok(pg, 2, 'road', ex, lb, shots=os.path.join(OUT, f'{tag}-p2.png'))
       ok(r['focusIn'], f"{lb} p2: focus moved to the heading ({r['focus']})")
-      if ex: ok(norm(r['words']).find("Suppose it's with the") >= 0, f"{lb} p2: an example says 'Suppose it's with the ...' ({norm(r['words'])[-130:]!r})")
+      if ex: ok(norm(r['words']).find("Suppose it passed the") >= 0, f"{lb} p2: an example says 'Suppose it passed the ... and is now with the ... committees' ({norm(r['words'])[-130:]!r})")
       nxt(pg, taps); page_ok(pg, 3, 'need', ex, lb)
       for what, sc in path[:2] if pname == 'longest' else path[:1]:
         pick(pg, what, taps); page_ok(pg, 3, sc, ex, lb, shots=os.path.join(OUT, f'{tag}-p3-{sc}.png'))
@@ -264,16 +264,20 @@ with sync_playwright() as pw:
       r = pg.evaluate(ROAD); ok(r['picBox'][1] <= r['capBox'][0] + 4, f"{lb}: the picture is left of the words ({r['picBox']} {r['capBox']})")
     nxt(pg); page_ok(pg, 3, 'need', True, lb); sh('p3-before')
     for what, sc in LONG[:2]:
-      pick(pg, what); r = page_ok(pg, 3, sc, True, lb)
-      ok(r['saidTop'] >= 0 and r['saidTop'] + 40 <= r['barTop'], f"{lb} p3 {sc}: the answer's first lines are in view above the bar (top {r['saidTop']}, bar {r['barTop']})")
+      pick(pg, what, None, 3600); r = page_ok(pg, 3, sc, True, lb)
+      ok(r['saidTop'] >= 0 and r['saidBottom'] <= r['barTop'], f"{lb} p3 {sc}: the whole answer sits above the bar once the scene has played (bottom {r['saidBottom']}, bar {r['barTop']})")
       if sc == 'chair': sh('p3-chair')
     nxt(pg); page_ok(pg, 4, 'set', True, lb); sh('p4-before')
     for what, sc in LONG[2:]:
-      pick(pg, what, None, 2400); r = page_ok(pg, 4, sc, True, lb)
-      ok(r['saidTop'] >= 0 and r['saidTop'] + 40 <= r['barTop'], f"{lb} p4 {sc}: the answer's first lines are in view above the bar (top {r['saidTop']}, bar {r['barTop']})")
+      pick(pg, what, None, 4200); r = page_ok(pg, 4, sc, True, lb)
+      ok(r['saidTop'] >= 0 and r['saidBottom'] <= r['barTop'], f"{lb} p4 {sc}: the whole answer sits above the bar once the scene has played (bottom {r['saidBottom']}, bar {r['barTop']})")
       if sc == 'test': sh('p4-test')
     nxt(pg); r = pg.evaluate(LOOK); ok(norm(r['h1']) == PLAN_H and r['sx'] if False else norm(r['h1']) == PLAN_H, f"{lb} p5: the profile ask page")
-    pg.wait_for_timeout(1500); sh('p5'); ok(pg.evaluate('document.scrollingElement.scrollWidth - innerWidth') <= 0, f"{lb} p5: no sideways scroll")
+    pg.wait_for_timeout(1500); sh('p5')
+    if h < 700 and w < 900:
+      f = pg.evaluate("() => { const h = document.getElementById('st-h').getBoundingClientRect(), i = document.querySelector('.st-form input, .st-form .field input'), r = i && i.getBoundingClientRect(); return { h: Math.round(h.bottom), f: r ? Math.round(r.bottom) : -1, bar: Math.round((document.querySelector('.actionbar') || document.body).getBoundingClientRect().top), ih: innerHeight }; }")
+      ok(0 < f['h'] <= f['ih'] and 0 < f['f'] <= f['ih'], f"{lb} p5: the heading and the first field show in the first screenful ({f})")
+    ok(pg.evaluate('document.scrollingElement.scrollWidth - innerWidth') <= 0, f"{lb} p5: no sideways scroll")
     ok(not errs, f"{lb}: nothing in the console ({errs[:1]})")
     ctx.close()
 

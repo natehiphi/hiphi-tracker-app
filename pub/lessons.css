@@ -379,3 +379,5 @@
 .tr-nb { white-space: nowrap; }
 .tr-cap + .tr-cap { margin-top: 0; }
 p.lx-count + h1 { margin-top: 0; }
+/* page 5 on a short phone (R-357): the heading and the first field show in the first screenful, so the lede (which the page's own key and the form already say) waits */
+@media (max-height: 699px) and (max-width: 899px) { .st-planpage:not(.st-thanks) .lede { display: none; } }

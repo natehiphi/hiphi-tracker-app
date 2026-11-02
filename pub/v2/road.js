@@ -19,7 +19,9 @@ import { issueBand, CAPITOL } from '../art.js';
 const NS = 'http://www.w3.org/2000/svg';
 const P = [[72, 150], [182, 146], [292, 156], [240, 244], [160, 245], [88, 243]];   // Senate committees .. Law
 const ROAD = 'M26 152C42 151 57 150 72 150C110 150 146 146 182 146C226 146 266 145 292 156C310 165 318 182 317 200C316 226 290 244 240 244C210 244 186 245 160 245C134 245 112 244 88 243';
-const CARD = { x: 214, y: 186, w: 72, h: 40 };   // the hearing card, on the calm plain inside the bend
+let CARD = { x: 214, y: 186, w: 72, h: 40 }, PD = [0, 0];   // the hearing card, on the calm plain inside the bend (by stop 2); PD moves the neighbours with it
+// A real bill at stop 0 has its card just under the road to the right of that stop (it may lie over the Capitol's roof) and its neighbours beside it, never by the wrong committee.
+const place = A => { CARD = A === 0 ? { x: 140, y: 164, w: 72, h: 40 } : { x: 214, y: 186, w: 72, h: 40 }; PD = A === 0 ? [54, -26] : [0, 0]; };
 const LAB = [[0, 72, 117, 'S1'], [0, 72, 131, 'S2'], [1, 182, 130, 'V'], [2, 296, 117, 'C1'], [2, 296, 131, 'C2'], [3, 240, 271, 'O'], [4, 160, 271, 'G'], [5, 88, 271, 'Law']];
 const WAIT = [24, 48, 48, 48, 48, 48];   // how far before its stop the bill waits
 let MP = null, SL = null;
@@ -32,7 +34,7 @@ const pt = l => mp().getPointAtLength(l);
 const lab = (x, y, s, { k = '', a = 'middle', size = 13 } = {}) => `<text x="${x}" y="${y}"${k} font-size="${size}" font-weight="700" stroke="var(--n0)" stroke-width="4" stroke-linejoin="round" paint-order="stroke" text-anchor="${a}">${s}</text>`;
 const check = (x, y, s = 1) => `<path d="M${x - 4 * s} ${y + .3 * s}l${2.8 * s} ${2.9 * s}l${5.4 * s} ${-6 * s}" stroke="var(--n0)" stroke-width="${2.4 * s}" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
 const tick = (i, [x, y], r = 9) => `<g transform="translate(${x} ${y})"><g data-k="t${i}" style="opacity:0"><circle r="${r}" fill="var(--p700)"/>${check(0, 0, r / 9)}</g></g>`;
-const stop = (i, [x, y], r = 9) => `<circle data-k="s${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/><circle data-k="g${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n50)" stroke="var(--n300)" stroke-width="3" style="opacity:0"/>`;
+const stop = (i, [x, y], r = 9) => `<circle data-k="o${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n0)" stroke="var(--p300)" stroke-width="3"/><circle data-k="g${i}" cx="${x}" cy="${y}" r="${r - 1.5}" fill="var(--n50)" stroke="var(--n300)" stroke-width="3" style="opacity:0"/>`;
 const sheet = (grey, k) => `<g data-k="${k}"${grey ? ' style="opacity:0"' : ''}><path d="M0 2Q0 0 2 0H22L28 6V38Q28 40 26 40H2Q0 40 0 38Z" fill="${grey ? 'var(--n100)' : 'var(--n0)'}" stroke="${grey ? 'var(--n400)' : 'var(--p800)'}" stroke-width="2"/><rect x="-3" y="5" width="20" height="8" rx="2" fill="${grey ? 'var(--n400)' : 'var(--p700)'}"/><path d="M5 22h16M5 29h16" stroke="${grey ? 'var(--n300)' : 'var(--p200)'}" stroke-width="3" stroke-linecap="round"/></g>`;
 // the Capitol, the one landmark: a thin roof on six slim columns, the two cone chambers between them, the reflecting pool
 const capitol = (x, y) => { const cols = [-50, -30, -10, 10, 30, 50], cone = cx => `M${cx - 23} -3C${cx - 16} -12 ${cx - 10} -30 ${cx - 5} -37H${cx + 5}C${cx + 10} -30 ${cx + 16} -12 ${cx + 23} -3Z`, side = cx => `M${cx} -37H${cx + 5}C${cx + 10} -30 ${cx + 16} -12 ${cx + 23} -3H${cx}Z`;
@@ -94,7 +96,8 @@ const dim = () => `<rect width="360" height="300" fill="var(--n100)" opacity=".5
 const ids = E => { const nm = [`${E.start} committees`, `${E.start} vote`, `${E.other} committees`, `${E.other} vote`, E.x && E.x.ballot ? 'The voters' : 'Governor']; return nm; };
 const stopAt = o => { const a = +(o && o.at) || 0; return a === 2 ? 2 : a === 1 || a === 3 ? a : 0; };
 function roadSVG(E, o) {
-  const A = stopAt(o), nm = ids(E), [bx, by] = (({ x, y }) => [x, y])(pt(rest(A))), num = esc(E.num), w = Math.round((num.length + 8) * 6.9 + 14), tx = Math.min(Math.max(bx, 16 + w / 2), 344 - w / 2);
+  const A = stopAt(o); place(A);
+  const nm = ids(E), [bx, by] = (({ x, y }) => [x, y])(pt(rest(A))), num = esc(E.num), w = Math.round((num.length + 8) * 6.9 + 14), tx = Math.min(Math.max(bx, 16 + w / 2), 344 - w / 2);
   const text = { S1: `${E.start}`, S2: 'committees', V: `${E.start} vote`, C1: `${E.other}`, C2: 'committees', O: `${E.other} vote`, G: nm[4], Law: 'Law' };
   const grpOf = i => LAB.filter(l => l[0] === i).map(([, x, y, key]) => lab(x, y, esc(text[key]))).join('');
   const d = ROAD;
@@ -108,8 +111,8 @@ function roadSVG(E, o) {
       <g data-k="cs" style="opacity:0"><rect x="${CARD.x + 2}" y="${CARD.y + 3}" width="${CARD.w}" height="${CARD.h}" rx="7" fill="var(--p800)" opacity=".15"/><rect x="${CARD.x}" y="${CARD.y}" width="${CARD.w}" height="${CARD.h}" rx="7" fill="var(--n0)"/>
         <clipPath id="tr-wipe"><rect data-k="wipe" x="${CARD.x}" y="${CARD.y}" width="0" height="20"/></clipPath><g clip-path="url(#tr-wipe)"><path d="M${CARD.x} ${CARD.y + 7}a7 7 0 0 1 7 -7h${CARD.w - 14}a7 7 0 0 1 7 7v11h-${CARD.w}z" fill="var(--p700)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 13.5}" font-size="13" font-weight="700" fill="var(--n0)" text-anchor="middle">Hearing</text></g>
         <g transform="translate(${CARD.x + 14} ${CARD.y + 29})"><g data-k="ck"><circle r="7" fill="var(--p700)"/>${check(0, 0, .75)}</g></g><path d="M${CARD.x + 27} ${CARD.y + 26}h34M${CARD.x + 27} ${CARD.y + 32.5}h22" stroke="var(--p100)" stroke-width="3" stroke-linecap="round"/></g></g>
-    <g data-k="who"><g data-k="p0">${at(168, 230, .62, grown(168, 230))}</g><g data-k="p1">${at(190, 230, .66, `<g data-k="down">${older(190, 230, {}, 0)}</g><g data-k="up" style="opacity:0">${older(190, 230, {}, 1)}</g>`)}</g></g>
-    <g data-k="who3"><g data-k="q0">${at(148, 232, .66, young(148, 232))}</g><g data-k="q1">${at(168, 230, .62, grown(168, 230, { shirt: 'var(--p400)', skin: '#C68A5E', hair: '#5A3A22', pants: 'var(--n500)' }))}</g><g data-k="q2">${at(192, 230, .66, `<g data-k="qdown">${older(192, 230, { shirt: '#F4B223', skin: '#A8714C' }, 0)}</g><g data-k="qup" style="opacity:0">${older(192, 230, { shirt: '#F4B223', skin: '#A8714C' }, 1)}</g>`)}</g></g>
+    <g data-k="who"><g transform="translate(${PD[0]} ${PD[1]})"><g data-k="p0">${at(168, 230, .62, grown(168, 230))}</g><g data-k="p1">${at(190, 230, .66, `<g data-k="down">${older(190, 230, {}, 0)}</g><g data-k="up" style="opacity:0">${older(190, 230, {}, 1)}</g>`)}</g></g>
+    <g data-k="who3"><g transform="translate(${PD[0]} ${PD[1]})"><g data-k="q0">${at(148, 232, .66, young(148, 232))}</g><g data-k="q1">${at(168, 230, .62, grown(168, 230, { shirt: 'var(--p400)', skin: '#C68A5E', hair: '#5A3A22', pants: 'var(--n500)' }))}</g><g data-k="q2">${at(192, 230, .66, `<g data-k="qdown">${older(192, 230, { shirt: '#F4B223', skin: '#A8714C' }, 0)}</g><g data-k="qup" style="opacity:0">${older(192, 230, { shirt: '#F4B223', skin: '#A8714C' }, 1)}</g>`)}</g></g>
     <g transform="translate(${CARD.x + 36} ${CARD.y + 18})"><g data-k="mail" style="opacity:0">${mailG}</g></g>
     ${[0, 1, 2].map(i => `<g transform="translate(${CARD.x + 42 + i * 6} ${CARD.y + 31 - i * 2})"><g data-k="n${i}" style="opacity:0"><g transform="scale(.85)">${noteG}</g></g></g>`).join('')}
     ${petals('pc')}${petals('px')}
@@ -117,8 +120,8 @@ function roadSVG(E, o) {
     <circle data-k="halo" r="18" fill="none" stroke="var(--p400)" stroke-width="3" style="opacity:0"/>
     <g data-k="bill" transform="translate(${bx.toFixed(1)} ${by.toFixed(1)})"><g transform="scale(.78) translate(-14 -20)">${sheet(0, 'bw')}${sheet(1, 'bg')}</g></g>
     ${o.none ? '' : `<g data-k="tag" transform="translate(${tx.toFixed(1)} 161)"><rect x="${-w / 2}" y="0" width="${w}" height="17" rx="8.5" fill="var(--n0)" opacity=".92"/><text data-k="tagt" y="13" font-size="13" font-weight="700" fill="var(--p700)" text-anchor="middle">${num} is here</text></g>`}
-    <g data-k="s1" style="opacity:0"><rect x="248" y="226" width="4" height="12" rx="1.5" fill="var(--n400)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="${CARD.h + 4}" rx="7" fill="var(--n0)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="5" rx="2.5" fill="var(--n400)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 25}" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">No hearing</text></g>
-    <g data-k="s2" style="opacity:0"><rect x="248" y="226" width="4" height="12" rx="1.5" fill="var(--n400)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="${CARD.h + 4}" rx="7" fill="var(--n0)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="5" rx="2.5" fill="var(--n400)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 25}" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">Held</text></g></svg>`;
+    <g data-k="s1" style="opacity:0"><rect x="${CARD.x + 34}" y="${CARD.y + 40}" width="4" height="12" rx="1.5" fill="var(--n400)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="${CARD.h + 4}" rx="7" fill="var(--n0)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="5" rx="2.5" fill="var(--n400)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 25}" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">No hearing</text></g>
+    <g data-k="s2" style="opacity:0"><rect x="${CARD.x + 34}" y="${CARD.y + 40}" width="4" height="12" rx="1.5" fill="var(--n400)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="${CARD.h + 4}" rx="7" fill="var(--n0)"/><rect x="${CARD.x - 2}" y="${CARD.y - 2}" width="${CARD.w + 4}" height="5" rx="2.5" fill="var(--n400)"/><text x="${CARD.x + CARD.w / 2}" y="${CARD.y + 25}" font-size="13" font-weight="700" fill="var(--n700)" text-anchor="middle">Held</text></g></svg>`;
 }
 
 // ---------------------------------------------------------------- the timeline: every movement is {at, dur, fn(e), ease}; e runs 0 to 1, eased
@@ -129,7 +132,7 @@ const einv = s => { let lo = 0, hi = 1; for (let k = 0; k < 30; k++) { const m =
 const lerp = (a, b, e) => a + (b - a) * e;
 const TS = { k: 1, picks: {}, key: '', E: null, o: null, svg: null, run: 0, on: false, onPick: null, onPage: null, st: '' };
 function run(steps, still) {
-  const id = ++TS.run; steps.forEach(s => s.fn(0));
+  const id = ++TS.run; steps.forEach(s => s.fn(0)); TS.endMs = Math.max(...steps.map(s => s.at + s.dur)) * (+globalThis.TR_SPEED || 1);
   if (still || reduced()) { steps.forEach(s => s.fn(1)); return; }
   const t0 = performance.now(), sp = +globalThis.TR_SPEED || 1;
   const tick = now => { if (id !== TS.run) return; let live = false;
@@ -187,12 +190,12 @@ function scene(st, A) {
   if (st === 'set') return { r: { card: 'set' }, steps: [{ at: 0, dur: 1, fn: cardSet }, { at: 100, dur: 900, fn: ring(14, 30), ease: out }] };
   if (st === 'chair') return { r: { card: 'empty' }, steps: [{ at: 0, dur: 400, fn: opa('warm'), ease: out },
     { at: 0, dur: 350, fn: rise('p0', 8), ease: out }, { at: 80, dur: 350, fn: rise('p1', 8), ease: out }, { at: 380, dur: 100, fn: armUp('up', 'down') },
-    { at: 450, dur: 800, fn: arc('mail', 204 - (CARD.x + 36), 190 - (CARD.y + 18), 40, -18) }, { at: 1250, dur: 200, fn: e => { if (e > 0) sty('mail', 'opacity', 1 - e); } },
+    { at: 450, dur: 800, fn: arc('mail', 204 + PD[0] - (CARD.x + 36), 190 + PD[1] - (CARD.y + 18), 40, -18) }, { at: 1250, dur: 200, fn: e => { if (e > 0) sty('mail', 'opacity', 1 - e); } },
     { at: 1200, dur: 450, fn: cardSet, ease: out }, { at: 1600, dur: 280, fn: pop('ck'), ease: out }, { at: 1650, dur: 650, fn: burst('pc', cx, cy), ease: out }] };
   if (st === 'no1') return { r: { card: 'empty' }, steps: greyOut(A, 's1', .35) };
   if (st === 'no2') return { r: { card: 'set' }, steps: greyOut(A, 's2', .5) };
   // test: three notes arc onto the card one after another, then the bill rides on, the stop it left gets its check and petals
-  const hands = [[150, 190], [170, 176], [200, 186]], ln = [0, 1, 2].map(i => [CARD.x + 42 + i * 6, CARD.y + 31 - i * 2]);
+  const hands = [[150, 190], [170, 176], [200, 186]].map(([x, y]) => [x + PD[0], y + PD[1]]), ln = [0, 1, 2].map(i => [CARD.x + 42 + i * 6, CARD.y + 31 - i * 2]);
   return { r: { card: 'set', ringAt: Math.min(A + 1, 5) }, steps: [{ at: 0, dur: 250, fn: e => sty('tag', 'opacity', 1 - e) },
     { at: 0, dur: 350, fn: rise('q0', 8), ease: out }, { at: 70, dur: 350, fn: rise('q1', 8), ease: out }, { at: 140, dur: 350, fn: rise('q2', 8), ease: out }, { at: 350, dur: 100, fn: armUp('qup', 'qdown') },
     ...ln.map(([x, y], i) => ({ at: 420 + i * 150, dur: 700, fn: arc(`n${i}`, hands[i][0] - x, hands[i][1] - y, 36, -20) })),
@@ -202,7 +205,7 @@ function scene(st, A) {
 }
 function show(st, { still = false } = {}) {
   if (!TS.svg || !TS.svg.isConnected) return;
-  const A = stopAt(TS.o), sc = scene(st, A);
+  const A = stopAt(TS.o); place(A); const sc = scene(st, A);
   TS.st = st; reset(A, sc.r); run(sc.steps, still);
 }
 
@@ -262,7 +265,7 @@ function pageWords(E, o, k) {
   }
   if (k === 2) {
     const road = `Every bill takes this road: committees and a vote in the ${E.start}, then the same in the ${E.other}, then ${E.x && E.x.ballot ? 'the voters' : 'the Governor'}.`, ch = stopAt(o) <= 1 ? E.start : E.other, b = o.soft ? null : brief(E);
-    const where = o.soft ? `Suppose it’s with the ${ch} committees, waiting for a hearing. Each committee’s chair decides which bills get one.`
+    const where = o.soft ? (stopAt(o) >= 2 ? `Suppose it passed the ${E.start} and is now with the ${E.other} committees, waiting for a hearing.` : `Suppose it’s with the ${ch} committees, waiting for a hearing.`) + ' Each committee’s chair decides which bills get one.'
       : b ? `Right now it’s with ${NUMW.test(b.text) ? lc(b.text) : `the ${b.text}`}. ${b.n > 1 ? 'Each chair decides' : 'Its chair decides'} if it gets a hearing.` : `Right now it’s with the ${ch} committees. Each chair decides if it gets a hearing.`;
     return `<p>${esc(road)}</p><p>${esc(where)}</p>`;
   }
@@ -277,7 +280,7 @@ function said(E, k, v) {
   const num = TS.o.none ? 'the bill' : esc(E.num), nx = esc(ids(E)[Math.min(stopAt(TS.o) + 1, 4)]);
   const T = { chair: ['Chairs pick which bills get a hearing, and they notice who writes in. Emails like yours make a hearing more likely.', 'With nobody asking, it can sit without one.'],
     none3: ['With nobody asking, it can sit without a hearing. Then it can’t pass this year.', 'An email to the chair can help it get one.'],
-    testimony: [`Testimony is a few sentences saying what you think. The committee reads it before it votes, and it can carry ${num} on to the ${nx}.`, 'With nothing sent, it can be held.'],
+    testimony: [`Testimony is a few sentences saying what you think. The committee reads it before it votes, and it can carry ${num} on to the ${nx}.`, 'With nothing sent, the committee can hold it.'],
     none4: ['With nothing sent, the committee can hold it, and then it can’t pass this year.', 'Testimony can carry it on.'] }[v === 'none' ? `none${k}` : v];
   return `<p class="lx-said${v === 'none' ? ' lx-said-no' : ''}">${T[0]}</p><p class="lx-other">${T[1]}</p>`;
 }
@@ -356,8 +359,9 @@ export function teachStart(E, o = {}, { back = false, redraw = false, onPick = n
     if (TS.onPick) TS.onPick(k === 3 ? 1 : 2, v);
     show(v === 'none' ? (k === 3 ? 'no1' : 'no2') : v === 'chair' ? 'chair' : 'test'); wake();
     const first = box.querySelector('.lx-said'); if (first) { first.tabIndex = -1; first.focus({ preventScroll: true }); }
-    requestAnimationFrame(() => { const m = box.getBoundingClientRect(), bar = document.querySelector('.actionbar, .st-bar, .bar'), bot = (bar ? bar.getBoundingClientRect().top : innerHeight) - 8, need = Math.min(m.bottom, m.top + 72);   // the answer's first lines in view above the bar
-      if (need > bot) scrollBy({ top: need - bot, behavior: reduced() ? 'auto' : 'smooth' }); });
+    // once the scene has finished (at once under Reduce Motion) the WHOLE answer sits just above the bar; if the screen is too short for both, the answer wins
+    clearTimeout(TS.rv); TS.rv = setTimeout(() => { if (!TS.on || !box.isConnected) return; const m = box.getBoundingClientRect(), bar = document.querySelector('.actionbar') || document.querySelector('.st-bar'), bot = (bar && getComputedStyle(bar).position === 'fixed' ? bar.getBoundingClientRect().top : innerHeight) - 8;
+      if (m.bottom > bot) scrollBy({ top: m.bottom - bot, behavior: 'auto' }); }, reduced() ? 60 : TS.endMs + 80);
   };
   TS.rz = () => fit(); addEventListener('resize', TS.rz);
   if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (TS.on && root()) fit(); });
@@ -365,7 +369,7 @@ export function teachStart(E, o = {}, { back = false, redraw = false, onPick = n
 }
 export function teachNext() { if (!TS.on || TS.k >= TEACH_LAST) return false; if (TS.k + 1 >= 3) TS.picks[TS.k + 1] = null; paint(TS.k + 1, { focus: true }); return true; }
 export function teachPrev() { if (!TS.on || TS.k <= 1 + off()) return false; paint(TS.k - 1, { still: true, focus: true }); return true; }
-export function teachStop() { TS.run++; TS.on = false; if (TS.rz) removeEventListener('resize', TS.rz); TS.rz = null; const r = root(); if (r) r.onclick = null; }
+export function teachStop() { TS.run++; clearTimeout(TS.rv); TS.on = false; if (TS.rz) removeEventListener('resize', TS.rz); TS.rz = null; const r = root(); if (r) r.onclick = null; }
 
 // ---------------------------------------------------------------- page 5: the road, the bill at its stop, the flower, the key
 export function planPic(E, o = {}) {
@@ -373,12 +377,14 @@ export function planPic(E, o = {}) {
   let svg = roadSVG(E, o);
   const keyG = `<g data-k="key"><rect x="160" y="186" width="140" height="44" rx="10" fill="var(--o50)" stroke="var(--o200)"/>${bloom(176, 200, 6, 'var(--o400)')}<text x="188" y="205" font-size="13" font-weight="700" fill="var(--o600)">Email the chair</text>${bloom(176, 218, 6, 'var(--o400)')}<text x="188" y="223" font-size="13" font-weight="700" fill="var(--o600)">Send testimony</text></g>`;
   const fl = `<g transform="translate(${fx} ${fy}) scale(1.5)">${[0, 72, 144, 216, 288].map((r, i) => `<g transform="rotate(${r})"><ellipse data-k="fp${i}" cx="0" cy="-6.5" rx="4.6" ry="6.5" fill="var(--o400)" opacity="0"/></g>`).join('')}<circle data-k="fc" r="3" fill="#F9D56E" opacity="0"/></g>`;
-  svg = svg.replace('</svg>', `${fl}${keyG}</svg>`).replace('<svg class="tr-sv"', '<svg class="tr-sv tr-plan"');
+  // on a short phone the sky and the far sea are cropped (the labels keep their size) so the heading and the first field show in the first screenful
+  const short = matchMedia('(max-height: 699px) and (max-width: 899px)').matches;
+  svg = svg.replace('</svg>', `${fl}${keyG}</svg>`).replace('<svg class="tr-sv"', `<svg class="tr-sv tr-plan"${short ? ' viewBox="0 104 360 184"' : ''}`).replace('viewBox="0 0 360 300" aria-hidden', short ? 'aria-hidden' : 'viewBox="0 0 360 300" aria-hidden');
   return `<div class="tr-pic" id="tr-pic" data-page="5">${svg}</div>`;
 }
 export function planStart({ instant = false } = {}) {
   teachStop(); const pic = document.getElementById('tr-pic'); TS.svg = pic && pic.querySelector('.tr-sv'); if (!TS.svg) return;
-  const A = stopAt(TS.o); reset(A, { card: '' }); sty('tag', 'opacity', 0); sty(`s${A}`, 'opacity', 0); sty('card', 'opacity', 0); TS.st = 'plan';
+  const A = stopAt(TS.o); reset(A, { card: '' }); sty('tag', 'opacity', 0); sty(`o${A}`, 'opacity', 0); sty('card', 'opacity', 0); TS.st = 'plan';
   const pet = [0, 1, 2, 3, 4].map(i => ({ at: 150 + i * 90, dur: 300, fn: e => { const p = el(`fp${i}`); if (p) { p.setAttribute('opacity', e > 0 ? 1 : 0); p.setAttribute('transform', `scale(${e.toFixed(3)})`); } }, ease: out }));
   run([...pet, { at: 600, dur: 200, fn: opa('fc') }, { at: 750, dur: 450, fn: rise('key', 8), ease: out }], instant);
 }

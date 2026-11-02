@@ -66,7 +66,9 @@ const coreLoad = () => cP ??= import('./core.js').then(m => (C = m)).catch(e => 
 const restAsk = () => { if (!REST) restLoad().then(() => app.render()).catch(e => console.error(e)); return !!REST; };
 export const lessons = () => LZ;   // start-rest.js reads the lessons through this (an import is read-only)
 export const core = () => C;
-const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), app.ensureCss ? app.ensureCss(['lessons']) : null]).then(([m]) => (LZ = m)).catch(e => { lzP = null; throw e; });
+// Version 2 brings its teaching (pub/v2/road.js) with the lessons, one object for start-rest.js; version 1 never loads it (R-357).
+const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), v2() ? import('./v2/road.js') : null, app.ensureCss ? app.ensureCss(['lessons']) : null])
+  .then(([m, r]) => { if (r) m.onLessonStop(r.teachStop); return (LZ = r ? { ...m, ...r } : m); }).catch(e => { lzP = null; throw e; });
 export const lessonsAsk = () => { if (!LZ) lessonsLoad().then(() => app.render()).catch(e => console.error(e)); return !!LZ; };
 
 
