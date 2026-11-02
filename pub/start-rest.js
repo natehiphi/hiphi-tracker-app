@@ -254,7 +254,7 @@ function example() {
 // ================= Version 2's teaching: the road, one screen (R-357 part 4; Nate 1 Nov 2026) =================
 // Nate, 30 Oct: draft A on one screen; 31 Oct: two text screens; 1 Nov: "they don't work", he missed version 1's bill road, where people
 // choose and SEE what speaking up or silence does. Now ONE screen between Your issues and the profile ask, the step the private counts
-// know as 'voice' (no migration): the road stays put and only the words change (pub/lessons.js roadHTML, roadStart), in two stops, each
+// know as 'voice' (no migration): the road stays put and only the words change (pub/v2/road.js teachHTML, teachStart), in two stops, each
 // a full choice. Email the chair / Do nothing, then Send testimony / Do nothing; "Do nothing" greys the road ahead and leaves one button
 // that plays the other outcome. His goals: people come away knowing "bills stall without people" and "I can do this", the email to the
 // chair first, then testimony. The bill is a bill HIPHI supports (so "speak up for it" is true to the person's side): the person's own
@@ -281,17 +281,6 @@ function roadPick() {
   const any = [...poolBills(), ...((S.recapPool && S.recapPool.bills) || [])].filter(supported).sort(R.cmp)[0];
   return any ? { b: any, ...issueOf(any), mine: issueOf(any).mine, example: true, hypo: true } : { none: true };
 }
-// The first caption line, naming the person's issue (an example says so: "An example bill: ...")
-// (the second stop keeps only the bill: `short`)
-function roadIntro(pk, E) {
-  if (!E) return { long: 'A bill about your issues', short: 'A bill about your issues' };
-  // The issue's name is a name, kept as written after a colon: the names are phrases ("Let counties regulate tobacco sales"),
-  // so "about <name>" read wrong (the review, 1 Nov).
-  const num = `<b>${esc(E.num)}</b>`, nm = pk.issue ? esc(pk.issue.name) : '';
-  const on = nm ? `on ${pk.mine ? 'one of your issues' : 'the issue'}: ${nm.replace(/[.!?]$/, '')}` : '';
-  if (pk.example) return { long: `An example bill, ${num}, ${on || 'one HIPHI supports'}.`, short: `An example bill: ${num}.` };
-  return { long: `${num} ${on ? `is ${on}` : 'is a bill HIPHI supports'}.`, short: `${num}.` };
-}
 // A bill to stand on the drawing when HIPHI supports none yet: the road with no number. exampleFrom needs a bill, so a bare one stands in.
 const NOBILL = { id: 'road-none', bill_number: 'HB 0', hiphi_position: 'support', stage: 'first', chamber: 'H', referrals: [], session_year: 0 };
 function roadState() {
@@ -303,15 +292,20 @@ function roadState() {
   if (pk.b) { E = lessons().exampleFrom(pk.b, { off: isOff(), via: '' }); if (E && pk.example) E.id = 'road:' + E.id; }
   const none = !pk.b;
   // An example bill always plays at its first side's committees; the person's own bill, wherever it really stands.
-  roadKey = key; roadCache = { pk, E: E || null, none, intro: roadIntro(pk, none ? null : E) };
+  roadKey = key; roadCache = { pk, E: E || null, none };
   return roadCache;
+}
+// What the teaching (pub/v2/road.js) is told: the bill, and whether it is an example, whose issue, and the committee stop it plays at.
+// An example always plays at its first side's committees; the person's own bill at the stop it really stands at.
+function roadArgs(r) {
+  const E = r.E || lessons().exampleFrom(NOBILL, { off: isOff(), via: '' }), pk = r.pk;
+  return { E, o: { soft: !!pk.hypo || r.none, example: !!pk.example, issue: pk.issue || null, mine: !!pk.mine, at: pk.example || r.none ? 2 : lessons().roadAt(E), none: r.none } };
 }
 function stepRoad(step) {
   const r = roadState(), top = topRow('voice', step);
   if (!r) return skel(step, 'Finding a bill to show you');
-  const E = r.E || lessons().exampleFrom(NOBILL, { off: isOff(), via: '' });
-  const { pic, main } = lessons().roadHTML(E, { at: r.pk.example || r.none ? 0 : undefined, intro: r.intro.long, introShort: r.intro.short, soft: !!r.pk.hypo || r.none });
-  return shell('st-lesson st-roadpage', `${top}<h1 class="hero" id="st-h">${t('Where you come in')}</h1>${pic}`, main);
+  const { E, o } = roadArgs(r), { head, pic, main } = lessons().teachHTML(E, o);   // the h1 is the page's title: the teaching changes it as the pages go
+  return shell('st-lesson st-roadpage', `${top}${head}${pic}`, main);
 }
 function stepVoice(step) {
   if (v2()) return stepRoad(step);
@@ -446,11 +440,13 @@ function stepAlerts(step) {
   // the ask that was made (save the profile; the field and the line under it already say "6-digit" and "texted").
   const lede = codeStep('st-a') ? (prof ? 'Type the code to save your profile.' : 'Type the 6-digit code from the text to turn on alerts.')
     // No line under "Save your profile" (R-265, Nate 12 Oct: "the absolute minimum"): the box's one line says what comes.
-    : v2() ? 'When a bill on your issues gets a hearing, we’ll tell you. Three sentences in your own words is enough.'   // version 2 (R-357, Nate 1 Nov): the road just showed why; this is the plan
+    : v2() ? 'When a bill on your issues reaches one of these two moments, we’ll tell you what to do and by when. A few sentences in your own words is enough.'   // version 2 (R-357): the teaching's last page
     : prof ? ''
     : `${off ? 'Their new bills start in January. ' : ''}At a hearing, lawmakers hear from the public. Hearings are set only about two days ahead.`;
-  return shell('st4 st-alertspage', `${topRow('alerts', step)}${artFor('alerts')}
-    <h1 class="hero" id="st-h">${codeStep('st-a') ? 'Check your texts' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
+  // Version 2 (R-357): this is the teaching's fifth page: the same road with the bill at its stop, the flower opening, then the ask (pub/v2/road.js planPic)
+  const plan = v2() && !codeStep('st-a') ? roadState() : null, pa = plan ? roadArgs(plan) : null;
+  return shell(`st4 st-alertspage${pa ? ' st-planpage' : ''}`, `${topRow('alerts', step)}${pa ? lessons().planPic(pa.E, pa.o) : artFor('alerts')}
+    <h1 class="hero" id="st-h">${codeStep('st-a') ? 'Check your texts' : pa ? 'That’s where you come in' : prof ? PROFILE_H : `Get alerts on ${what}`}</h1>
     ${lede ? `<p class="lede">${lede}</p>` : ''}`,
     body);
 }
@@ -1169,12 +1165,13 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // Version 2's road (R-357, Nate 1 Nov): the choices are counted as 'answer' (an event the database already takes) with the stop
       // as lesson_step (1 the email to the chair, 2 testimony), never which choice, as the story's stage 3 and 4 never counted theirs.
       const r = roadState();
-      if (r) lessons().roadStart(r.E || lessons().exampleFrom(NOBILL, { off: isOff(), via: '' }), { back, redraw: !fresh, soft: !!r.pk.hypo || r.none, onPick: stop => track(name, 'answer', { lesson_step: stop }) });
+      if (r) { const { E, o } = roadArgs(r); lessons().teachStart(E, o, { back, redraw: !fresh, onPick: stop => track(name, 'answer', { lesson_step: stop }) }); }
       // Next goes to the profile ask (and the issues' Next skips the road for someone who has seen it). Where something is followed and there
       // is nothing to ask (signed in, a number or a link already given) the cover is the follow's celebration and Home follows it, as the
       // issues' Next does in version 1; someone who followed nothing (Skip on Your issues) goes on quietly, and the ask and the cover
       // are passed over. Skip does the same as it does everywhere (start.js), without marking the road seen.
       if (nb) nb.onclick = () => {
+        if (lessons().teachNext()) return;   // the next page of the teaching; only the last page's Next leaves
         wizSet({ why: true }); track(name, 'next');
         if (followsAnything() && !askAlerts() && !wiz().via) {
           S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
@@ -1203,6 +1200,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
     // (R-135) must still come.
     if (!S.stThanks?.noAsk) { S.nudge = null; markAsked(); }
     S.alertsShown = true;
+    if (v2() && document.querySelector('.tr-plan')) lessons().planStart({ instant: back || !fresh });   // the flower opens once as the page arrives
     wireAlertForm($('#st-aform'), { pfx: 'st-a', source: 'first_visit', onDone: r => {
       if (r.kind === 'email') S.stMail = { email: r.email, name: S.stMail.name || '', sent: r.email, demo: !!r.demo };
       track(name, 'next', { counts: { phone: r.kind === 'phone', email: r.kind === 'email' } });
@@ -1266,7 +1264,7 @@ export function barStep(name, step, off) {
       ? `<div class="st-bar st-one">${btn(t(skipWord()), { kind: 'secondary', attrs: { 'data-stnext': '1' } })}</div>` : bar1('Next');
     // The alerts screen: its button sends the box showing (Text me, or Email me), Skip goes on; once given, Next.
     case 'alerts': { if (!S.alertEdit && (S.stThanks || textSaved() || mailSent())) return bar1(thanksWords(thanksGiven()).go);
-      const b = alertButton('st-a'); return bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
+      const b = alertButton('st-a'); return v2() && !codeStep('st-a') ? bar2('Tell me when', { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }, 'Not now') : bar2(b.label, { icon: b.icon }, { type: 'submit', form: 'st-aform', id: 'st-send' }); }
     case 'done': return bar1(GO_HELP, 'arrow-right', { 'data-stdone': '1' });
     case 'followask': return bar2('Follow this issue', { icon: 'star' }, { 'data-stnext': '1' }, 'Not now');
     default: return '';

@@ -1079,7 +1079,7 @@ function reserveSaid(root) {
 // The first visit measures its screen against the window with the story's lines as they will stand (start.js fitScreen):
 // a level that leaves a line out changes the room the answer needs, so the room is measured again before each check.
 export function storyRoom() { const root = rootOf('story'); if (root && L.E && ST.story.step >= 3) reserveSaid(root);
-  const rd = rootOf('road'); if (rd && RD.o) { roadCrop(); roadReserve(rd); } }
+ }
 // The first visit's own Back (and the lesson page's Back) walks the story back a stage at a time before it leaves the
 // screen (B-4), showing the earlier stage's still picture.
 export function lessonPrev(name) {
@@ -1091,105 +1091,14 @@ export function lessonPrev(name) {
 export const lessonStep = name => (L.name === name && ST[name] ? ST[name].step : 1);
 export const lessonLast = name => LAST[name] || 1;   // the hosts' "last stage" check reads this, never a number (R-255)
 
-// ================================================================ 5. Version 2's road (R-357, Nate 1 Nov 2026)
-// Nate: the two text teaching screens "don't work"; he missed version 1's road, where people choose and SEE what speaking up
-// or silence does. So version 2 has ONE screen that keeps the drawing of stage 3 and 4 still (the bill at its committee
-// stop) and changes only the words under it, in two stops: the bill needs a hearing (Email the chair / Do nothing), then its
-// hearing is set (Send testimony / Do nothing). Both choices are equal; "Do nothing" plays the road ahead greying (no
-// "DID NOT ADVANCE" stamp, which read as a verdict) and leaves ONE button, Try ..., that plays the other outcome, so everyone
-// sees what speaking up does. The words follow the rules of stages 3 and 4: "can", never a promise; "can't pass this year",
-// never "dies" (R-144); never that few people act (R-171). Goals he set: people come away knowing "bills stall without
-// people" and "I can do this"; email the chair first, then testimony.
-// The caller (start-rest.js) says which bill (E), the stop to play at (at: an example bill always its first side's
-// committees), the first caption line (intro, which names the person's issue) and whether the bill is only an example
-// (soft: "Suppose it’s waiting for a hearing"). Nothing here touches the flow: onPick(stop) tells the caller a choice was made.
-const ROAD_RES = 'Your note reaches the chair. A bill people write about is more likely to get a hearing.';
-const roadStates = soft => ({
-  s1: { q: `${soft ? 'Suppose it’s' : 'It’s'} waiting for a hearing. Each committee’s chair decides which bills get one, and they notice who writes in. What would you do?`, res: '',
-    btns: [['chair', 'Email the chair'], ['none', 'Do nothing']], scene: 'need' },
-  s1no: { q: 'Nobody asked, so it waited. Without a hearing, it can’t pass this year.', res: '', btns: [['chair', 'Try emailing the chair']], scene: 'no' },
-  s2: { q: 'Its hearing is set. What would you do?', res: ROAD_RES, btns: [['testimony', 'Send testimony'], ['none', 'Do nothing']], scene: 'c' },
-  s2no: { q: 'With nothing sent, it can be held, and then it can’t pass this year.', res: ROAD_RES, btns: [['testimony', 'Try sending testimony']], scene: 'no2' },
-  end: { q: 'The committee reads testimony before it votes. Notes like yours can carry a bill on.', res: ROAD_RES, btns: [], scene: 't' },
-});
-const RD = { state: 's1', id: '', o: null, onPick: null };
-const rdBtns = w => w.btns.map(([v, label]) => `<button type="button" class="lx-ch lx-door" data-rd="${v}">${label}</button>`).join('');
-// Which moment the real bill is at ('chair', 'testimony' or null): start-rest.js uses a followed bill only while it is still at or before its hearing.
+// ================================================================ 5. Version 2's road
+// Moved to pub/v2/road.js (R-357, "the island road"): the four teaching pages and page 5's picture. Only which moment a real bill is at stays here.
 export const roadMoment = E => momentKind(E);
-export function roadHTML(E, { at = sceneAt(E), intro = '', introShort = '', soft = false } = {}) {
-  const w = roadStates(soft), kept = RD.id === E.id && RD.state && w[RD.state] ? RD.state : 's1';
-  // On a short phone (under 700px tall) the drawing is cropped to the bottom row at full width (the row the bill plays on), never scaled to a strip
-  // with unreadable labels: the road is the lesson (the review, 1 Nov). roadCrop() swaps the viewBox.
-  const ry = STOPS[at][1], crop = ry === RB ? `0 ${ry - 100} ${SW} 150` : `0 ${ry - 50} ${SW} 130`;
-  const pic = `<div class="lx-pic lx-scene lx-story lx-roadpic" id="rd-pic" data-stage="3" data-scene="${w[kept].scene}" data-crop="${crop}" aria-hidden="true"><svg class="lx-sv" viewBox="0 0 ${SW} ${SH}" focusable="false">${roadScenesSVG(E, { at, stamp: false })}</svg></div>`;
-  const main = `<div class="lx lx-l-road" data-lx="road"><div class="lx-scap lx-roadcap" id="rd-cap"><p class="rd-intro" id="rd-intro" data-long="${esc(intro)}" data-short="${esc(introShort || intro)}">${intro}</p>
-    <div id="rd-stage"><div id="rd-say" class="rd-say" aria-live="polite"><p id="rd-res" class="rd-res" hidden></p><p id="rd-q" class="rd-q" tabindex="-1"></p></div><div class="lx-doors rd-doors" id="rd-doors" role="group" aria-label="What would you do?"></div></div></div></div>`;
-  return { pic, main };
-}
-// The room of the longest state is kept from the start, so nothing moves under a finger when a choice is made (the first visit
-// fits each screen to the window, R-265, and measures again after every change of the page's height).
-function roadReserve(root) {
-  const stage = $('#rd-stage', root); if (!stage || !RD.o || !stage.parentNode) return;
-  const probe = document.createElement('div');
-  probe.setAttribute('aria-hidden', 'true');
-  probe.style.cssText = `position:absolute;left:0;top:0;width:${stage.getBoundingClientRect().width}px;visibility:hidden;pointer-events:none`;
-  stage.parentNode.appendChild(probe);
-  let h = 0; Object.values(roadStates(RD.o.soft)).forEach(w => { probe.className = 'lx-roadcap'; probe.innerHTML = `<div class="rd-say">${w.res ? `<p class="rd-res">${w.res}</p>` : ''}<p class="rd-q">${w.q}</p></div><div class="lx-doors rd-doors${w.btns.length === 1 ? ' rd-one' : ''}">${rdBtns(w)}</div>`; h = Math.max(h, probe.getBoundingClientRect().height); });
-  // the first line keeps the room of its long form in every state, so nothing above or beside it moves when it folds to the short one
-  const intro = $('#rd-intro', root); if (intro) { probe.innerHTML = `<p class="rd-intro">${intro.dataset.long}</p>`; intro.style.minHeight = `${Math.ceil(probe.firstChild.getBoundingClientRect().height)}px`; }
-  probe.remove(); stage.style.minHeight = `${Math.ceil(h)}px`;
-  // on a laptop the words start level with the drawing's top, not at the step row
-  const cap = $('#rd-cap', root), pic = $('#rd-pic');
-  if (cap && pic) { cap.style.marginTop = ''; if (matchMedia('(min-width: 900px)').matches) { const d = pic.getBoundingClientRect().top - cap.getBoundingClientRect().top; if (d > 0) cap.style.marginTop = `${Math.round(d)}px`; } }
-}
-function roadCrop() {
-  const pic = $('#rd-pic'), sv = pic && $('svg', pic); if (!sv) return;
-  const small = matchMedia('(max-height: 699px) and (max-width: 899px)').matches;
-  sv.setAttribute('viewBox', small ? pic.dataset.crop : `0 0 ${SW} ${SH}`); pic.classList.toggle('rd-crop', small);
-}
-function roadPaint(root, state) {
-  const w = roadStates(RD.o.soft)[state], res = $('#rd-res', root), q = $('#rd-q', root), doors = $('#rd-doors', root);
-  if (res.innerHTML !== w.res) res.innerHTML = w.res;   // the result of stop 1 is said once, not again at each change below it
-  res.hidden = !w.res; q.innerHTML = w.q;
-  // from the second stop on, the first line folds to the bill alone (about 40 words a screen: the issue was named once, at the first stop)
-  const intro = $('#rd-intro', root), want = state === 's1' || state === 's1no' ? intro.dataset.long : intro.dataset.short;
-  if (intro.dataset.now !== want) { intro.innerHTML = want; intro.dataset.now = want; }
-  doors.innerHTML = rdBtns(w); doors.hidden = !w.btns.length; doors.classList.toggle('rd-one', w.btns.length === 1);
-}
-// state -> the scene on the picture; a tap plays it, Back and a redraw show it still. Next wakes only at the end (hidden, not greyed).
-function roadGo(root, state, { instant = false, focus = false } = {}) {
-  const pic = $('#rd-pic'), w = roadStates(RD.o.soft)[state]; if (!pic) return;
-  const was = pic.dataset.scene, scene = w.scene;
-  RD.state = state; pic.dataset.scene = scene; pic.classList.remove('lx-cplay');
-  // "Do nothing" at the second stop greys the road with the hearing still on the list; the scenes that move play, the rest only show
-  const moves = scene !== 'need' && scene !== was;
-  if (instant || reduced() || !moves) { pic.classList.add('lx-cplay'); settle(pic); } else { void pic.getBoundingClientRect(); play(pic, 'lx-cplay'); }
-  roadPaint(root, state);
-  wakeNext(state === 'end');
-  roadReserve(root);
-  if (focus) { const b = $('#rd-doors .lx-door', root); (b && w.btns.length === 1 ? b : $('#rd-q', root)).focus({ preventScroll: true }); }
-}
-export function roadStart(E, { back = false, redraw = false, soft = false, onPick = null } = {}) {
-  lessonStop();
-  const root = document.querySelector('.lx[data-lx="road"]'); if (!E || !root) return;
-  if (!back && !redraw) { RD.state = 's1'; RD.id = E.id; }
-  if (RD.id !== E.id) { RD.state = 's1'; RD.id = E.id; }
-  RD.o = { soft }; RD.onPick = onPick; L.name = 'road'; L.E = E;
-  root.onclick = e => {
-    const b = e.target.closest('[data-rd]'); if (!b || !root.contains(b)) return;
-    const from = RD.state, stop = from === 's1' || from === 's1no' ? 1 : 2, v = b.dataset.rd;
-    const next = from === 's1' ? (v === 'chair' ? 's2' : 's1no') : from === 's1no' ? 's2' : from === 's2' ? (v === 'testimony' ? 'end' : 's2no') : from === 's2no' ? 'end' : null;
-    if (!next) return;
-    if (RD.onPick) RD.onPick(stop, v);
-    roadGo(root, next, { focus: true });
-  };
-  roadCrop(); roadGo(root, RD.state, { instant: true });
-  addEventListener('resize', onRoadResize);
-  if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(() => { if (L.name === 'road' && root.isConnected) roadReserve(root); });
-}
-let roadRaf = 0;
-function onRoadResize() { cancelAnimationFrame(roadRaf); roadRaf = requestAnimationFrame(() => { const r = document.querySelector('.lx[data-lx="road"]'); if (r && RD.o) { roadCrop(); roadReserve(r); } }); }
-export const roadStop = () => { removeEventListener('resize', onRoadResize); cancelAnimationFrame(roadRaf); };
+export const roadAt = E => sceneAt(E);   // the committee stop a real bill's teaching plays at: 0 on its first side, 2 on the other
+// Version 2's teaching (pub/v2/road.js) is loaded beside this file only under ?v2=1 (start.js lessonsLoad), so version 1's lessons
+// never carry its 47 KB; leaving a lesson stops its motion through this hook.
+let teachStopHook = null;
+export const onLessonStop = f => { teachStopHook = f; };
 
 // ---------------------------------------------------------------- the interface
 export function lessonHTML(name, E) {
@@ -1248,7 +1157,7 @@ export function lessonNext(name, E) {
   return false;
 }
 export function lessonStop() {
-  L.run++; roadStop();
+  L.run++; if (teachStopHook) teachStopHook();
   L.timers.forEach(clearTimeout); L.timers.clear();
   removeEventListener('resize', onResize); cancelAnimationFrame(resizeRaf);
   stopTravel(document.getElementById('lx-mine')); stopTravel(document.getElementById('lx-letter'));

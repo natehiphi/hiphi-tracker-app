@@ -537,13 +537,6 @@ button.st-way:active { transform: scale(.99); }
   .st-lesson.fit8 .lx-story svg.lx-sv { height: 124px; }
   .st-lesson.fit9 .lx-story svg.lx-sv { height: 100px; }
   .st-lesson.fit10 .lx-lede { display: none; }   /* between sessions: "Here's the story of one that became law in 2026" */
-  /* Version 2's road (R-357, Nate 1 Nov; pub/lessons.js roadHTML) wears the story's levels above (drawing, margins) and adds its own at the end for a
-     very short phone (320x568, the smallest checked): the kept room of its longest state goes (the words may move a little between states), the
-     gaps close, the drawing goes to 72px, and last the heading goes to screen readers only, as the story's does first (the strip says "Your voice").
-     Every word of the caption stays at 16px (C-14). */
-  .st-roadpage.fit7 .st-intro { gap: var(--s4); }
-  body[data-screen="start"]:has(.st-roadpage.fit10) main { padding-top: var(--s8); }
-  body[data-screen="start"].hasbar:has(.st-roadpage.fit6.fit10) main { padding-bottom: calc(var(--safe-b) + 66px); }   /* the bar is 65px once slimmed (fit6), so only then */
 
   /* 5. Coming up: the cards tighter, the quiet line, the lede; then the last cards (data-fitdrop). */
   .st-soonpage.fit1 :is(.st-soon, .st-ways) { gap: var(--s8); }
@@ -672,8 +665,8 @@ button.st-way:active { transform: scale(.99); }
 /* ================= Version 2's first visit (R-357 part 4, Nate 30 Oct 2026; ?v2=1; DESIGN C-12, C-13, C-14) =================
    Welcome, two topics, Your issues, the road, the profile ask, Home. */
 
-/* The teaching is the road (start-rest.js stepRoad, lessons.js roadHTML): it wears the story's own layout (.st-lesson, .lx-story), so its fit levels
-   are the story's (section 4 above); nothing of its own is needed here. */
+/* The teaching is the island road (start-rest.js stepRoad, pub/v2/road.js): it wears the story's own layout (.st-lesson, st-lessonpage) but is exempt
+   from the fit levels (start.js FIT_EXEMPT): on a short phone it scrolls, the choices stay reachable and the answer is scrolled into view. */
 
 /* The cover that ends version 2's visit (start-rest.js coverEnd): the profile ask's celebration is the last page, since Home comes next
    and has no band to fold into. It plays as the cover always does, then holds still with the visit's last button, "See How I Can Help",

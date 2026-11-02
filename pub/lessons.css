@@ -272,17 +272,11 @@
 .lx-story[data-scene="no2"] .lx-c3-no, .lx-story[data-scene="no2"] .lx-c3-keep { display: inline; }
 .lx-story[data-scene="no2"] .lx-r3 .lx-b3 { display: none; }
 .lx-roadcap p { margin: 0; font-size: var(--t16); color: var(--n700); }
-.lx-roadcap p + p, .lx-roadcap #rd-stage { margin-top: var(--s8); }
-.lx-roadcap p.rd-intro, .lx-roadcap .rd-q { color: var(--n900); }
+.lx-roadcap p + p { margin-top: var(--s8); }
 .lx-roadcap b { color: var(--n900); }
-.lx-roadcap .rd-q:focus { outline: none; }   /* focus lands on the new words so a screen reader says them; the words are not a control */
-.lx-roadcap .rd-doors { margin-top: var(--s12); }
-.st-roadpage .lx-roadpic.rd-crop svg.lx-sv { height: auto !important; max-height: none !important; }   /* cropped to its row on a short phone: full width, readable labels */
 /* a door's hover wash only where a pointer hovers: on touch it stuck after a tap and made one door look picked (the review, 1 Nov); both doors always look alike */
 @media (hover: none) { .lx-roadcap .lx-ch:hover { border-color: var(--n400); background: var(--n0); } }
 .lx-roadcap .lx-ch:focus:not(:focus-visible) { box-shadow: var(--sh1); }
-.lx-doors.rd-one { grid-template-columns: minmax(0, 1fr); }
-.lx-doors[hidden], .rd-res[hidden] { display: none; }
 .actionbar.lx-asleep { display: none; }   /* the lesson page's bar has only Next, asleep until a choice (R-255) */
 .lx-story[data-scene="t"] .lx-r3 .lx-b3, .lx-story[data-scene="no"] .lx-r3 .lx-b3 { display: none; }
 .lx-saidbox.lx-got, .lx-saidbox.lx-room { margin-top: var(--s12); }   /* lx-room: its room kept before the choice (lessons.js reserveSaid) */
@@ -358,4 +352,38 @@
 @media (prefers-reduced-motion: reduce) {
   .lx, .lx *, .lx *::before, .lx *::after, .lx-story, .lx-story * { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important;
     transition-duration: .001ms !important; transition-delay: 0ms !important; }
+}
+
+/* ================================================================ Version 2's teaching, "the island road" (R-357, pub/v2/road.js)
+   One picture that stays put (pages 2 to 4 only swap what is drawn on it) and words that slide. On a phone under 400px the picture
+   runs edge to edge (the host may set --tr-bleed to its own side gutter) so the 13px labels stay 11px or more at 320px wide. */
+.tr-pic { position: relative; overflow: hidden; border-radius: var(--r16); background: var(--p100); }
+.tr-sv { display: block; width: 100%; height: auto; }
+.tr-sv text { font-family: var(--font); }
+.tr-sv [data-k^="L"] { transition: fill .25s; }
+.tr-onpaper { background: var(--p50); }
+.tr-band { aspect-ratio: 360 / 130; overflow: hidden; background: var(--p50); }
+.tr-band > * { display: block; width: 100%; height: 100%; object-fit: cover; }
+.tr-onpaper .tr-sv { margin-top: -21%; position: relative; }
+@media (max-width: 399px) { .tr-pic { margin-inline: calc(var(--tr-bleed, 16px) * -1); border-radius: 0; } }
+.tr-cap p.tr-ex { margin: 0 0 2px; font-size: var(--t13); font-weight: 700; letter-spacing: .02em; color: var(--n500); }
+.tr-cap p.tr-q { margin-top: var(--s12); color: var(--n900); font-weight: 700; }
+.tr-cap h2:focus { outline: none; }
+.tr-ch { gap: var(--s8); flex-direction: column; }
+.tr-ch svg { width: 26px; height: 26px; flex: none; }
+.tr-cap .lx-saidbox { margin-top: var(--s12); }
+.tr-swap > * { animation: lx-rise .28s var(--ease) both; }
+.tr-said.tr-swap { animation: lx-rise .28s var(--ease) both; }
+@media (hover: none) { .tr-cap .lx-ch:hover { border-color: var(--n400); background: var(--n0); } }
+
+.tr-nb { white-space: nowrap; }
+.tr-cap + .tr-cap { margin-top: 0; }
+p.lx-count + h1 { margin-top: 0; }
+/* page 5 on a short phone (R-357): the heading and the first field show in the first screenful, so the lede (which the page's own key and the form already say) waits */
+@media (max-height: 699px) and (max-width: 899px) { .st-planpage:not(.st-thanks) .lede { display: none; } }
+/* Page 5 on a laptop (the critic, 1 Nov): the heading and its line come first, then the picture, as on pages 1 to 4; a phone keeps the picture first. */
+@media (min-width: 900px) {
+  .st-planpage:not(.st-thanks) .st-intro { display: flex; flex-direction: column; }
+  .st-planpage:not(.st-thanks) .st-intro > :is(h1, .lede) { order: 1; }
+  .st-planpage:not(.st-thanks) .st-intro > :has(.tr-plan) { order: 2; margin-top: var(--s16); }
 }
