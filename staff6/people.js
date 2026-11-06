@@ -12,7 +12,7 @@
 //   - Every change here saves the moment it is made, with Undo (B-5); typed details save from their sheet.
 // The data calls are v5's (data.js team*, setOwner, saveCampaign, updateIssue, updateTodo, attend, sendMessage,
 // partnerSetApprover): nothing new is asked of the database.
-import { S, DB, esc, fmtDate, advocate, APP_URL, hooks, DEMO } from './data.js';
+import { S, DB, esc, fmtDate, advocate, STAFF_URL, hooks, DEMO } from './data.js';
 import { diedish, billRoute, whenAt } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, switchRow, field, notice, empty, avatar, pickerSheet, friendly, faceLead } from './ui.js';
 import { itemRow, listDetail, placeHead, nameWords, numWords } from './steps.js';
@@ -406,7 +406,7 @@ async function makeLink(a) {
   let r; try { r = await DB.teamLink(a.id); } catch (e) { b?.removeAttribute('aria-busy'); toast(e.message || String(e), { err: true }); return; }
   b?.removeAttribute('aria-busy'); loadLogins(true);
   const first = firstOf(a), email = r.email || a.email, link = r.continue_link || r.link;
-  const msg = `Aloha ${first},\n\nHere is your link to the HIPHI Bill Tracker, the team's staff app:\n${link}\n\nOpen it${r.continue_link ? ', press Continue,' : ''} and choose a password, and you are in. The link works once, and only for about an hour. From then on, sign in at ${APP_URL} with ${email} and your password.\n\n${S.me ? firstOf(S.me) : ''}`.trim();
+  const msg = `Aloha ${first},\n\nHere is your link to the HIPHI Bill Tracker, the team's staff app:\n${link}\n\nOpen it${r.continue_link ? ', press Continue,' : ''} and choose a password, and you are in. The link works once, and only for about an hour. From then on, sign in at ${STAFF_URL} with ${email} and your password.\n\n${S.me ? firstOf(S.me) : ''}`.trim();
   const mail = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Your sign-in for the HIPHI Bill Tracker')}&body=${encodeURIComponent(msg)}`;
   openSheet({ title: `Sign-in link for ${esc(first)}`, size: 'auto',
     body: `<p class="pe-p">${r.created ? `${esc(first)} now has a login. ` : ''}Email ${esc(first)} this message yourself, not by Slack: a Slack link preview can open the link and use it up. It works once and only for about an hour.</p>

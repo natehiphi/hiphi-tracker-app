@@ -59,6 +59,9 @@ export const LINK_TOKEN = (/^#\/link\/([0-9a-f]{20,128})$/i.exec(location.hash) 
 // Own origin + path, so the GitHub Pages subpath is picked up automatically: the tracker's folder address, which since
 // 9/21 is Staff v2 itself (index.html; staff.html is the same page). Recovery links land there, an address already on
 // Supabase's redirect list, and every Slack, email and calendar link the database writes points there too (R-022).
+// This page's own address (staff6.html). Sign-in links and the welcome email use it, so a new teammate lands in Staff v6,
+// the team's pick (R-356), not in Staff v2 at the folder address (R-359). team-admin accepts any page under the site.
+export const STAFF_URL = location.origin + location.pathname;
 export const APP_URL = location.origin + location.pathname.replace(/(staff\d*|index)\.html$/, '')  // staff5.html too (R-277 E-1: the old pattern left "Open the old app" blank);
 // January flip: see JANUARY.md in the Bill-Tracker repo. Update SESSION_YEAR
 // here, plus SESSION_OVER and DEADLINES in the Cards-view block below.
@@ -841,7 +844,7 @@ export const DB = {
   async teamLink(id) {
     if (DEMO) throw new Error('The sandbox does not make sign-in links. Use the live app.');
     const { data } = await S.supa.auth.getSession();
-    const r = await fetch(`${SUPABASE_URL}/functions/v1/team-admin`, { method: 'POST', headers: { authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ advocate_id: id, redirect_to: APP_URL }) });
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/team-admin`, { method: 'POST', headers: { authorization: `Bearer ${data.session?.access_token}`, apikey: SUPABASE_KEY, 'content-type': 'application/json' }, body: JSON.stringify({ advocate_id: id, redirect_to: STAFF_URL }) });
     const j = await r.json().catch(() => ({ ok: false, error: `The link could not be made (${r.status}). Try again.` }));
     if (!j.ok) throw new Error(j.error || 'The link could not be made. Try again.'); return j;
   },
