@@ -8,6 +8,8 @@
 #     - a window 640px tall or less (a 320x568 phone): the band stands under the Follow row, so Follow is on the first screen
 #     - one picture per screen: the action card on this page draws no scene of its own, so a laptop shows the issue's drawing once
 #     - a loading page draws it too (it is in the head), and an issue with nothing moving has it
+#     - since R-361 (6 Nov) every issue in the sandbox has its own drawing; the topic scene is still what an issue without one gets (and what
+#       live visitors get until the drawings go live), so that check loads the page with the issue drawings turned off in pub/art.js
 #   today's page (no ?v2=1): no band, no picture
 #   nothing in the console but what the page always says
 # usage: python3 tests/v2_issue.py [BASE]   (BASE defaults to http://localhost:8832; try http://localhost:8832/track.html?demo=1 as other tests take)
@@ -69,10 +71,17 @@ errs = []
 
 with sync_playwright() as pw:
   br = pw.chromium.launch()
-  def at(w, h, slug=SLUG, qs='&v2=1', ready='#main .rc-iss[data-shape]'):
+  # The fallback: serve pub/art.js with the issue's own drawing never found, as for an issue that has none.
+  NO_OWN = ('iss?.slug && ISSUE_ART[iss.slug] && (demo', 'iss?.slug && false && (demo')
+  swapped = []
+  def no_own_art(route):
+    body = route.fetch().text(); swapped.append(NO_OWN[0] in body)
+    route.fulfill(body=body.replace(NO_OWN[0], NO_OWN[1]), content_type='text/javascript')
+  def at(w, h, slug=SLUG, qs='&v2=1', ready='#main .rc-iss[data-shape]', own=True):
     kw = dict(viewport={'width': w, 'height': h})
     if w < 600: kw.update(is_mobile=True, has_touch=True)
     c = br.new_context(**kw); c.add_init_script(RETURNING); p = c.new_page()
+    if not own: c.route('**/pub/art.js*', no_own_art)
     p.on('pageerror', lambda e: errs.append('pageerror ' + str(e)))
     p.on('console', lambda m: errs.append('console ' + m.text) if m.type == 'error' else None)
     p.goto(f'{BASE}/track.html?demo=1{qs}#/issue/{slug}'); settled(p, 900, ready); return c, p
@@ -81,7 +90,7 @@ with sync_playwright() as pw:
   c, p = at(390, 844); r = p.evaluate(LOOK)
   p.screenshot(path=os.path.join(OUT, 'phone-390x844.png'))
   ok(r['v2'] and r['has'] and r['inHead'] and r['first'] and r['kind'] in ('svg', 'img') and r['quiet'], f"the issue page opens with the drawing, first in its head (decorative: no alt, aria-hidden) ({r['kind']}, {r['cls']})")
-  ok(r['kind'] == 'svg' and 'art-food' in r['cls'], f"an issue with no drawing of its own shows its topic's scene, as Home does ({r['cls']})")
+  ok(r['kind'] == 'img' and 'art-issue' in r['cls'], f"the issue's own drawing (R-361: every issue has one in the sandbox) ({r['kind']}, {r['cls']})")
   ok(r['aTop'] < r['h1top'] and r['h'] == 88, f"it stands over the heading, 88px tall on a phone ({r['aTop']} < {r['h1top']}, {r['h']}px)")
   ok(r['h1'] == 'More local food in school meals' and r['h1count'] == 1 and r['h1top'] <= 320, f"A-1: the heading still starts within 320px at 390x844 ({r['h1top']}px; it was 166px before the drawing)")
   ok(r['fText'] == 'Follow' and r['fBottom'] <= r['tabTop'] and r['fTop'] >= 0, f"Follow is on the first screen ({r['fTop']}-{r['fBottom']} vs the tab bar at {r['tabTop']})")
@@ -95,11 +104,17 @@ with sync_playwright() as pw:
   ok(r['aTop'] >= r['fBottom'] and r['h1top'] < 320, f"320x568: the drawing is under the Follow row, not over the heading ({r['aTop']} >= {r['fBottom']}; heading at {r['h1top']}px)")
   ok(r['pics'] == 1 and not r['wide'], '320x568: one picture, nothing scrolls sideways'); c.close()
 
+  # ---------------- an issue with no drawing of its own: its topic's scene, as Home does ----------------
+  c, p = at(390, 844, own=False); r = p.evaluate(LOOK)
+  ok(swapped and all(swapped), f"the test turned the issue drawings off in pub/art.js (its line is still there: {swapped})")
+  ok(r['kind'] == 'svg' and 'art-food' in r['cls'] and r['quiet'] and r['h'] == 88 and r['pics'] == 1, f"an issue with no drawing of its own shows its topic's scene, as Home does ({r['kind']}, {r['cls']}, {r['h']}px)")
+  c.close()
+
   # ---------------- a phone, the other shapes and the issue's own drawing ----------------
-  # a bill moving, an issue with its own drawing (an <img>), the Capitol never needed here: an issue with none of its own gets its topic's scene
+  # a bill moving and nothing moving: since R-361 each issue has its own drawing (an <img>)
   for slug, what, kind in (('free-school-meals-for-every-student', 'an issue with its own drawing (one bill moving)', 'img'),
                            ('disposable-e-cigarette-ban', 'an issue with its own drawing (several bills moving)', 'img'),
-                           ('single-payer-health-care', 'an issue with nothing moving', 'svg')):
+                           ('single-payer-health-care', 'an issue with nothing moving', 'img')):
     c, p = at(390, 844, slug); r = p.evaluate(LOOK)
     ok(r['has'] and r['kind'] == kind and r['quiet'] and r['h'] == 88 and r['h1top'] <= 320 and r['pics'] == 1, f"{what}: the band, {kind}, 96px, heading at {r['h1top']}px, one picture (shape {r['shape']}, {r['cls']})")
     c.close()
