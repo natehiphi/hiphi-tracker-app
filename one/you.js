@@ -4,9 +4,11 @@
 // take a minute, what to do if it does not come). The practice copy sends no email; "Practice: sign in as a tester" signs in
 // a fake account kept in this tab (auth.js), so the signed-in screen can be tried.
 // Signed in: About you, Email, Alerts, Your issues, Your letters, Phone, then a quiet Sign out and Delete my data. Each part
-// is edited where it stands, with its own quiet Save (no modal, no Save bar), and only that part is drawn again, so what is
-// typed in another part is never lost (C-9). Nothing is required: no field asks for anything but the email to sign in (C-5).
-// There is no primary button once signed in, on purpose (A-3 allows a screen with none): each part's Save is outlined.
+// is edited where it stands (no modal, no Save bar), and only that part is drawn again, so what is typed in another part is
+// never lost (C-9). The choices save the moment they change, with "Saved." (R-360 fix 3); the name and town save when the
+// box is left and with About you's one Save, and what is typed there and not saved yet is kept for this tab
+// (sessionStorage), so going to another screen and back loses nothing. Nothing is required: no field asks for anything but
+// the email to sign in (C-5). There is no primary button once signed in, on purpose (A-3 allows a screen with none).
 //
 // Legal, one line: the consent words (the email choices, the per-issue levels, the text box's t5 words) and the delete
 // wording were approved for track.html (R-101 and the privacy page) and are reused here unchanged; a lawyer should confirm
@@ -21,6 +23,11 @@ import { followed, setFollow } from './bills.js';
 import * as au from './auth.js';
 
 const TEXT_CONSENT = 't5';   // pub/alerts.js TEXT_CONSENT: the version of the words shown beside the box
+// About you typed and not saved yet, for this tab: { name, town }; dropped once it is saved.
+const ABOUT_KEY = 'hiphi_act_about';
+const typedAbout = () => { try { return JSON.parse(sessionStorage.getItem(ABOUT_KEY) || 'null'); } catch { return null; } };
+const keepTyped = v => { try { sessionStorage.setItem(ABOUT_KEY, JSON.stringify(v)); } catch { /* kept on the screen only */ } };
+const dropTyped = () => { try { sessionStorage.removeItem(ABOUT_KEY); } catch { /* nothing kept */ } };
 // What the screen remembers for this page life: a link sent, a line to say once, the delete confirm, the letter open, the
 // letters deleted (for Undo), the issues shown under Your issues (one stopped stays, so it can be followed again).
 const ui = { sent: '', msg: '', err: '', del: false, open: '', gone: [], mail: false, mailMsg: '', seen: new Set(), st: {} };
@@ -60,9 +67,10 @@ const myIssues = L => L ? L.issues.filter(i => followed(i) || ui.seen.has(i.id))
 const followingNow = L => L ? L.issues.filter(followed) : [];
 
 function about(A) {
-  const me = au.loadMe();
+  const me = au.loadMe(), typed = typedAbout();
+  const name = typed ? typed.name : me.name || A.name || '', town = typed ? typed.town : me.town || A.prefs.town || '';
   return sec('about', esc(t('you.about')), `<p class="small">${esc(t('you.about.p'))}</p>
-    <form data-form="about" novalidate><div class="two">${field('y-name', t('write.name'), me.name || A.name || '', { auto: 'name' })}${field('y-town', t('write.town'), me.town || A.prefs.town || '', { auto: 'address-level2' })}</div>
+    <form data-form="about" novalidate><div class="two">${field('y-name', t('write.name'), name, { auto: 'name' })}${field('y-town', t('write.town'), town, { auto: 'address-level2' })}</div>
     <div class="saverow">${saveBtn('about')}${status('about')}</div></form>`);
 }
 function email(A) {
@@ -74,11 +82,12 @@ function email(A) {
 const check = (id, title, sub, on) => `<label class="chk" for="${id}"><input type="checkbox" id="${id}"${on ? ' checked' : ''}><span><b>${esc(title)}</b><span class="sub">${esc(sub)}</span></span></label>`;
 function alerts(A, L) {
   const p = A.prefs || {}, any = followingNow(L).length > 0;
-  return sec('alerts', esc(t('you.alerts')), `<form data-form="emails" novalidate><fieldset class="plain"><legend class="small">${esc(t('you.alerts.to', { email: A.email }))}</legend>
+  // The address is said once, under Email above; each box saves the moment it changes (no Save here).
+  return sec('alerts', esc(t('you.alerts')), `<form data-form="emails" novalidate><fieldset class="plain"><legend class="sr">${esc(t('you.alerts'))}</legend>
       ${check('y-hear', t(any ? 'choice.hearing.issues' : 'choice.hearing'), t('choice.hearing.sub'), p.hearing_alerts === true)}
       ${check('y-act', t('choice.action'), t('choice.action.sub'), p.action_alerts === true)}</fieldset>
-      <p class="small">${esc(t('you.unsub'))}</p>
-      <div class="saverow">${saveBtn('emails')}${status('emails')}</div></form>
+      ${status('emails')}
+      <p class="small">${esc(t('you.unsub'))}</p></form>
     <div id="y-levels">${levels(L)}</div>`);
 }
 const LV = ['every', 'big', 'app'];
@@ -107,6 +116,8 @@ const spaced = n => String(n || '').replace(/^([A-Z]+)(\d+)$/, '$1 $2');
 const what = L => t(L.kind === 'email' ? 'you.email.what' : 'you.letter.what');
 const day = iso => { try { return new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' }); } catch { return ''; } };
 const facts = L => [L.sent ? day(L.sent) : '', L.stance ? t('stance.' + L.stance) : ''].filter(x => x && !x.startsWith('stance.')).join(' · ');
+// A held letter (sending from the app not switched on) is marked plainly: it has reached no one (R-360 fix 3, P-5).
+const heldMark = L => L.status === 'held' ? `<span class="heldtag">${esc(t('you.letter.held'))}</span>` : '';
 function letters() {
   const Ls = kept();
   const gone = ui.gone.map(L => `<div class="gone" role="status"><p>${esc(t('you.letter.gone', { what: what(L), num: spaced(L.num) }))} ${esc(t(L.kind === 'email' ? 'you.email.stays' : 'you.letter.stays'))}</p>
@@ -114,7 +125,7 @@ function letters() {
   if (!Ls.length) return sec('letters', esc(t('you.letters')), `${gone}<p class="small">${esc(t('you.letters.none'))}</p>`);
   return sec('letters', esc(t('you.letters')), `<p class="small">${esc(t('you.letters.p'))}</p>${gone}<div class="rows">${Ls.map(L => {
     const s = slot(L), open = ui.open === s, title = t(L.kind === 'email' ? 'you.email.on' : 'you.letter.on', { num: spaced(L.num) });
-    return `<div class="lt"><button class="r" type="button" data-letter="${esc(s)}" aria-expanded="${open}"><span class="t"><b>${esc(title)}${L.nick ? ` <span class="rn">· ${esc(L.nick)}</span>` : ''}</b><span>${esc(facts(L))}</span></span>${icon(open ? 'chevron-down' : 'chevron-right', { size: '18px', cls: 'chev' })}</button>
+    return `<div class="lt"><button class="r" type="button" data-letter="${esc(s)}" aria-expanded="${open}"><span class="t"><b>${esc(title)}${L.nick ? ` <span class="rn">· ${esc(L.nick)}</span>` : ''}</b><span>${esc(facts(L))}</span>${heldMark(L)}</span>${icon(open ? 'chevron-down' : 'chevron-right', { size: '18px', cls: 'chev' })}</button>
       ${open ? `<div class="lread"><label class="sr" for="y-l-${esc(s)}">${esc(t('you.letter.read', { what: what(L), num: spaced(L.num) }))}</label><textarea id="y-l-${esc(s)}" class="letter" readonly>${esc(L.letter || '')}</textarea>
         <p class="yrow"><button class="text bad sm" type="button" data-del="${esc(s)}" aria-label="${esc(t('you.letter.del.label', { what: what(L), num: spaced(L.num) }))}">${icon('trash-2', { size: '1em' })}<span>${esc(t('you.letter.del'))}</span></button></p></div>` : ''}</div>`;
   }).join('')}</div>`);
@@ -130,7 +141,7 @@ function phone() {
 function end() {
   const confirm = ui.del ? `<div class="confirm" role="group" aria-labelledby="y-del-h"><p class="strong" id="y-del-h" tabindex="-1">${icon('triangle-alert', { size: '1em' })}<span>${esc(t('you.del.h'))}</span></p>
       <p>${esc(t('you.del.p'))}</p><p class="err" id="y-del-err" role="alert"></p>
-      <div class="yrow"><button class="danger" type="button" data-act="del-yes">${icon('trash-2', { size: '18px' })}<span>${esc(t('you.del.yes'))}</span></button><button class="text" type="button" data-act="del-no">${esc(t('you.del.no'))}</button></div></div>` : '';
+      <div class="yrow dels"><button class="secondary sm" type="button" data-act="del-no">${esc(t('you.del.no'))}</button><button class="danger" type="button" data-act="del-yes">${icon('trash-2', { size: '18px' })}<span>${esc(t('you.del.yes'))}</span></button></div></div>` : '';
   return `<div class="yend" id="y-end"><p class="yrow"><button class="text" type="button" data-act="signout">${icon('log-out', { size: '1em' })}<span>${esc(t('you.signout'))}</span></button>
     ${ui.del ? '' : `<button class="text bad" type="button" data-act="del">${esc(t('you.del'))}</button>`}</p><p class="err" id="y-out-err" role="alert"></p>${confirm}</div>`;
 }
@@ -200,8 +211,8 @@ function wire(root, A, L, again) {
     }
     if (f === 'about') {
       busy(b, t('you.saving'));
-      try { await au.saveAbout({ name: main.querySelector('#y-name').value, town: main.querySelector('#y-town').value }); unbusy(b); say(main, 'about', t('you.saved')); }
-      catch (err) { unbusy(b); say(main, 'about', sentence(err)); }
+      await saveAboutNow(true);
+      unbusy(b);
       return;
     }
     if (f === 'mail') {
@@ -212,12 +223,6 @@ function wire(root, A, L, again) {
       catch (err) { unbusy(b); inlineErr(inp, sentence(err)); }
       return;
     }
-    if (f === 'emails') {
-      busy(b, t('you.saving'));
-      try { await au.saveEmails({ hearing_alerts: main.querySelector('#y-hear').checked, action_alerts: main.querySelector('#y-act').checked }); unbusy(b); say(main, 'emails', t('you.saved')); }
-      catch (err) { unbusy(b); say(main, 'emails', sentence(err)); }
-      return;
-    }
     if (f === 'phone') {
       const inp = main.querySelector('#y-tel');
       busy(b, t('you.saving'));
@@ -225,7 +230,26 @@ function wire(root, A, L, again) {
       catch (err) { unbusy(b); inlineErr(inp, sentence(err)); }
     }
   });
+  // About you: kept for this tab as it is typed, saved when the box is left (change) and with Save. A save that changes
+  // nothing is not sent again (leaving the box, then Save).
+  let savedAbout = JSON.stringify([main.querySelector('#y-name')?.value.trim(), main.querySelector('#y-town')?.value.trim()]);
+  if (typedAbout()) savedAbout = '';
+  async function saveAboutNow(force = false) {
+    const name = main.querySelector('#y-name'), town = main.querySelector('#y-town'); if (!name || !town) return;
+    const now = JSON.stringify([name.value.trim(), town.value.trim()]);
+    if (!force && now === savedAbout) return;
+    try { await au.saveAbout({ name: name.value, town: town.value }); savedAbout = now; dropTyped(); say(main, 'about', t('you.saved')); }
+    catch (err) { say(main, 'about', sentence(err)); }
+  }
+  main.addEventListener('input', e => { if (e.target.matches('#y-name, #y-town')) keepTyped({ name: main.querySelector('#y-name').value, town: main.querySelector('#y-town').value }); });
   main.addEventListener('change', async e => {
+    if (e.target.matches('#y-name, #y-town')) { await saveAboutNow(); return; }
+    if (e.target.matches('#y-hear, #y-act')) {
+      const box = e.target;
+      try { await au.saveEmails({ hearing_alerts: main.querySelector('#y-hear').checked, action_alerts: main.querySelector('#y-act').checked }); say(main, 'emails', t('you.saved')); }
+      catch (err) { box.checked = !box.checked; say(main, 'emails', sentence(err)); }
+      return;
+    }
     const s = e.target.closest('[data-level]'); if (!s) return;
     const id = s.dataset.level, was = au.levelOf(id);
     try { await au.setLevel(id, s.value); say(main, 'lv', t('you.saved')); }
@@ -242,14 +266,14 @@ function wire(root, A, L, again) {
     if (act === 'signout') {
       busy(el, t('you.signingout'));
       try { await au.signOut(); } catch (err) { unbusy(el); main.querySelector('#y-out-err').textContent = sentence(err); return; }
-      ui.msg = t('you.signedout'); ui.sent = ''; again(); return;
+      ui.msg = t('you.signedout'); ui.sent = ''; dropTyped(); again(); return;
     }
     if (act === 'del') { ui.del = true; part('end', end(), '#y-del-h'); main.querySelector('.confirm')?.scrollIntoView({ block: 'center' }); return; }
     if (act === 'del-no') { ui.del = false; part('end', end(), '[data-act="del"]'); return; }
     if (act === 'del-yes') {
       busy(el, t('you.deleting'));
       try { await au.deleteAll(); } catch (err) { unbusy(el); main.querySelector('#y-del-err').textContent = sentence(err); return; }
-      ui.del = false; ui.msg = t('you.deleted'); ui.sent = ''; ui.seen.clear(); again(); return;
+      ui.del = false; ui.msg = t('you.deleted'); ui.sent = ''; ui.seen.clear(); dropTyped(); again(); return;
     }
     if (el.dataset.follow && L) {
       const i = L.issues.find(x => x.id === el.dataset.follow); if (!i) return;

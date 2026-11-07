@@ -4,7 +4,7 @@ import { MARK, issueBand } from '../pub/art.js';
 import { icon } from '../icons.js';
 import { t } from './i18n.js';
 import { DEMO } from './data.js';
-import { isDone, sentAt } from './done.js';
+import { isDone, sentAt, isMail } from './done.js';
 import { HST } from './words.js';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -26,7 +26,10 @@ export function header(issue, { slim = false, own = '', brand = '', cls = '' } =
 // "Part of Disposable e-cigarette ban" under a bill called "Disposable e-cigarette ban" says the name twice (A-14): left out.
 const sameName = B => (B.nickname || '').trim().toLowerCase() === String(B.issue?.name || '').trim().toLowerCase();
 const LINE_ICON = { capitol: 'landmark', calendar: 'calendar', flag: 'flag' };
-// The one button picks itself (R-360): Send testimony while a hearing's testimony deadline is open, Email the chair while the
+// A letter saved but not sent (held: sending from the app is not switched on, R-360 fix 3): hiphi_me.letters, as send.js keeps it.
+const heldHere = B => { try { const L = (JSON.parse(localStorage.getItem('hiphi_me') || '{}') || {}).letters || {};
+  return (L[isMail(B) ? 'email:' + B.id : B.id] || {}).status === 'held'; } catch { return false; } };
+// The one button picks itself (R-360): Send a letter while a hearing's testimony deadline is open, Email the chair while the
 // bill waits in a committee with no hearing set, and none once the bill is over for the year (the plain line says why).
 // It goes to #/HB2121/write (one/write.js), then #/HB2121/send (one/send.js).
 // Once a sent letter has marked it (B-6, send.js), the screen says so and when, with a quiet Send again in place of the button.
@@ -38,7 +41,9 @@ function action(B) {
     return `<div class="cta sent"><p class="okline" role="status">${icon('circle-check')}<span>${esc(date ? t('bill.sent', { date }) : t('bill.sent.nodate'))}</span></p>
     <p class="more"><a href="#/${esc(B.number)}/write" data-go="write">${esc(t('bill.again'))}</a></p></div>`;
   }
-  return `<div class="cta"><a class="primary" href="#/${esc(B.number)}/write" data-go="write">${icon(testimony ? 'send' : 'mail')}<span>${esc(t(testimony ? 'btn.testimony' : 'btn.email'))}</span></a>
+  // A held letter is said plainly above the same button (P-5: it has reached no one); the button keeps its words.
+  const held = heldHere(B) ? `<p class="heldline" id="b-held">${icon('info', { size: '1em' })}<span>${esc(t('bill.held'))}</span></p>` : '';
+  return `${held}<div class="cta"><a class="primary" href="#/${esc(B.number)}/write" data-go="write">${icon(testimony ? 'send' : 'mail')}<span>${esc(t(testimony ? 'btn.testimony' : 'btn.email'))}</span></a>
     <p class="small">${esc(t(testimony ? 'btn.time' : 'btn.time.email'))}</p></div>`;
 }
 

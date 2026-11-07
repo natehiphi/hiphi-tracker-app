@@ -82,7 +82,9 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .hd.slim .brand { top: 12px; padding: 4px 10px 4px 4px; }
 .hd.slim .demo { top: 15px; }
 .sheet.write, .sheet.send { padding-top: 16px; }
-.write h1, .send h1 { font-size: var(--t22); margin: 2px 0 12px; }
+.write h1 { font-size: var(--t22); margin: 2px 0 12px; }
+/* Send's heading is the size of You's and Mahalo's (A-4, R-360 fix 3). */
+.send h1 { margin: 2px 0 12px; }
 /* 44px tall to tap (A-6); the look is the same small link. */
 .back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font: 400 var(--t14)/1.2 var(--font); font-style: normal; text-decoration: none; }
 .back .ic { width: 1em; height: 1em; }
@@ -128,12 +130,22 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .lhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 700 var(--t14)/1.3 var(--font); color: var(--n900); }
 .lhead .edit { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px 0 8px; font-weight: 700; color: var(--p700); }
 .lhead .edit .ic { width: 1em; height: 1em; }
-/* The letter as it will go: quiet, its own height up to about a third of the screen, the rest a scroll away inside it. */
-.letter.read { height: auto; max-height: clamp(140px, 32vh, 320px); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--n50);
-  border-color: var(--n200); color: var(--n700); font-size: var(--t16); resize: none; }
-.letter.read:focus { outline: 3px solid var(--p300); outline-offset: 0; }
+/* The letter as it will go, whole: no scroll inside it (R-360 fix 3), the person's own words first, the heading folded. */
+.letter.read { height: auto; overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--n50);
+  border-color: var(--n200); color: var(--n900); font-size: var(--t16); resize: none; }
+.lhd { margin: -6px 0 8px; white-space: normal; }
+.lhd summary { display: flex; align-items: center; min-height: 44px; width: max-content; max-width: 100%; color: var(--p700); font: 700 var(--t14)/1.2 var(--font);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.lhd summary:focus-visible { outline: 3px solid var(--p300); outline-offset: 2px; border-radius: 4px; }
+.lhd-t { white-space: pre-wrap; padding-bottom: 10px; border-bottom: 1px solid var(--n200); color: var(--n500); font-size: var(--t14); line-height: 1.45; }
+/* To, stacked (C-15): one name a line, who in them gets it muted. */
+.tofrom .tl { display: block; }
+.tofrom .tl.mut { color: var(--n500); font-size: var(--t14); }
+/* The consent, at body size, right above the button that sends it (lawyer to confirm the words). */
+.consent { margin: 16px 0 0; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
+.send .consent + .cta { margin-top: 12px; }
 .send .note { margin-top: 10px; }
-.send .conf { margin: 14px 0 0; }
+.send .conf { margin: 16px 0 0; font-size: var(--t16); line-height: 1.45; color: var(--n900); }
 .send .small { font-size: var(--t14); line-height: 1.4; color: var(--n500); }
 .send .sentbox .small { margin-top: 2px; }
 .send .more { margin-top: 12px; }
@@ -147,6 +159,8 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .after { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 24px; font-size: var(--t14); }
 .after a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; }
 .after .ic { width: 1em; height: 1em; }
+/* One link style on Mahalo: both quiet links underlined (R-360 fix 3). */
+.after a.back { text-decoration: underline; }
 .letter.sel { margin-top: 8px; height: 140px; }
 .offscreen { position: fixed; top: 0; left: -9999px; opacity: 0; }
 
@@ -330,7 +344,15 @@ fieldset.plain legend { padding: 0; margin-bottom: 4px; }
 .confirm .strong { display: flex; gap: 8px; align-items: center; font: 700 var(--t16)/1.3 var(--font-h); color: var(--bad-text); margin-bottom: 6px; }
 .confirm .strong:focus { outline: none; }
 .confirm .ic { flex: none; }
-.danger { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 10px 16px; border: 0; border-radius: var(--r12); background: var(--bad-text); color: #fff; font: 600 var(--t16)/1.2 var(--font-h); cursor: pointer; }
+/* The delete is outlined red and no larger than Keep my profile, so the safe answer is never the quieter one (P-3). */
+.danger { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 16px; border: 1.5px solid var(--bad-text); border-radius: var(--r12); background: var(--n0);
+  color: var(--bad-text); font: 600 var(--t14)/1.2 var(--font-h); cursor: pointer; }
+.danger:hover { background: var(--bad-wash); }
+.yrow.dels { gap: 12px; margin-top: 12px; }
+/* A letter saved but not sent: said plainly, on the bill and under Your letters (P-5). */
+.heldline { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; font-size: var(--t16); line-height: 1.4; color: var(--n700); }
+.heldline .ic { width: 1em; height: 1em; flex: none; margin-top: 4px; color: var(--p700); }
+.r .t span.heldtag { color: var(--warn-text); font-weight: 700; }
 .you .more .secondary { width: auto; display: inline-flex; margin: 0 auto; }
 
 /* Loading: grey lines where the words will be. */

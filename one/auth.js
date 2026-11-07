@@ -169,9 +169,12 @@ const FAKE_OPS = {
   async signOut() { try { sessionStorage.removeItem(FAKE); } catch { /* ignore */ } },
   // The practice copy sends nothing: after 600 ms it answers as send_my_letter would with the switch on (queued: the letter
   // and the done mark on the fake account), or, with ?held=1 in the address, as it does with the switch off (held: the
-  // letter only), so both can be seen and tested.
+  // letter only), so both can be seen and tested. ?refuse=<code> answers with that refusal of send_my_letter's (194), e.g.
+  // hearing_not_open, so its words can be seen and tested too (R-360 fix 3).
   async sendLetter(p) {
     await new Promise(r => setTimeout(r, 600));
+    const refuse = new URLSearchParams(location.search).get('refuse');
+    if (refuse) throw Object.assign(new Error(refuse), { code: refuse });
     const held = new URLSearchParams(location.search).get('held') === '1', status = held ? 'held' : 'queued';
     fakeEdit(f => {
       f.letters = { ...(f.letters || {}), [slotOf(p.kind, p.bill_id)]: { ...p.letter, via: 'app', status } };

@@ -2,8 +2,9 @@
 // "Did it go through?" step any more). One line on what happened, exactly one primary button (Share with a friend: the share
 // sheet, or a copy of this page's link to the bill, without /thanks), one quiet link to Bills (part 6: the app's own list),
 // and Back to the bill.
-// The line follows the send's answer (setOutcome): queued, "Sent to the committee. A copy is in your inbox." (the chair, for
-// an email); held, "Saved to your account. Sending from the app opens soon, and it goes out then." (no date promised). The
+// The line follows the send's answer (setOutcome): queued, "Your letter went to the committee. A copy is in your inbox." (the
+// chair, for an email); held, "Saved, not sent yet. Sending from the app is not switched on, so this letter has not reached
+// anyone." (R-360 fix 3, P-5: no promise of when). The
 // answer is kept for this tab (sessionStorage), so a reload of Mahalo says the same; without one, a bill marked done says sent.
 import { header, esc } from './bill.js';
 import { icon } from '../icons.js';
