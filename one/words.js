@@ -7,6 +7,7 @@
 // pub/capitol.js, imported as they are: both have no imports, and both apps already agree on them.
 import { billStop, stoppedAt, CHAMBER_NAME, HELD_RE, isResolution } from '../stops.js';
 import { theCmteName, cmteInfo, codesOf } from '../pub/capitol.js';
+import { t } from './i18n.js';
 
 // Every time on this page is Hawaiʻi time: hearings and testimony deadlines are set by the Capitol in HST, and a reader on
 // the mainland must see the Capitol's clock, not their own.
@@ -40,6 +41,35 @@ export const timeWord = iso => new Date(iso).toLocaleTimeString('en-US', { timeZ
 // A date from another year says its year (R-067).
 export const dateLong = (iso, W) => { const d = new Date(iso), other = hstDay(d).slice(0, 4) !== hstDay(W.now).slice(0, 4);
   return d.toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric', ...(other ? { year: 'numeric' } : {}) }); };
+// The Capitol's week and one deadline wording for every screen (R-360 fix pass, C-15: one wording per state). Home, Bills,
+// This week and the bill all say a testimony deadline through sendBy, so the four never disagree:
+//   "Send testimony by today 9:30 AM", "by tomorrow 1:00 PM", "by Wed 9:30 AM" within six days, "by Wed, Mar 25, 9:30 AM" beyond.
+// soon: within 24 hours, the only time it is amber (A-5).
+const noon = day => new Date(day + 'T12:00:00-10:00').getTime();
+const plusDays = (day, n) => hstDay(noon(day) + n * 864e5);
+export const daysFrom = (iso, now) => Math.round((noon(hstDay(iso)) - noon(hstDay(now))) / 864e5);
+// "This week" is the Capitol's week in Hawaiʻi time: Monday to Friday, from today on; at the weekend, the week ahead.
+// end: the Monday after, the edge of "this week" for a deadline.
+export function capitolWeek(now) {
+  const today = hstDay(now), dow = new Date(noon(today)).getUTCDay();   // noon in Hawaiʻi is the same date in UTC
+  const mon = dow === 6 ? plusDays(today, 2) : dow === 0 ? plusDays(today, 1) : plusDays(today, 1 - dow);
+  const days = [0, 1, 2, 3, 4].map(n => plusDays(mon, n)).filter(d => d >= today), next = [7, 8, 9, 10, 11].map(n => plusDays(mon, n));
+  return { today, days, next, end: plusDays(mon, 7), endIso: new Date(plusDays(mon, 7) + 'T00:00:00-10:00').toISOString() };
+}
+const dayShort = iso => new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
+// "today", "tomorrow", "Wed" within six days, else "Wed, Mar 25".
+export function whenWord(iso, now) {
+  const d = daysFrom(iso, now);
+  return d === 0 ? t('when.today') : d === 1 ? t('when.tomorrow') : d > 1 && d < 7 ? new Date(iso).toLocaleDateString('en-US', DOW) : dayShort(iso);
+}
+export function sendBy(iso, now) {
+  const d = daysFrom(iso, now), time = timeWord(iso), left = new Date(iso).getTime() - now;
+  const text = d >= 0 && d < 7 ? t('due.by', { when: whenWord(iso, now), time }) : t('due.by.date', { date: dateLong(iso, { now }), time });
+  return { text, soon: left > 0 && left < 864e5 };
+}
+// A hearing row's line: "Hearing Fri, Mar 20, 9:30 AM" while it is ahead, "Heard ..." only once it has begun (C-10).
+export const hearingWords = (iso, now) => t(new Date(iso).getTime() > now ? 'hear.ahead' : 'hear.past', { date: dayShort(iso), time: timeWord(iso) });
+
 const shortDate = mdy => new Date(mdy.replace(/(\d+)\/(\d+)\/(\d+)/, (x, mo, d, y) => `20${y.slice(-2)}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`) + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: HST, month: 'short', day: 'numeric' });
 const inHours = ms => { const h = Math.ceil(ms / 36e5); return h <= 1 ? 'in under an hour' : `in under ${h} hours`; };
 // core.js dueInfo, without the minute timer: within a day the honest countdown leads (R-046), rounded up and said as "under".
@@ -182,15 +212,17 @@ export function standing(b, W, sameLaw = null) {
   const lines = [st.leg === 'second' ? { icon: 'capitol', lead: `Passed the ${other}.`, rest: where } : { icon: 'capitol', lead: `In the ${ch}.`, rest: where }];
   let action = '';
   if (st.hearingState === 'scheduled') {
-    const d = dueInfo(st.hearing, W), on = dateLong(st.hearing.scheduled_at, W), hear = many ? 'The committees hear it' : 'The committee hears it';
+    const d = dueInfo(st.hearing, W), on = dateLong(st.hearing.scheduled_at, W);
     // A hearing with no deadline posted yet still takes testimony until it starts: the Capitol opens the form with the notice.
     action = !d || !d.late ? 'testimony' : '';
     if (d && !d.late) {
-      // The deadline leads (R-360 fix pass): the date it is due, always with its date (dayWord drops it within a week), then
-      // the hearing day, and that no one has to go. Within a day the honest countdown follows (R-046).
-      const iso = st.hearing.testimony_deadline, left = new Date(iso).getTime() - W.now;
-      lines.unshift({ icon: 'calendar', lead: `Send by ${dateLong(iso, W)}, ${timeWord(iso)}.`,
-        rest: `${d.soon ? `That’s ${inHours(left)}. ` : ''}${hear} ${on}. You don’t need to go.`, soon: !!d.soon });
+      // The deadline leads (R-360 fix pass): sendBy's words, as Home, Bills and This week say it, then who hears it and when,
+      // and that no one has to go. Within a day the honest countdown follows (R-046). This line names the committees, so the
+      // line under it says only where the bill has been and is: "Passed the House. Now in the Senate." (A-14: say it once).
+      const iso = st.hearing.testimony_deadline, left = new Date(iso).getTime() - W.now, by = sendBy(iso, W.now);
+      const who = many ? `${count} ${ch} committees hear it ${on}.` : `${cap(theCmte(st.hearing.committee, W))} hears it ${on}.`;
+      lines.unshift({ icon: 'calendar', lead: `${by.text}.`, rest: `${d.soon ? `That’s ${inHours(left)}. ` : ''}${who} You don’t need to go.`, soon: by.soon });
+      lines[1] = st.leg === 'second' ? { icon: 'capitol', lead: `Passed the ${other}.`, rest: `Now in the ${ch}.` } : { icon: 'capitol', lead: `In the ${ch}.`, rest: '' };
     } else lines.push({ icon: 'calendar', lead: `Hearing ${on} at ${timeWord(st.hearing.scheduled_at)}.`, rest: d ? d.text + '.' : 'Send testimony before it starts. You don’t need to go.', soon: !!d?.soon });
   } else if (st.hearingState === 'held') {
     lines.push({ icon: 'calendar', lead: `Heard ${dateLong(st.hearing.scheduled_at, W)}.`, rest: `Waiting for ${many ? 'their' : 'its'} decision.` });
