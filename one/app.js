@@ -3,16 +3,18 @@
 // #/HB2121/write (one/write.js), #/HB2121/send (one/send.js) and #/HB2121/thanks (one/thanks.js). The counts (one/counts.js)
 // are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action.
 // Part 4 makes it the start of the whole public app: #/ is Home, #/bills is Bills (one/bills.js; #/bills/<issue-slug> opens
-// it at that issue), #/week is This week, with the tab bar (one/tabs.js) on those three and on the bill.
+// it at that issue), #/week is This week (one/week.js, part 5), with the tab bar (one/tabs.js) on those three and on the bill.
+// A returning person (a done mark, or an issue followed) who opens act.html with no address at all lands on This week.
 import { loadBill, loadPeople, loadList, LoadError } from './data.js';
 import { billScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
-import { billsScreen, billsLoading, wireBills, atIssue, state as billsState } from './bills.js';
+import { billsScreen, billsLoading, wireBills, atIssue, state as billsState, followsAny } from './bills.js';
+import { weekScreen, weekLoading, weekData } from './week.js';
 import { tabs, soonScreen } from './tabs.js';
 import { thanksScreen, wireThanks, freshThanks } from './thanks.js';
 import { countVisit, arrive, letterShown } from './counts.js';
 import { writeScreen, wireWrite, loadMe } from './write.js';
 import { sendScreen, wireSend, freshSend } from './send.js';
-import { isDone } from './done.js';
+import { isDone, doneSet } from './done.js';
 import { cancelLater } from './later.js';
 
 const root = document.getElementById('app');
@@ -48,6 +50,7 @@ async function route() {
   if (o) {
     last = o[1] || o[3] || 'home';
     if (o[1]) return bills(o[2] || '', was.startsWith('bill:'));
+    if (o[3]) return week();
     show(soonScreen(last)); return;
   }
   const r = parse();
@@ -109,9 +112,24 @@ async function bills(slug, back) {
   if (back && billsState.y) window.scrollTo(0, billsState.y);
 }
 
+// This week: the list (as Bills has it), then the bills the screen looks at; drawn afresh each visit, so a bill sent
+// meanwhile shows as sent and the next one is offered.
+const returning = () => doneSet().size > 0 || followsAny();
+async function week() {
+  const at = location.hash;
+  show(weekLoading());
+  let D, L;
+  try { L = await loadList(); D = await weekData(L); }
+  catch (e) { if (location.hash !== at) return; if (!(e instanceof LoadError)) console.error(e); show(failScreen('list')); return; }
+  if (location.hash !== at) return;
+  show(weekScreen(D, L, { returning: returning() }));
+}
+
 root.addEventListener('click', e => { if (e.target.closest('[data-retry]')) { cur.p = null; cur.bill = null; route(); } });
 window.addEventListener('hashchange', route);
 // The connection came back while the failed card is showing: ask again, once (as pub/app.js presses data-loadfail).
 window.addEventListener('online', () => { if (root.querySelector('[data-retry]')) route(); });
+// No address at all: a person who has been here before (sent something, or follows an issue) starts on This week; #/ stays Home.
+if (!location.hash && returning()) history.replaceState(null, '', '#/week');
 countVisit();   // once per page load (a Hawaiʻi day's visit, as the tracker counts it)
 route();

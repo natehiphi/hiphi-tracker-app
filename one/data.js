@@ -72,6 +72,9 @@ function shape(b, { hearings, outcomes, committees, deadlines, others, issues, n
       members: [...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.chair).map(c => ({ role: 'chair', name: c.chair, chamber: c.chamber })),
         ...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.vice_chair).map(c => ({ role: 'vice_chair', name: c.vice_chair, chamber: c.chamber }))] } : null,
     committee: cmte,
+    // Waiting for a hearing: the day the chairs have until (stops.js's deadline, as the bill screen's "If it is not heard by"),
+    // for This week's "No hearing yet. The chairs have until Mon, Mar 30." (part 5)
+    waitUntil: stand.action === 'email' && st.deadline && !st.deadline.missed ? st.deadline.date : null,
     points: b.hiphi_points || [],   // HIPHI's talking points, for part 2's letter
     issue: issue ? { slug: issue.slug, category: issue.category, name: issue.name } : null,
     capitolUrl: capitolUrl(b),
@@ -146,7 +149,9 @@ export function loadPeople() {
 // Practice copy: the same rows out of the snapshot, as pub/demo.js shapes them (an issue's extra topics from
 // issueCategories; a bill's issues only when it has a position).
 // The shape: { now, cats: [{ key, name, sort_order }], issues: [{ id, slug, name, category, categories, sort_order }],
-//   bills: [{ id, number, numberSpaced, name, nickname, alive, stage, issues: [ids], due: iso | null }] }
+//   bills: [{ id, number, numberSpaced, name, nickname, alive, stage, issues: [ids], due: iso | null }],
+//   hearings: [{ billId, at, committee }] (the list's bills' hearings from today on, cancelled ones left out, soonest first),
+//   committees: { CODE: { code, name, chamber } } }   (This week, part 5: its hearings by day, with the committees' names)
 const LIST_COLS = 'id,bill_number,session_year,stage,last_action,title,description,hiphi_position,hiphi_nickname,hiphi_summary,hiphi_issues';
 let listP = null;
 export function loadList() {
@@ -158,7 +163,7 @@ export function loadList() {
 const closes = (h, now) => { if (/cancel|defer|postpon/i.test(h.status || '')) return null;
   const at = new Date(h.scheduled_at).getTime(), dl = h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : at;
   return at > now && dl > now ? new Date(dl).toISOString() : null; };
-function listShape(rows, hearings, cats, issues, now) {
+function listShape(rows, hearings, cats, issues, now, committees = []) {
   const year = Math.max(0, ...rows.map(b => +b.session_year || 0));
   const due = {};
   for (const h of hearings) { const c = closes(h, now); if (c && (!due[h.bill_id] || c < due[h.bill_id])) due[h.bill_id] = c; }
@@ -169,18 +174,24 @@ function listShape(rows, hearings, cats, issues, now) {
       name: name || shortSum(b.hiphi_summary || cleanDesc(b.description) || b.title || '') || spaced(b.bill_number),
       stage: b.stage, alive: ok, issues: b.hiphi_issues || [], due: ok ? due[b.id] || null : null };
   });
-  return { now, year, bills, cats: cats.slice().sort((x, y) => (x.sort_order ?? 99) - (y.sort_order ?? 99)),
+  const ids = new Set(bills.map(b => b.id)), today = new Date(now).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+  const hs = hearings.filter(h => ids.has(h.bill_id) && !/cancel|defer|postpon/i.test(h.status || '') && new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) >= today)
+    .map(h => ({ billId: h.bill_id, at: h.scheduled_at, committee: h.committee || '' })).sort((x, y) => x.at.localeCompare(y.at));
+  return { now, year, bills, hearings: hs, committees: Object.fromEntries(committees.map(c => [c.code, { code: c.code, name: c.name, chamber: c.chamber }])), cats: cats.slice().sort((x, y) => (x.sort_order ?? 99) - (y.sort_order ?? 99)),
     issues: issues.map(i => ({ id: i.id, slug: i.slug, name: i.name, category: i.category, categories: i.categories?.length ? i.categories : [i.category], sort_order: i.sort_order ?? 999 })) };
 }
 const shortSum = s => { s = String(s).replace(/\s+/g, ' ').trim(); if (s.length <= 70) return s.replace(/\.$/, '');
   return s.slice(0, 69).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…'; };
 async function liveList() {
   const now = Date.now(), yr = +new Date(now).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }).slice(0, 4);
-  const [rows, cats, issues, hearings] = await Promise.all([
+  // Hearings from the start of today in Hawaiʻi (This week lists today's, even one that has begun).
+  const dayStart = new Date(new Date(now).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) + 'T00:00:00-10:00').toISOString();
+  const [rows, cats, issues, hearings, committees] = await Promise.all([
     get(`public_all_bills?select=${LIST_COLS}&session_year=gte.${yr - 1}&hiphi_position=not.is.null&hiphi_position=neq.monitor&order=session_year.desc,bill_number&limit=1000`),
     get('public_categories?select=*&order=sort_order'), get('public_issues?select=*&order=sort_order'),
-    get(`public_all_hearings?select=*&scheduled_at=gte.${encodeURIComponent(new Date(now).toISOString())}&limit=1000`).catch(() => [])]);   // "Need voices now" only: without it the issues still draw
-  return listShape(rows, hearings, cats, issues, now);
+    get(`public_all_hearings?select=*&scheduled_at=gte.${encodeURIComponent(dayStart)}&limit=1000`).catch(() => []),   // "Need voices now" and This week: without it the issues still draw
+    get('public_committees?select=code,name,chamber').catch(() => [])]);   // This week's committee names: without them a row gives the time alone
+  return listShape(rows, hearings, cats, issues, now, committees);
 }
 async function demoList() {
   const snap = await (snapP ??= fetch(SNAP, { cache: 'force-cache' }).then(r => { if (!r.ok) throw new Error('snapshot ' + r.status); return r.json(); }));
@@ -190,5 +201,5 @@ async function demoList() {
   const rows = snap.bills.map(b => ({ id: b.id, bill_number: b.bill_number, session_year: b.session_year, stage: b.stage, last_action: b.last_action, title: b.title,
     description: b.description, hiphi_position: b.position, hiphi_nickname: b.is_public ? b.nickname || null : null, hiphi_summary: b.public_summary, hiphi_issues: ofBill[b.id] || null }));
   const issues = (snap.issues || []).map(i => ({ ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)] }));
-  return listShape(rows, snap.hearings || [], snap.categories || [], issues, new Date(DEMO_ASOF).getTime());
+  return listShape(rows, snap.hearings || [], snap.categories || [], issues, new Date(DEMO_ASOF).getTime(), snap.committees || []);
 }

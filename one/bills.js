@@ -15,12 +15,14 @@ import { esc, header, keepHyphens } from './bill.js';
 import { HST } from './words.js';
 import { tabs } from './tabs.js';
 
-const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
-const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
-const readSet = k => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
+export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
+export const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
+export const readSet = k => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
 const writeSet = (k, s) => { try { localStorage.setItem(k, JSON.stringify([...s])); } catch { /* private mode: followed for this visit only */ } };
-const followed = i => readSet(ISSUES_KEY).has(i.id) || i.categories.some(c => readSet(CATS_KEY).has(c));
+export const followed = i => readSet(ISSUES_KEY).has(i.id) || i.categories.some(c => readSet(CATS_KEY).has(c));
 // As pub/core.js unfollowIssue: an issue followed through its whole topic stops the topic and keeps its other issues.
+// Following anything at all (This week, part 5: a returning person lands there).
+export const followsAny = () => readSet(ISSUES_KEY).size > 0 || readSet(CATS_KEY).size > 0;
 function setFollow(i, on, L) {
   const is = readSet(ISSUES_KEY), cs = readSet(CATS_KEY);
   if (on) is.add(i.id);
@@ -50,16 +52,18 @@ function dueWords(iso, now) {
 const statusOf = b => b.stage === 'enacted' ? t('bills.law') : b.stage === 'governor' ? t('bills.gov') : b.stage === 'ballot' ? t('bills.ballot') : b.alive ? t('bills.moving') : t('bills.over');
 
 const chev = icon('chevron-right', { size: '18px', cls: 'chev' });
-// A row: the bill's name (its number when the issue already says the name), then the deadline or where it stands.
+// A row's name: the bill's name, or under its issue its number (alone when the issue already says the name).
+export const rowName = (b, issue = null) => issue && b.nickname && b.nickname.toLowerCase() === issue.name.toLowerCase() ? b.numberSpaced : issue ? `${b.numberSpaced}: ${b.name}` : b.name;
+// A row: the bill's name, then the deadline or where it stands.
 function row(b, L, issue = null) {
   const d = b.due ? dueWords(b.due, L.now) : null;
-  const name = issue && b.nickname && b.nickname.toLowerCase() === issue.name.toLowerCase() ? b.numberSpaced : issue ? `${b.numberSpaced}: ${b.name}` : b.name;
+  const name = rowName(b, issue);
   return `<a class="r" href="#/${esc(b.number)}" data-bill="${esc(b.number)}"${b.due ? ` data-due="${esc(b.due)}"` : ''}><span class="t"><b>${keepHyphens(name)}</b>`
     + `<span${d ? ` class="due${d.soon ? ' soon' : ''}"` : ''}>${esc(d ? d.text : statusOf(b))}</span></span>${chev}</a>`;
 }
 // Within an issue: testimony open first, soonest first; then bills still moving, then the ones that became law, then the rest.
 const rank = b => b.due ? 0 : b.alive ? 1 : b.stage === 'enacted' ? 2 : 3;
-const byNum = (x, y) => x.number.localeCompare(y.number, 'en', { numeric: true });
+export const byNum = (x, y) => x.number.localeCompare(y.number, 'en', { numeric: true });
 const order = bs => bs.slice().sort((x, y) => rank(x) - rank(y) || (x.due && y.due ? x.due.localeCompare(y.due) : 0) || byNum(x, y));
 
 // Search: a bill number in any spacing ("hb2121", "HB 2121") or words of a bill's or an issue's name. HIPHI writes

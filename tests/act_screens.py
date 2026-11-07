@@ -6,6 +6,8 @@
 # a friend (the bill's link, without /thanks), the email case, and that the practice copy sends no count to /rpc/log_.
 # Part 4: the Bills screen (#/bills: search, topic chips, Need voices now, one section per issue with Follow) and the tab bar
 # (Home · Bills · This week), the bill's "Part of <issue>" line and its Back to Bills. Saves part4-bills and part4-bill.
+# Part 5: This week (#/week): the date, the one thing (the soonest deadline, the followed issue's first), Your issues, the
+# hearings by day, a returning person landing there. Saves part5-week (following the e-cigarette ban) and part5-week-nofollow.
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -269,10 +271,10 @@ with sync_playwright() as p:
     pg.wait_for_selector('#issue-disposable-e-cigarette-ban', timeout=10000); pg.wait_for_timeout(100)
     top = pg.locator('#issue-disposable-e-cigarette-ban').bounding_box()['y']
     ok(0 <= top < 120 and pg.evaluate("document.activeElement.id") == 'ih-disposable-e-cigarette-ban', f'"Part of" opens Bills scrolled to that issue ({round(top)})')
-    # The tab bar: not on Write; Home and This week stand in for now.
+    # The tab bar: not on Write; Home stands in for now (This week is part 5's, below).
     pg.goto(BASE + '#/HB2121/write'); pg.wait_for_selector('#w-letter', timeout=10000)
     ok(pg.locator('.tabs').count() == 0, 'no tab bar on Write')
-    for h, cur, word in (('#/', 'Home', 'Home, coming next'), ('#/week', 'This week', 'This week, coming next')):
+    for h, cur, word in (('#/', 'Home', 'Home, coming next'),):
         pg.goto(BASE + h); pg.wait_for_selector('.tabs', timeout=10000)
         ok(pg.locator('h1').inner_text().strip() == word and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == cur and pg.locator('#main a[href="#/bills"]').count() == 1, f'{h}: "{word}", with a way to Bills')
     pg.locator('.tabs a[data-tab="bills"]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
@@ -281,6 +283,89 @@ with sync_playwright() as p:
     ok(sw[0] <= sw[1], f'Bills: no sideways scroll at 320 ({sw})')
     ok(not errs4, f'part 4: no page errors {errs4[:2]}')
     ctx.close()
+
+    # ---- Part 5: This week ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844})
+    pg = ctx.new_page(); errs5 = []; pg.on('pageerror', lambda e: errs5.append(str(e)))
+    def open_week():
+        pg.goto(BASE + '#/week'); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=60000); pg.evaluate(FONTS)
+    open_week()
+    kick = pg.locator('.kicker').inner_text().strip()
+    ok(kick.endswith('Mon, Mar 16') and pg.locator('h1').inner_text().strip() == 'This week at the Capitol', f'This week: the kicker has today’s date in Hawaiʻi and the heading ({kick!r})')
+    # The soonest open deadline among HIPHI's bills at 9:00 am Mon 16 Mar: SB 3234's, 9:30 am today.
+    one = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip(); line = pg.locator('.pick .ln').inner_text().strip()
+    ok(one == 'Safer walking routes next to schools' and line.startswith('Send by today 9:30 AM.') and 'Heard Tue, Mar 17.' in line, f'no follows: the one thing is the soonest deadline, SB 3234 ({one!r}, {line!r})')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send testimony' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write', 'exactly one primary button, Send testimony, to the bill’s letter')
+    q = pg.locator('.wk-issues .calm a')
+    ok(q.count() == 1 and q.inner_text().strip() == 'Follow an issue on Bills and its bills show here.' and q.get_attribute('href') == '#/bills', 'no follows: one quiet line to Bills under Your issues')
+    days = pg.locator('.wk-hear h3.day').all_inner_texts()
+    ats = pg.locator('.wk-hear a.r').evaluate_all('rs => rs.map(r => r.dataset.at)')
+    subs = pg.locator('.wk-hear a.r .t span').all_inner_texts()
+    import re
+    ok(len(days) >= 2 and days == sorted(set(days), key=days.index) and ats == sorted(ats) and 1 <= len(ats) <= 10, f'hearings grouped by day, in order, ten rows at most ({days}, {len(ats)} rows)')
+    ok(days[0].upper() == 'MON, MAR 16' and all(re.match(r'^(MON|TUE|WED|THU|FRI), ', d.upper()) for d in days), 'the days are weekdays from today, Hawaiʻi time')
+    ok(all(re.match(r'^\d{1,2}:\d{2} [AP]M · (House|Senate) [A-Z]', s) for s in subs) and not any('Committee' in s or re.search(r'\b[A-Z]{3}\b', s.replace('AM', '').replace('PM', '')) for s in subs),
+       f'each row: the time and the short committee name, no codes ({subs[:3]})')
+    ok(any(s == '9:30 AM · House Transportation' for s in subs), '"9:30 AM · House Transportation" for SB 3234')
+    ok(pg.locator('.wk-hear a', has_text='See all bills').get_attribute('href') == '#/bills', '"See all bills" goes to Bills')
+    ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'This week', 'the tab bar shows This week current')
+    budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
+      const taps = [...document.querySelectorAll('#main a, #main button, #main input')].filter(e => inView(e.getBoundingClientRect())).length;
+      let words = 0; const w = document.createTreeWalker(document.querySelector('#main'), NodeFilter.SHOW_TEXT);
+      while (w.nextNode()) { const r = document.createRange(); r.selectNodeContents(w.currentNode); if (inView(r.getBoundingClientRect())) words += w.currentNode.textContent.trim().split(/\\s+/).filter(Boolean).length; }
+      return { taps, words }; }""")
+    ok(budget['taps'] <= 8 and budget['words'] <= 130, f'no follows, the first screenful: at most 8 things to tap and 130 words, tab bar aside ({budget})')
+    ok('vape' not in pg.content().lower() and not any(c in pg.locator('#main').inner_text() for c in ('HD1', 'SD1', 'HHS', 'CPN', 'TRN')), 'This week: no "vape", no version or committee codes')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part5-week-nofollow.png'))
+    # Follow the e-cigarette ban on Bills: the one thing comes from that issue, and Your issues lists it.
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=60000)
+    pg.locator('#issue-disposable-e-cigarette-ban [data-follow]').click()
+    pg.locator('.tabs a[data-tab="week"]').click(); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000); pg.evaluate(FONTS)
+    one = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip(); line = pg.locator('.pick .ln').inner_text().strip()
+    ok(one == 'Disposable e-cigarette ban' and line == 'Send by Wed 9:30 AM. Heard Fri, Mar 20.' and pg.locator('.pick .primary').get_attribute('href') == '#/HB2121/write',
+       f'following the e-cigarette ban: the one thing is HB 2121 ({one!r}, {line!r})')
+    ok(pg.locator('.kicker').inner_text().strip() == 'Aloha again. Mon, Mar 16', 'a person who follows an issue is greeted "Aloha again."')
+    ih = pg.locator('.wk-issues h3.ih').all_inner_texts(); r1 = pg.locator('.wk-issues a.r').first
+    ok(ih == ['Disposable e-cigarette ban'] and r1.get_attribute('data-bill') == 'HB2121' and r1.locator('.t span').inner_text().startswith('Heard Fri, Mar 20, 9:30 AM · Senate '),
+       f'Your issues lists the issue, with HB 2121’s hearing this week ({ih}, {r1.locator(".t span").inner_text()!r})')
+    ok(pg.locator('.primary').count() == 1, 'following: still exactly one primary button')
+    budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
+      const taps = [...document.querySelectorAll('#main a, #main button, #main input')].filter(e => inView(e.getBoundingClientRect())).length;
+      let words = 0; const w = document.createTreeWalker(document.querySelector('#main'), NodeFilter.SHOW_TEXT);
+      while (w.nextNode()) { const r = document.createRange(); r.selectNodeContents(w.currentNode); if (inView(r.getBoundingClientRect())) words += w.currentNode.textContent.trim().split(/\\s+/).filter(Boolean).length; }
+      return { taps, words }; }""")
+    ok(budget['taps'] <= 8 and budget['words'] <= 130, f'following, the first screenful: at most 8 things to tap and 130 words ({budget})')
+    sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    ok(sw[0] <= sw[1], f'This week: no sideways scroll at 390 ({sw})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part5-week.png'))
+    # Follow a second issue with nothing this week: one line, the chairs' deadline (words.js).
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=60000)
+    pg.locator('#issue-higher-liquor-taxes [data-follow]').click()
+    pg.goto(BASE + '#/week'); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
+    wl = pg.locator('.wk-issues a.r[data-bill="HB1991"] .t span')
+    ok(wl.count() == 1 and re.match(r'^No hearing yet\. The chairs have until \w{3}, \w{3} \d+\.$', wl.inner_text().strip()), f'an issue with nothing this week: "No hearing yet. The chairs have until …" ({wl.count() and wl.inner_text()!r})')
+    # Send it: Yes, I sent it, and the card says so and offers the next bill.
+    pg.locator('.pick .primary').click(); pg.wait_for_selector('#w-letter', timeout=10000)
+    pg.fill('#w-name', 'Leilani Kahale'); pg.click('[data-next]'); pg.wait_for_selector('[data-capitol]', timeout=10000)
+    pg.click('[data-capitol]'); pg.wait_for_selector('[data-sent]', timeout=3000); pg.click('[data-sent]'); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    pg.goto(BASE + '#/week')
+    pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
+    one2 = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip() if pg.locator('.pick h2').count() else ''
+    ok('You sent it: Disposable e-cigarette ban.' in pg.locator('.pick .okline').inner_text() and one2 and one2 != 'Disposable e-cigarette ban' and pg.locator('.primary').count() == 1,
+       f'after Yes, I sent it: the card says "You sent it" and offers the next bill ({one2!r})')
+    # A returning person who opens act.html with no address lands on This week.
+    pg.goto(BASE); pg.wait_for_selector('#main.week:not([aria-busy])', timeout=30000)
+    ok(pg.evaluate('location.hash') == '#/week' and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'This week', 'a returning person opening act.html lands on #/week')
+    pg.set_viewport_size({'width': 320, 'height': 640}); open_week()
+    sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    ok(sw[0] <= sw[1], f'This week: no sideways scroll at 320 ({sw})')
+    ctx.close()
+    # A first visit with no address still opens Home.
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}); pg2 = ctx.new_page(); pg2.on('pageerror', lambda e: errs5.append(str(e)))
+    pg2.goto(BASE); pg2.wait_for_selector('.tabs', timeout=30000)
+    ok(pg2.evaluate('location.hash') == '' and pg2.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Home', 'a first visit with no address stays on Home')
+    ctx.close()
+    ok(not errs5, f'part 5: no page errors {errs5[:2]}')
     br.close()
 
     # The failed load (B-8): the snapshot cannot be fetched, so the page says so and offers Try again.

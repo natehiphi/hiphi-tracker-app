@@ -206,6 +206,26 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .follow[aria-pressed="true"] { background: var(--ok-wash); border-color: var(--ok-wash); color: var(--ok-text); }
 .follow .ic { width: 16px; height: 16px; }
 
+/* This week (part 5): the one thing as a card, then the followed issues, then the hearings by day. */
+.sheet.week { padding-top: 22px; }
+.week h1 { margin: 2px 0 16px; }
+.card.pick { padding: 16px; border: 1px solid var(--p100); border-radius: var(--r16); background: linear-gradient(180deg, var(--n0), var(--p50)); box-shadow: var(--sh1); }
+.lab1 { font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--o700); }
+.pick h2 { margin: 8px 0 2px; font: 700 var(--t22)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.02em; text-wrap: balance; }
+.pick .ln { margin-top: 6px; }
+.pick .ln .ic { width: 18px; height: 18px; }
+.pick .primary { margin-top: 14px; }
+.pick .calm { margin-top: 8px; }
+.okline.small1 { justify-content: flex-start; min-height: 0; margin-top: 10px; padding: 8px 12px; font-size: var(--t14); }
+.okline.small1 .ic { width: 18px; height: 18px; }
+.week h2.sec { margin: 26px 0 4px; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.week h3.ih { margin: 12px 0 8px; font: 700 var(--t16)/1.25 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.week h3.day { margin: 14px 0 6px; font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--n500); }
+.week h3.nextwk { margin: 22px 0 0; font: 700 var(--t16)/1.25 var(--font-h); color: var(--n900); }
+.calm { margin-top: 6px; color: var(--n700); }
+.calm a { display: inline-flex; align-items: center; min-height: 44px; }
+.week .r .t span { color: var(--n500); }
+
 /* Loading: grey lines where the words will be. */
 .bar { height: 14px; border-radius: 7px; background: var(--n100); margin: 12px 0; }
 .bar.h { height: 30px; }
