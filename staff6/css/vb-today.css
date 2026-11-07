@@ -1,1 +1,40 @@
-/* R-365 version B: today (only under html.vb). */
+/* R-365 version B: today (only under html.vb). Part (d): the Done banner, rows that name their issue, the review list,
+   the review page's named Back. Calm: no motion beyond a short fade, none under Reduce Motion (A-10, Nate's 12 Oct note). */
+
+/* "Done: ... Next: ..." (A-16: the one warm card for a message, its Undo on it) */
+html.vb .vb-done { display: flex; align-items: flex-start; gap: 12px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--v6-r12, 12px);
+  background: var(--v6-wash, #e8f3f1); color: var(--v6-ink, #12363f); box-shadow: var(--v6-sh1, none); }
+html.vb .vb-done > svg { flex: none; width: 22px; height: 22px; margin-top: 1px; color: var(--v6-action, #0b6b7a); }
+html.vb .vb-done-t { flex: 1; min-width: 0; margin: 0; font-size: var(--v6-t16, 16px); line-height: var(--v6-lh16, 24px); overflow-wrap: anywhere; }
+html.vb .vb-done .btn { flex: none; margin: -4px -8px -4px 0; }
+@media (max-width: 599px) { html.vb .vb-done { flex-wrap: wrap; } html.vb .vb-done-t { flex-basis: calc(100% - 40px); } html.vb .vb-done .btn { margin-left: 34px; } }
+@media (prefers-reduced-motion: no-preference) { html.vb .vb-done { animation: vb-fade 200ms ease-out; } }
+@keyframes vb-fade { from { opacity: 0; } to { opacity: 1; } }
+/* the banner has the Undo, so the step's own toast (same Undo) stays out of its way; an error toast always shows */
+html.vb:has(.vb-done) #toast .toastmsg:not(.err) { display: none; }
+
+/* a row's issue: its own link under the row's words */
+html.vb .vb-rowcol { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+html.vb .vb-rowcol > .v6-row-main { flex: none; }
+html.vb .vb-row-issue, html.vb .vb-next-issue { display: block; min-height: 24px; padding: 0 0 6px; font-size: var(--v6-t14, 14px); line-height: var(--v6-lh14, 20px);
+  color: var(--v6-muted, #55646b); text-decoration: none; }
+html.vb .vb-row-issue span:last-child, html.vb .vb-next-issue span:last-child { color: var(--v6-action, #0b6b7a); text-decoration: underline; text-underline-offset: 2px; }
+html.vb .vb-row-issue:hover span:last-child, html.vb .vb-next-issue:hover span:last-child { text-decoration-thickness: 2px; }
+html.vb .vb-row-issue:focus-visible, html.vb .vb-next-issue:focus-visible { outline: 2px solid var(--v6-action, #0b6b7a); outline-offset: 2px; border-radius: 4px; }
+html.vb .vb-rowcol > .vb-row-issue { margin-left: 0; }
+html.vb .t6-k-todo .vb-rowcol, html.vb .vb-rv .vb-rowcol { margin-left: 0; }
+html.vb .vb-next-for { margin: 8px 4px 0; }
+@media (pointer: coarse), (max-width: 767px) { html.vb .vb-row-issue, html.vb .vb-next-issue { padding: 10px 0; } }
+
+/* nothing waiting */
+html.vb .vb-clear { padding: 16px 20px; border-radius: var(--v6-r12, 12px); background: var(--v6-card, #fff); box-shadow: var(--v6-sh1, none); }
+html.vb .vb-clear .t6-clh { margin: 0 0 6px; font-size: var(--v6-t18, 18px); }
+html.vb .vb-clear p { margin: 0; }
+html.vb .vb-clear .t6-clgo { margin-top: 12px; }
+
+/* the review page's Back, named (rv6 header: Back, Review n of m, Skip) */
+html.vb .vb-rv-back { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 12px 0 4px; margin-left: -4px; border-radius: var(--v6-r12, 12px);
+  color: var(--v6-action, #0b6b7a); font-weight: 700; text-decoration: none; }
+html.vb .vb-rv-back:hover { background: var(--v6-wash, #e8f3f1); }
+html.vb .vb-rv-back:focus-visible { outline: 2px solid var(--v6-action, #0b6b7a); outline-offset: 2px; }
+html.vb .vb-rv-back svg { width: 20px; height: 20px; }
