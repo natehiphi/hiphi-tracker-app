@@ -165,7 +165,9 @@ export const DB = {
     if (DEMO) { await demoInit(); return; }
     // Pinned to the version the public page uses (pub/kernel.js SUPABASE_JS; R-152 D): "@2" let a new release change the staff app overnight.
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
-    S.supa = createClient(SUPABASE_URL, SUPABASE_KEY);
+    // An admin acting as a teammate in their trial (R-337, Nate 7 Nov): every request says so, and the practice project's
+    // pre-request check (backend trial/actas.sql) treats requests to this trial's copy as that teammate's.
+    S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, TRIAL?.as ? { global: { headers: { 'x-trial-as': TRIAL.as } } } : undefined);
     // A trial reads and writes its own copy: tables and functions go to trial_N, sign-in stays the practice project's.
     if (TRIAL) { const c = S.supa, db = c.schema(TRIAL.schema); S.supa = new Proxy(c, { get: (o, k) => k === 'from' || k === 'rpc' ? db[k].bind(db) : o[k] }); }
     const { data } = await S.supa.auth.getSession();

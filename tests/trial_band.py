@@ -23,6 +23,9 @@ ME = {'id': 'aaaaaaaa-0000-4000-8000-0000000000e1', 'email': 'tester@hiphi.test'
 ADV = {'id': 'bbbbbbbb-0000-4000-8000-0000000000e1', 'full_name': ME['name'], 'initials': 'TT', 'email': ME['email'], 'is_active': True,
        'is_admin': True, 'color': '#3b8d6e', 'auth_user_id': ME['id']}
 
+KEV = {'id': 'cccccccc-0000-4000-8000-0000000000e2', 'full_name': 'Kevin Teammate', 'initials': 'KV', 'email': 'kevin@hiphi.test', 'is_active': True,
+       'is_admin': False, 'color': '#5B7FBF', 'auth_user_id': None}
+
 def state(**k):
   s = {'trial_id': 9, 'schema': 'trial_2', 'week': 3, 'started_week': 3, 'clock': '2026-03-16T19:00:00+00:00',
        'next': '2026-03-16T22:00:00+00:00', 'next_day': '2026-03-17T19:00:00+00:00', 'done': False, 'last_stop_of_week': False,
@@ -41,6 +44,7 @@ class Fake:
   """The practice project's answers for one browser: who is signed in, the trial's state, and every call made."""
   def __init__(self, whoami, signed_in=True):
     self.whoami, self.signed_in, self.calls, self.profiles = whoami, signed_in, [], []
+    self.heads = []
     self.after_next = None
     self.posts, self.mine = [], []
     self.alerts = [
@@ -62,7 +66,7 @@ class Fake:
       return route.fulfill(status=200, headers={'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*'})
     h = {'access-control-allow-origin': '*', 'content-type': 'application/json', 'content-range': '0-0/0'}
     prof = r.headers.get('accept-profile') or r.headers.get('content-profile') or ''
-    self.calls.append((r.method, path, prof));
+    self.calls.append((r.method, path, prof)); self.heads.append((path, prof, r.headers.get('x-trial-as')))
     if path.startswith('/rest/v1/rpc/') and r.method == 'POST':
       try: self.posts.append((path.rsplit('/', 1)[1], json.loads(r.post_data or '{}')))
       except Exception: pass
@@ -76,6 +80,8 @@ class Fake:
         if self.after_next: self.whoami['trial'] = self.after_next
         body = {'clock': self.whoami['trial']['clock'], 'drafts': 'started make'}
       elif fn == 'claim_advocate': body = ADV['id']
+      elif fn == 'link_me': body = True
+      elif fn == 'act_as': body = {'id': KEV['id'], 'name': KEV['full_name'], 'initials': 'KV', 'schema': 'trial_2'}
       elif fn == 'team': body = [{'name': 'Kai Teammate', 'email': 'kai@hiphi.test', 'in_trial': False}]
       elif fn == 'add_member': body = ['kai@hiphi.test']
       elif fn == 'week_report': body = [{'bill_number': 'HB1880', 'nickname': 'Flavor ban', 'found': True, 'position_now': 'strongly_support', 'position_then': 'strongly_support'},
@@ -91,7 +97,7 @@ class Fake:
         body = len(self.posts)
       else: body = None if fn in ('end_trial',) else []
       return route.fulfill(status=200, headers=h, body=json.dumps(body))
-    if path.startswith('/rest/v1/advocates'): return route.fulfill(status=200, headers=h, body=json.dumps([ADV]))
+    if path.startswith('/rest/v1/advocates'): return route.fulfill(status=200, headers=h, body=json.dumps([ADV, KEV]))
     if path.startswith('/rest/v1/'):
       single = 'vnd.pgrst.object' in (r.headers.get('accept') or '')
       return route.fulfill(status=200, headers=h, body='null' if single else '[]')
@@ -253,6 +259,45 @@ with sync_playwright() as pw:
     ok('Waiting for Nate' in pg.inner_text('#tr-mine'), f'{tag}: it is listed under What you have suggested, waiting for Nate')
     ok(not errs and not live, f'{tag}: no page errors, nothing to the live project ({errs[:2]})')
     shot(pg, f'suggest-{tag}.png'); ctx.close()
+
+  # 8. Act as a teammate (Nate 7 Nov): an admin switches to Kevin in the People menu; requests to the trial's copy carry
+  # x-trial-as (the practice project's pre-request check makes them Kevin's), trial_api calls (Next, alerts) do not; the
+  # band says so with Back to me; the alerts are Kevin's; Back to me ends it. A non-admin is never offered it.
+  for tag, w, h in (('laptop', 1440, 900), ('phone', 390, 844)):
+    f = Fake({'email': ME['email'], 'staff': True, 'admin': True, 'name': ME['name'], 'trial': state()})
+    ctx, pg, errs, live = open_page(b, f, w, h)
+    pg.wait_for_selector('#trialband [data-tr="menu"]', timeout=20000)
+    ok(any(p.endswith('/rpc/link_me') for _, p, _ in f.calls), f'{tag}: opening a trial links you to your record in its copy')
+    pg.click('[data-tr="menu"]'); pg.wait_for_selector('[data-tr="actas"]', timeout=8000)
+    names = pg.inner_text('#tr-as')
+    ok('Kevin Teammate' in names and ME['name'] not in names, f'{tag}: Act as lists teammates, not you ({names!r})')
+    shot(pg, f'actas-menu-{tag}.png')
+    n0 = len(f.heads)
+    pg.click('[data-tr="actas"]')
+    pg.wait_for_selector('.tr-as', timeout=20000)
+    ok('Acting as Kevin Teammate' in pg.inner_text('#trialband'), f'{tag}: the band says Acting as Kevin, with Back to me')
+    ok(('act_as', {'p_advocate': KEV['id']}) in f.posts, f'{tag}: Act as asks the practice project to set Kevin up')
+    pg.wait_for_timeout(2500)
+    copy = [x for x in f.heads[n0:] if x[1] == 'trial_2' and x[0].startswith('/rest/v1/') and '/rpc/link_me' not in x[0]]
+    api_ = [x for x in f.heads[n0:] if x[1] == 'trial_api']
+    ok(copy and all(x[2] == KEV['id'] for x in copy), f'{tag}: every request to the trial copy carries x-trial-as Kevin ({len(copy)} requests)')
+    ok(api_ and all(not x[2] for x in api_), f'{tag}: trial_api requests (Next, alerts) stay yours ({len(api_)} requests)')
+    pg.click('[data-tr="alerts"]'); pg.wait_for_selector('.tr-alerts', timeout=8000)
+    ok('Kevin’s alerts' in pg.inner_text('.tr-dlg h2'), f'{tag}: Alerts are headed Kevin’s')
+    ok(any(fn == 'my_alerts' and a.get('p_as') == KEV['id'] for fn, a in f.posts), f'{tag}: the alerts asked for are Kevin’s')
+    shot(pg, f'actas-band-{tag}.png')
+    pg.click('.tr-dlg [data-tr="close"]')
+    n = len(f.heads)
+    pg.click('#trialband [data-tr="asme"]'); pg.wait_for_selector('#trialband [data-tr="menu"]', timeout=20000); pg.wait_for_timeout(2500)
+    later = [x for x in f.heads[n:] if x[1] == 'trial_2']
+    ok(not pg.query_selector('.tr-as') and later and all(not x[2] for x in later), f'{tag}: Back to me: no band label, requests are yours again')
+    ok(not errs and not live, f'{tag}: no page errors, nothing to the live project ({errs[:2]})'); ctx.close()
+
+  f = Fake({'email': ME['email'], 'staff': True, 'admin': False, 'name': ME['name'], 'trial': state()})
+  ctx, pg, errs, live = open_page(b, f, 1280, 800)
+  pg.wait_for_selector('#trialband [data-tr="menu"]', timeout=20000)
+  pg.click('[data-tr="menu"]'); pg.wait_for_selector('#tr-people', timeout=8000); pg.wait_for_timeout(500)
+  ok(not pg.query_selector('#tr-as'), 'not an admin: no Act as'); ctx.close()
 
   b.close()
 
