@@ -13,7 +13,7 @@
 // opens one, Esc returns to the box (they are the list's own keys, not shortcuts).
 import { S, DB, DEMO, VB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, SESSION_YEAR, advocate } from './data.js';
 import { plain, diedish, personName, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, codesOf, ASK_ANSWERS, askReply, billRoute, blurb } from './model.js';
-import { icon, btn, toast, showAllBtn, keysUsed, keysOn, ASK_TAB } from './ui.js';
+import { icon, btn, toast, showAllBtn, keysUsed, keysOn, ASK_TAB, pathLine } from './ui.js';
 import { shortName } from './pathway.js';
 import { matchLegs, weekIndex, districtQ } from './legislators.js';
 import { helpTopics, synOf, practiceHref } from './help.js';   // Help's guides are places too; one list of everyday words
@@ -74,7 +74,7 @@ const SETUP_PARTS = [
   ['Forget a person', '#/setup/privacy?part=forget', 'Privacy', 'forget delete erase privacy request'],
   ['People’s lists', '#/setup/lists', 'Privacy', 'turn off a list harm lists'],
 ];
-const PLACES = () => [
+const PLACES0 = () => [
   { title: 'Today', href: '#/', icon: 'list-todo', sub: 'Your next step and what is due', key: KEY.today, also: 'home start my list to-do todo tasks due mine' },
   { title: 'Hearings', href: '#/hearings', icon: 'calendar-days', sub: 'This week’s hearings', key: KEY.hearings, also: 'this week week sittings calendar going attend' },
   { title: ASK_TAB, href: '#/hearings/ask', icon: 'megaphone', sub: 'Hearings › the bills still waiting for a hearing, and the chairs to ask', also: 'who to ask holding chairs get hearings holding our bills get hearings chair asks push board deadline box hearing request ask the chair' },
@@ -115,8 +115,11 @@ const PLACES = () => [
   ...(S.campaigns || []).map(c => ({ title: c.name, href: `#/coalition/${encodeURIComponent(c.id)}`, icon: 'users', sub: `Coalition${c.public_name && c.public_name !== c.name ? ': ' + c.public_name : ''}`, also: `coalition ${c.public_name || ''}`, code: plain(c.name) })),
   ...helpTopics().map(t => ({ title: t.title, href: `#/help/${t.id}`, icon: t.icon || 'circle-help', sub: 'A guide in Help', also: `help ${t.also}`, help: true })),
 ];
+// R-365 B: the place is called Calendar everywhere ("Hearings ›" in a result's line, the place's own row), with "hearings" kept as a word that finds it.
+const vbWords = p => VB ? { ...p, title: p.title === 'Hearings' ? 'Calendar' : p.title, sub: String(p.sub || '').replace(/\bHearings ›/g, 'Calendar ›'), also: p.title === 'Hearings' ? `hearings ${p.also || ''}` : p.also } : p;
+const PLACES = () => PLACES0().map(vbWords);
 // ---- things to do (V32): the step's place, said as the step ----
-const ACTIONS = () => [
+const ACTIONS0 = () => [
   { title: 'Approve testimony', href: '#/testimony?view=approve', icon: 'user-check', sub: 'Testimony › To approve, then Review', key: KEY.review, also: 'approve approval sign off review second look send back', who: () => me().is_admin || me().can_approve || me().is_reviewer },
   { title: 'File testimony at the Capitol', href: '#/testimony?view=file', icon: 'clipboard-check', sub: 'Testimony › Ready to file', also: 'file filing mark filed submit capitol website', job: () => ownsBills() || me().is_admin },
   { title: 'Write testimony', href: '#/testimony?view=write', icon: 'square-pen', sub: 'Testimony › To write', key: KEY.testimony, also: 'write draft make the draft send for approval resubmit revise', job: writes },
@@ -149,6 +152,7 @@ const ACTIONS = () => [
   ...(me().initials === 'NT' ? [] : [{ title: 'Ask Nate in Slack', href: '#/help/ask', icon: 'message-circle', sub: 'A direct message to Nate', also: 'question stuck ask help slack nate dm' }]),
   ...(DEMO ? [] : [{ title: 'Practice on last March', href: practiceHref(), icon: 'history', sub: 'The practice copy: nothing reaches the team', also: 'practice practise sandbox demo try' }]),
 ].filter(a => !a.who || a.who());
+const ACTIONS = () => ACTIONS0().map(vbWords);
 
 const PL_STOP = new Set(['a', 'an', 'the', 'my', 'to', 'of', 'for', 'how', 'do', 'i', 'is', 'where', 'what', 'page', 'open', 'go']);
 const qWords = q => plain(q).replace(/[’']/g, '').replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter(w => w && !PL_STOP.has(w));
@@ -172,7 +176,7 @@ export const helpHits = (q, n = 2) => rank(PLACES().filter(p => p.help), q, n);
 export const actionHits = (q, n = 3) => rank(ACTIONS(), q, n);
 const asItem = p => ({ href: p.href, title: p.title, sub: withKey(p.sub, p.key), icon: p.icon });
 // With nothing typed: the palette's start, every main place and the everyday steps, each with its shortcut.
-const START_PLACES = ['Today', 'Hearings', 'Testimony', 'Outreach', 'Bills', 'Legislators', 'My issues', 'Inbox', 'Help', 'More tools'];
+const START_PLACES = ['Today', VB ? 'Calendar' : 'Hearings', 'Testimony', 'Outreach', 'Bills', 'Legislators', 'My issues', 'Inbox', 'Help', 'More tools'];
 const START_ACTIONS = ['Approve testimony', 'Write testimony', 'File testimony at the Capitol', 'Ask a chair for a hearing', 'Say I’m going to a hearing', 'Write the public ask', 'Make a QR code'];
 const startPlaces = () => START_PLACES.map(t => PLACES().find(p => p.title === t)).filter(Boolean);
 // Only the tasks that are this person's job (an approver is not offered Write the public ask; Patti is not offered filing).
@@ -402,8 +406,8 @@ export function headerHits(q) {
       href: billRoute(b), title: name(b), icon: 'scroll-text', inline: !VB, sub: VB ? [billInLine(b), stageWords(b)].filter(Boolean).join(' · ') : [numWords(b), stageWords(b)].filter(Boolean).join(' · ') }));
   const cat = k => (S.categories || []).find(c => c.key === k);
   const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: VB ? issueLineB(i) : cat(i.category)?.name || 'Issue', icon: issueIcon(i) }));
-  const cmtes = committeeHits(q).map(c => ({ href: cmteHref(c), title: c.name, sub: cmteSub(c), icon: 'landmark' })), hears = hearingHits(q).map(x => ({ href: hearingHref(x), title: `${x.name} hearing`, sub: hearingSub(x), icon: 'calendar-days' }));
-  const legs = (VB && cmtes.length ? nameKeep(q, coalKeep(q, matchLegs(q), l => l.name)) : coalKeep(q, matchLegs(q), l => l.name)).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
+  const cmtes = committeeHits(q).map(c => ({ href: cmteHref(c), title: c.name, sub: cmteSub(c), icon: 'gavel' })), hears = hearingHits(q).map(x => ({ href: hearingHref(x), title: `${x.name} hearing`, sub: hearingSub(x), icon: 'calendar-days' }));
+  const legs = (VB && cmtes.length ? nameKeep(q, coalKeep(q, matchLegs(q), l => l.name)) : coalKeep(q, matchLegs(q), l => l.name)).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'gavel' }));
   const team = teamHits(q).map(a => ({ href: teamHref(a), title: a.full_name, sub: `${ROLE(a)} · their list`, icon: 'user-round' }));
   loadAllNotes();
   const convs = convHits(q).map(g => ({ href: convHref(g), title: `${convWho(g)}: ${saidText(convQuote(g, q, 60))}`, sub: `${convDay(g)} · ${convSub(g)}`, icon: 'message-square' }));
@@ -513,7 +517,7 @@ function resultsHTML(q) {
     if (tracked.length || (un && un.length) || un === null && lookUn)
       secs.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nB, (tracked.length ? list((sh => { const tw = twinsAmong(sh); return sh.map(b => withBar(glanceRow(billRow(b, { line: esc(billInLine(b).replace(/^.*? · bill/, 'Bill')) + ' · ' + billLine(b), button: false, cls: 'sr-row' }), b, { twins: tw }), b)); })(tracked.slice(0, N('b', tracked))).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
     if (hrs.length) secs.push(group('sr-gh2', 'Hearings', hrs.length, list(hrs.slice(0, 5).map(x => itemRow({ key: x.h.id, name: `${x.name} hearing`, line: esc(hearingSub(x)), icon: 'calendar-days', href: hearingHref(x), cls: 'sr-row' })).join(''), 'Hearings')));
-    if (cms.length) secs.push(group('sr-gcm', 'Committees', cms.length, list(cms.slice(0, 6).map(c => itemRow({ key: c.code, name: c.name, line: esc(cmteSub(c)), icon: 'landmark', href: cmteHref(c), cls: 'sr-row' })).join(''), 'Committees')));
+    if (cms.length) secs.push(group('sr-gcm', 'Committees', cms.length, list(cms.slice(0, 6).map(c => itemRow({ key: c.code, name: c.name, line: esc(cmteSub(c)), icon: 'gavel', href: cmteHref(c), cls: 'sr-row' })).join(''), 'Committees')));
     const ppl = [], pn = legs.length + team.length + (peopleReady ? people.length : 0);
     if (legs.length) ppl.push(list(legs.slice(0, N('l', legs)).map(l => legRowH(l, week)).join(''), 'Legislators') + more('l', legs.length, N('l', legs), 'legislators'));
     if (team.length) ppl.push(list(team.slice(0, N('t', team)).map(teamRowH).join(''), 'Teammates') + more('t', team.length, N('t', team), 'teammates'));
@@ -565,6 +569,8 @@ function moveResult(e, box) {
   }
 }
 
+// R-365 B: the path line starts with the lit place (Search) and says what was searched for.
+const searchPath = q => pathLine(q ? [['Search', '#/search'], [`Results for “${q.length > 40 ? q.slice(0, 39) + '…' : q}”`]] : [['Search']]);
 export default {
   tab: '', title: () => 'Search',
   // R-365 B: the page names where Back goes (the header's Back on a phone, this page's own link on a laptop). The header says
@@ -579,6 +585,7 @@ export default {
     const from = VB ? (history.state?.from || '') : '';
     return `<div class="sr-page">
       ${VB ? `<a class="sr-back" href="#/" data-back>${icon('chevron-left')}<span>Back to ${esc(from || 'Today')}</span></a>` : ''}
+      ${VB ? searchPath(q) : ''}
       <h1 class="v6-ptitle sv-h1 sr-h1">Search</h1>
       <form class="sr-box" role="search" data-srform novalidate>
         <label class="sr" for="sr-q">${VB ? 'Search issues, bills, hearings and people' : 'Search bills, legislators, teammates, supporters and places'}</label>
@@ -596,6 +603,7 @@ export default {
     // Rows painted after the frame wired the page still push history (so Back comes back here).
     if (!root.__srlinks) { root.__srlinks = true; root.addEventListener('click', e => { const a = e.target.closest('a[href^="#/"]'); if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.target.closest('[data-srtrack]')) return; e.preventDefault(); S.go(a.getAttribute('href')); }); }
     const paint = () => {
+      if (VB) { const pl = root.querySelector('.vb-path'); if (pl) pl.outerHTML = searchPath(s.q); }
       res.innerHTML = resultsHTML(s.q);
       const n = res.querySelectorAll('.v6-row').length;
       root.querySelector('#sr-status').textContent = s.q ? `${n} result${n === 1 ? '' : 's'} shown` : '';

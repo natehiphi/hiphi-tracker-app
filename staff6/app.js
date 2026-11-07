@@ -174,7 +174,9 @@ const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
 // R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
 const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'today', testimony: 'today', search: 'search',
   outreach: 'issues', asks: 'issues', partners: 'issues', memo: 'issues', emails: 'issues', composer: 'issues', supporters: 'issues', person: 'issues', lists: 'issues', list: 'issues',
-  bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues', legislator: 'issues' };
+  bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues',
+  // A legislator is looked up, not part of an issue: it lights Search (the phone bar's fourth item; the laptop's header box), whatever page you came from.
+  legislator: 'search' };
 const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
 const placeOf = route => { if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
   : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
@@ -196,6 +198,13 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
   // shortcut): it registers (S.leaveGuards ??= []).push(proceed => boolean). True means "I am asking; I will call
   // proceed() if they choose to leave". A guard must answer false at once when it has nothing unsaved.
   if (!force) for (const g of S.leaveGuards || []) { let held = false; try { held = g(() => go(path, { replace, keepScroll, force: true })) === true; } catch (e) { console.error(e); } if (held) return; }
+  // R-365 B: a page's own tabs (the issue's, the bill's) replace the history entry and keep what Back names and the ?from= it
+  // was opened with, so Back goes to the page before the issue whichever tab you are on, and says so.
+  if (VB && !replace && sameBase(location.hash, path)) {
+    replace = true;
+    const f = new URLSearchParams((location.hash.split('?')[1] || '')).get('from');
+    if (f && !/[?&]from=/.test(path)) path += (path.includes('?') ? '&' : '?') + 'from=' + encodeURIComponent(f);
+  }
   const leaving = !replace;   // a new page, not the same step moving on in place (Review's next item replaces)
   const viaSheet = takeSheetEntry(); if (viaSheet) replace = true;   // the sheet's history entry becomes this page, so no late Back undoes it
   const back = !replace && followed && performance.now() - followedAt < 1500 ? followed : ''; followed = '';
@@ -203,7 +212,7 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
   if (leaving) leavePageToasts();   // an Undo never follows the person to another page (A-16, B-5)
   // `from`: the title of the page this one was opened from, so a phone's Back names the page it returns to (B-4). A page
   // that took a sheet's entry is one step deeper than the page under the sheet, and that page is where Back goes.
-  const from = S.shownTitle || '';
+  const from = VB ? vbPageName(S.route, S.shownTitle) : S.shownTitle || '';
   if (replace) history.replaceState({ y: 0, d: viaSheet ? ++depth : depth, from: viaSheet ? from : history.state?.from || '' }, '', path);
   else history.pushState({ y: 0, d: ++depth, from }, '', path);
   panelAt = null;
@@ -211,6 +220,22 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
   if (!keepScroll) window.scrollTo(0, 0);
 }
 S.go = go;
+// R-365 B: what Back calls the page you are leaving: its place's name for a place ("Today", "Calendar", "My issues", "Search"),
+// else the page's own title (an issue's name, "HB 2121", a committee, a person). Never the page you are going to.
+function vbPageName(route, title) {
+  const t = String(title || '').trim();
+  switch (route?.name) {
+    case 'today': return 'Today';
+    case 'hearings': return route.q?.cmte ? t : 'Calendar';
+    case 'myissues': return 'My issues';
+    case 'issues': return 'All issues';
+    case 'search': return 'Search';
+    default: return t.replace(/^Hearings$/, 'Calendar') || 'Today';
+  }
+}
+// The same page with another tab: #/issue/ID and #/issue/ID/testimony, #/bill/HB2121 and #/bill/HB2121/talk.
+const baseOf = h => { const m = /^#\/(issue|bill)\/((?:\d{4}\/)?[^/?#]+)/.exec(String(h || '')); return m ? m[1] + '/' + decodeURIComponent(m[2]) : ''; };
+const sameBase = (a, b) => { const x = baseOf(a); return !!x && x === baseOf(b); };
 // ---- Back closes a side panel (R-277 fix 5, U-2, E-4) ----
 // Opening a side panel beside a list (Today's open item, the bill docked beside Bills' table) is a step of its own, so
 // Back (the browser's, or a phone's back gesture) closes the panel and leaves the list as it was: its filters, its
@@ -323,6 +348,7 @@ function header(route, scr, title) {
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   // R-365 B: Back always names its place (never a bare arrow, never a bare "Back").
   if (VB && b) { const nm = /^Back( to)?$/i.test(b.label.trim()) ? backName(b.href) : b.label.replace(/^Back to /i, ''); b = { ...b, label: nm, full: true }; }
+  S.vbBack = VB && b ? { label: b.label, href: b.href, cold: !from } : null;
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
   // R-344 rule 5: the Inbox is the tray, with its unread count (the Inbox page's own number), not a bare dot.
@@ -501,6 +527,10 @@ export function render() {
   app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr, shownT)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
   retitle(app, shownT);
   S.shownTitle = shownT;
+  // R-365 B: the page's own Back link says what the header's says, at every width ("Back to Search"); a cold arrival (no page
+  // behind in the app) also takes the header's address.
+  if (VB && S.vbBack) app.querySelectorAll('main a[data-back]').forEach(a => { const sp = [...a.querySelectorAll('span')].pop(); if (!sp) return;
+    sp.textContent = 'Back to ' + S.vbBack.label; if (S.vbBack.cold) a.setAttribute('href', S.vbBack.href); });
   // One heading a screen reader can find, on every screen at every width. Phones hide a page's own h1 (the top bar shows
   // the title): where the page's h1 is not drawn, the top bar's title is the heading.
   // From 768px there is no top bar: a screen that hides its own h1 below 900px (its phone layout, made when the header carried
