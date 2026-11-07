@@ -1,5 +1,5 @@
 // The counts of act.html (R-360 part 3): a visit, the bill screen's arrival, the minutes a letter took, and the action
-// "Yes, I sent it". Only the database calls the tracker's first visit and action counts make, copied from pub/visitlog.js
+// of a letter sent (a queued send, part 8). Only the database calls the tracker's first visit and action counts make, copied from pub/visitlog.js
 // (logDay, logAct, logTime, the 'arrive' row of logVisit) and pub/visitlog-send.js (send, sendCount), with the same keys
 // (sessionStorage 'hiphi_fv' for the visit's id, localStorage 'hiphi_days' for the once-a-day visitor key) and the same
 // privacy rules: nothing under Global Privacy Control or Do Not Track, nothing from a test run on this machine, a team
@@ -128,7 +128,7 @@ export function letterShown(B) {
   if (!started.has(B.id)) started.set(B.id, Date.now());
 }
 
-// ---- "Yes, I sent it": the action (visitlog.js logAct), and how long the letter took (logTime) ----
+// ---- a letter sent (queued, send.js part 8): the action (visitlog.js logAct), and how long the letter took (logTime) ----
 // Called before the done mark is written, so the first-testimony check still sees the old marks. kind: 'testimony' | 'email'.
 export function countSent(B, kind) {
   try {

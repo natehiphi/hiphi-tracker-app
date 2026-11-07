@@ -29,7 +29,7 @@ const LINE_ICON = { capitol: 'landmark', calendar: 'calendar', flag: 'flag' };
 // The one button picks itself (R-360): Send testimony while a hearing's testimony deadline is open, Email the chair while the
 // bill waits in a committee with no hearing set, and none once the bill is over for the year (the plain line says why).
 // It goes to #/HB2121/write (one/write.js), then #/HB2121/send (one/send.js).
-// Once "Yes, I sent it" has marked it (B-6), the screen says so and when, with a quiet Send again in place of the button.
+// Once a sent letter has marked it (B-6, send.js), the screen says so and when, with a quiet Send again in place of the button.
 function action(B) {
   if (!B.action) return '';
   const testimony = B.action === 'testimony';

@@ -22,9 +22,14 @@ const keyOf = B => `${B.id}|${B.action === 'testimony' && B.hearing ? B.hearing.
 let drafts = null;
 const allDrafts = () => { if (!drafts) { try { drafts = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}') || {}; } catch { drafts = {}; } } return drafts; };
 export const keepDraft = (B, x) => { allDrafts()[keyOf(B)] = x; try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(drafts)); } catch { /* kept for this page only */ } };
+// The letter waiting while the person confirms their email (R-360 part 8, send.js): the link may open in a new tab, which
+// has no sessionStorage, so the draft is kept in hiphi_me.actDrafts too (not hiphi_me.drafts: that is the tracker's
+// testimony draft, in its own shape). Signing out clears it with the profile (auth.js PROFILE_KEYS).
+export const holdDraft = (B, x) => saveMe({ actDrafts: { ...(loadMe().actDrafts || {}), [keyOf(B)]: x } });
+export const dropHeld = B => { const d = { ...(loadMe().actDrafts || {}) }; if (!(keyOf(B) in d)) return; delete d[keyOf(B)]; saveMe({ actDrafts: d }); };
 // The draft for this bill, brought up to date with the person's details and the directory (surnames).
 export function draftFor(B, people) {
-  const me = loadMe(), x = allDrafts()[keyOf(B)] || { head: '', body: '', letter: '', built: null, edited: false, own: '' };
+  const me = loadMe(), x = allDrafts()[keyOf(B)] || me.actDrafts?.[keyOf(B)] || { head: '', body: '', letter: '', built: null, edited: false, own: '' };
   syncLetter(x, letterParts(B, { name: me.name, town: me.town, own: x.own, closing: me.closing }, people));
   keepDraft(B, x);
   return x;

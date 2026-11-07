@@ -16,6 +16,10 @@
 # Part 7: You (#/you), the fourth tab: signed out, the email box and one primary; the practice sign-in (a fake account in
 # sessionStorage) and its sections in order; saves reaching Write, Bills' follows, a sent letter, the in-page delete confirm,
 # Sign out and the merge at sign-in. Saves part7-you-out and part7-you-in (390x844).
+# Part 8 (Nate 6 Nov: "We want people to stay in the app"): Send no longer hands people to the Capitol or their mail app.
+# It shows To and From and the letter with Edit; signed out, an email box and "Email me a link to confirm it's you"; signed
+# in (the practice tester), "Send my testimony" / "Send my email", which reaches Mahalo with the sent line, marks it done and
+# keeps the letter on the account; ?held=1 gives the held words and no done mark. Saves part8-send and part8-mahalo.
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -101,7 +105,7 @@ with sync_playwright() as p:
     ok(to.startswith('To the ') and '· hearing Fri, Mar 20' in to, f'one quiet line says who it goes to and the hearing ({to!r})')
     bk = pg.locator('.back').bounding_box()
     ok(bk and bk['height'] >= 44, f'the back link is at least 44px tall ({bk and bk["height"]}) (fix 3)')
-    ok(pg.locator('.note').inner_text().strip() == 'The Capitol posts testimony online with your name and town.', 'the public note, once and plainly')
+    ok(pg.locator('.note').inner_text().strip() == 'Letters to lawmakers can become public, with your name and town.', 'the public note, once and plainly')
     ok('Disposable e-cigarettes are easy for young people to buy' in L, 'HIPHI’s talking points are in the letter')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Next', 'write: exactly one primary button, Next')
     ok(pg.locator('[data-differ]').count() == 1 and 'Write your own words instead' in pg.locator('[data-differ]').inner_text(), '"I see it differently", with "Write your own words instead"')
@@ -121,42 +125,58 @@ with sync_playwright() as p:
     ok('vape' not in pg.content().lower(), 'write: no "vape"')
     if SHOTS: pg.locator('#w-letter').evaluate('t => { t.blur(); t.scrollTop = 0; }'); pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part2-write.png'))
     sent_letter = letter()
-    pg.click('[data-next]'); pg.wait_for_selector('[data-copy]', timeout=10000)
-    ok(pg.evaluate('location.hash') == '#/HB2121/send' and pg.locator('h1').inner_text() == 'Send it at the Capitol', 'Next reaches #/HB2121/send')
-    ok(pg.locator('main > .note').inner_text().strip() == 'The first time takes about 10 minutes.', 'one short line under the heading')
-    ok(pg.locator('.steps li').nth(0).locator('[data-capitol]').count() == 1 and pg.locator('.steps li').nth(2).locator('[data-copy]').count() == 1, 'Open the Capitol page is in step 1, Copy my testimony in step 3')
-    ok(pg.locator('body').inner_text().count('green box') == 1, '"green box" is said once, under Did it go through?')
-    ok(pg.locator('.primary').count() == 1 and 'Open the Capitol page' in pg.locator('.primary').inner_text(), 'send: exactly one primary button, Open the Capitol page')
-    ok(pg.locator('.steps li').count() == 3 and 'Fri, Mar 20' in pg.locator('.steps').inner_text(), 'three numbered steps, with the hearing’s day')
-    sw = width(); bx = pg.locator('[data-sent]').bounding_box()
-    ok(sw[0] <= sw[1] and bx['y'] + bx['height'] <= 844, f'send fits one view at 390x844 (Yes bottom {round(bx["y"] + bx["height"])}, {sw})')
+    NOWORDS = ('Capitol page', 'Copy my testimony', 'Did it go through', 'Yes, I sent it', 'Open in Gmail')
+    gone = lambda: [w for w in NOWORDS if w in pg.locator('body').inner_text()]
+    pg.click('[data-next]'); pg.wait_for_selector('#s-letter', timeout=10000)
+    ok(pg.evaluate('location.hash') == '#/HB2121/send' and pg.locator('h1').inner_text() == 'Send it', 'Next reaches #/HB2121/send, "Send it"')
+    to = pg.locator('#s-to').inner_text().strip(); fr = pg.locator('#s-from').inner_text().strip()
+    ok(to.startswith('the Senate ') and (to.endswith('their chairs, vice chairs and members') or to.endswith('its chair, vice chair and members')), f'To: the committee(s) and who gets it, in words ({to!r})')
+    ok(fr == 'Leilani K. Kahale, Hilo', f'From: the name and town, signed out no email ({fr!r})')
+    full = pg.locator('#s-letter').text_content()
+    ok(full.startswith('Testimony in SUPPORT of HB 2121') and full.endswith(sent_letter), 'the letter, read-only: the header, then the letter with their edit')
+    ok(pg.locator('#s-letter').evaluate('e => e.tagName') != 'TEXTAREA' and pg.locator('[data-edit]').inner_text().strip() == 'Edit', 'the letter is read-only, with Edit')
+    ok(pg.locator('main > .note').inner_text().strip() == 'HIPHI sends it for you, with a copy to your inbox. Replies come to you.', 'one small line: HIPHI sends it, a copy to your inbox, replies to you')
+    ok(pg.locator('#s-email').get_attribute('type') == 'email' and pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Email me a link to confirm it’s you',
+       'signed out: the email box and one primary, "Email me a link to confirm it’s you"')
+    ok(pg.locator('[data-practice]').inner_text().strip() == 'Practice: sign in as a tester', 'the practice copy offers "Practice: sign in as a tester" on Send')
+    ok(not gone(), f'no Capitol steps, copy button or "Did it go through" words ({gone()})')
+    sw = width(); ok(sw[0] <= sw[1], f'send: no sideways scroll at 390 ({sw})')
     ok('vape' not in pg.content().lower(), 'send: no "vape"')
-    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part2-send.png'))
-    pg.click('[data-copy]'); pg.wait_for_function("() => /Copied/.test(document.querySelector('[data-copy]')?.textContent || '')", timeout=3000)
-    full = pg.evaluate('navigator.clipboard.readText()')
-    ok(full.startswith('Testimony in SUPPORT of HB 2121') and full.endswith(sent_letter), 'Copy my testimony copies the header, then the letter with their edit (fix 6)')
-    # Fix 1: a "Copied" timer never paints the send screen over the letter.
-    pg.click('.back'); pg.wait_for_selector('#w-letter', timeout=5000); pg.wait_for_timeout(2500)
-    ok(pg.evaluate('location.hash') == '#/HB2121/write' and pg.locator('#w-letter').count() == 1 and pg.locator('[data-copy]').count() == 0, 'Copy, then Back to my letter: 2.5 s later the letter is still there (fix 1)')
-    pg.click('[data-next]'); pg.wait_for_selector('[data-copy]', timeout=10000)
-    ok('Copied' not in pg.locator('[data-copy]').inner_text(), 'back on send, the button says Copy again, not a stale Copied')
-    pg.click('[data-capitol]'); pg.wait_for_selector('.info', timeout=3000)
-    ok(len(ctx.pages) == 1 and pg.locator('.primary').count() == 1 and 'Yes, I sent it' in pg.locator('.primary').inner_text(), 'practice: the Capitol page opens nothing, and Yes, I sent it becomes the one primary')
-    pg.click('[data-notyet]'); pg.wait_for_selector('.okmsg', timeout=3000)
-    ok(pg.evaluate('location.hash') == '#/HB2121/send', 'Not yet stays on send')
-    pg.click('[data-sent]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=5000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    pg.click('[data-link]'); pg.wait_for_selector('#s-email-err', timeout=3000)
+    ok('name@example.com' in pg.locator('#s-email-err').inner_text() and pg.evaluate('document.activeElement.id') == 's-email', 'no email: a plain error under the box, the focus in it')
+    pg.fill('#s-email', 'leilani@example.com'); pg.click('[data-link]'); pg.wait_for_selector('.sentbox', timeout=5000)
+    ok('leilani@example.com' in pg.locator('.sentbox').inner_text() and 'Practice: no email is sent' in pg.locator('main').inner_text() and pg.locator('.primary').count() == 0,
+       'after the link: check your email, the address, and the practice copy sent none')
+    held = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}').actDrafts || {}")
+    ok(any(v.get('letter') == full for v in held.values()), 'the letter waits in hiphi_me while they confirm (a link opened in a new tab finds it)')
+    pg.click('[data-other]'); pg.wait_for_selector('#s-email', timeout=3000)
+    # Edit goes back to Write with the letter kept.
+    pg.click('[data-edit]'); pg.wait_for_selector('#w-letter', timeout=5000)
+    ok(pg.evaluate('location.hash') == '#/HB2121/write' and letter() == sent_letter, 'Edit returns to Write with the letter kept')
+    pg.click('[data-next]'); pg.wait_for_selector('[data-practice]', timeout=10000)
+    # The practice sign-in: the one primary is Send my testimony, and From has the account's email.
+    pg.click('[data-practice]'); pg.wait_for_selector('[data-send]', timeout=10000); pg.evaluate(FONTS)
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Send my testimony' and pg.locator('#s-email').count() == 0, 'the practice sign-in shows the one primary, "Send my testimony"')
+    ok('tester@example.com' in pg.locator('#s-from').inner_text(), 'From: the email replies go to, once signed in')
+    sw = width(); ok(sw[0] <= sw[1], f'send signed in: no sideways scroll at 390 ({sw})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part8-send.png'))
+    pg.click('[data-send]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=5000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
     rec = pg.evaluate("() => { const d = JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]'), m = JSON.parse(localStorage.getItem('hiphi_me') || '{}');"
-                      " const L = Object.values(m.letters || {}).find(l => l.num === 'HB2121' && l.via === 'act'); return { done: d.filter(k => k.endsWith('|testimony')).length, letter: L ? L.letter : '', h: L ? L.h : '' }; }")
-    ok(rec['done'] >= 1 and rec['letter'] == full and rec['h'], f'Yes, I sent it marks the testimony done and keeps the whole letter in hiphi_me ({rec["done"]} mark)')
-    # Part 3: the Mahalo screen after Yes, I sent it.
+                      " const L = Object.values(m.letters || {}).find(l => l.num === 'HB2121'); return { done: d.filter(k => k.endsWith('|testimony')).length, letter: L ? L.letter : '', h: L ? L.h : '', status: L ? L.status : '' }; }")
+    ok(rec['done'] >= 1 and rec['letter'] == full and rec['h'] and rec['status'] == 'queued', f'Send marks the testimony done and keeps the whole letter on this device ({rec["done"]} mark, {rec["status"]})')
+    fk = pg.evaluate("JSON.parse(sessionStorage.getItem('hiphi_act_fake') || 'null')")
+    fl = [v for v in (fk or {}).get('letters', {}).values() if v.get('num') == 'HB2121']
+    ok(fl and fl[0].get('letter') == full and fl[0].get('status') == 'queued' and any(a['key'].endswith('|testimony') for a in fk.get('actions', [])), 'the practice account has the letter (my_letters) and the action (public_actions)')
+    # Part 3: the Mahalo screen, straight after the send (part 8: no "Did it go through?" step).
     sm = pg.locator('.sum').inner_text().strip()
-    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and sm in ('Your testimony is in. The committees hear it Fri, Mar 20.', 'Your testimony is in. The committee hears it Fri, Mar 20.') and 'HB 2121' not in sm, f'thanks: "Mahalo!" and the hearing day, the number said once ({sm!r})')
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and sm in ('Sent to the committees. A copy is in your inbox.', 'Sent to the committee. A copy is in your inbox.'), f'thanks: "Mahalo!" and the sent line ({sm!r})')
+    ok(not gone(), f'Mahalo: no "Did it go through" words ({gone()})')
     a1, a2 = pg.locator('.after a').nth(0).bounding_box(), pg.locator('.after a').nth(1).bounding_box()
     ok(a2['y'] - (a1['y'] + a1['height']) >= 15.5, f'thanks: the two quiet links stand 16px apart ({round(a2["y"] - a1["y"] - a1["height"])})')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Share with a friend', 'thanks: exactly one primary, Share with a friend')
     ok(pg.locator('a', has_text='See HIPHI’s other bills').get_attribute('href') == '#/bills' and pg.locator('#main a[href^="track.html"]').count() == 0, 'thanks: "See HIPHI’s other bills" goes to Bills, in the app (part 6)')
     ok('vape' not in pg.content().lower(), 'thanks: no "vape"')
-    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part3-thanks.png'))
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part8-mahalo.png'))
     want = pg.evaluate("() => location.origin + location.pathname + '#/HB2121'")
     pg.evaluate("() => Object.defineProperty(navigator, 'share', { configurable: true, value: d => { window.__shared = d; return Promise.resolve(); } })")
     pg.click('[data-share]'); pg.wait_for_function('() => !!window.__shared', timeout=3000)
@@ -171,40 +191,52 @@ with sync_playwright() as p:
     ok(pg.evaluate('location.hash') == '#/HB2121' and pg.locator('h1').inner_text().strip() != 'Mahalo!', 'Share, then Back to the bill: 2.5 s later the bill is still there (fix 1)')
     # Fix 2: the bill remembers it was sent, and /send goes to Mahalo.
     ok('You sent it on ' in pg.locator('.okline').inner_text() and pg.locator('.primary').count() == 0 and pg.locator('a', has_text='Send again').count() == 1,
-       'after Yes, the bill says "You sent it on …" with a quiet Send again, no primary (fix 2)')
+       'after sending, the bill says "You sent it on …" with a quiet Send again, no primary (fix 2)')
     pg.goto(BASE + '#/HB2121/send'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=10000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=10000)
-    ok(pg.locator('[data-sent]').count() == 0, '#/HB2121/send after sending goes to Mahalo, never Yes, I sent it again (fix 2)')
+    ok(pg.locator('[data-send]').count() == 0, '#/HB2121/send after sending goes to Mahalo, never the Send button again (fix 2)')
     open_step('#/HB2121/write', '#w-letter')
     ok(pg.locator('#w-name').input_value() == 'Leilani K. Kahale' and pg.locator('#w-town').input_value() == 'Hilo', 'the name and town are prefilled next time')
     pg.click('[data-differ]')
     ok(letter() == '' and pg.evaluate("document.activeElement.id") == 'w-letter', 'I see it differently empties the letter and puts the cursor in it (fix 8)')
     pg.locator('#w-letter').fill('Aloha. I see this bill another way.')
-    pg.click('[data-next]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks' || !!document.querySelector('[data-copy]')", timeout=10000)
+    pg.click('[data-next]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks' || !!document.querySelector('#s-letter')", timeout=10000)
 
     # The email to the chair: SB 2175 waits for a hearing.
     open_step('#/SB2175/write', '#w-letter')
     ok(pg.locator('h1').inner_text() == 'Your email to the chair' and 'Would you please schedule a hearing' in letter(), 'SB 2175: "Your email to the chair", asking for a hearing')
-    ok(pg.locator('[data-differ]').count() == 1 and 'HIPHI sends nothing' in pg.locator('.note').inner_text(), 'the email path has I see it differently too, and says HIPHI sends nothing')
-    pg.click('[data-next]'); pg.wait_for_selector('[data-via]', timeout=10000)
-    hrefs = {a.get_attribute('data-via'): a.get_attribute('href') for a in pg.locator('[data-via]').all()}
-    ok(set(hrefs) == {'app', 'gmail', 'outlook'} and hrefs['app'].startswith('mailto:') and '@capitol.hawaii.gov' in hrefs['app'] and 'subject=SB%202175' in hrefs['app'],
-       'the mail app link has the chair’s address and the subject')
-    ok(hrefs['gmail'].startswith('https://mail.google.com/') and hrefs['outlook'].startswith('https://outlook.live.com/') and all('body=' in h for h in hrefs.values()), 'Gmail and Outlook links, each with the message')
-    ok(pg.locator('.primary').count() == 1, 'email send: exactly one primary button')
-    ok(pg.locator('.steps li').nth(0).locator('[data-via]').count() == 3, 'the email’s step 1 holds the three ways to open it')
+    ok(pg.locator('[data-differ]').count() == 1 and pg.locator('.note').inner_text().strip() == 'Next, you see who it goes to. Then HIPHI sends it for you.', 'the email path has I see it differently too, and says HIPHI sends it next')
+    pg.click('[data-next]'); pg.wait_for_selector('[data-send]', timeout=10000)
+    to = pg.locator('#s-to').inner_text().strip()
+    ok(pg.locator('h1').inner_text() == 'Send your email' and ', chair of the ' in to and (to.startswith('Sen. ') or to.startswith('Rep. ')), f'SB 2175: "Send your email", To the chair by name ({to!r})')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Send my email', 'email send: exactly one primary, "Send my email"')
+    ok(pg.locator('[data-via]').count() == 0 and not gone(), f'email send: no mail-app links, no Capitol words ({gone()})')
     ok('vape' not in pg.content().lower(), 'email send: no "vape"')
-    pg.click('[data-sent]'); pg.wait_for_function("() => location.hash === '#/SB2175/thanks'", timeout=5000)
-    ok(pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('||email'))"), 'Yes, I sent it marks the email done')
+    pg.click('[data-send]'); pg.wait_for_function("() => location.hash === '#/SB2175/thanks'", timeout=5000)
     pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)   # the hash changes before the screen is drawn
-    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Your email is on its way to the chair.', 'the email case: "Your email is on its way to the chair."')
+    ok(pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('||email'))"), 'Send my email marks the email done')
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Sent to the chair. A copy is in your inbox.', 'the email case: "Sent to the chair. A copy is in your inbox."')
+
+    # Held (?held=1: the switch is off, as it is until Nate turns letters on): saved, not done, not counted.
+    # A fresh start for HB 2121 (the account's own done marks come back at sign-in, as they should): none here, none on the account.
+    pg.evaluate("localStorage.removeItem('hiphi_done_demo'); localStorage.removeItem('hiphi_done_at_demo'); const f = JSON.parse(sessionStorage.getItem('hiphi_act_fake')); f.actions = []; sessionStorage.setItem('hiphi_act_fake', JSON.stringify(f))")
+    pg.goto(BASE + '&held=1#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=60000)
+    pg.click('[data-send]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=5000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Saved to your account. Sending from the app opens soon, and it goes out then.', 'held: Mahalo with the held words')
+    ok(not pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('|testimony'))"), 'held: no done mark')
+    fk = pg.evaluate("JSON.parse(sessionStorage.getItem('hiphi_act_fake') || 'null')")
+    ok([v.get('status') for v in fk['letters'].values() if v.get('num') == 'HB2121'] == ['held'], 'held: the letter is saved on the account as held')
+    pg.reload(); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=30000)
+    ok(pg.locator('.sum').inner_text().strip().startswith('Saved to your account.'), 'held: a reload of Mahalo keeps the held words')
+    pg.goto(BASE + '#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=30000)
+    ok(pg.locator('.primary').inner_text().strip() == 'Send my testimony', 'held: the bill is not done, so Send is offered again')
 
     # 320 wide: no sideways scroll on either step.
     pg.set_viewport_size({'width': 320, 'height': 640}); pg.evaluate("localStorage.removeItem('hiphi_done_demo')")   # so send shows again
-    for h, sel in (('#/HB2121/write', '#w-letter'), ('#/HB2121/send', '[data-copy]'), ('#/SB2175/send', '[data-via]'), ('#/HB2121/thanks', '[data-share]')):
+    for h, sel in (('#/HB2121/write', '#w-letter'), ('#/HB2121/send', '#s-letter'), ('#/SB2175/send', '#s-letter'), ('#/HB2121/thanks', '[data-share]')):
         open_step(h, sel); sw = width()
         ok(sw[0] <= sw[1], f'{h}: no sideways scroll at 320 ({sw})')
     ok(not errs2, f'part 2 and 3: no page errors {errs2[:2]}')
-    ok(not any('/rpc/log_' in u for u in reqs), f'the practice copy sends no count: no request to /rpc/log_ ({len(reqs)} requests)')
+    ok(not any('/rpc/log_' in u or 'send_my_letter' in u for u in reqs), f'the practice copy sends no count and no letter: no request to /rpc/log_ or send_my_letter ({len(reqs)} requests)')
     ctx.close()
 
     # ---- Part 4: Bills and the tab bar ----
@@ -398,15 +430,15 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/week'); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
     wl = pg.locator('.wk-issues a.r[data-bill="HB1991"] .t > span')
     ok(wl.count() == 1 and re.match(r'^No hearing yet\. The chairs have until \w{3}, \w{3} \d+\.$', wl.inner_text().strip()), f'an issue with nothing this week: "No hearing yet. The chairs have until …" ({wl.count() and wl.inner_text()!r})')
-    # Send it: Yes, I sent it, and the card says so and offers the next bill.
+    # Send it (the practice tester signed in on Send), and the card says so and offers the next bill.
     pg.locator('.pick .primary').click(); pg.wait_for_selector('#w-letter', timeout=10000)
-    pg.fill('#w-name', 'Leilani Kahale'); pg.click('[data-next]'); pg.wait_for_selector('[data-capitol]', timeout=10000)
-    pg.click('[data-capitol]'); pg.wait_for_selector('[data-sent]', timeout=3000); pg.click('[data-sent]'); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    pg.fill('#w-name', 'Leilani Kahale'); pg.click('[data-next]'); pg.wait_for_selector('[data-practice]', timeout=10000)
+    pg.click('[data-practice]'); pg.wait_for_selector('[data-send]', timeout=5000); pg.click('[data-send]'); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
     pg.goto(BASE + '#/week')
     pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
     one2 = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip() if pg.locator('.pick h2').count() else ''
     ok('You sent it: Disposable e-cigarette ban.' in pg.locator('.pick .okline').inner_text() and one2 and one2 != 'Disposable e-cigarette ban' and pg.locator('.primary').count() == 1,
-       f'after Yes, I sent it: the card says "You sent it" and offers the next bill ({one2!r})')
+       f'after sending: the card says "You sent it" and offers the next bill ({one2!r})')
     # A returning person who opens act.html with no address lands on This week.
     pg.goto(BASE); pg.wait_for_selector('#main.week:not([aria-busy])', timeout=30000)
     ok(pg.evaluate('location.hash') == '#/week' and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'This week', 'a returning person opening act.html lands on #/week')
@@ -586,17 +618,16 @@ with sync_playwright() as p:
     pg.locator(f'#y-issues [data-follow="{iid}"]').click(); pg.wait_for_selector(f'#y-issues [data-follow="{iid}"][aria-pressed="true"]', timeout=3000)
 
     # A sent letter shows under Your letters, and the account has it and the action.
-    pg.goto(BASE + '#/HB2121/send'); pg.wait_for_selector('[data-sent]', timeout=30000)
-    pg.click('[data-capitol]'); pg.wait_for_selector('[data-sent].primary', timeout=5000); pg.click('[data-sent]')
+    pg.goto(BASE + '#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=30000); pg.click('[data-send]')
     pg.wait_for_function("() => /\\/thanks$/.test(location.hash)", timeout=10000)
     pg.wait_for_function("() => Object.keys(JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{}').letters || {}).length > 0", timeout=5000)
-    f = fake(); ok(any(a['key'].endswith('|testimony') for a in f['actions']) and len(f['letters']) == 1, 'Yes, I sent it: the account has the action and the letter (public_actions, my_letters)')
+    f = fake(); ok(any(a['key'].endswith('|testimony') for a in f['actions']) and len(f['letters']) == 1, 'Send my testimony: the account has the action and the letter (public_actions, my_letters)')
     pg.goto(BASE + '#/you'); pg.wait_for_selector('#y-letters [data-letter]', timeout=30000)
     ok('Letter on HB 2121' in pg.locator('#y-letters').inner_text(), 'You: the letter is under Your letters')
     pg.locator('#y-letters [data-letter]').first.click(); pg.wait_for_selector('#y-letters textarea', timeout=3000)
     ok('Kai Kealoha' in pg.locator('#y-letters textarea').input_value(), 'opening it shows the letter to read')
     pg.locator('#y-letters [data-del]').click(); pg.wait_for_selector('#y-letters [data-undo]', timeout=3000)
-    ok(pg.locator('#y-letters [data-letter]').count() == 0 and 'is deleted. The Capitol still has the one you sent.' in pg.locator('#y-letters').inner_text() and not fake()['letters']
+    ok(pg.locator('#y-letters [data-letter]').count() == 0 and 'is deleted. Deleting it here doesn’t unsend it.' in pg.locator('#y-letters').inner_text() and not fake()['letters']
        and not pg.evaluate("Object.keys(JSON.parse(localStorage.getItem('hiphi_me') || '{}').letters || {}).length"), 'Delete: gone from the list, this device and the account, with Undo')
     pg.locator('#y-letters [data-undo]').click(); pg.wait_for_selector('#y-letters [data-letter]', timeout=3000)
     ok(len(fake()['letters']) == 1, 'Undo brings it back')

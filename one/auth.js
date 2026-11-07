@@ -29,7 +29,7 @@ export const TEXT_KEY = DEMO ? 'hiphi_text_demo' : 'hiphi_text';                
 const WATCH_KEY = DEMO ? 'hiphi_watch_ids_demo' : 'hiphi_watch_ids';                 // pub/kernel.js LOCAL_KEY: bills followed on their own
 export const LEVELS = ['every', 'big', 'app'];
 // The profile keys a device keeps for its account (pub/kernel.js PROFILE_KEYS), and the town, which act.html keeps beside them.
-const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'introIssue', 'titles', 'story', 'stories', 'quote', 'quoteAsked', 'interests', 'helpNote', 'drafts', 'mail', 'letters', 'capitolAcct', 'town'];
+const PROFILE_KEYS = ['acct', 'name', 'email', 'closing', 'why', 'whyBill', 'introWhy', 'introIssue', 'titles', 'story', 'stories', 'quote', 'quoteAsked', 'interests', 'helpNote', 'drafts', 'mail', 'letters', 'capitolAcct', 'town', 'actDrafts'];
 const KINDS = ['testimony', 'email'];   // the done marks public_actions takes from this page (the chair's ask mark stays on the device)
 
 // ---- the device's copies ----
@@ -130,6 +130,22 @@ const LIVE = {
   },
   async deleteAccount() { must(await (await client()).rpc('delete_my_account')); try { await (await client()).auth.signOut(); } catch { /* the account is already deleted */ } },
   async signOut() { const { error } = await (await client()).auth.signOut(); if (error) throw error; },
+  // R-360 part 8: the letter sent from inside the app (backend 194 send_my_letter). Until 194 is applied the function is
+  // missing (PostgREST answers 404, PGRST202): the letter is then kept on the account as the tracker keeps one (my_letters)
+  // and treated as held, so the person hears the held words and nothing is lost.
+  async sendLetter(p) {
+    const sb = await client(), r = await sb.rpc('send_my_letter', { p });
+    if (r.error) {
+      if (r.status === 404 || r.error.code === 'PGRST202') {
+        console.debug('send_my_letter is not applied yet (404): the letter is kept on the account as held');
+        await LIVE.putLetter({ ...p.letter, via: 'app', status: 'held' }).catch(e => console.warn('letter:', e?.message || e));
+        return { status: 'held', held: true, to_count: 0, missing: true };
+      }
+      // The function's refusals arrive as the exception's message (not_signed_in, email_not_confirmed, already_sent, ...).
+      throw Object.assign(new Error(r.error.message || 'send failed'), { code: String(r.error.message || '').trim() });
+    }
+    return r.data;
+  },
 };
 const FAKE_OPS = {
   async start() { const f = fake(); return f ? { id: f.id, email: f.email, prefs: f.prefs || {}, name: f.name || '' } : null; },
@@ -151,6 +167,19 @@ const FAKE_OPS = {
   async changeEmail() { /* the practice copy sends nothing; the email stays as it is */ },
   async deleteAccount() { try { sessionStorage.removeItem(FAKE); } catch { /* ignore */ } },
   async signOut() { try { sessionStorage.removeItem(FAKE); } catch { /* ignore */ } },
+  // The practice copy sends nothing: after 600 ms it answers as send_my_letter would with the switch on (queued: the letter
+  // and the done mark on the fake account), or, with ?held=1 in the address, as it does with the switch off (held: the
+  // letter only), so both can be seen and tested.
+  async sendLetter(p) {
+    await new Promise(r => setTimeout(r, 600));
+    const held = new URLSearchParams(location.search).get('held') === '1', status = held ? 'held' : 'queued';
+    fakeEdit(f => {
+      f.letters = { ...(f.letters || {}), [slotOf(p.kind, p.bill_id)]: { ...p.letter, via: 'app', status } };
+      const key = `${p.bill_id}|${p.hearing_id || ''}|${p.kind}`;
+      if (!held && !(f.actions || []).some(a => a.key === key)) f.actions = [...(f.actions || []), { key, at: new Date().toISOString() }];
+    });
+    return { id: 1, status, held, to_count: p.kind === 'email' ? 1 : 5 };
+  },
 };
 const ops = () => DEMO ? FAKE_OPS : LIVE;
 
@@ -219,7 +248,18 @@ async function mergeIn() {
 const here = () => location.origin + location.pathname + (DEMO ? '?demo=1' : '');
 export const validEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || '').trim());
 // Signing in is never consent to email (C-4): no alert choice rides on this link.
-export async function sendLink(email) {
+// back (R-360 part 8): the route to come back to (the Send screen), kept on this device for two hours; app.js opens it
+// after the link instead of You. Kept here, not in the redirect address: Supabase adds its answer to the address's hash.
+const BACK = 'hiphi_act_back';
+export function sendLink(email, { back = '' } = {}) {
+  if (back) writeJ(BACK, { hash: back, at: Date.now() }); else { try { localStorage.removeItem(BACK); } catch { /* ignore */ } }
+  return linkTo(email);
+}
+export const backRoute = () => {
+  const b = readJ(BACK, null); try { localStorage.removeItem(BACK); } catch { /* ignore */ }
+  return b && typeof b.hash === 'string' && /^#\//.test(b.hash) && Date.now() - (+b.at || 0) < 2 * 3600e3 ? b.hash : '';
+};
+async function linkTo(email) {
   if (DEMO) return { demo: true };
   const sb = await client();
   const { error } = await sb.auth.signInWithOtp({ email: String(email).trim(), options: { emailRedirectTo: here() } });
@@ -250,6 +290,7 @@ export async function deleteAll() {
 // (app.js then replaces the address with #/you) and said once on You.
 let linkErr = /(^|[#&])error_description=/.test(location.hash) || /[?&]error_description=/.test(location.search);
 export const linkError = () => { const e = linkErr; linkErr = false; return e; };
+export const linkErrorPending = () => linkErr;
 // The page was opened from a sign-in link: the client reads the session from the address (detectSessionInUrl).
 export const fromLink = () => /(^|[#&?])(access_token|error_description|refresh_token)=/.test(location.hash) || /[?&]code=/.test(location.search);
 export async function finishLink() { if (DEMO) return; try { const sb = await client(); await sb.auth.getSession(); } catch { /* the You screen says what it can */ } }
@@ -287,7 +328,7 @@ export async function setLevel(issue, level) {
 export function followChanged(diff) {
   maybe().then(a => a && ops().follow(diff)).catch(e => console.warn('follow:', e?.message || e));
 }
-// "Yes, I sent it": the account learns of it too (public_actions, my_letters), as the tracker does when signed in.
+// A sent letter (before part 8, "Yes, I sent it"): the account learns of it too (public_actions, my_letters), as the tracker does when signed in.
 export function sentToAccount(rec, keys, at) {
   maybe().then(async a => {
     if (!a) return;
@@ -304,6 +345,9 @@ export async function keepLetterAgain(rec) {
   writeLetters({ ...lettersHere(), [slotOf(rec.kind, rec.bill)]: rec });
   if (A) await ops().putLetter(rec).catch(() => {});
 }
+
+// R-360 part 8: the letter sent from inside the app (send.js). Throws an Error whose code is send_my_letter's refusal.
+export async function sendLetter(p) { return ops().sendLetter(p); }
 
 // ---- a number for texts (optional) ----
 export const PHONE_ERR = 'Enter a 10-digit mobile number, like (808) 555-0123.';

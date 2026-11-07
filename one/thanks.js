@@ -1,12 +1,30 @@
-// The Mahalo screen of act.html (R-360 part 3): #/HB2121/thanks, after "Yes, I sent it" (send.js). One line on what happened,
-// exactly one primary button (Share with a friend: the share sheet, or a copy of this page's link to the bill, without /thanks), one quiet
-// link to Bills (part 6: the app's own list, no longer track.html), and Back to the bill. The email case says the email is on its way to the chair.
+// The Mahalo screen of act.html (R-360 part 3): #/HB2121/thanks, straight after HIPHI takes the letter (send.js, part 8: no
+// "Did it go through?" step any more). One line on what happened, exactly one primary button (Share with a friend: the share
+// sheet, or a copy of this page's link to the bill, without /thanks), one quiet link to Bills (part 6: the app's own list),
+// and Back to the bill.
+// The line follows the send's answer (setOutcome): queued, "Sent to the committee. A copy is in your inbox." (the chair, for
+// an email); held, "Saved to your account. Sending from the app opens soon, and it goes out then." (no date promised). The
+// answer is kept for this tab (sessionStorage), so a reload of Mahalo says the same; without one, a bill marked done says sent.
 import { header, esc } from './bill.js';
 import { icon } from '../icons.js';
 import { t } from './i18n.js';
-import { HST } from './words.js';
-import { copyText } from './send.js';
+import { DEMO } from './data.js';
+import { isMail, isDone } from './done.js';
 import { later } from './later.js';
+
+const OUT = 'hiphi_act_sent';
+const outcomes = () => { try { return JSON.parse(sessionStorage.getItem(OUT) || '{}') || {}; } catch { return {}; } };
+export const setOutcome = (B, status) => { try { sessionStorage.setItem(OUT, JSON.stringify({ ...outcomes(), [B.id]: status })); } catch { /* the line falls back to the done mark */ } };
+
+// The copy that also works on an older phone (helper.js copyText): the clipboard, else the old way with a hidden box.
+export async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* no permission or an older phone */ }
+  const was = document.activeElement;
+  try {
+    const ta = document.createElement('textarea'); ta.value = text; ta.setAttribute('readonly', ''); ta.className = 'offscreen';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove(); was?.focus?.({ preventScroll: true }); return ok;
+  } catch { return false; }
+}
 
 const sh = new Map();   // per bill, for this visit: { copied, fail }
 const st = B => { if (!sh.has(B.id)) sh.set(B.id, {}); return sh.get(B.id); };
@@ -16,18 +34,16 @@ const shareLink = B => location.origin + location.pathname + '#/' + B.number;
 
 export function thanksScreen(B) {
   const s = st(B);
-  let line;
-  if (B.action === 'email') line = t('thanks.p.email');
-  else if (B.hearing?.at) {
-    const date = new Date(B.hearing.at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
-    line = t(B.hearing.joint ? 'thanks.p.many' : 'thanks.p', { date });   // the number is in the line above (A-14)
-  } else line = t('thanks.p.none');
+  const how = outcomes()[B.id] || (isDone(B) ? 'queued' : ''), mail = isMail(B);
+  const line = how === 'held' ? t('thanks.held') : how !== 'queued' ? t('thanks.p.none')
+    : mail ? t((B.committee?.chairs || []).length > 1 ? 'thanks.p.chairs' : 'thanks.p.email') : t(B.hearing?.joint ? 'thanks.p.many' : 'thanks.p');
   return `${header(B.issue)}
   <main class="sheet" id="main">
     <p class="kicker">${esc(B.nickname || B.numberSpaced)} · ${esc(B.numberSpaced)}</p>
     <h1 tabindex="-1">${esc(t('thanks.h'))}</h1>
     <p class="sum">${esc(line)}</p>
-    <div class="cta"><button type="button" class="primary" data-share>${icon(s.copied ? 'check' : 'share-2')}<span>${esc(s.copied ? t('send.copied') : t('thanks.share'))}</span></button></div>
+    ${DEMO && how ? `<p class="info">${icon('info', { size: '1em' })}${esc(t('thanks.practice'))}</p>` : ''}
+    <div class="cta"><button type="button" class="primary" data-share>${icon(s.copied ? 'check' : 'share-2')}<span>${esc(s.copied ? t('thanks.copied') : t('thanks.share'))}</span></button></div>
     ${s.fail ? `<p class="err" role="alert">${icon('circle-alert', { size: '1em' })}${esc(t('thanks.copyfail'))}</p><input class="sel" readonly value="${esc(shareLink(B))}" aria-label="${esc(t('thanks.share'))}">` : ''}
     <div class="after"><a href="#/bills">${esc(t('thanks.other'))}</a>
       <a class="back" href="#/${esc(B.number)}">${icon('arrow-left', { size: '1em' })}${esc(t('thanks.back'))}</a></div>
@@ -36,7 +52,7 @@ export function thanksScreen(B) {
 
 // Share: on a phone (and wherever the browser has it) the system's own share sheet, with the bill's name and link. Else the
 // link is copied, inside the tap; "Copied" for two seconds, then the label comes back. If the clipboard refuses, the link
-// is shown selected, so it can be copied by hand (as send.js does with the letter). The timer is later()'s: it never redraws
+// is shown selected, so it can be copied by hand. The timer is later()'s: it never redraws
 // once the person has gone to another screen (B-4, B-7).
 export function wireThanks(root, B, redraw) {
   const s = st(B);

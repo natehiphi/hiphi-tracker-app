@@ -20,7 +20,7 @@ import { sendScreen, wireSend, freshSend } from './send.js';
 import { isDone, doneSet } from './done.js';
 import { cancelLater } from './later.js';
 import { you } from './you.js';
-import { fromLink, finishLink } from './auth.js';
+import { fromLink, finishLink, backRoute, linkErrorPending, signedInHint, loadAccount } from './auth.js';
 
 const root = document.getElementById('app');
 const ROUTE = /^#\/(?:bill\/)?(?:(\d{4})\/)?([A-Za-z]+)\s?(\d+)(?:\/(write|send|thanks))?\/?$/;
@@ -113,15 +113,19 @@ async function route() {
   let step = r.step;
   if (step && step !== 'thanks' && !B.action) step = '';
   if (step === 'send' && !String(loadMe().name || '').trim()) step = 'write';
-  // Already sent (the done mark, B-6): a return to /send (Back, or an old link) shows Mahalo, never Yes, I sent it again.
+  // Already sent (the done mark, B-6): a return to /send (Back, or an old link) shows Mahalo, never the Send button again.
   if (step === 'send' && isDone(B)) step = 'thanks';
   if (step !== r.step) fix(step ? `${base}/${step}` : base);
   if (step === 'write' || step === 'send') {
     const at = location.hash, P = await people();
     if (location.hash !== at) return;   // the person went elsewhere meanwhile
     if (step === 'write') { show(writeScreen(B, P)); letterShown(B); wireWrite(root, B, P, go); return; }
+    // Send (part 8) needs to know whether someone is signed in: the button to send, or the box to confirm it's them.
+    // A failed account load counts as signed out (the screen offers the link again).
+    const A = signedInHint() ? await loadAccount().catch(e => { console.warn('account:', e?.message || e); return null; }) : null;
+    if (location.hash !== at) return;
     const draw = (o = {}) => { show(sendScreen(B, P), o); wireSend(root, B, P, go, draw); };
-    freshSend(B); draw(); return;
+    freshSend(B, A); draw(); return;
   }
   if (step === 'thanks') { const draw = (o = {}) => { show(thanksScreen(B), o); wireThanks(root, B, draw); }; freshThanks(B); draw(); return; }
   show(billScreen(B, { back: tab === 'bills' }) + tabs(tab)); arrive();
@@ -182,12 +186,14 @@ if (!location.hash && returning()) history.replaceState(null, '', '#/week');
 countVisit();   // once per page load (a Hawaiʻi day's visit, as the tracker counts it)
 // Opened from a sign-in link (R-360 part 7): Supabase's answer is in the address (#access_token=..., ?code=, or
 // #error_description= for an old link), which is no route. The client reads it first (auth.js keeps any error to say on
-// You), then You opens. Live, act.html must be in Supabase's allowed redirect URLs (R-337).
+// You), then You opens; or, for a link asked for on Send (part 8), that Send screen, signed in, its button ready. Live,
+// act.html must be in Supabase's allowed redirect URLs (R-337).
 if (fromLink()) {
   show(loadingScreen());
   finishLink().then(() => {
     const q = new URLSearchParams(location.search); q.delete('code');
-    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + '#/you');
+    const back = backRoute(), to = back && !linkErrorPending() ? back : '#/you';
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + to);
     route();
   });
 } else route();
