@@ -86,3 +86,11 @@
   .hp-v2 .hp-back[data-hp="close"]:has(.ic) span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { .hp-v2 .v2-pt { transition: none; } }
+
+/* Version 3 (?v3=1, R-362 Part 6): "Write your own words instead" and back, and the town under the name (pub/v2/letter.js ownSwap, townField) */
+.hp-v2 .v3-swap { display: flex; margin-left: calc(-1 * var(--s12)); }
+.hp-v2 .v3-swap .btn { white-space: normal; text-align: left; }
+.hp-v2 .v3-ownw textarea { min-height: 112px; border-style: solid; }
+.hp-v2 .v3-opt { font-weight: 400; color: var(--n700); }
+.hp-v2 .v3-town { font-weight: 400; }
+.hp-v2 .v3-townf input { max-width: 16em; }
