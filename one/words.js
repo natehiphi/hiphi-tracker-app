@@ -172,15 +172,26 @@ export function standing(b, W, sameLaw = null) {
   if (st.phase === 'floor') return { ...out('', `Through its ${ch} committees.`, `Next is a vote of the full ${ch}.`), over: '' };
   // In committee. The first line says where: the chamber it passed, and the committee it is with (a joint hearing names each
   // committee, "..., together"; C-15). The second says the hearing or the wait.
-  const where = st.committee ? `Now with ${theCmteName(st.committee, W.committees)}.` : `Waiting to be sent to a ${ch} committee.`;
+  // Two or more committees together are counted here, not named (C-15: "the two committees hear it together"); the letter's
+  // header names each. One committee keeps its name. A committee that has not heard it yet "hears it next".
+  const many = codesOf(st.committee).length > 1, count = ['', 'One', 'Two', 'Three', 'Four'][codesOf(st.committee).length] || String(codesOf(st.committee).length);
+  const ahead = st.hearingState === 'scheduled' || !st.hearingState || st.hearingState === 'none';
+  const where = !st.committee ? `Waiting to be sent to a ${ch} committee.`
+    : many ? (ahead ? `${count} ${ch} committees hear it next.` : `Now with ${count.toLowerCase()} ${ch} committees.`)
+    : `Now with ${theCmteName(st.committee, W.committees)}.`;
   const lines = [st.leg === 'second' ? { icon: 'capitol', lead: `Passed the ${other}.`, rest: where } : { icon: 'capitol', lead: `In the ${ch}.`, rest: where }];
   let action = '';
-  const many = codesOf(st.committee).length > 1;
   if (st.hearingState === 'scheduled') {
-    const d = dueInfo(st.hearing, W);
-    lines.push({ icon: 'calendar', lead: `Hearing ${dateLong(st.hearing.scheduled_at, W)} at ${timeWord(st.hearing.scheduled_at)}.`, rest: d ? d.text + '.' : '', soon: !!d?.soon });
+    const d = dueInfo(st.hearing, W), on = dateLong(st.hearing.scheduled_at, W), hear = many ? 'The committees hear it' : 'The committee hears it';
     // A hearing with no deadline posted yet still takes testimony until it starts: the Capitol opens the form with the notice.
     action = !d || !d.late ? 'testimony' : '';
+    if (d && !d.late) {
+      // The deadline leads (R-360 fix pass): the date it is due, always with its date (dayWord drops it within a week), then
+      // the hearing day, and that no one has to go. Within a day the honest countdown follows (R-046).
+      const iso = st.hearing.testimony_deadline, left = new Date(iso).getTime() - W.now;
+      lines.unshift({ icon: 'calendar', lead: `Send by ${dateLong(iso, W)}, ${timeWord(iso)}.`,
+        rest: `${d.soon ? `That’s ${inHours(left)}. ` : ''}${hear} ${on}. You don’t need to go.`, soon: !!d.soon });
+    } else lines.push({ icon: 'calendar', lead: `Hearing ${on} at ${timeWord(st.hearing.scheduled_at)}.`, rest: d ? d.text + '.' : 'Send testimony before it starts. You don’t need to go.', soon: !!d?.soon });
   } else if (st.hearingState === 'held') {
     lines.push({ icon: 'calendar', lead: `Heard ${dateLong(st.hearing.scheduled_at, W)}.`, rest: `Waiting for ${many ? 'their' : 'its'} decision.` });
   } else if (st.hearingState === 'decided') {

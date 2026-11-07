@@ -67,6 +67,7 @@ function shape(b, { hearings, outcomes, committees, deadlines, others, issues, n
     over: stand.over, action: stand.action, lines: stand.lines,
     hearing: st.hearingState === 'scheduled' ? { id: st.hearing.id, at: st.hearing.scheduled_at, deadline: st.hearing.testimony_deadline || null,
       committee: st.hearing.committee, room: st.hearing.room || '', label: cmteLabel(st.hearing.committee, W), joint: codesOf(st.hearing.committee).length > 1,
+      count: codesOf(st.hearing.committee).length, chamber: ({ H: 'House', S: 'Senate' })[st.chamber] || '',
       // who a testimony letter greets: every chair, then every vice chair, of a joint hearing too (helper.js greeting)
       members: [...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.chair).map(c => ({ role: 'chair', name: c.chair, chamber: c.chamber })),
         ...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.vice_chair).map(c => ({ role: 'vice_chair', name: c.vice_chair, chamber: c.chamber }))] } : null,

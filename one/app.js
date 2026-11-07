@@ -4,10 +4,12 @@
 // are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action.
 import { loadBill, loadPeople, LoadError } from './data.js';
 import { billScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
-import { thanksScreen, wireThanks } from './thanks.js';
+import { thanksScreen, wireThanks, freshThanks } from './thanks.js';
 import { countVisit, arrive, letterShown } from './counts.js';
 import { writeScreen, wireWrite, loadMe } from './write.js';
-import { sendScreen, wireSend } from './send.js';
+import { sendScreen, wireSend, freshSend } from './send.js';
+import { isDone } from './done.js';
+import { cancelLater } from './later.js';
 
 const root = document.getElementById('app');
 const ROUTE = /^#\/(?:bill\/)?(?:(\d{4})\/)?([A-Za-z]+)\s?(\d+)(?:\/(write|send|thanks))?\/?$/;
@@ -32,6 +34,7 @@ function show(html, { keepFocus = '' } = {}) {
 const people = () => Promise.race([loadPeople(), new Promise(r => setTimeout(() => r([]), 3000))]);
 
 async function route() {
+  cancelLater();   // a "Copied" or a redraw set on the last screen never paints over this one (B-4, B-7)
   const r = parse();
   if (!r) { show(missingScreen()); return; }
   const key = `${r.year || ''}/${r.num}`;
@@ -57,15 +60,17 @@ async function route() {
   let step = r.step;
   if (step && step !== 'thanks' && !B.action) step = '';
   if (step === 'send' && !String(loadMe().name || '').trim()) step = 'write';
+  // Already sent (the done mark, B-6): a return to /send (Back, or an old link) shows Mahalo, never Yes, I sent it again.
+  if (step === 'send' && isDone(B)) step = 'thanks';
   if (step !== r.step) { history.replaceState(null, '', step ? `${base}/${step}` : base); }
   if (step === 'write' || step === 'send') {
     const at = location.hash, P = await people();
     if (location.hash !== at) return;   // the person went elsewhere meanwhile
     if (step === 'write') { show(writeScreen(B, P)); letterShown(B); wireWrite(root, B, P, go); return; }
     const draw = (o = {}) => { show(sendScreen(B, P), o); wireSend(root, B, P, go, draw); };
-    draw(); return;
+    freshSend(B); draw(); return;
   }
-  if (step === 'thanks') { const draw = (o = {}) => { show(thanksScreen(B), o); wireThanks(root, B, draw); }; draw(); return; }
+  if (step === 'thanks') { const draw = (o = {}) => { show(thanksScreen(B), o); wireThanks(root, B, draw); }; freshThanks(B); draw(); return; }
   show(billScreen(B)); arrive();
 }
 

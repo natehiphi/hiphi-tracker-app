@@ -14,6 +14,7 @@
 // Every call is fire and forget: never throws, never waits, never retries. The practice copy (?demo=1) sends nothing and
 // only prints each call to the console.
 import { URL_, KEY, DEMO } from './data.js';
+import { isDone } from './done.js';
 
 const VARIANT = 'act';
 const KEY_VISIT = 'hiphi_fv', KEY_DAYS = 'hiphi_days', DONE = DEMO ? 'hiphi_done_demo' : 'hiphi_done';
@@ -132,6 +133,7 @@ export function letterShown(B) {
 export function countSent(B, kind) {
   try {
     const at = started.get(B.id); started.delete(B.id);
+    if (isDone(B)) return;   // this action was counted when it was first marked sent (B-6): "Send again" is not a second one
     if (!DEMO && quiet()) return;
     const device_ = device();
     const src = visit().src || {};

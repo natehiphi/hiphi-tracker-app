@@ -80,23 +80,33 @@ export function mailSubject(B) {
   return s === 'oppose' ? `${n}: please don’t schedule it` : s === 'support' ? `${n}: please schedule a hearing` : `${n}: a few thoughts`;
 }
 
+// The letter is kept in two parts (R-360 fix pass): the header (what the testimony is, the committees, the hearing) is
+// written from the bill's data and shown as one quiet line above the box, and the body is what the box holds, so the box
+// opens on the argument and not on an address block. What is copied, sent and saved is always the whole: header, then body.
+export const BODY = PARTS.filter(k => k !== 'head');
+export const joinBody = p => BODY.map(k => p[k]).filter(Boolean).join('\n\n');
+export const wholeLetter = x => [x.head, x.body].filter(Boolean).join('\n\n');
+
 // Brings the text up to date with the person's details (helper.js syncLetter, small): until they type in the letter it is
 // simply the letter as written from their details; once they have, a changed detail swaps only the piece the text still has
-// word for word. A piece they rewrote is left as they wrote it.
+// word for word. A piece they rewrote is left as they wrote it. The header always follows the data. x: { head, body, letter,
+// built, edited }; x.letter is the whole letter.
 export function syncLetter(x, now) {
-  if (!x.edited) { x.letter = joinParts(now); x.built = now; return; }
-  const old = x.built || now, built = { ...old }; let text = x.letter;
-  for (const k of PARTS) {
+  x.head = now.head || '';
+  if (typeof x.body !== 'string') { x.body = ''; x.edited = false; }   // a draft kept before the header and body were apart
+  if (!x.edited) { x.body = joinBody(now); x.built = now; x.letter = wholeLetter(x); return; }
+  const old = x.built || now, built = { ...old }; let text = x.body;
+  for (const k of BODY) {
     const a = old[k] || '', b = now[k] || '';
     if (a === b) continue;
     if (a) { if (text.includes(a)) { text = swap(text, a, b); built[k] = b; } continue; }
     // A piece the letter did not have (their own line, now written) goes in before the next piece the text still has.
-    const later = PARTS.slice(PARTS.indexOf(k) + 1).map(j => old[j]).filter(s => s && text.includes(s));
+    const later = BODY.slice(BODY.indexOf(k) + 1).map(j => old[j]).filter(s => s && text.includes(s));
     if (later.length) { const i = text.indexOf(later[0]); text = `${text.slice(0, i)}${b}\n\n${text.slice(i)}`; }
-    else text = `${text.replace(/\s+$/, '')}\n\n${b}`;
+    else text = text.trim() ? `${text.replace(/\s+$/, '')}\n\n${b}` : b;
     built[k] = b;
   }
-  x.letter = text; x.built = built;
+  x.body = text; x.built = built; x.letter = wholeLetter(x);
 }
 function swap(text, a, b) {
   const i = text.indexOf(a); let s = i, e = i + a.length;

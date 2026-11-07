@@ -4,6 +4,8 @@ import { MARK, issueBand } from '../pub/art.js';
 import { icon } from '../icons.js';
 import { t } from './i18n.js';
 import { DEMO } from './data.js';
+import { isDone, sentAt } from './done.js';
+import { HST } from './words.js';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // "Disposable e-cigarette ban": the word "e-cigarette" is not broken at its hyphen across two lines (the mockup's nowrap).
@@ -23,9 +25,15 @@ const LINE_ICON = { capitol: 'landmark', calendar: 'calendar', flag: 'flag' };
 // The one button picks itself (R-360): Send testimony while a hearing's testimony deadline is open, Email the chair while the
 // bill waits in a committee with no hearing set, and none once the bill is over for the year (the plain line says why).
 // It goes to #/HB2121/write (one/write.js), then #/HB2121/send (one/send.js).
+// Once "Yes, I sent it" has marked it (B-6), the screen says so and when, with a quiet Send again in place of the button.
 function action(B) {
   if (!B.action) return '';
   const testimony = B.action === 'testimony';
+  if (isDone(B)) {
+    const at = sentAt(B), date = at ? new Date(at).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' }) : '';
+    return `<div class="cta sent"><p class="okline" role="status">${icon('circle-check')}<span>${esc(date ? t('bill.sent', { date }) : t('bill.sent.nodate'))}</span></p>
+    <p class="more"><a href="#/${esc(B.number)}/write" data-go="write">${esc(t('bill.again'))}</a></p></div>`;
+  }
   return `<div class="cta"><a class="primary" href="#/${esc(B.number)}/write" data-go="write">${icon(testimony ? 'send' : 'mail')}<span>${esc(t(testimony ? 'btn.testimony' : 'btn.email'))}</span></a>
     <p class="small">${esc(t(testimony ? 'btn.time' : 'btn.time.email'))}</p></div>`;
 }
