@@ -1,1 +1,6 @@
 /* R-365 version B: frame (filled by its builder). Rules under html.vb only. */
+/* Back keeps its word on a phone (R-365 B); the arrow and the place name sit together. */
+html.vb .sv-back{display:inline-flex;align-items:center;gap:2px;min-height:44px}
+html.vb .sv-back span{display:inline}
+html.vb .sv-hdr.tight .sv-back span{display:inline}
+html.vb .sv-tabs a{font-size:12px}

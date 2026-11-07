@@ -5,7 +5,7 @@
 // finds each one too. Tools a person's role cannot use are left out, and one quiet line at the foot names them (D8). A tool
 // that only repeats a tab or a control on its own place (Sort new bills, Muted, Saved views, Bulk change and Export on Bills;
 // the library on Testimony) is not a row here: the place already shows it.
-import { S, DEMO, esc } from './data.js';
+import { S, DEMO, VB, esc } from './data.js';
 import { icon, menuSheet, avatar } from './ui.js';
 import { placeRow, placeList, leadKeys, isLead, seesTeam, syncWords, syncNote, syncStale, youName } from './more.js';
 import { messagesCount } from './inbox.js';   // the Inbox page's own count, so the row's number matches it (A-14)
@@ -49,7 +49,7 @@ function groups() {
       // The practice copy: from the live app it opens in a new tab; inside it, the row says so and opens You, where the
       // practice's own steps are (practice as a teammate, start over). One spelling, the word list's: Practice (C-15).
       DEMO ? rowBtn('data-you aria-haspopup="menu"', 'play', 'Practice copy', 'You’re in it now. Practice as a teammate or start it over')
-        : ['Practice copy', 'staff6.html?demo=1', 'play', 'Last March, to practice on; nothing reaches the team', true],
+        : ['Practice copy', `staff6.html?demo=1${VB ? '&vb=1' : ''}`, 'play', 'Last March, to practice on; nothing reaches the team', true],
       ['What moved', '#/help/moved', 'route', 'Where each v5 place and button is now'],
       ['Keyboard shortcuts', '#/help/keys', 'keyboard', 'Every key, and how to turn them off'],
     ]],
@@ -89,7 +89,8 @@ export default {
     let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
     // Outreach is in the laptop's sidebar, so its row shows on a phone only (staff.css v6-phone-only; Issues is in the phone bar too); Legislators,
     // Inbox and Help are here for everyone, one click from More (Nate, 22 Oct), and search finds each by its name.
-    const places = [placeRow('outreach', { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
+    // In version B (R-365) Testimony and Outreach are rows here for everyone, on a laptop too, since the sidebar left them out.
+    const places = [VB ? placeRow('testimony') : null, placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
     const sec = (h, rows, id) => `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
     return `<div class="v6-more v6-tools">

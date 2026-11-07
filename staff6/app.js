@@ -16,7 +16,7 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
+import { S, DB, DEMO, VB, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
 import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn, placeToast, leavePageToasts } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { PALETTES, DEFAULT_PALETTE } from './palettes.js';   // My settings, Colors (Nate 10/25)
@@ -49,7 +49,7 @@ import testimonyplace from './testimonyplace.js';
 import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
-import { PLACES, MAIN, BAR, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
+import { PLACES, MAIN as MAIN_V6, BAR as BAR_V6, MAIN_B, BAR_B, vbSwitchHref, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -170,14 +170,19 @@ const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', te
 // reaches #/team?who= ("See a teammate's list") from More, so More is lit for them (B-13, A-12).
 // Two place keys died in round 2 (Bills is inside Issues; 'myissues' became 'issues'); a screen that still names one
 // (hearing.js's Back, S.billFrom) lights Issues.
+const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
+// R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
+const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'today', testimony: 'today', search: 'search',
+  outreach: 'issues', asks: 'issues', partners: 'issues', memo: 'issues', emails: 'issues', composer: 'issues', supporters: 'issues', person: 'issues', lists: 'issues', list: 'issues',
+  bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues' };
 const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
-const placeOf = route => { const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
+const placeOf = route => { if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
   : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
 // The phone bar lights More for every place that is not one of its five.
 const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';
 // The sidebar lights More for a place it does not draw (Legislators, Inbox, Help, the tools): one click from More (R-356).
 // Inbox and Help are lit on their header icon only (A-12: one current place); Legislators and the tools keep More lit.
-const sideOf = (k, leads) => k === 'inbox' || k === 'help' ? '' : !k || MAIN.includes(k) || leads.includes(k) || k === 'you' || k === 'more' ? k : 'more';
+const sideOf = (k, leads) => k === 'inbox' || k === 'help' || (VB && k === 'search') ? '' : !k || MAIN.includes(k) || leads.includes(k) || k === 'you' || k === 'more' ? k : 'more';
 
 // go('#/bills') pushes history (Back works); { replace: true } swaps the current entry.
 let depth = 0;   // in-app steps behind this page (history.state.d), so a back link knows whether real Back stays in the app
@@ -304,6 +309,9 @@ export function refreshCounts() {
 // or tablet (768px and wider): the search box, which Cmd/Ctrl-K or "/" focuses (V32), then Help and the Inbox; the sidebar holds the places.
 // Pages one level under More whose screens name no parent: a phone still shows Back to where they came from.
 const UNDER = { me: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/more', label: 'More' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More as a place, and draws no Back
+// The place a Back address belongs to, by name ("Today", "My issues", "Calendar"); a bare address names its page.
+const BACK_NAMES = [[/^#\/?$/, 'Today'], [/^#\/(issues|issue|bill|bills)/, 'My issues'], [/^#\/hearing/, 'Calendar'], [/^#\/(review|testimony)/, 'Today'], [/^#\/outreach/, 'My issues'], [/^#\/search/, 'Search'], [/^#\/more|^#\/tools/, 'More']];
+const backName = href => (BACK_NAMES.find(([re]) => re.test(href || '')) || [0, 'Today'])[1];
 function header(route, scr, title) {
   let b = scr.back ? scr.back(route) : UNDER[route.name] || null;
   // Back goes where the person came from when this page was opened inside the app (wireFrame: history.back()), so it says
@@ -313,6 +321,8 @@ function header(route, scr, title) {
   if (b && from) b = { ...b, label: from, full: false };
   let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
+  // R-365 B: Back always names its place (never a bare arrow, never a bare "Back").
+  if (VB && b) { const nm = /^Back( to)?$/i.test(b.label.trim()) ? backName(b.href) : b.label.replace(/^Back to /i, ''); b = { ...b, label: nm, full: true }; }
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
   // R-344 rule 5: the Inbox is the tray, with its unread count (the Inbox page's own number), not a bare dot.
@@ -609,7 +619,7 @@ function fitHeader() {
   if (innerWidth >= 768) return;
   const t = h.querySelector('.sv-title'); if (!t) return;
   const over = () => t.scrollWidth > t.clientWidth || t.scrollHeight > t.clientHeight + 1;
-  if (over() && h.querySelector('.sv-back')) h.classList.add('tight');
+  if (over() && h.querySelector('.sv-back') && !VB) h.classList.add('tight');   // B keeps Back's word (R-365)
   if (over()) h.classList.add('tight2');
 }
 addEventListener('resize', () => { if (!fitHeader.raf) fitHeader.raf = requestAnimationFrame(() => { fitHeader.raf = 0; fitHeader(); placeToast(); }); }, { passive: true });
@@ -630,6 +640,9 @@ const REFRESH_SUB = 'Read what your teammates changed since this page loaded';
 function accountItems() {
   return [
     { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', nav: true, run: () => go('#/me') },
+    // R-365: the switch between Staff v6 and version B; the same page, hash and other parameters kept.
+    VB ? { label: 'Back to Staff v6', icon: 'undo-2', sub: 'The version you had before', run: () => { location.href = vbSwitchHref(false); } }
+      : { label: 'Try version B', icon: 'flask-conical', sub: 'Three places: Today, My issues, Calendar', run: () => { location.href = vbSwitchHref(true); } },
     DEMO ? { label: 'Practice as someone else', icon: 'id-card', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the
     // sidebar's foot says it too, as a line, not a row (more.js syncNote, B-7, 12.4).
