@@ -966,7 +966,7 @@ function issueSide(i, b) {
     return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
     <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
     ${same ? '' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
-    <p class="bw-ic-s"><span class="bw-if-pill is-${esc(v.key)}" data-state="issue:${esc(v.key)}">${icon(v.key === 'risk' ? 'flag' : v.ic)}<span>${esc(`${v.word}: ${v.reason}`)}</span></span></p>
+    <p class="bw-ic-s"><span class="bw-if-pill is-${esc(v.key)}" data-state="issue:${esc(v.key)}">${icon(v.ic)}<span>${esc(`${v.word}: ${v.reason}`)}</span></span></p>
     ${href ? `<p><a class="bw-go bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></p>` : ''}
   </section>`;
   }

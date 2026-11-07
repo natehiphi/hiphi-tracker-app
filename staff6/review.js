@@ -15,7 +15,7 @@ import { S, DB, VB, esc, hooks, startedFromLine, raceLine } from './data.js';
 import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing, blurb } from './model.js';
 import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './model.js';
 import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn, vbFinish } from './ui.js';
-import { SL, sl } from './ui.js';   // R-365 B plain words
+import { SL, sl, pathLine } from './ui.js';   // R-365 B plain words
 import { emailPreview, HELD_NEXT } from './composer.js';
 import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -112,7 +112,7 @@ function track(d) {
 }
 function header(r, total) {
   const n = Math.min(r.i + 1, total);
-  return `<div class="rv6-bar sv-phead">
+  return `${VB ? pathLine([['Today', '#/'], ['Review']]) : ''}<div class="rv6-bar sv-phead">
     ${VB ? `<a class="vb-rv-back" href="#/" data-back>${icon('chevron-left')}<span>Back to Today</span></a>`   // R-365 B: Back names its place
       : `<a class="iconbtn rv6-x" href="#/testimony?view=approve" data-back aria-label="Close review" title="Close review">${icon('x')}</a>`}
     <h1 class="rv6-h"><span class="rv6-hw">Review</span> <span class="rv6-n"><span class="rv6-hd" aria-hidden="true">· </span>${n} of ${total}</span></h1>
