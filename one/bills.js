@@ -1,7 +1,9 @@
 // Bills (R-360 part 4, #/bills): every bill HIPHI has a position on, inside its issues. Nate's structure of 6 Nov: issues are
-// the unit people follow, and bills live within issues. From the top: a search (name or number; Search is the one primary
-// button, typing filters as you go), HIPHI's topics as chips, "Need voices now" (the five bills whose testimony closes
-// first), then one section per issue with a quiet Follow, its bills needing voices first, four shown and "Show N more".
+// the unit people follow, and bills live within issues. From the top: a search (name or number; the box filters as you
+// type, and Search is an outlined button for those who look for one), HIPHI's topics as chips, "Needs voices this week"
+// (as Home names it: up to five bills whose testimony closes before the week is out, or "Needs voices soon" with the next
+// ones when none does), then one section per issue with a quiet Follow, its bills needing voices first, four shown and
+// "Show N more".
 // Bills with no issue come last, under "Other bills".
 // Following an issue here writes the tracker's own key (pub/kernel.js ISSUES_KEY: a list of issue ids, hiphi_issue_follows,
 // or hiphi_issue_follows_demo in the practice copy), so an issue followed here shows as followed in track.html, and the
@@ -12,7 +14,7 @@ import { icon } from '../icons.js';
 import { t } from './i18n.js';
 import { DEMO } from './data.js';
 import { esc, header, keepHyphens } from './bill.js';
-import { HST } from './words.js';
+import { sendBy, capitolWeek } from './words.js';
 import { tabs } from './tabs.js';
 
 export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
@@ -34,20 +36,25 @@ function setFollow(i, on, L) {
   writeSet(ISSUES_KEY, is);
 }
 
-// What the screen remembers while the page is open, so Back from a bill finds it as it was: the search, the topic, the
-// issues opened with "Show N more" and where it was scrolled to.
-export const state = { q: '', topic: '', open: new Set(), y: 0 };
+// What the screen remembers, so Back from a bill, or a reload, finds it as it was (B-6): the search, the topic, the issues
+// opened with "Show N more" and where it was scrolled to. Kept for the visit in sessionStorage (the practice copy under its
+// own key, so practising never changes what the real screen remembers).
+const KEEP = DEMO ? 'hiphi_act_bills_demo' : 'hiphi_act_bills';
+export const state = (() => {
+  try { const x = JSON.parse(sessionStorage.getItem(KEEP) || 'null');
+    if (x) return { q: String(x.q || ''), topic: String(x.topic || ''), open: new Set(Array.isArray(x.open) ? x.open : []), y: +x.y || 0 }; }
+  catch { /* storage blocked: the screen starts afresh */ }
+  return { q: '', topic: '', open: new Set(), y: 0 };
+})();
+export const keep = () => { try { sessionStorage.setItem(KEEP, JSON.stringify({ ...state, open: [...state.open] })); } catch { /* kept for this page only */ } };
+// Where the list is scrolled to, kept as the person scrolls (only while Bills is the screen drawn).
+let scrollT = 0;
+addEventListener('scroll', () => {
+  if (!document.getElementById('b-res')) return;
+  clearTimeout(scrollT);
+  scrollT = setTimeout(() => { if (document.getElementById('b-res')) { state.y = Math.round(scrollY); keep(); } }, 150);
+}, { passive: true });
 const SHOW = 4, VOICES = 5;
-
-// "Testimony due Wed 9:30 AM": today, tomorrow, a weekday within the week, else the date. Hawaiʻi time, the Capitol's clock.
-const hstDay = d => new Date(d).toLocaleDateString('en-CA', { timeZone: HST });
-function dueWords(iso, now) {
-  const d = hstDay(iso), days = Math.round((new Date(d + 'T12:00:00-10:00') - new Date(hstDay(now) + 'T12:00:00-10:00')) / 864e5);
-  const when = days === 0 ? t('bills.today') : days === 1 ? t('bills.tomorrow') : days < 7
-    ? new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short' })
-    : new Date(iso).toLocaleDateString('en-US', { timeZone: HST, weekday: 'short', month: 'short', day: 'numeric' });
-  return { text: t('bills.due', { when, time: new Date(iso).toLocaleTimeString('en-US', { timeZone: HST, hour: 'numeric', minute: '2-digit' }) }), soon: days <= 0 };
-}
 // One quiet line for a bill with no testimony open. C-15's words: "did not advance", never "dead".
 const statusOf = b => b.stage === 'enacted' ? t('bills.law') : b.stage === 'governor' ? t('bills.gov') : b.stage === 'ballot' ? t('bills.ballot') : b.alive ? t('bills.moving') : t('bills.over');
 
@@ -56,7 +63,7 @@ const chev = icon('chevron-right', { size: '18px', cls: 'chev' });
 export const rowName = (b, issue = null) => issue && b.nickname && b.nickname.toLowerCase() === issue.name.toLowerCase() ? b.numberSpaced : issue ? `${b.numberSpaced}: ${b.name}` : b.name;
 // A row: the bill's name, then the deadline or where it stands.
 function row(b, L, issue = null) {
-  const d = b.due ? dueWords(b.due, L.now) : null;
+  const d = b.due ? sendBy(b.due, L.now) : null;
   const name = rowName(b, issue);
   return `<a class="r" href="#/${esc(b.number)}" data-bill="${esc(b.number)}"${b.due ? ` data-due="${esc(b.due)}"` : ''}><span class="t"><b>${keepHyphens(name)}</b>`
     + `<span${d ? ` class="due${d.soon ? ' soon' : ''}"` : ''}>${esc(d ? d.text : statusOf(b))}</span></span>${chev}</a>`;
@@ -87,10 +94,13 @@ function sections(L) {
     .sort((x, y) => (catOrder.get(x.category) ?? 99) - (catOrder.get(y.category) ?? 99) || x.sort_order - y.sort_order || x.name.localeCompare(y.name))
     .map(i => ({ i, bills: order(!m || m.issue(i) ? billsOf.get(i.id) : billsOf.get(i.id).filter(m.bill)) })).filter(s => s.bills.length);
   const other = state.topic ? [] : order(L.bills.filter(b => !b.issues.some(id => known.has(id)) && (!m || m.bill(b))));
-  // Need voices now: across the issues in view, the bills whose testimony closes first (none while searching: the matches are the list).
-  const seen = new Set(), voices = m ? [] : [...issues.flatMap(s => s.bills), ...other].filter(b => b.due && !seen.has(b.id) && seen.add(b.id))
-    .sort((x, y) => x.due.localeCompare(y.due)).slice(0, VOICES);
-  return { issues, other, voices, count: new Set([...issues.flatMap(s => s.bills), ...other].map(b => b.id)).size, searching: !!m };
+  // Needs voices this week: across the issues in view, the bills whose testimony closes before the week is out, soonest first;
+  // with none this week, "Needs voices soon" and the next ones (none while searching: the matches are the list).
+  const seen = new Set(), open = m ? [] : [...issues.flatMap(s => s.bills), ...other].filter(b => b.due && !seen.has(b.id) && seen.add(b.id))
+    .sort((x, y) => x.due.localeCompare(y.due));
+  const end = capitolWeek(L.now).endIso, week = open.filter(b => b.due < end);
+  const voices = (week.length ? week : open).slice(0, VOICES), soonOnly = !week.length;
+  return { issues, other, voices, soonOnly, count: new Set([...issues.flatMap(s => s.bills), ...other].map(b => b.id)).size, searching: !!m };
 }
 
 function issueSection({ i, bills }, L) {
@@ -106,7 +116,7 @@ function results(L) {
   const S = sections(L);
   if (!S.issues.length && !S.other.length) return `<p class="empty" role="status">${esc(t(S.searching ? 'bills.none' : 'bills.none.topic'))}</p>`;
   return (S.searching ? `<p class="found" role="status">${esc(t(S.count === 1 ? 'bills.found.one' : 'bills.found', { n: S.count }))}</p>` : '')
-    + (S.voices.length ? `<section class="voices" aria-labelledby="bv-h"><h2 class="sec" id="bv-h">${esc(t('bills.voices'))}</h2><div class="rows">${S.voices.map(b => row(b, L)).join('')}</div></section>` : '')
+    + (S.voices.length ? `<section class="voices" aria-labelledby="bv-h"><h2 class="sec" id="bv-h">${esc(t(S.soonOnly ? 'bills.voices.soon' : 'home.voices'))}</h2><div class="rows">${S.voices.map(b => row(b, L)).join('')}</div></section>` : '')
     + (S.issues.length ? `<h2 class="sec">${esc(t('bills.byissue'))}</h2>${S.issues.map(s => issueSection(s, L)).join('')}` : '')
     + (S.other.length ? `<section class="isec" id="issue-other" aria-labelledby="ih-other"><div class="iss"><span class="nm"><h3 id="ih-other" tabindex="-1">${esc(t('bills.other'))}</h3></span></div>`
       + `<div class="rows">${(state.open.has('other') || S.other.length <= SHOW + 1 ? S.other : S.other.slice(0, SHOW)).map(b => row(b, L)).join('')}`
@@ -115,13 +125,16 @@ function results(L) {
 
 const chips = L => [{ key: '', name: t('bills.all') }, ...L.cats].map(c => `<button class="chip" type="button" data-topic="${esc(c.key)}" aria-pressed="${state.topic === c.key}">${esc(c.name)}</button>`).join('');
 
+// Bills has no filled (primary) button, on purpose (R-360 fix pass): the box filters as the person types, so Search is only
+// a secondary, outlined button for those who look for one, and the screen's job is to browse, not one action (A-3 allows
+// a screen with no primary; the bill screen a row opens has the one action).
 export function billsScreen(L) {
   return `${header(null, { slim: true })}<main class="sheet bills" id="main">
     <h1 tabindex="-1">${esc(t('bills.h'))}</h1>
     <form class="find" role="search" data-find>
       <label class="box">${icon('search', { size: '18px' })}<span class="sr">${esc(t('bills.search.label'))}</span>
         <input id="b-q" type="search" value="${esc(state.q)}" placeholder="${esc(t('bills.search.ph'))}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"></label>
-      <button class="primary" type="submit">${esc(t('bills.search'))}</button>
+      <button class="secondary" type="submit">${esc(t('bills.search'))}</button>
     </form>
     <div class="chips" role="group" aria-label="${esc(t('bills.topics'))}">${chips(L)}</div>
     <div id="b-res">${results(L)}</div>
@@ -134,14 +147,14 @@ export const billsLoading = () => `${header(null, { slim: true })}<main class="s
 export function wireBills(root, L) {
   const res = root.querySelector('#b-res'), input = root.querySelector('#b-q');
   const redraw = () => { res.innerHTML = results(L); };
-  input.addEventListener('input', () => { state.q = input.value; redraw(); });
+  input.addEventListener('input', () => { state.q = input.value; redraw(); keep(); });
   root.querySelector('[data-find]').addEventListener('submit', e => {
-    e.preventDefault(); state.q = input.value; redraw(); input.blur();   // the keyboard goes down, so the results can be seen
+    e.preventDefault(); state.q = input.value; redraw(); keep(); input.blur();   // the keyboard goes down, so the results can be seen
     res.scrollIntoView({ block: 'start', behavior: 'instant' });   // the count or "No bill matches" is a status line: a screen reader says it
   });
   root.querySelector('.chips').addEventListener('click', e => {
     const c = e.target.closest('[data-topic]'); if (!c) return;
-    state.topic = c.dataset.topic; state.open.clear();
+    state.topic = c.dataset.topic; state.open.clear(); keep();
     root.querySelectorAll('[data-topic]').forEach(x => x.setAttribute('aria-pressed', String(x === c)));
     redraw();
   });
@@ -151,10 +164,10 @@ export function wireBills(root, L) {
       setFollow(i, !followed(i), L); redraw(); res.querySelector(`[data-follow="${CSS.escape(i.id)}"]`)?.focus(); return; }
     const m = e.target.closest('[data-more]');
     if (m) { const id = m.dataset.more, sec = m.closest('.isec'), k = sec.querySelectorAll('a.r').length;
-      state.open.add(id); redraw();
+      state.open.add(id); redraw(); keep();
       res.querySelector(`#${CSS.escape(sec.id)} a.r:nth-of-type(${k + 1})`)?.focus();   // the first bill just shown
       return; }
-    if (e.target.closest('a.r')) state.y = window.scrollY;   // Back finds the list where it was
+    if (e.target.closest('a.r')) { state.y = Math.round(window.scrollY); keep(); }   // Back finds the list where it was
   });
 }
 // Open at an issue (#/bills/<slug>): every topic, no search, the issue's bills all shown, scrolled so its heading is at the top.

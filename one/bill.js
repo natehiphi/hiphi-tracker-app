@@ -16,12 +16,15 @@ export const keepHyphens = s => esc(s).replace(/(\S+-\S+)/g, '<span class="nw">$
 // header is a greeting, and a scene from another issue would say the wrong thing. The HIPHI mark sits on it either way.
 // slim: the write and send screens keep the drawing's colours in a short band, so the letter has the room (one view at 390x844).
 // own, brand: Home's own drawing (the rainbow and the people, pub/art.js HELLO) and its longer name on the pill (part 6).
-export function header(issue, { slim = false, own = '', brand = '' } = {}) {
+// cls: one more class on the header (Home's 'hello', sized in one.css).
+export function header(issue, { slim = false, own = '', brand = '', cls = '' } = {}) {
   const band = issue && !slim ? issueBand(issue, true) : '';
   const art = own || (band.startsWith('<img') ? band : '');
-  return `<header class="hd${art ? '' : ' plain'}${slim ? ' slim' : ''}">${art}<div class="brand">${MARK}<span>${esc(brand || t('mark'))}</span></div>${DEMO ? `<span class="demo">${esc(t('practice'))}</span>` : ''}</header>`;
+  return `<header class="hd${art ? '' : ' plain'}${slim ? ' slim' : ''}${cls ? ' ' + cls : ''}">${art}<div class="brand">${MARK}<span>${esc(brand || t('mark'))}</span></div>${DEMO ? `<span class="demo">${esc(t('practice'))}</span>` : ''}</header>`;
 }
 
+// "Part of Disposable e-cigarette ban" under a bill called "Disposable e-cigarette ban" says the name twice (A-14): left out.
+const sameName = B => (B.nickname || '').trim().toLowerCase() === String(B.issue?.name || '').trim().toLowerCase();
 const LINE_ICON = { capitol: 'landmark', calendar: 'calendar', flag: 'flag' };
 // The one button picks itself (R-360): Send testimony while a hearing's testimony deadline is open, Email the chair while the
 // bill waits in a committee with no hearing set, and none once the bill is over for the year (the plain line says why).
@@ -40,16 +43,17 @@ function action(B) {
 }
 
 // back: the bill was opened from Bills (R-360 part 4), so a Back to Bills leads in place of the greeting.
+// back: also marks the link data-hist, so app.js goes back in the history to the Bills the person left (B-4).
 export function billScreen(B, { back = false } = {}) {
   // A bill with no nickname (HIPHI is only watching it) leads with its plain summary, said once (A-14).
   const head = B.nickname || B.summary || B.numberSpaced, sum = B.nickname ? B.summary : '';
   const lines = B.lines.map(l => `<div class="ln${l.soon ? ' soon' : ''}">${icon(LINE_ICON[l.icon] || 'landmark')}<p><b>${esc(l.lead)}</b>${l.rest ? ' ' + esc(l.rest) : ''}</p></div>`).join('');
   return `${header(B.issue)}
   <main class="sheet" id="main">
-    <p class="kicker">${back ? `<a href="#/bills" class="back" data-back>${icon('arrow-left', { size: '1em' })}${esc(t('bill.back'))}</a>` : esc(t('aloha'))}</p>
+    <p class="kicker">${back ? `<a href="#/bills" class="back" data-back data-hist="#/bills">${icon('arrow-left', { size: '1em' })}${esc(t('bill.back'))}</a>` : esc(t('aloha'))}</p>
     <h1 tabindex="-1">${keepHyphens(head)}</h1>
     <div class="row"><span class="num">${esc(B.numberSpaced)}</span><span class="pos pos-${esc(B.position)}">${esc(t('pos.' + B.position))}</span></div>
-    ${B.issue?.slug ? `<p class="partof"><a href="#/bills/${esc(B.issue.slug)}">${esc(t('bill.partof', { name: B.issue.name }))}</a></p>` : ''}
+    ${B.issue?.slug && !sameName(B) ? `<p class="partof"><a href="#/bills/${esc(B.issue.slug)}">${esc(t('bill.partof', { name: B.issue.name }))}</a></p>` : ''}
     ${sum ? `<p class="sum">${keepHyphens(sum)}</p>` : ''}
     <div class="stand${B.over ? ' over' : ''}">${lines}</div>
     ${action(B)}

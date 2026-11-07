@@ -1,7 +1,10 @@
 /* act.html (R-360): one bill, one action. The tokens are pub/base.css's, copied rather than imported so this page loads one
    small stylesheet (keep the two in step). Layout from Nate's pick, mockup C: the issue's drawing as a header, a white
    sheet with the bill, one primary button. Phones first; on a laptop the same column, centred (a focused task reads best
-   in one readable column, CLAUDE.md). */
+   in one readable column, CLAUDE.md).
+   A-9: the single centred column, at most 600px, at every width is intended for this app (R-360 fix pass). It never turns
+   into the tracker's two-column layout at 1100 or moves its tab bar into a header at 900: act.html is one bill and one
+   action, Home, Bills and This week are short lists, and a wider page would only make the lines longer. */
 :root {
   --p50: #EDF9FF; --p100: #C4E8F6; --p200: #95DCFE; --p300: #6BCDF8; --p400: #39BFEE;
   --p500: #129DCB; --p600: #0B7CA5; --p700: #00698E; --p800: #024F69; --p900: #093546;
@@ -26,6 +29,7 @@ h1 { font-family: var(--font-h); font-weight: 700; color: var(--n900); letter-sp
 p { margin: 0; }
 a { color: var(--p700); text-underline-offset: 2px; }
 svg { display: block; }
+[hidden] { display: none !important; }   /* a row or a day kept behind "Show N more" stays hidden whatever its display */
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .nw { white-space: nowrap; }
 :focus-visible { outline: 3px solid var(--p500); outline-offset: 2px; }
@@ -150,7 +154,7 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .tabspace { height: calc(64px + var(--safe-b)); }
 .tabs { position: fixed; bottom: 0; left: 0; right: 0; max-width: 600px; margin: 0 auto; z-index: 5; display: grid; grid-template-columns: repeat(3, 1fr);
   height: calc(64px + var(--safe-b)); padding-bottom: var(--safe-b); background: var(--n0); border-top: 1px solid var(--n200); }
-.tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 48px; text-decoration: none; color: var(--n500); font: 600 12px/1.1 var(--font); }
+.tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 48px; text-decoration: none; color: var(--n500); font: 600 var(--t13)/1.1 var(--font); }
 .tabs .pill { display: flex; padding: 3px 16px; border-radius: var(--pill); }
 .tabs .ic { width: 24px; height: 24px; }
 .tabs a[aria-current] { color: var(--p700); }
@@ -169,7 +173,8 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .find .box:focus-within { outline: 3px solid var(--p300); border-color: var(--p600); }
 .find input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; padding: 0; font: 400 var(--t16)/1.3 var(--font); color: var(--n900); }
 .find input::placeholder { color: var(--n500); }
-.find .primary { width: auto; min-height: 52px; padding: 0 18px; font-size: var(--t16); }
+/* Search is outlined, not filled: the box filters as the person types, so Bills has no primary button, on purpose (A-3). */
+.find .secondary { width: auto; min-height: 52px; padding: 0 18px; }
 /* One kind of chip, a topic each, in one line that scrolls sideways on its own (the page never does). */
 .chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 2px 20px 4px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
@@ -212,7 +217,8 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .sheet.week { padding-top: 22px; }
 .week h1 { margin: 2px 0 16px; }
 .card.pick { padding: 16px; border: 1px solid var(--p100); border-radius: var(--r16); background: linear-gradient(180deg, var(--n0), var(--p50)); box-shadow: var(--sh1); }
-.lab1 { font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--o700); }
+/* Blue, not orange: orange is celebration only, amber is within 24 hours (A-5). */
+.lab1 { font: 700 var(--t13)/1.2 var(--font); letter-spacing: .06em; text-transform: uppercase; color: var(--p700); }
 .pick h2 { margin: 8px 0 2px; font: 700 var(--t22)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.02em; text-wrap: balance; }
 .pick .ln { margin-top: 6px; }
 .pick .ln .ic { width: 18px; height: 18px; }
@@ -226,9 +232,24 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .week h3.nextwk { margin: 22px 0 0; font: 700 var(--t16)/1.25 var(--font-h); color: var(--n900); }
 .calm { margin-top: 6px; color: var(--n700); }
 .calm a { display: inline-flex; align-items: center; min-height: 44px; }
+/* A link inside a sentence ("Follow an issue on Bills, ...") keeps the line's height; its padding takes the tap past the
+   text without moving a line (A-6, as the bill page pads the issue's name). */
+.calm a.inl { display: inline; min-height: 0; padding: 12px 4px; margin: 0 -4px; }
 .week .r .t span { color: var(--n500); }
+/* A row's number after its everyday name, small and quiet (A-14: the name leads, the number is there to match a letter). */
+.r .t b span.rn { display: inline; margin: 0 0 0 6px; font: 700 var(--t13)/1 var(--font); letter-spacing: .04em; color: var(--n500); white-space: nowrap; }
+.calm.quiet { margin: 0 0 8px; font-size: var(--t14); color: var(--n500); }
+.morehear { margin-top: 12px; }
 
 /* Home (part 6): the drawing, what HIPHI does, the one thing, four issues, a quiet footer. */
+/* The drawing about 140px tall on a phone (36vw: 140px at 390), so the card starts near 320px (A-1); the drawing spans the
+   width at its own shape, its foot under the sheet's rise and the sky cut, so every head stays above the sheet's edge up
+   to 600 wide (home.js moves the speech bubble down into what shows). */
+.hd.hello { height: clamp(140px, 36vw, 216px); }
+.hd.hello .art { inset: auto 0 0 0; height: auto; transform: translateY(5%); }
+/* Under 360 (A-9's small-phone floor) the pill and the practice chip fill the top of the drawing: the bubble is left out
+   rather than covered. */
+@media (max-width: 359px) { .hd.hello .bubble { display: none; } }
 .home h1 { margin: 2px 0 0; }
 .lede { margin-top: 8px; }
 .home h2.sec { margin: 24px 0 10px; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
@@ -245,8 +266,8 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .allis a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; }
 .allis .ic { width: 1em; height: 1em; }
 /* The footer: four quiet links, 44px tall to tap (A-6), wrapping as the width needs. */
-.foot { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 16px; margin-top: 20px; padding-top: 8px; border-top: 1px solid var(--n100); font-size: var(--t14); }
-.foot a { display: inline-flex; align-items: center; min-height: 44px; color: var(--n500); }
+.foot { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 4px; margin-top: 20px; padding-top: 8px; border-top: 1px solid var(--n100); font-size: var(--t14); }
+.foot a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; color: var(--n500); }   /* "Help" is 44 wide (A-6) */
 
 /* Loading: grey lines where the words will be. */
 .bar { height: 14px; border-radius: 7px; background: var(--n100); margin: 12px 0; }
@@ -264,3 +285,7 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 }
 @media (max-width: 359px) { .sheet { padding-left: 16px; padding-right: 16px; } .chips { margin: 0 -16px; padding: 2px 16px 4px; } }
 @media (min-width: 640px) { .chips { margin: 0 -32px; padding: 2px 32px 4px; } .tabs { border-radius: 0; } }
+/* A-9 names 360, 900 and 1100; this one is 600, the column's own width (#app max-width), said here as A-9 asks: from there
+   the column is as wide as it gets and the chips wrap onto a second line, so a mouse, which cannot swipe a row sideways,
+   reaches every topic. */
+@media (min-width: 600px) { .chips { flex-wrap: wrap; overflow-x: visible; } }

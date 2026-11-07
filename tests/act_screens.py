@@ -10,6 +10,9 @@
 # hearings by day, a returning person landing there. Saves part5-week (following the e-cigarette ban) and part5-week-nofollow.
 # Part 6: Home (#/), the front door: what HIPHI does, This week's one thing as a card with the one primary button, four issues
 # opening Bills at each, All issues, the footer to the tracker's pages. Saves part6-home (390x844) and part6-home-laptop.
+# Fix pass 2 (R-360): one deadline wording everywhere ("Send testimony by ..."), "Hearing" for hearings ahead, every hearing
+# reachable on This week (Show N more hearings), Back links that go back in the history, Bills remembered across a reload,
+# the bill lighting the tab it came from, no "Part of" when the names match, amber only within 24 hours.
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -42,8 +45,11 @@ with sync_playwright() as p:
     ok(pg.locator('.hd img.art-issue').count() == 1, 'the issue drawing is the header')
     body = pg.locator('body').inner_text()
     first = pg.locator('.stand .ln').first.inner_text()
-    ok(first.startswith('Send by Wed, Mar 18, ') and 'hear it Fri, Mar 20. You don’t need to go.' in first, f'the deadline leads, with its date, then the hearing day ({first!r})')
-    ok('Two Senate committees hear it next.' in body or 'Now with the Senate' in body, 'the committee line counts two committees, or names the one')
+    ok(first.startswith('Send testimony by Wed 9:30 AM.') and 'Two Senate committees hear it Fri, Mar 20. You don’t need to go.' in first, f'the deadline leads in the shared wording, then who hears it and when ({first!r})')
+    second = pg.locator('.stand .ln').nth(1).inner_text().strip()
+    ok(second == 'Passed the House. Now in the Senate.', f'the second line says only where it has been and is, the committees being named above ({second!r}) (fix 7)')
+    ok(pg.locator('.partof').count() == 0, 'no "Part of Disposable e-cigarette ban" under a bill of that name (fix 7, A-14)')
+    ok(pg.locator('.tabs a[aria-current]').count() == 0, 'a bill opened first from a link lights no tab (B-4)')
     ok(pg.evaluate("getComputedStyle(document.querySelector('h1')).textWrap").startswith('balance') or pg.evaluate("getComputedStyle(document.querySelector('h1')).textWrapStyle") == 'balance', 'the heading is balanced (text-wrap: balance)')
     ok('vape' not in pg.content().lower(), 'the word "vape" is nowhere on the page')
     ok(not any(c in body for c in ('HD1', 'HD2', 'SD1', 'SD2', 'HHS', 'CPN')), 'no version or committee codes in the words')
@@ -208,12 +214,14 @@ with sync_playwright() as p:
     chips = [c.inner_text().strip() for c in pg.locator('.chips .chip').all()]
     ok(len(chips) >= 4 and chips[0] == 'All' and 'Food & Nutrition' in chips and pg.locator('.chip[aria-pressed="true"]').inner_text().strip() == 'All', f'topic chips, All first and chosen ({chips[:4]})')
     dues = pg.locator('.voices a.r').evaluate_all('rs => rs.map(r => r.dataset.due)')
-    ok(1 <= len(dues) <= 5 and all(dues) and dues == sorted(dues), f'Need voices now: at most five rows, testimony closing soonest first ({len(dues)})')
-    ok(all(s.startswith('Testimony due ') for s in pg.locator('.voices a.r .t span').all_inner_texts()), 'each Need voices row says when testimony is due')
+    ok(pg.locator('.voices h2').inner_text().strip() == 'Needs voices this week' and 1 <= len(dues) <= 5 and all(dues) and dues == sorted(dues) and all(d < '2026-03-23T10:00' for d in dues),
+       f'"Needs voices this week", as Home names it: at most five rows, this week’s deadlines, soonest first ({len(dues)}) (fix 9)')
+    vs = pg.locator('.voices a.r .t > span').all_inner_texts()
+    ok(all(s.startswith('Send testimony by ') for s in vs) and 'Send testimony by today 9:30 AM' in vs, f'each row says the deadline in the shared wording ({vs[:2]}) (fix 6)')
     n_all = pg.locator('.isec').count()
     ok(pg.locator('.isec h3').count() >= 3 and n_all >= 3, f'at least three issue sections ({n_all})')
     ok(pg.locator('#issue-disposable-e-cigarette-ban .th img.art-issue').count() == 1, 'an issue with a drawing shows it small beside its name')
-    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Search', 'Bills: exactly one primary button, Search')
+    ok(pg.locator('.primary').count() == 0 and pg.locator('.find .secondary').inner_text().strip() == 'Search', 'Bills: Search is an outlined button, and Bills has no filled one (fix 12)')
     budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
       const taps = [...document.querySelectorAll('#main a, #main button, #main input')].filter(e => inView(e.getBoundingClientRect())).length;
       let words = 0; const w = document.createTreeWalker(document.querySelector('#main'), NodeFilter.SHOW_TEXT);
@@ -242,7 +250,9 @@ with sync_playwright() as p:
     ok(0 < n_cig < n_all and 'Disposable e-cigarette ban' in names and not any('school meals' in x.lower() for x in names) and pg.locator('.voices').count() == 0,
        f'typing "e-cig" narrows the list to the e-cigarette issues, the ban among them ({names})')
     ok(pg.locator('#b-q').evaluate('e => document.activeElement === e'), 'typing keeps the cursor in the search box')
-    pg.fill('#b-q', 'hb 2121'); pg.locator('.primary').click(); pg.wait_for_timeout(100)
+    pg.reload(); pg.wait_for_selector('#b-res .r', timeout=60000)
+    ok(pg.locator('#b-q').input_value() == 'e-cig' and pg.locator('.isec').count() == n_cig, f'a reload keeps the search and its results ({pg.locator("#b-q").input_value()!r}) (fix 3, B-6)')
+    pg.fill('#b-q', 'hb 2121'); pg.locator('.find .secondary').click(); pg.wait_for_timeout(100)
     ok(pg.locator('#b-res a.r[data-bill="HB2121"]').count() >= 1 and pg.locator('#b-res a.r').count() <= 3, 'a bill number with a space and Search finds the bill')
     pg.fill('#b-q', 'vape'); pg.wait_for_timeout(100)
     ok('Disposable e-cigarette ban' in pg.locator('.isec h3').all_inner_texts(), 'a search for vape still finds the e-cigarette bills (R-158)')
@@ -261,18 +271,35 @@ with sync_playwright() as p:
     row.click(); pg.wait_for_selector('.stand', timeout=10000)
     ok(pg.evaluate('location.hash') == '#/HB2121' and 'Disposable e-cigarette ban' in pg.locator('h1').inner_text().replace('\n', ' '), 'a row opens its bill')
     ok(pg.locator('.tabs').is_visible() and pg.locator('.primary').count() == 1, 'the tab bar shows on the bill, with its one primary button')
+    ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Bills', 'a bill opened from Bills lights Bills (fix 4)')
     btn = pg.locator('.primary').bounding_box(); tb = pg.locator('.tabs').bounding_box()
     ok(btn['y'] + btn['height'] <= tb['y'], f'the bill’s button is above the tab bar at 390x844 ({round(btn["y"] + btn["height"])} <= {round(tb["y"])})')
-    p_of = pg.locator('.partof a')
-    ok(p_of.inner_text().strip() == 'Part of Disposable e-cigarette ban' and p_of.get_attribute('href') == '#/bills/disposable-e-cigarette-ban', 'the bill says "Part of Disposable e-cigarette ban", a link to its issue on Bills')
+    ok(pg.locator('.partof').count() == 0, 'HB 2121 is called what its issue is called: no "Part of" line (fix 7)')
     if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part4-bill.png'))
     pg.locator('.back[data-back]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
     ok(pg.evaluate('location.hash') == '#/bills' and abs(pg.evaluate('scrollY') - y0) < 80, f'Back to Bills returns to the list where it was ({y0} -> {pg.evaluate("scrollY")})')
-    # Part of: opens Bills at the issue.
-    pg.goto(BASE + '#/HB2121'); pg.wait_for_selector('.partof a', timeout=10000); pg.locator('.partof a').click()
-    pg.wait_for_selector('#issue-disposable-e-cigarette-ban', timeout=10000); pg.wait_for_timeout(100)
-    top = pg.locator('#issue-disposable-e-cigarette-ban').bounding_box()['y']
-    ok(0 <= top < 120 and pg.evaluate("document.activeElement.id") == 'ih-disposable-e-cigarette-ban', f'"Part of" opens Bills scrolled to that issue ({round(top)})')
+    # Fix 2 (B-4): Back to Bills goes back in the history, so the browser's Back then goes to where Bills was opened from,
+    # never to the bill again; Write's Back to the bill does the same.
+    pg.goto(BASE + '#/week'); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
+    pg.locator('.tabs a[data-tab="bills"]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
+    pg.locator('#issue-disposable-e-cigarette-ban a.r[data-bill="HB2121"]').click(); pg.wait_for_selector('.stand', timeout=10000)
+    pg.locator('.back[data-back]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
+    pg.go_back(); pg.wait_for_timeout(300)
+    ok(pg.evaluate('location.hash') == '#/week', f'after Back to Bills, the browser’s Back goes to This week, not to the bill ({pg.evaluate("location.hash")}) (fix 2)')
+    pg.go_forward(); pg.wait_for_selector('#b-res .r', timeout=10000)
+    pg.locator('#issue-disposable-e-cigarette-ban a.r[data-bill="HB2121"]').click(); pg.wait_for_selector('.stand', timeout=10000)
+    pg.locator('.cta .primary').click(); pg.wait_for_selector('#w-letter', timeout=10000)
+    pg.locator('.back').click(); pg.wait_for_selector('.stand', timeout=10000)
+    pg.go_back(); pg.wait_for_timeout(300)
+    ok(pg.evaluate('location.hash') == '#/bills', f'after Write’s Back to the bill, the browser’s Back goes to Bills, not to Write ({pg.evaluate("location.hash")}) (fix 2)')
+    # Part of: opens Bills at the issue (HB 108, "Beer and spirits shipped to homes", is part of "Looser alcohol sales rules").
+    pg.goto(BASE + '#/HB108'); pg.wait_for_selector('.partof a', timeout=10000)
+    p_of = pg.locator('.partof a')
+    ok(p_of.inner_text().strip() == 'Part of Looser alcohol sales rules' and p_of.get_attribute('href') == '#/bills/looser-alcohol-sales-rules', 'a bill named apart from its issue says "Part of Looser alcohol sales rules", a link to its issue on Bills')
+    p_of.click()
+    pg.wait_for_selector('#issue-looser-alcohol-sales-rules', timeout=10000); pg.wait_for_timeout(100)
+    top = pg.locator('#issue-looser-alcohol-sales-rules').bounding_box()['y']
+    ok(0 <= top < 120 and pg.evaluate("document.activeElement.id") == 'ih-looser-alcohol-sales-rules', f'"Part of" opens Bills scrolled to that issue ({round(top)})')
     # The tab bar: not on Write; on Home (part 6, below), with Home current.
     pg.goto(BASE + '#/HB2121/write'); pg.wait_for_selector('#w-letter', timeout=10000)
     ok(pg.locator('.tabs').count() == 0, 'no tab bar on Write')
@@ -295,15 +322,20 @@ with sync_playwright() as p:
     ok(kick.endswith('Mon, Mar 16') and pg.locator('h1').inner_text().strip() == 'This week at the Capitol', f'This week: the kicker has today’s date in Hawaiʻi and the heading ({kick!r})')
     # The soonest open deadline among HIPHI's bills at 9:00 am Mon 16 Mar: SB 3234's, 9:30 am today.
     one = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip(); line = pg.locator('.pick .ln').inner_text().strip()
-    ok(one == 'Safer walking routes next to schools' and line.startswith('Send by today 9:30 AM.') and 'Heard Tue, Mar 17.' in line, f'no follows: the one thing is the soonest deadline, SB 3234 ({one!r}, {line!r})')
+    ok(one == 'Safer walking routes next to schools' and line == 'Send testimony by today 9:30 AM. The committee hears it Tue, Mar 17.', f'no follows: the one thing is the soonest deadline, SB 3234, in the shared wording, the hearing ahead ({one!r}, {line!r}) (fixes 5, 6)')
+    ok(pg.locator('.pick .lab1').evaluate('e => getComputedStyle(e).color') == 'rgb(0, 105, 142)', 'the "Your one thing this week" label is blue (--p700), not orange (fix 11, A-5)')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send testimony' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write', 'exactly one primary button, Send testimony, to the bill’s letter')
     q = pg.locator('.wk-issues .calm a')
-    ok(q.count() == 1 and q.inner_text().strip() == 'Follow an issue on Bills and its bills show here.' and q.get_attribute('href') == '#/bills', 'no follows: one quiet line to Bills under Your issues')
-    days = pg.locator('.wk-hear h3.day').all_inner_texts()
+    ok(q.count() == 1 and q.inner_text().strip() == 'Bills' and q.get_attribute('href') == '#/bills' and pg.locator('.wk-issues .calm').inner_text().strip() == 'Follow an issue on Bills, and its hearings will show here.',
+       'no follows: "Follow an issue on Bills, and its hearings will show here.", only "Bills" a link (fix 10)')
+    ok(pg.locator('.wk-hear h2').inner_text().strip() == 'Hearings on bills we follow', 'the section is "Hearings on bills we follow" (fix 10)')
+    days = pg.locator('.wk-hear h3.day').evaluate_all('hs => hs.map(h => h.textContent.trim())')
     ats = pg.locator('.wk-hear a.r').evaluate_all('rs => rs.map(r => r.dataset.at)')
-    subs = pg.locator('.wk-hear a.r .t span').all_inner_texts()
+    shown = pg.locator('.wk-hear a.r:not([hidden])').count()
+    subs = pg.locator('.wk-hear a.r .t > span').evaluate_all('ss => ss.map(s => s.textContent)')
     import re
-    ok(len(days) >= 2 and days == sorted(set(days), key=days.index) and ats == sorted(ats) and 1 <= len(ats) <= 10, f'hearings grouped by day, in order, ten rows at most ({days}, {len(ats)} rows)')
+    ok(len(days) >= 2 and days == sorted(set(days), key=days.index) and ats == sorted(ats) and 1 <= shown <= 10 and len(ats) > shown, f'hearings grouped by day, in order, ten rows shown of all of them ({days}, {shown} of {len(ats)})')
+    ok(all(re.search(r'\S[HS]B \d+$', n) and not re.match(r'^[HS]B \d+$', n) for n in pg.locator('.wk-hear a.r .t b').evaluate_all('bs => bs.map(b => b.textContent.trim())')), 'each row is titled by its everyday name, the number small after it (fix 8)')
     ok(days[0].upper() == 'MON, MAR 16' and all(re.match(r'^(MON|TUE|WED|THU|FRI), ', d.upper()) for d in days), 'the days are weekdays from today, Hawaiʻi time')
     ok(all(re.match(r'^\d{1,2}:\d{2} [AP]M · (House|Senate) [A-Z]', s) for s in subs) and not any('Committee' in s or re.search(r'\b[A-Z]{3}\b', s.replace('AM', '').replace('PM', '')) for s in subs),
        f'each row: the time and the short committee name, no codes ({subs[:3]})')
@@ -318,17 +350,35 @@ with sync_playwright() as p:
     ok(budget['taps'] <= 8 and budget['words'] <= 130, f'no follows, the first screenful: at most 8 things to tap and 130 words, tab bar aside ({budget})')
     ok('vape' not in pg.content().lower() and not any(c in pg.locator('#main').inner_text() for c in ('HD1', 'SD1', 'HHS', 'CPN', 'TRN')), 'This week: no "vape", no version or committee codes')
     if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part5-week-nofollow.png'))
+    # Fix 1 (B-3): nothing is cut silently. Thursday's and Friday's hearings wait behind "Show N more hearings", which shows them.
+    vis = lambda: pg.evaluate("() => [...document.querySelectorAll('.wk-hear .dgrp')].filter(g => !g.hidden).map(g => g.querySelector('h3').textContent.trim().slice(0, 3).toUpperCase())")
+    more = pg.locator('[data-morehear]'); before = vis()
+    ok(more.count() == 1 and re.match(r'^Show \d+ more hearings?$', more.inner_text().strip()) and 'THU' not in before and 'FRI' not in before, f'"{more.inner_text().strip() if more.count() else ""}" holds the rest of the week ({before})')
+    more.click(); after = vis()
+    ok('THU' in after and 'FRI' in after and pg.locator('.wk-hear a.r[hidden]').count() == 0 and pg.locator('[data-morehear]').count() == 0 and pg.evaluate("document.activeElement.matches('.wk-hear a.r')"),
+       f'Show more reveals every hearing, Thursday’s and Friday’s among them, and moves the focus to the first one shown ({after}) (fix 1)')
+    last = pg.locator('.wk-hear a').last
+    ok(last.inner_text().strip() == 'See all bills', '"See all bills" stays at the end')
+    # Fix 4: a bill opened from This week lights This week.
+    pg.locator('.wk-hear a.r[data-bill="SB3234"]').click(); pg.wait_for_selector('.stand', timeout=10000)
+    ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'This week' and pg.locator('.back[data-back]').count() == 0, 'a bill opened from This week lights This week (fix 4)')
     # Follow the e-cigarette ban on Bills: the one thing comes from that issue, and Your issues lists it.
     pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=60000)
     pg.locator('#issue-disposable-e-cigarette-ban [data-follow]').click()
     pg.locator('.tabs a[data-tab="week"]').click(); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000); pg.evaluate(FONTS)
     one = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip(); line = pg.locator('.pick .ln').inner_text().strip()
-    ok(one == 'Disposable e-cigarette ban' and line == 'Send by Wed 9:30 AM. Heard Fri, Mar 20.' and pg.locator('.pick .primary').get_attribute('href') == '#/HB2121/write',
-       f'following the e-cigarette ban: the one thing is HB 2121 ({one!r}, {line!r})')
+    ok(one == 'Disposable e-cigarette ban' and line == 'Send testimony by Wed 9:30 AM. The committees hear it Fri, Mar 20.' and pg.locator('.pick .primary').get_attribute('href') == '#/HB2121/write',
+       f'following the e-cigarette ban: the one thing is HB 2121, its hearing ahead said as ahead ({one!r}, {line!r}) (fix 5)')
+    ok(pg.locator('.pick .ln.soon').count() == 0, 'a deadline two days out is not amber (fix 11, A-5: amber only within 24 hours)')
+    fr = pg.locator('.wk-hear a.r[data-bill="HB2121"]')
+    ok(fr.count() == 1 and fr.is_visible() and 'FRI' in pg.evaluate("() => [...document.querySelectorAll('.wk-hear .dgrp')].filter(g => !g.hidden).map(g => g.querySelector('h3').textContent.trim().slice(0, 3).toUpperCase())"),
+       'the one thing’s own Friday hearing is never among the hidden ones (fix 1)')
     ok(pg.locator('.kicker').inner_text().strip() == 'Aloha again. Mon, Mar 16', 'a person who follows an issue is greeted "Aloha again."')
-    ih = pg.locator('.wk-issues h3.ih').all_inner_texts(); r1 = pg.locator('.wk-issues a.r').first
-    ok(ih == ['Disposable e-cigarette ban'] and r1.get_attribute('data-bill') == 'HB2121' and r1.locator('.t span').inner_text().startswith('Heard Fri, Mar 20, 9:30 AM · Senate '),
-       f'Your issues lists the issue, with HB 2121’s hearing this week ({ih}, {r1.locator(".t span").inner_text()!r})')
+    ih = pg.locator('.wk-issues h3.ih').all_inner_texts()
+    ok(ih == ['Disposable e-cigarette ban'] and pg.locator('.wk-issues a.r[data-bill="HB2121"]').count() == 0 and pg.locator('.wk-issues .calm.quiet').inner_text().strip() == 'Its bill is your one thing above.',
+       f'Your issues lists the issue and leaves its bill to the card above, with one quiet line ({ih}) (fix 8)')
+    hs = pg.locator('.wk-issues a.r .t > span').all_inner_texts()
+    ok(not any(x.startswith('Heard ') for x in hs) and all(x.startswith(('Hearing ', 'Send testimony by ')) for x in hs), f'an issue’s rows say "Hearing ..." for hearings ahead, never "Heard" ({hs[:2]}) (fix 5)')
     ok(pg.locator('.primary').count() == 1, 'following: still exactly one primary button')
     budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
       const taps = [...document.querySelectorAll('#main a, #main button, #main input')].filter(e => inView(e.getBoundingClientRect())).length;
@@ -343,7 +393,7 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=60000)
     pg.locator('#issue-higher-liquor-taxes [data-follow]').click()
     pg.goto(BASE + '#/week'); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
-    wl = pg.locator('.wk-issues a.r[data-bill="HB1991"] .t span')
+    wl = pg.locator('.wk-issues a.r[data-bill="HB1991"] .t > span')
     ok(wl.count() == 1 and re.match(r'^No hearing yet\. The chairs have until \w{3}, \w{3} \d+\.$', wl.inner_text().strip()), f'an issue with nothing this week: "No hearing yet. The chairs have until …" ({wl.count() and wl.inner_text()!r})')
     # Send it: Yes, I sent it, and the card says so and offers the next bill.
     pg.locator('.pick .primary').click(); pg.wait_for_selector('#w-letter', timeout=10000)
@@ -382,7 +432,12 @@ with sync_playwright() as p:
     # The one thing is This week's (week.js weekData): with no follows at 9:00 am Mon 16 Mar, SB 3234.
     nm, ln = pg.locator('.pick h3').inner_text().replace('\n', ' ').strip(), pg.locator('.pick .ln').inner_text().strip()
     ok(nm == 'Safer walking routes next to schools' and pg.locator('.pick .num').inner_text().strip() == 'SB 3234' and pg.locator('.pick .pos').inner_text().strip() == 'HIPHI supports', f'the card: the one thing This week offers, its number and position ({nm!r})')
-    ok(ln == 'Send by Mon, Mar 16, 9:30 AM. House Transportation hears it Tue, Mar 17.', f'the card: when to send by, who hears it and when ({ln!r})')
+    ok(ln == 'Send testimony by today 9:30 AM. The House Transportation Committee meets on it Tue, Mar 17. You don’t need to go.', f'the card: when to send by, in the shared wording, who meets on it and when ({ln!r}) (fixes 6, 10)')
+    hb = pg.locator('.hd.hello').bounding_box(); cy = pg.locator('.pick').bounding_box()['y']
+    ok(135 <= hb['height'] <= 150 and cy <= 335, f'Home: the drawing about 140px tall, so the card starts near 320px ({round(hb["height"])}, card at {round(cy)}) (fix 13, A-1)')
+    ok(pg.locator('.tabs a').first.evaluate('e => getComputedStyle(e).fontSize') == '13px', 'tab labels at the 13px token (fix 13, A-4)')
+    hw = pg.locator('.foot a').first.bounding_box()
+    ok(hw['width'] >= 44 and hw['height'] >= 44, f'the footer’s Help is at least 44 by 44 ({round(hw["width"])}x{round(hw["height"])}) (fix 13, A-6)')
     ps = pg.locator('.pick .psum').inner_text().strip()
     ok(ps.endswith('.') and ps.count('. ') == 0, f'the card: a one-sentence summary ({ps!r})')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send testimony' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write'
@@ -397,7 +452,8 @@ with sync_playwright() as p:
       const taps = [...document.querySelectorAll('#app a, #app button, #app input')].filter(e => !e.closest('.tabs') && inView(e.getBoundingClientRect())).length;
       const words = document.querySelector('#main').innerText.split(/\\s+/).filter(Boolean).length;
       return { taps, words }; }""")
-    ok(budget['taps'] <= 8 and budget['words'] <= 120, f'Home: the first screenful at most 8 things to tap (tab bar aside), the page at most 120 words ({budget})')
+    # 130 words, as This week's budget: fix pass 2 (item 10) added the committee's name and "You don't need to go." (126).
+    ok(budget['taps'] <= 8 and budget['words'] <= 130, f'Home: the first screenful at most 8 things to tap (tab bar aside), the page at most 130 words ({budget})')
     ok('vape' not in pg.content().lower(), 'Home: no "vape"')
     sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
     ok(sw[0] <= sw[1], f'Home: no sideways scroll at 390 ({sw})')
@@ -440,8 +496,16 @@ with sync_playwright() as p:
     ctx = br.new_context(viewport={'width': 1280, 'height': 800}); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs6.append(str(e)))
     open_home('#/')
     box = pg.locator('#app').bounding_box(); tb = pg.locator('.tabs').bounding_box()
+    # Fix 13: at 600 wide no head meets the sheet's edge (the drawing's heads all end above the sheet's top).
+    heads = pg.evaluate("() => { const s = document.querySelector('.sheet').getBoundingClientRect().top; return [...document.querySelectorAll('.hd.hello ellipse')].map(e => e.getBoundingClientRect().bottom - s); }")
+    ok(heads and max(heads) <= 0, f'laptop: every head in the drawing ends above the sheet ({[round(h) for h in heads]}) (fix 13)')
+    bub = pg.locator('.hd.hello .bubble').bounding_box(); chip = pg.locator('.hd .demo').bounding_box()
+    ok(bub['x'] + bub['width'] <= chip['x'] or bub['y'] >= chip['y'] + chip['height'], 'laptop: the practice chip does not cover the speech bubble (fix 13)')
     ok(box['width'] <= 600 and abs(box['x'] + box['width'] / 2 - 640) < 2 and abs(tb['x'] - box['x']) < 2 and tb['width'] <= 600, f'laptop: one centred column, the tab bar under it ({box["x"]}, {box["width"]})')
     if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part6-home-laptop.png'))
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=30000)
+    cr = pg.locator('.chips').bounding_box(); last = pg.locator('.chips .chip').last.bounding_box()
+    ok(pg.locator('.chips').evaluate('e => getComputedStyle(e).flexWrap') == 'wrap' and last['x'] + last['width'] <= cr['x'] + cr['width'] + 1, 'laptop: the topic chips wrap, so a mouse reaches every one (fix 13, A-9)')
     ctx.close()
     ok(not errs6, f'part 6: no page errors {errs6[:2]}')
     br.close()

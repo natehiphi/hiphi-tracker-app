@@ -49,7 +49,7 @@ export function writeScreen(B, people) {
   const me = loadMe(), x = draftFor(B, people), mail = isMail(B), to = toLine(B, people);
   return `${header(B.issue, { slim: true })}
   <main class="sheet write" id="main">
-    <p class="kicker"><a href="#/${esc(B.number)}" class="back">${icon('arrow-left', { size: '1em' })}${esc(t('write.back'))}</a></p>
+    <p class="kicker"><a href="#/${esc(B.number)}" class="back" data-hist="#/${esc(B.number)}">${icon('arrow-left', { size: '1em' })}${esc(t('write.back'))}</a></p>
     <h1 tabindex="-1" id="w-h">${esc(t(mail ? 'write.h.email' : 'write.h.testimony'))}</h1>
     ${to ? `<p class="toline" id="w-to">${esc(to)}</p>` : ''}
     <label for="w-letter" class="sr">${esc(t(mail ? 'write.letter.email' : 'write.letter'))}</label>

@@ -9,27 +9,32 @@ import { icon } from '../icons.js';
 import { t } from './i18n.js';
 import { DEMO } from './data.js';
 import { esc, header, keepHyphens } from './bill.js';
-import { dateLong } from './words.js';
+import { dateLong, sendBy } from './words.js';
 import { followed } from './bills.js';
 import { shortCmte } from './week.js';
 import { tabs } from './tabs.js';
 
 const ISSUES = 4;
-// The drawing fills the header and keeps its shape (the sky is cut, never stretched), as the mockup has it.
-const ART = HELLO.replace('class="art art-hello"', 'class="art art-hello" preserveAspectRatio="xMidYMid slice"');
+// The drawing spans the header's width at its own shape (one.css .hd.hello: about 140px tall on a phone, A-1, so the card
+// starts higher), its foot under the sheet and the sky cut above the people, so no head meets the sheet's edge at any
+// width. The speech bubble moves from the top right of the sky to beside the middle person's head: there it stays in the
+// cut, and clear of the practice copy's chip in the top right (R-360 fix pass); under 360 wide it is left out (one.css).
+const ART = HELLO.replace('<rect x="256" y="30"', '<g class="bubble" transform="translate(-56 56)"><rect x="256" y="30"')
+  .replace(/(<path d="M279 49\.1C[^>]*\/>)/, '$1</g>');
 const COUNT = ['', 'One', 'Two', 'Three', 'Four'];
 // The summary's first sentence: the card says what the bill does in one line; the bill screen has the rest.
 const firstSentence = s => (String(s || '').match(/^.*?[.!?](?=\s|$)/) || [String(s || '')])[0].trim();
 
-// The when line: the bill screen's own "Send by Wed, Mar 18, 9:30 AM." (words.js, so the two never disagree), then who hears
-// it and when: "Two Senate committees hear it Fri, Mar 20." or "Senate Health hears it Fri, Mar 20." (C-15: names, no codes).
+// The when line: the deadline in words.js sendBy's words, as the bill, Bills and This week say it ("Send testimony by
+// today 9:30 AM."), then who meets on it and when, and that no one has to go: "The House Transportation Committee meets on
+// it Tue, Mar 17. You don't need to go." (C-15: names with "Committee" in a sentence, no codes).
 function whenLine(B, L) {
-  const by = B.lines.find(l => /^Send by /.test(l.lead));
-  if (B.action === 'testimony' && B.hearing && by) {
+  if (B.action === 'testimony' && B.hearing) {
+    const by = sendBy(B.hearing.deadline || B.hearing.at, L.now);
     const date = dateLong(B.hearing.at, { now: L.now }), one = shortCmte(B.hearing.committee, L.committees);
     const who = B.hearing.joint ? t('home.hear.many', { count: COUNT[B.hearing.count] || String(B.hearing.count), chamber: B.hearing.chamber, date })
       : one ? t('home.hear.one', { name: one, date }) : t('home.hear.any', { date });
-    return { soon: !!by.soon, html: `<b>${esc(by.lead)}</b> ${esc(who)}` };
+    return { soon: by.soon, html: `<b>${esc(by.text)}.</b> ${esc(who)}` };
   }
   // The chair's email: the bill waits for a hearing (This week's words).
   return { soon: false, html: esc(B.waitUntil ? t('week.wait', { date: dateLong(B.waitUntil + 'T12:00:00-10:00', { now: L.now }) }) : t('week.wait.none')) };
@@ -77,7 +82,7 @@ const TRACK = `track.html${DEMO ? '?demo=1' : ''}`;
 const foot = () => `<nav class="foot" aria-label="${esc(t('home.more'))}"><a href="${TRACK}#/help">${esc(t('home.help'))}</a><a href="${TRACK}#/privacy">${esc(t('home.privacy'))}</a>`
   + `<a href="${TRACK}#/groups">${esc(t('home.groups'))}</a><a href="${TRACK}">${esc(t('home.tracker'))}</a></nav>`;
 
-const top = () => `${header(null, { own: ART, brand: t('home.mark') })}<main class="sheet home" id="main"%BUSY%>
+const top = () => `${header(null, { own: ART, brand: t('home.mark'), cls: 'hello' })}<main class="sheet home" id="main"%BUSY%>
     <h1 tabindex="-1">${esc(t('home.h'))}</h1>
     <p class="lede">${esc(t('home.lede'))}</p>
     <h2 class="sec">${esc(t('home.voices'))}</h2>`;
