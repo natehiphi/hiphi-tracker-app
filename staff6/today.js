@@ -28,10 +28,10 @@
 // v5's Today moved, whole, to today5.js: every export other screens import from './today.js' is re-exported below
 // (review.js, bills.js, inbox.js, asks.js, legislators.js, profile.js and app.js still use them), and v5's This week still
 // draws for the Hearings stub until HEARINGS replaces it (render() hands a route with place 'hearings' to v5).
-import { S, DB, DEMO, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
+import { S, DB, DEMO, VB, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
 import v5, { todayItems, slipNow } from './today5.js';
 import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
-import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords } from './ui.js';
+import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords, vbFinish } from './ui.js';
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML, statusLine } from './steps.js';
@@ -48,6 +48,7 @@ import { newSteps, markNewStep } from './help.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
 import { pqItems, pqOthers, wantQueue, wantAsks, admitsPartners, approvesPartners, pqRow, pqItem, pqCard, wirePartner } from './partnerq.js';
 import { dailyWord, HELD_NEXT } from './composer.js';
+import { queue as reviewQueue } from './review.js';   // a cycle (review.js reads today.js), safe: used only when a page draws
 // OUTREACH's one rallier rule and due time, and the ask's one home (This week's asks), so Today and Outreach never disagree (V20).
 import { rallierOf, askDueAt, askCardHref, askWriteHref } from './asks.js';
 
@@ -497,7 +498,59 @@ function jobRow(it, { v = S.me, noButton = false } = {}) {
   const r = it.s && it.b ? null : it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
   const href = r ? r.href : billRoute(it.b), pick = r && r.pick === false ? undefined : it.key;
   const lead = `<span class="v6-row-lead t6-kind" aria-hidden="true">${jk !== 'none' && PIC[jk] ? icon(PIC[jk].icon) : ''}</span>`;
-  return itemRow({ key: it.key, name: y.name, num: y.num, line: y.line, tone: y.tone, icon: y.icon, bold: y.bold, href: href || '#/', pick, button, cls: `t6-k-${it.kind}`, lead });
+  return vbRowIssue(itemRow({ key: it.key, name: y.name, num: y.num, line: y.line, tone: y.tone, icon: y.icon, bold: y.bold, href: href || '#/', pick, button, cls: `t6-k-${it.kind}`, lead }), it.b);
+}
+// ---- R-365 version B (all under VB; see css/vb-today.css) ----
+// A row names its issue and links to it: "for <issue>" under the row's words, its own link beside the row's one link
+// (a link cannot sit inside a link, so the row's main link and this one share a column).
+const vbIssueOf = b => (VB && b?.id ? issuesOfBill(b.id)[0] : null) || null;
+const vbIssueA = (i, cls = 'vb-row-issue') => `<a class="${cls}" href="#/issue/${encodeURIComponent(i.id)}"><span class="vb-for">for</span> <span>${esc(i.name)}</span></a>`;
+function vbRowIssue(html, b) {
+  const i = vbIssueOf(b); if (!i) return html;
+  return html.replace(/(<(a|button) class="v6-row-main[\s\S]*?<\/\2>)/, `<div class="vb-rowcol">$1${vbIssueA(i)}</div>`);
+}
+// Testimony waiting for this person's review, each with its bill, issue, time and one Review button, soonest first (the
+// Testimony page's To approve tab, in Today). The next step, when it is one of them, is the card above, said once (A-14).
+const vbReviews = v => { if (!VB || v?.id !== S.me?.id) return []; try { return reviewQueue({ only: 'testimony' }); } catch (e) { console.error(e); return []; } };
+function vbReviewGroup(items, nextD) {
+  const list = items.filter(x => !(nextD && String(x.d.id) === String(nextD.id)));
+  if (!list.length) return '';
+  const rows = list.map(x => {
+    const { b, d, h } = x, s = billStep(b, { viewer: S.me, d, h }), st = s ? shownStatus(s) : null;
+    const when = s ? statusLine(s, { flat: true }) : x.due ? `The Capitol’s deadline: ${whenAt(x.due)}` : '';
+    const line = [when, d.submitted_by && d.submitted_by !== S.me.id ? `Sent by ${first(d.submitted_by)}` : ''].filter(Boolean).join(' · ');
+    const tone = st && ['late', 'overdue'].includes(st.tone) ? st.tone : '';
+    const go = `#/review/${encodeURIComponent(x.key)}?from=today`;
+    return vbRowIssue(itemRow({ key: 'rv:' + x.key, name: nameWords(b), num: numWords(b), line: nw(esc(line)), tone, icon: tone ? st.icon : 'clock', href: billRoute(b), cls: 'vb-rv',
+      button: btn('Review', { kind: 'secondary', sm: true, icon: 'user-check', href: go, attrs: { 'aria-label': `Review: ${sayWords(b)}` } }) }), b);
+  }).join('');
+  return groupHTML('review', nextD ? 'More to review' : 'To review', rows, '', 'The soonest first. Review shows one at a time.');
+}
+// "Done: <what>. Next: <the first step waiting>" at the top of Today after a step is finished anywhere (ui.js vbFinish sets
+// S.vbDone; render takes it once). It stays through redraws until the person leaves Today, or two minutes pass.
+let BANNER = null;
+const noDot = t => String(t || '').trim().replace(/[.\s]+$/, '');
+function vbBanner(v, next) {
+  if (!VB) return '';
+  if (S.vbDone) { const d = S.vbDone; S.vbDone = null; if (Date.now() - d.at < 120000) BANNER = { ...d, route: S.route }; }
+  if (BANNER && (BANNER.route !== S.route || Date.now() - BANNER.at >= 120000)) BANNER = null;
+  if (!BANNER) return '';
+  const nx = next ? noDot(sayOf(next, v).plain) : '';
+  return `<div class="vb-done" role="status" data-vbdone>${icon('circle-check')}
+    <p class="vb-done-t"><b>Done:</b> ${esc(noDot(BANNER.what))}. ${nx ? `<b>Next:</b> ${esc(nx)}.` : 'Nothing else is waiting for you today.'}</p>
+    ${BANNER.undo ? btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-vbundo': '1' } }) : ''}</div>`;
+}
+// A step finished in place (steps.js's own buttons: Resubmit, Mark filed, Approve ...) ends as one finished elsewhere does:
+// whatever "Done today" now holds that the last draw did not is what was just done.
+let SNAP = new Set();
+const vbWhat = x => x.act === 'unfile' ? `Filed ${numWords(x.b)}’s testimony` : x.act === 'withdraw' ? `Sent ${numWords(x.b)}’s testimony for approval`
+  : /^Second look/.test(x.words) ? `Gave the second look on ${numWords(x.b)}’s testimony` : x.act === 'unapprove' ? `Approved ${numWords(x.b)}’s testimony` : String(x.words || 'Done').replace(/^Done: /, '');
+const VB_UNDO = { unfile: ['Filing undone. It is approved and ready to file again.'], unapprove: ['Approval undone. It is waiting for approval again.'], withdraw: ['Pulled back to draft. It is yours to send again.'] };
+function vbAfter() {
+  const x = VB && S.me ? doneToday(S.me).find(y => !SNAP.has(y.words)) : null;
+  if (!x) return redraw();
+  SNAP.add(x.words);
+  vbFinish(vbWhat(x), x.undo || (x.act && x.d ? async () => { await DB.transition(x.b.id, x.d.id, x.act); toast(VB_UNDO[x.act][0]); } : null));
 }
 // Do today in the order the day runs: by the time, what has no time last (the next step stays the one groupsOf picks).
 const byTime = (x, y) => (x.at ?? Infinity) - (y.at ?? Infinity) || byOrder(x, y);
@@ -1073,13 +1126,15 @@ const groupHTML = (id, title, rows, extra = '', sub = '') => rows ? `<section cl
 export function listHTML(v = S.me, { ro = false, skip = null, hideHear = false } = {}) {
   const w = work(v), g0 = groupsOf(w), nx = g0.next;
   const keep = i => i !== nx && (!skip || !skip(i));
-  const today = g0.today.filter(keep), soon = g0.soon.filter(keep), partner = g0.partner.filter(keep), later = g0.later.filter(keep);
+  // R-365 B: the testimony waiting for this person's review has its own list (vbReviewGroup), so its rows leave Do today and Coming up.
+  const rv = ro ? [] : vbReviews(v), rvIds = new Set(rv.map(x => String(x.d.id))), notRv = i => !(i.d && rvIds.has(String(i.d.id)) && ['approve', 'second', 'review', 'review2'].includes(i.kind));
+  const today = g0.today.filter(keep).filter(notRv), soon = g0.soon.filter(keep).filter(notRv), partner = g0.partner.filter(keep), later = g0.later.filter(keep);
   // The line for what is due after the week ahead (groupsOf): its count and its first day, opening the list beside (a teammate's
   // read-only list says it in words only).
   const laterL = later.length ? (ro ? `<p class="t6-quiet t6-later">${icon('calendar-clock')}<span>${esc(`${plural(later.length, 'more', 'more')} later · the first by ${dayWords(later[0].at)}`)}</span></p>`
     : `<nav class="t6-doors t6-later" aria-label="Later">${lineA('#/', 'calendar-clock', `<b>${later.length} more later</b> · the first by ${esc(dayWords(later[0].at))}`, { attrs: ' data-v6pick="later"' })}</nav>`) : '';
   // `hideHear`: the next step's sitting is a card on the same page (a hearing day), so its card leaves out the hearing line.
-  const nextH = (n = '') => nx ? `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : 'Your next step'}</h2>${ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n)}</section>`
+  const nextH = (n = '') => nx ? `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : 'Your next step'}</h2>${ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n)}${!ro && vbIssueOf(nx.b) ? `<p class="vb-next-for">${vbIssueA(vbIssueOf(nx.b), 'vb-next-issue')}</p>` : ''}</section>`
     : clearCard(v, w, ro, n);
   // R-352: one's own list, each row the job first (jobRow), in time order; partner words to approve are the Team lines'
   // (doorLines). Coming up ends with one quiet line to the week, whose one home is Hearings (Nate 27 Oct: the calendar is
@@ -1088,8 +1143,8 @@ export function listHTML(v = S.me, { ro = false, skip = null, hideHear = false }
     const wk = `<p class="t6-weekln"><a href="#/hearings/week?view=cal">See the week on Hearings<span aria-hidden="true">&nbsp;›</span></a></p>`;
     // (with no list at all, no line: nothing above it to end, and Hearings is in the sidebar)
     const tail = today.length || soon.length || later.length ? wk : '';
-    const groups = `${groupHTML('today', 'Do today', [...today].sort(byTime).map(i => jobRow(i, { v })).join(''), '', 'In the order they are due')}${soon.length ? groupHTML('soon', 'Coming up', [...soon].sort(byTime).map(i => jobRow(i, { v, noButton: true })).join(''), laterL + tail) : laterL + tail}`;
-    return { w, g: { today, soon, later, partner, next: nx }, nextH, groups, html: nextH() + groups, rows: today.length + soon.length + (later.length ? 1 : 0) };
+    const groups = `${vbReviewGroup(rv, nx?.d && rvIds.has(String(nx.d.id)) && ['approve', 'second', 'review', 'review2'].includes(nx.kind) ? nx.d : null)}${groupHTML('today', 'Do today', [...today].sort(byTime).map(i => jobRow(i, { v })).join(''), '', 'In the order they are due')}${soon.length ? groupHTML('soon', 'Coming up', [...soon].sort(byTime).map(i => jobRow(i, { v, noButton: true })).join(''), laterL + tail) : laterL + tail}`;
+    return { w, g: { today, soon, later, partner, next: nx }, nextH, groups, html: nextH() + groups, rows: today.length + soon.length + rv.length + (later.length ? 1 : 0) };
   }
   const groups = `${groupHTML('today', 'Do today', today.map(i => rowOf(i, { ro, v })).join(''))}${soon.length ? groupHTML('soon', 'Coming up', soon.map(i => rowOf(i, { ro, v })).join(''), laterL) : laterL}${groupHTML('pq', 'Partner words to approve', partner.map(i => rowOf(i, { ro, v })).join(''))}`;
   return { w, g: { today, soon, later, partner, next: nx }, nextH, groups, html: nextH() + groups, rows: today.length + soon.length + partner.length + (later.length ? 1 : 0) };
@@ -1118,8 +1173,21 @@ function clearCard(v, w, ro, n = '') {
   const go = ro ? '' : lost ? btn('Pick your coalition', { href: '#/issues/coalitions' })
     : nh && !onPage ? btn('Open the hearing', { icon: 'gavel', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : w.coal.size ? ''
     : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/issues/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'calendar-days', href: '#/hearings' });
+  if (VB && !ro && !lost) return vbClearCard(v, w, nh, onPage, n);
   return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
     ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
+}
+// R-365 B: with no step of their own, Today says so plainly and what comes next and when (the next hearing, the next
+// deadline, or the season), never a bare "nothing".
+function vbClearCard(v, w, nh, onPage, n = '') {
+  const dl = nextDeadline(v), at = nh ? ms(nh.scheduled_at) : null;
+  const next = nh ? `${onPage ? 'Today' : whenAt(nh.scheduled_at)}: the ${committeeName(nh.committee) || nh.committee} hearing${nh.bill_id && billById(nh.bill_id) ? ` on ${numWords(billById(nh.bill_id))}` : ''}.`
+    : dl ? `Next date: ${dayWords(ms(dl.date + 'T12:00:00-10:00'))}. ${cap(dl.words)}.`
+    : SESSION_OVER ? 'Hearings return when the next session opens.' : 'Your next step shows here as soon as a hearing is set or a teammate hands you one.';
+  const go = nh && !onPage ? btn('Open the hearing', { icon: 'gavel', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : '';
+  return `<section class="t6-next" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">Your next step</h2>
+    <div class="t6-clear vb-clear"><h3 class="t6-clh" id="t6-clear-h${n}">Nothing is waiting for you today.</h3>
+    <p><b>Next:</b> ${nw(esc(next))}</p>${go ? `<p class="t6-clgo">${go}</p>` : ''}</div></section>`;
 }
 // What a draw of Today is made of, worked out once (render, and the side column when a picked item closes).
 // Each own step on today's sittings is said once (A-14; the critic's 3 and 4): the next step on its step card, the
@@ -1172,7 +1240,8 @@ function render(route) {
   loads();
   const bd = badgeOf(), P = plan(v), { w, sits, phone, phoneDay } = P;
   const L = listHTML(v, { skip: phoneDay ? P.onCard : null, hideHear: P.hideHear });
-  const coal = true, lead = leadLine(), done = doneBand(v);
+  const coal = true, lead = leadLine(), done = doneBand(v), banner = vbBanner(v, P.next);
+  if (VB) SNAP = new Set(doneToday(v).map(x => x.words));
   // Getting started sits right under the next step (the critic's 11) as one line below 1100px (R-316 W7: its list pushed a
   // 1024 laptop's lists a sixth of a screen down; the line opens it in Help); from 1100px its short list leads the side
   // column (sideHTML) and the line is not drawn, so the rows start where they always do. At the Capitol on a phone's
@@ -1205,6 +1274,7 @@ function render(route) {
   const side = sideHTML(v, P), alone = !P.rows && !/t6-season|t6-doors|t6-start/.test(side);
   return `<div class="t6-root${phone ? ' ph' : ''}${!P.rows ? ' t6-solo' : ''}${alone ? ' t6-alone' : ''}">
     <header class="t6-head"><h1 class="v6-ptitle sv-h1 t6-h1" id="t6-h1" tabindex="-1">Today</h1>${dateLine(bd)}</header>
+    ${banner}
     <div class="v6-ld t6-ld${item ? ' open' : ''}" data-v6ld="today">
       <div class="t6-col">
         ${P.nextSit ? big : `<div class="t6-nextcol">${L.nextH('')}</div>${big}`}${start ? `<div class="t6-startcol">${start}</div>` : ''}
@@ -1252,13 +1322,17 @@ const ACTS = {
     await DB.updateTodo(it.b.id, it.t.id, { done: true });
     const undo = async () => { await DB.updateTodo(it.b.id, it.t.id, { done: false }); drop(undo); redraw(); };
     const words = it.share || it.kind === 'rally' ? `Public ask written: ${sayWords(it.b)}` : `Done: ${clip(it.t.title, 60)}`;
-    keepDone(words, undo); await finish(el); redraw();
+    keepDone(words, undo); await finish(el);
+    if (VB) return vbFinish(it.share || it.kind === 'rally' ? `Wrote the public ask for ${numWords(it.b)}` : clip(it.t.title, 60), undo);
+    redraw();
     toast(words, { ok: true, undo }); }); },
   async fu(el, it) { await busy(el, async () => {
     const f = it.f; await DB.doneFollowup(f.id);
     // There is no "not done" call, so Undo adds the same follow-up back (v5's way).
     const undo = async () => { await DB.addFollowup(f.person_id, f.advocate_id, f.what, f.due); drop(undo); redraw(); };
-    keepDone(`Followed up: ${it.p?.name || 'a supporter'}`, undo); await finish(el); redraw();
+    keepDone(`Followed up: ${it.p?.name || 'a supporter'}`, undo); await finish(el);
+    if (VB) return vbFinish(`Followed up with ${it.p?.name || 'a supporter'}`, undo);
+    redraw();
     toast('Follow-up done.', { ok: true, undo }); }); },
   give(el, it) {
     const td = it.t, prev = td.assignee_id || null;
@@ -1274,7 +1348,9 @@ const ACTS = {
     const ok = await confirmSheet({ title: `Send at 4:30 PM to ${n != null ? plural(n, 'person', 'people') : 'the followers'}?`, ok: 'Send at 4:30 PM',
       text: `${esc(a.subject)}<br><span class="small muted">${paused ? `Email is paused, so it is held while email is paused: ${HELD_NEXT}` : `It goes out ${day} at 4:30 PM`}, in each person’s one email of the day. You can take it back until then.</span>` });
     if (!ok) return;
-    await busy(el, async () => { const r = await DB.alertStep(a.id, 'send'); redraw();
+    await busy(el, async () => { const r = await DB.alertStep(a.id, 'send');
+      if (VB) return vbFinish(`Scheduled your email “${clip(spaced(a.subject), 40)}” for 4:30 PM`, async () => { await DB.alertStep(a.id, 'unsend'); toast('Taken back. It will not go out.'); });
+      redraw();
       toast(paused ? `Held while email is paused. It goes to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')} in the first 4:30 PM email after email is turned on.` : `In ${day}’s 4:30 PM email to ${plural(r?.recipients ?? n ?? 0, 'person', 'people')}.`,
         { ok: true, undo: async () => { try { await DB.alertStep(a.id, 'unsend'); redraw(); toast('Taken back. It will not go out.'); } catch (e) { toast(e, { err: true }); } } }); });
   },
@@ -1323,10 +1399,14 @@ const openItemHTML = (key, v = S.me) => key === 'waiting' ? waitingItem(v) : key
 
 // One listener for Today's own buttons (steps.js handles the step cards' and rows' own buttons).
 if (typeof document !== 'undefined') document.addEventListener('click', e => {
-  const el = e.target?.closest?.('[data-t6act], [data-t6undo], [data-t6wait], [data-t6give]'); if (!el || !el.closest('.t6-root, .tm6-root, dialog')) return;
+  const el = e.target?.closest?.('[data-t6act], [data-t6undo], [data-t6wait], [data-t6give], [data-vbundo]'); if (!el || !el.closest('.t6-root, .tm6-root, dialog')) return;
   // The side column's copy of a door that opens beside the work: the column's own copy does it (wireListDetail).
   if (el.dataset.t6wait !== undefined) { if (el.closest('.v6-ld-detail')) { e.preventDefault(); document.querySelector('.t6-col [data-v6pick="waiting"]')?.click(); } return; }
   if (el.dataset.t6give !== undefined) { e.preventDefault(); const x = work().waiting.find(y => y.key === el.dataset.t6give); if (x) ACTS.give(el, { b: x.b, t: x.t }); return; }
+  if (el.dataset.vbundo !== undefined) {   // the Done banner's Undo: take it back, then Today again without the banner
+    e.preventDefault(); const u = BANNER?.undo; BANNER = null; if (!u) return redraw();
+    el.disabled = true; return Promise.resolve().then(u).catch(err => toast(err, { err: true })).then(redraw);
+  }
   if (el.dataset.t6undo !== undefined) { e.preventDefault(); return undoDone(+el.dataset.t6undo); }
   const act = el.dataset.t6act;
   if (act === 'hidestart') { e.preventDefault(); markNewStep({ hidden: 1 }); return redraw(); }
@@ -1370,7 +1450,7 @@ function balance(main) {
 function wire(route, root) {
   if (route?.place === 'hearings' || route?.q?.view === 'week' || route?.q?.view === 'ahead') return v5.wire(route, root);
   const main = root.querySelector('.t6-root'); if (!main) return;
-  wireSteps(main, { after: redraw });
+  wireSteps(main, { after: VB ? vbAfter : redraw });
   wirePartner(main);
   // The frame routes every a[href^="#/"] itself (app.js wireFrame, wired after this), which would open the bill instead of
   // the item beside the list. A picked row's address keeps the page's own path, so the frame leaves it to wireListDetail and

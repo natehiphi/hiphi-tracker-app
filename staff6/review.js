@@ -11,10 +11,10 @@
 // owns it and its position, and a plain warning when it is dead, only monitored or has no hearing, so nobody approves an
 // email asking supporters to testify on a bill that died. The draft itself stays in its Google Doc (Nate, 9/19).
 // The queue is worked out here (it was today.js's reviewQueue), so Review and Testimony › To approve count the same items.
-import { S, DB, esc, hooks, startedFromLine, raceLine } from './data.js';
+import { S, DB, VB, esc, hooks, startedFromLine, raceLine } from './data.js';
 import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing, blurb } from './model.js';
 import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './model.js';
-import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn } from './ui.js';
+import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn, vbFinish } from './ui.js';
 import { emailPreview, HELD_NEXT } from './composer.js';
 import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -61,7 +61,7 @@ function session(route) {
     // Opened on one item (a row's Review button): that item first, then the rest of the queue.
     if (route.id && route.id !== 'done' && q.includes(route.id)) q.unshift(...q.splice(q.indexOf(route.id), 1));
     // Where it was opened from, so the end screen goes back there (B-4; X and Esc already do): Today, else Testimony.
-    const from = route.q?.from === 'today' || /^today$/i.test(String(history.state?.from || '')) ? 'today' : 'testimony';
+    const from = VB || route.q?.from === 'today' || /^today$/i.test(String(history.state?.from || '')) ? 'today' : 'testimony';
     r = S.tdRev = { keys: q, i: 0, log: [], skipped: [], done: false, only, from };
   }
   if (route.id && route.id !== 'done') {
@@ -112,7 +112,8 @@ function track(d) {
 function header(r, total) {
   const n = Math.min(r.i + 1, total);
   return `<div class="rv6-bar sv-phead">
-    <a class="iconbtn rv6-x" href="#/testimony?view=approve" data-back aria-label="Close review" title="Close review">${icon('x')}</a>
+    ${VB ? `<a class="vb-rv-back" href="#/" data-back>${icon('chevron-left')}<span>Back to Today</span></a>`   // R-365 B: Back names its place
+      : `<a class="iconbtn rv6-x" href="#/testimony?view=approve" data-back aria-label="Close review" title="Close review">${icon('x')}</a>`}
     <h1 class="rv6-h"><span class="rv6-hw">Review</span> <span class="rv6-n"><span class="rv6-hd" aria-hidden="true">· </span>${n} of ${total}</span></h1>
     ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
@@ -281,6 +282,8 @@ async function approve(route, el) {
       // Today's Done today lists it with its Undo, so the Undo outlives the toast (spec 6, B-5; Kris's walk).
       const key = 'rv:' + it.key, done = { key, by: S.me?.id, at: Date.now(), words: `Approved: ${first(it.a.author_id)}’s email${it.b ? ` on ${sayWords(it.b)}` : ''}`,
         undo: async () => { await DB.alertStep(it.a.id, 'unapprove'); S.v6Done = (S.v6Done || []).filter(x => x.key !== key); hooks.render(); toast('Approval undone. It is waiting for approval again.'); } };
+      // R-365 B: finishing a review goes back to Today, which says "Done: ... Next: ..." with the Undo (today.js)
+      if (VB) { S.tdRev = null; return vbFinish(`Approved ${first(it.a.author_id)}’s email${it.b ? ` on ${numWords(it.b)}` : ''}`, async () => { await DB.alertStep(it.a.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
       (S.v6Done ??= []).push(done);
       toast(msg, { ok: true, undo: async () => { S.v6Done = (S.v6Done || []).filter(x => x.key !== key); await unapprove(r, it, entry); } }); advance(r, entry);
       return;
@@ -289,6 +292,7 @@ async function approve(route, el) {
     // Written from the state the server returned: a first testimony goes on to its second look.
     const d = resolve(it.key)?.d || it.d, fid = filerOf(d), filer = fid && fid !== S.me.id ? first(fid) : null;   // W20 (T-3): model.js filerOf
     const next = d.status === 'second_review' ? `${cap(whoseStep(d, it.b).words) || 'A second approver'} gives the second look next` : filer && filer !== 'Someone' ? `${filer} files it next` : 'File it at the Capitol next';
+    if (VB) { S.tdRev = null; return vbFinish(`Approved ${numWords(it.b)}’s testimony`, async () => { await DB.transition(it.b.id, it.d.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
     const entry = { num: sayWords(it.b), what: `Approved by you · ${next}`, icon: 'check' };
     toast(`Approved. ${next}.`, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
@@ -322,12 +326,14 @@ function changes(route) {
           onFail: () => { toast(`${num} was not sent back. It is still waiting for you; try again.`, { err: true }); hooks.render(); } });
         (S.rvNotes ??= {})[it.key] = note;             // an Undo brings the note back with the item
         closeSheet({ silent: true }); await afterBack();
+        if (VB) { S.tdRev = null; return vbFinish(it.type === 'email' ? `Sent back ${first(it.a.author_id)}’s email` : `Sent back ${numWords(it.b)}’s testimony`,
+          async () => { if (await undo()) toast('Not sent back. It is waiting for you again, with your note.'); }); }
         toast(`Sent back to ${name} with your note. ${name === 'the writer' ? 'The writer revises' : `${name} revises`} and resubmits it.`, { undo: async () => { if (await undo()) backTo(r, it, entry, 'Not sent back. It is waiting for you again, with your note.'); } });
         advance(r, entry);
       };
     } });
 }
-function close() { if ((history.state?.d || 0) > 0) history.back(); else S.go('#/testimony?view=approve'); }
+function close() { if ((history.state?.d || 0) > 0) history.back(); else S.go(VB ? '#/' : '#/testimony?view=approve'); }
 
 function wire(route, root) {
   const main = root.querySelector('main'); if (!main) return;
@@ -367,7 +373,8 @@ document.addEventListener('keydown', e => {
 export default {
   tab: 'testimony', tabs: false, narrow: true,   // one decision per screen: a reading column, the buttons right under the card
   // A cold arrival (a link from Slack) goes back to Testimony › To approve, where Review is opened from (spec 3.3).
-  back: () => ({ href: '#/testimony?view=approve', label: 'Testimony' }),
+  // R-365 B: the page draws its own named Back ("Back to Today", in its header), so the frame's is left out
+  back: () => VB ? null : ({ href: '#/testimony?view=approve', label: 'Testimony' }),
   title: () => 'Review',
   render, wire, bar,
 };
