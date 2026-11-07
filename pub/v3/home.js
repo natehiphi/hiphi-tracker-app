@@ -19,7 +19,7 @@ import { S, app, esc, icon, nick, billPath, wiz, followsAnything, issueBills, is
 import { btn, skeleton } from '../ui.js';
 import { HELLO, issueBand } from '../art.js';
 import { logVisit } from '../visitlog.js';
-import { oneThing, nextThings, cardHtml, wireCard, sendBy } from './pick.js';
+import { oneThing, nextThings, cardHtml, wireCard, sendBy, issueOfThing } from './pick.js';
 
 // The drawing as act.html's Home draws it: the speech bubble moves from the top right of the sky to beside the middle person's
 // head, so it stays inside the band that shows (home.css crops the sky) and clear of the practice copy's chip.
@@ -41,15 +41,16 @@ function soonCounts() {
   }
   return n;
 }
-function fourIssues() {
+// The card's own issue is left out: it is already on the screen, just above (A-14).
+function fourIssues(skip) {
   const n = soonCounts();
-  return (S.issues || []).filter(i => i.slug && issueBills(i).length)
+  return (S.issues || []).filter(i => i.slug && issueBills(i).length && i.id !== skip?.id)
     .map(i => ({ i, n: n.get(i.id) || 0 }))
     .sort((x, y) => y.n - x.n || x.i.name.localeCompare(y.i.name))
     .slice(0, ISSUES);
 }
-function issueRows() {
-  return `<ul class="v3h-rows" role="list">${fourIssues().map(({ i, n }) => {
+function issueRows(skip) {
+  return `<ul class="v3h-rows" role="list">${fourIssues(skip).map(({ i, n }) => {
     const band = issueBand(i, DEMO), th = String(band || '').startsWith('<img') ? band : `<span class="v3h-ic">${icon(issueIcon(i.icon))}</span>`;
     const cat = (S.cats || []).find(c => c.key === i.category)?.name || '';
     const sub = n ? `${plural(n, 'bill')} need${n === 1 ? 's' : ''} voices this week` : cat;
@@ -109,7 +110,7 @@ function door(si) {
         ${on ? '' : `<p class="v3h-note">${esc(offWords(si))}</p>`}
         ${on ? cardHtml(o, { hl: 'h3' }) : offCard(si, 'h3')}</section>
       <section class="v3h-care" aria-labelledby="v3h-care-h"><h2 class="v3h-h2" id="v3h-care-h">Or start with what you care about</h2>
-        ${issueRows()}
+        ${issueRows(issueOfThing(o))}
         <div class="v3h-pick">${btn('Choose your issues', { kind: 'secondary', icon: 'list-checks', href: '#/start/1', attrs: { 'data-v3h-choose': '' } })}<span class="small">About 2 minutes</span></div>
         <p class="v3h-all"><a href="#/find">See all issues${arrow()}</a></p></section>
     </div></div>`;

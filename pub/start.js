@@ -283,7 +283,8 @@ export const topRow = (name, step) => {
   const lead = step > 1 ? backBtn(step) : step === 1 && name === 'topics' ? langPicker('st-lang') : '';
   // The topics have no Back, so a Leave there would be a row of its own, pushing the topic cards 36px down (on a 320px phone
   // the second row no longer peeked, the critic's high, A-1): there it takes Skip's quiet place in the bar instead (topicsBar).
-  if (planOn() || name === 'done' || name === 'topics') return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
+  // Version 3 (R-362): no Leave in the top row; Back, Skip this part and the topics' own Leave in the bar stay (Home is one tab away).
+  if (planOn() || name === 'done' || name === 'topics' || v3()) return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
   return `${chaptersRow(name)}<div class="steps st-steps st-toprow">${lead}${leaveBtn()}</div>`;
 };
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
@@ -461,6 +462,10 @@ function stepTopics(step) {
       <h1 class="hero" id="st-h">${fill(h)}</h1><p class="lede">${fill(lede)}</p>${sure ? sureWide('clock', sure) : ''}`,
       `${sure ? sayRow('clock', sure) : '<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>'}${tiles(off, yr)}`);
   }
+  // Version 3 (R-362): the door just said who HIPHI is and what it does, in the same heading; the topics keep one line and the time.
+  if (v3() && !off) return shell('st1 st-topics st-v3topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
+    <h1 class="lede st-v3lede" id="st-h">Pick what you care about.</h1>${sureWide('clock', sure1())}`,
+    `${sayRow('clock', sure1())}${tiles(off, yr)}`);
   return shell('st1 st-topics', `${topRow('topics', step)}${S.stHello ? '' : partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? t('Get ready for the {next} session', { next }) : t('Speak up for a healthier Hawaiʻi')}</h1>
     <p class="lede">${off ? `${t('The Legislature opens {day}.', { day: esc(shortDay(si.nextOpen)) })}${w && w.length ? ` ${w.length === 1 ? t('In {yr}, 1 bill HIPHI backed became law.', { yr }) : t('In {yr}, {n} bills HIPHI backed became law.', { yr, n: w.length })}` : ''} ${t('Pick what you care about, and we’ll keep watch.')}`

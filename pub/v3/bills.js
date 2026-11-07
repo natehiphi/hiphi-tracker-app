@@ -82,16 +82,20 @@ function lineOf(b) {
   let s = ''; try { s = plainStatus(b).short; } catch { /* a bill without its record: the number alone */ }
   return { text: s ? `${num} · ${s.replace(/ · \d+ days? left$/, '')}` : num };
 }
-const nameOf = b => nick(b) || what(b, 90);
+// Inside an issue, a bill whose nickname is just the issue's name ("Tobacco" under Tobacco) would read the same as its neighbours:
+// there it leads with its own words (the plain summary's first sentence, else the official title, mybills.js what); the line
+// under it always carries the number.
+const same = (a, z) => String(a || '').trim().toLowerCase() === String(z || '').trim().toLowerCase();
+const nameOf = (b, iss) => { const n = nick(b); return n && !(iss && same(n, iss.name)) ? n : what(b, 90); };
 // Testimony open first, soonest first; then bills still moving; then the ones that became law; then the rest.
 const rank = b => dueOf(b)?.at ? 0 : !stopped(b) && !becameLaw(b) && alive(b) ? 1 : becameLaw(b) ? 2 : 3;
 const order = bs => bs.slice().sort((x, y) => rank(x) - rank(y) || (rank(x) === 0 ? dueOf(x).at.localeCompare(dueOf(y).at) : 0) || numCmp(x, y));
-const row = b => { const l = lineOf(b);
-  return `<li><a class="rc-row" href="${esc(billPath(b))}" data-v3bill><span class="rc-rtext"><span class="rc-rname">${esc(nameOf(b))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
+const row = (b, iss) => { const l = lineOf(b);
+  return `<li><a class="rc-row" href="${esc(billPath(b))}" data-v3bill><span class="rc-rtext"><span class="rc-rname">${esc(nameOf(b, iss))}</span><span class="rc-rstat${l.warn ? ' warn' : ''}">${esc(l.text)}</span></span>${icon('chevron-right', { cls: 'rc-chev' })}</a></li>`; };
 // A list that shows its first n and opens the rest in place, remembered (M.open) so Back and a reload find it open (B-6).
-function rowsOf(bills, key, n = SHOW) {
+function rowsOf(bills, key, n = SHOW, iss = null) {
   const open = M.open.has(key) || bills.length <= n + 1, shown = open ? bills : bills.slice(0, n);
-  return `<ul class="rc-rows ${BOX}" role="list" id="v3b-rows-${esc(key)}">${shown.map(row).join('')}</ul>`
+  return `<ul class="rc-rows ${BOX}" role="list" id="v3b-rows-${esc(key)}">${shown.map(b => row(b, iss)).join('')}</ul>`
     + (open ? '' : `<button type="button" class="btn text v3b-more" data-v3more="${esc(key)}" aria-controls="v3b-rows-${esc(key)}" aria-expanded="false">${icon('chevron-down')}<span>Show ${bills.length - n} more</span></button>`);
 }
 
@@ -153,7 +157,7 @@ function issueSec({ i, bills }, q) {
   return `<li class="v3b-isec${open ? ' open' : ''}" id="v3b-i-${esc(i.slug)}">
     <div class="v3b-ihead"><h3 class="v3b-ih"><button type="button" class="v3b-itog" data-v3open="${esc(i.id)}" aria-expanded="${open}" aria-controls="${id}">
       <span class="v3b-ilead" aria-hidden="true">${icon(issueIcon(i.icon))}</span><span class="v3b-iname"><span class="v3b-in">${esc(i.name)}</span><span class="v3b-icount">${esc(countLine(bills))}</span></span>${icon('chevron-down', { cls: 'v3b-ichev' })}</button></h3>${follow(i, issueFollowed(i))}</div>
-    ${open ? `<div class="v3b-ibody" id="${id}">${rowsOf(bills, i.id)}<p class="v3b-ipage"><a class="btn text" href="#/issue/${esc(i.slug)}"><span>About ${esc(i.name)}</span>${icon('chevron-right')}</a></p></div>` : `<div class="v3b-ibody" id="${id}" hidden></div>`}</li>`;
+    ${open ? `<div class="v3b-ibody" id="${id}">${rowsOf(bills, i.id, SHOW, i)}<p class="v3b-ipage"><a class="btn text" href="#/issue/${esc(i.slug)}"><span>About ${esc(i.name)}</span>${icon('chevron-right')}</a></p></div>` : `<div class="v3b-ibody" id="${id}" hidden></div>`}</li>`;
 }
 const issueList = (secs, q) => `<ul class="v3b-ilist" role="list">${secs.map(x => issueSec(x, q)).join('')}</ul>`;
 // Lists from HIPHI (rec/find.js listRows): quiet rows in a white box, each to the list's page, whose one button follows it. Above
@@ -173,7 +177,7 @@ function browse() {
   if (L.state !== 'ready') return skeleton(4);
   const si = sessionInfo(), S1 = sections(''), vs = voices();
   return `${si.phase !== 'in' ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. Here is where each ${si.recapYear} bill ended up.</p>` : ''}
-    ${vs.length ? recSec('v3b-voices-h', 'Needs voices this week', `<ul class="rc-rows ${BOX}" role="list">${vs.map(row).join('')}</ul>`) : ''}
+    ${vs.length ? recSec('v3b-voices-h', 'Needs voices this week', `<ul class="rc-rows ${BOX}" role="list">${vs.map(b => row(b)).join('')}</ul>`) : ''}
     ${M.topic ? '' : listRows()}
     ${S1.issues.length || S1.other.length ? `<section class="rc-sec v3b-issues" aria-labelledby="v3b-iss-h"><h2 class="rc-h2" id="v3b-iss-h">Bills by issue</h2>${issueList(S1.issues, '')}</section>` : recEmpty('No bills on this topic yet.')}
     ${S1.other.length ? recSec('v3b-other-h', 'Other bills', rowsOf(S1.other, 'other')) : ''}

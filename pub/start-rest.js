@@ -156,7 +156,7 @@ function stepIssues(step) {
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
     `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
-    ${total ? `<p class="st-free">${icon('bell')}<span>Following is free, and you can stop any time. You get at most one alert a day, however many you follow.</span></p>` : ''}
+    ${total ? `<p class="st-free">${icon('bell')}<span>${v3() ? 'Free. At most one alert a day.' : 'Following is free, and you can stop any time. You get at most one alert a day, however many you follow.'}</span></p>` : ''}
     ${groups.length ? `<div class="st-tsecs" role="group" aria-label="Issues in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
     ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
 }

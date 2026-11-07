@@ -4,7 +4,7 @@
 #       'arrive' / 'view' (visitlog.js; read here from the sandbox's debug line)
 #     - exactly one filled button (.btn.primary, the card's, A-3); the card's heading starts within 400px at 390x844 (A-1); at most 15 kinds of
 #       control on the first screenful (A-2, density.py's count)
-#     - four issue rows, each opening #/issue/<slug>; "Choose your issues" (outlined) opens #/start/1; "See all issues" opens #/find
+#     - four issue rows, each opening #/issue/<slug>, the card's own issue not among them; "Choose your issues" (outlined) opens #/start/1; "See all issues" opens #/find
 #     - Find, then the Home tab, comes back to #/ and the door
 #   The returner, who follows issues (compare.html's Kai):
 #     - "Aloha, Kai." and one line; the card; at most two plain lines (.v3h-line); "See this week" to #/bills; no pager (.cm-pager), no slide,
@@ -75,6 +75,9 @@ with sync_playwright() as p:
     k = pg.evaluate(KINDS); ok(k <= 15, f"door: {k} kinds of control on the first screenful (A-2: 15)")
     rows = pg.eval_on_selector_all('#main .v3h-row', "els => els.map(e => e.getAttribute('href'))")
     ok(len(rows) == 4 and all(r.startswith('#/issue/') for r in rows), f"door: four issue rows to #/issue/... ({rows})")
+    # The card's own issue is already on the screen above: it is not offered again among the rows (A-14, pick.js issueOfThing).
+    card = pg.evaluate("(async () => { const p = await import('./pub/v3/pick.js'); const i = p.issueOfThing(p.oneThing()); return i ? '#/issue/' + i.slug : ''; })()")
+    ok(card and card not in rows, f"door: the card's issue ({card}) is not among the rows")
     ok(pg.locator('#main .v3h-pick .btn.secondary[href="#/start/1"]').count() == 1, "door: Choose your issues is outlined and goes to #/start/1")
     ok(pg.locator('#main .v3h-all a[href="#/find"]').count() == 1, "door: See all issues goes to #/find")
     ok(pg.locator('#main .v3h-art svg.art-hello').count() == 1, "door: the HELLO drawing is drawn")

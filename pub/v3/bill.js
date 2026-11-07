@@ -11,6 +11,7 @@ import { btn } from '../ui.js';
 import { screen, recTop, recLine, mainButton, stanceInner, recWhere, recCards, plainHead, welcomeLine, friendCard, storyLine, arrived,
   textIssue, newbie, followIsMain, doWords, RMAIL, wide } from '../bill.js';
 import { sendBy } from './pick.js';
+import { HELP_WORDS } from '../letters.js';
 
 // The moment the bill is waiting on, in a line of its own, and the status line without it. bill.js recLine({when:true}) is the moment
 // alone ("Testimony due Sun 3:00 PM", "Needs a hearing by Mon, Mar 30", "Hearing Tue 9:30 AM"); an open testimony deadline is said in
@@ -55,7 +56,9 @@ function go(b, x, main) {
 function page(num, b, x) {
   arrived(b);
   const note = b.sandbox_untracked ? `<div class="notice info bl-note">${icon('info')}<div>This bill is not on HIPHI’s list, so the sandbox has only its number and title. The live tracker shows every bill in full.</div></div>` : '';
-  const main = mainButton(b, x), stance = x.live ? `<section class="card flat bl-stance bl-rstance v3-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : '';
+  // One label across version 3 (Home's and This week's card say "Send testimony"): only the words change, the button is bill.js's.
+  // A saved draft, a kept letter and a late letter keep their own words; a bill with no hearing keeps its own button.
+  const main = x.kind === 'testify' ? mainButton(b, x).replace(`<span>${HELP_WORDS}</span>`, '<span>Send testimony</span>') : mainButton(b, x), stance = x.live ? `<section class="card flat bl-stance bl-rstance v3-stance" aria-labelledby="bl-stance-h">${stanceInner(b, x)}</section>` : '';
   const doCard = !x.act && !!main, folds = recCards(b, x, { noEmails: doCard && RMAIL.includes(x.kind) });
   const rest = `${note}${recWhere(b, x)}<div class="bl-rfolds">${folds}</div>`;
   // The Share pill stands aside when the one button is itself Share (A-14), as version 2 does.

@@ -42,7 +42,7 @@ function hearings(W) {
 
 // ---------------- the pieces ----------------
 // Your issues: Home's rows (myRows), each one phrase. The card's bill is said once (A-14): a bill followed on its own that is the
-// card's has no row, and the row of the issue it is on says "Your one thing, above" where it would say that same deadline.
+// card's has no row, and the row of the issue it is on is left out, or says "Your one thing, above, and 2 more this week".
 function yourIssues(o) {
   const change = `<p class="v3w-change"><a class="btn text" href="#/find"><span>Change my issues</span>${icon('arrow-right')}</a></p>`;
   if (!followsAnything()) return recSec('v3w-iss-h', 'Your issues', `<div class="v3w-empty"><p>This page shows what happens at the Capitol this week on the issues you follow: their hearings, and what you can send before them.</p>
@@ -50,8 +50,8 @@ function yourIssues(o) {
   const id = o?.b?.id, rows = myRows().filter(r => !(r.b && r.b.id === id)).map(r => {
     if (!id || !r.i || r.g !== 'due' || !issueBills(r.i).includes(id)) return r;
     const more = /, and (\d+) more this week$/.exec(r.text || '');
-    return { ...r, text: `Your one thing, above${more ? `, and ${more[1]} more this week` : ''}`, warn: false };
-  });
+    return more ? { ...r, text: `Your one thing, above, and ${more[1]} more this week`, warn: false } : null;   // a row saying only "above" says nothing
+  }).filter(Boolean);
   return recSec('v3w-iss-h', 'Your issues', `${rows.length ? `<ul class="rc-rows ${BOX}" role="list">${rows.map(recRow).join('')}</ul>` : ''}${change}`);
 }
 // The hearings, never cut silently (B-3): the first ten rows show, the rest wait behind "Show N more hearings", and the one thing's

@@ -1,5 +1,5 @@
 # R-362 Part 6: version 3's letter and Mahalo, behind ?v3=1 (pub/v2/letter.js under x.v3, pub/v2/letter.css, pub/v3/thanks.js,
-#   pub/v3/thanks.css; helper.js's V3 hook). ?demo=1&v3=1#/bill/HB2121, "Help me write testimony", a newcomer on a phone:
+#   pub/v3/thanks.css; helper.js's V3 hook). ?demo=1&v3=1#/bill/HB2121, "Send testimony", a newcomer on a phone:
 #     - screen 1 asks two things only: the name and the town (exactly two boxes); the town goes in the letter ("I live in Hilo.") and
 #       in what is sent, and survives closing and reopening the letter (then shown as plain text with "change")
 #     - "Write your own words instead" swaps the points for one empty box with the cursor in it; "Use HIPHI's points" brings them back,
@@ -7,7 +7,8 @@
 #     - from the bill's button to sent is at most 4 taps (button, Next, Open the Capitol page, I already sent it)
 #     - the Mahalo: "Mahalo, <first>!", one filled button in view, no friend card, no next-up, no story or quote card, no milestones;
 #       the follow line with Undo, Undo unfollows (and "Follow it again" follows again); the alerts card comes after the follow line
-#       (before and after Undo), its answers in the bar; "Not now" leaves Done alone; nobody with a profile (a saved number) sees it
+#       (before and after Undo), its answers in the bar; "Not now" leaves Done alone; nobody with a profile (a saved number) sees it;
+#       someone who followed the issue before sending is told they follow it already, with no Undo (the send started no follow)
 #     - phone 390x844 and laptop 1280x800, no sideways scroll; nothing in the console but what the page always says
 # usage: python3 tests/v3_letter.py [BASE]   (BASE defaults to http://localhost:8832); V3_LETTER_OUT=<folder> saves the screenshots
 import os, re, sys
@@ -47,7 +48,7 @@ def run(p, ctx_opts, name, init=''):
   return ctx, pg, errs
 
 def open_letter(pg):
-  pg.get_by_role('button', name=re.compile(r'^(Help me write testimony|Finish sending your testimony)$')).first.click()   # the second once a letter waits
+  pg.get_by_role('button', name=re.compile(r'^(Send testimony|Help me write testimony|Finish sending your testimony)$')).first.click()   # the second once a letter waits
   pg.wait_for_selector('#hp-dlg[open] .v2-paper', timeout=15000); pg.wait_for_timeout(300)
 
 def send(pg, taps):
@@ -143,6 +144,16 @@ with sync_playwright() as p:
   pg.click('#hp-dlg .hp-foot [data-hp=sent]'); pg.wait_for_selector('#hp-dlg #hp-done-t', timeout=15000); pg.wait_for_timeout(400)
   ok(pg.locator('#hp-dlg .nudgecard').count() == 0, 'with a profile there is no alerts card')
   ok(pg.evaluate(FILLED) == ['Done'], f'the bar is Done, the one filled button: {pg.evaluate(FILLED)}')
+  ok(not errs, f'no errors in the console: {errs[:3]}')
+  ctx.close()
+
+  # ---- E: the issue followed before the send: "You follow ... already", no Undo (helper.js marks only the follow the send made) ----
+  ctx, pg, errs = run(p, PHONE, 'E', PROFILE + "localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify(['66a32660-b0a7-4a90-a71f-231963619b44']));")
+  open_letter(pg); pg.fill('#hp-name', 'Malia Cruz'); send(pg, [])
+  pg.click('#hp-dlg .hp-foot [data-hp=sent]'); pg.wait_for_selector('#hp-dlg #hp-done-t', timeout=15000); pg.wait_for_timeout(400)
+  line = norm(pg.inner_text('#v3-follow'))
+  ok('already' in line and pg.locator('#v3-undo').count() == 0, f'followed before the send: says so, no Undo: {line!r}')
+  shot(pg, 'mahalo_followed_390')
   ok(not errs, f'no errors in the console: {errs[:3]}')
   ctx.close()
 

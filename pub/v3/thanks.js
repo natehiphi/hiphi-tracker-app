@@ -8,7 +8,7 @@
 // helper.js calls V3.done(x) for the body of every Mahalo of a letter opened under the flag (x.v3, pub/v2/letter.js build), both kinds,
 // and pub/v2/letter.js hands this file the Mahalo's bar (V3.foot) and its taps (V3.click). Without this file (its import failed) the
 // letter still works and ends on helper.js's own Mahalo.
-import { S, DEMO, esc, icon, spaced, setFollows } from '../core.js';
+import { S, DEMO, esc, icon, spaced, setFollows, issuesOf, issueFollowed } from '../core.js';
 import { btn } from '../ui.js';
 import { andList } from '../hello.js';
 import { alertButton } from '../alerts.js';
@@ -27,7 +27,14 @@ function lede(x, n) {
 // way back. A bill followed on its own, or one whose issue they already follow, gets the sentence without an Undo.
 function followLine(x, n) {
   if (x.v3Unf) return `<div class="v3-follow" id="v3-follow">${icon('bell-off')}<div><p>You won’t follow “${esc(x.v3Unf.name)}”.</p>${btn('Follow it again', { kind: 'text', sm: true, icon: 'bell', attrs: { 'data-hp': 'v3-refollow', id: 'v3-refollow' } })}</div></div>`;
-  const words = x.followedIssue ? HP.followWords(x, n) : x.followedNow ? `We added ${esc(n)} to the bills you follow, so you’ll see what they decide.` : 'You’ll see what they decide on Home.';
+  // helper.js sets x.followedIssue (or x.followedNow) only when the send itself started the follow; the follow state now cannot
+  // tell an issue followed before from one the send just followed. Followed before: say so, with no bell line and no Undo.
+  if (!x.followedIssue && !x.followedNow) {
+    const iss = x.b ? (issuesOf(x.b) || [])[0] : null;
+    const was = iss && issueFollowed(iss) ? `“${esc(iss.name)}”` : x.b && !iss && S.watch?.has(x.b.id) ? esc(n) : '';
+    return `<div class="v3-follow" id="v3-follow">${icon('check')}<div><p>${was ? `You follow ${was} already, so you’ll see what they decide.` : 'You’ll see what they decide on Home.'}</p></div></div>`;
+  }
+  const words = x.followedIssue ? HP.followWords(x, n) : `We added ${esc(n)} to the bills you follow, so you’ll see what they decide.`;
   const undo = x.followedIssue ? btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', cls: 'hp-unf', attrs: { 'data-hp': 'unfollow', id: 'v3-undo', 'aria-label': `Undo: stop following ${esc(x.followedIssue.name)}` } }) : '';
   return `<div class="v3-follow" id="v3-follow">${icon('bell')}<div><p>${words}</p>${undo}</div></div>`;
 }
