@@ -4,6 +4,8 @@
 # steps, "Yes, I sent it" recorded as the tracker records it) and the email to the chair for SB 2175. Saves screenshots
 # at 390x844 (part1-390, part2-write, part2-send) and 320x640. Part 3: the Mahalo screen (part3-thanks at 390x844), Share with
 # a friend (the bill's link, without /thanks), the email case, and that the practice copy sends no count to /rpc/log_.
+# Part 4: the Bills screen (#/bills: search, topic chips, Need voices now, one section per issue with Follow) and the tab bar
+# (Home · Bills · This week), the bill's "Part of <issue>" line and its Back to Bills. Saves part4-bills and part4-bill.
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -190,6 +192,94 @@ with sync_playwright() as p:
         ok(sw[0] <= sw[1], f'{h}: no sideways scroll at 320 ({sw})')
     ok(not errs2, f'part 2 and 3: no page errors {errs2[:2]}')
     ok(not any('/rpc/log_' in u for u in reqs), f'the practice copy sends no count: no request to /rpc/log_ ({len(reqs)} requests)')
+    ctx.close()
+
+    # ---- Part 4: Bills and the tab bar ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844})
+    pg = ctx.new_page(); errs4 = []; pg.on('pageerror', lambda e: errs4.append(str(e)))
+    def open_bills(h='#/bills'):
+        pg.goto(BASE + h); pg.wait_for_selector('#b-res .r', timeout=60000); pg.evaluate(FONTS); pg.wait_for_function(IMGS, timeout=20000)
+    open_bills()
+    ok(pg.locator('h1').inner_text().strip() == 'Bills', 'Bills: the heading is "Bills"')
+    chips = [c.inner_text().strip() for c in pg.locator('.chips .chip').all()]
+    ok(len(chips) >= 4 and chips[0] == 'All' and 'Food & Nutrition' in chips and pg.locator('.chip[aria-pressed="true"]').inner_text().strip() == 'All', f'topic chips, All first and chosen ({chips[:4]})')
+    dues = pg.locator('.voices a.r').evaluate_all('rs => rs.map(r => r.dataset.due)')
+    ok(1 <= len(dues) <= 5 and all(dues) and dues == sorted(dues), f'Need voices now: at most five rows, testimony closing soonest first ({len(dues)})')
+    ok(all(s.startswith('Testimony due ') for s in pg.locator('.voices a.r .t span').all_inner_texts()), 'each Need voices row says when testimony is due')
+    n_all = pg.locator('.isec').count()
+    ok(pg.locator('.isec h3').count() >= 3 and n_all >= 3, f'at least three issue sections ({n_all})')
+    ok(pg.locator('#issue-disposable-e-cigarette-ban .th img.art-issue').count() == 1, 'an issue with a drawing shows it small beside its name')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Search', 'Bills: exactly one primary button, Search')
+    budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
+      const taps = [...document.querySelectorAll('#main a, #main button, #main input')].filter(e => inView(e.getBoundingClientRect())).length;
+      let words = 0; const w = document.createTreeWalker(document.querySelector('#main'), NodeFilter.SHOW_TEXT);
+      while (w.nextNode()) { const r = document.createRange(); r.selectNodeContents(w.currentNode); if (inView(r.getBoundingClientRect())) words += w.currentNode.textContent.trim().split(/\\s+/).filter(Boolean).length; }
+      return { taps, words }; }""")
+    ok(budget['taps'] <= 12 and budget['words'] <= 130, f'the first screenful: at most 12 things to tap and about 130 words, tab bar aside ({budget})')
+    ok(pg.locator('.tabs a').count() == 3 and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Bills' and pg.locator('.tabs').is_visible(), 'the tab bar shows on Bills, with Bills current')
+    ok('vape' not in pg.content().lower(), 'Bills: no "vape"')
+    sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    ok(sw[0] <= sw[1], f'Bills: no sideways scroll at 390 ({sw})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part4-bills.png'))
+    # Follow an issue: the tracker's own key, the practice copy's _demo one.
+    f = pg.locator('#issue-disposable-e-cigarette-ban [data-follow]'); iid = f.get_attribute('data-follow')
+    ok(f.get_attribute('aria-pressed') == 'false' and f.inner_text().strip() == 'Follow', 'an issue offers a quiet Follow')
+    f.click(); f = pg.locator('#issue-disposable-e-cigarette-ban [data-follow]')
+    ok(f.get_attribute('aria-pressed') == 'true' and 'Following' in f.inner_text() and iid in pg.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]')"),
+       'Follow becomes "Following ✓" and writes hiphi_issue_follows_demo, as track.html keeps it')
+    f.click()
+    ok(pg.locator('#issue-disposable-e-cigarette-ban [data-follow]').get_attribute('aria-pressed') == 'false' and iid not in pg.evaluate("JSON.parse(localStorage.getItem('hiphi_issue_follows_demo') || '[]')"), 'pressed again, it stops following')
+    # Show N more.
+    more = pg.locator('.isec [data-more]').first; sec = more.evaluate('b => b.closest(".isec").id'); before = pg.locator(f'#{sec} a.r').count()
+    more.click(); ok(pg.locator(f'#{sec} a.r').count() > before and pg.locator(f'#{sec} [data-more]').count() == 0, f'"Show N more" shows the rest of the issue’s bills ({sec})')
+    # Search.
+    pg.fill('#b-q', 'e-cig'); pg.wait_for_timeout(100)
+    n_cig = pg.locator('.isec').count(); names = pg.locator('.isec h3').all_inner_texts()
+    ok(0 < n_cig < n_all and 'Disposable e-cigarette ban' in names and not any('school meals' in x.lower() for x in names) and pg.locator('.voices').count() == 0,
+       f'typing "e-cig" narrows the list to the e-cigarette issues, the ban among them ({names})')
+    ok(pg.locator('#b-q').evaluate('e => document.activeElement === e'), 'typing keeps the cursor in the search box')
+    pg.fill('#b-q', 'hb 2121'); pg.locator('.primary').click(); pg.wait_for_timeout(100)
+    ok(pg.locator('#b-res a.r[data-bill="HB2121"]').count() >= 1 and pg.locator('#b-res a.r').count() <= 3, 'a bill number with a space and Search finds the bill')
+    pg.fill('#b-q', 'vape'); pg.wait_for_timeout(100)
+    ok('Disposable e-cigarette ban' in pg.locator('.isec h3').all_inner_texts(), 'a search for vape still finds the e-cigarette bills (R-158)')
+    pg.fill('#b-q', 'zzqx'); pg.wait_for_timeout(100)
+    ok(pg.locator('.empty').inner_text().strip() == 'No bill matches. Try a word from its name.', 'no match: "No bill matches. Try a word from its name."')
+    pg.fill('#b-q', ''); pg.wait_for_timeout(100)
+    ok(pg.locator('.isec').count() == n_all, 'clearing the search brings every issue back')
+    # The chips.
+    pg.locator('.chip[data-topic="food"]').click(); pg.wait_for_timeout(100)
+    names = pg.locator('.isec h3').all_inner_texts()
+    ok(0 < len(names) < n_all and any('school meals' in x.lower() for x in names) and 'Disposable e-cigarette ban' not in names and pg.locator('.chip[aria-pressed="true"]').inner_text().strip() == 'Food & Nutrition',
+       f'the Food & Nutrition chip narrows to its issues ({len(names)} of {n_all})')
+    pg.locator('.chip[data-topic=""]').click(); pg.wait_for_timeout(100)
+    # A row opens the bill; Back returns to Bills where it was.
+    row = pg.locator('#issue-disposable-e-cigarette-ban a.r[data-bill="HB2121"]'); row.scroll_into_view_if_needed(); y0 = pg.evaluate('scrollY')
+    row.click(); pg.wait_for_selector('.stand', timeout=10000)
+    ok(pg.evaluate('location.hash') == '#/HB2121' and 'Disposable e-cigarette ban' in pg.locator('h1').inner_text().replace('\n', ' '), 'a row opens its bill')
+    ok(pg.locator('.tabs').is_visible() and pg.locator('.primary').count() == 1, 'the tab bar shows on the bill, with its one primary button')
+    btn = pg.locator('.primary').bounding_box(); tb = pg.locator('.tabs').bounding_box()
+    ok(btn['y'] + btn['height'] <= tb['y'], f'the bill’s button is above the tab bar at 390x844 ({round(btn["y"] + btn["height"])} <= {round(tb["y"])})')
+    p_of = pg.locator('.partof a')
+    ok(p_of.inner_text().strip() == 'Part of Disposable e-cigarette ban' and p_of.get_attribute('href') == '#/bills/disposable-e-cigarette-ban', 'the bill says "Part of Disposable e-cigarette ban", a link to its issue on Bills')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part4-bill.png'))
+    pg.locator('.back[data-back]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
+    ok(pg.evaluate('location.hash') == '#/bills' and abs(pg.evaluate('scrollY') - y0) < 80, f'Back to Bills returns to the list where it was ({y0} -> {pg.evaluate("scrollY")})')
+    # Part of: opens Bills at the issue.
+    pg.goto(BASE + '#/HB2121'); pg.wait_for_selector('.partof a', timeout=10000); pg.locator('.partof a').click()
+    pg.wait_for_selector('#issue-disposable-e-cigarette-ban', timeout=10000); pg.wait_for_timeout(100)
+    top = pg.locator('#issue-disposable-e-cigarette-ban').bounding_box()['y']
+    ok(0 <= top < 120 and pg.evaluate("document.activeElement.id") == 'ih-disposable-e-cigarette-ban', f'"Part of" opens Bills scrolled to that issue ({round(top)})')
+    # The tab bar: not on Write; Home and This week stand in for now.
+    pg.goto(BASE + '#/HB2121/write'); pg.wait_for_selector('#w-letter', timeout=10000)
+    ok(pg.locator('.tabs').count() == 0, 'no tab bar on Write')
+    for h, cur, word in (('#/', 'Home', 'Home, coming next'), ('#/week', 'This week', 'This week, coming next')):
+        pg.goto(BASE + h); pg.wait_for_selector('.tabs', timeout=10000)
+        ok(pg.locator('h1').inner_text().strip() == word and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == cur and pg.locator('#main a[href="#/bills"]').count() == 1, f'{h}: "{word}", with a way to Bills')
+    pg.locator('.tabs a[data-tab="bills"]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
+    ok(pg.evaluate('location.hash') == '#/bills', 'the Bills tab opens Bills')
+    pg.set_viewport_size({'width': 320, 'height': 640}); open_bills(); sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    ok(sw[0] <= sw[1], f'Bills: no sideways scroll at 320 ({sw})')
+    ok(not errs4, f'part 4: no page errors {errs4[:2]}')
     ctx.close()
     br.close()
 

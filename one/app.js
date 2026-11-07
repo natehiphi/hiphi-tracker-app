@@ -2,8 +2,12 @@
 // own #/bill/HB2121 and #/bill/2026/HB2121 too, so a link made for track.html opens here unchanged. Then the one action:
 // #/HB2121/write (one/write.js), #/HB2121/send (one/send.js) and #/HB2121/thanks (one/thanks.js). The counts (one/counts.js)
 // are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action.
-import { loadBill, loadPeople, LoadError } from './data.js';
+// Part 4 makes it the start of the whole public app: #/ is Home, #/bills is Bills (one/bills.js; #/bills/<issue-slug> opens
+// it at that issue), #/week is This week, with the tab bar (one/tabs.js) on those three and on the bill.
+import { loadBill, loadPeople, loadList, LoadError } from './data.js';
 import { billScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
+import { billsScreen, billsLoading, wireBills, atIssue, state as billsState } from './bills.js';
+import { tabs, soonScreen } from './tabs.js';
 import { thanksScreen, wireThanks, freshThanks } from './thanks.js';
 import { countVisit, arrive, letterShown } from './counts.js';
 import { writeScreen, wireWrite, loadMe } from './write.js';
@@ -14,6 +18,11 @@ import { cancelLater } from './later.js';
 const root = document.getElementById('app');
 const ROUTE = /^#\/(?:bill\/)?(?:(\d{4})\/)?([A-Za-z]+)\s?(\d+)(?:\/(write|send|thanks))?\/?$/;
 let cur = { key: '', bill: null, p: null };
+// Where the person was before this screen ('home', 'bills', 'week' or 'bill:<key>'), and the bill reached from Bills: its
+// Back goes to Bills (as the list was left) while the person stays on that bill and its steps; a bill opened from a link
+// keeps its greeting, and the tab bar's Home is the way on.
+let last = '', fromBills = '';
+const OTHER = /^#\/(?:(bills)(?:\/([a-z0-9-]+))?|(week))?\/?$/;
 
 function parse() {
   let h = location.hash || '';
@@ -35,13 +44,21 @@ const people = () => Promise.race([loadPeople(), new Promise(r => setTimeout(() 
 
 async function route() {
   cancelLater();   // a "Copied" or a redraw set on the last screen never paints over this one (B-4, B-7)
+  const o = OTHER.exec(location.hash || '#/'), was = last;
+  if (o) {
+    last = o[1] || o[3] || 'home';
+    if (o[1]) return bills(o[2] || '', was.startsWith('bill:'));
+    show(soonScreen(last)); return;
+  }
   const r = parse();
-  if (!r) { show(missingScreen()); return; }
+  if (!r) { last = ''; show(missingScreen()); return; }
   const key = `${r.year || ''}/${r.num}`;
+  if (was === 'bills') fromBills = key; else if (was !== 'bill:' + key) fromBills = '';
+  last = 'bill:' + key;
   if (cur.key !== key || !cur.bill) {
     if (cur.key !== key || !cur.p) { cur = { key, bill: null, p: loadBill(r.num, r.year) }; }
     const p = cur.p;
-    show(loadingScreen());
+    show(loadingScreen() + tabs('bills'));
     let B;
     try { B = await p; }
     catch (e) {
@@ -71,7 +88,25 @@ async function route() {
     freshSend(B); draw(); return;
   }
   if (step === 'thanks') { const draw = (o = {}) => { show(thanksScreen(B), o); wireThanks(root, B, draw); }; freshThanks(B); draw(); return; }
-  show(billScreen(B)); arrive();
+  show(billScreen(B, { back: fromBills === key }) + tabs('bills')); arrive();
+}
+
+// Bills: the list loads once a page life (data.js keeps it); a failed load says so, with Try again (B-8).
+// back: returning from a bill, so the list is where it was left. slug: open at that issue, with all its bills.
+async function bills(slug, back) {
+  const at = location.hash, p = loadList();
+  let L = null;
+  p.then(x => { L = x; }, () => {});
+  await Promise.resolve();
+  if (!L) show(billsLoading());
+  try { L = await p; }
+  catch (e) { if (location.hash !== at) return; if (!(e instanceof LoadError)) console.error(e); show(failScreen('list')); return; }
+  if (location.hash !== at) return;
+  const i = slug ? L.issues.find(x => x.slug === slug) : null;
+  if (i) { billsState.topic = ''; billsState.q = ''; billsState.open.add(i.id); }
+  show(billsScreen(L)); wireBills(root, L);
+  if (i && atIssue(root, slug)) return;
+  if (back && billsState.y) window.scrollTo(0, billsState.y);
 }
 
 root.addEventListener('click', e => { if (e.target.closest('[data-retry]')) { cur.p = null; cur.bill = null; route(); } });

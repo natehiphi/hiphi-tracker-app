@@ -7,7 +7,7 @@
 // as pub/demo.js shapes it, without the tracker's kernel. The snapshot is one file, so it is fetched whole, with
 // the same ?v= key as pub/demo.js so a browser that opened the tracker's practice copy already has it, and only this bill's
 // rows are kept.
-import { standing, cleanDesc, spaced, cmteLabel } from './words.js';
+import { standing, cleanDesc, spaced, cmteLabel, alive } from './words.js';
 import { codesOf } from '../pub/capitol.js';
 
 // pub/kernel.js SUPABASE_URL and SUPABASE_KEY (the publishable key: it can read only what anon can read).
@@ -137,4 +137,58 @@ export function loadPeople() {
     : get('public_legislators?select=chamber,name,sort_name,email')).then(rows => rows.map(l => ({ chamber: l.chamber, name: l.name, sort_name: l.sort_name || '', email: l.email || '' })))
     .catch(() => { peopleP = null; return []; });
   return peopleP;
+}
+
+// ---------------- The Bills screen (R-360 part 4): every bill HIPHI has a position on, inside its issues ----------------
+// Live: three plain GETs of public views (rule 3: never `bills`): the bills HIPHI has a position on (not "monitor", the same
+// cut public_issues counts), the issues and topics, and the hearings still to come (for "Need voices now"). Only the latest
+// session's bills are kept: between sessions that is the one just ended, as the tracker's followYear does.
+// Practice copy: the same rows out of the snapshot, as pub/demo.js shapes them (an issue's extra topics from
+// issueCategories; a bill's issues only when it has a position).
+// The shape: { now, cats: [{ key, name, sort_order }], issues: [{ id, slug, name, category, categories, sort_order }],
+//   bills: [{ id, number, numberSpaced, name, nickname, alive, stage, issues: [ids], due: iso | null }] }
+const LIST_COLS = 'id,bill_number,session_year,stage,last_action,title,description,hiphi_position,hiphi_nickname,hiphi_summary,hiphi_issues';
+let listP = null;
+export function loadList() {
+  listP ??= (DEMO ? demoList() : liveList()).catch(e => { listP = null; throw e instanceof LoadError ? e : new LoadError(e.message); });
+  return listP;
+}
+// A hearing still ahead whose testimony is still open: the time testimony closes (the posted deadline, else the hearing's
+// start, as words.js standing says: "Send testimony before it starts"), or null.
+const closes = (h, now) => { if (/cancel|defer|postpon/i.test(h.status || '')) return null;
+  const at = new Date(h.scheduled_at).getTime(), dl = h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : at;
+  return at > now && dl > now ? new Date(dl).toISOString() : null; };
+function listShape(rows, hearings, cats, issues, now) {
+  const year = Math.max(0, ...rows.map(b => +b.session_year || 0));
+  const due = {};
+  for (const h of hearings) { const c = closes(h, now); if (c && (!due[h.bill_id] || c < due[h.bill_id])) due[h.bill_id] = c; }
+  const bills = rows.filter(b => +b.session_year === year && b.hiphi_position && b.hiphi_position !== 'monitor').map(b => {
+    const ok = alive(b), name = String(b.hiphi_nickname || '').trim();
+    return { id: b.id, number: b.bill_number, numberSpaced: spaced(b.bill_number), nickname: name,
+      // No nickname: the plain summary, cut at a word, so the row still says what the bill does (A-14)
+      name: name || shortSum(b.hiphi_summary || cleanDesc(b.description) || b.title || '') || spaced(b.bill_number),
+      stage: b.stage, alive: ok, issues: b.hiphi_issues || [], due: ok ? due[b.id] || null : null };
+  });
+  return { now, year, bills, cats: cats.slice().sort((x, y) => (x.sort_order ?? 99) - (y.sort_order ?? 99)),
+    issues: issues.map(i => ({ id: i.id, slug: i.slug, name: i.name, category: i.category, categories: i.categories?.length ? i.categories : [i.category], sort_order: i.sort_order ?? 999 })) };
+}
+const shortSum = s => { s = String(s).replace(/\s+/g, ' ').trim(); if (s.length <= 70) return s.replace(/\.$/, '');
+  return s.slice(0, 69).replace(/\s\S*$/, '').replace(/[,;:]$/, '') + '…'; };
+async function liveList() {
+  const now = Date.now(), yr = +new Date(now).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }).slice(0, 4);
+  const [rows, cats, issues, hearings] = await Promise.all([
+    get(`public_all_bills?select=${LIST_COLS}&session_year=gte.${yr - 1}&hiphi_position=not.is.null&hiphi_position=neq.monitor&order=session_year.desc,bill_number&limit=1000`),
+    get('public_categories?select=*&order=sort_order'), get('public_issues?select=*&order=sort_order'),
+    get(`public_all_hearings?select=*&scheduled_at=gte.${encodeURIComponent(new Date(now).toISOString())}&limit=1000`).catch(() => [])]);   // "Need voices now" only: without it the issues still draw
+  return listShape(rows, hearings, cats, issues, now);
+}
+async function demoList() {
+  const snap = await (snapP ??= fetch(SNAP, { cache: 'force-cache' }).then(r => { if (!r.ok) throw new Error('snapshot ' + r.status); return r.json(); }));
+  const extra = {}; for (const r of snap.issueCategories || []) (extra[r.issue_id] ??= []).push(r.category);
+  const pos = new Map(snap.bills.map(b => [b.id, b.position])), ofBill = {};
+  for (const r of snap.billIssues || []) { const p = pos.get(r.bill_id); if (p && p !== 'monitor') (ofBill[r.bill_id] ??= []).push(r.issue_id); }
+  const rows = snap.bills.map(b => ({ id: b.id, bill_number: b.bill_number, session_year: b.session_year, stage: b.stage, last_action: b.last_action, title: b.title,
+    description: b.description, hiphi_position: b.position, hiphi_nickname: b.is_public ? b.nickname || null : null, hiphi_summary: b.public_summary, hiphi_issues: ofBill[b.id] || null }));
+  const issues = (snap.issues || []).map(i => ({ ...i, categories: [i.category, ...(extra[i.id] || []).filter(c => c !== i.category)] }));
+  return listShape(rows, snap.hearings || [], snap.categories || [], issues, new Date(DEMO_ASOF).getTime());
 }

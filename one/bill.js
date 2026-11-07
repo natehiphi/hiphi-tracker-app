@@ -9,7 +9,7 @@ import { HST } from './words.js';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // "Disposable e-cigarette ban": the word "e-cigarette" is not broken at its hyphen across two lines (the mockup's nowrap).
-const keepHyphens = s => esc(s).replace(/(\S+-\S+)/g, '<span class="nw">$1</span>');
+export const keepHyphens = s => esc(s).replace(/(\S+-\S+)/g, '<span class="nw">$1</span>');
 
 // The header: the issue's own drawing (pub/issue-art, the map in pub/art.js) shows on this page whatever ISSUE_ART_LIVE says,
 // Nate's yes for act.html (R-360). An issue with no drawing of its own gets a calm plain band, not the topic scenes: the
@@ -38,15 +38,17 @@ function action(B) {
     <p class="small">${esc(t(testimony ? 'btn.time' : 'btn.time.email'))}</p></div>`;
 }
 
-export function billScreen(B) {
+// back: the bill was opened from Bills (R-360 part 4), so a Back to Bills leads in place of the greeting.
+export function billScreen(B, { back = false } = {}) {
   // A bill with no nickname (HIPHI is only watching it) leads with its plain summary, said once (A-14).
   const head = B.nickname || B.summary || B.numberSpaced, sum = B.nickname ? B.summary : '';
   const lines = B.lines.map(l => `<div class="ln${l.soon ? ' soon' : ''}">${icon(LINE_ICON[l.icon] || 'landmark')}<p><b>${esc(l.lead)}</b>${l.rest ? ' ' + esc(l.rest) : ''}</p></div>`).join('');
   return `${header(B.issue)}
   <main class="sheet" id="main">
-    <p class="kicker">${esc(t('aloha'))}</p>
+    <p class="kicker">${back ? `<a href="#/bills" class="back" data-back>${icon('arrow-left', { size: '1em' })}${esc(t('bill.back'))}</a>` : esc(t('aloha'))}</p>
     <h1 tabindex="-1">${keepHyphens(head)}</h1>
     <div class="row"><span class="num">${esc(B.numberSpaced)}</span><span class="pos pos-${esc(B.position)}">${esc(t('pos.' + B.position))}</span></div>
+    ${B.issue?.slug ? `<p class="partof"><a href="#/bills/${esc(B.issue.slug)}">${esc(t('bill.partof', { name: B.issue.name }))}</a></p>` : ''}
     ${sum ? `<p class="sum">${keepHyphens(sum)}</p>` : ''}
     <div class="stand${B.over ? ' over' : ''}">${lines}</div>
     ${action(B)}
@@ -64,6 +66,7 @@ export const missingScreen = () => `${header(null)}<main class="sheet" id="main"
 
 // The bill could not load (DESIGN B-8, as pub/ui.js loadFail says it): what happened, that it is not them, and Try again in place.
 // A failed load is never drawn as "not found".
-export const failScreen = () => `${header(null)}<main class="sheet" id="main" role="alert"><h1 tabindex="-1">${esc(t('fail.h'))}</h1>
+// kind 'list': the Bills screen's list could not load (R-360 part 4).
+export const failScreen = (kind = 'bill') => `${header(null)}<main class="sheet" id="main" role="alert"><h1 tabindex="-1">${esc(t(kind === 'list' ? 'fail.list.h' : 'fail.h'))}</h1>
   <p class="sum">${esc(t(navigator.onLine === false ? 'fail.offline' : 'fail.other'))}</p>
   <div class="cta"><button class="primary" type="button" data-retry>${icon('rotate-ccw')}<span>${esc(t('fail.again'))}</span></button></div></main>`;
