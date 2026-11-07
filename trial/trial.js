@@ -34,7 +34,12 @@ const sameDay = (a, b) => fmt(a, { dateStyle: 'short' }) === fmt(b, { dateStyle:
 export const nextLabel = st => !st?.next ? '' : sameDay(st.clock, st.next) ? `Next: ${timeOf(st.next)}` : `Next: ${fmt(st.next, { weekday: 'short' })} ${timeOf(st.next)}`;
 const firstName = n => (n || '').split(' ')[0];
 
-let sb, api, st, me, polling, alertsNew = 0;
+let sb, api, st, me, polling, alertsNew = 0, acting = null;
+
+// Acting as a teammate (admins, Nate 7 Nov): kept for this tab and this trial only, so a new tab or trial starts as you.
+const asKey = () => `tr-as-${st.trial_id}`;
+function actingAs() { try { return JSON.parse(sessionStorage.getItem(asKey()) || 'null'); } catch { return null; } }
+function setActing(p) { try { p ? sessionStorage.setItem(asKey(), JSON.stringify(p)) : sessionStorage.removeItem(asKey()); } catch { /* private window */ } }
 
 // ---- the page's frame: Staff v6's own styles, so the front door and the app look alike ----
 async function borrowStaff6Head() {
@@ -121,7 +126,11 @@ async function startTrial(week, form) {
 // ---- 3. in a trial: Staff v6 inside the trial's copy, under the band ----
 async function enter() {
   if (/access_token|refresh_token|error_description/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
-  window.HIPHI_TRIAL = { url: PRACTICE_URL, key: PRACTICE_KEY, schema: st.schema, trial_id: st.trial_id };
+  // Link this person to their own record in the trial's copy (its staff checks go by sign-in); without it nobody counted
+  // as staff there and the tracker showed nothing (R-337, 7 Nov).
+  await api.rpc('link_me');
+  acting = me?.admin ? actingAs() : null;
+  window.HIPHI_TRIAL = { url: PRACTICE_URL, key: PRACTICE_KEY, schema: st.schema, trial_id: st.trial_id, as: acting?.id || null };
   // The app's clock is the trial's: it starts at the stop and runs on while the page is open, as the practice copy's does
   // (staff6/data.js DEMO), so "in 2 hours" and "today" mean the trial's day. The database's now() is the same stop.
   const off = RealDate.now() - new RealDate(st.clock).getTime();
@@ -152,10 +161,11 @@ export function bandHTML(s, { busy = '', moved = null, alerts = 0 } = {}) {
   else if (s.done) act = `<button type="button" class="btn primary sm" data-tr="report">See how the week went</button>`;
   else if (s.last_stop_of_week) act = `<button type="button" class="btn primary sm" data-tr="report">End of the week</button>`;
   else act = `<button type="button" class="btn primary sm" data-tr="next">${esc(nextLabel(s))}</button>${s.next_day && sameDay(s.clock, s.next) ? `<button type="button" class="btn secondary sm" data-tr="skip">Skip to ${esc(fmt(s.next_day, { weekday: 'short' }))}</button>` : ''}`;
+  const as = s.acting ? `<span class="tr-as"><b>Acting as ${esc(s.acting.name)}</b> <button type="button" class="btn secondary sm" data-tr="asme">Back to me</button></span>` : '';
   return `<span class="tr-where"><b class="tr-tag">Trial run</b> <b class="tr-when">${esc(when)}</b><span class="tr-hint"> · ${esc(w?.name || '')}</span>${who}</span>
-    <span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="alerts" aria-haspopup="dialog">Alerts${alerts ? ` <span class="tr-new">${alerts} new</span>` : ''}</button><button type="button" class="btn secondary sm" data-tr="suggest" aria-haspopup="dialog">Suggest</button><button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
+    ${as}<span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="alerts" aria-haspopup="dialog">Alerts${alerts ? ` <span class="tr-new">${alerts} new</span>` : ''}</button><button type="button" class="btn secondary sm" data-tr="suggest" aria-haspopup="dialog">Suggest</button><button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
 }
-function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML(st, { ...o, alerts: alertsNew }); }
+function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML({ ...st, acting }, { ...o, alerts: alertsNew }); }
 
 async function poll() {
   const { data, error } = await api.rpc('state');
@@ -191,6 +201,7 @@ async function onBand(e) {
   else if (k === 'menu') menu();
   else if (k === 'alerts') alerts();
   else if (k === 'suggest') suggestBox();
+  else if (k === 'asme') { setActing(null); location.reload(); }
 }
 
 // ---- part 2: the alerts the trial made, each rated useful / not useful / wrong (Nate 10/24) ----
@@ -203,7 +214,7 @@ const KIND = {
 export const kindName = k => KIND[k] || String(k || 'Alert').replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
 const RATE = [['useful', 'Useful'], ['not_useful', 'Not useful'], ['wrong', 'Wrong']];
 const RATE_ASK = { not_useful: 'What would have made it useful? (optional)', wrong: 'What was wrong? (optional)' };
-const seenKey = () => `tr-seen-${st.trial_id}`;
+const seenKey = () => `tr-seen-${st.trial_id}${acting ? '-' + acting.id : ''}`;
 const seenId = () => { try { return +localStorage.getItem(seenKey()) || 0; } catch { return 0; } };
 let alertRows = [];
 
@@ -225,7 +236,7 @@ export function slackText(s) {
 }
 
 async function countNewAlerts() {
-  const { data } = await api.rpc('my_alerts', { p_limit: 200 });
+  const { data } = await api.rpc('my_alerts', acting ? { p_limit: 200, p_as: acting.id } : { p_limit: 200 });
   alertRows = data || [];
   const seen = seenId();
   alertsNew = alertRows.filter(a => a.id > seen).length;
@@ -233,7 +244,7 @@ async function countNewAlerts() {
 }
 
 function alertHTML(a, seen) {
-  const where = a.to_channel ? 'Team channel' : 'To you';
+  const where = a.to_channel ? 'Team channel' : acting ? `To ${firstName(acting.name)}` : 'To you';
   const ask = a.rating && RATE_ASK[a.rating];
   return `<li class="tr-alert${a.id > seen ? ' new' : ''}" data-id="${a.id}">
     <p class="tr-ahead"><b>${esc(kindName(a.kind))}</b> <span class="tr-quiet">${esc(where)} · ${esc(dayOf(a.at))}, ${esc(timeOf(a.at))}</span>${a.id > seen ? ' <span class="tr-new">New</span>' : ''}</p>
@@ -245,14 +256,15 @@ function alertHTML(a, seen) {
 }
 
 async function alerts() {
-  dialog(`<h2 tabindex="-1">Your alerts in this trial</h2><p class="tr-msg" role="status">Reading your alerts…</p>`, { wide: true });
+  const whose = acting ? `${firstName(acting.name)}’s alerts in this trial` : 'Your alerts in this trial';
+  dialog(`<h2 tabindex="-1">${esc(whose)}</h2><p class="tr-msg" role="status">Reading the alerts…</p>`, { wide: true });
   await countNewAlerts();
   const seen = seenId();
   const top = alertRows.reduce((m, a) => Math.max(m, a.id), 0);
   try { if (top) localStorage.setItem(seenKey(), String(top)); } catch { /* private window */ }
   alertsNew = 0; drawBand();
-  setDialog(`<h2 tabindex="-1">Your alerts in this trial</h2>
-    <p class="tr-quiet">Slack and email are off in a trial, so the alerts the tracker would have sent you are here, newest first. Mark each one: it shows what to keep and what to fix.</p>
+  setDialog(`<h2 tabindex="-1">${esc(whose)}</h2>
+    <p class="tr-quiet">${acting ? `What the tracker would have sent ${esc(firstName(acting.name))}, newest first. Your marks are kept as yours.` : 'Slack and email are off in a trial, so the alerts the tracker would have sent you are here, newest first. Mark each one: it shows what to keep and what to fix.'}</p>
     ${alertRows.length ? `<ul class="tr-alerts">${alertRows.map(a => alertHTML(a, seen)).join('')}</ul>`
       : `<p>No alerts yet. They come as the trial's days pass: hearing notices, testimony drafts and reminders.</p>`}
     <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="close">Close</button></div>`);
@@ -342,9 +354,11 @@ async function menu() {
   const mine = st.can_move;
   dialog(`<h2 tabindex="-1">This trial</h2>${mine ? '' : `<p>${esc(firstName(st.starter_name) || 'The person who started it')} moves the clock.</p>`}
     <h3>People</h3><ul class="tr-people" id="tr-people"><li>Reading the team…</li></ul>
+    ${me?.admin ? `<h3>Act as a teammate</h3><p class="tr-quiet">See the trial as they do and do their steps; changes in the trial are saved under their name. Next stays yours. Only admins see this.</p><ul class="tr-people" id="tr-as"><li>Reading the team…</li></ul>` : ''}
     ${mine ? `<h3>Start over or end</h3><p class="tr-quiet">Start over begins a new trial at the week you pick. Ending clears the trial's copy; what people suggested is kept.</p>
       <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="over">Start over</button><button class="btn secondary" type="button" data-tr="end">End the trial</button></div>` : ''}
     <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="close">Close</button><button type="button" class="tr-link" data-tr="signout">Sign out</button></div>`);
+  if (me?.admin) asList();
   const ul = document.getElementById('tr-people');
   if (!mine) { ul.innerHTML = [st.starter_name, ...(st.members || []).map(m => m.name)].map(n => `<li>${esc(n)}</li>`).join(''); return; }
   const { data, error } = await api.rpc('team');
@@ -352,6 +366,24 @@ async function menu() {
   ul.innerHTML = `<li><b>${esc(me.name)}</b> <span class="tr-quiet">you, moving the clock</span></li>` + (data || []).map(p => `<li><span>${esc(p.name)}</span>${p.in_trial
     ? '<span class="tr-quiet">In the trial</span>'
     : `<button type="button" class="btn secondary sm" data-tr="add" data-email="${esc(p.email)}">Add</button>`}</li>`).join('');
+}
+
+// Everyone on the team in this trial's copy, each with Act as (the person acted as now says so).
+async function asList() {
+  const ul = document.getElementById('tr-as'); if (!ul) return;
+  const { data, error } = await sb.schema(st.schema).from('advocates').select('id, full_name, email, is_active').eq('is_active', true).order('full_name');
+  if (error) { ul.innerHTML = `<li class="bad">${esc(error.message)}</li>`; return; }
+  const mine = (me.email || '').toLowerCase();
+  ul.innerHTML = (data || []).filter(a => (a.email || '').toLowerCase() !== mine).map(a => `<li><span>${esc(a.full_name)}</span>${acting?.id === a.id
+    ? `<button type="button" class="btn secondary sm" data-tr="asme">Back to me</button>`
+    : `<button type="button" class="btn secondary sm" data-tr="actas" data-id="${esc(a.id)}">Act as</button>`}</li>`).join('');
+}
+async function actAs(b) {
+  b.disabled = true; b.textContent = 'Switching…';
+  const { data, error } = await api.rpc('act_as', { p_advocate: b.dataset.id });
+  if (error) { b.disabled = false; b.textContent = 'Act as'; return toast(error.message); }
+  setActing(data?.id ? { id: data.id, name: data.name } : null);
+  location.reload();   // every screen reads the trial again, as them
 }
 
 async function addPerson(b) {
@@ -388,6 +420,8 @@ async function onDialog(e) {
   else if (k === 'rate') rate(b);
   else if (k === 'reload') location.reload();
   else if (k === 'add') addPerson(b);
+  else if (k === 'actas') actAs(b);
+  else if (k === 'asme') { setActing(null); location.reload(); }
   else if (k === 'signout') sb.auth.signOut().finally(() => location.reload());
   else if (k === 'go') { dlg.close(); move('next', `Moving to ${WEEKS.find(x => x.n === st.week + 1)?.name || 'the next week'}…`); }
   else if (k === 'over') { setDialog(`<h2 tabindex="-1">Start over</h2><form id="tr-start" class="tr-form">${weekPicker()}

@@ -141,3 +141,6 @@ body.trial-sugs .sg-page { max-width: 880px; margin: 0 auto; }
 .sg-empty { padding: 24px 16px; text-align: center; color: var(--v6-muted, #5B6B71); }
 .sg-foot { margin-top: 24px; }
 @media (max-width: 767px) { .sg-page { padding-top: 16px; } .sg-filters label:not(.sg-words) { flex: 1 1 140px; } .sg-filters select { width: 100%; } }
+/* Acting as a teammate (R-337, 7 Nov): a plain label on the band, with the way back beside it. */
+.tr-as { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tr-as b { padding: 2px 10px; border-radius: 999px; background: var(--v6-page, #F4F7F9); color: var(--v6-ink, #142B35); }
