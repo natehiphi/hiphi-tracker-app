@@ -1164,3 +1164,24 @@ export function exactBill(q) {
   if ((m = /^(\d{1,4})$/.exec(t))) { const hits = S.bills.filter(b => b.bill_number.replace(/\D/g, '') === m[1] && (!b.session_year || +b.session_year === +SESSION_YEAR)); return hits.length === 1 ? hits[0] : null; }
   return null;
 }
+
+// R-365 B (critic 9): where a live bill is on its way, in plain words instead of "Stop 4 of 8": "Committee 2 of 3, then the
+// full Senate". m is tracker.js trackerModel(b) (passed in so model.js does not import the tracker). '' when it is not live.
+const CHN_B = { H: 'House', S: 'Senate' };
+export function vbWhereWords(m) {
+  if (!VB || !m || m.place?.state !== 'live' || m.cur == null || m.cur < 0) return '';
+  const stops = m.stops || [], s = stops[m.cur]; if (!s) return '';
+  const thenOf = x => !x ? '' : x.kind === 'vote' ? `the full ${CHN_B[x.group] || 'chamber'}` : x.kind === 'conf' ? 'conference' : x.kind === 'gov' ? 'the Governor'
+    : `${CHN_B[x.group] || ''} committees`.trim();
+  let say, after;
+  if (s.kind === 'cmte' || s.kind === 'cmtes') {
+    const run = stops.filter(x => x.group === s.group && (x.kind === 'cmte' || x.kind === 'cmtes')), n = run.length, at = run.indexOf(s);
+    say = n > 1 ? `Committee ${at + 1} of ${n}` : `Its only ${CHN_B[s.group] || ''} committee`.replace('  ', ' ');
+    after = stops[stops.indexOf(run[n - 1]) + 1];
+  } else if (s.kind === 'vote') { say = `Waiting for a vote of the full ${CHN_B[s.group] || 'chamber'}`; after = stops[m.cur + 1]; }
+  else if (s.kind === 'conf') { say = 'In conference'; after = stops[m.cur + 1]; }
+  else if (s.kind === 'gov') return 'On the Governor’s desk';
+  else return '';
+  const t = thenOf(after);
+  return t ? `${say}, then ${t}` : say;
+}

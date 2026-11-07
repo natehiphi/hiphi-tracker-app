@@ -41,7 +41,10 @@ import { askTodoOf } from './push.js';
 import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts, goingRowHTML, dayWords } from './steps.js';
 import { roomName, movedFrom } from './model.js';
 import { aboutBill } from './billpane.js';
-import { trackerHTML, wireTracker } from './tracker.js';
+import { trackerHTML, wireTracker, trackerModel } from './tracker.js';
+import { vbWhereWords } from './model.js';
+import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, the same as its card on My issues
+import { standOf } from './issuestand.js';
 // A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
 import { shareTodoWords } from './today.js';
 
@@ -424,9 +427,11 @@ function headHTML(b, route) {
   const pick = (attr, words, label) => `<button type="button" class="bw-fbtn" ${attr} aria-haspopup="dialog" aria-label="${esc(label)}"><span>${esc(words)}</span>${icon('chevron-down', { cls: 'bw-fchev' })}</button>`;
   // Each fact keeps its separator with it (".bw-f + .bw-f::before"), so a wrapped line never ends on a lone dot. On a
   // phone the number is left out: the top bar shows it (A-14).
+  // B (critic 9): "Our position: Support ▾" and "Owner: You ▾" read as menus, not as labels.
+  const own1 = ownerOf(b), ownB = own1 ? (own1.id === S.me?.id ? 'You' : teamFirst(own1) + newOwnerTag(own1)) : ow;
   const facts = [`<span class="bw-f bw-num">${esc(numWords(b))}</span>`,
-    `<span class="bw-f">${pick('data-bwpos="1"', pos, `Position: ${pos}. Change it`)}</span>`,
-    `<span class="bw-f">${pick('data-bwowner="1"', ow, `${ow}. Give ${numWords(b)} to someone`)}</span>`,
+    `<span class="bw-f">${pick('data-bwpos="1"', VB ? `Our position: ${pos}` : pos, `Position: ${pos}. Change it`)}</span>`,
+    `<span class="bw-f">${pick('data-bwowner="1"', VB ? `Owner: ${ownB}` : ow, `${ow}. Give ${numWords(b)} to someone`)}</span>`,
     isMuted(b) ? `<span class="bw-f bw-muted">${icon('bell-off')}<span>Muted</span></span>` : ''].filter(Boolean).join('');
   // The bill's issue is a card in the right column (R-346), no longer a frame over the name (R-340). Grid areas
   // (bill.css): the name, then Follow and "…" beside it at every width, so neither takes a row of its own (A-1, R-352).
@@ -465,12 +470,22 @@ function vbPath(b) {
 // "You: file testimony by Wed 3/18, 7:30 AM" as the one filled button (it takes you to the step card below), or one plain line
 // saying whose it is. The same step the issue page shows (pageStep), the same words the step's own line uses.
 const lowFirst = x => String(x || '').replace(/^[A-Z](?![A-Z])/, c => c.toLowerCase());
-function vbPart(b, s) {
-  if (s?.you && s.line) return `<p class="vb-part is-mine">${icon('circle-dot')}<span>You: ${nw(esc(lowFirst(s.line)))}</span> <a class="vb-partgo" href="#bw-next-h" data-vbpart="1">See the step</a></p>`;
+// B (critic 9): the line repeated the step card's chip. On the Next step tab the card is the step, so the line stays only for
+// the viewer's own step and only where the card is not in view at once (below 900px, CSS); a teammate's step is the card's.
+function vbPart(b, s, tab) {
+  if (tab === 'overview' && !(s?.you && s.line)) return '';
+  if (s?.you && s.line) return `<p class="vb-part is-mine vb-narrow">${icon('circle-dot')}<span>You: ${nw(esc(lowFirst(s.line)))}</span> <a class="vb-partgo" href="#bw-next-h" data-vbpart="1">See the step</a></p>`;
   const o = ownerOf(b), who = o && o.id !== S.me?.id ? teamFirst(o) : '';
   const line = who ? `Nothing for you here; ${who} ${s && ['nodraft', 'write', 'submit', 'revise', 'approve', 'second', 'file'].includes(s.kind) ? 'files it' : 'has it'}`
     : o ? 'Nothing for you here right now' : `Nothing for you here; no one has ${numWords(b)} yet`;
   return `<p class="vb-part is-none">${icon('circle-check')}<span>${esc(line)}</span></p>`;
+}
+// B (critic 9): "Stop 4 of 8" and "See every stop" are jargon. tracker.js draws them (not this builder's file), so the page
+// rewrites them here: "Committee 2 of 3, then the full Senate", "Show the whole path".
+function vbTracker(b, html) {
+  let w = ''; try { w = vbWhereWords(trackerModel(b)); } catch { w = ''; }
+  if (w) html = html.replace(/<span>Stop \d+ of \d+<\/span>(<span class="tk-sw"> · [^<]*<\/span>)?/, `<span>${esc(w)}</span>`).replace(/Stop \d+ of \d+\. /, `${esc(w)}. `);
+  return html.replace('See every stop', 'Show the whole path').replace('Hide the stops', 'Hide the path');
 }
 // ---- the tabs (F128): Next step · Team talk · Public, keys 1 to 3, an unread count on Team talk ----
 // From Team talk or Public, a dot on Next step says the step there is yours (B-7: v5's Next up card showed on every tab;
@@ -946,6 +961,15 @@ function issueSide(i, b) {
     : k === 'won' ? 'a bill on it became law' : k === 'stopped' ? 'every bill on it stopped this session' : 'no bills on it this session yet';
   const st = STATES.issue[k] || STATES.issue.none;
   const same = plain(i.name || '') === plain(billName(b));
+  if (VB) {   // B: the same status and words as the issue's card on My issues (issueStatusB), neutral for At risk (no amber, no triangle)
+    const v = issueStatusB({ ...standOf(i), own: i.owner_id === S.me?.id });
+    return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
+    <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
+    ${same ? '' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
+    <p class="bw-ic-s"><span class="bw-if-pill is-${esc(v.key)}" data-state="issue:${esc(v.key)}">${icon(v.key === 'risk' ? 'flag' : v.ic)}<span>${esc(`${v.word}: ${v.reason}`)}</span></span></p>
+    ${href ? `<p><a class="bw-go bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></p>` : ''}
+  </section>`;
+  }
   return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
     <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
     ${same ? '' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
@@ -1023,8 +1047,8 @@ export default {
     // (sideHTML) holds the issue, the hearing and who is on it.
     return `<div class="bw-page bw-two${next ? ' bw-onnext' : ''}${VB ? ' vb-bill' : ''}" data-bw="${esc(b.id)}">
       <div class="bw-main">
-      ${VB ? vbPath(b) : ''}${headHTML(b, route)}${VB ? vbPart(b, s) : ''}
-      ${trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
+      ${VB ? vbPath(b) : ''}${headHTML(b, route)}${VB ? vbPart(b, s, tab) : ''}
+      ${VB ? vbTracker(b, trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })) : trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
       ${tabsNav(b, tab, s)}
       <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${next ? '' : yourStepLine(b, s)}${panel(b, tab)}</div>
       </div>
@@ -1052,6 +1076,7 @@ export default {
         if (tab !== 'overview') { switchTab('overview'); setTimeout(go, 150); } else go(); });
     }
     wireTracker(page, b);
+    if (VB) page.querySelector('[data-tkmore]')?.addEventListener('click', e => { const sp = e.currentTarget.querySelector('span'), open = e.currentTarget.getAttribute('aria-expanded') === 'true'; if (sp) sp.textContent = open ? 'Hide the path' : 'Show the whole path'; });
     page.querySelector('.bw-side [data-coal]')?.addEventListener('click', () => editCoalitions(b));
     // Previous / Next replace this entry, so Back still goes to the list.
     page.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); e.stopImmediatePropagation(); const nb = neighbours(b), to = nb && (a.dataset.nav === 'prev' ? nb.prev : nb.next); if (to) goBill(to); }));

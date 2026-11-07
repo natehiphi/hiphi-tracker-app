@@ -13,3 +13,6 @@ html.vb .vb-back{display:inline-flex;align-items:center;gap:4px;min-height:44px;
 html.vb .vb-hearing .vb-back{margin-bottom:4px}
 html.vb .vb-bill .bw-f.bw-num{display:none}
 html.vb .vb-bill .bw-f.bw-num + .bw-f::before{display:none}
+html.vb .vb-bill .bw-if-pill.is-risk .ic{color:var(--v6-muted)}
+html.vb .vb-bill .bw-if-pill.is-risk{color:var(--v6-body)}
+@media (min-width:900px){html.vb .vb-bill .vb-part.vb-narrow{display:none}}
