@@ -6,12 +6,12 @@
 // Staff v6 (R-336 F6): the same page in the warm look (css/bills.css .ut-page): the number as staff say it ("HB 217", D15),
 // the Capitol's facts in one soft card, Track this bill the page's one filled button.
 import { S, DB, DEMO, SESSION_YEAR, STAGE_LABEL, esc, fmtDate, fmtDT, capitolUrl, sponsorText, hooks } from './data.js';
-import { cmteName, billRoute, titleCaseTitle, hearingWhen, companionsOf } from './model.js';
+import { cmteName, billRoute, titleCaseTitle, hearingWhen, companionsOf, PUBLIC_APP } from './model.js';
 import { icon, btn, empty, toast, skeleton } from './ui.js';
 
 const keyOf = r => `${r.year || ''}/${String(r.num || '').replace(/\s/g, '').toUpperCase()}`;
 S.untr ??= new Map();   // key -> 'loading' | 'none' | 'error' | { b, hearings }
-const PUBLIC_APP = () => `${location.origin}${location.pathname.replace(/(staff|index)\.html$/, '')}track.html`;
+// The public tracker's address comes from model.js: this file's own copy missed staff6.html and gave "staff6.htmltrack.html" (R-365).
 
 // Starts the read once; the screen draws again when it lands.
 function load(route) {

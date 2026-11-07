@@ -2,6 +2,9 @@
 @import url('vb-frame.css');
 @import url('vb-issues.css');
 @import url('vb-issue.css');
+@import url('vb-today.css');
+@import url('vb-bill.css');
+@import url('vb-search.css');
 
 html.vb .vb-path ol{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:0 0 6px;padding:0;font-size:14px;color:var(--v6-muted)}
 html.vb .vb-path li+li::before{content:'\203A';margin-right:4px}
