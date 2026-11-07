@@ -1,1 +1,29 @@
-/* R-365 version B: issues (filled by its builder). Rules under html.vb only. */
+/* R-365 version B: My issues as one card per issue, stacked in one column (staff6/myviews.js cardsHTML). Rules under html.vb only.
+   Every card has the same parts in the same places: name + status chip, the next step and whose, the bill line, a button only
+   when the step is the viewer's. Tokens only; chip = icon + word (never colour alone, A-5). */
+html.vb .vbi-h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+html.vb .vbi-head .vb-path ol { margin-bottom: var(--s8); }
+html.vb .vbc-sec { margin-top: var(--s24, 24px); }
+html.vb .vbc-h { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+html.vb .vbc-n { margin-left: var(--s8); font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+html.vb .vbc-list { display: flex; flex-direction: column; gap: var(--s12, 12px); max-width: 760px; }
+html.vb .vbc-more, html.vb .vbc-fold { margin-top: var(--s12, 12px); max-width: 760px; }
+html.vb .vbc-more > .vbc-list, html.vb .vbc-fold > .vbc-list { margin-top: var(--s12, 12px); }
+html.vb .vbc { display: grid; grid-template-columns: 1fr; gap: 6px; padding: 14px 16px; background: var(--v6-card); border-radius: var(--r12, 12px); box-shadow: var(--sh1); }
+html.vb .vbc.you { box-shadow: var(--sh1), inset 3px 0 0 var(--v6-action); }
+html.vb .vbc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+html.vb .vbc-name { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow-wrap: anywhere; }
+html.vb .vbc-name:hover span { text-decoration: underline; }
+html.vb .vbc-name .mi-ic { flex: none; margin-top: 1px; }
+html.vb .vbc-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: var(--v6-pill, 999px); font: 500 var(--v6-t14)/var(--v6-lh14) var(--font); white-space: nowrap; background: var(--v6-leaf-wash); color: var(--v6-leaf); }
+html.vb .vbc-chip svg { width: 16px; height: 16px; }
+html.vb .vbc-risk .vbc-chip { background: var(--v6-late-wash); color: var(--v6-late); }
+html.vb .vbc-hearing .vbc-chip { background: var(--v6-action-wash); color: var(--v6-action); }
+html.vb .vbc.vbc-stopped .vbc-chip { background: var(--v6-hair); color: var(--v6-muted); }
+html.vb .vbc-tag { margin: 0; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
+html.vb .vbc-next, html.vb .vbc-bills { margin: 0; font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-ink); }
+html.vb .vbc-who { font-weight: 700; }
+html.vb .vbc-bills { color: var(--v6-muted); font-size: var(--v6-t14); line-height: var(--v6-lh14); }
+html.vb .vbc-act { margin-top: 6px; }
+html.vb .i6-tools.mi-tools { margin-bottom: var(--s8); }
+@media (max-width: 599px) { html.vb .vbc { padding: 12px 14px; } html.vb .vbc-top { flex-direction: column-reverse; gap: 6px; } html.vb .vbc-chip { align-self: flex-start; } }

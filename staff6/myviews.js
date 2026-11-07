@@ -39,12 +39,12 @@
 //                               so always Cleared or Not yet. Stopped: no bill on HIPHI's side still moving, or none.
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
-import { S, DB, DEMO, esc } from './data.js';
-import { stopOf, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
-import { icon, iconBtn, toast } from './ui.js';
+import { S, DB, DEMO, VB, esc, SESSION_OVER } from './data.js';
+import { stopOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
+import { icon, iconBtn, toast, btn } from './ui.js';
 import { plural } from './lists.js';
-import { numWords, dayWords, committeeName, nw, chairStepWords } from './steps.js';
-import { hearPart, markOf, byUrgency, rowOf, searchHTML, FEW } from './issuestand.js';
+import { numWords, dayWords, committeeName, nw, chairStepWords, billStep, stepTime, rowButton, orWords } from './steps.js';
+import { hearPart, markOf, byUrgency, rowOf, searchHTML, searcher, FEW } from './issuestand.js';
 import { ICONS } from '../icons.js';
 import { issueIcon } from './issuegrid.js';
 
@@ -175,13 +175,23 @@ const topicIc = i => `<span class="mi-ic mi-c-${esc(i.category || 'none')}" aria
 export const VIEWS = [['deadlines', 'Deadlines'], ['status', 'Status'], ['topics', 'Topics'], ['sheet', 'Spreadsheet']];
 const OLD = { cover: 'deadlines' };
 const VKEY = () => `hiphi6_miview_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
+// R-365 version B: the default is the who's-up cards; Deadlines stays, and Topics. Remembered apart from v6's choice, so
+// turning B on or off never changes what the other version opens on.
+export const VB_VIEWS = [['whosup', 'Who’s up'], ['deadlines', 'Deadlines'], ['topics', 'Topics']];
+const VBKEY = () => `hiphi6_vbview_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
 export function viewNow() {
+  if (VB) {
+    const st = (S.vbView ??= {}), who = S.me?.id || '';
+    if (st.for !== who) { let m = null; try { m = localStorage.getItem(VBKEY()); } catch { m = null; } st.v = VB_VIEWS.some(([k]) => k === m) ? m : 'whosup'; st.for = who; }
+    return st.v;
+  }
   const who = S.me?.id || '', st = (S.miView ??= {});
   if (st.for !== who) { let m = S.me?.prefs?.myIssuesView; if (!m) { try { m = localStorage.getItem(VKEY()); } catch { m = null; } }
     m = OLD[m] || m; st.v = VIEWS.some(([k]) => k === m) ? m : 'deadlines'; st.for = who; }
   return st.v;
 }
 export function setViewNow(m) {
+  if (VB) { viewNow(); if (!VB_VIEWS.some(([k]) => k === m)) return; S.vbView.v = m; try { localStorage.setItem(VBKEY(), m); } catch { /* this visit only */ } return; }
   viewNow(); const st = S.miView; if (st.v === m || !VIEWS.some(([k]) => k === m)) return;
   st.v = m;
   try { localStorage.setItem(VKEY(), m); } catch { /* this visit only */ }
@@ -196,14 +206,16 @@ export function toolsHTML(q, count) {
   return `<div class="i6-tools mi-tools${q ? ' open' : ''}" data-istools="mi-q">
     ${filter ? `${iconBtn(FI, 'Filter your issues', { 'data-istq': 'open', 'aria-expanded': String(!!q), 'aria-controls': 'mi-q-find' }, 'i6-findbtn')}
     <div class="i6-find" id="mi-q-find">${icon(FI)}<input id="mi-q" type="search" placeholder="Filter your issues" value="${esc(q)}" autocomplete="off" aria-label="Filter your issues: a word, a bill number or a bill’s nickname" aria-controls="mi-q-body">${iconBtn('x', 'Clear the filter', { 'data-istq': 'clear', hidden: !q })}</div>` : ''}
-    <div class="sv-seg mi-seg" role="group" aria-label="Show your issues as">${VIEWS.map(([k, l]) => `<button type="button" data-miview="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>
+    <div class="sv-seg mi-seg" role="group" aria-label="Show your issues as">${(VB ? VB_VIEWS : VIEWS).map(([k, l]) => `<button type="button" data-miview="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>
   </div>`;
 }
 
 // ---- the body for the view in force ----
 export function bodyHTML(list, { q = '', opts = {} } = {}) {
-  if (q.trim()) return searchHTML(list, q, opts);
+  if (q.trim() && !(VB && viewNow() === 'whosup')) return searchHTML(list, q, opts);
+  if (q.trim()) { const f = searcher(q); list = list.map(x => ({ x, m: f(x) })).filter(y => y.m).sort((a, b) => a.m.score - b.m.score).map(y => y.x); }
   const js = list.map(judge);
+  if (VB && viewNow() === 'whosup') return cardsHTML(js);
   switch (viewNow()) {
     case 'status': return statusHTML(js, opts);
     case 'topics': return topicsHTML(js);
@@ -401,6 +413,119 @@ async function copySheet() {
   if (!ok) { const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;left:-9999px;top:0';
     document.body.appendChild(t); t.select(); try { ok = document.execCommand('copy'); } catch { ok = false; } t.remove(); }
   toast(ok ? `Copied ${plural(n, 'issue')}. Paste into Google Sheets or Excel.` : 'This browser would not copy. Select the table and copy it by hand.', ok ? { ok: true } : { err: true });
+}
+
+
+// ============================================================================================ version B: one card per issue
+// R-365 (Nate 7 Nov): My issues as stacked cards, every card the same shape: the issue's name and a status chip, the next step
+// and whose it is, a plain line about its bills, and a button only when the step is the viewer's. Grouped by who is up.
+// STATUS (one per card, first that applies): Stopped (no bill on it still alive, judge().kind) · At risk (issuestand.js
+// standOf says 'risk': a deadline within two weeks that a bill still needs a hearing for, none past it) · Needs a hearing (a
+// live bill must get a hearing and no bill past the deadline carries the issue: judge().ask, or standOf 'ahead' with facing
+// bills) · otherwise On track. THE GROUP: Needs you = the next step is the viewer's (or a step nobody holds that the viewer
+// may take); Others are on it = a teammate's step; Waiting on the Legislature = no step now (filed, a hearing or deadline
+// ahead, nothing to do yet); stopped issues fold at the end.
+const cap1 = w => w ? w[0].toUpperCase() + w.slice(1) : w;
+const CH_NAME = { H: 'House', S: 'Senate' };
+// "alive in House Finance", "needs a hearing", "on the Senate floor": one bill, in plain words.
+function billPhrase(b) {
+  const st = stopOf(b), ph = st.phase;
+  if (ph === 'law') return 'became law';
+  if (ph === 'governor' || ph === 'ballot') return 'passed the Legislature';
+  if (ph === 'committee') {
+    if (st.hearingState === 'scheduled' || st.hearingState === 'held' || st.hearingState === 'decided') return st.committee ? `alive in ${committeeName(st.committee)}` : 'alive in committee';
+    return 'needs a hearing';
+  }
+  if (ph === 'floor') return `on the ${CH_NAME[st.chamber] || 'chamber'} floor`;
+  if (ph === 'conference') return 'in conference';
+  return 'alive';
+}
+// "2 bills: 1 alive in House Finance, 1 needs a hearing"; "1 bill: needs a hearing"; "2 bills, none alive".
+export function billLineB(x) {
+  const all = x.bills || [], going = x.going || [], gone = x.gone || [];
+  if (!all.length) return 'No bills on it yet';
+  if (!going.length) return `${plural(all.length, 'bill')}, ${all.length === 1 ? 'not alive' : 'none alive'}`;
+  const counts = new Map(); for (const b of going) { const k = billPhrase(b); counts.set(k, (counts.get(k) || 0) + 1); }
+  const parts = [...counts].map(([k, n]) => all.length === 1 ? k : `${n} ${k}`);
+  if (gone.length) parts.push(`${gone.length} stopped`);
+  return `${plural(all.length, 'bill')}: ${parts.join(', ')}`;
+}
+const STATUS_B = { risk: { word: 'At risk', ic: 'triangle-alert' }, hearing: { word: 'Needs a hearing', ic: 'calendar-plus' }, track: { word: 'On track', ic: 'circle-check' }, stopped: { word: 'Stopped', ic: 'circle-minus' } };
+export function statusB(j) {
+  const x = j.x;
+  if (!j.alive) return 'stopped';
+  if (x.state === 'risk' || j.dstate === 'risk') return 'risk';
+  if (j.ask.length || (x.state === 'ahead' && x.facing?.length)) return 'hearing';
+  return 'track';
+}
+// The verbs of a step, for the viewer ("file testimony for HB 2121") and for a teammate ("Nate files testimony for HB 2121").
+function verbsB(s) {
+  const n = numWords(s.b), t = `testimony for ${n}`;
+  switch (s.kind) {
+    case 'nodraft': case 'write': return [`write ${t}`, `writes ${t}`, `write ${t}`];
+    case 'submit': return [`send ${t} for approval`, `sends ${t} for approval`, `send ${t} for approval`];
+    case 'revise': return [`revise ${t}`, `revises ${t}`, `revise ${t}`];
+    case 'approve': return [`review ${t}`, `reviews ${t}`, `review ${t}`];
+    case 'second': return [`give ${t} a second look`, `gives ${t} a second look`, `give ${t} a second look`];
+    case 'file': return [`file ${t}`, `files ${t}`, `file ${t}`];
+    case 'missed': return [`say whether ${t} was filed`, `says whether ${t} was filed`, `say whether ${t} was filed`];
+    case 'chair': { const a = s.ask;
+      if (a.key === 'waiting') return [a.followUp ? `follow up with the chair on ${n}` : `wait for the chair’s reply on ${n}`, `is waiting on the chair’s reply on ${n}`, `are waiting on the chair’s reply on ${n}`];
+      if (a.key === 'ask' || a.key === 'giving') { const w = a.decide ? `to schedule a vote on ${n}` : `for a hearing on ${n}`; return [`ask the chair ${w}`, `asks the chair ${w}`, `ask the chair ${w}`]; }
+      return null; }
+  }
+  return null;
+}
+// What the card says is next, and whose: { s, you, who, html, done }.
+function nextB(j) {
+  const { hp, ask } = j; let s = null;
+  if (hp?.s && hp.s.kind !== 'none') s = hp.s;
+  else if (ask.length) { const t = billStep(ask[0].b, { viewer: S.me }); if (t?.kind === 'chair' && t.ask?.key !== 'scheduled') s = t; }
+  const wait = html => ({ s: null, you: false, who: 'Waiting', html: nw(esc(html)) });
+  if (!j.alive) return { s: null, you: false, who: 'Nothing moving', html: nw(esc(j.health.text || 'Nothing moving this session')) };
+  if (!s) return wait(hp?.text || (j.next?.quiet ? j.next.text : '') || 'Nothing to do yet');
+  if (s.kind === 'filed') return wait(`${numWords(s.b)} testimony filed${s.h ? `, hearing ${whenAt(s.h.scheduled_at)}` : ''}`);
+  const v = verbsB(s);
+  let time = ''; if (s.kind === 'chair') { const a = s.ask; time = (a.key === 'ask' || a.key === 'giving') && a.day ? ` by ${a.day}` : ''; }
+  else { const t = stepTime(s, { soon: false }).replace(/ \(team cut-off\)/, ''); time = t ? (/^by /.test(t) ? ` ${t}` : `, ${t}`) : ''; }
+  if (s.nobody) return s.takeFor ? { s, you: true, take: true, who: 'You', html: nw(esc(`take ${numWords(s.b)}: no owner yet${time}`)) }
+    : { s, you: false, who: 'No owner yet', html: nw(esc(v ? `nobody has ${numWords(s.b)}'s step${time}` : `nobody has ${numWords(s.b)}`)) };
+  if (!v) return { s, you: s.you, who: s.you ? 'You' : cap1(s.whose.words), html: nw(esc(String(s.line || ''))) };
+  if (s.you) return { s, you: true, who: 'You', html: nw(esc(`${v[0]}${time}`)) };
+  const many = s.whose.ids.length > 1, who = cap1(s.whose.words);
+  return { s, you: false, who, verb: true, html: nw(esc(`${v[many ? 2 : 1]}${time}`)) };
+}
+const GROUPS_B = [['you', 'Needs you'], ['others', 'Others are on it'], ['wait', 'Waiting on the Legislature']];
+function cardB(j, nx, st) {
+  const { i, x } = j, S1 = STATUS_B[st], href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
+  const tag = x.via ? `Through ${x.via}` : !x.own ? 'You help' : '';
+  let act = '';
+  if (nx.you && nx.s) act = nx.take ? btn('Take it', { kind: 'primary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': nx.s.b.id } })
+    : (!nx.s.nobody && rowButton(nx.s, { kind: 'primary' })) || btn('Open it', { kind: 'primary', sm: true, href });
+  return `<article class="vbc vbc-${st}${nx.you ? ' you' : ''}" role="listitem" data-v6row="${esc(i.id)}">
+    <div class="vbc-top"><a class="vbc-name" href="${href}" data-mirow="${esc(i.id)}">${topicIc(i)}<span>${esc(i.name)}</span></a><span class="vbc-chip">${icon(S1.ic)}<span>${esc(S1.word)}</span></span></div>
+    ${tag ? `<p class="vbc-tag">${esc(tag)}</p>` : ''}
+    <p class="vbc-next"><b class="vbc-who">${esc(nx.who)}${nx.verb ? '' : ':'}</b> ${nx.html}</p>
+    <p class="vbc-bills">${nw(esc(billLineB(x)))}</p>
+    ${act ? `<div class="vbc-act">${act}</div>` : ''}
+  </article>`;
+}
+const SHOW_B = 10;
+export function cardsHTML(js) {
+  if (!js.length) return `<p class="i6-quiet">No issues match.</p>`;
+  const g = { you: [], others: [], wait: [], stop: [] };
+  for (const j of js) {
+    const st = statusB(j), nx = nextB(j), card = { j, st, nx };
+    (st === 'stopped' ? g.stop : nx.you ? g.you : nx.s ? g.others : g.wait).push(card);
+  }
+  const sortC = (a, b) => ({ risk: 0, hearing: 1, track: 2 }[a.st] - { risk: 0, hearing: 1, track: 2 }[b.st]) || byUrgency(a.j.x, b.j.x);
+  const list = l => {
+    const one = c => cardB(c.j, c.nx, c.st);
+    return `<div class="vbc-list" role="list">${l.slice(0, SHOW_B + 2 >= l.length ? l.length : SHOW_B).map(one).join('')}</div>${l.length > SHOW_B + 2 ? `<details class="i6-more vbc-more"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Show the other ${l.length - SHOW_B}</span></summary><div class="vbc-list" role="list">${l.slice(SHOW_B).map(one).join('')}</div></details>` : ''}`;
+  };
+  const sec = (k, title) => g[k].length ? `<section class="vbc-sec" aria-labelledby="vbc-${k}"><h2 class="vbc-h" id="vbc-${k}">${esc(title)} <span class="vbc-n">${g[k].length}</span></h2>${list(g[k].sort(sortC))}</section>` : '';
+  const stop = g.stop.length ? `<details class="i6-fold vbc-fold" data-fold="mi-stopped"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${g.stop.length} stopped this session</span></summary><div class="vbc-list" role="list">${g.stop.map(c => cardB(c.j, c.nx, c.st)).join('')}</div></details>` : '';
+  return GROUPS_B.map(([k, t]) => sec(k, t)).join('') + stop;
 }
 
 // ---- wiring: everything inside the body is wired again after each paint ----
