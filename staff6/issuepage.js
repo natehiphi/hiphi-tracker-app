@@ -33,7 +33,8 @@ import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF,
 import { testimonyOf, dueOf, sittingOf } from './hearing.js';
 import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
-import { listBox, rememberRow, issueLead } from './issuestand.js';
+import { listBox, rememberRow, issueLead, standOf } from './issuestand.js';
+import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
 import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { STATES } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
@@ -954,7 +955,9 @@ function vbRender(route, i) {
     const tl = `<section class="vb-sec" aria-labelledby="vb-th"><h2 class="ip6-h" id="vb-th">Testimony</h2>${vbTestimonySummary(i, test, id)}</section>`;
     const billsS = `<section class="vb-sec" aria-labelledby="vb-bh"><h2 class="ip6-h" id="vb-bh">Bills</h2>${vbBillRows(i, xs, { owners: lead })}</section>`;
     const folds = [foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' }), foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' })].join('');
-    body = `${prepFirst ? prep : ''}${hc.html}${lead ? vbGaps(i, xs, steps) + billsS + vbNextHearing(now) + tl : vbNextHearing(now) + billsS + tl}<div class="ip6-folds">${about}${folds}</div>${i.archived_at ? '' : relatedLine(i)}${prepFirst ? '' : prep}`;
+    const vst = issueStatusB({ ...standOf(i), own: i.owner_id === S.me?.id });
+    const vhealth = hc.k === 'none' ? hc.html : `<section class="ip6-health" data-health="${vst.key}" aria-labelledby="ip-hh"><h2 class="sr" id="ip-hh">How it stands</h2><p class="ip6-hs" data-state="issue:${vst.key}">${icon(vst.ic)}<span><b>${esc(vst.word)}:</b> ${nw(esc(vst.reason))}</span></p></section>`;
+    body = `${prepFirst ? prep : ''}${vhealth}${lead ? vbGaps(i, xs, steps) + billsS + vbNextHearing(now) + tl : vbNextHearing(now) + billsS + tl}<div class="ip6-folds">${about}${folds}</div>${i.archived_at ? '' : relatedLine(i)}${prepFirst ? '' : prep}`;
   } else if (tab === 'bills') {
     const edit = !!P().edit[i.id] || !(now.length + earlier.length);
     const anyAlive = xs.some(x => x.alive), cols = now.length ? `<div class="ip6-cols">${columnHTML('H', xs.filter(x => x.side === 'H'), { anyAlive })}${columnHTML('S', xs.filter(x => x.side === 'S'), { anyAlive })}</div>` : '';

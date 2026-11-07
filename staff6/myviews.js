@@ -458,6 +458,18 @@ export function statusB(j) {
   if (j.ask.length || (x.state === 'ahead' && x.facing?.length)) return 'hearing';
   return 'track';
 }
+// One status per issue everywhere in B (R-365): the card's chip and the issue page's banner both come from here.
+// x: issuestand.js standOf(i) with `own`. Returns { key, word, ic, reason } (reason: one line, why).
+export function issueStatusB(x) {
+  const j = judge(x), key = statusB(j), S1 = STATUS_B[key];
+  let reason = j.health.text || '';
+  if (key === 'hearing' || key === 'risk') {
+    const bs = j.ask.length ? j.ask.map(y => y.b) : (x.facing || []);
+    if (bs.length) reason = `${bs.slice(0, 3).map(numWords).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${bs.length === 1 ? 'needs' : 'need'} a hearing${j.D ? ` by ${dayWords(j.D.date)}` : ''}`;
+    else if (key === 'risk' && j.dline?.text) reason = j.dline.text;
+  }
+  return { key, word: S1.word, ic: S1.ic, reason };
+}
 // The verbs of a step, for the viewer ("file testimony for HB 2121") and for a teammate ("Nate files testimony for HB 2121").
 function verbsB(s) {
   const n = numWords(s.b), t = `testimony for ${n}`;
