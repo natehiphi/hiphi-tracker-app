@@ -2,7 +2,7 @@
 // why your voice counts, your legislators, the email ask, the finale, and the lessons' own pages. start.js draws the
 // frame and the topics screen with the kernel alone and loads this module right after that first paint; every helper
 // shared with it is imported from start.js (a read-only view of its state: the lessons through lessons()).
-import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, lessonErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn, v2 } from './start.js';
+import { askAlerts, plural, isOff, pickedIssues, ranker, issueInfo, byScore, catScore, TOP_PICKS, PER_CAT, andList, skel, loadErr, lessonErr, total, shell, topRow, shown, hasPos, poolBills, viaFollowed, lessonsAsk, LZ, artFor, learnName, mailSent, shortDay, viaIssueOf, sureWide, sayRow, welcome, clearFlash, flash, busy, track, goStep, finish, barRetry, barBusy, bar2, bar1, barSkip, skipWord, lessons, stepOf, coverOn, v2, v3 } from './start.js';
 import { situation } from './bill.js';   // the bill page's own reading of where a bill is (R-255: the story leans to one still waiting for a hearing)
 import { S, DEMO, app, esc, icon, blurb, nick, spaced, alive, sessionInfo, wiz, wizSet, HST, hstDay, anyBill, legTitle, legPhoto, ensureRecapPool, issuesIn, issueBills, issueFollowed, followedIssues, followsAnything, viaIssue, setFollows, issuesOf, toggleWatch, timeWord, ensureBill, supa, hearingsOf, didKind, textSaved,
   openActions, waitingBills, chairContacts, askedChair, agrees, dateLong } from './core.js';
@@ -62,6 +62,8 @@ function model2() {
   const all = per.flatMap(p => p.rows);
   // What is ticked: what the person chose on this screen once they have touched it, else HIPHI's defaults.
   let picks = w.picksFor === sig && w.picks && !Array.isArray(w.picks) ? w.picks : null;
+  // Version 3 (R-362 part 2): nothing starts ticked; the person ticks what they care about (C-4: nothing followed without a yes).
+  if (!picks && v3()) picks = { issues: [], cats: [] };
   if (!picks && v2()) {
     // Version 2 (R-357 part 4, Nate's R-218 ask of 9 Oct, replacing R-245's four): the two most active issues under each topic start
     // ticked, at least one (a topic that shows one issue ticks it), so someone who only presses on follows something from every topic
@@ -147,13 +149,14 @@ function stepIssues(step) {
   // R-138 (Nate 10/4): "Most important first" left visitors asking important to whom, and nothing asked them to pick
   // more than one. The lede now asks for every issue they care about; the top heading says whose top issues they are.
   const lede = !total ? `Nothing is moving on ${andList(quiet.map(c => c.key))} right now. Follow ${quiet.length === 1 ? 'it' : 'them'} anyway, and new issues and bills come to you as they start.`
+    : v3() ? 'Tick the issues you care about.'   // version 3 (R-362): nothing is ticked for them
     : v2() ? 'The two most active under each topic are ticked; change them as you like.'   // version 2 (R-357 part 4): what the ticks are, said once (C-14, A-14)
     : off ? `Tick every issue you care about, as many as you like, and their ${next} bills come to you.`
     : ticked ? `Tick every issue you care about. We ticked ${ticked === 1 ? 'one' : ticked} to start.` : 'Tick every issue you care about, as many as you like.';
   return shell('st2', `${topRow('issues', step)}
     <h1 class="hero" id="st-h">Your issues</h1><p class="lede">${lede}</p>`,
     `<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>
-    ${total ? `<p class="st-free">${icon('bell')}<span>Following is free, and you can stop any time. You get at most one alert a day, however many you follow.</span></p>` : ''}
+    ${total ? `<p class="st-free">${icon('bell')}<span>${v3() ? 'Free. At most one alert a day.' : 'Following is free, and you can stop any time. You get at most one alert a day, however many you follow.'}</span></p>` : ''}
     ${groups.length ? `<div class="st-tsecs" role="group" aria-label="Issues in your topics">${groups.map(p => catSection(p, m)).join('')}</div>` : ''}
     ${quiet.length ? `<ul class="st-quiets" role="list">${quiet.map(c => quietCat(c, m)).join('')}</ul>` : ''}`);
 }
@@ -308,7 +311,7 @@ function stepRoad(step) {
   return shell('st-lesson st-roadpage', `${top}${head}${pic}`, main);
 }
 function stepVoice(step) {
-  if (v2()) return stepRoad(step);
+  if (v2() || v3()) return stepRoad(step);
   // No example bill is named on this page (R-203: a bill's title under the three points read as clutter, and nobody could
   // tell what it was for). The story link below still needs the bill the lesson would teach, so only its id is taken.
   const off = isOff(), b = exampleBill();
@@ -1071,6 +1074,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       // The teaching is seen once: someone who comes back to change their issues (Home's "Edit my issues") has seen it (wiz().why,
       // set by the road's Next) and goes straight on (C-8); Back still finds it.
       if (v2() && !wiz().via) { goStep(step, wiz().why ? stepOf('alerts', isOff()) : step + 1); return; }
+      // Version 3 (R-362): the road next, then Home; someone who has seen the road (changing their issues later) goes straight Home.
+      if (v3() && !wiz().via) { goStep(step, wiz().why ? total(isOff()) + 1 : step + 1); return; }
       // The alerts ask comes next, and the "Mahalo!" page after it (R-146, R-140). With nothing to ask (signed in, already
       // told us how to reach them), the alerts screen is the "Mahalo!" page at once, with no ask on it (noAsk). A shared
       // bill's visit has no "Mahalo!" and passes the screen over.
@@ -1161,7 +1166,7 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
   if (name === 'soon') document.querySelectorAll('.st-soon [data-helper]').forEach(el => el.onclick = () => app.openHelper(el.dataset.bill, el.dataset.helper));
   if (name === 'voice') {
     const nb = $('[data-stnext]');
-    if (v2()) {
+    if (v2() || v3()) {
       // Version 2's road (R-357, Nate 1 Nov): the choices are counted as 'answer' (an event the database already takes) with the stop
       // as lesson_step (1 the email to the chair, 2 testimony), never which choice, as the story's stage 3 and 4 never counted theirs.
       const r = roadState();
@@ -1173,6 +1178,8 @@ export function wireStep(name, { step, off, back, fresh, next, $, $$ }) {
       if (nb) nb.onclick = () => {
         if (lessons().teachNext()) return;   // the next page of the teaching; only the last page's Next leaves
         wizSet({ why: true }); track(name, 'next');
+        // Version 3 (R-362): the road's last Next is the visit's last tap, straight to Home (finish(), past the last step): no cover, no ask.
+        if (v3()) { goStep(step, step + 1); return; }
         if (followsAnything() && !askAlerts() && !wiz().via) {
           S.stThanks = { kind: 'none', noAsk: true }; S.stThanksSeen = false;
           if (coverOn()) { coverAndFold(() => goStep(step, step + 2, { quiet: true }), { end: true }); return; }
@@ -1250,7 +1257,7 @@ export function barStep(name, step, off) {
     case 'bill': return bar2('Next', { iconEnd: 'arrow-right' });   // its last stage says GO_YOU() (wireStep)
     // Someone who just acted from a shared link chooses: the rest of the first visit, or straight to Home (R-114).
     // Version 2's road: Skip always, Next asleep until the second stop's good outcome has played (lessons.js wakeNext: hidden, not greyed)
-    case 'voice': return v2() ? bar2('Next', { iconEnd: 'arrow-right' }, { 'data-stnext': '1', hidden: '' }) : wiz().via && wiz().viaActed
+    case 'voice': return v2() || v3() ? bar2('Next', { iconEnd: 'arrow-right' }, { 'data-stnext': '1', hidden: '' }) : wiz().via && wiz().viaActed
       ? `<div class="st-bar"><div class="st-btns">${btn(GO_HELP, { kind: 'text', attrs: { 'data-sthome': '1' } })}${btn('Show me how it works (2 min)', { kind: 'primary', iconEnd: 'arrow-right', attrs: { 'data-stnext': '1' } })}</div></div>`
       : bar2(GO_YOU(), { iconEnd: 'arrow-right' });
     case 'you': return S.stAddr.pick ? bar1('Next') : barSkip();

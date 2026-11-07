@@ -29,12 +29,18 @@
 // letter, the same drafts, the same Capitol and mail code, the same Mahalo. helper.js calls V2.open for a new letter when ?v2=1 (so
 // every "Help me write testimony" button, Home's "Finish sending your testimony" among them, opens this sheet), and V2.seq, body, foot,
 // click and input for the frame. v1's six parts are untouched without the flag.
-import { S, DEMO, app, esc, icon, toast, spaced, agrees, myStance, setStance, anyBill, anyHearing, didKind, dueInfo, hearingsOf, openActions, myActions } from '../core.js';
+//
+// Version 3 (?v3=1, R-362 Part 6) opens this same sheet (x.v3, set in build). Its first screen asks two things only, the name and the
+// town (C-5: the town is what tells a lawmaker the writer lives here; it goes in the letter as "I live in Hilo.", helper.js townLine),
+// and the line of their own becomes a choice, "Write your own words instead" (act.html's "I see it differently", one/write.js): the
+// points give way to one box with the cursor in it, and "Use HIPHI's points" brings them back. The stance line, the points and the
+// sign-off stay as they are. Its Mahalo is pub/v3/thanks.js (helper.js V3), and its bar is drawn there too (V3.foot).
+import { S, DEMO, app, esc, icon, toast, spaced, agrees, myStance, setStance, anyBill, anyHearing, didKind, dueInfo, hearingsOf, openActions, myActions, townWord } from '../core.js';
 import { btn } from '../ui.js';
 import { sentence, closingOf } from '../hello.js';
 import { myName, myTitles, storyFor, storyAsk, saveProfile } from '../myprofile.js';
 import { readyLetter } from '../letters.js';
-import { HP, V2 } from '../helper.js';
+import { HP, V2, V3 } from '../helper.js';
 
 const isEmail = x => x.mode === 'email';
 const sideOf = x => x.stance || HP.hiphiStance(x.b);
@@ -49,7 +55,7 @@ const dlg = () => HP.dlg;
 // when version 2 does not take it: the flag is off, the bill or hearing is missing, or a draft from the older walkthrough is waiting
 // (it finishes there), so helper.js carries on as before.
 V2.open = (kind, o = {}) => {
-  if (!o.force && !app.v2?.()) return false;
+  if (!o.force && !app.v2?.() && !app.v3?.()) return false;
   if (S.helper) return true;
   const email = kind === 'email';
   if (email && ((o.mode && o.mode !== 'email') || !o.hearing || o.remind)) return false;   // asking a chair for a hearing, the reminder, an email to legislators: the older steps
@@ -82,7 +88,7 @@ function build(kind, b, h, o) {
     closing: me.closing || 'Mahalo', why: d ? d.why || '' : me.whyBill === b.id ? me.why || '' : saved?.text || '', whyStory: !!saved, offer: null,
     points: [], pointsText: '', tp: { chosen: myTitles(), q: '', more: false, active: -1 }, use: d?.use || null, saveStory: false, noLive: !!d?.noLive,
     letter: '', subject: '', edited: false, built: null, errs: {}, scrollTop: 0, focusId: '', link: '', opener: HP.keyOf(document.activeElement), friend: !!o.friend,
-    stanceOpen: false, touched: false, acctNew: false };
+    stanceOpen: false, touched: false, acctNew: false, v3: !!app.v3?.() };
   // Where they stand: what they marked on the bill page, else a draft's, else HIPHI's side as the starting point (never recorded as theirs
   // until they tap a chip). "Not sure" on the bill page is "Not sure" here.
   x.stance = mine === 'support' || mine === 'oppose' ? mine : mine === 'unsure' ? 'comments' : d?.stance || HP.hiphiStance(b);
@@ -98,6 +104,13 @@ function build(kind, b, h, o) {
       if (L.stance === x.stance && Array.isArray(L.points)) { const ok = HP.pointGroups(x); const all = [...ok.hiphi, ...ok.partners.flatMap(p => p.points)]; x.points = all.filter(p => L.points.includes(p)); x.pointsText = HP.pointsLine(x.points); }
       x.why = L.why || x.why; x.closing = me.closing || L.closing || x.closing;
     }
+  }
+  if (x.v3) {
+    // Version 3: their own words are the whole argument or none of it. A saved story does not fill a box nobody sees; words they
+    // wrote for this bill (a draft's, or the last letter's) open the letter in their own words, with HIPHI's points one tap away.
+    if (!d && me.whyBill !== b.id) { x.why = ''; x.whyStory = false; }
+    x.ownWords = !!x.why.trim() || needsOwn(x);
+    if (x.ownWords) { x.points = []; x.pointsText = ''; }
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile
   x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now();
@@ -153,6 +166,23 @@ function ownBox(x) {
     <textarea id="hp-why" name="why" rows="2" placeholder="${need ? 'I think… because…' : esc(storyAsk(true))}" autocapitalize="sentences"${bad ? ' aria-invalid="true" aria-describedby="hp-why-err"' : ''}>${esc(x.why)}</textarea>${bad ? HP.errHTML('why') : ''}
     ${saved && x.why.trim() === saved.text ? `<span class="help" id="hp-why-help">${HP.whyHelp(x)}</span>` : ''}</div>`;
 }
+// Version 3: the line of their own is a choice, not a box. Under HIPHI's points, "Write your own words instead"; once chosen, one box
+// for the whole argument (the cursor goes there) and, while HIPHI has points to offer, "Use HIPHI's points" to go back.
+function ownSwap(x, hasLines) {
+  if (!x.ownWords) return `<div class="v3-swap">${btn('Write your own words instead', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-hp': 'v3-own', id: 'v3-own' } })}</div>`;
+  const bad = x.errs.why, back = !needsOwn(x) && HP.pointsOf(x).length > 0 && !hasLines;
+  return `<div class="field v2-own v3-ownw"><label for="hp-why">Your own words</label>
+    <textarea id="hp-why" name="why" rows="4" placeholder="I think… because…" autocapitalize="sentences"${bad ? ' aria-invalid="true" aria-describedby="hp-why-err"' : ''}>${esc(x.why)}</textarea>${bad ? HP.errHTML('why') : ''}</div>
+    ${back ? `<div class="v3-swap">${btn('Use HIPHI’s points', { kind: 'text', sm: true, icon: 'list-checks', attrs: { 'data-hp': 'v3-points', id: 'v3-points' } })}</div>` : ''}`;
+}
+// Version 3: the town, under the name as a letter's signature has it. Known (the profile's, or the town of an address they gave), it is
+// plain text with "change", as the name is; else a box, optional: the letter reads well without it.
+function townField(x) {
+  const t = townWord();
+  if (t && !x.townEdit) return `<p class="v2-name v3-town"><span>${esc(t)}</span>${btn('change', { kind: 'text', sm: true, cls: 'v2-rename', attrs: { 'data-hp': 'v3-retown', id: 'v3-retown', 'aria-label': 'Change your town' } })}</p>`;
+  return `<div class="field v2-signed v3-townf"><label for="hp-town">Your town <span class="v3-opt">(optional)</span></label>
+    <input id="hp-town" name="town" type="text" autocomplete="address-level2" autocapitalize="words" enterkeyhint="done" placeholder="Like Hilo" value="${esc(HP.loadMe().town || t)}"></div>`;
+}
 // The sign-off (R-357 part A; Nate 28 Oct: the sign-off moves out of the letter). The closing word is where the letter ends, so the choice
 // is there: "change" beside it, drawn as the name's is, opens in place the ideas (v1's chips) and a small box for their own words.
 // A pick or a typed word is theirs from then on: written into the letter, kept on this device (the profile page's "How you sign off" reads
@@ -171,7 +201,7 @@ function signoffOptions(x) {
 function letterScreen(x) {
   const { h } = x, mail = isEmail(x), parts = HP.partsOf(x), due = mail ? null : dueInfo(h);
   const to = mail ? `<p class="v2-to"><b>To</b> ${esc(x.to.map(t => t.label).join(', '))}<br><b>Subject</b> <span data-v2-part="subject">${esc(x.subject)}</span></p>` : `<p class="v2-head">${parts.head.split('\n').map(esc).join('<br>')}</p>`;
-  const ls = lines(x), says = HP.saysBox(x, ['why']);
+  const ls = x.v3 && x.ownWords ? '' : lines(x), says = HP.saysBox(x, ['why']);
   return `<div class="hp-top">${HP.screenHead(1, `Your ${mail ? 'email' : 'letter'}`)}</div>
     ${HP.friendLine(x)}${due?.late ? HP.lateBanner(h) : ''}${HP.welcomeBack()}
     ${stanceLine(x, ls ? '<p class="v2-hint" id="v2-hint">Tap a line to keep it or leave it out.</p>' : '')}
@@ -180,9 +210,9 @@ function letterScreen(x) {
       <p>${esc(parts.dear)}</p>
       <p data-v2-part="open">${esc(parts.open)}</p>
       ${ls}
-      ${ownBox(x)}
+      ${x.v3 ? ownSwap(x, !!ls) : ownBox(x)}
       <p data-v2-part="ask"${parts.ask ? '' : ' hidden'}>${esc(parts.ask)}</p>
-      <div class="v2-sign">${signoffLine(x)}${signed(x)}${signoffOptions(x)}</div>
+      <div class="v2-sign">${signoffLine(x)}${signed(x)}${x.v3 ? townField(x) : ''}${signoffOptions(x)}</div>
     </article>
     ${says}${HP.aboutNote(x)}`;
 }
@@ -278,6 +308,7 @@ function ownScreen(x) {
 // What the one button says: where it goes (C-6). The Capitol account when that screen follows, else the send.
 const nextWords = x => isEmail(x) ? 'Next: send your email' : 'Next: send it';
 V2.foot = (x, { row, back, later }) => {
+  if (x.v3 && x.screen === 'done' && V3.foot) return V3.foot(x, { row });   // version 3's Mahalo draws its own bar (pub/v3/thanks.js)
   const busy = `<button type="button" class="btn primary hp-main" aria-busy="true">${icon('loader-circle')}<span>Saving…</span></button>`;
   switch (x.screen) {
     case 'v2l': return row(`<button type="button" class="btn text hp-back" data-hp="close">${icon('chevron-left')}<span>Back</span></button>`
@@ -293,6 +324,12 @@ V2.foot = (x, { row, back, later }) => {
 // ---------------- taps ----------------
 V2.click = (a, t) => {
   const x = S.helper;
+  if (x.v3 && x.screen === 'done' && V3.click?.(a, t)) return true;   // version 3's Mahalo (pub/v3/thanks.js)
+  if (x.v3) switch (a) {
+    case 'v3-own': ownWords(x, true); return true;
+    case 'v3-points': ownWords(x, false); return true;
+    case 'v3-retown': x.townEdit = true; HP.paint({ focus: 'hp-town' }); return true;
+  }
   switch (a) {
     case 'v2-change': x.stanceOpen = !x.stanceOpen; HP.paint({ focus: 'v2-change' }); return true;
     case 'v2-stance': pickStance(x, t.dataset.v); return true;
@@ -314,6 +351,18 @@ V2.click = (a, t) => {
     default: return false;
   }
 };
+// Version 3: into their own words (HIPHI's points are kept aside, the box comes back with what they wrote before, the cursor in it), or
+// back to HIPHI's points (as they were left, else the first two; their words are kept aside in turn, so the letter never holds words
+// that are not on the screen).
+function ownWords(x, on) {
+  x.touched = true; x.errs.why = false;
+  if (on) { x.holdPts = x.points; x.points = []; x.why = x.whyHold || ''; x.ownWords = true; }
+  else { x.whyHold = x.why; x.why = ''; x.ownWords = false; x.points = sideOf(x) === HP.hiphiStance(x.b) ? (x.holdPts?.length ? x.holdPts : firstTwo(x)) : []; }
+  x.pointsText = HP.pointsLine(x.points);
+  rewrite(x); HP.saveDraft();
+  HP.paint({ focus: on ? 'hp-why' : 'v3-own' });
+  HP.announce(on ? 'Your letter is now in your own words.' : 'HIPHI’s points are back in your letter.');
+}
 // A word of their own for the sign-off: the letter says it, the device keeps it. Empty is the default, which is not kept.
 function setClosing(x, word) {
   const w = String(word || '').replace(/\s+/g, ' ').trim().slice(0, 40);
@@ -331,6 +380,7 @@ function pickStance(x, v) {
   if (was === hs) x.hold = x.points;   // HIPHI's points come back as they were left if they return to HIPHI's side
   x.stance = v; x.fromBill = null; x.mild = v === hs && strongly(b);
   x.points = v === hs ? (x.hold ?? firstTwo(x)) : [];
+  if (x.v3) { if (needsOwn(x)) x.ownWords = true; if (x.ownWords) { x.holdPts = x.points; x.points = []; } }   // their own words stay the letter
   x.pointsText = HP.pointsLine(x.points);
   // Saved on the bill too, as the older "Where do you stand?" did (R-120): their own answer, so it is theirs from here on.
   setStance(b.id, v === 'comments' ? 'unsure' : v).catch(() => {});
@@ -351,7 +401,8 @@ function togglePoint(x, i, el) {
 function toNext(x) {
   const d = dlg(); if (!d) return;
   for (const f of ['name', 'why']) { const el = d.querySelector('#hp-' + f); if (el) x[f] = el.value; }
-  const bad = [...(!x.name.trim() ? ['name'] : []), ...(needsOwn(x) && !x.why.trim() ? ['why'] : [])];
+  const town = d.querySelector('#hp-town'); if (town) HP.saveMe({ town: town.value.trim() });
+  const bad = [...(!x.name.trim() ? ['name'] : []), ...((needsOwn(x) || (x.v3 && x.ownWords)) && !x.why.trim() ? ['why'] : [])];
   ['name', 'why'].forEach(f => { if (d.querySelector('#hp-' + f)) HP.setErr(f, bad.includes(f)); });
   if (bad.length) {
     // A name shown as plain text is never empty; the box that must be filled gets the focus and the plain message.
@@ -400,6 +451,10 @@ V2.input = (e, t) => {
     if (x.errs.name && t.value.trim()) HP.setErr('name', false);
     HP.syncLetter(x);
     patchPaper(x);   // "My name is ..." follows the box; the signature is the box itself
+    return true;
+  }
+  if (t.id === 'hp-town' && x.v3) {   // the town, typed as they go: "I live in Hilo." follows the box
+    x.touched = true; HP.saveMe({ town: t.value.trim() }); rewrite(x); patchPaper(x);
     return true;
   }
   if (t.id === 'v2-closing-own') {   // typed as they go, like the name: the word on the letter follows the box

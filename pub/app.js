@@ -58,14 +58,20 @@ const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // 
 // first wave and every screen reaches `app` through the kernel; none imports this file).
 const V2 = () => new URLSearchParams(location.search).get('v2') === '1';
 app.v2 = V2;
+// Version 3 of the public tracker (R-362, Nate 7 Nov 2026: act.html's parts folded into this app, the first visit kept but trimmed),
+// behind ?v3=1 on the practice copy, a flag for review as v2 is, not a try-both test (pub/variant.js pins every test to its first
+// version under it and counts nothing). V2() stays false under it; it borrows v2's letter. Its screens are pub/v3/: Home (a newcomer's
+// front door, never the redirect to the welcome), Find's bills by issue, This week (the #/bills tab) and the bill page's top.
+const V3 = () => new URLSearchParams(location.search).get('v3') === '1';
+app.v3 = V3;
 const calmHome = () => REC() || armOf('layout') === 'calm';   // the redesign is built on the calm Home (everyone's since 11 Oct)
-const start = lazy('start', () => './start.js', { tabs: false, title: 'Welcome' }), home = lazy('home', () => oldA() ? './a/home.js' : calmHome() ? './calm/home.js' : './home.js', { tab: 'home', title: 'Home' });
+const start = lazy('start', () => './start.js', { tabs: false, title: 'Welcome' }), home = lazy('home', () => V3() ? './v3/home.js' : oldA() ? './a/home.js' : calmHome() ? './calm/home.js' : './home.js', { tab: 'home', title: 'Home' });
 const find = lazy('find', () => REC() ? './rec/find.js' : './find.js', { tab: 'find', title: 'Find' }), people = lazy('people', () => './people.js', { tab: 'more', title: 'Your legislators' });
 const more = lazy('more', () => './more.js', { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => './profile.js', { tab: 'more', title: 'Your profile' });   // R-147
 const nextask = lazy('next', () => './nextask.js', { tabs: false, title: 'Welcome back' });   // R-237
 const quiz = lazy('quiz', () => './quiz.js', { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
-const bill = lazy('bill', () => oldA() ? './a/bill.js' : V2() ? './v2/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
+const bill = lazy('bill', () => V3() ? './v3/bill.js' : oldA() ? './a/bill.js' : V2() ? './v2/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => './mylists.js', { tab: 'bills', title: 'A list' });
 const committees = lazy('committees', () => './committees.js'), allbills = lazy('allbills', () => './allbills.js');
 const week = lazy('week', () => './week.js', { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
@@ -79,12 +85,15 @@ const from = lazy('from', () => './partnerpub.js', { tab: 'find', title: 'Partne
 // The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
 // find.js draws them as before without it.
 const recIssue = lazy('issue', () => './rec/issue.js', { tab: 'find', title: 'Issue' });
+// Version 3's Find (its bills by issue, pub/v3/bills.js) and This week (pub/v3/week.js, on the #/bills tab). The list, issue and category
+// routes keep their own modules (find above, recIssue), and so does the header's search (it asks find for headerSuggest).
+const find3 = lazy('find3', () => './v3/bills.js', { tab: 'find', title: 'Find' }), week3 = lazy('week3', () => './v3/week.js', { tab: 'bills', title: 'This week' });
 // Each screen's stylesheet comes with it (R-122): track.html loads the base and the first screen's own, the rest come on
 // first use, and all of them a moment after the first screen so a later tap never waits. The order of the original list
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
 // Off a phone's first wave (R-357 5c): actions.css comes with every screen but the first visit's (cssFor0), wide.css with the first
 // screen only in a window of 900px or more (cssFor) and a moment after it on a phone, print.css after it too (track.html, __hiphiPrint.css).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'v3/card', 'v3/home', 'v3/bills', 'v3/week', 'v3/bill', 'v3/thanks', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -106,9 +115,12 @@ const REC_CSS = { issue: ['bill', 'rec/issue'], category: ['rec/issue'] };
 // Version 2 (?v2=1, R-357) brings pub/v2/v2.css after the calm redesign's, so a v2 screen's own rules win over rec.css's and its
 // screen's. Only the screens that have a v2 page (V2_CSS) ask for it.
 const V2_CSS = { bill: ['v2/v2'] };
+// Version 3 (?v3=1, R-362): each of its screens' own stylesheet, after everything else's (pub/v3/).
+const V3_CSS = { home: ['v3/card', 'v3/home'], find: ['v3/bills'], bills: ['v3/card', 'v3/week'], bill: ['v3/bill'] };
 const wideCss = () => matchMedia('(min-width: 900px)').matches ? ['wide'] : [];   // R-357 5c: a wide window's first screen needs it; a phone's comes after
 const cssFor = name => { const base = REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
-  const own = V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base;
+  const own2 = V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base;
+  const own = V3() && V3_CSS[name] ? [...(own2 || []), ...V3_CSS[name]] : own2;
   return own && [...own, ...wideCss()];
 };
 const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
@@ -138,16 +150,19 @@ const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; r
 // The bill page's and Home's tour (pub/tour.js) loads only when this browser has not finished it.
 let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['actions', 'tour'])]).then(([m]) => tourMod = m.default);   // (the bill page's tip draws an action card)
 app.billTour = () => tourLoad().then(t => t.startBill()).catch(e => console.error(e));   // the bill page's "Take the tour" (X10-4)
-const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
+const tourWanted = route => { try { return (route.name === 'bill' && !localStorage.getItem('hiphi_tour_bill')) || (route.name === 'home' && !V3() && !localStorage.getItem('hiphi_tour_home')); } catch { return false; } };
 let helperMod = null;
 // Version 2 (?v2=1, R-357 Part 2): the letter in three screens (pub/v2/letter.js, pub/v2/letter.css) loads with the walkthrough, which hands
-// it every new letter; without the flag neither file is fetched.
-const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['actions', 'helper', 'profile', ...(V2() ? ['v2/letter'] : [])]), V2() ? import('./v2/letter.js') : null]).then(([m]) => { helperMod = m.default; return helperMod; });
+// it every new letter; without the flag neither file is fetched. Version 3 (?v3=1, R-362) uses the same letter, with its own Mahalo
+// (pub/v3/thanks.js, which fills helper.js's V3); a Mahalo that cannot come leaves helper.js's own, so its failure does not stop the letter.
+const v3Thanks = () => V3() ? import('./v3/thanks.js').catch(e => console.error(e)) : null;
+const letterCss = () => [...(V2() || V3() ? ['v2/letter'] : []), ...(V3() ? ['v3/thanks'] : [])];
+const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['actions', 'helper', 'profile', ...letterCss()]), V2() || V3() ? import('./v2/letter.js') : null, v3Thanks()]).then(([m]) => { helperMod = m.default; return helperMod; });
 app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
 app.openMail = o => helperLoad().then(() => app.openMail(o));
 // app.openLetter2(bill, kind, { hearing, resume, friend }): the v2 letter by name, for a screen that wants to open it (Home's "Finish sending
 // your testimony"); until the files are in it answers with a promise of what the real one returns (true when the sheet opened).
-const letter2Load = () => Promise.all([helperLoad(), import('./v2/letter.js'), ensureCss(['v2/letter'])]);
+const letter2Load = () => Promise.all([helperLoad(), import('./v2/letter.js'), ensureCss(['v2/letter', ...(V3() ? ['v3/thanks'] : [])]), v3Thanks()]);
 app.openLetter2 = (...a) => letter2Load().then(() => app.openLetter2(...a));
 // A tab that reloads with the walkthrough open (iOS does this to a background tab while the person is in their mail app)
 // comes back to it: helper.js's tryReopen runs from its wire(), so when its mark is set (its OPEN_KEY) it loads at once.
@@ -155,7 +170,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
-const SCREENS = { start, learn: start, home, recap: home, bills: mybills, find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
+const SCREENS = { start, learn: start, home, recap: home, bills: V3() ? week3 : mybills, find: V3() ? find3 : find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
   committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed, partner, groups, link: groups, from };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
@@ -163,7 +178,9 @@ const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My 
 // The calm redesign has them too (R-303 decision 1, behind ?rec=1): what is left on More is all about the person. The tab
 // still opens #/more and carries the initials once there is a profile.
 const TABS_A = [...TABS.slice(0, 3), ['more', '#/more', 'circle-user', 'You']];
-const tabsNow = () => oldA() || REC() ? TABS_A : TABS;
+// Version 3's (R-362): This week in My issues' place, on its address (#/bills).
+const TABS_V3 = [TABS[0], ['bills', '#/bills', 'calendar', 'This week'], ...TABS_A.slice(2)];
+const tabsNow = () => V3() ? TABS_V3 : oldA() || REC() ? TABS_A : TABS;
 // Version A keeps My issues lit on an issue the person follows (R-070 problem 8: it lit Find).
 // Under ?rec=1 an issue or a bill lights the tab the person came from (R-303 decision 3): opened from My issues it lights My
 // issues, from Find Find, from Home Home, and a bill opened from that issue keeps it. go() writes the tab lit on the page a
@@ -171,7 +188,7 @@ const tabsNow = () => oldA() || REC() ? TABS_A : TABS;
 // (a shared link), an issue they follow lights My issues and any other Find, as version A did.
 const LIT_FOLLOWS = ['issue', 'bill'];
 const tabOf = (route, scr) => REC() && LIT_FOLLOWS.includes(route.name) && history.state?.from ? history.state.from
-  : (oldA() || REC()) && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
+  : (oldA() || REC()) && !V3() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
 let litTab = '';   // the tab lit on the page drawn last (go() hands it on)
 
 // ---- routes ----
@@ -256,7 +273,7 @@ app.placeName = h => {
   switch (r.name) {
     case 'home': case 'recap': return 'Home';
     case 'start': case 'learn': case 'next': return 'Welcome';
-    case 'bills': return 'My issues';
+    case 'bills': return V3() ? 'This week' : 'My issues';
     case 'find': return 'Find';
     case 'issue': return S.issueBySlug?.get(r.slug)?.name || 'Issue';
     case 'category': return (S.cats || []).find(c => c.key === r.key)?.name || 'Issues';
@@ -371,7 +388,9 @@ export function render() {
   // One who has not begun yet opens on the welcome, step 0 (R-297); start.js passes the plans and a shared bill on to step 1.
   // Begun: any step drawn (start.js sets begun), or, for a first visit already under way before the welcome, a step past
   // the first or an issue ticked.
-  if (route.name === 'home' && firstVisit()) { const w = wiz(), begun = w.begun || w.step > 1 || (w.issues || []).length;
+  // Version 3 (R-362): a newcomer's Home is the front door (pub/v3/home.js), never this redirect, and the welcome (step 0) is that door.
+  if (V3() && route.name === 'start' && route.step === 0) { history.replaceState({ y: 0 }, '', '#/'); route = parseRoute(); }
+  if (route.name === 'home' && firstVisit() && !V3()) { const w = wiz(), begun = w.begun || w.step > 1 || (w.issues || []).length;
     history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : begun ? w.step || 1 : 0}`); route = parseRoute(); }
   const scr = SCREENS[route.name] || SCREENS.home;
   litTab = tabOf(route, scr);
@@ -384,6 +403,7 @@ export function render() {
   document.body.dataset.screen = route.name;
   document.body.classList.toggle('rec', REC() && !FIRST_VISIT.includes(route.name));   // R-303, behind ?rec=1
   document.body.classList.toggle('v2', V2() && !FIRST_VISIT.includes(route.name));   // R-357, behind ?v2=1
+  document.body.classList.toggle('v3', V3() && !FIRST_VISIT.includes(route.name));   // R-362, behind ?v3=1
   // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands. A phone's welcome (step 0)
   // does not wait for start.css: its look is inline in track.html (#crit, compared frame for frame), start.css finishes it when it
   // arrives, with no redraw (start.js fits again as the page resizes). A wide window's welcome has rules only start.css holds.
@@ -488,7 +508,7 @@ function wireFrame() {
 let bootFailed = false;
 // A first visit's welcome needs no data (R-357 5c): when the start cannot finish, a newcomer still gets it (or keeps it, if it is on the
 // screen) and the card comes when they go on to the topics. Not for anyone who may be signed in: that is known once the library answers.
-const welcomeStays = () => { if (storedSession()) return false; const r = parseRoute(); return (r.name === 'start' && r.step === 0) || (r.name === 'home' && firstVisit()); };
+const welcomeStays = () => { if (storedSession()) return false; const r = parseRoute(); return (r.name === 'start' && r.step === 0 && !V3()) || (r.name === 'home' && firstVisit() && !V3()); };
 function failBoot() {
   bootFailed = true;
   if (!welcomeStays()) { drawBootCard(); return; }
@@ -589,7 +609,7 @@ async function boot() {
     // Only when firstVisit() can already be trusted: never for a signed-in person (their actions come with the bills)
     // and never in the practice copy (one file, so nothing is early; and its seeded actions come with the bills too).
     // 10/1: an early render that judged wrong rewrote the address to #/start/1, and the bills' arrival could not undo it.
-    const early = () => { if (!DEMO && !S.session && firstVisit() && parseRoute().name === 'home') start.load().then(() => render()).catch(e => console.error(e)); };
+    const early = () => { if (!DEMO && !V3() && !S.session && firstVisit() && parseRoute().name === 'home') start.load().then(() => render()).catch(e => console.error(e)); };
     if (!DEMO && applyCachedCatalog()) { await loadUser(); early(); }
     await Promise.race([(async () => { await loadCatalog(); await loadUser(); early(); await C.loadLists(); await C.loadBills(); })(), timeout]);
     // What Home and the first screen are made of must be in, or the start says it could not load (R-212 #49): an empty
@@ -628,7 +648,7 @@ async function boot() {
     // A later visit's one ask (R-237): only when they opened the tracker itself (plain Home), never on arrival from an alert,
     // an email or a shared link (those open their own address), and only on a new day's first arrival. pickAsk says which,
     // if any (none with testimony due within a day on what they follow).
-    if (fresh && r.name === 'home' && !r.unknown && !place && !viaOpened) {
+    if (fresh && !V3() && r.name === 'home' && !r.unknown && !place && !viaOpened) {
       try { const k = (await import('./nextask.js')).pickAsk(); if (k) { history.replaceState({ y: 0 }, '', `#/next/${k}`); await ensureScreen(parseRoute()); } } catch (e) { console.error(e); }
     }
     if (r.legacy) {
@@ -639,7 +659,7 @@ async function boot() {
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
     if (window.__hiphiNet) window.__hiphiNet.done = true;       // the database was reached: watchDb stops
     // (Not the partner corner's or For advocacy groups': few people open them, R-328.)
-    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')) && (V2() || !n.startsWith('v2/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1, version 2's only with ?v2=1)
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')) && (V2() || !n.startsWith('v2/')) && (V3() || !n.startsWith('v3/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1, version 2's only with ?v2=1, version 3's with ?v3=1)
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
@@ -659,7 +679,7 @@ function drawSkeleton() {
   if (baseIn()) {
     try {
       let route = parseRoute();
-      if (route.name === 'home' && firstVisit() && !storedSession()) route = { name: 'start', step: 0 };   // as render() does
+      if (route.name === 'home' && firstVisit() && !storedSession() && !V3()) route = { name: 'start', step: 0 };   // as render() does (not under version 3: its Home is the door)
       const scr = SCREENS[route.name] || SCREENS.home;
       withTabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
       head = header(route, scr, true); tabs = withTabs ? tabbar(route, scr) : '';
@@ -680,7 +700,7 @@ if (!baseIn()) baseP.then(() => { if (skelUp) drawSkeleton(); });
 // is only known once the library answers, so such a browser goes straight to the library. track.html's catalog promise
 // settles within ten seconds either way, so this never waits longer than that.
 async function earlyFirst() {
-  if (DEMO || storedSession() || parseRoute().name !== 'home') return;
+  if (DEMO || V3() || storedSession() || parseRoute().name !== 'home') return;   // version 3's door needs the bills (pub/v3/pick.js)
   // The A/B switches come in the same moment as the catalog; abSettled waits for them a moment at most (R-135).
   // Not for start.css on a phone (R-357 5c): the welcome's look is inline in track.html (render() says more).
   const draw = async () => { await loadUser(); if (firstVisit() && parseRoute().name === 'home') { await Promise.all([start.load(), ensureCss(wideCss().length ? cssFor('start') : []), abSettled()]); render(); firstScreenDone(); } };

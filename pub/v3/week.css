@@ -1,0 +1,22 @@
+/* Version 3 (?v3=1, R-362): This week, the #/bills tab (pub/v3/week.js). Loaded after every other sheet there under the flag (pub/app.js V3_CSS). */
+body.v3 .v3w-head { margin-bottom: var(--s16); }
+body.v3 .v3w-date { margin: 0 0 var(--s4); color: var(--n700); font-size: var(--t14); }
+body.v3 .v3w-h1 { margin: 0; }
+body.v3 .v3w-one .rc-h2 { margin-bottom: var(--s8); }
+body.v3 .v3w-change { margin: var(--s8) 0 0; }
+body.v3 .v3w-empty { padding: var(--s16); background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); }
+body.v3 .v3w-empty p { margin: 0 0 var(--s12); }
+body.v3 .v3w-day + .v3w-day { margin-top: var(--s16); }
+body.v3 .v3w-dayh { margin: 0 0 var(--s8); font: 600 var(--t14)/1.3 var(--font-h); color: var(--n700); }
+body.v3 .v3w-more { margin-top: var(--s8); }
+
+/* The one-thing card is drawn by pub/v3/card.css, shared with Home. */
+
+/* A laptop: the card beside Your issues, the hearings under both, in a reading width. */
+@media (min-width: 1100px) {
+  body.v3 .v3w { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--s32); align-items: start; max-width: 1040px; }
+  body.v3 .v3w-head, body.v3 .v3w #v3w-hear-h { grid-column: 1 / -1; }
+  body.v3 .v3w > .rc-sec:last-child { grid-column: 1 / -1; }
+  body.v3 .v3w-one { margin-top: var(--s32); }
+  body.v3 .v3w-one + .rc-sec { margin-top: var(--s32); }
+}

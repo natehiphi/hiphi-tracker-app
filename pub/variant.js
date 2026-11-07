@@ -67,6 +67,10 @@ import { DEMO, wiz, hstDay, SUPABASE_URL, SUPABASE_KEY } from './kernel.js';
 // A tester's path (R-193): finished the first visit, gave a number or email. testerlog.js is not on the first wave (R-357 5c): pub/app.js loads it at
 // boot for a tester's link or session, so by the time anything is marked it has been read; with neither, there is no path to mark.
 const tlMark = k => { import('./testerlog.js').then(m => m.tlMark(k)).catch(() => {}); };
+// Version 3 (?v3=1, R-362) is a flag for review, not a try-both test: under it every test shows its first version, nothing is
+// counted or sent, and the first visit takes no lock (a lock written here would pin this browser's later visits without the flag).
+// Read once as the module loads; with the flag off every path below is as it was.
+const V3ON = new URLSearchParams(location.search).get('v3') === '1';
 
 // goal, goal2: [event, days]: the event that is the measure, and within how many days of meeting the test (0: any time).
 export const TESTS = {
@@ -138,6 +142,7 @@ const firstOpen = () => { const w = wiz(); return !(w.done || w.skipped); };
 const pinned = {};
 export function armOf(key) {
   const t = TESTS[key]; if (!t) return null;
+  if (V3ON) return t.arms[0];
   if (t.page) { if (pinned[key]) return pinned[key]; const a = arm0(key, t); if (settled || cached()) pinned[key] = a; return a; }
   return arm0(key, t);
 }
@@ -163,7 +168,7 @@ function arm0(key, t) {
 }
 // Counted only when the version came from the toss of a test that is on, or from a tester's link; never a test inside
 // today's first visit while the browser is on a plan (R-164).
-const counted = key => (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') !== 'today') || (key === 'act' && endHome()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
+const counted = key => V3ON ? false : (INSIDE_TODAY.includes(key) && onPlan()) || (key === 'home' && armOf('layout') !== 'today') || (key === 'act' && endHome()) ? false : isForced(key) || (!DEMO && !BOT && cfgOf(key).on);
 // The plan this browser's first visit follows ('' for today's): Plan 1 to 5 of the first-visit test (R-164).
 function onPlan() { try { const a = armOf('onb'); return a && a !== 'today' ? a : ''; } catch { return ''; } }
 export const plan = onPlan;
@@ -229,6 +234,7 @@ export function abSeen(key, { bill, ask, arm: given } = {}) {
 // 'acted' (an action marked done), 'email' (an email given), 'step2' (another step on a hearing where the rank test was
 // met). Each test's measure is sent once, credited to the version it met, within its window.
 export function abEvent(name) {
+  if (V3ON) return;
   if (name === 'finished') tlMark('finished'); else if (name === 'email') tlMark('contact');
   try {
     const s = st(), t0 = today(); let changed = false;
@@ -253,6 +259,7 @@ export function abEvent(name) {
 // ---- the tests' own moments ----
 // The first visit started: its tests take the version they have now and keep it (the lock), and are met.
 export function lockFirstVisit() {
+  if (V3ON) return;
   try {
     if (!firstOpen()) return;
     const s = st(); let changed = false;

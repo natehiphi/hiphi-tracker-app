@@ -601,6 +601,8 @@ export const alive = b => !['dead', 'vetoed', 'enacted', 'governor', 'ballot'].i
 export function nudgeOk() {
   // A number given for text alerts is an alerts sign-up too (R-146): nothing asks again.
   if (S.session || S.nudgedThisVisit || textSaved()) return false;
+  // Version 3 (?v3=1, R-362, DESIGN C-3): no phone or profile ask before a first action, the follow sheet on an issue page included.
+  if (app.v3?.() && !S.done.size) return false;
   // One profile ask per visit (C-3; R-357 Light fixes h): pub/alerts.js marks the ask in this tab's sessionStorage the moment
   // it is shown, which a reload keeps and S.nudgedThisVisit does not; every ask path reads the same mark through here.
   try { if (sessionStorage.getItem('hiphi_ask_asked') === '1') return false; } catch { /* private mode: S.nudgedThisVisit holds it */ }

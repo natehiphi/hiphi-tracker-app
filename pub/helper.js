@@ -86,6 +86,9 @@ const openMark = {
 // the screens it adds to this frame (body, foot), their taps and typing (click, input), the order of its steps (seq) and the way in
 // (open). Everything else it needs from here is in HP, at the bottom of this file; nothing below changes when it is empty.
 export const V2 = {};
+// Version 3 (?v3=1, R-362) fills in its Mahalo (pub/v3/thanks.js sets V3.done) when it loads, which only happens with ?v3=1. A letter
+// opened under it carries x.v3 (pub/v2/letter.js build()); nothing below changes for a letter without it.
+export const V3 = {};
 
 // ---------------- the letter ----------------
 // Public Access Room order (lrb.hawaii.gov/par, tips on testimony): address the chair, vice chair and members;
@@ -190,6 +193,9 @@ function liveLine(h) {
   const town = townWord(), where = ls.length === 1 ? `${legWord(ls[0])}’s district` : `the districts of ${andList(ls.map(legWord))}`;
   return town ? vary('live', [`I live in ${town}, in ${where}.`, `I’m from ${town}, in ${where}.`]) : `I live in ${where}.`;
 }
+// Version 3 asks for the town in the letter itself (R-362): when no line names their lawmakers (liveLine is empty), the town alone,
+// as act.html's letter says it (one/letter.js whoLine). Empty without x.v3, without a town, or when they left out where they live.
+const townLine = x => { if (!x.v3 || x.noLive) return ''; const t = townWord(); return t ? `I live in ${t}.` : ''; };
 // The testimony letter in pieces (R-141, rework 10/10). The box on "Get to know the bill" holds the whole letter, so each
 // piece is kept apart: syncLetter changes a detail by swapping the piece the text still has word for word, and never
 // overwrites what the person typed. A detail not given yet (no name) leaves its words out, never "My name is .".
@@ -197,11 +203,12 @@ const PARTS = ['head', 'dear', 'open', 'pts', 'why', 'ask', 'close'];
 function letterParts(x) {
   const { b, h } = x, stance = x.stance || hiphiStance(b), n = spaced(b.bill_number), ours = sameAsHiphi(b, stance), nm = String(x.name || '').trim();
   // What goes out is theirs to choose (R-156 B2): noLive leaves out where they live, noWhy their reason.
-  const live = x.noLive ? '' : liveLine(h);
+  const live = x.noLive ? '' : liveLine(h), town = live ? '' : townLine(x);
   return {
     head: headBlock(b, h, stance),
     dear: greeting(h),
-    open: [openWords(x, n, stance, twoFor(x)), live].filter(Boolean).join(' '),
+    open: town ? [whoLine(x.name, twoFor(x), b.bill_number), town, openingLine(b, n, stance, x.mild)].filter(Boolean).join(' ')
+      : [openWords(x, n, stance, twoFor(x)), live].filter(Boolean).join(' '),
     // The points they picked, as the box on "Get to know the bill" has them (R-141), then their own reason. The
     // committee already has the bill's text, so the letter does not repeat what it does (Nate 9/28).
     pts: ownPoints(x),
@@ -289,7 +296,7 @@ function emailParts(x) {
   const ownTo = x.noLive ? [] : to.filter(t => isMine(t.leg)), own = ownTo.length > 0;
   // R-259: the town, never the district number. One of two chairs theirs: "I live in Hilo, in Senator Inouye’s district."
   const mine = x.mode === 'legislators' || own, all = x.mode === 'legislators' || ownTo.length === to.length, town = townWord();
-  const live = !mine ? '' : all ? ownLine(b.bill_number, to.length > 1)
+  const live = !mine ? townLine(x) : all ? ownLine(b.bill_number, to.length > 1)
     : `I live in ${town ? `${town}, in ` : ''}${andList(ownTo.map(t => t.greet))}’s district.`;
   return {
     dear: `${vary(b.bill_number + '|dear', ['Aloha', 'Aloha', 'Dear'])} ${andList(to.map(t => t.greet)) || 'Chair'},`,
@@ -839,7 +846,8 @@ function inner() {
     : x.view ? `<h2 class="hp-title" id="hp-title" tabindex="-1">${esc(title)}</h2>`
     : `<h2 class="hp-title" id="hp-title" tabindex="-1">${esc(title)}</h2><span class="hp-count" aria-hidden="true">${x.v2 ? '' : 'Part '}${step} of ${total}</span>`;
   const v2body = !done && x.v2 ? V2.body?.(x) : null;   // version 2's own screens; its email send step and every Mahalo are this file's
-  const body = done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : v2body != null ? v2body : x.screen === 'again' ? againScreen() : x.screen === 'view' ? viewScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
+  const v3done = done && x.v3 && V3.done ? V3.done(x) : null;   // version 3's Mahalo (pub/v3/thanks.js), for both kinds
+  const body = v3done != null ? v3done : done ? (isMail(x) ? mailDoneScreen() : doneScreen()) : v2body != null ? v2body : x.screen === 'again' ? againScreen() : x.screen === 'view' ? viewScreen() : x.screen === 'stand' ? standScreen() : x.screen === 'know' ? knowScreen() : x.screen === 1 ? aboutScreen()
     : x.screen === 2 ? letterScreen() : x.screen === 'mail' ? mailScreen() : x.screen === 'acct' ? acctScreen() : sendScreen();
   return `<div class="hp-frame" data-screen="${esc(String(x.screen))}">
     <header class="hp-head">${iconBtn('x', 'Close', { 'data-hp': 'close' }, 'hp-x')}${head}</header>
@@ -1992,8 +2000,9 @@ function onClick(e) {
   // bill goes on to the rest of their first visit.
   if (a === 'done') { const x = S.helper, b = x.b;
     // Done while the share card shows is a pass for that hearing: Home does not ask again (the review, P-5; C-3's rule for
-    // the profile ask, "no second ask on Home after a skip", kept for this one too; home.js reads hiphi_askf_no).
-    if (friendOpen(x) && x.h) try { const k = 'hiphi_askf_no', no = JSON.parse(localStorage.getItem(k) || '[]'); localStorage.setItem(k, JSON.stringify([...no, x.h.id].slice(-50))); } catch { /* this visit only */ }
+    // the profile ask, "no second ask on Home after a skip", kept for this one too; home.js reads hiphi_askf_no). Version 3's
+    // Mahalo has no share card (pub/v3/thanks.js), so its Done is no pass on a share ask it never showed (R-362).
+    if (!x.v3 && friendOpen(x) && x.h) try { const k = 'hiphi_askf_no', no = JSON.parse(localStorage.getItem(k) || '[]'); localStorage.setItem(k, JSON.stringify([...no, x.h.id].slice(-50))); } catch { /* this visit only */ }
     afterClose = () => { if (!app.onbActed?.(x)) app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
   else if (a === 'going') { const x = S.helper; noteGoing(x.h, true); markDone(x.b.id, x.h.id, 'attend', true, { quiet: true }).then(() => { if (S.helper === x) paint({ focus: 'gdt-' + x.h.id }); }); }
@@ -2262,6 +2271,7 @@ export const HP = {
   copyText,   // testimony's send screen (R-357 pH): the copy that also works on an older phone
   sendLinks, SEND, onPhone, shortName,   // the email's send buttons, drawn by version 2's own send screen (pub/v2/letter.js), one for both kinds
   friendLine, lateBanner, aboutNote, saysBox, whyHelp, capitolLink, practiceNote, capitolNotes, formWord, CLOSINGS,
+  emailAsk, unfollowBtn, followWords, doneArt, firstOf,   // version 3's Mahalo (R-362, pub/v3/thanks.js) draws these as the Mahalo here does
 };
 
 export default {

@@ -67,7 +67,8 @@ const restAsk = () => { if (!REST) restLoad().then(() => app.render()).catch(e =
 export const lessons = () => LZ;   // start-rest.js reads the lessons through this (an import is read-only)
 export const core = () => C;
 // Version 2 brings its teaching (pub/v2/road.js) with the lessons, one object for start-rest.js; version 1 never loads it (R-357).
-const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), v2() ? import('./v2/road.js') : null, app.ensureCss ? app.ensureCss(['lessons']) : null])
+// Version 3 (?v3=1, R-362) teaches with the same road.
+const lessonsLoad = () => lzP ??= Promise.all([import('./lessons.js'), v2() || v3() ? import('./v2/road.js') : null, app.ensureCss ? app.ensureCss(['lessons']) : null])
   .then(([m, r]) => { if (r) m.onLessonStop(r.teachStop); return (LZ = r ? { ...m, ...r } : m); }).catch(e => { lzP = null; throw e; });
 export const lessonsAsk = () => { if (!LZ) lessonsLoad().then(() => app.render()).catch(e => console.error(e)); return !!LZ; };
 
@@ -107,6 +108,13 @@ const FLOW_LINK = ['followask', 'alerts', 'bill', 'soon', 'done'];
 const FLOW_V2 = ['topics', 'issues', 'voice', 'alerts'];
 const FLOW_LINK_V2 = ['followask', 'alerts'];
 export const v2 = () => { try { return !!(app.v2 && app.v2()); } catch { return false; } };
+// Version 3's first visit (R-362 part 2, behind ?v3=1; Nate: "the onboarding steps remain, streamlined"): the front door is Home itself
+// (pub/v3/home.js; its "Choose your issues" opens #/start/1), then the topics, Your issues with nothing ticked (C-4, B-12), version 2's island
+// road in four pages, and Home. The profile and phone ask waits for the first action (the Mahalo's one ask, C-3), the address for a later
+// visit (Home's quiet line), name and town for the letter. A shared bill's visit asks to follow its issue, then Home.
+const FLOW_V3 = ['topics', 'issues', 'voice'];
+const FLOW_LINK_V3 = ['followask'];
+export const v3 = () => { try { return !!(app.v3 && app.v3()); } catch { return false; } };
 // The short version (R-067 #11, Nate 9/27: "teaching can happen in the moment; the educational pieces condensed into one
 // very brief page"): one page on why your voice matters stands where the lesson was, and the lessons are offered where
 // they are needed (#/learn/..., linked from bill pages and Help; the short page offers the drawn story). It is tested
@@ -117,7 +125,8 @@ const shorten = f => SHORT() ? f.map(n => n === 'bill' ? 'voice' : n) : f;
 // The version that ends on Home (?end=home, R-098) has no "You're all set" screen: the last step goes straight to Home,
 // where the celebration plays (pub/home.js). Since R-293 (Nate 10/15) it has no "Coming up on your issues" either: the
 // bill's story goes straight to Home, which already shows each bill under "What you can do right now".
-const flowOf = off => { const p = planOn(); if (p) return planFlow(p, off);
+const flowOf = off => { if (v3()) return wiz().via ? FLOW_LINK_V3 : FLOW_V3;
+  const p = planOn(); if (p) return planFlow(p, off);
   if (v2()) return wiz().via ? FLOW_LINK_V2 : FLOW_V2;
   const f = shorten(wiz().via ? FLOW_LINK : off ? FLOW_OFF : FLOW_IN); return endHome() ? f.filter(n => n !== 'done' && n !== 'soon') : f; };
 const nameAt = (step, off) => { const f = flowOf(off); return f[Math.min(Math.max(step | 0, 1), f.length) - 1]; };
@@ -229,9 +238,11 @@ const CHAPTER_OF = { topics: 0, issues: 0, followask: 0, alerts: 0, bill: 1, voi
 const CHAPTER_OF_V2 = { topics: 0, issues: 0, followask: 0, voice: 1, alerts: 2 };
 // Version 2's three parts are the three things asked of the person: their issues, why their voice counts (the road screen), their profile. A shared bill's visit has no teaching step, so its profile ask stays in the first
 // part (the strip never ticks a part nobody saw).
-const chapterNames = () => planOn() ? PLAN_CHAPTERS[planOn()] : v2() ? [CHAPTERS[0], 'Your voice', 'Your profile'] : [CHAPTERS[0], SHORT() ? T('Why your voice matters') : CHAPTERS[1], endHome() ? T('Your home page') : CHAPTERS[2]];
+// Version 3's two parts: Your issues, then the road (Your voice); nothing is asked of the person after it.
+const CHAPTER_OF_V3 = { topics: 0, issues: 0, followask: 0, voice: 1 };
+const chapterNames = () => v3() ? [CHAPTERS[0], 'Your voice'] : planOn() ? PLAN_CHAPTERS[planOn()] : v2() ? [CHAPTERS[0], 'Your voice', 'Your profile'] : [CHAPTERS[0], SHORT() ? T('Why your voice matters') : CHAPTERS[1], endHome() ? T('Your home page') : CHAPTERS[2]];
 // A plan names its own parts (pub/plans.js).
-const chapterOf = name => (planOn() ? PLAN_CHAPTER_OF[planOn()][name] : v2() ? (wiz().via && name === 'alerts' ? 0 : CHAPTER_OF_V2[name]) : CHAPTER_OF[name]) ?? -1;
+const chapterOf = name => (v3() ? CHAPTER_OF_V3[name] : planOn() ? PLAN_CHAPTER_OF[planOn()][name] : v2() ? (wiz().via && name === 'alerts' ? 0 : CHAPTER_OF_V2[name]) : CHAPTER_OF[name]) ?? -1;
 let lastChapter = -1;
 // The "Mahalo!" page ends "Your issues" (R-140): there the part shows as done and the next one is not yet current, so the
 // row says what the button says, that more follows (the review, 11 Oct).
@@ -272,7 +283,8 @@ export const topRow = (name, step) => {
   const lead = step > 1 ? backBtn(step) : step === 1 && name === 'topics' ? langPicker('st-lang') : '';
   // The topics have no Back, so a Leave there would be a row of its own, pushing the topic cards 36px down (on a 320px phone
   // the second row no longer peeked, the critic's high, A-1): there it takes Skip's quiet place in the bar instead (topicsBar).
-  if (planOn() || name === 'done' || name === 'topics') return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
+  // Version 3 (R-362): no Leave in the top row; Back, Skip this part and the topics' own Leave in the bar stay (Home is one tab away).
+  if (planOn() || name === 'done' || name === 'topics' || v3()) return `${chaptersRow(name)}${step > 1 ? `<div class="steps st-steps">${lead}</div>` : lead}`;
   return `${chaptersRow(name)}<div class="steps st-steps st-toprow">${lead}${leaveBtn()}</div>`;
 };
 export const shell = (cls, intro, main, busy = false) => `<div class="st ${cls}"${busy ? ' aria-busy="true"' : ''}><div class="st-intro">${intro}</div><div class="st-main">${main}</div></div>`;
@@ -367,6 +379,8 @@ export const pickedIssues = () => { const sel = new Set(wiz().issues || []); ret
 // Six tiles, most important first (Nate 9/21), each saying what is in play: in session the issues still moving,
 // between sessions the wins of last session (or its issues).
 const SURE1 = T('About 4 minutes. Free.');   // said through t() where it is drawn
+// Version 3 (R-362): the door's "Choose your issues · 2 minutes" is the promise; the topics say the same (C-15). Plain English, as v2's words.
+const sure1 = () => v3() ? 'About 2 minutes. Free.' : t(SURE1);
 // What the app does, said on the first screen (R-067, Nate's pick 9/27, Version A): testers liked the first visit but
 // were confused about what it is, and the only plain description was on the finale. In session only; between sessions
 // the screen already leads with the opening day.
@@ -410,7 +424,7 @@ export function partnerLine() {
 // only a first visit that has not begun opens here (app.js). Not in the plans (they are not live and have their own first
 // screens) or from a shared bill (that visit begins on the bill). The private counts record it as 'arrive' with this
 // path, 'in' or 'off': the name the database already takes for arriving on a shared bill (path 'link'), so no migration.
-export const helloOn = () => !planOn() && !wiz().via;
+export const helloOn = () => !v3() && !planOn() && !wiz().via;   // version 3's welcome is Home's front door (pub/v3/home.js)
 S.stHello ??= false;   // drawn in this page's life: the partner's line is said here, and not again on the topics
 function stepHello() {
   S.stHello = true;
@@ -420,7 +434,7 @@ function stepHello() {
     <p class="lede">${t('Find out when lawmakers are acting on the issues you care about most, and how you can help change what happens.')}</p>`, '');
 }
 function wireHello() {
-  if (!helloOn()) { setTimeout(() => app.go('#/start/1', { replace: true }), 0); return; }
+  if (!helloOn()) { setTimeout(() => app.go(v3() ? '#/' : '#/start/1', { replace: true }), 0); return; }
   document.body.classList.toggle('st-lessonpage', false);
   document.body.classList.add('st-hello');   // centred, the button under the words (start.css)
   const key = `${pathKey()}|arrive`;
@@ -448,11 +462,15 @@ function stepTopics(step) {
       <h1 class="hero" id="st-h">${fill(h)}</h1><p class="lede">${fill(lede)}</p>${sure ? sureWide('clock', sure) : ''}`,
       `${sure ? sayRow('clock', sure) : '<div class="st-say"><p class="st-alert" id="st-alert" role="alert"></p></div>'}${tiles(off, yr)}`);
   }
+  // Version 3 (R-362): the door just said who HIPHI is and what it does, in the same heading; the topics keep one line and the time.
+  if (v3() && !off) return shell('st1 st-topics st-v3topics', `${topRow('topics', step)}${partnerLine()}${artFor('topics')}
+    <h1 class="lede st-v3lede" id="st-h">Pick what you care about.</h1>${sureWide('clock', sure1())}`,
+    `${sayRow('clock', sure1())}${tiles(off, yr)}`);
   return shell('st1 st-topics', `${topRow('topics', step)}${S.stHello ? '' : partnerLine()}${artFor('topics')}
     <h1 class="hero" id="st-h">${off ? t('Get ready for the {next} session', { next }) : t('Speak up for a healthier Hawaiʻi')}</h1>
     <p class="lede">${off ? `${t('The Legislature opens {day}.', { day: esc(shortDay(si.nextOpen)) })}${w && w.length ? ` ${w.length === 1 ? t('In {yr}, 1 bill HIPHI backed became law.', { yr }) : t('In {yr}, {n} bills HIPHI backed became law.', { yr, n: w.length })}` : ''} ${t('Pick what you care about, and we’ll keep watch.')}`
-      : t('HIPHI, the Hawaiʻi Public Health Institute, is a nonprofit that follows the health bills. Pick what you care about.')}</p>${off ? '' : promise()}${sureWide('clock', t(SURE1))}`,
-    `${sayRow('clock', t(SURE1))}${tiles(off, yr)}`);
+      : t('HIPHI, the Hawaiʻi Public Health Institute, is a nonprofit that follows the health bills. Pick what you care about.')}</p>${off ? '' : promise()}${sureWide('clock', sure1())}`,
+    `${sayRow('clock', sure1())}${tiles(off, yr)}`);
 }
 
 // ================= Your issues, 2: the issues inside them =================
@@ -549,7 +567,7 @@ function wire(route) {
   if (wiz().step !== step || !wiz().begun) wizSet({ step, begun: true });   // begun: the welcome is not shown again (R-297)
   const back = !!S.stBack; S.stBack = false;
   // The lesson pages put their button right under the lesson on a wide screen (start.css).
-  document.body.classList.toggle('st-lessonpage', name === 'bill' || (v2() && name === 'voice'));   // version 2's road: its Next under the words on a laptop, as the story's
+  document.body.classList.toggle('st-lessonpage', name === 'bill' || ((v2() || v3()) && name === 'voice'));   // version 2's road: its Next under the words on a laptop, as the story's
   // The "Mahalo!" page with no card beside it (Skip, or nothing asked) is one column too: its Next sits under the words,
   // not alone in an empty right column (the review, 11 Oct).
   document.body.classList.toggle('st-onecol', name === 'followask' || (thanksUp(name) && !(textSaved() || mailSent())) || !!document.querySelector('#main .st-intro .st-err'));
@@ -567,7 +585,7 @@ function wire(route) {
   $$('[data-stskip]').forEach(el => el.onclick = () => {
     track(name, 'skip');
     if (name === 'bill' || name === 'voice') (S.stSkipped ??= new Set()).add('lesson');   // the strip shows the story as skipped, not done (R-249)
-    if (name === 'voice' && v2()) wizSet({ why: true });   // version 2's road: skipped is as seen, a returner changing their issues is not shown it again
+    if (name === 'voice' && (v2() || v3())) wizSet({ why: true });   // version 2's road: skipped is as seen, a returner changing their issues is not shown it again
     // The first question has no Skip (R-212 #46): "Leave, go to Home" stands in its place (topicsBar). In the plans it goes on.
     // Skip on "Your issues" follows nothing (the approved prototype; C-4: nothing is followed without a yes). It used to
     // follow whatever was ticked, which with HIPHI's picks ticked for them followed several issues nobody chose (the
@@ -579,7 +597,7 @@ function wire(route) {
     goStep(step, step + 1);
   });
   // Back leaves the screen (B-4). The story walks back through its stages first (lessonPrev).
-  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && LZ?.lessonPrev('story')) return; if (name === 'voice' && v2() && LZ?.teachPrev()) return; goBack(+el.dataset.stback); });
+  $$('[data-stback]').forEach(el => el.onclick = () => { if (name === 'bill' && LZ?.lessonPrev('story')) return; if (name === 'voice' && (v2() || v3()) && LZ?.teachPrev()) return; goBack(+el.dataset.stback); });
   // A link straight to a named step (the empty "Coming up" page's way back to the tiles, R-249): backwards, like Back, without
   // Back's step arithmetic.
   $$('[data-stgo]').forEach(el => el.onclick = () => { track(name, 'back'); LZ?.lessonStop(); S.stBack = true; swap(() => app.go('#/start/' + el.dataset.stgo), 'back'); });
@@ -675,7 +693,7 @@ export default {
     if (n === 'alerts' && !S.alertEdit && (S.stThanks || textSaved() || mailSent())) return 'Mahalo!';
     if (n === 'join' && !S.alertEdit && S.obThanks) return 'Mahalo!';
     if (n === 'alerts' && armOf('save') === 'profile') return 'Save your profile';
-    if (n === 'voice' && v2()) return 'How a bill moves';
+    if (n === 'voice' && (v2() || v3())) return 'How a bill moves';
     return TITLE[n] || PLAN_TITLES[n] || 'Get started'; },
   render(route) {
     if (route.name === 'learn') return restAsk() ? REST.stepLearn(route) : skel(1);

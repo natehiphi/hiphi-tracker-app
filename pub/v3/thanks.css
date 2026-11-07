@@ -1,0 +1,11 @@
+/* Version 3 (?v3=1, R-362): the Mahalo after a letter (pub/v3/thanks.js). Loaded with the letter under the flag (pub/app.js helperLoad). */
+/* Every rule is under .hp-v2 (the letter's dialog), so nothing reaches another screen; tokens only (A-5, A-7, A-8), sizes 14 and 16 (A-4). */
+
+/* the follow that sending did, one line under the thank-you, its Undo under the words (B-5), the button's own text lined up with them */
+.hp-v2 .v3-follow { display: flex; align-items: flex-start; gap: var(--s12); margin: 0 0 var(--s16); padding: var(--s12) var(--s16);
+  border-radius: var(--r12); background: var(--n50); color: var(--n900); font-size: var(--t16); }
+.hp-v2 .v3-follow > .ic { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--p700); }
+.hp-v2 .v3-follow > div { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--s4); }
+.hp-v2 .v3-follow p { margin: 0; }
+.hp-v2 .v3-follow .btn { margin: 0 0 calc(-1 * var(--s8)) calc(-1 * var(--s12)); }
+.hp-v2 .v3-hero { padding-bottom: var(--s16); }

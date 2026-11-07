@@ -300,3 +300,7 @@ jobs:
       - name: "The first visit in nine taps behind ?v2=1: the two teaching screens, the cover that holds, the story card; today's visit unchanged (R-357 Part 4, pK)"
         if: ${{ !cancelled() && matrix.shard == 8 }}
         run: python3 tests/v2_first_visit.py http://localhost:8832
+      # R-362 (7 Nov 2026): Version 3, a review version behind ?v3=1 (not a try-both test). One step runs its five screen tests in turn.
+      - name: "Version 3 behind ?v3=1: the first visit to Home in 11 taps, Home's one thing, Find by issue (closed rows), This week, the bill page, the letter and its Mahalo (R-362)"
+        if: ${{ !cancelled() && matrix.shard == 3 }}
+        run: python3 tests/v3_screens.py http://localhost:8832

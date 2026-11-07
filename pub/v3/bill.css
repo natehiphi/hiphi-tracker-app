@@ -1,0 +1,22 @@
+/* Version 3 (?v3=1, R-362 Part 5): the bill page's top (pub/v3/bill.js). Loaded after every other sheet on a bill under the flag (pub/app.js V3_CSS).
+   Phone: name, status, deadline, button, stance, all above the fold (A-1). Laptop: today's two columns, the button and stance in the sticky side. */
+.bl-v3 .v3-head { margin-top: var(--s8); }
+.bl-v3 .v3-head h1 { margin-top: 2px; }
+.bl-v3 .v3-head h1 .bl-hnum { font: 700 .5em/1 var(--font); letter-spacing: .02em; color: var(--n500); white-space: nowrap; vertical-align: .35em; }
+.bl-v3 .v3-status { margin: var(--s8) 0 0; font: 400 var(--t16)/1.4 var(--font); color: var(--n700); }
+.bl-v3 .v3-when { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 0; font: 700 var(--t16)/1.4 var(--font); color: var(--n900); }
+.bl-v3 .v3-when .ic, .bl-v3 .v3-when svg { flex: none; width: 1.1em; height: 1.1em; margin-top: .2em; }
+.bl-v3 .v3-when.soon { color: var(--warn-text, #8a4b00); }
+.bl-v3 .v3-go { margin-top: var(--s16); }
+.bl-v3 .v3-go .btn { width: 100%; }
+.bl-v3 .v3-time { margin: var(--s8) 0 0; text-align: center; color: var(--n600); }
+.bl-v3 .v3-stance { margin-top: var(--s16); }
+.bl-v3 .v3-issue { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s12); color: var(--n700); }
+.bl-v3 .v3-it { margin: 0; flex: 1 1 auto; min-width: 0; font: 400 var(--t14)/1.35 var(--font); }
+.bl-v3 .v3-it a { color: inherit; font-weight: 700; }
+.bl-v3 .v3-issue .btn { min-height: 44px; }
+/* Laptop: the side panel follows the reader down the page. */
+.bl-page.bl-wide.bl-v3 .v3-side { position: sticky; top: calc(var(--s16) + 56px); align-self: start; }
+.bl-page.bl-wide.bl-v3 .v3-go { margin-top: 0; }
+.bl-page.bl-wide.bl-v3 .v3-stance { margin-top: 0; }
+.bl-page.bl-wide.bl-v3 .v3-issue { margin-top: var(--s16); }
