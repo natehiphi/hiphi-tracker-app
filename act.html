@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="only light"><!-- as track.html: shown as designed until dark mode is built (DESIGN A-21) -->
+<meta name="theme-color" content="#FFFFFF">
+<title>HIPHI: act on a bill</title>
+<meta name="description" content="A Hawaiʻi health bill in plain words, and the one thing you can do about it today. From the Hawaiʻi Public Health Institute.">
+<link rel="icon" href="pub/icon.svg" type="image/svg+xml">
+<link rel="icon" href="pub/icon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="pub/icon-180.png">
+<link rel="manifest" href="pub/manifest.webmanifest">
+<!-- R-360: one bill, one action (Nate's pick C, 6 Nov 2026). The database first, so the bill's one request starts warm. -->
+<link rel="preconnect" href="https://eivzjbnygscguqqiiuvh.supabase.co" crossorigin>
+<!-- The modules this page needs, asked for at once rather than one after another as each import is found. -->
+<link rel="modulepreload" href="one/app.js">
+<link rel="modulepreload" href="one/data.js">
+<link rel="modulepreload" href="one/words.js">
+<link rel="modulepreload" href="one/bill.js">
+<link rel="modulepreload" href="one/i18n.js">
+<link rel="modulepreload" href="stops.js">
+<link rel="modulepreload" href="pub/capitol.js">
+<link rel="modulepreload" href="pub/art.js">
+<link rel="modulepreload" href="icons.js">
+<link rel="stylesheet" href="one/one.css">
+<!-- Fonts as track.html loads them: text draws at once in the system face and swaps to Poppins and Lato (R-357 5a). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap"></noscript>
+</head>
+<body>
+<div id="app"><noscript><main class="sheet"><h1>This page needs JavaScript</h1><p class="sum">Turn it on, or see HIPHI’s bills at <a href="track.html">the HIPHI Bill Tracker</a>.</p></main></noscript></div>
+<script type="module" src="one/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+/* act.html (R-360): one bill, one action. The tokens are pub/base.css's, copied rather than imported so this page loads one
+   small stylesheet (keep the two in step). Layout from Nate's pick, mockup C: the issue's drawing as a header, a white
+   sheet with the bill, one primary button. Phones first; on a laptop the same column, centred (a focused task reads best
+   in one readable column, CLAUDE.md). */
+:root {
+  --p50: #EDF9FF; --p100: #C4E8F6; --p200: #95DCFE; --p300: #6BCDF8; --p400: #39BFEE;
+  --p500: #129DCB; --p600: #0B7CA5; --p700: #00698E; --p800: #024F69; --p900: #093546;
+  --o50: #FFF4EE; --o200: #FCD09D; --o400: #F68B2C; --o600: #AD560F; --o700: #984B0B;
+  --n0: #FFFFFF; --n50: #F4F7F9; --n100: #EAEFF2; --n200: #DBE3E7; --n300: #C2CCD1; --n400: #7D8C93;
+  --n500: #5F6F76; --n700: #344852; --n900: #142B35;
+  --ok-wash: #E6FAE9; --ok-text: #056639;
+  --warn-wash: #FFF5E8; --warn-fill: #F4B223; --warn-text: #906106;
+  --bad-wash: #FFEFED; --bad-text: #C52C2A;
+  --font-h: 'Poppins', 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t13: .8125rem; --t14: .875rem; --t16: 1rem; --t18: 1.125rem; --t22: 1.375rem; --t28: 1.75rem;
+  --s4: 4px; --s8: 8px; --s12: 12px; --s16: 16px; --s24: 24px; --s32: 32px; --s48: 48px;
+  --r8: 8px; --r12: 12px; --r16: 16px; --pill: 999px;
+  --sh1: 0 1px 2px rgba(20,43,53,.06); --sh2: 0 2px 8px rgba(20,43,53,.08);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--n0); color: var(--n700); font: 400 var(--t16)/1.5 var(--font); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+h1 { font-family: var(--font-h); font-weight: 700; color: var(--n900); letter-spacing: -.02em; line-height: 1.15; margin: 0; }
+p { margin: 0; }
+a { color: var(--p700); text-underline-offset: 2px; }
+svg { display: block; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.nw { white-space: nowrap; }
+:focus-visible { outline: 3px solid var(--p500); outline-offset: 2px; }
+h1:focus { outline: none; }
+
+#app { max-width: 600px; margin: 0 auto; min-height: 100vh; background: var(--n0); }
+
+/* The header: the drawing fills it (its sky stretches, its people keep their shape: pub/issue-art's two layers). */
+.hd { position: relative; height: 184px; background: #EAF7FD; overflow: hidden; }
+.hd .art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hd.plain { height: 112px; background: linear-gradient(180deg, var(--p50), var(--p100)); }
+.brand { position: absolute; top: 14px; left: 16px; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,.92);
+  padding: 6px 12px 6px 6px; border-radius: var(--pill); box-shadow: var(--sh1); font: 600 var(--t14)/1 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.brand .mark { width: 24px; height: 24px; }
+.demo { position: absolute; top: 18px; right: 16px; background: var(--warn-wash); color: var(--warn-text); font: 700 var(--t13)/1 var(--font); padding: 6px 10px; border-radius: var(--pill); }
+
+/* The sheet rises over the drawing's foot, as in the mockup. */
+.sheet { position: relative; margin-top: -16px; background: var(--n0); border-radius: 24px 24px 0 0; padding: 24px 20px calc(32px + var(--safe-b)); }
+.kicker { font: italic 400 var(--t16)/1.4 var(--font); color: var(--n500); }
+h1 { font-size: var(--t28); margin: 6px 0 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.num { font: 700 var(--t13)/1 var(--font); letter-spacing: .06em; color: var(--n500); }
+/* Position is words in a chip, never a colour alone (A-5). */
+.pos { display: inline-flex; align-items: center; background: var(--p50); color: var(--p800); font: 700 var(--t13)/1 var(--font); padding: 6px 10px; border-radius: var(--pill); }
+.pos-watching, .pos-comments { background: var(--n100); color: var(--n700); }
+.sum { font-size: var(--t18); line-height: 1.45; }
+.stand { margin: 20px 0 0; display: grid; gap: 10px; }
+.ln { display: flex; gap: 12px; align-items: flex-start; line-height: 1.4; }
+.ln .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--p700); }
+.ln b { color: var(--n900); }
+.ln.soon .ic { color: var(--warn-text); }
+.over .ic { color: var(--n500); }
+
+/* The one primary action (A-3), 56px tall, the full width of the column. */
+.cta { margin-top: 24px; }
+.primary { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; padding: 12px 20px; border: 0;
+  border-radius: var(--r12); background: var(--p700); color: #fff; font: 600 var(--t18)/1.2 var(--font-h); letter-spacing: -.01em; text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0,105,142,.28); cursor: pointer; }
+.primary:hover { background: var(--p800); }
+.primary:active { transform: translateY(1px); }
+.primary .ic { width: 20px; height: 20px; }
+.cta .small { text-align: center; margin-top: 10px; font-size: var(--t14); color: var(--n500); }
+.more { margin-top: 24px; text-align: center; font-size: var(--t14); }
+.more a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; }
+.more .ic { width: 1em; height: 1em; }
+
+/* Loading: grey lines where the words will be. */
+.bar { height: 14px; border-radius: 7px; background: var(--n100); margin: 12px 0; }
+.bar.h { height: 30px; }
+.w40 { width: 40%; } .w60 { width: 60%; } .w80 { width: 80%; } .w90 { width: 90%; } .w100 { width: 100%; }
+@media (prefers-reduced-motion: no-preference) { .bar { animation: pulse 1.4s ease-in-out infinite; } }
+@keyframes pulse { 50% { opacity: .55; } }
+
+/* A laptop: the same column, centred on a quiet page, the header's corners rounded. */
+@media (min-width: 640px) {
+  body { background: var(--n50); }
+  #app { margin: 32px auto; min-height: 0; border-radius: var(--r16); overflow: hidden; box-shadow: var(--sh2); }
+  .hd { height: 220px; }
+  .sheet { padding: 28px 32px 36px; }
+}
+@media (max-width: 359px) { .sheet { padding-left: 16px; padding-right: 16px; } }
