@@ -1,8 +1,11 @@
 // act.html (R-360): one bill, one action. The address names the bill: #/HB2121 (any case, a space allowed), the tracker's
 // own #/bill/HB2121 and #/bill/2026/HB2121 too, so a link made for track.html opens here unchanged. Then the one action:
-// #/HB2121/write (one/write.js), #/HB2121/send (one/send.js) and #/HB2121/thanks (part 3; a stand-in for now).
+// #/HB2121/write (one/write.js), #/HB2121/send (one/send.js) and #/HB2121/thanks (one/thanks.js). The counts (one/counts.js)
+// are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action.
 import { loadBill, loadPeople, LoadError } from './data.js';
-import { billScreen, thanksScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
+import { billScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
+import { thanksScreen, wireThanks } from './thanks.js';
+import { countVisit, arrive, letterShown } from './counts.js';
 import { writeScreen, wireWrite, loadMe } from './write.js';
 import { sendScreen, wireSend } from './send.js';
 
@@ -58,15 +61,17 @@ async function route() {
   if (step === 'write' || step === 'send') {
     const at = location.hash, P = await people();
     if (location.hash !== at) return;   // the person went elsewhere meanwhile
-    if (step === 'write') { show(writeScreen(B, P)); wireWrite(root, B, P, go); return; }
+    if (step === 'write') { show(writeScreen(B, P)); letterShown(B); wireWrite(root, B, P, go); return; }
     const draw = (o = {}) => { show(sendScreen(B, P), o); wireSend(root, B, P, go, draw); };
     draw(); return;
   }
-  show(step === 'thanks' ? thanksScreen(B) : billScreen(B));
+  if (step === 'thanks') { const draw = (o = {}) => { show(thanksScreen(B), o); wireThanks(root, B, draw); }; draw(); return; }
+  show(billScreen(B)); arrive();
 }
 
 root.addEventListener('click', e => { if (e.target.closest('[data-retry]')) { cur.p = null; cur.bill = null; route(); } });
 window.addEventListener('hashchange', route);
 // The connection came back while the failed card is showing: ask again, once (as pub/app.js presses data-loadfail).
 window.addEventListener('online', () => { if (root.querySelector('[data-retry]')) route(); });
+countVisit();   // once per page load (a Hawaiʻi day's visit, as the tracker counts it)
 route();

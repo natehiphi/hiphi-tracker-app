@@ -46,16 +46,6 @@ export function billScreen(B) {
   </main>`;
 }
 
-// Part 3 builds the thank-you; until then a stand-in that says the letter was counted.
-export function thanksScreen(B) {
-  return `${header(B.issue)}
-  <main class="sheet" id="main">
-    <p class="kicker">${esc(B.nickname || B.numberSpaced)} · ${esc(B.numberSpaced)}</p>
-    <h1 tabindex="-1">${esc(t('thanks.h'))}</h1>
-    <p class="sum">${esc(t('thanks.p'))}</p>
-  </main>`;
-}
-
 // While the bill loads: the header and grey lines where the words will be, so the page does not jump when they come (A-15).
 export const loadingScreen = () => `${header(null)}<main class="sheet" id="main" aria-busy="true"><p class="sr">${esc(t('loading'))}</p>
   <div class="bar w60"></div><div class="bar h w80"></div><div class="bar w40"></div><div class="bar w100"></div><div class="bar w90"></div></main>`;

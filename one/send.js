@@ -12,6 +12,7 @@ import { DEMO } from './data.js';
 import { HST } from './words.js';
 import { draftFor, keepDraft, isMail, loadMe } from './write.js';
 import { mailTo, mailSubject, sendLinks, stanceOf } from './letter.js';
+import { countSent } from './counts.js';
 
 const FORM_WORD = { support: 'Support', oppose: 'Oppose', comments: 'Comments' };
 // A phone has its own mail app; a laptop more often reads email in a browser (helper.js onPhone). Never asked.
@@ -58,7 +59,7 @@ export function sendScreen(B, people) {
 }
 
 // The copy that also works on an older phone (helper.js copyText): the clipboard, else the old way with a hidden box.
-async function copyText(text) {
+export async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch { /* no permission or an older phone */ }
   const was = document.activeElement;
   try {
@@ -111,6 +112,7 @@ export function wireSend(root, B, people, go, redraw) {
     copyText(x.letter);   // the tap allows it; if the mail app opens empty or cut short, it can be pasted in
     setTimeout(() => { s.away = true; redraw({ keepFocus: '#s-did' }); }, 800);
   }));
-  root.querySelector('[data-sent]')?.addEventListener('click', () => { recordSent(B, x); keepDraft(B, x); state.delete(B.id); go('thanks'); });
+  // The count goes first: it reads whether this was the first testimony on the device, before the done mark is written.
+  root.querySelector('[data-sent]')?.addEventListener('click', () => { countSent(B, isMail(B) ? 'email' : 'testimony'); recordSent(B, x); keepDraft(B, x); state.delete(B.id); go('thanks'); });
   root.querySelector('[data-notyet]')?.addEventListener('click', () => { s.later = true; redraw({ keepFocus: '[data-notyet]' }); });
 }

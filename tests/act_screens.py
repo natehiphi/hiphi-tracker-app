@@ -2,7 +2,8 @@
 # hearing on Fri 20 Mar and testimony is open). Part 1: the bill screen at a phone's size, the one button, the words, and
 # the not-found state. Part 2: writing the letter (#/HB2121/write), sending it (#/HB2121/send: the copy, the Capitol's
 # steps, "Yes, I sent it" recorded as the tracker records it) and the email to the chair for SB 2175. Saves screenshots
-# at 390x844 (part1-390, part2-write, part2-send) and 320x640.
+# at 390x844 (part1-390, part2-write, part2-send) and 320x640. Part 3: the Mahalo screen (part3-thanks at 390x844), Share with
+# a friend (the bill's link, without /thanks), the email case, and that the practice copy sends no count to /rpc/log_.
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -69,6 +70,7 @@ with sync_playwright() as p:
     # ---- Part 2: write and send, in a fresh context with the clipboard allowed ----
     ctx = br.new_context(viewport={'width': 390, 'height': 844}, permissions=['clipboard-read', 'clipboard-write'])
     pg = ctx.new_page(); errs2 = []; pg.on('pageerror', lambda e: errs2.append(str(e)))
+    reqs = []; pg.on('request', lambda r: reqs.append(r.url))   # part 3: what the practice copy sends
     def open_step(h, sel):
         pg.goto(BASE + h); pg.wait_for_selector(sel, timeout=60000); pg.evaluate(FONTS)
     letter = lambda: pg.locator('#w-letter').input_value()
@@ -113,6 +115,16 @@ with sync_playwright() as p:
     rec = pg.evaluate("() => { const d = JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]'), m = JSON.parse(localStorage.getItem('hiphi_me') || '{}');"
                       " const L = Object.values(m.letters || {}).find(l => l.num === 'HB2121' && l.via === 'act'); return { done: d.filter(k => k.endsWith('|testimony')).length, letter: L ? L.letter : '', h: L ? L.h : '' }; }")
     ok(rec['done'] >= 1 and rec['letter'] == sent_letter and rec['h'], f'Yes, I sent it marks the testimony done and keeps the letter in hiphi_me ({rec["done"]} mark)')
+    # Part 3: the Mahalo screen after Yes, I sent it.
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and 'The committee hears HB 2121 on Fri, Mar 20.' in pg.locator('.sum').inner_text(), 'thanks: "Mahalo!" and the hearing day')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Share with a friend', 'thanks: exactly one primary, Share with a friend')
+    ok(pg.locator('a[href="track.html?demo=1"]').count() == 1 and pg.locator('a', has_text='See HIPHI’s other bills').count() == 1, 'thanks: one quiet link to track.html, kept in the practice copy')
+    ok('vape' not in pg.content().lower(), 'thanks: no "vape"')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part3-thanks.png'))
+    want = pg.evaluate("() => location.origin + location.pathname + '#/HB2121'")
+    pg.click('[data-share]'); pg.wait_for_function("() => /Copied/.test(document.querySelector('[data-share]')?.textContent || '')", timeout=3000)
+    clip = pg.evaluate('navigator.clipboard.readText()')
+    ok(clip == want and '/thanks' not in clip and clip.endswith('/act.html#/HB2121'), f'Share with a friend copies the bill’s link, without /thanks ({clip})')
     open_step('#/HB2121/write', '#w-letter')
     ok(pg.locator('#w-name').input_value() == 'Leilani K. Kahale' and pg.locator('#w-town').input_value() == 'Hilo', 'the name and town are prefilled next time')
 
@@ -128,13 +140,16 @@ with sync_playwright() as p:
     ok('vape' not in pg.content().lower(), 'email send: no "vape"')
     pg.click('[data-sent]'); pg.wait_for_function("() => location.hash === '#/SB2175/thanks'", timeout=5000)
     ok(pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('||email'))"), 'Yes, I sent it marks the email done')
+    pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)   # the hash changes before the screen is drawn
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Your email is on its way to the chair.', 'the email case: "Your email is on its way to the chair."')
 
     # 320 wide: no sideways scroll on either step.
     pg.set_viewport_size({'width': 320, 'height': 640})
-    for h, sel in (('#/HB2121/write', '#w-letter'), ('#/HB2121/send', '[data-copy]'), ('#/SB2175/send', '[data-via]')):
+    for h, sel in (('#/HB2121/write', '#w-letter'), ('#/HB2121/send', '[data-copy]'), ('#/SB2175/send', '[data-via]'), ('#/HB2121/thanks', '[data-share]')):
         open_step(h, sel); sw = width()
         ok(sw[0] <= sw[1], f'{h}: no sideways scroll at 320 ({sw})')
-    ok(not errs2, f'part 2: no page errors {errs2[:2]}')
+    ok(not errs2, f'part 2 and 3: no page errors {errs2[:2]}')
+    ok(not any('/rpc/log_' in u for u in reqs), f'the practice copy sends no count: no request to /rpc/log_ ({len(reqs)} requests)')
     ctx.close()
     br.close()
 

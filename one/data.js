@@ -11,8 +11,8 @@ import { standing, cleanDesc, spaced, cmteLabel } from './words.js';
 import { codesOf } from '../pub/capitol.js';
 
 // pub/kernel.js SUPABASE_URL and SUPABASE_KEY (the publishable key: it can read only what anon can read).
-const URL_ = 'https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/';
-const KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
+export const URL_ = 'https://eivzjbnygscguqqiiuvh.supabase.co/rest/v1/';
+export const KEY = 'sb_publishable_uvEtw8ru3zB9lDOxAjzrUA_JEFvKyul';
 export const DEMO = new URLSearchParams(location.search).has('demo');
 const DEMO_ASOF = '2026-03-16T09:00:00-10:00';   // pub/kernel.js DEMO_ASOF (the default clock)
 const SNAP = new URL('../demo/snapshot.json?v=20261025b', import.meta.url);   // pub/demo.js: bump both together
