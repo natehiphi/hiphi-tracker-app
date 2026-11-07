@@ -12,10 +12,10 @@
 // Going: a person is marked on ONE of the sitting's rows, and "going" means marked on any of them, which is how every
 // screen reads it. One row and not ten, because the database sends a Slack message for every row an admin sends a
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
-import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks } from './data.js';
+import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks, VB } from './data.js';
 import { codesOf, draftFor, attendees, billById, billSay, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, shareKit, billByRef,
   billRoute, whenAt, lateLine, spanOf, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf, publicResponse } from './model.js';
-import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD, avatar, timeTone } from './ui.js';
+import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD, avatar, timeTone, pathLine } from './ui.js';
 import { teamFirst, filerOf } from './model.js';
 import { legName, partyDist, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
@@ -272,6 +272,14 @@ function backOf(route) {
 }
 
 function pageHTML(c, back) {
+  if (VB) {   // R-365 version B: where you are (path line), a Back that names its place, and every bill a link to its page
+    const lbl = back.label === 'Hearings' ? 'Calendar' : back.label, h = c.h;
+    const path = pathLine([['Calendar', '#/hearings'], [`${committeeName(h.committee) || h.committee} ${isDecision(h) ? 'decision making' : 'hearing'}, ${dayWords(h.scheduled_at)}`]]);
+    const bk = `<a class="hr-deskback vb-back" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc('Back to ' + lbl)}</span></a>`;
+    const card = cardHTML(c);
+    return `<div class="hr-page vb-hearing">${bk}${path}<h1 class="v6-ptitle hr-h1">${esc(nameOf(h))}</h1>
+    ${card}${dueHTML(c, card)}${cancelledHTML(c)}${resultsHTML(c)}${monitoredHTML(c)}${shareHTML(c)}${goingHTML(c)}${linksHTML(c)}${membersHTML(c)}</div>`;
+  }
   const deskback = `<a class="hr-deskback" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>`;
   const card = cardHTML(c);
   return `<div class="hr-page">

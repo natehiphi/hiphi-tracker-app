@@ -16,13 +16,13 @@
 //               members, pathway.js) and Earlier testimony (testimony.js).
 // Team talk is activity.js, Public is public.js. Old links land where the content lives now (TAB_ALIAS, SECTION_OF):
 // #/bill/X/overview and /activity redirect in app.js; /pathway and /testimony open their door.
-import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted } from './data.js';
+import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted, VB } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById,
   unreadCount, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, draftHearing, billRef, streamOf } from './model.js';
 import { personById, SESSION_OVER, SESSION_YEAR } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, ownerOf, empty, toast, openSheet, closeSheet,
-  pickerSheet, menuSheet, confirmSheet, field, keysOn, docBtn } from './ui.js';
+  pickerSheet, menuSheet, confirmSheet, field, keysOn, docBtn, pathLine, vbFinish } from './ui.js';
 import { renderCommittees, wireCommittees } from './pathway.js';
 import { renderActivity, wireActivity, loadTimeline, shortAction, noteByText } from './activity.js';
 import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
@@ -432,18 +432,69 @@ function headHTML(b, route) {
   // (bill.css): the name, then Follow and "…" beside it at every width, so neither takes a row of its own (A-1, R-352).
   return `<header class="bw-head${follow ? ' bw-hasfollow' : ''}">
     <div class="bw-top">
-      <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(o.label)}</span></a>
+      <a class="bw-back" href="${esc(o.href)}" data-back>${icon('chevron-left')}<span>${esc(VB ? vbBackWords(o.label) : o.label)}</span></a>
       ${nb ? `<div class="bw-nav" role="group" aria-label="Move through ${esc(o.label)}">
         ${nb.prev ? `<a class="bw-pn" href="${billHref(nb.prev, tab)}" data-nav="prev" aria-label="Previous bill: ${esc(sayWords(nb.prev))}" title="${esc(sayWords(nb.prev))} ([)">${icon('chevron-left')}<span>Previous</span></a>` : ''}
         <span class="bw-pos">${nb.i + 1} of ${nb.n}</span>
         ${nb.next ? `<a class="bw-pn" href="${billHref(nb.next, tab)}" data-nav="next" aria-label="Next bill: ${esc(sayWords(nb.next))}" title="${esc(sayWords(nb.next))} (])"><span>Next</span>${icon('chevron-right')}</a>` : ''}
       </div>` : ''}
     </div>
-    <div class="bw-titlerow">${editing ? nickForm(b) : `<h1 class="bw-h1${b.nickname ? '' : ' bw-long'}" id="bw-h1" tabindex="-1">${esc(billName(b))}</h1>`}</div>
+    <div class="bw-titlerow">${editing ? nickForm(b) : VB ? vbTitle(b) : `<h1 class="bw-h1${b.nickname ? '' : ' bw-long'}" id="bw-h1" tabindex="-1">${esc(billName(b))}</h1>`}</div>
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
     <div class="bw-fline"><p class="bw-facts">${facts}</p></div>
   </header>`;
+}
+
+
+// ---- R-365 version B: the bill is titled by its number (the issue keeps the words), says which issue it is in, and says the
+// viewer's own part at the top. All of it only under VB. ----
+// the Back names its place: "Back to Calendar", "Back to My issues", "Back to HB 1562"
+const vbBackWords = l => /^Back\b/i.test(l) ? l : `Back to ${l === 'Hearings' ? 'Calendar' : l === 'Issues' ? 'My issues' : l}`;
+const vbIssue = b => issuesOfBill(b.id)[0] || null;
+function vbTitle(b) {
+  const i = vbIssue(b), nm = billName(b), num = numWords(b);
+  return `<div class="vb-btitle"><p class="vb-kind">Bill</p><h1 class="bw-h1 vb-bh1" id="bw-h1" tabindex="-1">${esc(num)}</h1>
+    ${nm && nm !== num && nm !== i?.name ? `<p class="vb-bname">${esc(nm)}</p>` : ''}
+    ${i ? `<p class="vb-in">in <a href="#/issue/${encodeURIComponent(i.id)}?from=${esc(billRef(b))}">${esc(i.name)}</a></p>` : ''}</div>`;
+}
+function vbPath(b) {
+  const i = vbIssue(b);
+  return pathLine([['My issues', '#/issues'], ...(i ? [[i.name, `#/issue/${encodeURIComponent(i.id)}?from=${billRef(b)}`]] : []), [numWords(b)]]);
+}
+// "You: file testimony by Wed 3/18, 7:30 AM" as the one filled button (it takes you to the step card below), or one plain line
+// saying whose it is. The same step the issue page shows (pageStep), the same words the step's own line uses.
+const lowFirst = x => String(x || '').replace(/^[A-Z](?![A-Z])/, c => c.toLowerCase());
+function vbPart(b, s) {
+  if (s?.you && s.line) return `<div class="vb-part is-mine"><button type="button" class="btn primary vb-partgo" data-vbpart="1">${icon('circle-dot')}<span>You: ${nw(esc(lowFirst(s.line)))}</span></button></div>`;
+  const o = ownerOf(b), who = o && o.id !== S.me?.id ? teamFirst(o) : '';
+  const line = who ? `Nothing for you here; ${who} ${s && ['nodraft', 'write', 'submit', 'revise', 'approve', 'second', 'file'].includes(s.kind) ? 'files it' : 'has it'}`
+    : o ? 'Nothing for you here right now' : `Nothing for you here; no one has ${numWords(b)} yet`;
+  return `<p class="vb-part is-none">${icon('circle-check')}<span>${esc(line)}</span></p>`;
+}
+// A step done on this page (the card's buttons are drawn and run by steps.js, which raises a toast with Undo) finishes the
+// way every step does in B: back to Today, with that Undo carried over. Seen through the toast, so steps.js stays as it is.
+let vbArm = 0, vbObs = null;
+const VB_NOT_DONE = new Set(['going', 'take', 'giveto']);
+const VB_WORDS = { filed: 'Testimony filed', file: 'Testimony filed', submit: 'Testimony sent for approval', approve: 'Testimony approved', approved: 'Testimony approved', sendback: 'Sent back', replied: 'Reply logged', log: 'Talk logged' };
+function vbWatch(b) {
+  vbObs?.disconnect(); vbObs = null;
+  const page = document.querySelector('.bw-page'); if (!page) return;
+  page.addEventListener('click', e => { const el = e.target.closest?.('[data-v6act]'); if (el && !VB_NOT_DONE.has(el.dataset.v6act)) { vbArm = Date.now() + 20000; page.dataset.vbAct = el.dataset.v6act; } }, true);
+  const box = document.getElementById('toast'); if (!box) return;
+  const num = numWords(b);
+  vbObs = new MutationObserver(() => {
+    if (Date.now() > vbArm) return;
+    const t = box.querySelector('.toastmsg.yay'); if (!t) return;
+    vbArm = 0; vbObs?.disconnect(); vbObs = null;
+    const said = (t.querySelector(':scope > span')?.textContent || '').trim(), first = said.split(/(?<=[.!])\s/)[0].replace(/[.!]$/, '');
+    const what = /^filed$/i.test(first) ? `Testimony filed for ${num}` : VB_WORDS[page.dataset.vbAct] ? `${VB_WORDS[page.dataset.vbAct]} for ${num}` : (first.includes(num) ? first : `${first || 'Done'} for ${num}`);
+    const un = t.querySelector('.toastundo:not(.toastact)'), undo = un ? () => un.click() : null;
+    // keep the toast's own button alive for the Undo, but do not leave a second message on Today
+    t.style.display = 'none';
+    vbFinish(what, undo);
+  });
+  vbObs.observe(box, { childList: true, subtree: true });
 }
 
 // ---- the tabs (F128): Next step · Team talk · Public, keys 1 to 3, an unread count on Team talk ----
@@ -995,9 +1046,9 @@ export default {
     // is among the chamber's committees (A-14); the other tabs have no step card, so it names them.
     // Two columns from 900px (R-346): the bill, its stage bar, the tabs and the step on the left; the right column
     // (sideHTML) holds the issue, the hearing and who is on it.
-    return `<div class="bw-page bw-two${next ? ' bw-onnext' : ''}" data-bw="${esc(b.id)}">
+    return `<div class="bw-page bw-two${next ? ' bw-onnext' : ''}${VB ? ' vb-bill' : ''}" data-bw="${esc(b.id)}">
       <div class="bw-main">
-      ${headHTML(b, route)}
+      ${VB ? vbPath(b) : ''}${headHTML(b, route)}${VB ? vbPart(b, s) : ''}
       ${trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
       ${tabsNav(b, tab, s)}
       <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${next ? '' : yourStepLine(b, s)}${panel(b, tab)}</div>
@@ -1021,6 +1072,11 @@ export default {
     page.querySelector('[data-bwowner]')?.addEventListener('click', () => pickOwner(b));
     page.querySelector('[data-bwfollow]')?.addEventListener('click', () => toggleFollow(b));
     wireNick(page, b);
+    if (VB) {
+      vbWatch(b);
+      page.querySelector('[data-vbpart]')?.addEventListener('click', () => { const go = () => { const el = document.getElementById('bw-next-h')?.closest('section') || document.querySelector('.bw-next'); el?.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' }); el?.querySelector('button, a')?.focus({ preventScroll: true }); };
+        if (tab !== 'overview') { switchTab('overview'); setTimeout(go, 150); } else go(); });
+    }
     wireTracker(page, b);
     page.querySelector('.bw-side [data-coal]')?.addEventListener('click', () => editCoalitions(b));
     // Previous / Next replace this entry, so Back still goes to the list.
