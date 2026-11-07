@@ -7,7 +7,7 @@
 // as pub/demo.js shapes it, without the tracker's kernel. The snapshot is one file, so it is fetched whole, with
 // the same ?v= key as pub/demo.js so a browser that opened the tracker's practice copy already has it, and only this bill's
 // rows are kept.
-import { standing, cleanDesc, spaced } from './words.js';
+import { standing, cleanDesc, spaced, cmteLabel } from './words.js';
 import { codesOf } from '../pub/capitol.js';
 
 // pub/kernel.js SUPABASE_URL and SUPABASE_KEY (the publishable key: it can read only what anon can read).
@@ -59,18 +59,22 @@ function shape(b, { hearings, outcomes, committees, deadlines, others, issues, n
   const stand = standing(b, W, sameIdeaLaw(b, others, id => byId.get(id)?.name));
   const st = stand.st, summary = String(b.hiphi_summary || cleanDesc(b.description) || '').replace(/\s+/g, ' ').trim();
   const cmte = st.committee ? { code: st.committee, chairs: codesOf(st.committee).map(k => W.committees[k]).filter(c => c && c.chair)
-    .map(c => ({ name: c.chair, chamber: c.chamber, committee: c.name })) } : null;
+    .map(c => ({ name: c.chair, chamber: c.chamber, committee: c.name, code: c.code })), label: cmteLabel(st.committee, W) } : null;
   return {
     id: b.id, number: b.bill_number, numberSpaced: spaced(b.bill_number), year: +b.session_year,
     nickname: b.hiphi_nickname || '', title: b.title || '', summary,
     position: POSITION(b.hiphi_position), positionRaw: b.hiphi_position || null,
     over: stand.over, action: stand.action, lines: stand.lines,
     hearing: st.hearingState === 'scheduled' ? { id: st.hearing.id, at: st.hearing.scheduled_at, deadline: st.hearing.testimony_deadline || null,
-      committee: st.hearing.committee, room: st.hearing.room || '' } : null,
+      committee: st.hearing.committee, room: st.hearing.room || '', label: cmteLabel(st.hearing.committee, W), joint: codesOf(st.hearing.committee).length > 1,
+      // who a testimony letter greets: every chair, then every vice chair, of a joint hearing too (helper.js greeting)
+      members: [...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.chair).map(c => ({ role: 'chair', name: c.chair, chamber: c.chamber })),
+        ...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.vice_chair).map(c => ({ role: 'vice_chair', name: c.vice_chair, chamber: c.chamber }))] } : null,
     committee: cmte,
     points: b.hiphi_points || [],   // HIPHI's talking points, for part 2's letter
     issue: issue ? { slug: issue.slug, category: issue.category, name: issue.name } : null,
     capitolUrl: capitolUrl(b),
+    current: b.current_version || '',   // the draft a letter was written for (letters.js keeps it with the letter)
   };
 }
 
@@ -103,7 +107,7 @@ async function demo(num) {
   for (const r of snap.billIssues || []) (issueOf[r.bill_id] ??= []).push(r.issue_id);
   const asPublic = b => ({ id: b.id, bill_number: b.bill_number, session_year: b.session_year, chamber: b.chamber, title: b.title, description: b.description,
     committee: b.committee, referrals: b.referrals, stage: b.stage, last_action: b.last_action, last_action_date: b.last_action_date, status_text: b.status_text,
-    companions: b.companions, origin_stops: b.origin_stops, second_stops: b.second_stops, died_deadline: b.died_deadline, died_at_stage: b.died_at_stage,
+    current_version: b.current_version, companions: b.companions, origin_stops: b.origin_stops, second_stops: b.second_stops, died_deadline: b.died_deadline, died_at_stage: b.died_at_stage,
     hiphi_position: b.position, hiphi_summary: b.public_summary, hiphi_nickname: b.is_public ? b.nickname || null : null,
     hiphi_points: b.is_public && b.talking_points?.length ? b.talking_points : null,
     hiphi_issues: b.position && b.position !== 'monitor' ? issueOf[b.id] || null : null });
@@ -120,4 +124,16 @@ export function loadBill(num, year = null) {
   const n = String(num || '').replace(/\s/g, '').toUpperCase();
   if (!/^[A-Z]{2,3}\d{1,5}$/.test(n)) return Promise.resolve(null);
   return DEMO ? demo(n) : live(n, year);
+}
+
+// The lawmakers' directory, for the write and send screens only: a chair's surname as the Capitol says it (sort_name knows
+// "San Buenaventura" is two words, P0.9) and their email address. Live: one public view (public_legislators), asked for
+// once; the practice copy has it in the snapshot. A failure gives [] and the letter falls back to the last word of the
+// name and the Capitol's address pattern (core.js chairEmail).
+let peopleP = null;
+export function loadPeople() {
+  peopleP ??= (DEMO ? (snapP ??= fetch(SNAP, { cache: 'force-cache' }).then(r => r.json())).then(s => s.legislators || [])
+    : get('public_legislators?select=chamber,name,sort_name,email')).then(rows => rows.map(l => ({ chamber: l.chamber, name: l.name, sort_name: l.sort_name || '', email: l.email || '' })))
+    .catch(() => { peopleP = null; return []; });
+  return peopleP;
 }
