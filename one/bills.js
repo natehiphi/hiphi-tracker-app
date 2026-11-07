@@ -16,6 +16,7 @@ import { DEMO } from './data.js';
 import { esc, header, keepHyphens } from './bill.js';
 import { sendBy, capitolWeek } from './words.js';
 import { tabs } from './tabs.js';
+import { followChanged } from './auth.js';
 
 export const ISSUES_KEY = DEMO ? 'hiphi_issue_follows_demo' : 'hiphi_issue_follows';
 export const CATS_KEY = DEMO ? 'hiphi_cat_follows_demo' : 'hiphi_cat_follows';
@@ -25,15 +26,17 @@ export const followed = i => readSet(ISSUES_KEY).has(i.id) || i.categories.some(
 // As pub/core.js unfollowIssue: an issue followed through its whole topic stops the topic and keeps its other issues.
 // Following anything at all (This week, part 5: a returning person lands there).
 export const followsAny = () => readSet(ISSUES_KEY).size > 0 || readSet(CATS_KEY).size > 0;
-function setFollow(i, on, L) {
-  const is = readSet(ISSUES_KEY), cs = readSet(CATS_KEY);
+// Signed in (R-360 part 7), the account follows too (issue_follows, category_follows, as pub/kernel.js setFollows).
+export function setFollow(i, on, L) {
+  const is = readSet(ISSUES_KEY), cs = readSet(CATS_KEY), was = new Set(is), delC = [];
   if (on) is.add(i.id);
   else {
     is.delete(i.id);
-    for (const c of i.categories.filter(c => cs.has(c))) { cs.delete(c); for (const x of L.issues) if (x.id !== i.id && x.categories.includes(c)) is.add(x.id); }
+    for (const c of i.categories.filter(c => cs.has(c))) { cs.delete(c); delC.push(c); for (const x of L.issues) if (x.id !== i.id && x.categories.includes(c)) is.add(x.id); }
     writeSet(CATS_KEY, cs);
   }
   writeSet(ISSUES_KEY, is);
+  followChanged({ addI: [...is].filter(x => !was.has(x)), delI: [...was].filter(x => !is.has(x)), delC });
 }
 
 // What the screen remembers, so Back from a bill, or a reload, finds it as it was (B-6): the search, the topic, the issues

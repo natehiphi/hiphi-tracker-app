@@ -13,7 +13,8 @@ import { HST } from './words.js';
 import { draftFor, keepDraft, isMail, loadMe } from './write.js';
 import { mailTo, mailSubject, sendLinks, stanceOf } from './letter.js';
 import { countSent } from './counts.js';
-import { markDone } from './done.js';
+import { markDone, doneKeys } from './done.js';
+import { sentToAccount } from './auth.js';
 import { later } from './later.js';
 
 const FORM_WORD = { support: 'Support', oppose: 'Oppose', comments: 'Comments' };
@@ -76,7 +77,7 @@ export async function copyText(text) {
 // Recorded as the walkthrough records it, so the full tracker knows: the done mark (core.js markDone: hiphi_done, and when
 // in hiphi_done_at; the practice copy's own keys), the chair's ask mark for an email (core.js askMark), and the letter kept
 // for the bill's next step (letters.js keepLetter: hiphi_me.letters, the bill's id for testimony, "email:<id>" for an email).
-// A signed-in person's account learns of it when they next open the tracker on this device; this page signs no one in.
+// A signed-in person's account learns of it at once (auth.js sentToAccount); signed out, at their next sign-in.
 export function recordSent(B, x) {
   const mail = isMail(B), now = new Date().toISOString();
   markDone(B, now);
@@ -90,6 +91,8 @@ export function recordSent(B, x) {
     m.letters = { ...(m.letters || {}), [mail ? 'email:' + B.id : B.id]: keep };
     localStorage.setItem('hiphi_me', JSON.stringify(m));
   } catch { /* kept for this visit only */ }
+  // Signed in (R-360 part 7): the account learns of it at once too, as the tracker records it (public_actions, my_letters).
+  sentToAccount(keep, doneKeys(B), now);
 }
 
 // Every timer here goes through later() (one/later.js): it redraws only while this send screen is still the one showing,

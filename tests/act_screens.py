@@ -13,6 +13,9 @@
 # Fix pass 2 (R-360): one deadline wording everywhere ("Send testimony by ..."), "Hearing" for hearings ahead, every hearing
 # reachable on This week (Show N more hearings), Back links that go back in the history, Bills remembered across a reload,
 # the bill lighting the tab it came from, no "Part of" when the names match, amber only within 24 hours.
+# Part 7: You (#/you), the fourth tab: signed out, the email box and one primary; the practice sign-in (a fake account in
+# sessionStorage) and its sections in order; saves reaching Write, Bills' follows, a sent letter, the in-page delete confirm,
+# Sign out and the merge at sign-in. Saves part7-you-out and part7-you-in (390x844).
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -228,7 +231,7 @@ with sync_playwright() as p:
       while (w.nextNode()) { const r = document.createRange(); r.selectNodeContents(w.currentNode); if (inView(r.getBoundingClientRect())) words += w.currentNode.textContent.trim().split(/\\s+/).filter(Boolean).length; }
       return { taps, words }; }""")
     ok(budget['taps'] <= 12 and budget['words'] <= 130, f'the first screenful: at most 12 things to tap and about 130 words, tab bar aside ({budget})')
-    ok(pg.locator('.tabs a').count() == 3 and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Bills' and pg.locator('.tabs').is_visible(), 'the tab bar shows on Bills, with Bills current')
+    ok(pg.locator('.tabs a').count() == 4 and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Bills' and pg.locator('.tabs').is_visible(), 'the tab bar shows on Bills, with Bills current')
     ok('vape' not in pg.content().lower(), 'Bills: no "vape"')
     sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
     ok(sw[0] <= sw[1], f'Bills: no sideways scroll at 390 ({sw})')
@@ -508,6 +511,124 @@ with sync_playwright() as p:
     ok(pg.locator('.chips').evaluate('e => getComputedStyle(e).flexWrap') == 'wrap' and last['x'] + last['width'] <= cr['x'] + cr['width'] + 1, 'laptop: the topic chips wrap, so a mouse reaches every one (fix 13, A-9)')
     ctx.close()
     ok(not errs6, f'part 6: no page errors {errs6[:2]}')
+    # ---- Part 7: You (#/you), the fourth tab: signing in and the person's profile, in the practice copy's fake account ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page(); errs7 = []; dialogs = []
+    pg.on('pageerror', lambda e: errs7.append(str(e))); pg.on('dialog', lambda d: (dialogs.append(d.message), d.dismiss()))
+    TAPS = """() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
+      return [...document.querySelectorAll('#app a, #app button, #app input, #app select')].filter(e => !e.closest('.tabs') && inView(e.getBoundingClientRect())).length; }"""
+    width = lambda: pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    fake = lambda: pg.evaluate("JSON.parse(sessionStorage.getItem('hiphi_act_fake') || 'null')")
+    def open_you(signed_in):
+        pg.goto(BASE + '#/you'); pg.wait_for_selector('#y-about' if signed_in else '#y-email', timeout=60000); pg.evaluate(FONTS)
+    def tabs4(where):
+        ok(pg.locator('.tabs a').count() == 4 and [x.strip() for x in pg.locator('.tabs a').all_inner_texts()] == ['Home', 'Bills', 'This week', 'You'], f'{where}: the tab bar has four tabs, Home · Bills · This week · You')
+    open_you(False)
+    ok(pg.locator('h1').inner_text().strip() == 'You' and pg.locator('.lede').inner_text().strip() == 'Sign in to keep your issues and letters on every device.', 'You, signed out: the heading and its one line')
+    ok(pg.locator('#y-email').get_attribute('type') == 'email' and pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Email me a sign-in link', 'signed out: the email box and one primary, "Email me a sign-in link"')
+    ok(pg.locator('[data-act="practice"]').inner_text().strip() == 'Practice: sign in as a tester', 'the practice copy offers "Practice: sign in as a tester"')
+    tabs4('You'); ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'You', 'the You tab is current')
+    n = pg.evaluate(TAPS); ok(n <= 8, f'signed out: at most 8 things to tap in the first screenful ({n})')
+    ok(width()[0] <= width()[1] and 'vape' not in pg.content().lower(), f'signed out: no sideways scroll at 390, no "vape" ({width()})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part7-you-out.png'))
+    pg.click('.primary'); pg.wait_for_selector('#y-email-err', timeout=3000)
+    ok('name@example.com' in pg.locator('#y-email-err').inner_text() and pg.evaluate('document.activeElement.id') == 'y-email', 'no email: a plain error under the box, the focus in it (C-9)')
+    pg.fill('#y-email', 'leilani@example.com'); pg.click('.primary'); pg.wait_for_selector('.sentbox', timeout=5000)
+    sb = pg.locator('.sentbox').inner_text()
+    ok('Check your email for the link. It’s from HIPHI Bill Tracker.' in sb and 'leilani@example.com' in sb and 'Practice: no email is sent' in pg.locator('body').inner_text(), 'after the link: "Check your email for the link...", the address, and that the practice copy sent none')
+    pg.click('[data-act="other"]'); pg.wait_for_selector('#y-email', timeout=3000)
+    ok(True, '"Use a different email" brings the box back')
+    pg.set_viewport_size({'width': 320, 'height': 640}); open_you(False)
+    ok(width()[0] <= width()[1], f'signed out: no sideways scroll at 320 ({width()})')
+    pg.set_viewport_size({'width': 390, 'height': 844}); open_you(False)
+
+    # The practice sign-in. Before it, this device follows nothing and has written no letter.
+    pg.click('[data-act="practice"]'); pg.wait_for_selector('#y-about', timeout=10000); pg.evaluate(FONTS)
+    hs = [x.strip() for x in pg.locator('main h2').all_inner_texts()]
+    ok(hs == ['About you', 'Email', 'Alerts', 'Your issues', 'Your letters', 'Phone (optional)'], f'signed in: the sections in order ({hs})')
+    ok(pg.locator('[data-act="signout"]').count() == 1 and pg.locator('[data-act="del"]').inner_text().strip() == 'Delete my data', 'then a quiet Sign out and Delete my data')
+    ok(pg.locator('#y-mail .addr').inner_text() == 'tester@example.com', 'Email shows the account’s email')
+    ok(pg.locator('.primary').count() <= 1, f'signed in: at most one primary ({pg.locator(".primary").count()})')
+    n = pg.evaluate(TAPS); ok(n <= 8, f'signed in: at most 8 things to tap in the first screenful ({n})')
+    ok('Email me when a bill on one of my issues gets a hearing' in pg.locator('#y-alerts').inner_text() and 'Email me when HIPHI has an update or a way to help' in pg.locator('#y-alerts').inner_text()
+       and 'Every email has a one-click unsubscribe.' in pg.locator('#y-alerts').inner_text(), 'Alerts: the tracker’s own consent words')
+    ok('HIPHI lets you know when your voice matters most.' in pg.locator('#y-phone').inner_text() and 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' in pg.locator('#y-phone').inner_text(), 'Phone: the text box’s own consent words (t5)')
+    ok(not pg.locator('main [required]').count(), 'no field is required')
+    tabs4('You signed in')
+    ok(width()[0] <= width()[1] and 'vape' not in pg.content().lower(), f'signed in: no sideways scroll at 390, no "vape" ({width()})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part7-you-in.png'))
+
+    # About you: the name and town saved, then Write signs with them.
+    pg.fill('#y-name', 'Kai Kealoha'); pg.fill('#y-town', 'Waimea'); pg.click('[data-save="about"]')
+    pg.wait_for_function("() => (document.querySelector('#y-about-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    f = fake(); me = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}')")
+    ok(f['name'] == 'Kai Kealoha' and f['prefs'].get('town') == 'Waimea' and me.get('name') == 'Kai Kealoha' and me.get('town') == 'Waimea', 'Save: the name and town on the account (town in prefs) and on this device, with "Saved."')
+    pg.goto(BASE + '#/HB2121/write'); pg.wait_for_selector('#w-letter', timeout=30000)
+    ok(pg.locator('#w-name').input_value() == 'Kai Kealoha' and pg.locator('#w-town').input_value() == 'Waimea' and 'My name is Kai Kealoha, and I live in Waimea.' in pg.locator('#w-letter').input_value(), 'Write is filled in with the saved name and town')
+
+    # Following on Bills shows under Your issues, and the account follows it.
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=30000); tabs4('Bills')
+    fb = pg.locator('#b-res [data-follow][aria-pressed="false"]').first; iid = fb.get_attribute('data-follow')
+    iname = pg.locator(f'#b-res .isec:has([data-follow="{iid}"]) h3').inner_text().strip()
+    fb.click(); pg.wait_for_selector(f'#b-res [data-follow="{iid}"][aria-pressed="true"]', timeout=3000)
+    pg.wait_for_function(f"() => (JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{{}}').follows || []).includes('{iid}')", timeout=5000)
+    ok(True, f'Follow on Bills reaches the account ({iname})')
+    pg.locator('.tabs a[data-tab="you"]').click(); pg.wait_for_selector('#y-issues', timeout=10000)
+    ok(iname in pg.locator('#y-issues').inner_text() and pg.locator(f'#y-issues [data-follow="{iid}"]').get_attribute('aria-pressed') == 'true', 'You: the issue is under Your issues, Following')
+    ok(pg.locator(f'#y-levels select[data-level="{iid}"]').count() == 1 and 'Alerts for each issue' in pg.locator('#y-levels').inner_text()
+       and pg.locator(f'#y-levels select[data-level="{iid}"]').input_value() == 'big', 'Alerts: the issue’s level, Big moments only to start')
+    pg.select_option(f'#y-levels select[data-level="{iid}"]', 'every'); pg.wait_for_function("() => (document.querySelector('#y-lv-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    ok(fake()['levels'].get(iid) == 'every', 'the level is kept on the account (set_issue_alert_level’s practice twin)')
+    pg.check('#y-hear'); pg.click('[data-save="emails"]'); pg.wait_for_function("() => (document.querySelector('#y-emails-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    pr = fake()['prefs']; ok(pr.get('hearing_alerts') is True and pr.get('action_alerts') is False and pr.get('consent_source') == 'profile' and pr.get('town') == 'Waimea', 'Alerts: Save keeps the choices with where they were given, and the town stays')
+    pg.locator(f'#y-issues [data-follow="{iid}"]').click(); pg.wait_for_selector(f'#y-issues [data-follow="{iid}"][aria-pressed="false"]', timeout=3000)
+    pg.wait_for_function(f"() => !(JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{{}}').follows || []).includes('{iid}')", timeout=5000)
+    ok(pg.locator(f'#y-levels select[data-level="{iid}"]').count() == 0, 'Following pressed on You stops it, here and on the account, and the row stays to follow again')
+    pg.locator(f'#y-issues [data-follow="{iid}"]').click(); pg.wait_for_selector(f'#y-issues [data-follow="{iid}"][aria-pressed="true"]', timeout=3000)
+
+    # A sent letter shows under Your letters, and the account has it and the action.
+    pg.goto(BASE + '#/HB2121/send'); pg.wait_for_selector('[data-sent]', timeout=30000)
+    pg.click('[data-capitol]'); pg.wait_for_selector('[data-sent].primary', timeout=5000); pg.click('[data-sent]')
+    pg.wait_for_function("() => /\\/thanks$/.test(location.hash)", timeout=10000)
+    pg.wait_for_function("() => Object.keys(JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{}').letters || {}).length > 0", timeout=5000)
+    f = fake(); ok(any(a['key'].endswith('|testimony') for a in f['actions']) and len(f['letters']) == 1, 'Yes, I sent it: the account has the action and the letter (public_actions, my_letters)')
+    pg.goto(BASE + '#/you'); pg.wait_for_selector('#y-letters [data-letter]', timeout=30000)
+    ok('Letter on HB 2121' in pg.locator('#y-letters').inner_text(), 'You: the letter is under Your letters')
+    pg.locator('#y-letters [data-letter]').first.click(); pg.wait_for_selector('#y-letters textarea', timeout=3000)
+    ok('Kai Kealoha' in pg.locator('#y-letters textarea').input_value(), 'opening it shows the letter to read')
+    pg.locator('#y-letters [data-del]').click(); pg.wait_for_selector('#y-letters [data-undo]', timeout=3000)
+    ok(pg.locator('#y-letters [data-letter]').count() == 0 and 'is deleted. The Capitol still has the one you sent.' in pg.locator('#y-letters').inner_text() and not fake()['letters']
+       and not pg.evaluate("Object.keys(JSON.parse(localStorage.getItem('hiphi_me') || '{}').letters || {}).length"), 'Delete: gone from the list, this device and the account, with Undo')
+    pg.locator('#y-letters [data-undo]').click(); pg.wait_for_selector('#y-letters [data-letter]', timeout=3000)
+    ok(len(fake()['letters']) == 1, 'Undo brings it back')
+
+    # Email change and the number, in the practice copy.
+    pg.click('[data-act="mail"]'); pg.wait_for_selector('#y-newmail', timeout=3000); pg.fill('#y-newmail', 'kai@example.com'); pg.click('[data-save="mail"]')
+    pg.wait_for_function("() => /Practice: no email is sent/.test(document.querySelector('#y-mail')?.innerText || '')", timeout=5000)
+    ok(True, 'Change email: in place, and the practice copy says no email was sent')
+    pg.fill('#y-tel', '808 555 0123'); pg.click('[data-save="phone"]'); pg.wait_for_function("() => /Almost set/.test(document.querySelector('#y-phone')?.innerText || '')", timeout=5000)
+    ok('Almost set. We’ll text (808) 555-0123 to confirm it’s your number.' in pg.locator('#y-phone').inner_text(), 'Phone: kept, in the tracker’s words for a number not yet confirmed')
+
+    # Delete my data: the confirm is on the page, never a browser pop-up; Keep my account puts it away.
+    pg.click('[data-act="del"]'); pg.wait_for_selector('.confirm', timeout=3000)
+    ok(pg.locator('.confirm').is_visible() and 'Delete your account for good?' in pg.locator('.confirm').inner_text() and 'It can’t be undone.' in pg.locator('.confirm').inner_text() and not dialogs, 'Delete my data: an in-page confirm with the tracker’s words, no pop-up')
+    pg.click('[data-act="del-no"]'); pg.wait_for_selector('[data-act="del"]', timeout=3000); ok(pg.locator('.confirm').count() == 0, 'Keep my account closes it')
+    pg.set_viewport_size({'width': 320, 'height': 640})
+    ok(width()[0] <= width()[1], f'signed in: no sideways scroll at 320 ({width()})')
+    pg.set_viewport_size({'width': 390, 'height': 844})
+
+    # Sign out: the signed-out screen, the profile off this device, the follows kept.
+    pg.click('[data-act="signout"]'); pg.wait_for_selector('#y-email', timeout=5000)
+    me = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}')")
+    ok('You’re signed out.' in pg.locator('main').inner_text() and fake() is None and not me.get('name') and iid in pg.evaluate("localStorage.getItem('hiphi_issue_follows_demo') || ''"), 'Sign out: back to the signed-out screen, the profile off this device, the follows kept here')
+    # Signing in again: what this device follows joins the (new, empty) account (loadUser's merge).
+    pg.click('[data-act="practice"]'); pg.wait_for_selector('#y-about', timeout=10000)
+    ok(iid in (fake().get('follows') or []) and iname in pg.locator('#y-issues').inner_text(), 'sign-in: the issues followed on this device join the account')
+    pg.click('[data-act="del"]'); pg.wait_for_selector('[data-act="del-yes"]', timeout=3000); pg.click('[data-act="del-yes"]'); pg.wait_for_selector('#y-email', timeout=5000)
+    ok('Your account is deleted. Mahalo for speaking up.' in pg.locator('main').inner_text() and fake() is None and not pg.evaluate("localStorage.getItem('hiphi_issue_follows_demo')"), 'Yes, delete my account: signed out, and this device’s copies gone')
+    for h, sel in (('#/', '#main.home:not([aria-busy]) .pick'), ('#/week', '#main.week:not([aria-busy])'), ('#/HB2121', '.primary')):
+        pg.goto(BASE + h); pg.wait_for_selector(sel, timeout=30000); tabs4(h)
+    ok(not errs7 and not dialogs, f'part 7: no page errors {errs7[:2]}')
+    ctx.close()
     br.close()
 
     # The failed load (B-8): the snapshot cannot be fetched, so the page says so and offers Try again.
