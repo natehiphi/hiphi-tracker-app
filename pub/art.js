@@ -279,3 +279,28 @@ const ARTV = 2;   // bump when a drawing changes, so phones fetch the new one
 export const issueBand = (iss, demo = false) => iss?.slug && ISSUE_ART[iss.slug] && (demo || ISSUE_ART_LIVE)
   ? `<img class="art art-band art-issue" src="${new URL(`issue-art/${iss.slug}.svg?v=${ARTV}`, import.meta.url)}" alt="" decoding="async" style="background:${ISSUE_ART[iss.slug]}">`
   : issueScene(iss?.category);
+
+// ---- R-363: the small per-issue marks ----
+// A mark is one flat object on a disc in its topic's colours (backend docs/requests/R-363-marks/BRIEF.md): the issue's row in a
+// list at 28px on a phone and 36px on a laptop, 44px beside the bill number on the one-thing card. pub/issue-marks/<slug>.svg, and
+// marks.json (slug -> topic) says which issues have one, so an issue without a mark draws no slot at all (no empty circle).
+// Version 3 and the practice copy show them; the current app never calls this, and MARKS_LIVE turns true on Nate's yes.
+const MARKS_LIVE = false;
+const MARKV = 1;   // bump when a mark changes, so phones fetch the new one
+const MARKS_ON = () => MARKS_LIVE || /[?&](demo|v3)=1(&|$)/.test(location.search);
+// The disc behind the mark while its file loads, by the issue's topic (the tints in R-363-marks/base.js).
+const MARK_TINT = { food: '#E6F3DC', tobacco: '#E7EAF6', care: '#FBE6E3', family: '#F0E6F4', around: '#E2F2F8', climate: '#DFF2EE' };
+let MARKS = null, marksP = null;
+// marks.json once a visit, cached; a failed fetch counts as no marks, so a screen never waits on it twice.
+export const loadMarks = () => marksP ||= (MARKS_ON()
+  ? fetch(new URL(`issue-marks/marks.json?v=${MARKV}`, import.meta.url)).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  : Promise.resolve({})).then(j => (MARKS = j && typeof j === 'object' ? j : {}));
+// The mark for an issue, or '' when it has none (or marks.json is not in yet: the v3 screens await loadMarks() first).
+// Lazy and async-decoded: Find has about 100 rows. Decorative (alt=""): the row's words name the issue.
+export const issueMark = (iss, { size = 28 } = {}) => {
+  if (!iss?.slug || !MARKS_ON()) return '';
+  if (!MARKS) { loadMarks(); return ''; }
+  if (!MARKS[iss.slug]) return '';
+  const tint = MARK_TINT[iss.category] || MARK_TINT[MARKS[iss.slug]] || '#EEF1F3', n = +size || 28;
+  return `<img class="art art-mark" src="${new URL(`issue-marks/${iss.slug}.svg?v=${MARKV}`, import.meta.url)}" alt="" width="${n}" height="${n}" loading="lazy" decoding="async" style="background:${tint};border-radius:50%">`;
+};

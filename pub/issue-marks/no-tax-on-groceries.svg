@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="food">
+<circle cx="32" cy="32" r="32" fill="#E6F3DC"/>
+<path d="M12 22 H44 L42 52 H14 Z" fill="#4F8F3A"/>
+    <path d="M12 22 H44 L43.5 28 H12.5 Z" fill="#36692A"/>
+    <path d="M20 22 V18 a8 8 0 0 1 16 0 V22" fill="none" stroke="#36692A" stroke-width="4"/>
+    <circle cx="44" cy="22" r="10" fill="#F4B223"/>
+    <circle cx="44" cy="22" r="4" fill="#FFFFFF"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="food">
+<circle cx="32" cy="32" r="32" fill="#E6F3DC"/>
+<ellipse cx="29" cy="31" rx="17" ry="21" fill="#4F8F3A"/>
+    <ellipse cx="29" cy="32" rx="12" ry="16" fill="#F4B223"/>
+    <ellipse cx="29" cy="36" rx="7" ry="9" fill="#36692A"/>
+    <circle cx="27" cy="33" r="2" fill="#FFFFFF"/><circle cx="31" cy="37" r="2" fill="#FFFFFF"/><circle cx="28" cy="40" r="2" fill="#FFFFFF"/>
+    <circle cx="47" cy="44" r="8" fill="#F4B223"/><circle cx="47" cy="44" r="3.5" fill="#FFFFFF"/>
+</svg>

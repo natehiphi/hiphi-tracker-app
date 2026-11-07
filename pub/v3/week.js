@@ -14,6 +14,9 @@ import { skeleton, btn } from '../ui.js';
 import { recSec, recRow, BOX, keep } from '../rec/kit.js';
 import { myRows } from '../calm/home.js';
 import { oneThing, cardHtml, wireCard } from './pick.js';
+import { issueMark, loadMarks } from '../art.js';
+
+await loadMarks();   // which issues have a mark (R-363), before the first row is drawn
 
 const ROWS = 10, DAY = 864e5;
 const noon = day => Date.parse(day + 'T12:00:00-10:00');
@@ -51,7 +54,7 @@ function yourIssues(o) {
     if (!id || !r.i || r.g !== 'due' || !issueBills(r.i).includes(id)) return r;
     const more = /, and (\d+) more this week$/.exec(r.text || '');
     return more ? { ...r, text: `Your one thing, above, and ${more[1]} more this week`, warn: false } : null;   // a row saying only "above" says nothing
-  }).filter(Boolean);
+  }).filter(Boolean).map(r => { const m = r.i ? issueMark(r.i, { size: 28 }) : ''; return m ? { ...r, leadHtml: m } : r; });   // an issue's mark at its left (R-363)
   return recSec('v3w-iss-h', 'Your issues', `${rows.length ? `<ul class="rc-rows ${BOX}" role="list">${rows.map(recRow).join('')}</ul>` : ''}${change}`);
 }
 // The hearings, never cut silently (B-3): the first ten rows show, the rest wait behind "Show N more hearings", and the one thing's

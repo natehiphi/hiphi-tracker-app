@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="climate">
+<circle cx="32" cy="32" r="32" fill="#DFF2EE"/>
+<rect x="29" y="40" width="6" height="14" fill="#1F665A"/>
+    <rect x="10" y="12" width="44" height="30" rx="5" fill="#2E8B7A"/>
+    <rect x="15" y="17" width="34" height="20" rx="2" fill="#FFFFFF"/>
+    <circle cx="32" cy="25" r="6" fill="#1F665A"/>
+    <rect x="30" y="28" width="4" height="8" fill="#1F665A"/>
+    <circle cx="32" cy="25" r="2" fill="#FFFFFF"/>
+</svg>

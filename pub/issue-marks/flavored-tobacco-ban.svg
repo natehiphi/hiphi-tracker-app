@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="tobacco">
+<circle cx="32" cy="32" r="32" fill="#E7EAF6"/>
+<rect x="22" y="12" width="6" height="14" rx="1" fill="#FFFFFF"/>
+    <rect x="35" y="12" width="6" height="14" rx="1" fill="#FFFFFF"/>
+    <rect x="17" y="24" width="30" height="30" rx="4" fill="#4A5D9E"/>
+    <path d="M17 28 a4 4 0 0 1 4 -4 H43 a4 4 0 0 1 4 4 V32 H17 Z" fill="#344478"/>
+    <rect x="17" y="42" width="30" height="6" fill="#FFFFFF"/>
+</svg>

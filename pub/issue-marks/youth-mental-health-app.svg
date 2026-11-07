@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="care">
+<circle cx="32" cy="32" r="32" fill="#FBE6E3"/>
+<rect x="18" y="10" width="28" height="44" rx="6" fill="#953D34"/>
+    <rect x="21" y="16" width="22" height="32" rx="2" fill="#FFFFFF"/>
+    <rect x="23" y="21" width="18" height="14" rx="5" fill="#C2554A"/>
+    <path d="M26 33 L26 41 L34 34 Z" fill="#C2554A"/>
+</svg>

@@ -19,3 +19,9 @@
 .v3c-time { margin: var(--s8) 0 0; text-align: center; font-size: var(--t14); color: var(--n700); }
 .v3-empty .v3c-calm { margin: 0; color: var(--n700); }
 .v3c-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; }
+
+/* An issue's mark (R-363, pub/art.js issueMark): one flat object on its topic's disc. The base rule is here for Home and This week (Find,
+   which does not load this sheet, has its own in bills.css; the mark's round shape is also on the img itself); each place sets its own size (28px in a phone's rows, 36px on a laptop, 44px on the card). The tinted
+   background is the empty disc while the file loads; a row whose issue has no mark draws no slot at all. */
+body.v3 img.art-mark { display: block; flex: none; width: 28px; height: 28px; border-radius: 50%; object-fit: contain; }
+body.v3 .v3c-meta .art-mark { width: 44px; height: 44px; }

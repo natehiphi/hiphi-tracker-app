@@ -4,7 +4,8 @@
 #       'arrive' / 'view' (visitlog.js; read here from the sandbox's debug line)
 #     - exactly one filled button (.btn.primary, the card's, A-3); the card's heading starts within 400px at 390x844 (A-1); at most 15 kinds of
 #       control on the first screenful (A-2, density.py's count)
-#     - four issue rows, each opening #/issue/<slug>, the card's own issue not among them; "Choose your issues" (outlined) opens #/start/1; "See all issues" opens #/find
+#     - no group drawing at the top (R-363); four issue rows, each opening #/issue/<slug>, the card's own issue not among them, a row
+#       whose issue has a mark shows it at 28px and a row without one no slot (R-363, marks.json held to a fixed map); "Choose your issues" (outlined) opens #/start/1; "See all issues" opens #/find
 #     - Find, then the Home tab, comes back to #/ and the door
 #   The returner, who follows issues (compare.html's Kai):
 #     - "Aloha, Kai." and one line; the card; at most two plain lines (.v3h-line); "See this week" to #/bills; no pager (.cm-pager), no slide,
@@ -80,7 +81,7 @@ with sync_playwright() as p:
     ok(card and card not in rows, f"door: the card's issue ({card}) is not among the rows")
     ok(pg.locator('#main .v3h-pick .btn.secondary[href="#/start/1"]').count() == 1, "door: Choose your issues is outlined and goes to #/start/1")
     ok(pg.locator('#main .v3h-all a[href="#/find"]').count() == 1, "door: See all issues goes to #/find")
-    ok(pg.locator('#main .v3h-art svg.art-hello').count() == 1, "door: the HELLO drawing is drawn")
+    ok(pg.locator('#main .v3h-art, #main svg.art-hello').count() == 0, "door: no group drawing at the top (R-363: it went, the heading moves up)")
     pg.screenshot(path=os.path.join(OUT, 'door_390.png'), full_page=True)
     ctx.close()
 
@@ -106,6 +107,23 @@ with sync_playwright() as p:
     pg.click('nav.tabs a[href="#/find"]'); pg.wait_for_timeout(1200)
     pg.click('nav.tabs a[href="#/"]'); pg.wait_for_selector('#main .v3h', timeout=20000); pg.wait_for_timeout(500)
     ok(pg.evaluate("location.hash") in ('#/', '') and pg.locator('#main .v3h-door').count() == 1, f"door: Find then Home stays on {pg.evaluate('location.hash')!r} with the door")
+    ctx.close()
+
+    # ---- the issue marks (R-363, pub/art.js issueMark) ----
+    # marks.json is held to a fixed map here, the first door row's issue having a mark and the others none, so the check does not change
+    # as the marks ship: the row with one shows an img.art-mark 28px wide at 390, a row without one has no empty slot.
+    ctx, pg = open_home(br, size(390, 844))
+    first = pg.eval_on_selector('#main .v3h-row', "a => a.dataset.v3hIssue"); ctx.close()
+    ctx = br.new_context(**size(390, 844))
+    ctx.add_init_script("Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:()=>true});")
+    ctx.route('**/issue-marks/marks.json*', lambda r: r.fulfill(status=200, content_type='application/json', body='{"%s": "food"}' % first))
+    ctx.route(f'**/issue-marks/{first}.svg*', lambda r: r.fulfill(status=200, content_type='image/svg+xml', path=os.path.join(ROOT, 'pub', 'issue-marks', 'free-school-meals-for-every-student.svg')))
+    pg = ctx.new_page(); pg.goto(f"{BASE}/track.html?demo=1&v3=1&restart#/"); pg.wait_for_selector('#main .v3h-row', timeout=60000); pg.wait_for_timeout(1200)
+    mk = pg.evaluate("""[...document.querySelectorAll('#main .v3h-row')].map(a => { const m = a.querySelector('img.art-mark'), r = m && m.getBoundingClientRect();
+      return [a.dataset.v3hIssue, m ? Math.round(r.width) : 0, m ? Math.round(Math.abs((r.top + r.height / 2) - (a.querySelector('.v3h-t').getBoundingClientRect().top + a.querySelector('.v3h-t').getBoundingClientRect().height / 2))) : 0, !!a.querySelector('.v3h-mk')]; })""")
+    ok(mk and mk[0][0] == first and mk[0][1] == 28 and mk[0][2] <= 2, f"door marks: the row whose issue has a mark shows an img.art-mark, 28px, centred on its words ({mk[:1]})")
+    ok(all(w == 0 and not slot for _, w, _, slot in mk[1:]), f"door marks: the rows without one have no mark slot ({mk[1:]})")
+    ok(pg.evaluate(SIDEWAYS) <= 0, "door marks: no sideways scroll")
     ctx.close()
 
     # ---- the returner (Kai) ----

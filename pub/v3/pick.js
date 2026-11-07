@@ -10,6 +10,7 @@
 import { S, app, esc, icon, nick, blurb, spaced, billPath, posInfo, issuesOf, issueFollowed, openActions, recommendations, settledOn, didKind, agrees,
   dismissed, anyBill, anyHearing, testimonyDraft, stopOf, cmteLabel, cmtesOf, codesOf, dateLong, timeWord, hstDay, HST, sessionInfo, CHAMBER_NAME } from '../core.js';
 import { btn } from '../ui.js';
+import { issueMark } from '../art.js';
 
 // ---- which ----
 const DAY = 864e5;
@@ -79,9 +80,9 @@ export function cardHtml(o, { hl = 'h3' } = {}) {
   if (!o) return `<section class="card v3-card v3-empty"><p class="v3c-calm">Nothing needs your voice this week. We’ll say when something does.</p>
     <a class="v3c-link" href="#/find">See the bills${icon('arrow-right', { size: '1em' })}</a></section>`;
   const { b } = o, testimony = o.kind === 'testimony' && !!o.h, w = whenLine(o), p = posInfo(b), name = nick(b), id = `v3c-${String(b.id).replace(/[^\w-]/g, '')}`;
-  const sum = name ? firstSentence(blurb(b, 400)) : '';
+  const sum = name ? firstSentence(blurb(b, 400)) : '', mark = issueMark(issueOfThing(o), { size: 44 });   // the bill's issue's mark (R-363)
   return `<section class="card v3-card" aria-labelledby="${id}">
-    <p class="v3c-meta"><span class="v3c-num">${esc(spaced(b.bill_number))}</span>${p ? `<span class="v3c-pos">${icon(p.icon, { size: '1em' })}${esc(p.text)}</span>` : ''}</p>
+    <p class="v3c-meta">${mark}<span class="v3c-num">${esc(spaced(b.bill_number))}</span>${p ? `<span class="v3c-pos">${icon(p.icon, { size: '1em' })}${esc(p.text)}</span>` : ''}</p>
     <${H} class="v3c-h" id="${id}"><a href="${esc(billPath(b))}">${esc(name || blurb(b) || spaced(b.bill_number))}</a></${H}>
     ${sum ? `<p class="v3c-sum">${esc(sum)}</p>` : ''}
     <p class="v3c-when${w.soon ? ' soon' : ''}">${icon('clock')}<span>${w.html}</span></p>

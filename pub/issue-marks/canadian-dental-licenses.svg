@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="care">
+<circle cx="32" cy="32" r="32" fill="#FBE6E3"/>
+<rect x="10" y="16" width="44" height="32" rx="6" fill="#C2554A"/>
+    <rect x="10" y="16" width="44" height="8" rx="4" fill="#953D34"/>
+    <path d="M17 29 C17 26 21 26 23 28 C25 26 29 26 29 29 C29 34 28 36 27.500 41 C27 44 25 44 24.500 41 C24 38.500 23.500 38 23 38 C22.500 38 22 38.500 21.500 41 C21 44 19 44 18.500 41 C18 36 17 34 17 29 Z" fill="#FFFFFF"/>
+    <rect x="34" y="30" width="14" height="4.500" rx="2.250" fill="#FFFFFF"/>
+    <rect x="34" y="38" width="10" height="4.500" rx="2.250" fill="#FFFFFF"/>
+</svg>

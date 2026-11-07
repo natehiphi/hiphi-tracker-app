@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="food">
+<circle cx="32" cy="32" r="32" fill="#E6F3DC"/>
+<rect x="9" y="17" width="46" height="30" rx="5" fill="#4F8F3A"/>
+    <rect x="9" y="23" width="46" height="7" fill="#36692A"/>
+    <rect x="15" y="35" width="12" height="7" rx="2" fill="#F4B223"/>
+    <rect x="33" y="36" width="16" height="5" rx="2.5" fill="#FFFFFF"/>
+</svg>

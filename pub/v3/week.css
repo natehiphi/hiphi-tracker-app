@@ -9,6 +9,15 @@ body.v3 .v3w-empty p { margin: 0 0 var(--s12); }
 body.v3 .v3w-day + .v3w-day { margin-top: var(--s16); }
 body.v3 .v3w-dayh { margin: 0 0 var(--s8); font: 600 var(--t14)/1.3 var(--font-h); color: var(--n700); }
 body.v3 .v3w-more { margin-top: var(--s8); }
+/* An issue's mark at the left of a Your issues row (R-363): 28px, 36px on a laptop, in place of rec.css's 40px icon circle. */
+body.v3 .v3w .rc-lead:has(> .art-mark) { width: 28px; height: 28px; background: none; }
+body.v3 .v3w .rc-lead img.art-mark { width: 28px; height: 28px; }
+/* Under 360px the mark would push the names onto another line: none there (R-363). */
+@media (max-width: 359px) { body.v3 .v3w .rc-lead:has(> .art-mark) { display: none; } }
+@media (min-width: 720px) {
+  body.v3 .v3w .rc-lead:has(> .art-mark) { width: 36px; height: 36px; }
+  body.v3 .v3w .rc-lead img.art-mark { width: 36px; height: 36px; }
+}
 
 /* The one-thing card is drawn by pub/v3/card.css, shared with Home. */
 

@@ -8,10 +8,12 @@
 #   This week: the tab reads "This week" and is lit; the one thing's card is the one filled button; Your issues; the hearings by day,
 #     ten rows then "Show N more hearings", the one thing's own hearing never hidden; a newcomer is told what the page is for with
 #     "Pick your issues".
+#   Marks (R-363, at 390 wide, marks.json held to the three first marks): a Find or Your issues row whose issue has a mark shows an
+#     img.art-mark 28px wide; a row without one has no empty slot; the bills inside an opened issue have none.
 #   Both: a Follow pressed on Find shows on This week and survives a reload; no "dead" and no "vape" in the words; no sideways
 #     scroll at 390x844 and 1440x900; no page errors.
 # usage: python3 tests/v3_bills_week.py [BASE]   (BASE defaults to http://localhost:8832); SHOTS=<dir> saves both screens at both sizes
-import os, re, sys
+import json, os, re, sys
 from playwright.sync_api import sync_playwright
 
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').split('/track.html')[0].rstrip('/')
@@ -57,6 +59,13 @@ def search(pg, q):
   pg.wait_for_function("q => !document.querySelector('.fd-box.busy') && decodeURIComponent(location.hash).includes(q) && !document.querySelector('#v3b-res .skelpage')", arg=q, timeout=30000)
   pg.wait_for_timeout(300)
 
+MARKS3 = {'free-school-meals-for-every-student': 'food', 'free-bus-rides-for-kids': 'around', 'end-non-medical-vaccine-exemptions': 'care'}
+# Each issue row: its slug, its mark's width (0 for none), how far the mark's middle is from the name's, and the width of any other
+# lead slot that shows (0 for none).
+MARKROWS = """[...document.querySelectorAll('%s')].map(s => { const b = s.querySelector('%s'), m = b.querySelector('img.art-mark'), r = m && m.getBoundingClientRect(), n = s.querySelector('%s').getBoundingClientRect();
+  const lead = b.querySelector('.v3b-ilead'), lw = lead && lead.offsetParent ? Math.round(lead.getBoundingClientRect().width) : 0;
+  return [s.id.replace('v3b-i-', ''), m ? Math.round(r.width) : 0, m ? Math.round(Math.abs(r.top + r.height / 2 - (n.top + n.height / 2))) : 0, lw]; })"""
+
 with sync_playwright() as p:
   br = p.chromium.launch()
   for w, h, tag in [(390, 844, 'phone'), (1440, 900, 'laptop')]:
@@ -79,7 +88,7 @@ with sync_playwright() as p:
     words = pg.evaluate(MAIN); ok(not BAD.search(words), f'{t}: no "dead" or "vape" in the words (C-15, R-158)')
     ok(not pg.evaluate(WIDE), f'{t}: no sideways scroll')
     H = pg.evaluate("document.documentElement.scrollHeight")
-    if tag == 'phone': ok(H < 8.5 * h, f'{t}: All topics fits in about 8 phone screens ({H}px, {H / h:.1f} screens)')
+    if tag == 'phone': ok(H < 9 * h, f'{t}: All topics fits in under 9 phone screens (the marks make some names wrap; R-363) ({H}px, {H / h:.1f} screens)')
     print(f'INFO {t}: {pg.evaluate(FIRST)} controls in the first screenful; page {H}px')
     # a tap of an issue's row opens its bills (four, then Show N more), and the opened issue is kept over a reload
     k = pg.evaluate("[...document.querySelectorAll('.v3b-isec')].find(s => +s.querySelector('.v3b-icount').innerText.split(' ')[0] > 5)?.querySelector('[data-v3open]').dataset.v3open")
@@ -145,6 +154,34 @@ with sync_playwright() as p:
     print(f'INFO {t}: {pg.evaluate(FIRST)} controls in the first screenful; page {pg.evaluate("document.documentElement.scrollHeight")}px')
     ok(not errs, f'{tag} Kai: no page errors {errs[:2]}')
     ctx.close()
+
+    # ---------------- the issue marks (R-363, pub/art.js issueMark), at 390 wide ----------------
+    # marks.json is held to the three first marks, so the check does not change as the rest ship: a row whose issue has a mark shows
+    # an img.art-mark 28px wide, centred on the name; a row without one has no slot (no empty circle); an opened issue's bills get none.
+    if tag == 'phone':
+      ctx = br.new_context(viewport={'width': w, 'height': h}); ctx.add_init_script(init('kai'))
+      ctx.route('**/issue-marks/marks.json*', lambda r: r.fulfill(status=200, content_type='application/json', body=json.dumps(MARKS3)))
+      pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
+      find(pg); t = f'{tag} marks Find'
+      rows = pg.evaluate(MARKROWS % ('.v3b-isec', '.v3b-itog', '.v3b-iname'))
+      have = [r for r in rows if r[0] in MARKS3]; none = [r for r in rows if r[0] not in MARKS3]
+      ok(len(have) == 3 and all(r[1] == 28 and r[2] <= 2 for r in have), f'{t}: the three issues with a mark show it, 28px, centred on the name and its count {have}')
+      ok(none and all(r[1] == 0 and r[3] == 0 for r in none), f'{t}: the {len(none)} rows without one show no mark and no empty slot')
+      sl = 'free-school-meals-for-every-student'
+      pg.click(f'#v3b-i-{sl} [data-v3open]'); pg.wait_for_timeout(300)
+      ok(pg.evaluate(f"document.querySelectorAll('#v3b-i-{sl} .v3b-ibody li').length") > 0 and pg.evaluate(f"document.querySelectorAll('#v3b-i-{sl} .v3b-ibody .art-mark').length") == 0, f'{t}: the bills inside an opened issue have no mark')
+      ok(not pg.evaluate(WIDE), f'{t}: no sideways scroll')
+      # Kai's free bus rides may be the one thing's issue (its row then folds into the card), so follow the other two with marks too.
+      pg.evaluate("(() => { const k = 'hiphi_issue_follows_demo', f = JSON.parse(localStorage.getItem(k) || '[]'); localStorage.setItem(k, JSON.stringify([...new Set([...f, '05e0d6a9-4ea7-456c-b219-e3632ade358b', '6c61142c-8c7d-4f58-9408-06ee86cde450'])])); })()")
+      week(pg); pg.reload(); pg.wait_for_selector('.v3w #v3w-hear-h', timeout=60000); pg.wait_for_timeout(500); t = f'{tag} marks This week'
+      rows = pg.evaluate("""[...document.querySelectorAll('#v3w-iss-h ~ .rc-rows .rc-row')].map(a => { const m = a.querySelector('img.art-mark'), r = m && m.getBoundingClientRect(), n = a.querySelector('.rc-rname').getBoundingClientRect();
+        return [a.getAttribute('href'), m ? Math.round(r.width) : 0, !!a.querySelector('.rc-lead:empty')]; })""")
+      have = [r for r in rows if r[0].replace('#/issue/', '') in MARKS3]; none = [r for r in rows if r[0].replace('#/issue/', '') not in MARKS3]
+      ok(len(have) >= 1 and all(r[1] == 28 for r in have), f'{t}: the rows whose issue has a mark show it, 28px {have}')
+      ok(none and all(r[1] == 0 and not r[2] for r in none), f'{t}: the rows without one show no mark and no empty slot {none}')
+      ok(not pg.evaluate(WIDE), f'{t}: no sideways scroll')
+      ok(not errs, f'{tag} marks: no page errors {errs[:2]}')
+      ctx.close()
 
     # ---------------- a newcomer: This week says what it is for; a Follow on Find shows there and survives a reload ----------------
     ctx = br.new_context(viewport={'width': w, 'height': h}); ctx.add_init_script(init('none'))
