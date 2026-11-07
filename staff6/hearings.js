@@ -19,7 +19,7 @@
 // What it replaces (A-25, rule 7.8): v5's This week grid (testimony-deadline cards, hearing blocks, Other to-dos: the
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two other "who to ask" screens (Legislators > Who to ask and Holding our bills went away in R-356 round 2, decision 4: asking chairs for a hearing lives only here, in Bills That Need Hearings).
-import { S, DB, esc, hooks, SESSION_OVER, seesTeam } from './data.js';
+import { S, DB, esc, hooks, SESSION_OVER, seesTeam, VB } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, filterBtn, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
@@ -529,6 +529,29 @@ function askHTML(scope, auto = false) {
   return why + askBoard({ scope }) + how;
 }
 
+// ---- R-365 version B: one committee's hearings (#/hearings?cmte=TRN) ----
+// Search's Committees result opens here. Every sitting of the committee on bills we track, the ones ahead first with their
+// day, the ones already held folded below. The heading names the committee; "All hearings" clears the filter (the address
+// holds the pick, nothing else does, as with the issue filter above). Only under ?vb=1.
+const cmteOfRoute = route => { if (!VB) return ''; const c = String(route?.q?.cmte || '').toUpperCase(); return c && S.committees?.[c] ? c : ''; };
+function cmteHTML(code) {
+  const name = committeeName(code), by = new Map();
+  for (const h of S.hearings || []) { if (!codesOf(h.committee).includes(code)) continue; const k = sitKey(h); if (!by.has(k)) by.set(k, []); by.get(k).push(h); }
+  const sits = [...by.values()].map(rows => { const live = rows.filter(r => r.status !== 'cancelled'); if (!live.length) return null;
+    return { h: live[0], t: ms(live[0].scheduled_at), day: hst(live[0].scheduled_at) }; }).filter(Boolean).sort((a, b) => a.t - b.t);
+  const today = hst(Date.now()), ahead = sits.filter(x => x.day >= today), past = sits.filter(x => x.day < today).reverse();
+  const days = [...new Set(ahead.map(x => x.day))];
+  const dayHTML = d => `<section class="hw-day${d === today ? ' today' : ''}" aria-labelledby="hw-c-${d}"><h2 class="hw-dh" id="hw-c-${d}">${esc(dayHead(d))}</h2>${ahead.filter(x => x.day === d).map(slot).join('')}</section>`;
+  const nBills = (S.bills || []).filter(b => b.tracked !== false && codesOf(b.committee).includes(code)).length;
+  return `<div class="hw-page v-week hw-cmte">
+    <a class="hw-cback" href="#/hearings" data-back>${icon('chevron-left')}<span>Back to ${esc(history.state?.from || 'Calendar')}</span></a>
+    <h1 class="v6-ptitle sv-h1">${esc(name)} hearings</h1>
+    <p class="hw-cline"><span>${esc(`Committee · ${plural(sits.length, 'hearing')} on bills we track`)}</span> <a class="hw-cclear" href="#/hearings">${icon('x')}<span>Show all hearings</span></a>${nBills ? ` <a href="#/search?q=${encodeURIComponent(code)}">${esc(plural(nBills, 'bill'))} in this committee</a>` : ''}</p>
+    ${ahead.length ? days.map(dayHTML).join('') : `<p class="hw-none">${icon('calendar')}<span>${esc(`No hearing ahead for ${name} on the bills we track.`)}</span></p>`}
+    ${past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>${esc(`Earlier: ${plural(past.length, 'hearing')} held`)}</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(slot).join('')}</details>` : ''}
+  </div>`;
+}
+
 // ---- the page ----
 const viewOf = (route, scope) => route.view === 'week' || route.view === 'ask' ? route.view
   : route.q?.w ? 'week'   // v5's #/?view=week&w=1 (another week) is always the week
@@ -576,12 +599,14 @@ export function wireTeamHearings(root) {
 
 export default {
   tab: 'hearings',
-  title: () => 'Hearings',
+  back: route => cmteOfRoute(route) ? { href: '#/hearings', label: 'Calendar' } : null,
+  title: route => { const c = cmteOfRoute(route); return c ? `${committeeName(c)} hearings` : 'Hearings'; },
   render(route) {
     if (!S.me) return `<h1 class="v6-ptitle sv-h1">Hearings</h1><p class="hw-none">${icon('info')}<span>You are signed in, but the tracker does not know who you are yet. Ask your admin to add you.</span></p>`;
     seedMoved();   // the practice copy's moved sittings have someone down for the old date (W53), as Today's
     freshScope();   // who has a step on which bill is worked out again for this draw (push.js scopeOk)
     ISS = issueOf(route);
+    const cm = cmteOfRoute(route); if (cm) return cmteHTML(cm);
     const scope = scopeOf(route), view = viewOf(route, scope), sum = SESSION_OVER ? null : askSummary({ scope }), mode = modeOf(route);
     // An old Today link to one day of its week (#/?view=cal&day=2026-03-18, sent here by app.js) opens on that day, once.
     if (route.q?.day && S.hcDayAt !== location.hash) { S.hcDayAt = location.hash; S.hcDay = route.q.day; }

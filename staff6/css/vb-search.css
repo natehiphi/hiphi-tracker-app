@@ -1,1 +1,17 @@
-/* R-365 version B: search (only under html.vb). */
+/* R-365 version B: search, committees' hearings (only under html.vb). */
+/* Back on the search page, a committee's hearings: a laptop shows it here; the phone's top bar carries Back (spec 3.2). */
+html.vb body.staff6 .sr-back, html.vb body.staff6 .hw-cback { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: 0 0 8px -8px; padding: 0 12px 0 4px; border-radius: var(--v6-pill); color: var(--v6-action); text-decoration: none; }
+html.vb body.staff6 .sr-back svg, html.vb body.staff6 .hw-cback svg { width: 20px; height: 20px; }
+html.vb body.staff6 .sr-back:hover, html.vb body.staff6 .hw-cback:hover { background: var(--v6-action-wash); }
+html.vb body.staff6 .sr-back:focus-visible, html.vb body.staff6 .hw-cback:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (max-width: 767px) { html.vb body.staff6 .sr-back, html.vb body.staff6 .hw-cback { display: none; } }
+/* One column of results, one small heading per kind. */
+html.vb body.staff6 .sr-vb { max-width: 760px; }
+html.vb body.staff6 .sr-vb .sr-col { display: block; }
+html.vb body.staff6 .sr-vb .sr-top { margin-top: 24px; }
+html.vb body.staff6 .sr-vb .sr-grp + .sr-grp { margin-top: 24px; }
+/* A committee's hearings: the line under the heading, with its way to clear the filter. */
+html.vb body.staff6 .hw-cline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 0 0 16px; color: var(--v6-muted); }
+html.vb body.staff6 .hw-cline a { color: var(--v6-action); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; }
+html.vb body.staff6 .hw-cline a:hover { text-decoration: underline; }
+html.vb body.staff6 .hw-cline a svg { width: 16px; height: 16px; }
