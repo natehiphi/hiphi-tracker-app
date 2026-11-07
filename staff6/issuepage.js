@@ -832,7 +832,9 @@ function vbStepButton(x) {
   const s = x.s, b = x.b;
   if (s) { const own = rowButton(s, { kind: 'primary', sm: false }); if (own) return own;
     if (s.kind === 'chair') return btn('Ask the chair', { kind: 'primary', href: '#/hearings/ask?scope=mine' }); }
-  return btn(`Open ${esc(numWords(b))}`, { kind: 'primary', href: billRoute(b) });
+  // says the action, not "Open HB 2121": "File testimony for HB 2121"
+  const act = s ? cap(String(s.act?.words || '').replace(/\s+(for|on)\s+.*$/i, '').trim()) : '';
+  return btn(act ? `${esc(act)} for ${esc(numWords(b))}` : x.s ? `Go to ${esc(numWords(b))}` : `Do it on ${esc(numWords(b))}`, { kind: 'primary', href: billRoute(b) });
 }
 // The one filled button with its due time, or one plain line saying whose the next step is.
 function vbStep(i, steps, { prepNext }) {
@@ -976,7 +978,10 @@ function vbRender(route, i) {
     body = vbOutreach(i, xs, now);
   }
   const path = pathLine([['My issues', '#/issues'], [i.name]]);
-  return `<div class="le-page is6-page ip6-page vb-issue" data-vbtab="${tab}">${path}${head}${vbStep(i, steps, { prepNext })}${tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(VB_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
+  // The named Back round 1 dropped: to the bill we came from, else v6's own (Back to My issues). It goes where it says.
+  const from = billFrom(route), bk = from ? { href: billRoute(from), label: `Back to ${numWords(from)}` } : backTo(route);
+  const back = `<a class="co6-back vb-back" href="${esc(bk.href)}" data-back>${icon('chevron-left')}<span>${esc(bk.label)}</span></a>`;
+  return `<div class="le-page is6-page ip6-page vb-issue" data-vbtab="${tab}">${back}${path}${head}${vbStep(i, steps, { prepNext })}${tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(VB_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
 }
 // Testimony on the Overview: one line a bill, the state in the step's words; the actions are on the Testimony tab and in the one button above.
 function vbTestimonySummary(i, list, id) {

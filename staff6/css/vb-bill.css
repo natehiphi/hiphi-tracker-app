@@ -1,1 +1,14 @@
 /* R-365 version B: bill (only under html.vb). */
+html.vb .vb-btitle{display:flex;flex-direction:column;gap:2px;min-width:0}
+html.vb .vb-btitle .vb-kind{margin:0;font-size:.8rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted,#5b6470)}
+html.vb .vb-btitle .vb-bh1{margin:0}
+html.vb .vb-bname{margin:0;color:var(--muted,#5b6470);font-size:1rem}
+html.vb .vb-in{margin:2px 0 0;font-size:1rem}
+html.vb .vb-in a{font-weight:700;padding:10px 0}
+html.vb .vb-part{margin:12px 0 4px}
+html.vb .vb-part .vb-partgo{min-height:48px;max-width:100%;text-align:left;white-space:normal;display:inline-flex;gap:8px;align-items:center}
+html.vb .vb-part.is-none{display:flex;gap:8px;align-items:center;color:var(--muted,#5b6470)}
+html.vb .vb-back{display:inline-flex;align-items:center;gap:4px;min-height:44px;font-weight:700}
+html.vb .vb-hearing .vb-back{margin-bottom:4px}
+html.vb .vb-bill .bw-f.bw-num{display:none}
+html.vb .vb-bill .bw-f.bw-num + .bw-f::before{display:none}
