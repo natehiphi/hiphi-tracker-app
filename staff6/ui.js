@@ -317,6 +317,10 @@ export function urgentMark(iso, { done = false, until = null, act = null } = {})
   return `<span class="sv-urg${tone ? ' ' + tone : ''}" role="img" aria-label="${esc(`${big} ${word}${tone === 'today' ? ', due today' : ''}`)}">${tone === 'late' ? icon('circle-alert') : tone === 'today' ? icon('clock') : ''}<b>${esc(big)}</b><span>${word}</span></span>`;
 }
 
+// R-365 version B: the path line at the top of every page, "My issues › Disposable e-cigarette ban › HB 2121". parts are
+// [label, href] from the place down; the last is the page itself (no link, aria-current). One helper so every page says it alike.
+export const pathLine = parts => `<nav class="vb-path" aria-label="You are here"><ol>${parts.map(([l, h], i) => i === parts.length - 1 || !h
+  ? `<li><span aria-current="page">${esc(l)}</span></li>` : `<li><a href="${esc(h)}">${esc(l)}</a></li>`).join('')}</ol></nav>`;
 export const empty = ({ title, text = '', action = '', h = 'h2', art = '' }) => `<div class="empty">${art}${title ? `<${h}>${title}</${h}>` : ''}${text ? `<p>${text}</p>` : ''}${action}</div>`;
 export const skeleton = (n = 5) => `<div class="skelpage" aria-busy="true" aria-label="Loading"><div class="skel" style="height:56px"></div>${Array.from({ length: n }, () => '<div class="skel" style="height:72px"></div>').join('')}</div>`;
 export const notice = (tone, ic, html, action = '') => `<div class="notice ${tone} sv-notice">${icon(ic)}<div>${html}</div>${action}</div>`;

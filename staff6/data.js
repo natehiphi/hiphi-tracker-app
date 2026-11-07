@@ -21,6 +21,11 @@ export const emailCfgOf = r => !r || r.error ? { err: EMAIL_UNREAD, cfg: { enabl
 // Issue and list icons (9/19): the public page shows Lucide icons, not emoji, so staff pick from a short list of
 // names. Old emoji values still display (mapped) until they are re-saved.
 export const DEMO = new URLSearchParams(location.search).has('demo');
+// R-365 version B (Nate, 7 Nov 2026): a separate version of Staff v6 at its own link, `?vb=1` (live, practice copy and trial
+// runs alike). Three places (Today, My issues, Calendar), the issue as the home for its work, a path line and a named Back on
+// every page. Without vb=1 nothing changes for anyone. Hash links keep the query, so vb=1 follows every in-app link.
+export const VB = new URLSearchParams(location.search).get('vb') === '1';
+if (VB) document.documentElement.classList.add('vb');   // version B's styles all sit under html.vb (css/vb*.css)
 // R-316 W43 (C-5): an open page looks for drafts and to-dos a teammate changed, about every 2 minutes (app.js), and a
 // button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's
 // yes flips this to `() => true` (as prep.js SELF_APPROVE). The practice copy has no server, so its poll reads nothing;

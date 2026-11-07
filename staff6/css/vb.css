@@ -1,0 +1,9 @@
+/* R-365 version B (?vb=1): one stylesheet per part, so builders never share a file. Every rule sits under html.vb. */
+@import url('vb-frame.css');
+@import url('vb-issues.css');
+@import url('vb-issue.css');
+
+html.vb .vb-path ol{display:flex;flex-wrap:wrap;gap:4px;list-style:none;margin:0 0 6px;padding:0;font-size:14px;color:var(--v6-muted)}
+html.vb .vb-path li+li::before{content:'\203A';margin-right:4px}
+html.vb .vb-path a{color:inherit}
+html.vb .vb-path [aria-current]{color:inherit;font-weight:700}
