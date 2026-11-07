@@ -33,7 +33,10 @@ export const stanceOf = B => /oppose/.test(B.positionRaw || '') ? 'oppose' : /su
 const STAND = { strongly_support: n => `I strongly support ${n}.`, support: n => `I support ${n}.`, support_amend: n => `I support ${n}, with a few changes.`,
   strongly_oppose: n => `I strongly oppose ${n}.`, oppose: n => `I oppose ${n}.`, comments: n => `I’d like to share a few thoughts on ${n}.` };
 const POS_WORD = { strongly_support: 'SUPPORT', support: 'SUPPORT', support_amend: 'SUPPORT WITH AMENDMENTS', strongly_oppose: 'OPPOSITION', oppose: 'OPPOSITION', neutral: 'COMMENTS' };
-const headingFor = (word, n) => word === 'COMMENTS' ? `Comments on ${n}` : word === 'SUPPORT WITH AMENDMENTS' ? `Testimony in SUPPORT of ${n}, with amendments` : `Testimony in ${word} ${/OPPOS/.test(word) ? 'to' : 'of'} ${n}`;
+// "Letter in support of HB 2121", not "Testimony in SUPPORT of" (R-360 fix 3, P-5): the app sends it as a letter, and
+// whether a committee enters an emailed letter as testimony is for the Legislature to confirm (LETTERS.md item 3).
+const headingFor = (word, n) => word === 'COMMENTS' ? `Comments on ${n}` : word === 'SUPPORT WITH AMENDMENTS' ? `Letter in support of ${n}, with amendments`
+  : `Letter in ${/OPPOS/.test(word) ? 'opposition to' : 'support of'} ${n}`;
 const roomOf = r => { const m = /(?:Conference\s+)?Room\s+(\S+)/i.exec(r || '') || /^Rm\s+(\S+)/.exec(r || ''); return m ? `Room ${m[1]}` : ''; };
 
 // Who they are: "My name is Leilani Kahale, and I live in Hilo." A detail not given yet leaves its words out.

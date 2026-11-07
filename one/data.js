@@ -7,7 +7,7 @@
 // as pub/demo.js shapes it, without the tracker's kernel. The snapshot is one file, so it is fetched whole, with
 // the same ?v= key as pub/demo.js so a browser that opened the tracker's practice copy already has it, and only this bill's
 // rows are kept.
-import { standing, cleanDesc, spaced, cmteLabel, alive } from './words.js';
+import { standing, cleanDesc, spaced, cmteLabel, cmteNames, alive } from './words.js';
 import { codesOf } from '../pub/capitol.js';
 
 // pub/kernel.js SUPABASE_URL and SUPABASE_KEY (the publishable key: it can read only what anon can read).
@@ -66,7 +66,7 @@ function shape(b, { hearings, outcomes, committees, deadlines, others, issues, n
     position: POSITION(b.hiphi_position), positionRaw: b.hiphi_position || null,
     over: stand.over, action: stand.action, lines: stand.lines,
     hearing: st.hearingState === 'scheduled' ? { id: st.hearing.id, at: st.hearing.scheduled_at, deadline: st.hearing.testimony_deadline || null,
-      committee: st.hearing.committee, room: st.hearing.room || '', label: cmteLabel(st.hearing.committee, W), joint: codesOf(st.hearing.committee).length > 1,
+      committee: st.hearing.committee, room: st.hearing.room || '', label: cmteLabel(st.hearing.committee, W), names: cmteNames(st.hearing.committee, W), joint: codesOf(st.hearing.committee).length > 1,
       count: codesOf(st.hearing.committee).length, chamber: ({ H: 'House', S: 'Senate' })[st.chamber] || '',
       // who a testimony letter greets: every chair, then every vice chair, of a joint hearing too (helper.js greeting)
       members: [...codesOf(st.hearing.committee).map(k => W.committees[k]).filter(c => c && c.chair).map(c => ({ role: 'chair', name: c.chair, chamber: c.chamber })),

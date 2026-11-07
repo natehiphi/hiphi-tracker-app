@@ -1,4 +1,4 @@
-// The done mark (R-360 fix pass, DESIGN B-6: the app remembers). "Yes, I sent it" writes it the way the walkthrough does
+// The done mark (R-360 fix pass, DESIGN B-6: the app remembers). A queued send (send.js, part 8) writes it the way the walkthrough does
 // (core.js markDone: hiphi_done, and when in hiphi_done_at; the practice copy's own keys), so the full tracker shows the bill
 // as done too. The bill screen reads it to say "You sent it on ..." instead of offering the same action again, app.js sends
 // a return to /send on to /thanks, and counts.js does not count the same action twice.

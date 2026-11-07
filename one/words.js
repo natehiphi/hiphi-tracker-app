@@ -88,6 +88,8 @@ export function cmteLabel(code, W, { short = false } = {}) {
   if (names.length > 1) return short ? names.join(' / ') : `${ch} ${names.map(n => n + ' Committee').join(' and ')}`.trim();
   return short ? names[0] : `${ch} ${names[0]} Committee`.trim();
 }
+// Each committee's own name, for Send's stacked To (R-360 fix 3, C-15): "Senate Health and Human Services Committee".
+export const cmteNames = (code, W) => codesOf(code).map(c => cmteInfo(c, W.committees)).filter(Boolean).map(c => `${CHAMBER_NAME[c.chamber] || ''} ${c.name} Committee`.trim());
 const theCmte = (code, W) => { const l = cmteLabel(code, W); return /^(the|a) /.test(l) ? l : `the ${l}`; };
 
 // core.js stopOf and deadlineOf, from this bill's own hearings, outcomes and deadlines
@@ -223,7 +225,7 @@ export function standing(b, W, sameLaw = null) {
       const who = many ? `${count} ${ch} committees hear it ${on}.` : `${cap(theCmte(st.hearing.committee, W))} hears it ${on}.`;
       lines.unshift({ icon: 'calendar', lead: `${by.text}.`, rest: `${d.soon ? `That’s ${inHours(left)}. ` : ''}${who} You don’t need to go.`, soon: by.soon });
       lines[1] = st.leg === 'second' ? { icon: 'capitol', lead: `Passed the ${other}.`, rest: `Now in the ${ch}.` } : { icon: 'capitol', lead: `In the ${ch}.`, rest: '' };
-    } else lines.push({ icon: 'calendar', lead: `Hearing ${on} at ${timeWord(st.hearing.scheduled_at)}.`, rest: d ? d.text + '.' : 'Send testimony before it starts. You don’t need to go.', soon: !!d?.soon });
+    } else lines.push({ icon: 'calendar', lead: `Hearing ${on} at ${timeWord(st.hearing.scheduled_at)}.`, rest: d ? d.text + '.' : t('bill.before'), soon: !!d?.soon });
   } else if (st.hearingState === 'held') {
     lines.push({ icon: 'calendar', lead: `Heard ${dateLong(st.hearing.scheduled_at, W)}.`, rest: `Waiting for ${many ? 'their' : 'its'} decision.` });
   } else if (st.hearingState === 'decided') {

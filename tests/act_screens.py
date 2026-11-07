@@ -13,6 +13,17 @@
 # Fix pass 2 (R-360): one deadline wording everywhere ("Send testimony by ..."), "Hearing" for hearings ahead, every hearing
 # reachable on This week (Show N more hearings), Back links that go back in the history, Bills remembered across a reload,
 # the bill lighting the tab it came from, no "Part of" when the names match, amber only within 24 hours.
+# Part 7: You (#/you), the fourth tab: signed out, the email box and one primary; the practice sign-in (a fake account in
+# sessionStorage) and its sections in order; saves reaching Write, Bills' follows, a sent letter, the in-page delete confirm,
+# Sign out and the merge at sign-in. Saves part7-you-out and part7-you-in (390x844).
+# Part 8 (Nate 6 Nov: "We want people to stay in the app"): Send no longer hands people to the Capitol or their mail app.
+# It shows To and From and the letter with Edit; signed out, an email box and "Email me a link to confirm it's you"; signed
+# in (the practice tester), "Send my testimony" / "Send my email", which reaches Mahalo with the sent line, marks it done and
+# keeps the letter on the account; ?held=1 gives the held words and no done mark. Saves part8-send and part8-mahalo.
+# Fix pass 3 (R-360): "letter", not "testimony", for the in-app send (P-5, C-4, C-6), the consent line above Send, the held
+# letter said plainly (Mahalo, Your letters, the bill), refusals by code (B-8), the stacked To (C-15), the whole letter in the
+# preview, the signed-out words, You's choices saving as they change and About's typing kept, Keep my profile (P-3).
+# Saves fix3-send-out, fix3-send-in, fix3-mahalo-sent, fix3-mahalo-held, fix3-bill-held and fix3-you-in (390x844).
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -41,11 +52,11 @@ with sync_playwright() as p:
     ok(h1.is_visible() and h1.inner_text().replace('\n', ' ').strip() == 'Disposable e-cigarette ban', f'the nickname is the heading ({h1.inner_text()!r})')
     ok(pg.locator('.num').inner_text() == 'HB 2121' and 'HIPHI supports' in pg.locator('.pos').inner_text(), 'number and position chip')
     ok(pg.locator('.primary').count() == 1, f'exactly one primary button ({pg.locator(".primary").count()})')
-    ok(pg.locator('.primary').inner_text().strip() == 'Send testimony', 'the button is Send testimony while the deadline is open')
+    ok(pg.locator('.primary').inner_text().strip() == 'Send a letter', 'the button is Send a letter while the deadline is open (fix 3.1)')
     ok(pg.locator('.hd img.art-issue').count() == 1, 'the issue drawing is the header')
     body = pg.locator('body').inner_text()
     first = pg.locator('.stand .ln').first.inner_text()
-    ok(first.startswith('Send testimony by Wed 9:30 AM.') and 'Two Senate committees hear it Fri, Mar 20. You don’t need to go.' in first, f'the deadline leads in the shared wording, then who hears it and when ({first!r})')
+    ok(first.startswith('Send a letter by Wed 9:30 AM.') and 'Two Senate committees hear it Fri, Mar 20. You don’t need to go.' in first, f'the deadline leads in the shared wording, then who hears it and when ({first!r})')
     second = pg.locator('.stand .ln').nth(1).inner_text().strip()
     ok(second == 'Passed the House. Now in the Senate.', f'the second line says only where it has been and is, the committees being named above ({second!r}) (fix 7)')
     ok(pg.locator('.partof').count() == 0, 'no "Part of Disposable e-cigarette ban" under a bill of that name (fix 7, A-14)')
@@ -58,8 +69,8 @@ with sync_playwright() as p:
     btn = pg.locator('.primary').bounding_box()
     ok(btn and btn['y'] + btn['height'] <= 844, f'the button is in the first screen at 390x844 (bottom {btn and round(btn["y"] + btn["height"])})')
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, 'part1-390.png'))
-    pg.locator('.primary').click(); pg.wait_for_function("() => location.hash === '#/HB2121/write' && (document.querySelector('h1')?.textContent || '').trim() === 'Your testimony'", timeout=10000)
-    ok(True, 'the button goes to #/HB2121/write, "Your testimony"')
+    pg.locator('.primary').click(); pg.wait_for_function("() => location.hash === '#/HB2121/write' && (document.querySelector('h1')?.textContent || '').trim() === 'Your letter'", timeout=10000)
+    ok(True, 'the button goes to #/HB2121/write, "Your letter" (fix 3.1)')
     pg.go_back(); pg.wait_for_selector('.primary', timeout=5000)
     ok(pg.locator('h1').inner_text().replace('\n', ' ').strip() == 'Disposable e-cigarette ban', 'Back returns to the bill')
 
@@ -93,12 +104,12 @@ with sync_playwright() as p:
     open_step('#/HB2121/write', '#w-letter')
     L = letter()
     ok('Dear Chair San Buenaventura' in L and 'Please pass HB 2121.' in L and L.startswith('Dear '), 'the letter is written from HIPHI’s position, the chairs by surname')
-    ok('Testimony in SUPPORT' not in L and 'Hearing:' not in L, 'the box holds only the letter’s body, no header (fix 6)')
+    ok('Letter in support' not in L and 'Hearing:' not in L, 'the box holds only the letter’s body, no header (fix 6)')
     to = pg.locator('#w-to').inner_text()
     ok(to.startswith('To the ') and '· hearing Fri, Mar 20' in to, f'one quiet line says who it goes to and the hearing ({to!r})')
     bk = pg.locator('.back').bounding_box()
     ok(bk and bk['height'] >= 44, f'the back link is at least 44px tall ({bk and bk["height"]}) (fix 3)')
-    ok(pg.locator('.note').inner_text().strip() == 'The Capitol posts testimony online with your name and town.', 'the public note, once and plainly')
+    ok(pg.locator('.note').inner_text().strip() == 'Letters to lawmakers can become public, with your name and town.', 'the public note, once and plainly')
     ok('Disposable e-cigarettes are easy for young people to buy' in L, 'HIPHI’s talking points are in the letter')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Next', 'write: exactly one primary button, Next')
     ok(pg.locator('[data-differ]').count() == 1 and 'Write your own words instead' in pg.locator('[data-differ]').inner_text(), '"I see it differently", with "Write your own words instead"')
@@ -118,42 +129,80 @@ with sync_playwright() as p:
     ok('vape' not in pg.content().lower(), 'write: no "vape"')
     if SHOTS: pg.locator('#w-letter').evaluate('t => { t.blur(); t.scrollTop = 0; }'); pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part2-write.png'))
     sent_letter = letter()
-    pg.click('[data-next]'); pg.wait_for_selector('[data-copy]', timeout=10000)
-    ok(pg.evaluate('location.hash') == '#/HB2121/send' and pg.locator('h1').inner_text() == 'Send it at the Capitol', 'Next reaches #/HB2121/send')
-    ok(pg.locator('main > .note').inner_text().strip() == 'The first time takes about 10 minutes.', 'one short line under the heading')
-    ok(pg.locator('.steps li').nth(0).locator('[data-capitol]').count() == 1 and pg.locator('.steps li').nth(2).locator('[data-copy]').count() == 1, 'Open the Capitol page is in step 1, Copy my testimony in step 3')
-    ok(pg.locator('body').inner_text().count('green box') == 1, '"green box" is said once, under Did it go through?')
-    ok(pg.locator('.primary').count() == 1 and 'Open the Capitol page' in pg.locator('.primary').inner_text(), 'send: exactly one primary button, Open the Capitol page')
-    ok(pg.locator('.steps li').count() == 3 and 'Fri, Mar 20' in pg.locator('.steps').inner_text(), 'three numbered steps, with the hearing’s day')
-    sw = width(); bx = pg.locator('[data-sent]').bounding_box()
-    ok(sw[0] <= sw[1] and bx['y'] + bx['height'] <= 844, f'send fits one view at 390x844 (Yes bottom {round(bx["y"] + bx["height"])}, {sw})')
+    NOWORDS = ('Capitol page', 'Copy my testimony', 'Did it go through', 'Yes, I sent it', 'Open in Gmail')
+    gone = lambda: [w for w in NOWORDS if w in pg.locator('body').inner_text()]
+    pg.click('[data-next]'); pg.wait_for_selector('#s-letter', timeout=10000)
+    ok(pg.evaluate('location.hash') == '#/HB2121/send' and pg.locator('h1').inner_text() == 'Send your letter', 'Next reaches #/HB2121/send, "Send your letter" (fix 3.1)')
+    tl = [x.strip() for x in pg.locator('#s-to .tl').all_inner_texts()]; fr = pg.locator('#s-from').inner_text().strip()
+    ok(len(tl) == 4 and tl[0] == 'Two Senate committees' and all(x.startswith('the Senate ') and x.endswith(' Committee') for x in tl[1:3]) and tl[3] == 'their chairs, vice chairs and members'
+       and pg.locator('#s-to .tl.mut').count() == 1, f'To, stacked: "Two Senate committees", each committee on its own line, then who in them (muted) ({tl}) (fix 3.5, C-15)')
+    ok(fr == 'Leilani K. Kahale, Hilo', f'From: the name and town, signed out no email ({fr!r})')
+    head = pg.locator('#s-head').text_content(); body = pg.locator('#s-body').text_content(); full = head + '\n\n' + body
+    ok(head.startswith('Letter in support of HB 2121\n') and '\nHearing: ' in head and 'SUPPORT' not in head, f'the heading says "Letter in support of HB 2121" and keeps the hearing line ({head.splitlines()[0]!r}) (fix 3.1)')
+    ok(body == sent_letter and not pg.locator('details.lhd').evaluate('d => d.open') and pg.locator('details.lhd summary').inner_text().strip() == 'Show the heading',
+       'the preview leads with the person’s own letter; the heading is folded behind "Show the heading" (fix 3.6)')
+    pv = pg.evaluate("() => { const e = document.querySelector('#s-letter'), cs = getComputedStyle(e); return [e.scrollHeight, e.clientHeight, cs.overflowY, cs.maxHeight]; }")
+    ok(pv[0] <= pv[1] + 2 and pv[2] == 'visible' and pv[3] == 'none' and 'My daughter got her first one at school.' in pg.locator('#s-letter').inner_text(),
+       f'the whole letter shows, their own line in it, with no scroll inside the box ({pv}) (fix 3.6)')
+    ok(pg.locator('#s-letter').evaluate('e => e.tagName') != 'TEXTAREA' and pg.locator('[data-edit]').inner_text().strip() == 'Edit', 'the letter is read-only, with Edit')
+    ok(pg.locator('main .note').count() == 0, 'the old small grey line is gone (fix 3.2)')
+    ok('We need your email to send it: your copy and any replies come there. Your letter waits here.' in pg.locator('.conf').inner_text() and 'It can take a minute.' in pg.locator('main').inner_text(),
+       'signed out: why the email is needed, and that it can take a minute (fix 3.7)')
+    ok(pg.locator('#s-email').get_attribute('type') == 'email' and pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Email me a sign-in link',
+       'signed out: the email box and one primary, "Email me a sign-in link"')
+    ok(pg.locator('.primary span').evaluate('s => s.getClientRects().length') == 1, 'the primary’s label fits one line at 390 (fix 3.7)')
+    ok('testimony' not in pg.locator('main').inner_text().lower(), 'Send: no "testimony" anywhere on the screen (fix 3.1)')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'fix3-send-out.png'))
+    ok(pg.locator('[data-practice]').inner_text().strip() == 'Practice: sign in as a tester', 'the practice copy offers "Practice: sign in as a tester" on Send')
+    ok(not gone(), f'no Capitol steps, copy button or "Did it go through" words ({gone()})')
+    sw = width(); ok(sw[0] <= sw[1], f'send: no sideways scroll at 390 ({sw})')
     ok('vape' not in pg.content().lower(), 'send: no "vape"')
-    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part2-send.png'))
-    pg.click('[data-copy]'); pg.wait_for_function("() => /Copied/.test(document.querySelector('[data-copy]')?.textContent || '')", timeout=3000)
-    full = pg.evaluate('navigator.clipboard.readText()')
-    ok(full.startswith('Testimony in SUPPORT of HB 2121') and full.endswith(sent_letter), 'Copy my testimony copies the header, then the letter with their edit (fix 6)')
-    # Fix 1: a "Copied" timer never paints the send screen over the letter.
-    pg.click('.back'); pg.wait_for_selector('#w-letter', timeout=5000); pg.wait_for_timeout(2500)
-    ok(pg.evaluate('location.hash') == '#/HB2121/write' and pg.locator('#w-letter').count() == 1 and pg.locator('[data-copy]').count() == 0, 'Copy, then Back to my letter: 2.5 s later the letter is still there (fix 1)')
-    pg.click('[data-next]'); pg.wait_for_selector('[data-copy]', timeout=10000)
-    ok('Copied' not in pg.locator('[data-copy]').inner_text(), 'back on send, the button says Copy again, not a stale Copied')
-    pg.click('[data-capitol]'); pg.wait_for_selector('.info', timeout=3000)
-    ok(len(ctx.pages) == 1 and pg.locator('.primary').count() == 1 and 'Yes, I sent it' in pg.locator('.primary').inner_text(), 'practice: the Capitol page opens nothing, and Yes, I sent it becomes the one primary')
-    pg.click('[data-notyet]'); pg.wait_for_selector('.okmsg', timeout=3000)
-    ok(pg.evaluate('location.hash') == '#/HB2121/send', 'Not yet stays on send')
-    pg.click('[data-sent]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=5000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    pg.click('[data-link]'); pg.wait_for_selector('#s-email-err', timeout=3000)
+    ok('name@example.com' in pg.locator('#s-email-err').inner_text() and pg.evaluate('document.activeElement.id') == 's-email', 'no email: a plain error under the box, the focus in it')
+    pg.fill('#s-email', 'leilani@example.com'); pg.click('[data-link]'); pg.wait_for_selector('.sentbox', timeout=5000)
+    ok('leilani@example.com' in pg.locator('.sentbox').inner_text() and 'Practice: no email is sent' in pg.locator('main').inner_text() and pg.locator('.primary').count() == 0,
+       'after the link: check your email, the address, and the practice copy sent none')
+    ok(pg.locator('[data-again]').inner_text().strip() == 'Send it again' and pg.locator('[data-practice]').is_visible(), 'after the link: "Send it again", and the practice sign-in still there (fix 3.7)')
+    pg.click('[data-again]'); pg.wait_for_function("() => /new link/.test(document.querySelector('#s-again-st')?.textContent || '')", timeout=3000); ok(True, 'Send it again says a new link went')
+    held = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}').actDrafts || {}")
+    ok(any(v.get('letter') == full for v in held.values()), 'the letter waits in hiphi_me while they confirm (a link opened in a new tab finds it)')
+    pg.click('[data-other]'); pg.wait_for_selector('#s-email', timeout=3000)
+    # Edit goes back to Write with the letter kept.
+    pg.click('[data-edit]'); pg.wait_for_selector('#w-letter', timeout=5000)
+    ok(pg.evaluate('location.hash') == '#/HB2121/write' and letter() == sent_letter, 'Edit returns to Write with the letter kept')
+    pg.click('[data-next]'); pg.wait_for_selector('[data-practice]', timeout=10000)
+    # The practice sign-in: the one primary is Send my testimony, and From has the account's email.
+    pg.click('[data-practice]'); pg.wait_for_selector('[data-send]', timeout=10000); pg.evaluate(FONTS)
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Send my letter' and pg.locator('#s-email').count() == 0, 'the practice sign-in shows the one primary, "Send my letter" (fix 3.1)')
+    cs = pg.locator('#s-consent')
+    ok(cs.inner_text().strip() == 'HIPHI emails this to the committee in your name. Your name, town and email go with it, and it may become public. A copy comes to you.'
+       and cs.evaluate("e => e.nextElementSibling.matches('.cta') && !!e.nextElementSibling.querySelector('[data-send]')") and cs.evaluate('e => getComputedStyle(e).fontSize') == '16px',
+       'the consent line, at body size, right above Send (fix 3.2)')
+    send_h1 = pg.locator('h1').evaluate('e => getComputedStyle(e).fontSize')
+    ok('testimony' not in pg.locator('main').inner_text().lower(), 'Send signed in: no "testimony" (fix 3.1)')
+    ok('tester@example.com' in pg.locator('#s-from').inner_text(), 'From: the email replies go to, once signed in')
+    sw = width(); ok(sw[0] <= sw[1], f'send signed in: no sideways scroll at 390 ({sw})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part8-send.png')); pg.screenshot(path=os.path.join(SHOTS, 'fix3-send-in.png'))
+    pg.click('[data-send]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=5000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
     rec = pg.evaluate("() => { const d = JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]'), m = JSON.parse(localStorage.getItem('hiphi_me') || '{}');"
-                      " const L = Object.values(m.letters || {}).find(l => l.num === 'HB2121' && l.via === 'act'); return { done: d.filter(k => k.endsWith('|testimony')).length, letter: L ? L.letter : '', h: L ? L.h : '' }; }")
-    ok(rec['done'] >= 1 and rec['letter'] == full and rec['h'], f'Yes, I sent it marks the testimony done and keeps the whole letter in hiphi_me ({rec["done"]} mark)')
-    # Part 3: the Mahalo screen after Yes, I sent it.
+                      " const L = Object.values(m.letters || {}).find(l => l.num === 'HB2121'); return { done: d.filter(k => k.endsWith('|testimony')).length, letter: L ? L.letter : '', h: L ? L.h : '', status: L ? L.status : '' }; }")
+    ok(rec['done'] >= 1 and rec['letter'] == full and rec['h'] and rec['status'] == 'queued', f'Send marks the testimony done and keeps the whole letter on this device ({rec["done"]} mark, {rec["status"]})')
+    fk = pg.evaluate("JSON.parse(sessionStorage.getItem('hiphi_act_fake') || 'null')")
+    fl = [v for v in (fk or {}).get('letters', {}).values() if v.get('num') == 'HB2121']
+    ok(fl and fl[0].get('letter') == full and fl[0].get('status') == 'queued' and any(a['key'].endswith('|testimony') for a in fk.get('actions', [])), 'the practice account has the letter (my_letters) and the action (public_actions)')
+    # Part 3: the Mahalo screen, straight after the send (part 8: no "Did it go through?" step).
     sm = pg.locator('.sum').inner_text().strip()
-    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and sm in ('Your testimony is in. The committees hear it Fri, Mar 20.', 'Your testimony is in. The committee hears it Fri, Mar 20.') and 'HB 2121' not in sm, f'thanks: "Mahalo!" and the hearing day, the number said once ({sm!r})')
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and sm in ('Your letter went to the committees. A copy is in your inbox.', 'Your letter went to the committee. A copy is in your inbox.'), f'thanks: "Mahalo!" and the sent line ({sm!r}) (fix 3.1)')
+    ok(pg.locator('h1').evaluate('e => getComputedStyle(e).fontSize') == send_h1 == '28px', f'Send’s heading is Mahalo’s size ({send_h1}) (fix 3.8, A-4)')
+    ok('testimony' not in pg.locator('main').inner_text().lower(), 'Mahalo: no "testimony" (fix 3.1)')
+    ok(all(d == 'underline' for d in pg.locator('.after a').evaluate_all("as => as.map(a => getComputedStyle(a).textDecorationLine)")), 'Mahalo: both quiet links underlined, one link style (fix 3.13)')
+    ok(not gone(), f'Mahalo: no "Did it go through" words ({gone()})')
     a1, a2 = pg.locator('.after a').nth(0).bounding_box(), pg.locator('.after a').nth(1).bounding_box()
     ok(a2['y'] - (a1['y'] + a1['height']) >= 15.5, f'thanks: the two quiet links stand 16px apart ({round(a2["y"] - a1["y"] - a1["height"])})')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Share with a friend', 'thanks: exactly one primary, Share with a friend')
     ok(pg.locator('a', has_text='See HIPHI’s other bills').get_attribute('href') == '#/bills' and pg.locator('#main a[href^="track.html"]').count() == 0, 'thanks: "See HIPHI’s other bills" goes to Bills, in the app (part 6)')
     ok('vape' not in pg.content().lower(), 'thanks: no "vape"')
-    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part3-thanks.png'))
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part8-mahalo.png')); pg.screenshot(path=os.path.join(SHOTS, 'fix3-mahalo-sent.png'))
     want = pg.evaluate("() => location.origin + location.pathname + '#/HB2121'")
     pg.evaluate("() => Object.defineProperty(navigator, 'share', { configurable: true, value: d => { window.__shared = d; return Promise.resolve(); } })")
     pg.click('[data-share]'); pg.wait_for_function('() => !!window.__shared', timeout=3000)
@@ -168,40 +217,68 @@ with sync_playwright() as p:
     ok(pg.evaluate('location.hash') == '#/HB2121' and pg.locator('h1').inner_text().strip() != 'Mahalo!', 'Share, then Back to the bill: 2.5 s later the bill is still there (fix 1)')
     # Fix 2: the bill remembers it was sent, and /send goes to Mahalo.
     ok('You sent it on ' in pg.locator('.okline').inner_text() and pg.locator('.primary').count() == 0 and pg.locator('a', has_text='Send again').count() == 1,
-       'after Yes, the bill says "You sent it on …" with a quiet Send again, no primary (fix 2)')
+       'after sending, the bill says "You sent it on …" with a quiet Send again, no primary (fix 2)')
     pg.goto(BASE + '#/HB2121/send'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=10000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=10000)
-    ok(pg.locator('[data-sent]').count() == 0, '#/HB2121/send after sending goes to Mahalo, never Yes, I sent it again (fix 2)')
+    ok(pg.locator('[data-send]').count() == 0, '#/HB2121/send after sending goes to Mahalo, never the Send button again (fix 2)')
     open_step('#/HB2121/write', '#w-letter')
     ok(pg.locator('#w-name').input_value() == 'Leilani K. Kahale' and pg.locator('#w-town').input_value() == 'Hilo', 'the name and town are prefilled next time')
     pg.click('[data-differ]')
     ok(letter() == '' and pg.evaluate("document.activeElement.id") == 'w-letter', 'I see it differently empties the letter and puts the cursor in it (fix 8)')
     pg.locator('#w-letter').fill('Aloha. I see this bill another way.')
-    pg.click('[data-next]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks' || !!document.querySelector('[data-copy]')", timeout=10000)
+    pg.click('[data-next]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks' || !!document.querySelector('#s-letter')", timeout=10000)
 
     # The email to the chair: SB 2175 waits for a hearing.
     open_step('#/SB2175/write', '#w-letter')
     ok(pg.locator('h1').inner_text() == 'Your email to the chair' and 'Would you please schedule a hearing' in letter(), 'SB 2175: "Your email to the chair", asking for a hearing')
-    ok(pg.locator('[data-differ]').count() == 1 and 'HIPHI sends nothing' in pg.locator('.note').inner_text(), 'the email path has I see it differently too, and says HIPHI sends nothing')
-    pg.click('[data-next]'); pg.wait_for_selector('[data-via]', timeout=10000)
-    hrefs = {a.get_attribute('data-via'): a.get_attribute('href') for a in pg.locator('[data-via]').all()}
-    ok(set(hrefs) == {'app', 'gmail', 'outlook'} and hrefs['app'].startswith('mailto:') and '@capitol.hawaii.gov' in hrefs['app'] and 'subject=SB%202175' in hrefs['app'],
-       'the mail app link has the chair’s address and the subject')
-    ok(hrefs['gmail'].startswith('https://mail.google.com/') and hrefs['outlook'].startswith('https://outlook.live.com/') and all('body=' in h for h in hrefs.values()), 'Gmail and Outlook links, each with the message')
-    ok(pg.locator('.primary').count() == 1, 'email send: exactly one primary button')
-    ok(pg.locator('.steps li').nth(0).locator('[data-via]').count() == 3, 'the email’s step 1 holds the three ways to open it')
+    ok(pg.locator('[data-differ]').count() == 1 and pg.locator('.note').inner_text().strip() == 'Next, you see who it goes to. Then HIPHI sends it for you.', 'the email path has I see it differently too, and says HIPHI sends it next')
+    pg.click('[data-next]'); pg.wait_for_selector('[data-send]', timeout=10000)
+    to = pg.locator('#s-to').inner_text().strip()
+    ok(pg.locator('h1').inner_text() == 'Send your email' and ', chair of the ' in to and (to.startswith('Sen. ') or to.startswith('Rep. ')), f'SB 2175: "Send your email", To the chair by name ({to!r})')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Send my email', 'email send: exactly one primary, "Send my email"')
+    ok(pg.locator('[data-via]').count() == 0 and not gone(), f'email send: no mail-app links, no Capitol words ({gone()})')
     ok('vape' not in pg.content().lower(), 'email send: no "vape"')
-    pg.click('[data-sent]'); pg.wait_for_function("() => location.hash === '#/SB2175/thanks'", timeout=5000)
-    ok(pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('||email'))"), 'Yes, I sent it marks the email done')
+    pg.click('[data-send]'); pg.wait_for_function("() => location.hash === '#/SB2175/thanks'", timeout=5000)
     pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)   # the hash changes before the screen is drawn
-    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Your email is on its way to the chair.', 'the email case: "Your email is on its way to the chair."')
+    ok(pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('||email'))"), 'Send my email marks the email done')
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Sent to the chair. A copy is in your inbox.', 'the email case: "Sent to the chair. A copy is in your inbox."')
+
+    # Held (?held=1: the switch is off, as it is until Nate turns letters on): saved, not done, not counted.
+    # A fresh start for HB 2121 (the account's own done marks come back at sign-in, as they should): none here, none on the account.
+    pg.evaluate("localStorage.removeItem('hiphi_done_demo'); localStorage.removeItem('hiphi_done_at_demo'); const f = JSON.parse(sessionStorage.getItem('hiphi_act_fake')); f.actions = []; sessionStorage.setItem('hiphi_act_fake', JSON.stringify(f))")
+    pg.goto(BASE + '&held=1#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=60000)
+    pg.click('[data-send]'); pg.wait_for_function("() => location.hash === '#/HB2121/thanks'", timeout=5000); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    ok(pg.locator('h1').inner_text().strip() == 'Mahalo!' and pg.locator('.sum').inner_text().strip() == 'Saved, not sent yet. Sending from the app is not switched on, so this letter has not reached anyone.', 'held: Mahalo says plainly it has not been sent (fix 3.3)')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'fix3-mahalo-held.png'))
+    ok(not pg.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') || '[]').some(k => k.endsWith('|testimony'))"), 'held: no done mark')
+    fk = pg.evaluate("JSON.parse(sessionStorage.getItem('hiphi_act_fake') || 'null')")
+    ok([v.get('status') for v in fk['letters'].values() if v.get('num') == 'HB2121'] == ['held'], 'held: the letter is saved on the account as held')
+    pg.reload(); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=30000)
+    ok(pg.locator('.sum').inner_text().strip().startswith('Saved, not sent yet.'), 'held: a reload of Mahalo keeps the held words')
+    pg.goto(BASE + '#/you'); pg.wait_for_selector('#y-letters [data-letter]', timeout=30000)
+    hl = pg.locator('#y-letters .lt', has_text='HB 2121')
+    ok(hl.count() == 1 and 'Not sent yet' in hl.inner_text(), 'held: You > Your letters marks it "Not sent yet" (fix 3.3)')
+    pg.goto(BASE + '#/HB2121'); pg.wait_for_selector('#main:not([aria-busy]) .primary', timeout=30000); pg.evaluate(FONTS); pg.wait_for_function(IMGS, timeout=20000)
+    ok(pg.locator('#b-held').inner_text().strip() == 'You saved a letter on this bill. It has not been sent.' and pg.locator('.primary').inner_text().strip() == 'Send a letter'
+       and pg.locator('#b-held').evaluate("e => e.nextElementSibling.matches('.cta')"), 'held: the bill says the letter was saved and not sent, above the same "Send a letter" (fix 3.3)')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'fix3-bill-held.png'))
+    pg.goto(BASE + '#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=30000)
+    ok(pg.locator('.primary').inner_text().strip() == 'Send my letter', 'held: the bill is not done, so Send is offered again')
+    # A refusal retrying cannot fix (B-8): the practice copy's ?refuse= answers as send_my_letter would.
+    pg.goto(BASE + '&refuse=hearing_not_open#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=60000)
+    pg.click('[data-send]'); pg.wait_for_selector('#s-err', timeout=5000)
+    mt = pg.locator('main').inner_text()
+    dr = pg.evaluate("() => Object.values(JSON.parse(sessionStorage.getItem('hiphi_act_drafts') || '{}')).some(x => (x.letter || '').includes('another way'))")
+    ok('The deadline for this hearing has passed, so it can’t be sent.' in pg.locator('#s-err').inner_text() and 'try again' not in mt.lower() and pg.locator('[data-send]').count() == 0
+       and pg.locator('[data-tobill]').inner_text().strip() == 'Back to the bill' and pg.locator('[data-tobill]').get_attribute('href') == '#/HB2121' and dr and pg.evaluate('location.hash') == '#/HB2121/send',
+       'hearing_not_open: the deadline words, no "try again", Back to the bill in place of Send, the letter kept (fix 3.4)')
 
     # 320 wide: no sideways scroll on either step.
     pg.set_viewport_size({'width': 320, 'height': 640}); pg.evaluate("localStorage.removeItem('hiphi_done_demo')")   # so send shows again
-    for h, sel in (('#/HB2121/write', '#w-letter'), ('#/HB2121/send', '[data-copy]'), ('#/SB2175/send', '[data-via]'), ('#/HB2121/thanks', '[data-share]')):
+    for h, sel in (('#/HB2121/write', '#w-letter'), ('#/HB2121/send', '#s-letter'), ('#/SB2175/send', '#s-letter'), ('#/HB2121/thanks', '[data-share]')):
         open_step(h, sel); sw = width()
         ok(sw[0] <= sw[1], f'{h}: no sideways scroll at 320 ({sw})')
     ok(not errs2, f'part 2 and 3: no page errors {errs2[:2]}')
-    ok(not any('/rpc/log_' in u for u in reqs), f'the practice copy sends no count: no request to /rpc/log_ ({len(reqs)} requests)')
+    ok(not any('/rpc/log_' in u or 'send_my_letter' in u for u in reqs), f'the practice copy sends no count and no letter: no request to /rpc/log_ or send_my_letter ({len(reqs)} requests)')
     ctx.close()
 
     # ---- Part 4: Bills and the tab bar ----
@@ -217,7 +294,7 @@ with sync_playwright() as p:
     ok(pg.locator('.voices h2').inner_text().strip() == 'Needs voices this week' and 1 <= len(dues) <= 5 and all(dues) and dues == sorted(dues) and all(d < '2026-03-23T10:00' for d in dues),
        f'"Needs voices this week", as Home names it: at most five rows, this week’s deadlines, soonest first ({len(dues)}) (fix 9)')
     vs = pg.locator('.voices a.r .t > span').all_inner_texts()
-    ok(all(s.startswith('Send testimony by ') for s in vs) and 'Send testimony by today 9:30 AM' in vs, f'each row says the deadline in the shared wording ({vs[:2]}) (fix 6)')
+    ok(all(s.startswith('Send a letter by ') for s in vs) and 'Send a letter by today 9:30 AM' in vs, f'each row says the deadline in the shared wording ({vs[:2]}) (fix 6)')
     n_all = pg.locator('.isec').count()
     ok(pg.locator('.isec h3').count() >= 3 and n_all >= 3, f'at least three issue sections ({n_all})')
     ok(pg.locator('#issue-disposable-e-cigarette-ban .th img.art-issue').count() == 1, 'an issue with a drawing shows it small beside its name')
@@ -228,7 +305,7 @@ with sync_playwright() as p:
       while (w.nextNode()) { const r = document.createRange(); r.selectNodeContents(w.currentNode); if (inView(r.getBoundingClientRect())) words += w.currentNode.textContent.trim().split(/\\s+/).filter(Boolean).length; }
       return { taps, words }; }""")
     ok(budget['taps'] <= 12 and budget['words'] <= 130, f'the first screenful: at most 12 things to tap and about 130 words, tab bar aside ({budget})')
-    ok(pg.locator('.tabs a').count() == 3 and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Bills' and pg.locator('.tabs').is_visible(), 'the tab bar shows on Bills, with Bills current')
+    ok(pg.locator('.tabs a').count() == 4 and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Bills' and pg.locator('.tabs').is_visible(), 'the tab bar shows on Bills, with Bills current')
     ok('vape' not in pg.content().lower(), 'Bills: no "vape"')
     sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
     ok(sw[0] <= sw[1], f'Bills: no sideways scroll at 390 ({sw})')
@@ -322,9 +399,9 @@ with sync_playwright() as p:
     ok(kick.endswith('Mon, Mar 16') and pg.locator('h1').inner_text().strip() == 'This week at the Capitol', f'This week: the kicker has today’s date in Hawaiʻi and the heading ({kick!r})')
     # The soonest open deadline among HIPHI's bills at 9:00 am Mon 16 Mar: SB 3234's, 9:30 am today.
     one = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip(); line = pg.locator('.pick .ln').inner_text().strip()
-    ok(one == 'Safer walking routes next to schools' and line == 'Send testimony by today 9:30 AM. The committee hears it Tue, Mar 17.', f'no follows: the one thing is the soonest deadline, SB 3234, in the shared wording, the hearing ahead ({one!r}, {line!r}) (fixes 5, 6)')
+    ok(one == 'Safer walking routes next to schools' and line == 'Send a letter by today 9:30 AM. The committee hears it Tue, Mar 17.', f'no follows: the one thing is the soonest deadline, SB 3234, in the shared wording, the hearing ahead ({one!r}, {line!r}) (fixes 5, 6)')
     ok(pg.locator('.pick .lab1').evaluate('e => getComputedStyle(e).color') == 'rgb(0, 105, 142)', 'the "Your one thing this week" label is blue (--p700), not orange (fix 11, A-5)')
-    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send testimony' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write', 'exactly one primary button, Send testimony, to the bill’s letter')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send a letter' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write', 'exactly one primary button, Send a letter, to the bill’s letter')
     q = pg.locator('.wk-issues .calm a')
     ok(q.count() == 1 and q.inner_text().strip() == 'Bills' and q.get_attribute('href') == '#/bills' and pg.locator('.wk-issues .calm').inner_text().strip() == 'Follow an issue on Bills, and its hearings will show here.',
        'no follows: "Follow an issue on Bills, and its hearings will show here.", only "Bills" a link (fix 10)')
@@ -367,7 +444,7 @@ with sync_playwright() as p:
     pg.locator('#issue-disposable-e-cigarette-ban [data-follow]').click()
     pg.locator('.tabs a[data-tab="week"]').click(); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000); pg.evaluate(FONTS)
     one = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip(); line = pg.locator('.pick .ln').inner_text().strip()
-    ok(one == 'Disposable e-cigarette ban' and line == 'Send testimony by Wed 9:30 AM. The committees hear it Fri, Mar 20.' and pg.locator('.pick .primary').get_attribute('href') == '#/HB2121/write',
+    ok(one == 'Disposable e-cigarette ban' and line == 'Send a letter by Wed 9:30 AM. The committees hear it Fri, Mar 20.' and pg.locator('.pick .primary').get_attribute('href') == '#/HB2121/write',
        f'following the e-cigarette ban: the one thing is HB 2121, its hearing ahead said as ahead ({one!r}, {line!r}) (fix 5)')
     ok(pg.locator('.pick .ln.soon').count() == 0, 'a deadline two days out is not amber (fix 11, A-5: amber only within 24 hours)')
     fr = pg.locator('.wk-hear a.r[data-bill="HB2121"]')
@@ -378,7 +455,7 @@ with sync_playwright() as p:
     ok(ih == ['Disposable e-cigarette ban'] and pg.locator('.wk-issues a.r[data-bill="HB2121"]').count() == 0 and pg.locator('.wk-issues .calm.quiet').inner_text().strip() == 'Its bill is your one thing above.',
        f'Your issues lists the issue and leaves its bill to the card above, with one quiet line ({ih}) (fix 8)')
     hs = pg.locator('.wk-issues a.r .t > span').all_inner_texts()
-    ok(not any(x.startswith('Heard ') for x in hs) and all(x.startswith(('Hearing ', 'Send testimony by ')) for x in hs), f'an issue’s rows say "Hearing ..." for hearings ahead, never "Heard" ({hs[:2]}) (fix 5)')
+    ok(not any(x.startswith('Heard ') for x in hs) and all(x.startswith(('Hearing ', 'Send a letter by ')) for x in hs), f'an issue’s rows say "Hearing ..." for hearings ahead, never "Heard" ({hs[:2]}) (fix 5)')
     ok(pg.locator('.primary').count() == 1, 'following: still exactly one primary button')
     budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
       const taps = [...document.querySelectorAll('#main a, #main button, #main input')].filter(e => inView(e.getBoundingClientRect())).length;
@@ -395,15 +472,15 @@ with sync_playwright() as p:
     pg.goto(BASE + '#/week'); pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
     wl = pg.locator('.wk-issues a.r[data-bill="HB1991"] .t > span')
     ok(wl.count() == 1 and re.match(r'^No hearing yet\. The chairs have until \w{3}, \w{3} \d+\.$', wl.inner_text().strip()), f'an issue with nothing this week: "No hearing yet. The chairs have until …" ({wl.count() and wl.inner_text()!r})')
-    # Send it: Yes, I sent it, and the card says so and offers the next bill.
+    # Send it (the practice tester signed in on Send), and the card says so and offers the next bill.
     pg.locator('.pick .primary').click(); pg.wait_for_selector('#w-letter', timeout=10000)
-    pg.fill('#w-name', 'Leilani Kahale'); pg.click('[data-next]'); pg.wait_for_selector('[data-capitol]', timeout=10000)
-    pg.click('[data-capitol]'); pg.wait_for_selector('[data-sent]', timeout=3000); pg.click('[data-sent]'); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
+    pg.fill('#w-name', 'Leilani Kahale'); pg.click('[data-next]'); pg.wait_for_selector('[data-practice]', timeout=10000)
+    pg.click('[data-practice]'); pg.wait_for_selector('[data-send]', timeout=5000); pg.click('[data-send]'); pg.wait_for_selector('h1:has-text("Mahalo")', timeout=5000)
     pg.goto(BASE + '#/week')
     pg.wait_for_selector('#main.week:not([aria-busy]) .pick', timeout=30000)
     one2 = pg.locator('.pick h2').inner_text().replace('\n', ' ').strip() if pg.locator('.pick h2').count() else ''
     ok('You sent it: Disposable e-cigarette ban.' in pg.locator('.pick .okline').inner_text() and one2 and one2 != 'Disposable e-cigarette ban' and pg.locator('.primary').count() == 1,
-       f'after Yes, I sent it: the card says "You sent it" and offers the next bill ({one2!r})')
+       f'after sending: the card says "You sent it" and offers the next bill ({one2!r})')
     # A returning person who opens act.html with no address lands on This week.
     pg.goto(BASE); pg.wait_for_selector('#main.week:not([aria-busy])', timeout=30000)
     ok(pg.evaluate('location.hash') == '#/week' and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'This week', 'a returning person opening act.html lands on #/week')
@@ -432,7 +509,7 @@ with sync_playwright() as p:
     # The one thing is This week's (week.js weekData): with no follows at 9:00 am Mon 16 Mar, SB 3234.
     nm, ln = pg.locator('.pick h3').inner_text().replace('\n', ' ').strip(), pg.locator('.pick .ln').inner_text().strip()
     ok(nm == 'Safer walking routes next to schools' and pg.locator('.pick .num').inner_text().strip() == 'SB 3234' and pg.locator('.pick .pos').inner_text().strip() == 'HIPHI supports', f'the card: the one thing This week offers, its number and position ({nm!r})')
-    ok(ln == 'Send testimony by today 9:30 AM. The House Transportation Committee meets on it Tue, Mar 17. You don’t need to go.', f'the card: when to send by, in the shared wording, who meets on it and when ({ln!r}) (fixes 6, 10)')
+    ok(ln == 'Send a letter by today 9:30 AM. The House Transportation Committee meets on it Tue, Mar 17. You don’t need to go.', f'the card: when to send by, in the shared wording, who meets on it and when ({ln!r}) (fixes 6, 10)')
     hb = pg.locator('.hd.hello').bounding_box(); cy = pg.locator('.pick').bounding_box()['y']
     ok(135 <= hb['height'] <= 150 and cy <= 335, f'Home: the drawing about 140px tall, so the card starts near 320px ({round(hb["height"])}, card at {round(cy)}) (fix 13, A-1)')
     ok(pg.locator('.tabs a').first.evaluate('e => getComputedStyle(e).fontSize') == '13px', 'tab labels at the 13px token (fix 13, A-4)')
@@ -440,8 +517,8 @@ with sync_playwright() as p:
     ok(hw['width'] >= 44 and hw['height'] >= 44, f'the footer’s Help is at least 44 by 44 ({round(hw["width"])}x{round(hw["height"])}) (fix 13, A-6)')
     ps = pg.locator('.pick .psum').inner_text().strip()
     ok(ps.endswith('.') and ps.count('. ') == 0, f'the card: a one-sentence summary ({ps!r})')
-    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send testimony' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write'
-       and pg.locator('.pick .small').inner_text().strip() == 'About 10 minutes. We help you write it.', 'Home: exactly one primary button, Send testimony to the letter, "About 10 minutes"')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send a letter' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write'
+       and pg.locator('.pick .small').inner_text().strip() == 'About 10 minutes. We help you write it.', 'Home: exactly one primary button, Send a letter to the letter, "About 10 minutes" (fix 3.1)')
     rows = pg.locator('a.ri'); slugs = rows.evaluate_all('rs => rs.map(r => r.dataset.issue)')
     ok(rows.count() == 4 and all(rows.nth(k).get_attribute('href') == '#/bills/' + slugs[k] for k in range(4)) and all(rows.nth(k).locator('.lab').count() == 1 for k in range(4)), f'four issues, each with its topic, each to Bills at the issue ({slugs})')
     ok(rows.locator('.th img').count() >= 1, 'an issue with a drawing shows it small')
@@ -508,6 +585,136 @@ with sync_playwright() as p:
     ok(pg.locator('.chips').evaluate('e => getComputedStyle(e).flexWrap') == 'wrap' and last['x'] + last['width'] <= cr['x'] + cr['width'] + 1, 'laptop: the topic chips wrap, so a mouse reaches every one (fix 13, A-9)')
     ctx.close()
     ok(not errs6, f'part 6: no page errors {errs6[:2]}')
+    # ---- Part 7: You (#/you), the fourth tab: signing in and the person's profile, in the practice copy's fake account ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page(); errs7 = []; dialogs = []
+    pg.on('pageerror', lambda e: errs7.append(str(e))); pg.on('dialog', lambda d: (dialogs.append(d.message), d.dismiss()))
+    TAPS = """() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
+      return [...document.querySelectorAll('#app a, #app button, #app input, #app select')].filter(e => !e.closest('.tabs') && inView(e.getBoundingClientRect())).length; }"""
+    width = lambda: pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    fake = lambda: pg.evaluate("JSON.parse(sessionStorage.getItem('hiphi_act_fake') || 'null')")
+    def open_you(signed_in):
+        pg.goto(BASE + '#/you'); pg.wait_for_selector('#y-about' if signed_in else '#y-email', timeout=60000); pg.evaluate(FONTS)
+    def tabs4(where):
+        ok(pg.locator('.tabs a').count() == 4 and [x.strip() for x in pg.locator('.tabs a').all_inner_texts()] == ['Home', 'Bills', 'This week', 'You'], f'{where}: the tab bar has four tabs, Home · Bills · This week · You')
+    open_you(False)
+    ok(pg.locator('h1').inner_text().strip() == 'You' and pg.locator('.lede').inner_text().strip() == 'Sign in to keep your issues and letters on every device.', 'You, signed out: the heading and its one line')
+    ok(pg.locator('#y-email').get_attribute('type') == 'email' and pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Email me a sign-in link', 'signed out: the email box and one primary, "Email me a sign-in link"')
+    ok(pg.locator('[data-act="practice"]').inner_text().strip() == 'Practice: sign in as a tester', 'the practice copy offers "Practice: sign in as a tester"')
+    tabs4('You'); ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'You', 'the You tab is current')
+    n = pg.evaluate(TAPS); ok(n <= 8, f'signed out: at most 8 things to tap in the first screenful ({n})')
+    ok(width()[0] <= width()[1] and 'vape' not in pg.content().lower(), f'signed out: no sideways scroll at 390, no "vape" ({width()})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part7-you-out.png'))
+    pg.click('.primary'); pg.wait_for_selector('#y-email-err', timeout=3000)
+    ok('name@example.com' in pg.locator('#y-email-err').inner_text() and pg.evaluate('document.activeElement.id') == 'y-email', 'no email: a plain error under the box, the focus in it (C-9)')
+    pg.fill('#y-email', 'leilani@example.com'); pg.click('.primary'); pg.wait_for_selector('.sentbox', timeout=5000)
+    sb = pg.locator('.sentbox').inner_text()
+    ok('Check your email for the link. It’s from HIPHI Bill Tracker.' in sb and 'leilani@example.com' in sb and 'Practice: no email is sent' in pg.locator('body').inner_text(), 'after the link: "Check your email for the link...", the address, and that the practice copy sent none')
+    pg.click('[data-act="other"]'); pg.wait_for_selector('#y-email', timeout=3000)
+    ok(True, '"Use a different email" brings the box back')
+    pg.set_viewport_size({'width': 320, 'height': 640}); open_you(False)
+    ok(width()[0] <= width()[1], f'signed out: no sideways scroll at 320 ({width()})')
+    pg.set_viewport_size({'width': 390, 'height': 844}); open_you(False)
+
+    # The practice sign-in. Before it, this device follows nothing and has written no letter.
+    pg.click('[data-act="practice"]'); pg.wait_for_selector('#y-about', timeout=10000); pg.evaluate(FONTS)
+    hs = [x.strip() for x in pg.locator('main h2').all_inner_texts()]
+    ok(hs == ['About you', 'Email', 'Alerts', 'Your issues', 'Your letters', 'Phone (optional)'], f'signed in: the sections in order ({hs})')
+    ok(pg.locator('[data-act="signout"]').count() == 1 and pg.locator('[data-act="del"]').inner_text().strip() == 'Delete my data', 'then a quiet Sign out and Delete my data')
+    ok(pg.locator('#y-mail .addr').inner_text() == 'tester@example.com', 'Email shows the account’s email')
+    ok(pg.locator('.primary').count() <= 1, f'signed in: at most one primary ({pg.locator(".primary").count()})')
+    n = pg.evaluate(TAPS); ok(n <= 8, f'signed in: at most 8 things to tap in the first screenful ({n})')
+    ok('Email me when a bill on one of my issues gets a hearing' in pg.locator('#y-alerts').inner_text() and 'Email me when HIPHI has an update or a way to help' in pg.locator('#y-alerts').inner_text()
+       and 'Every email has a one-click unsubscribe.' in pg.locator('#y-alerts').inner_text(), 'Alerts: the tracker’s own consent words')
+    ok('Emails to ' not in pg.locator('#y-alerts').inner_text() and pg.locator('[data-save="emails"]').count() == 0, 'Alerts: the email is said once (under Email), and no Save (fix 3.9, 3.10)')
+    ok('HIPHI lets you know when your voice matters most.' in pg.locator('#y-phone').inner_text() and 'A few texts a month. Msg & data rates may apply. Reply STOP to cancel.' in pg.locator('#y-phone').inner_text(), 'Phone: the text box’s own consent words (t5)')
+    ok(not pg.locator('main [required]').count(), 'no field is required')
+    tabs4('You signed in')
+    ok(width()[0] <= width()[1] and 'vape' not in pg.content().lower(), f'signed in: no sideways scroll at 390, no "vape" ({width()})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part7-you-in.png')); pg.screenshot(path=os.path.join(SHOTS, 'fix3-you-in.png'))
+
+    # About you (fix 3.9): typing kept for the tab when the person goes elsewhere unsaved, saved on leaving the box, and Save.
+    pg.evaluate("() => { for (const [id, v] of [['#y-name', 'Kai Kealoha'], ['#y-town', 'Waime']]) { const e = document.querySelector(id); e.value = v; e.dispatchEvent(new Event('input', { bubbles: true })); } }")
+    pg.evaluate("location.hash = '#/bills'"); pg.wait_for_selector('#b-res .r', timeout=30000)
+    pg.evaluate("location.hash = '#/you'"); pg.wait_for_selector('#y-about', timeout=30000)
+    ok(pg.locator('#y-name').input_value() == 'Kai Kealoha' and pg.locator('#y-town').input_value() == 'Waime' and (fake() or {}).get('name') != 'Kai Kealoha',
+       'typing a name, leaving and coming back keeps it, not saved yet (fix 3.9)')
+    pg.fill('#y-town', 'Waimea'); pg.keyboard.press('Tab')
+    pg.wait_for_function("() => (document.querySelector('#y-about-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    ok(fake()['name'] == 'Kai Kealoha' and fake()['prefs'].get('town') == 'Waimea', 'leaving the box saves the name and town, with "Saved." (fix 3.9)')
+    pg.click('[data-save="about"]')
+    pg.wait_for_function("() => (document.querySelector('#y-about-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    f = fake(); me = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}')")
+    ok(f['name'] == 'Kai Kealoha' and f['prefs'].get('town') == 'Waimea' and me.get('name') == 'Kai Kealoha' and me.get('town') == 'Waimea', 'Save: the name and town on the account (town in prefs) and on this device, with "Saved."')
+    pg.goto(BASE + '#/HB2121/write'); pg.wait_for_selector('#w-letter', timeout=30000)
+    ok(pg.locator('#w-name').input_value() == 'Kai Kealoha' and pg.locator('#w-town').input_value() == 'Waimea' and 'My name is Kai Kealoha, and I live in Waimea.' in pg.locator('#w-letter').input_value(), 'Write is filled in with the saved name and town')
+
+    # Following on Bills shows under Your issues, and the account follows it.
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=30000); tabs4('Bills')
+    fb = pg.locator('#b-res [data-follow][aria-pressed="false"]').first; iid = fb.get_attribute('data-follow')
+    iname = pg.locator(f'#b-res .isec:has([data-follow="{iid}"]) h3').inner_text().strip()
+    fb.click(); pg.wait_for_selector(f'#b-res [data-follow="{iid}"][aria-pressed="true"]', timeout=3000)
+    pg.wait_for_function(f"() => (JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{{}}').follows || []).includes('{iid}')", timeout=5000)
+    ok(True, f'Follow on Bills reaches the account ({iname})')
+    pg.locator('.tabs a[data-tab="you"]').click(); pg.wait_for_selector('#y-issues', timeout=10000)
+    ok(iname in pg.locator('#y-issues').inner_text() and pg.locator(f'#y-issues [data-follow="{iid}"]').get_attribute('aria-pressed') == 'true', 'You: the issue is under Your issues, Following')
+    ok(pg.locator(f'#y-levels select[data-level="{iid}"]').count() == 1 and 'Alerts for each issue' in pg.locator('#y-levels').inner_text()
+       and pg.locator(f'#y-levels select[data-level="{iid}"]').input_value() == 'big', 'Alerts: the issue’s level, Big moments only to start')
+    pg.select_option(f'#y-levels select[data-level="{iid}"]', 'every'); pg.wait_for_function("() => (document.querySelector('#y-lv-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    ok(fake()['levels'].get(iid) == 'every', 'the level is kept on the account (set_issue_alert_level’s practice twin)')
+    pg.check('#y-hear'); pg.wait_for_function("() => (document.querySelector('#y-emails-st')?.textContent || '').includes('Saved.')", timeout=5000)
+    pr = fake()['prefs']; ok(pr.get('hearing_alerts') is True and pr.get('action_alerts') is False and pr.get('consent_source') == 'profile' and pr.get('town') == 'Waimea', 'Alerts: ticking a box saves it at once, no Save, with where it was given, and the town stays (fix 3.9)')
+    pg.locator(f'#y-issues [data-follow="{iid}"]').click(); pg.wait_for_selector(f'#y-issues [data-follow="{iid}"][aria-pressed="false"]', timeout=3000)
+    pg.wait_for_function(f"() => !(JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{{}}').follows || []).includes('{iid}')", timeout=5000)
+    ok(pg.locator(f'#y-levels select[data-level="{iid}"]').count() == 0, 'Following pressed on You stops it, here and on the account, and the row stays to follow again')
+    pg.locator(f'#y-issues [data-follow="{iid}"]').click(); pg.wait_for_selector(f'#y-issues [data-follow="{iid}"][aria-pressed="true"]', timeout=3000)
+
+    # A sent letter shows under Your letters, and the account has it and the action.
+    pg.goto(BASE + '#/HB2121/send'); pg.wait_for_selector('[data-send]', timeout=30000); pg.click('[data-send]')
+    pg.wait_for_function("() => /\\/thanks$/.test(location.hash)", timeout=10000)
+    pg.wait_for_function("() => Object.keys(JSON.parse(sessionStorage.getItem('hiphi_act_fake') || '{}').letters || {}).length > 0", timeout=5000)
+    f = fake(); ok(any(a['key'].endswith('|testimony') for a in f['actions']) and len(f['letters']) == 1, 'Send my letter: the account has the action and the letter (public_actions, my_letters)')
+    pg.goto(BASE + '#/you'); pg.wait_for_selector('#y-letters [data-letter]', timeout=30000)
+    ok('Letter on HB 2121' in pg.locator('#y-letters').inner_text(), 'You: the letter is under Your letters')
+    pg.locator('#y-letters [data-letter]').first.click(); pg.wait_for_selector('#y-letters textarea', timeout=3000)
+    ok('Kai Kealoha' in pg.locator('#y-letters textarea').input_value(), 'opening it shows the letter to read')
+    pg.locator('#y-letters [data-del]').click(); pg.wait_for_selector('#y-letters [data-undo]', timeout=3000)
+    ok(pg.locator('#y-letters [data-letter]').count() == 0 and 'is deleted. Deleting it here doesn’t unsend it.' in pg.locator('#y-letters').inner_text() and not fake()['letters']
+       and not pg.evaluate("Object.keys(JSON.parse(localStorage.getItem('hiphi_me') || '{}').letters || {}).length"), 'Delete: gone from the list, this device and the account, with Undo')
+    pg.locator('#y-letters [data-undo]').click(); pg.wait_for_selector('#y-letters [data-letter]', timeout=3000)
+    ok(len(fake()['letters']) == 1, 'Undo brings it back')
+
+    # Email change and the number, in the practice copy.
+    pg.click('[data-act="mail"]'); pg.wait_for_selector('#y-newmail', timeout=3000); pg.fill('#y-newmail', 'kai@example.com'); pg.click('[data-save="mail"]')
+    pg.wait_for_function("() => /Practice: no email is sent/.test(document.querySelector('#y-mail')?.innerText || '')", timeout=5000)
+    ok(True, 'Change email: in place, and the practice copy says no email was sent')
+    pg.fill('#y-tel', '808 555 0123'); pg.click('[data-save="phone"]'); pg.wait_for_function("() => /Almost set/.test(document.querySelector('#y-phone')?.innerText || '')", timeout=5000)
+    ok('Almost set. We’ll text (808) 555-0123 to confirm it’s your number.' in pg.locator('#y-phone').inner_text(), 'Phone: kept, in the tracker’s words for a number not yet confirmed')
+
+    # Delete my data: the confirm is on the page, never a browser pop-up; Keep my profile puts it away.
+    pg.click('[data-act="del"]'); pg.wait_for_selector('.confirm', timeout=3000)
+    ok(pg.locator('.confirm').is_visible() and 'Delete your profile for good?' in pg.locator('.confirm').inner_text() and 'It can’t be undone.' in pg.locator('.confirm').inner_text() and not dialogs, 'Delete my data: an in-page confirm with the tracker’s words, no pop-up')
+    pg.mouse.move(0, 0); kp = pg.locator('[data-act="del-no"]'); dy = pg.locator('[data-act="del-yes"]')
+    ok(kp.evaluate('e => e.tagName') == 'BUTTON' and kp.inner_text().strip() == 'Keep my profile' and 'secondary' in kp.get_attribute('class')
+       and dy.evaluate('e => getComputedStyle(e).backgroundColor') == 'rgb(255, 255, 255)' and dy.bounding_box()['height'] <= kp.bounding_box()['height'] + 1,
+       'Keep my profile is an outlined button, the red delete outlined and no bigger (fix 3.12, P-3)')
+    pg.click('[data-act="del-no"]'); pg.wait_for_selector('[data-act="del"]', timeout=3000); ok(pg.locator('.confirm').count() == 0, 'Keep my profile closes it')
+    pg.set_viewport_size({'width': 320, 'height': 640})
+    ok(width()[0] <= width()[1], f'signed in: no sideways scroll at 320 ({width()})')
+    pg.set_viewport_size({'width': 390, 'height': 844})
+
+    # Sign out: the signed-out screen, the profile off this device, the follows kept.
+    pg.click('[data-act="signout"]'); pg.wait_for_selector('#y-email', timeout=5000)
+    me = pg.evaluate("JSON.parse(localStorage.getItem('hiphi_me') || '{}')")
+    ok('You’re signed out.' in pg.locator('main').inner_text() and fake() is None and not me.get('name') and iid in pg.evaluate("localStorage.getItem('hiphi_issue_follows_demo') || ''"), 'Sign out: back to the signed-out screen, the profile off this device, the follows kept here')
+    # Signing in again: what this device follows joins the (new, empty) account (loadUser's merge).
+    pg.click('[data-act="practice"]'); pg.wait_for_selector('#y-about', timeout=10000)
+    ok(iid in (fake().get('follows') or []) and iname in pg.locator('#y-issues').inner_text(), 'sign-in: the issues followed on this device join the account')
+    pg.click('[data-act="del"]'); pg.wait_for_selector('[data-act="del-yes"]', timeout=3000); pg.click('[data-act="del-yes"]'); pg.wait_for_selector('#y-email', timeout=5000)
+    ok('Your profile is deleted. Mahalo for speaking up.' in pg.locator('main').inner_text() and fake() is None and not pg.evaluate("localStorage.getItem('hiphi_issue_follows_demo')"), 'Yes, delete my account: signed out, and this device’s copies gone')
+    for h, sel in (('#/', '#main.home:not([aria-busy]) .pick'), ('#/week', '#main.week:not([aria-busy])'), ('#/HB2121', '.primary')):
+        pg.goto(BASE + h); pg.wait_for_selector(sel, timeout=30000); tabs4(h)
+    ok(not errs7 and not dialogs, f'part 7: no page errors {errs7[:2]}')
+    ctx.close()
     br.close()
 
     # The failed load (B-8): the snapshot cannot be fetched, so the page says so and offers Try again.

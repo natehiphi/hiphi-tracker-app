@@ -1,9 +1,11 @@
 // act.html (R-360): one bill, one action. The address names the bill: #/HB2121 (any case, a space allowed), the tracker's
 // own #/bill/HB2121 and #/bill/2026/HB2121 too, so a link made for track.html opens here unchanged. Then the one action:
 // #/HB2121/write (one/write.js), #/HB2121/send (one/send.js) and #/HB2121/thanks (one/thanks.js). The counts (one/counts.js)
-// are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action.
+// are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action (and, signed in,
+// the person's own account, one/auth.js).
 // Part 4 makes it the start of the whole public app: #/ is Home (one/home.js, part 6), #/bills is Bills (one/bills.js; #/bills/<issue-slug> opens
 // it at that issue), #/week is This week (one/week.js, part 5), with the tab bar (one/tabs.js) on those three and on the bill.
+// Part 7 adds #/you, You (one/you.js): signing in and the person's profile; a sign-in link comes back here and opens You.
 // A returning person (a done mark, or an issue followed) who opens act.html with no address at all lands on This week.
 import { loadBill, loadPeople, loadList, LoadError } from './data.js';
 import { billScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
@@ -17,6 +19,8 @@ import { writeScreen, wireWrite, loadMe } from './write.js';
 import { sendScreen, wireSend, freshSend } from './send.js';
 import { isDone, doneSet } from './done.js';
 import { cancelLater } from './later.js';
+import { you } from './you.js';
+import { fromLink, finishLink, backRoute, linkErrorPending, signedInHint, loadAccount } from './auth.js';
 
 const root = document.getElementById('app');
 const ROUTE = /^#\/(?:bill\/)?(?:(\d{4})\/)?([A-Za-z]+)\s?(\d+)(?:\/(write|send|thanks))?\/?$/;
@@ -24,7 +28,7 @@ let cur = { key: '', bill: null, p: null };
 // Where the person was before this screen ('home', 'bills', 'week' or 'bill:<key>'): Bills, back from a bill, finds the list
 // where it was left.
 let last = '';
-const OTHER = /^#\/(?:(bills)(?:\/([a-z0-9-]+))?|(week))?\/?$/;
+const OTHER = /^#\/(?:(bills)(?:\/([a-z0-9-]+))?|(week)|(you))?\/?$/;
 
 function parse(h = location.hash || '') {
   try { h = decodeURIComponent(h); } catch { /* as typed */ }
@@ -39,7 +43,7 @@ function parse(h = location.hash || '') {
 //  - a back link marked data-hist ("Back to Bills", Write's "Back to the bill") goes back in the history when the entry
 //    before is that place, so it never adds an entry and the browser's Back never lands on the screen just left (B-4).
 let lastHash = null, lastTab = '';
-const tabOf = h => h == null ? null : /^#?\/?$/.test(h) ? 'home' : /^#\/bills(\/|$)/.test(h) ? 'bills' : /^#\/week\/?$/.test(h) ? 'week' : null;
+const tabOf = h => h == null ? null : /^#?\/?$/.test(h) ? 'home' : /^#\/bills(\/|$)/.test(h) ? 'bills' : /^#\/week\/?$/.test(h) ? 'week' : /^#\/you\/?$/.test(h) ? 'you' : null;
 function entry() {
   let s = history.state;
   if (!s || !('prev' in s)) {
@@ -76,10 +80,11 @@ async function route() {
   cancelLater();   // a "Copied" or a redraw set on the last screen never paints over this one (B-4, B-7)
   const here = entry(), o = OTHER.exec(location.hash || '#/'), was = last;
   if (o) {
-    last = o[1] || o[3] || 'home';
+    last = o[1] || o[3] || o[4] || 'home';
     // Back from a bill, or the page loaded afresh (a reload): the list where it was (B-6).
     if (o[1]) return bills(o[2] || '', was.startsWith('bill:') || was === '');
     if (o[3]) return week();
+    if (o[4]) return you(root, show);
     return home();
   }
   const r = parse();
@@ -108,15 +113,19 @@ async function route() {
   let step = r.step;
   if (step && step !== 'thanks' && !B.action) step = '';
   if (step === 'send' && !String(loadMe().name || '').trim()) step = 'write';
-  // Already sent (the done mark, B-6): a return to /send (Back, or an old link) shows Mahalo, never Yes, I sent it again.
+  // Already sent (the done mark, B-6): a return to /send (Back, or an old link) shows Mahalo, never the Send button again.
   if (step === 'send' && isDone(B)) step = 'thanks';
   if (step !== r.step) fix(step ? `${base}/${step}` : base);
   if (step === 'write' || step === 'send') {
     const at = location.hash, P = await people();
     if (location.hash !== at) return;   // the person went elsewhere meanwhile
     if (step === 'write') { show(writeScreen(B, P)); letterShown(B); wireWrite(root, B, P, go); return; }
+    // Send (part 8) needs to know whether someone is signed in: the button to send, or the box to confirm it's them.
+    // A failed account load counts as signed out (the screen offers the link again).
+    const A = signedInHint() ? await loadAccount().catch(e => { console.warn('account:', e?.message || e); return null; }) : null;
+    if (location.hash !== at) return;
     const draw = (o = {}) => { show(sendScreen(B, P), o); wireSend(root, B, P, go, draw); };
-    freshSend(B); draw(); return;
+    freshSend(B, A); draw(); return;
   }
   if (step === 'thanks') { const draw = (o = {}) => { show(thanksScreen(B), o); wireThanks(root, B, draw); }; freshThanks(B); draw(); return; }
   show(billScreen(B, { back: tab === 'bills' }) + tabs(tab)); arrive();
@@ -175,4 +184,16 @@ window.addEventListener('online', () => { if (root.querySelector('[data-retry]')
 // No address at all: a person who has been here before (sent something, or follows an issue) starts on This week; #/ stays Home.
 if (!location.hash && returning()) history.replaceState(null, '', '#/week');
 countVisit();   // once per page load (a Hawaiʻi day's visit, as the tracker counts it)
-route();
+// Opened from a sign-in link (R-360 part 7): Supabase's answer is in the address (#access_token=..., ?code=, or
+// #error_description= for an old link), which is no route. The client reads it first (auth.js keeps any error to say on
+// You), then You opens; or, for a link asked for on Send (part 8), that Send screen, signed in, its button ready. Live,
+// act.html must be in Supabase's allowed redirect URLs (R-337).
+if (fromLink()) {
+  show(loadingScreen());
+  finishLink().then(() => {
+    const q = new URLSearchParams(location.search); q.delete('code');
+    const back = backRoute(), to = back && !linkErrorPending() ? back : '#/you';
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + to);
+    route();
+  });
+} else route();
