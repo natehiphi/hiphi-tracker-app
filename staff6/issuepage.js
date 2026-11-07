@@ -29,7 +29,7 @@ import { billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearin
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { plural, afterClose, billName, iconName } from './lists.js';
 import { logConversation, refreshConversations } from './conversation.js';
-import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF, prepHoldsOutlook, helpersOf as issueHelpersOf } from './prep.js';
+import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF, prepHoldsOutlook, helpersOf as issueHelpersOf, takeIssue } from './prep.js';
 import { testimonyOf, dueOf } from './hearing.js';
 import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
@@ -268,6 +268,7 @@ function whoHTML(i, xs, steps) {
   const coal = [...new Set(xs.filter(x => thisSession(x.b)).flatMap(x => S.billCampaigns?.[x.b.id] || []))].map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean);
   return `<section class="ip6-sec" aria-labelledby="ip-wh"><h2 class="ip6-h" id="ip-wh">Who is working on it</h2>
     ${rows ? `<div class="v6-list i6-list" role="list">${rows}</div>` : `<p class="ip6-quiet">Nobody yet.</p>`}
+    ${!i.owner_id && S.me && !i.archived_at ? `<p class="ip6-pl">${icon('user-round')}<span>The issue has no owner yet</span>${btn('Take it', { kind: 'text', sm: true, attrs: { 'data-ip': 'take', 'aria-label': `Take ${i.name}: you become its owner` } })}</p>` : ''}
     ${nobody ? `<p class="ip6-pl">${icon('user-plus')}<span>${plural(nobody, 'step')} above ${nobody === 1 ? 'has' : 'have'} no owner yet</span></p>` : ''}
     ${coal.length ? `<p class="ip6-pl">${icon('users')}<span>${coal.length === 1 ? 'Coalition' : 'Coalitions'}: ${coal.map(c => `<a class="ip6-coal" href="#/coalition/${encodeURIComponent(c.id)}">${icon(iconName(c.icon))}<span>${esc(c.public_name || c.name)}</span></a>`).join(', ')}</span></p>` : ''}
   </section>`;
@@ -823,6 +824,7 @@ export const issuePage = {
       if (c.tagName === 'DETAILS') c.open = true; c.scrollIntoView({ block: 'start', behavior: 'smooth' }); c.querySelector('summary, h2, [data-prfocus]')?.focus({ preventScroll: true }); });
     // The supporters' stories open in a sheet from the public page's line (R-352: they were a fold of their own).
     root.querySelector('[data-ip="stories"]')?.addEventListener('click', () => openSheet({ title: 'Stories from supporters', body: `<div class="le-sheet">${storiesHTML(i).body}</div>` }));
+    root.querySelector('[data-ip="take"]')?.addEventListener('click', e => takeIssue(i, e.currentTarget));   // R-364
     root.querySelector('[data-ip="cvlog"]')?.addEventListener('click', () => logConversation({ issueId: i.id, onDone: () => { refreshConversations(); delete TL()[i.id]; hooks.render(); } }));
     // The "…" holds the rare actions (F155); Edit is also a visible text button beside it.
     root.querySelector('[data-is="edit"]')?.addEventListener('click', () => openIssueForm(i));

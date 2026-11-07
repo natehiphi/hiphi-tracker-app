@@ -295,6 +295,16 @@ function mergePick(i) {
 
 // ---- owner and helpers ----
 const staffList = (skip = []) => S.advocates.filter(a => a.is_active !== false && !skip.includes(a.id)).sort((a, b) => a.full_name.localeCompare(b.full_name));
+// Take it (R-364, Nate 7 Nov): any teammate may take an issue nobody owns, with Undo, as bills' Take it works. An owned
+// issue is handed over only by its owner or an admin (Change), so nobody loses one by surprise. The database already lets
+// any staff member set the owner (policy staff_issues); this only puts the button where it was missing.
+export async function takeIssue(i, b) {
+  if (i.owner_id || !S.me) return;
+  b?.setAttribute('aria-busy', 'true'); if (b) b.disabled = true;
+  try { await DB.updateIssue(i.id, { owner_id: S.me.id }); hooks.render();
+    toast(`You own ${i.name} now.`, { ok: true, undo: async () => { await DB.updateIssue(i.id, { owner_id: null }); hooks.render(); } }); }
+  catch (e) { b?.removeAttribute('aria-busy'); if (b) b.disabled = false; toast(e, { err: true }); }
+}
 export function changeOwner(i, { after = () => hooks.render() } = {}) {
   pickerSheet({ title: `Owner of ${esc(i.name)}`, value: i.owner_id || '', help: 'One owner. They check the issue, and its new bills are theirs to lead unless someone already does.',
     options: staffList().map(a => [a.id, a.full_name, '', a.auth_user_id === null ? 'Cannot sign in yet' : '']),
@@ -326,7 +336,8 @@ function peopleHTML(i) {
   const o = ownerOfIssue(i), hs = helpersOf(i);
   return `<div class="pr6-people">
     <p class="pr6-who"><span class="pr6-wl">Owner</span>${o ? `${avatar(o, 24)}<span>${esc(o.id === S.me?.id ? 'You' : ownerName(o))}</span>` : '<span>Nobody yet</span>'}
-      ${mayManage(i) ? btn(o ? 'Change' : 'Choose', { kind: 'text', sm: true, attrs: { 'data-pr': 'owner', 'aria-label': o ? 'Change the owner' : 'Choose the owner', 'aria-haspopup': 'dialog' } }) : ''}</p>
+      ${mayManage(i) ? btn(o ? 'Change' : 'Choose', { kind: 'text', sm: true, attrs: { 'data-pr': 'owner', 'aria-label': o ? 'Change the owner' : 'Choose the owner', 'aria-haspopup': 'dialog' } })
+        : !o && S.me ? btn('Take it', { kind: 'text', sm: true, attrs: { 'data-pr': 'take', 'aria-label': `Take ${i.name}: you become its owner` } }) : ''}</p>
     <p class="pr6-who"><span class="pr6-wl">Helpers</span>${hs.map(a => `<button type="button" class="pr6-helper" data-prh="${esc(a.id)}" aria-haspopup="dialog" aria-label="${esc(`${a.id === S.me?.id ? 'You' : first(a)}: helper. Stop helping or remove`)}">${avatar(a, 24)}<span>${esc(a.id === S.me?.id ? 'You' : first(a))}</span></button>`).join('') || (mayManage(i) ? '' : '<span>None</span>')}
       ${mayManage(i) ? btn('Add', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pr': 'helper', 'aria-label': 'Add a helper', 'aria-haspopup': 'dialog' } }) : ''}</p>
   </div>`;
@@ -569,6 +580,7 @@ export function wirePrepCard(i, root) {
     const v = el.dataset.prplan; if (v === 'merge') return mergePick(i); setPlan(i, v, () => after()); });
   card.querySelectorAll('[data-prh]').forEach(el => el.onclick = () => { const a = advocate(el.dataset.prh); if (a) helperMenu(i, a); });
   card.querySelector('[data-pr="owner"]')?.addEventListener('click', () => changeOwner(i));
+  card.querySelector('[data-pr="take"]')?.addEventListener('click', e => takeIssue(i, e.currentTarget));
   card.querySelector('[data-pr="helper"]')?.addEventListener('click', () => addHelper(i));
   card.querySelectorAll('[data-prtop]').forEach(el => el.onclick = () => toggleTop(i));
   card.querySelector('[data-pr="undo"]')?.addEventListener('click', async () => { try { await DB.reviewIssue(i.id, 'undo'); hooks.render(); toast('Approval undone. It is marked ready again.'); } catch (err) { toast(err, { err: true }); } });
