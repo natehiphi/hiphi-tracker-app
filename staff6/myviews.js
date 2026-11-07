@@ -42,6 +42,7 @@
 import { S, DB, DEMO, VB, esc, SESSION_OVER } from './data.js';
 import { stopOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn, toast, btn } from './ui.js';
+import { sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { plural } from './lists.js';
 import { numWords, dayWords, committeeName, nw, chairStepWords, billStep, stepTime, rowButton, orWords } from './steps.js';
 import { hearPart, markOf, byUrgency, rowOf, searchHTML, searcher, FEW } from './issuestand.js';
@@ -51,7 +52,7 @@ import { issueIcon } from './issuegrid.js';
 const AGAINST = new Set(['strongly_oppose', 'oppose']);
 const THROUGH = new Set(['governor', 'law', 'ballot']);
 const CH = { H: 'House', S: 'Senate' };
-const HBSB = { H: 'HB', S: 'SB' };   // the cell's heading: the chamber a bill STARTED in, never read as where the hearing is (R-356 round 3, C-15)
+const HBSB = VB ? { H: 'House bill', S: 'Senate bill' } : { H: 'HB', S: 'SB' };   // the cell's heading: the chamber a bill STARTED in, never read as where the hearing is (R-356 round 3, C-15)
 const WEEK = 7 * 864e5;
 const origin = b => /^S/.test(String(b.bill_number || '')) ? 'S' : 'H';
 const num = b => numWords(b).replace(' ', ' ');
@@ -261,7 +262,7 @@ function whereLine(y, c) {
 function cellHTML(j, c) {
   const l = c === 'H' ? j.H : j.S, st = !l.length ? 'no' : l.some(y => y.past) ? 'ok' : 'on';
   const y = [...l].sort((a, b) => (b.past ? 1 : 0) - (a.past ? 1 : 0))[0];
-  const words = !y ? `No ${HBSB[c]} alive` : j.D && y.past ? 'cleared' : billShort(y);
+  const words = !y ? VB ? `No ${HBSB[c]} moving` : `No ${HBSB[c]} alive` : j.D && y.past ? 'cleared' : billShort(y);
   const title = l.map(b => [num(b.b), whereLine(b, c)].filter(Boolean).join(', ')).join('; ');
   return `<div class="mi-cell ${st}" data-cell="${c}"${title ? ` title="${esc(title)}"` : ''}><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span><span class="mi-cl">${y ? `<span class="mi-chn" title="${c === 'H' ? 'House-started bills (HB)' : 'Senate-started bills (SB)'}">${HBSB[c]}:</span> ${esc(words)}` : `<span class="mi-chn" title="${c === 'H' ? 'House-started bills (HB)' : 'Senate-started bills (SB)'}">${esc(words)}</span>`}</span></div>`;
 }
@@ -478,7 +479,7 @@ function verbsB(s) {
     case 'submit': return [`send ${t} for approval`, `sends ${t} for approval`, `send ${t} for approval`];
     case 'revise': return [`revise ${t}`, `revises ${t}`, `revise ${t}`];
     case 'approve': return [`review ${t}`, `reviews ${t}`, `review ${t}`];
-    case 'second': return [`give ${t} a second look`, `gives ${t} a second look`, `give ${t} a second look`];
+    case 'second': return [`give ${t} a ${sl}`, `gives ${t} a ${sl}`, `give ${t} a ${sl}`];
     case 'file': return [`file ${t}`, `files ${t}`, `file ${t}`];
     case 'missed': return [`say whether ${t} was filed`, `says whether ${t} was filed`, `say whether ${t} was filed`];
     case 'chair': { const a = s.ask;
@@ -499,7 +500,7 @@ function nextB(j) {
   if (s.kind === 'filed') return wait(`${numWords(s.b)} testimony filed${s.h ? `, hearing ${whenAt(s.h.scheduled_at)}` : ''}`);
   const v = verbsB(s);
   let time = ''; if (s.kind === 'chair') { const a = s.ask; time = (a.key === 'ask' || a.key === 'giving') && a.day ? ` by ${a.day}` : ''; }
-  else { const t = stepTime(s, { soon: false }).replace(/ \(team cut-off\)/, ''); time = t ? (/^by /.test(t) ? ` ${t}` : `, ${t}`) : ''; }
+  else { const t = stepTime(s, { soon: false }).replace(/ \((?:team cut-off|our deadline)\)/, ''); time = t ? (/^by /.test(t) ? ` ${t}` : `, ${t}`) : ''; }
   if (s.nobody) return s.takeFor ? { s, you: true, take: true, who: 'You', html: nw(esc(`take ${numWords(s.b)}: no owner yet${time}`)) }
     : { s, you: false, who: 'No owner yet', html: nw(esc(v ? `nobody has ${numWords(s.b)}'s step${time}` : `nobody has ${numWords(s.b)}`)) };
   if (!v) return { s, you: s.you, who: s.you ? 'You' : cap1(s.whose.words), html: nw(esc(String(s.line || ''))) };

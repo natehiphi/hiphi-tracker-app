@@ -12,10 +12,10 @@
 //   - "I asked another way" logs an ask made by phone, in person or another email, with "This was an ask for a hearing"
 //     ticked, so it counts as the ask, and unticked it is a plain talk with the chair (V24, F138);
 //   - one chair of a joint committee can be asked on its own, and only that chair is marked (V24, chairsOf).
-import { S, DB, DEMO, esc, advocate, hooks } from './data.js';
+import { S, DB, DEMO, VB, esc, advocate, hooks } from './data.js';
 import { ASK_LOG, ASK_ANSWERS, ASK_MAILS, chairAskOf, chairIdsOf, askReply, billById, chairMail, legById, legsOf,
   legNotesAll, companionsOf, billByNum, billRoute, hearingAhead, codesOf, whenAt } from './model.js';
-import { icon, btn, toast, menuSheet, sheetOpen, openSheet, closeSheet, ASK_TAB } from './ui.js';
+import { icon, btn, toast, vbFinish, menuSheet, sheetOpen, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { STATES, chairKey } from './verbs.js';   // R-344: the chair-ask states' shapes
 import { sayWords } from './steps.js';   // a bill as staff say it, with no draft code (D15); steps.js imports this file too (used in functions only)
 
@@ -78,8 +78,11 @@ export async function recordAsk(items, answer = 'asked', { decide = false, note 
     if (answer === 'asked') for (const x of list) { const t = askTodoOf(x.b); if (t) { await DB.updateTodo(x.b.id, t.id, { done: true }); closed.push([x.b.id, t.id]); } }
   } catch (e) { toast(e, { err: true }); return; }
   const what = list.length === 1 ? sayWords(list[0].b) : plural(list.length, 'bill');
+  const undo = async () => { for (const [n, id] of made) await DB.delLegNote(n.id, id); for (const [bid, tid] of closed) await DB.updateTodo(bid, tid, { done: false }); hooks.render(); };
+  // R-365 B: an ask logged or a reply saved ends the way every step does: Today, with Done and Undo ("Said no" first offers its next steps).
+  if (VB && answer !== 'said_no') return vbFinish(answer === 'asked' ? `Logged the ask to ${who(list[0])} for ${what}` : `Saved ${ASK_ANSWERS.find(x => x[0] === answer)[1].toLowerCase()} for ${what}`, undo);
   toast(answer === 'asked' ? `Saved: asked ${who(list[0])}${list.length > 1 ? ` about ${what}` : ''}. The team sees it.` : `Saved: ${ASK_ANSWERS.find(x => x[0] === answer)[1].toLowerCase()}${list.length > 1 ? `, on ${what}` : ''}.`,
-    { ok: answer !== 'said_no', undo: async () => { for (const [n, id] of made) await DB.delLegNote(n.id, id); for (const [bid, tid] of closed) await DB.updateTodo(bid, tid, { done: false }); hooks.render(); } });
+    { ok: answer !== 'said_no', undo });
   hooks.render();
   // V13: "Said no" offers what to do next at once (it was a dead end).
   if (answer === 'said_no' && next) setTimeout(() => saidNoSheet(list.map(x => x.b), list[0].code), DEMO ? 250 : 400);

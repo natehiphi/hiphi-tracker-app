@@ -9,7 +9,8 @@
 // Staff v6 (R-336, spec 6 Hearings): the question is asked where the hearing is shown too. On Hearings > This week the
 // sitting it moved to carries "You were going on Mon 2/9. Still going?" above its card (movedAskHTML), and committees are
 // named in words ("House Health", steps.js committeeName), not codes (D15).
-import { S, DB, DEMO, esc } from './data.js';
+import { S, DB, DEMO, VB, esc } from './data.js';
+import { vbFinish } from './ui.js';
 import { hstDayOf } from './model.js';
 import { committeeName } from './steps.js';
 
@@ -66,16 +67,22 @@ export function movedTasks(me, self, billById, owns) {
 // The answers, each with Undo. `toast` and `redraw` come from the caller.
 export async function moveMe(t, { toast, redraw }) {
   const me = S.me.id; await DB.attend(t.h.id, true, me); await DB.attend(t.old.id, false, me);
-  toast(`You’re going to the ${cmte(t.h.committee)} hearing ${whenAtMoved(t.h.scheduled_at)}.`, { ok: true, undo: async () => { await DB.attend(t.h.id, false, me); await DB.attend(t.old.id, true, me); redraw(); } }); redraw();
+  const undo = async () => { await DB.attend(t.h.id, false, me); await DB.attend(t.old.id, true, me); redraw(); };
+  if (VB) return vbFinish(`Moved you to the ${cmte(t.h.committee)} hearing ${whenAtMoved(t.h.scheduled_at)}`, undo);   // R-365 B: Today, Done and Undo
+  toast(`You’re going to the ${cmte(t.h.committee)} hearing ${whenAtMoved(t.h.scheduled_at)}.`, { ok: true, undo }); redraw();
 }
 export async function notGoing(t, { toast, redraw }) {
   const me = S.me.id; await DB.attend(t.old.id, false, me);
-  toast('You’re not going.', { undo: async () => { await DB.attend(t.old.id, true, me); redraw(); } }); redraw();
+  const undo = async () => { await DB.attend(t.old.id, true, me); redraw(); };
+  if (VB) return vbFinish(`Took you off the ${cmte(t.old.committee)} hearing`, undo);
+  toast('You’re not going.', { undo }); redraw();
 }
 export async function keepAskUp(t, { toast, redraw }) {
   const b = t.b, prev = b.public_action_until, day = hstDayOf(t.h.scheduled_at);
   await DB.updateBill(b.id, { public_action_until: day });
-  toast(`The public ask stays up until ${dayAt(day + 'T12:00:00-10:00')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, { public_action_until: prev }); redraw(); } }); redraw();
+  const undo = async () => { await DB.updateBill(b.id, { public_action_until: prev }); redraw(); };
+  if (VB) return vbFinish(`Kept the public ask up until ${dayAt(day + 'T12:00:00-10:00')}`, undo);
+  toast(`The public ask stays up until ${dayAt(day + 'T12:00:00-10:00')}.`, { ok: true, undo }); redraw();
 }
 // The cancelled sitting's Who's going card (hearing.js): the same question, for whoever is still down for it.
 export function movedGoingHTML(old, btn) {

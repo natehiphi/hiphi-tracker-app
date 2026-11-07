@@ -20,7 +20,7 @@
 // deadlines are on each bill's line in the cards now, and to-dos are Today's), v5's deadline box with its push board, the
 // Team switch's week, and the two other "who to ask" screens (Legislators > Who to ask and Holding our bills went away in R-356 round 2, decision 4: asking chairs for a hearing lives only here, in Bills That Need Hearings).
 import { S, DB, esc, hooks, SESSION_OVER, seesTeam, VB } from './data.js';
-import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
+import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, gateLabel, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
 import { icon, btn, iconBtn, toast, segmented, filterBtn, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
@@ -189,7 +189,7 @@ function capDays(scope, mon) {
 const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
   // (the day's heading above says the day, so the gloss stands alone: A-14)
   if (plainDeadlines() && g) return `<p class="hw-cap">${icon('flag')}<span>${nw(esc(g.charAt(0).toUpperCase() + g.slice(1)))}</span></p>`;
-  return `<p class="hw-cap">${icon('flag')}<span>Capitol deadline: <a class="hw-cap-n" href="#/help/words?w=${encodeURIComponent(d.label)}">${esc(d.label)}</a>${g ? `<span class="hw-cap-g"> · ${esc(g)}</span>` : ''}</span></p>`; }).join('');
+  return `<p class="hw-cap">${icon('flag')}<span>Capitol deadline: <a class="hw-cap-n" href="#/help/words?w=${encodeURIComponent(gateLabel(d.label))}">${esc(gateLabel(d.label))}</a>${g ? `<span class="hw-cap-g"> · ${esc(g)}</span>` : ''}</span></p>`; }).join('');
 
 // The one line under the days (it replaces v5's deadline box over the grid): how many bills still need a hearing, and
 // the day to ask the first chair by, opening Get hearings. Under the days, not over them: who comes to see today's
@@ -396,7 +396,7 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
 // name linked to Help's words for owners and admins, with what it means on a quiet line under it.
 const capCal = ds => (ds || []).map(d => { const g = gateGloss(d.label);
   if (plainDeadlines() && g) return `<p class="hc-cap">${icon('flag')}<span>${esc(g.charAt(0).toUpperCase() + g.slice(1))}</span></p>`;
-  return `<p class="hc-cap">${icon('flag')}<span><a href="#/help/words?w=${encodeURIComponent(d.label)}" aria-label="${esc(`Capitol deadline: ${d.label}`)}">${esc(d.label)}</a>${g ? `<span class="hc-capg">${esc(g)}</span>` : ''}</span></p>`; }).join('');
+  return `<p class="hc-cap">${icon('flag')}<span><a href="#/help/words?w=${encodeURIComponent(gateLabel(d.label))}" aria-label="${esc(`Capitol deadline: ${gateLabel(d.label)}`)}">${esc(gateLabel(d.label))}</a>${g ? `<span class="hc-capg">${esc(g)}</span>` : ''}</span></p>`; }).join('');
 // One entry, one shape (R-346 finding D, Nate 27 Oct): every entry on every calendar (Today, Hearings > This week, All
 // issues) is the same four parts, top to bottom: the time and what kind of entry it is ("1:10 PM · Hearing"), the job (the
 // committee and room, "For Friday's Senate Health and Human Services hearing", the person's own step in Today's words, the

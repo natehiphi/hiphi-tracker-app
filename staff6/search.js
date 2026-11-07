@@ -291,11 +291,18 @@ function hearingHits(q) {
 }
 const hearingSub = x => `${sittingWhen(x.h.scheduled_at)} · ${x.bills.slice(0, 3).map(numWords).join(', ')}${x.bills.length > 3 ? ` +${x.bills.length - 3}` : ''}`;
 const hearingHref = x => `#/hearing/${encodeURIComponent(x.h.id)}`;
-// The header box says what it finds (app.js draws the box; this keeps its words right for B without an edit there).
-if (VB && typeof document !== 'undefined') {
-  const fix = () => { const h = document.getElementById('hq'); if (h && h.placeholder !== B_PLACEHOLDER) h.placeholder = B_PLACEHOLDER;
-    const l = h && document.querySelector('label[for="hq"]'); const t = 'Search issues, bills, hearings and people'; if (l && l.textContent !== t) l.textContent = t; };
-  new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true }); fix();
+// Enter in either box: a bill number that names exactly one tracked bill opens that bill. Under B, words that name exactly
+// one issue or committee (and no bill) open it too. Returns the address, or '' when the words name more or less than one.
+export function exactTarget(q) {
+  const b = exactBill(q); if (b) return billRoute(b);
+  if (VB && String(q || '').trim()) {
+    // One issue or one committee named, and no bill besides the issue's own.
+    const is = issueHits(q), cs = committeeHits(q); if (is.length + cs.length !== 1) return '';
+    const own = is.length ? new Set(billsOfIssues(is)) : null;   // a committee's name also finds the bills that name it: they are its own
+    if (own && !billHits(q).every(b => own.has(b))) return '';
+    return is.length ? `#/issue/${encodeURIComponent(is[0].id)}` : cmteHref(cs[0]);
+  }
+  return '';
 }
 
 // ---- conversations with legislators (R-316 H-15) ----
@@ -618,10 +625,7 @@ export default {
     res.addEventListener('keydown', keys);
     boxes.forEach(b => b.addEventListener('keydown', e => { if (e.key === 'ArrowDown') keys(e); }));
     // Enter: a bill number that names exactly one tracked bill opens that bill (a number in hand is two steps from its page).
-    const openExact = q => { const b = exactBill(q); if (b) { S.go(billRoute(b)); return true; }
-      // R-365 B: laptop and phone alike: when the words name exactly one thing (one issue, one committee), Enter opens it.
-      if (VB && q.trim()) { const one = [...issueHits(q).map(i => `#/issue/${encodeURIComponent(i.id)}`), ...committeeHits(q).map(cmteHref)]; if (one.length === 1 && !billHits(q).length) { S.go(one[0]); return true; } }
-      return false; };
+    const openExact = q => { const t = exactTarget(q); if (t) { S.go(t); return true; } return false; };
     root.querySelector('[data-srform]').onsubmit = e => { e.preventDefault(); if (!openExact(own.value)) own.blur(); };
     const hf = hdr?.closest('form');
     if (hf) hf.addEventListener('submit', e => { e.preventDefault(); e.stopImmediatePropagation(); if (!openExact(hdr.value)) onType(hdr); }, { capture: true });

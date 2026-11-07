@@ -15,7 +15,7 @@
 // after she resubmits (X25). Look-only steps tick from the frame's 'v6:route' event.
 import { S, DB, DEMO, APP_URL, STAGES, SESSION_OVER, esc, isMine, DEADLINE_ROWS } from './data.js';
 import { glossStage, legislativeDay, PUBLIC_APP, plain, sessionGates, deadlineCalendar, gateGloss, legNotesAll, billById } from './model.js';
-import { icon, btn, switchRow, toast, keysOn, setKeys, ASK_TAB, andWords } from './ui.js';
+import { icon, btn, switchRow, toast, keysOn, setKeys, ASK_TAB, SL, sl, SHARE_KIT, andWords } from './ui.js';
 import { WORDS, allWords, HOW_TO } from './terms.js';
 import { admitsPartners } from './partnerq.js';
 import { itemRow, whoseStep } from './steps.js';
@@ -57,11 +57,11 @@ const TOPICS = [
   { id: 'committees', title: 'Committee codes', icon: 'landmark', sub: () => `${Object.keys(S.committees || {}).length} committees and their chairs`,
     items: () => Object.values(S.committees || {}).sort((a, b) => (a.chamber || '').localeCompare(b.chamber || '') || a.code.localeCompare(b.code))
       .map(c => [c.code, `${esc(c.name)}. ${c.chamber === 'S' ? 'Senate' : 'House'}.${c.chair ? ` Chair ${esc(c.chair)}` : ''}${c.vice_chair ? `, vice chair ${esc(c.vice_chair)}` : ''}${c.chair ? '.' : ''}`]) },
-  { id: 'testimony', title: 'How testimony works', icon: 'file-text', sub: () => 'Writing, approving, a second look, filing',
+  { id: 'testimony', title: 'How testimony works', icon: 'file-text', sub: () => `Writing, approving, a ${sl}, filing`,
     items: () => { const adm = orList(names(a => a.is_admin || a.can_approve)) || 'an admin', rev = orList(names(a => a.is_reviewer)) || 'a second approver';
       return [['1. Writing', 'A hearing notice arrives. Within minutes a draft Google Doc is made in Drive for the bill (only for bills with a position other than Monitor). It shows in Testimony under <b>To write</b> for the bill’s owner and whoever writes for its coalition. Write it, then press <b>Send for approval</b>, 12 hours before testimony is due.'],
         ['2. With an approver', `An admin or an approver (${esc(adm)}) opens it from <b>To approve</b> and presses <b>Approve</b>, or <b>Send back</b> with a note. An approver never approves testimony they sent; an admin may. Sent back, it waits under <b>Sent back</b> for its writer, who fixes it and presses <b>Resubmit</b>. If nobody has approved it 6 hours before the deadline, a second approver (${esc(rev)}) can stand in, and Slack tells them so.`],
-        ['3. Second look', `The first testimony on a bill also needs a second approver (${esc(rev)}), someone other than whoever gave the first approval. Later testimony on the same bill skips this step.`],
+        [`3. ${SL}`, `The first testimony on a bill also needs a second approver (${esc(rev)}), someone other than whoever gave the first approval. Later testimony on the same bill skips this step.`],
         ['4. Ready to file', 'Whoever sent it for approval files it (the owner, if nobody did). <b>Ready to file</b> opens the filing card: the PDF, the Capitol page for the hearing and the form’s answers to copy. File it 2 hours before the deadline, then press <b>Mark filed</b> (<a href="#/help/file">How to file at the Capitol</a>).'],
         ['5. Filed', 'Filed testimony stays under <b>Filed</b>, the library of earlier testimony to borrow from.'],
         ['Late, or not filed', 'After the written deadline the Capitol still takes testimony until the hearing starts: the step says “Late, still accepted until” that time. Once the hearing starts, a draft not filed asks whether it went in late or not at all, and then it is kept as Missed.'],
@@ -300,7 +300,7 @@ const MOVED_ALL = () => [
     ['Correct the stage, in the bill’s menu (admins)', 'About this bill, on the bill’s page: <b>Correct the stage</b>.', isAdmin],
     ['Mute, for a bill waiting for a hearing', 'Still in the bill’s menu (the three dots), where it reads <b>Not pushing this bill</b>. Unmute is on Bills’ Muted tab.'],
     ['The bill’s hearing menu: Watch, I’m going, Send a teammate, Fix the video link', '<b>Watch</b> and <b>I’m going</b> are on the hearing’s card; <b>Send a teammate…</b> and <b>Fix the video link</b> are on the hearing’s own page.'],
-    ['The share kit, on a bill’s Public tab and on a hearing’s page', `${go('Outreach', '#/outreach')}, under This week’s asks: one card per bill with Copy link, Copy message, Copy post and Email followers. The bill and the hearing link to it.`],
+    [`The ${SHARE_KIT.toLowerCase()}, on a bill’s Public tab and on a hearing’s page`, `${go('Outreach', '#/outreach')}, under This week’s asks: one card per bill with Copy link, Copy message, Copy post and Email followers. The bill and the hearing link to it.`],
     ['The weekly memo, in Bills’ menu', `${go('Outreach', '#/outreach/partners')}, under Partner update.`]]],
   ['Legislators', [
     ['Legislators’ This week', `${go('Legislators', '#/legislators')}: <b>Hearing our bills this week</b>.`],

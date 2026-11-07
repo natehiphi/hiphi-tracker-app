@@ -22,7 +22,7 @@ import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteNam
   unreadCount, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, draftHearing, billRef, streamOf } from './model.js';
 import { personById, SESSION_OVER, SESSION_YEAR } from './data.js';
 import { icon, btn, iconBtn, chip, POS_ICON, POS_WORD, POS_SUB, ownerOf, empty, toast, openSheet, closeSheet,
-  pickerSheet, menuSheet, confirmSheet, field, keysOn, docBtn, pathLine, vbFinish } from './ui.js';
+  pickerSheet, menuSheet, confirmSheet, field, keysOn, docBtn, pathLine } from './ui.js';
 import { renderCommittees, wireCommittees } from './pathway.js';
 import { renderActivity, wireActivity, loadTimeline, shortAction, noteByText } from './activity.js';
 import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
@@ -466,37 +466,12 @@ function vbPath(b) {
 // saying whose it is. The same step the issue page shows (pageStep), the same words the step's own line uses.
 const lowFirst = x => String(x || '').replace(/^[A-Z](?![A-Z])/, c => c.toLowerCase());
 function vbPart(b, s) {
-  if (s?.you && s.line) return `<div class="vb-part is-mine"><button type="button" class="btn primary vb-partgo" data-vbpart="1">${icon('circle-dot')}<span>You: ${nw(esc(lowFirst(s.line)))}</span></button></div>`;
+  if (s?.you && s.line) return `<p class="vb-part is-mine">${icon('circle-dot')}<span>You: ${nw(esc(lowFirst(s.line)))}</span> <a class="vb-partgo" href="#bw-next-h" data-vbpart="1">See the step</a></p>`;
   const o = ownerOf(b), who = o && o.id !== S.me?.id ? teamFirst(o) : '';
   const line = who ? `Nothing for you here; ${who} ${s && ['nodraft', 'write', 'submit', 'revise', 'approve', 'second', 'file'].includes(s.kind) ? 'files it' : 'has it'}`
     : o ? 'Nothing for you here right now' : `Nothing for you here; no one has ${numWords(b)} yet`;
   return `<p class="vb-part is-none">${icon('circle-check')}<span>${esc(line)}</span></p>`;
 }
-// A step done on this page (the card's buttons are drawn and run by steps.js, which raises a toast with Undo) finishes the
-// way every step does in B: back to Today, with that Undo carried over. Seen through the toast, so steps.js stays as it is.
-let vbArm = 0, vbObs = null;
-const VB_NOT_DONE = new Set(['going', 'take', 'giveto']);
-const VB_WORDS = { filed: 'Testimony filed', file: 'Testimony filed', submit: 'Testimony sent for approval', approve: 'Testimony approved', approved: 'Testimony approved', sendback: 'Sent back', replied: 'Reply logged', log: 'Talk logged' };
-function vbWatch(b) {
-  vbObs?.disconnect(); vbObs = null;
-  const page = document.querySelector('.bw-page'); if (!page) return;
-  page.addEventListener('click', e => { const el = e.target.closest?.('[data-v6act]'); if (el && !VB_NOT_DONE.has(el.dataset.v6act)) { vbArm = Date.now() + 20000; page.dataset.vbAct = el.dataset.v6act; } }, true);
-  const box = document.getElementById('toast'); if (!box) return;
-  const num = numWords(b);
-  vbObs = new MutationObserver(() => {
-    if (Date.now() > vbArm) return;
-    const t = box.querySelector('.toastmsg.yay'); if (!t) return;
-    vbArm = 0; vbObs?.disconnect(); vbObs = null;
-    const said = (t.querySelector(':scope > span')?.textContent || '').trim(), first = said.split(/(?<=[.!])\s/)[0].replace(/[.!]$/, '');
-    const what = /^filed$/i.test(first) ? `Testimony filed for ${num}` : VB_WORDS[page.dataset.vbAct] ? `${VB_WORDS[page.dataset.vbAct]} for ${num}` : (first.includes(num) ? first : `${first || 'Done'} for ${num}`);
-    const un = t.querySelector('.toastundo:not(.toastact)'), undo = un ? () => un.click() : null;
-    // keep the toast's own button alive for the Undo, but do not leave a second message on Today
-    t.style.display = 'none';
-    vbFinish(what, undo);
-  });
-  vbObs.observe(box, { childList: true, subtree: true });
-}
-
 // ---- the tabs (F128): Next step · Team talk · Public, keys 1 to 3, an unread count on Team talk ----
 // From Team talk or Public, a dot on Next step says the step there is yours (B-7: v5's Next up card showed on every tab;
 // someone who came from an @mention to reply could leave without seeing that filing is theirs).
@@ -966,7 +941,7 @@ function issueSide(i, b) {
   const alive = (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(y => y.id === x.bill_id))
     .filter(x => x && x.tracked !== false && (!x.session_year || +x.session_year === +SESSION_YEAR) && !diedish(x));
   const chs = new Set(alive.map(CH_OF)), n = alive.length, CHN = { H: 'House', S: 'Senate' };
-  const says = k === 'risk' ? (n === 1 ? (alive[0].id === b.id ? 'the only bill still alive' : `only ${numWords(alive[0])} is still alive`) : `all ${n} live bills started in the ${CHN[[...chs][0]]}`)
+  const says = k === 'risk' ? (n === 1 ? (alive[0].id === b.id ? VB ? 'this is the issue’s only live bill' : 'the only bill still alive' : `only ${numWords(alive[0])} is still alive`) : VB ? `all ${n} live bills are ${CHN[[...chs][0]]} bills` : `all ${n} live bills started in the ${CHN[[...chs][0]]}`)
     : k === 'ontrack' ? (chs.size > 1 ? 'bills from both chambers still alive' : n === 1 ? 'its one bill is still alive' : `${n} bills still alive`)
     : k === 'won' ? 'a bill on it became law' : k === 'stopped' ? 'every bill on it stopped this session' : 'no bills on it this session yet';
   const st = STATES.issue[k] || STATES.issue.none;
@@ -1073,8 +1048,7 @@ export default {
     page.querySelector('[data-bwfollow]')?.addEventListener('click', () => toggleFollow(b));
     wireNick(page, b);
     if (VB) {
-      vbWatch(b);
-      page.querySelector('[data-vbpart]')?.addEventListener('click', () => { const go = () => { const el = document.getElementById('bw-next-h')?.closest('section') || document.querySelector('.bw-next'); el?.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' }); el?.querySelector('button, a')?.focus({ preventScroll: true }); };
+      page.querySelector('[data-vbpart]')?.addEventListener('click', e => { e.preventDefault(); const go = () => { const el = document.getElementById('bw-next-h')?.closest('section') || document.querySelector('.bw-next'); el?.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' }); el?.querySelector('button, a')?.focus({ preventScroll: true }); };
         if (tab !== 'overview') { switchTab('overview'); setTimeout(go, 150); } else go(); });
     }
     wireTracker(page, b);

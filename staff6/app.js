@@ -34,7 +34,7 @@ import bills from './bills.js';
 import asks from './asks.js';
 import legislators from './legislators.js';
 import legislator from './legislator.js';
-import search, { headerHits } from './search.js';
+import search, { headerHits, exactTarget } from './search.js';
 import { suggest } from '../pub/suggest.js';
 import { keepWordsWhole } from '../pub/ui.js';
 import lists from './lists.js';
@@ -174,7 +174,7 @@ const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
 // R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
 const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'today', testimony: 'today', search: 'search',
   outreach: 'issues', asks: 'issues', partners: 'issues', memo: 'issues', emails: 'issues', composer: 'issues', supporters: 'issues', person: 'issues', lists: 'issues', list: 'issues',
-  bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues' };
+  bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues', legislator: 'issues' };
 const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
 const placeOf = route => { if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
   : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
@@ -333,7 +333,7 @@ function header(route, scr, title) {
     ${b ? `<a class="sv-back phone" href="${esc(b.href)}" data-back${short ? ` aria-label="${esc(/^Back\b/.test(b.label) ? b.label : 'Back to ' + b.label)}"` : ''}>${icon('chevron-left')}<span>${esc(short ? 'Back' : b.label)}</span></a>`
       : `<a class="sv-brand" href="#/" aria-label="Bill Tracker, Today">${MARK}</a>`}
     <span class="sv-title" aria-hidden="true">${esc(title)}</span>
-    <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">Search bills, legislators, people and places</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, legislators, people" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"><span class="sv-kbd" aria-hidden="true">${mac ? '⌘K' : 'Ctrl K'}</span></form>
+    <form class="sv-search" role="search" data-hsearch><label class="sr" for="hq">${VB ? 'Search issues, bills, hearings and people' : 'Search bills, legislators, people and places'}</label>${icon('search')}<input id="hq" type="search" placeholder="${VB ? 'Search issues, bills, hearings, people' : 'Search bills, legislators, people'}" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"><span class="sv-kbd" aria-hidden="true">${mac ? '⌘K' : 'Ctrl K'}</span></form>
     <a class="iconbtn sv-srchbtn" href="#/search" aria-label="Search">${icon('search')}</a>
     <a class="iconbtn sv-helpbtn" href="#/help" aria-label="Help"${help ? ' aria-current="page"' : ''}>${icon('circle-help')}</a>
     <a class="iconbtn sv-bell sv-tray" href="#/inbox"${inb ? ' aria-current="page"' : ''} aria-label="Inbox${unread ? `, ${unread} unread` : ''}">${icon('inbox')}${unread ? `<span class="sv-dot sv-trayn" aria-hidden="true">${unread > 99 ? '99+' : unread}</span>` : ''}</a>
@@ -470,6 +470,7 @@ export function render() {
   // so a phone does not jump to Bills under you; a bill opened from nowhere (a link) lights Bills.
   if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = placeOf(S.route); S.billFrom = pt && pt !== 'more' ? pt : null; }
   S.route = route;
+  if (VB && route.name !== 'today') S.vbLeft = (S.vbLeft || 0) + 1;   // Today's Done banner ends when another page is drawn
   const scr = SCREENS[route.name] || today;
   let main, bar = '';
   try { main = loadNotice() + scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); reportError('render', e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
@@ -580,7 +581,7 @@ function wireFrame(app) {
   const skip = app.querySelector('[data-skip]');
   if (skip) skip.onclick = () => { const m = document.getElementById('main'); m?.focus(); m?.scrollIntoView({ block: 'start' }); };
   const f = app.querySelector('[data-hsearch]');
-  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const b = exactBill(q); go(b ? billRoute(b) : '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
+  if (f) { f.onsubmit = e => { e.preventDefault(); const q = f.querySelector('input').value.trim(); const t = exactTarget(q); go(t || '#/search' + (q ? '?q=' + encodeURIComponent(q) : '')); };
     // Bills (tracked and not), issues, legislators and supporters listed as you type (R-032, the same list as the public
     // header's). On the Search page the results under the box are the list. The last row is always "See all results for
     // “q”" (one wording for one door: Search also looks through sponsors, owners and committees). With nothing typed yet (Cmd/Ctrl-K, a click

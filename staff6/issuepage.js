@@ -27,6 +27,7 @@
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, seesTeam } from './data.js';
 import { liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB, pathLine } from './ui.js';
+import { sl } from './ui.js';   // R-365 B plain words
 import { plural, afterClose, billName, iconName } from './lists.js';
 import { logConversation, refreshConversations } from './conversation.js';
 import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF, prepHoldsOutlook, helpersOf as issueHelpersOf, takeIssue } from './prep.js';
@@ -158,9 +159,9 @@ function columnHTML(side, xs, { anyAlive = false } = {}) {
   // "1 more stopped", "3 more stopped" (R-352: plural() made "3 mores"), or "3 bills stopped" when none is shown above it.
   const fold = more.length ? `<details class="ip6-fold" data-fold="stop-${side}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${alive.length || shown.length ? `${more.length} more stopped` : `${plural(more.length, 'bill')} stopped`}</span></summary>${listBox(more.map(billCard).join(''))}</details>` : '';
   // The empty line only when nothing follows it (the fresh-eyes review: a "none alive" box over stopped cards said it twice).
-  const none = !alive.length && !gone.length ? `<p class="ip6-none" data-ip-none="${side}">${icon('circle-minus')}<span>No bill that started in the ${word} is still alive</span></p>` : '';
+  const none = !alive.length && !gone.length ? `<p class="ip6-none" data-ip-none="${side}">${icon('circle-minus')}<span>${VB ? `No ${word} bill is still alive` : `No bill that started in the ${word} is still alive`}</span></p>` : '';
   return `<section class="ip6-col" aria-labelledby="ip-c${side}" data-ip-col="${side}">
-    <h3 class="ip6-colh" id="ip-c${side}">Started in the ${word}${count ? ` <span class="ip6-coln">${count}</span>` : ''}</h3>
+    <h3 class="ip6-colh" id="ip-c${side}">${VB ? `${word} bills` : `Started in the ${word}`}${count ? ` <span class="ip6-coln">${count}</span>` : ''}</h3>
     ${alive.length ? listBox(alive.map(billCard).join('')) : none}
     ${shown.length ? listBox(shown.map(billCard).join('')) : ''}${fold}
   </section>`;
@@ -253,7 +254,7 @@ function health(xs, earlier) {
 
 // ---- who is working on it ----
 const VERB = { nodraft: 'writes the testimony for', write: 'writes the testimony for', submit: 'sends the testimony for', revise: 'revises the testimony for',
-  approve: 'approves the testimony for', second: 'gives a second look to', file: 'files the testimony for', missed: 'checks the testimony for', chair: 'asks the chair about', todo: 'has a to-do on' };
+  approve: 'approves the testimony for', second: `gives a ${sl} to`, file: 'files the testimony for', missed: 'checks the testimony for', chair: 'asks the chair about', todo: 'has a to-do on' };
 function whoHTML(i, xs, steps, { vb = false } = {}) {
   const ppl = new Map(), add = (id, k, v) => { if (!id || !advocate(id)) return; const p = ppl.get(id) || ppl.set(id, { own: false, help: false, bills: [], steps: [] }).get(id); if (k === 'own' || k === 'help') p[k] = true; else p[k].push(v); };
   add(i.owner_id, 'own');

@@ -19,6 +19,7 @@
 import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
+import { SL, sl } from './ui.js';   // R-365 B plain words
 import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
@@ -119,7 +120,7 @@ function lineOf(it) {
   if (s.you) {
     if (['late', 'overdue'].includes(s.status.tone)) return s.line;
     const act = s.act?.words ? lower(s.act.words) : when;
-    if (s.kind === 'second') return `Second look · ${act}`;
+    if (s.kind === 'second') return `${SL} · ${act}`;
     // F44: a second approver standing in says for whom ("Standing in for Kris or Nate").
     if (s.kind === 'approve' && it.d?.status === 'review' && standingIn(S.me, it.h)) {
       const main = s.whose.ids.filter(id => id !== S.me?.id && (S.advocates || []).some(a => a.id === id && (a.is_admin || a.can_approve)));
@@ -191,7 +192,7 @@ function detailOf(it, view) {
   let card = stepCard(b, { where: 'testimony', d, h, named: false, primary, from: 'testimony', id: `tp-s-${esc(it.key)}` });
   // R-344 Rule 2 (C5): the bigger step picture, one line, a sent-back draft's own shape (verbs.js testimonyTrack; steps.js
   // trackHTML is another build's: asked to use it there too).
-  if (s) card = card.replace(/<ol class="v6-track"[\s\S]*?<\/ol>/, () => testimonyTrack(s, { second: /Second look/.test((card.match(/<ol class="v6-track"[\s\S]*?<\/ol>/) || [''])[0]) }));
+  if (s) card = card.replace(/<ol class="v6-track"[\s\S]*?<\/ol>/, () => testimonyTrack(s, { second: /Second (look|review)/.test((card.match(/<ol class="v6-track"[\s\S]*?<\/ol>/) || [''])[0]) }));
   const ACTS = /<div class="v6-step-acts">[\s\S]*?<\/div>/;
   // V25: the viewer's own filing is the filing card's four steps in place of the card's buttons (a stepCard option for
   // this is asked of the integrator; until then the buttons' box is swapped for the steps). Who is going and I'm going
@@ -318,7 +319,7 @@ function intro(view, m) {
       // the button say it, and the first row comes up into the first screen (A-1).
       const q = queue().filter(x => x.type === 'draft').length;
       if (q) return `<div class="tp-start"><p class="tp-intro">${q === 1 ? '1 waits for you' : `${q} wait for you`}, the soonest first. Review shows one at a time, then moves on.</p>${btn('Review', { kind: 'primary', icon: 'user-check', href: '#/review?only=testimony' })}</div>`;
-      return m.tabs.approve.length ? `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : 'Testimony with an approver, or waiting for its second look.'}</p>` : '';
+      return m.tabs.approve.length ? `<p class="tp-intro">${approves(S.me) || S.me?.is_reviewer ? 'Nothing waits for your approval.' : `Testimony with an approver, or waiting for its ${sl}.`}</p>` : '';
     }
     case 'sent': return `<p class="tp-intro">${n ? 'An approver asked for changes: read the note, revise it in the Doc, then resubmit.' : 'Nothing has come back to you for changes.'}</p>`;
     case 'file': return `<p class="tp-intro">${n ? 'Approved testimony. Each has its filing steps: the PDF, the Capitol page and the form’s answers.' : 'Nothing for you to file right now.'}</p>`;

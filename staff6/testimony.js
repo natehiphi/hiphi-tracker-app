@@ -18,6 +18,7 @@
 import { S, DB, DEMO, esc, fmtDate, advocate, capitolUrl, hooks } from './data.js';
 import { codesOf, billByNum, billSay, companionsOf } from './model.js';
 import { icon, btn, chip, toast } from './ui.js';
+import { SL } from './ui.js';   // R-365 B plain words
 import { docBtn } from './ui.js';
 import { cmteFull, billName, firstName } from './bill.js';
 import { testimonyState, versionWords, numWords } from './steps.js';
@@ -85,7 +86,7 @@ export const onNextUp = d => d.status !== 'cancelled' && d.status !== 'filed';
 // A tag only for the exceptions: nearly everything here is filed, and a column of identical tags says nothing. The words
 // are the one set every v6 screen uses (steps.js testimonyState, V19): "Ready to file", "With an approver", "Second
 // look", "Writing · sent back", "Missed".
-const STATUS = { approved: 'Ready to file', review: 'With an approver', second_review: 'Second look', draft: 'Writing' };
+const STATUS = { approved: 'Ready to file', review: 'With an approver', second_review: SL, draft: 'Writing' };
 const stateWord = d => { if (d.status === 'filed') return ''; const st = testimonyState(d, billById(d.bill_id), {}); return st ? st.label : STATUS[d.status] || ''; };
 const statusChip = d => { const w = stateWord(d); return w ? `<span class="tm-st">${esc(w)}</span>` : ''; };
 const whereOf = d => `${cmteFull(d.committee)}${codesOf(d.committee).length > 1 ? ' joint' : ''} hearing`;

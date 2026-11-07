@@ -28,7 +28,7 @@
 // stopped (died_at_stage, not its stage, which is only 'dead'), with no stop claimed when the record does not say (2 bills
 // in 2026); a resolution has no Governor and ends "Adopted"; a House or Senate resolution never leaves its chamber. A
 // stopped or finished bill has no flags. Stopped is said calmly, in neutral (A-5 on v6: red only for a step still to do).
-import { S, DEADLINE_ROWS, effStage, esc } from './data.js';
+import { S, DEADLINE_ROWS, effStage, esc, VB } from './data.js';
 import { CHAMBER_NAME, pathwayStops, isResolution, isOneChamber, stoppedAt } from '../stops.js';
 import { stopOf, diedish, whenAt, codesOf, cmteName, plainDeadlines, gateNeed } from './model.js';
 import { committeeName, dayWords, timeWords, nw } from './steps.js';
@@ -42,7 +42,7 @@ const shortDate = d => { const [, m, dd] = String(d).split('-'); return `${+m}/$
 const cmteFull = code => committeeName(code) || cmteName(code) || code;
 const shortCmte = code => (codesOf(code).length > 1 ? '' : committeeName(code, { chamber: false })) || cmteFull(code);
 // The deadline's own name: "Second lateral", "Crossover", "Final decking" (model.js gateName, inlined for the keys).
-const dlName = r => /^(first|second)_/.test(r.key) && /^(Lateral|Decking|Triple filing)$/.test(r.label) ? `${r.key.startsWith('first') ? 'First' : 'Second'} ${r.label.toLowerCase()}` : r.label;
+const dlName = r => /^(first|second)_/.test(r.key) && /^(Lateral|Decking|Triple filing)$/.test(r.label) ? `${r.key.startsWith('first') ? 'First' : 'Second'} ${VB && r.label === 'Triple filing' ? 'three-committee deadline' : r.label.toLowerCase()}` : r.label;
 
 // Every hearing of the bill the page knows: its own history (bill.js loads S.billHist) and the ones Staff holds.
 function hearingsOf(b) {
@@ -261,7 +261,7 @@ export function trackerHTML(b, opts = {}) {
   const { stops, flags, next, n } = m;
   const set = b.stage_override ? ' <span class="tk-set">(set by the team)</span>' : '';
   // Screen readers get one sentence for the bar, and the stop list; the drawn bar is for the eye (its titles for a mouse).
-  const sr = `${m.place.state === 'live' && m.cur >= 0 ? `Step ${m.cur + 1} of ${n}. ` : ''}${stops.map(s => `${s.full}: ${STATE_WORD[s.state]}`).join('; ')}.${flags.length ? ` Deadlines ahead: ${flags.map(f => `${plain ? '' : f.name + ', '}${dayWords(f.date)}`).join('; ')}.` : ''}`;
+  const sr = `${m.place.state === 'live' && m.cur >= 0 ? `${VB ? 'Stop' : 'Step'} ${m.cur + 1} of ${n}. ` : ''}${stops.map(s => `${s.full}: ${STATE_WORD[s.state]}`).join('; ')}.${flags.length ? ` Deadlines ahead: ${flags.map(f => `${plain ? '' : f.name + ', '}${dayWords(f.date)}`).join('; ')}.` : ''}`;
   const col = `grid-template-columns: repeat(${n}, minmax(0, 1fr))`;
   // Each deadline ahead is a second line under the stop it gates (the last stop it needs passed), "by 4/10", the next one in
   // bold. Drawn in the gaps between stops, a date read as the next stop's (fresh-eyes review: HB 1562's 4/10,
@@ -288,7 +288,7 @@ export function trackerHTML(b, opts = {}) {
   // On the slim bar it is one line: "Step 4 of 9 · in House Transportation · must pass it by Thu 3/19". Where the place gives
   // way (a 320 phone, .tk-short), the deadline names the committee itself (.tk-byf): "Step 4 of 9 · must pass House
   // Transportation by Thu 3/19".
-  const stepLine = m.place.state === 'live' && m.cur >= 0 ? `<p class="tk-step"><span>Step ${m.cur + 1} of ${n}</span>${m.where ? `<span class="tk-sw"> · ${esc(m.where)}</span>` : ''}${by && m.must.short ? `<span class="tk-by"> · ${esc(m.where ? m.must.short : m.must.full)} by ${nw(esc(by))}</span>${m.where && m.must.short !== m.must.full ? `<span class="tk-byf"> · ${esc(m.must.full)} by ${nw(esc(by))}</span>` : ''}` : ''}${set}</p>` : nowLine;
+  const stepLine = m.place.state === 'live' && m.cur >= 0 ? `<p class="tk-step"><span>${VB ? 'Stop' : 'Step'} ${m.cur + 1} of ${n}</span>${m.where ? `<span class="tk-sw"> · ${esc(m.where)}</span>` : ''}${by && m.must.short ? `<span class="tk-by"> · ${esc(m.where ? m.must.short : m.must.full)} by ${nw(esc(by))}</span>${m.where && m.must.short !== m.must.full ? `<span class="tk-byf"> · ${esc(m.must.full)} by ${nw(esc(by))}</span>` : ''}` : ''}${set}</p>` : nowLine;
   // Every stop as a list (the phone's "See every step"): its day when it passed, the deadlines ahead under the stop they gate.
   let g0 = '';
   const list = stops.map((s, i) => {
@@ -306,7 +306,7 @@ export function trackerHTML(b, opts = {}) {
     </div>
     <div class="tk-slim" aria-hidden="true" style="${col}">${stops.map(s => `<i class="is-${s.state}"></i>`).join('')}</div>
     <div class="tk-cap">${nowLine.replace('class="tk-now"', 'class="tk-now tk-onwide"')}${nextLine.replace('class="tk-next"', 'class="tk-next tk-onwide"')}${stepLine.replace(/class="tk-(step|now)"/, 'class="tk-$1 tk-onslim"')}${m.cur < 0 || m.place.state !== 'live' ? nextLine.replace('class="tk-next"', 'class="tk-next tk-onslim"') : ''}</div>
-    ${btn(open ? 'Hide the steps' : 'See every step', { kind: 'text', iconEnd: open ? 'chevron-up' : 'chevron-down', cls: 'tk-more', attrs: { 'data-tkmore': '1', 'aria-expanded': String(open), 'aria-controls': 'tk-list' } })}
+    ${btn(open ? (VB ? 'Hide the stops' : 'Hide the steps') : (VB ? 'See every stop' : 'See every step'), { kind: 'text', iconEnd: open ? 'chevron-up' : 'chevron-down', cls: 'tk-more', attrs: { 'data-tkmore': '1', 'aria-expanded': String(open), 'aria-controls': 'tk-list' } })}
     <ol class="tk-list" id="tk-list"${open ? '' : ' hidden'}>${list}</ol></div>
   </section>`;
 }
@@ -318,7 +318,7 @@ export function wireTracker(root, b) {
   if (b0 && list) b0.onclick = () => {
     const open = list.hidden; list.hidden = !open; b0.setAttribute('aria-expanded', String(open));
     S.tkOpen ??= new Set(); open ? S.tkOpen.add(b.id) : S.tkOpen.delete(b.id);
-    b0.querySelector('span').textContent = open ? 'Hide the steps' : 'See every step';
+    b0.querySelector('span').textContent = open ? (VB ? 'Hide the stops' : 'Hide the steps') : (VB ? 'See every stop' : 'See every step');
     b0.querySelector('.ic:last-child')?.replaceWith(Object.assign(document.createElement('template'), { innerHTML: icon(open ? 'chevron-up' : 'chevron-down') }).content.firstChild);
   };
 }
@@ -341,7 +341,7 @@ export function slimBarHTML(b) {
     return st;
   });
   const law = place.state === 'done', live = place.state === 'live' && cur >= 0 && cur < n;
-  const sr = law ? (model.res ? 'Adopted' : 'Law') : live ? `Step ${cur + 1} of ${n}` : place.state === 'vetoed' ? 'Vetoed' : 'Stopped';
+  const sr = law ? (model.res ? 'Adopted' : 'Law') : live ? `${VB ? 'Stop' : 'Step'} ${cur + 1} of ${n}` : place.state === 'vetoed' ? 'Vetoed' : 'Stopped';
   const left = live ? ((cur + 0.5) / n) * 100 : 0, edge = left < 12 ? ' at-start' : left > 88 ? ' at-end' : '';
   const pin = live ? `<span class="v6-bar-now${edge}" style="left:${edge === ' at-start' ? 0 : edge === ' at-end' ? 100 : left.toFixed(1)}%">${icon('map-pin')}</span>` : '';   // its word "Now" is drawn by CSS: part of the picture (role=img), not one more fact on the row
   return `<span class="v6-bar${law ? ' is-law' : ''}" role="img" aria-label="${esc(sr)}"><span class="v6-bar-segs" style="grid-template-columns: repeat(${n}, minmax(0, 1fr))">${pin}${states.map(st => `<i class="is-${st}"></i>`).join('')}</span><span class="v6-bar-end" title="${model.res ? 'Adopted' : 'Law'}">${icon('trophy')}</span></span>`;

@@ -118,7 +118,7 @@ function hearNext(x) {
   // Decision 9: hearPart's text is steps.js statusLine's one text; a small card shortens only the label, "(team cut-off)" to "(team)".
   const sh = shownStatus(s) || {};
   const tone = ['late', 'overdue', 'today'].includes(sh.tone) ? sh.tone : '';
-  return { text: hp.text.replace(' (team cut-off)', ' (team)'), tone, ic: tone ? sh.icon || '' : '' };
+  return { text: hp.text.replace(' (team cut-off)', ' (team)').replace(' (our deadline)', ' (team)'), tone, ic: tone ? sh.icon || '' : '' };
 }
 // The card's next step and its date, one line, or none when there is none (stopped, no bills). At risk and a dying bill lead
 // (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.

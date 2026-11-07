@@ -22,12 +22,13 @@
 // Every fact comes from model.js (drafts and their steps, deadlines and risk, who approves and files) and every action
 // calls the same data functions v5's Today, bill page and Review call, with the same Undo and who's-next toast (P2, P3).
 // The old word lists in model.js, today.js and hearing.js stay until each screen switches to these (spec section 5).
-import { S, DB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js';
+import { S, DB, VB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js';
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
   streamOf, billById, offTag, legById, askReply, billRef } from './model.js';
-import { icon, btn, toast, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
+import { icon, btn, toast, vbFinish, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
+import { SL, sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
 import { issueIcon } from './issuegrid.js';   // R-339: an issue's own icon wherever an issue is named (used in functions only)
 import { askLine, answerSheet } from './chairask.js';
@@ -270,7 +271,7 @@ const NW = /(\b\d{1,2}:\d{2}[\s  ]?[AP]M\b|\bRoom [\w-]+|\b(?:Mon|Tue|Wed|Thu
 export const nw = s => String(s ?? '').replace(NW, m => `<span class="v6-nw${/\d:\d{2}/.test(m) ? ' v6-tm' : ''}">${m}</span>`);
 
 // ---- testimony: one state, five words and Missed (V12, V19) ----
-export const STATE_WORDS = { write: 'Writing', approve: 'With an approver', second: 'Second look', file: 'Ready to file', filed: 'Filed', missed: 'Missed' };
+export const STATE_WORDS = { write: 'Writing', approve: 'With an approver', second: SL, file: 'Ready to file', filed: 'Filed', missed: 'Missed' };
 // testimonyState(d, b, { h }) -> { key, word, label, sentBack, noDraft, stale } (toString: the word), or null for a
 // draft whose sitting was cancelled with no new date (that is the hearing's fact, said by the hearing line).
 // `d` null: the hearing is set and no draft exists yet, which is Writing too ("Writing · not started", spec 12.6: the one
@@ -527,7 +528,7 @@ export const NO_OWNER = 'No owner yet';
 export function othersWords(s) {
   if (!s?.whose) return '';
   if (s.nobody) return NO_OWNER;
-  if (s.kind === 'second') return `Second look from ${s.whose.words}`;
+  if (s.kind === 'second') return `${SL} from ${s.whose.words}`;
   return `${cap(s.whose.words)} ${VERB_OTHER[s.kind] || 'has it'}`;
 }
 function rowLine(s, v) {
@@ -548,7 +549,7 @@ export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {
   const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
   if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : lateLine(s.until, { lower: true });
   if (tone === 'overdue') return `was due ${whenAt(s.due)} (Capitol)`;
-  if (a?.kind === 'hand' && a.at > now) return `by ${timeFirst(a.at)} (team cut-off)${ls(a.at)}`;
+  if (a?.kind === 'hand' && a.at > now) return `by ${timeFirst(a.at)} (${TEAM_CUT})${ls(a.at)}`;
   if (s.due != null) return `due ${whenAt(s.due)} (Capitol)${ls(s.due)}`;
   return '';
 }
@@ -629,18 +630,18 @@ const SENT = { // the card's sentence, the viewer's own step
   // state): Patti's first screen said only "Revise and resubmit" over "The approver's note", and nothing said it was sent back.
   revise: (s, v, x) => x ? `Revise and resubmit the testimony on ${x}` : 'Revise and resubmit: it was sent back',
   approve: (s, v, x) => `Approve ${s.d?.submitted_by ? (s.d.submitted_by === v?.id ? 'your own' : `${cap(firstWords(s.d.submitted_by, v))}’s`) : 'the'} testimony${on(x)}`,
-  second: (s, v, x) => `Give the second look to ${s.d?.submitted_by && s.d.submitted_by !== v?.id ? `${cap(firstWords(s.d.submitted_by, v))}’s` : 'the'} testimony${on(x)}`,
+  second: (s, v, x) => `Give the ${sl} to ${s.d?.submitted_by && s.d.submitted_by !== v?.id ? `${cap(firstWords(s.d.submitted_by, v))}’s` : 'the'} testimony${on(x)}`,
   file: (s, v, x) => `File the ${s.status.tone === 'late' ? 'late ' : ''}testimony${on(x)} at the Capitol`,
 };
 const OTHERS = { // someone else's step: who, then what
   nodraft: (w, x) => `${w} makes the draft${x ? ` for ${x}` : ''}`, write: (w, x) => `${w} writes the testimony${on(x)}`,
   submit: (w, x) => `${w} sends the testimony${on(x)} for approval`, revise: (w, x) => `${w} revises the testimony${on(x)}`,
-  approve: (w, x) => `${w} approves the testimony${on(x)}`, second: (w, x) => `${w} gives the testimony${on(x)} its second look`,
+  approve: (w, x) => `${w} approves the testimony${on(x)}`, second: (w, x) => `${w} gives the testimony${on(x)} its ${sl}`,
   file: (w, x) => `${w} files the testimony${on(x)} at the Capitol`,
 };
 // The words over an approver's note (the step card, the hearing card's row, the Resubmit sheet): not a state word.
 const NOTE_HEAD = 'The approver’s note';
-const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', 'Second look'], ['file', 'File']];
+const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', SL], ['file', 'File']];
 // The Write -> Approve -> File track: done steps ticked, the current one named for screen readers (aria-current="step").
 // A quiet line, not tabs (V35: the v5 step bar read as tabs). The second look shows only when this bill needs one.
 function trackHTML(s) {
@@ -1327,6 +1328,14 @@ let AFTER = () => hooks.render();
 // wireSteps(root, { after }): what to redraw after a step (the page, by default). The buttons themselves need no wiring.
 export function wireSteps(root, { after } = {}) { if (after) AFTER = after; return root; }
 const redraw = () => { try { AFTER(); } catch { hooks.render(); } };
+// R-365 B: a step that is finished (sent for approval, approved, sent back, filed, not filed, the ask logged) ends the way every
+// step ends in B: back to Today with "Done: <what>. Next: ..." and the Undo its toast would have offered. A page may take the
+// step over with onStepDone(fn); fn(what, undo) runs instead (and returns nothing). Without vb=1 nothing changes: the toast.
+let DONE = null;
+export const onStepDone = fn => { DONE = typeof fn === 'function' ? fn : null; };
+export function stepDone(what, undo = null) { if (!VB) return false; (DONE || vbFinish)(what, undo); return true; }
+// The toast of a finished step, or (B) the finish on Today in its place.
+const doneToast = (what, msg, opt) => { if (!stepDone(what, opt?.undo)) toast(msg, opt); };
 const draftById = (bid, did) => (S.drafts?.[bid] || []).find(x => String(x.id) === String(did));
 async function busy(el, fn) {
   if (el) { el.setAttribute('aria-busy', 'true'); el.disabled = true; }
@@ -1369,17 +1378,18 @@ const ACTS = {
     await DB.transition(b.id, d.id, 'submit'); clearReminders(b, d);
     const who = whoseStep(draftById(b.id, d.id) || d, b).words;
     await finish(el); redraw();
-    toast(who ? `Sent to ${who} for approval. You file it once it is approved.` : 'Sent for approval.', { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } }); }); },
+    doneToast(`Sent ${numWords(b)}’s testimony for approval`, who ? `Sent to ${who} for approval. You file it once it is approved.` : 'Sent for approval.', { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } }); }); },
   async approve(el, b, d) {
     // A leftover second tap never approves the next step that lands in the same spot (review mode's guard, build 3).
     if (performance.now() - approvedAt < 1000) return;
     await busy(el, async () => {
+      const wasSecond = d.status === 'second_review';
       await DB.transition(b.id, d.id, 'approve'); approvedAt = performance.now(); clearReminders(b, d);
       const nd = draftById(b.id, d.id) || d, f = filerOf(nd);
-      const next = nd.status === 'second_review' ? `Approved. ${cap(whoseStep(nd, b).words) || 'A second approver'} gives the second look next.`
+      const next = nd.status === 'second_review' ? `Approved. ${cap(whoseStep(nd, b).words) || 'A second approver'} gives the ${sl} next.`
         : f === S.me?.id ? 'Approved. File it at the Capitol next.' : `Approved. ${f ? cap(firstWords(f)) : 'The owner'} files it next.`;
       await finish(el); redraw();
-      toast(next, { ok: true, undo: async () => { await DB.transition(b.id, nd.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); redraw(); } }); }); },
+      doneToast(wasSecond ? `Did the second review of ${numWords(b)}’s testimony` : `Approved ${numWords(b)}’s testimony`, next, { ok: true, undo: async () => { await DB.transition(b.id, nd.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); redraw(); } }); }); },
   sendback(el, b, d) {
     const to = d.submitted_by && d.submitted_by !== S.me?.id ? cap(firstWords(d.submitted_by)) : '';
     openSheet({ title: 'What should change?', size: 'auto',
@@ -1395,7 +1405,7 @@ const ACTS = {
           const undo = holdBack({ key: d.id, target: d, patch: { status: 'draft', review_note: note }, send: () => DB.transition(b.id, d.id, 'request_changes', note),
             onFail: () => { redraw(); toast(`${sayWords(b)} was not sent back. It is still waiting for you; try again.`, { err: true }); } });
           delete S.v6Held['sb:' + d.id]; closeSheet({ silent: true }); await finish(el); redraw();
-          toast(to ? `Sent back to ${to} with your note. ${to} revises and resubmits it.` : 'Sent back with your note.', { undo: async () => { if (await undo()) { redraw(); toast('Not sent back. It is waiting for you again.'); } } });
+          doneToast(`Sent ${numWords(b)}’s testimony back${to ? ` to ${to}` : ''}`, to ? `Sent back to ${to} with your note. ${to} revises and resubmits it.` : 'Sent back with your note.', { undo: async () => { if (await undo()) { redraw(); toast('Not sent back. It is waiting for you again.'); } } });
         };
       } });
   },
@@ -1417,7 +1427,7 @@ const ACTS = {
           busy(go, async () => {
             await DB.transition(b.id, d.id, 'file', null, url); closeSheet({ silent: true }); clearReminders(b, d);
             await finish(el); redraw();
-            toast(`Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); } }); }); };
+            doneToast(`Filed ${numWords(b)}’s testimony`, `Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); } }); }); };
       } });
   },
   async unfile(el, b, d) { const url = d.filed_url || null; await busy(el, async () => {
@@ -1429,7 +1439,7 @@ const ACTS = {
   async nofile(el, b, d) { await busy(el, async () => {
     await DB.addActivity(b.id, 'testimony', noFileTitle(d)); (S.v6NoFile ??= new Set()).add(String(d.id)); clearReminders(b, d);
     await finish(el); redraw();
-    toast(el?.dataset?.v6say || 'Noted on the bill: not filed.', { undo: async () => { S.v6NoFile.delete(String(d.id)); redraw(); } }); }); },
+    doneToast(`Marked ${numWords(b)}’s testimony as not filed`, el?.dataset?.v6say || 'Noted on the bill: not filed.', { undo: async () => { S.v6NoFile.delete(String(d.id)); redraw(); } }); }); },
   async draftnow(el, b, d, h) { const { makeDraftNow } = await import('./testimony.js'); return makeDraftNow(h); },
   async going(el, b, d, h) {
     const rows = sittingRows(h), mine = rows.filter(r => (S.attend?.[r.id] || []).includes(S.me?.id)), on = mine.length > 0, name = committeeName(h.committee) || h.committee;
@@ -1445,7 +1455,7 @@ const ACTS = {
     if (t) await DB.updateTodo(b.id, t.id, { done: true });
     const unlog = await logAsk(b, code);
     await finish(el); redraw();
-    toast(`Done: the ask is logged, so the team sees “Asked by ${firstWords(S.me?.id, { id: null })}” on ${sayWords(b)}.`, { ok: true, undo: async () => { if (t) await DB.updateTodo(b.id, t.id, { done: false }); await unlog(); redraw(); } }); }); },
+    doneToast(`Logged the ask for ${numWords(b)}`, `Done: the ask is logged, so the team sees “Asked by ${firstWords(S.me?.id, { id: null })}” on ${sayWords(b)}.`, { ok: true, undo: async () => { if (t) await DB.updateTodo(b.id, t.id, { done: false }); await unlog(); redraw(); } }); }); },
   async take(el, b) { await busy(el, async () => { await DB.setOwner(b.id, S.me.id); redraw();
     toast(`You own ${sayWords(b)} now.`, { ok: true, undo: async () => { await DB.setOwner(b.id, null); redraw(); } }); }); },
   // As v5's Give to… on Today: the toast names who owns it now and promises no message (migration 064 messages a

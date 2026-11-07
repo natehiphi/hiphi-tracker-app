@@ -5,7 +5,7 @@
 // a text button, 'danger' only inside a confirm. Countdowns and urgency tiles follow A-5 on v6 as Nate decided it on 26 Oct
 // (R-344): amber for due today and while late testimony is still accepted, red only once the deadline has passed, anything
 // further out neutral with its distance in words. sectionNav() knows every v6 place's page tabs (spec 3.3, D12).
-import { S, STAGES, effStage, esc, advocate, seesTeam } from './data.js';
+import { S, STAGES, VB, effStage, esc, advocate, seesTeam } from './data.js';
 import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine, hstDayOf, whenAt } from './model.js';
 export { clockDay, lateLine };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
 import { icon } from '../icons.js';
@@ -539,7 +539,11 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
 // The Hearings tab that lists the bills still waiting for a hearing, in Nate's words and his title case (Nate 25 Oct walk 1:
 // "Bills That Need Hearings", was "Get hearings"). One constant, so the tab, This week's line, Today's line, search and Help
 // say the same name (C-15: one name per place). Its address stays #/hearings/ask.
-export const ASK_TAB = 'Bills That Need Hearings';
+export const ASK_TAB = VB ? 'Ask Chairs for Hearings' : 'Bills That Need Hearings';
+// R-365 B plain words (Nate 7 Nov): each shared phrase is one constant, v6's words unchanged without vb=1.
+export const SL = VB ? 'Second review' : 'Second look', sl = VB ? 'second review' : 'second look';   // a second reviewer reads the testimony
+export const TEAM_CUT = VB ? 'our deadline' : 'team cut-off';   // when the team needs it, ahead of the Capitol's deadline
+export const SHARE_KIT = VB ? 'Ways to share' : 'Share kit', ASK_CARD = VB ? 'public ask' : 'ask card';
 // A list of names said as a list: "Sen. Lee, Sen. Chang and Sen. Richards", "and" only before the last (Nate 25 Oct walk 1:
 // a chair card read "Sen. Lee and Sen. Chang and Sen. Richards"). Two names stay "A and B"; when a name holds its own "and"
 // (a committee, "Health and Human Services") the last join takes a comma, as steps.js committeeName does, so it reads as two.

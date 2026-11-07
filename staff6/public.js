@@ -22,9 +22,9 @@
 // Talking points (084, R-068, 9/28): one box, one point per line. The public testimony walkthrough offers them to people on
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
-import { S, DB, DEMO, esc } from './data.js';
+import { S, DB, DEMO, esc, VB } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, timeFirst } from './model.js';
-import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet } from './ui.js';
+import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet, SHARE_KIT, ASK_CARD } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { versionWords, numWords } from './steps.js';
 import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.js';
@@ -229,9 +229,9 @@ export function renderPublic(b) {
   // day's job is to share, not to edit (R-152 C). v4 (R-269): on a laptop too (Saya: Copy share link was 2.3 screens down,
   // under the editor); "Write it" on Today still lands on the ask below it (?focus=ask, wirePublic).
   const spread = `<section class="bw-sec bw-pblk bw-kit" aria-labelledby="bw-spread-h">
-    <h2 class="bw-h2" id="bw-spread-h">Share kit</h2>
+    <h2 class="bw-h2" id="bw-spread-h">${SHARE_KIT}</h2>
     <p class="bw-resp">${respWords(b) ? `${icon('users')}<span>${esc(respWords(b))}.${DEMO ? ' <span class="bw-quiet">(sample numbers)</span>' : ''}${!((publicResponse(b) || {}).people >= 10) ? ' <span class="bw-quiet">Actions show from 10 people.</span>' : ''}</span>` : `${icon('users')}<span class="bw-quiet">No public counts yet: actions are counted from 10 people.</span>`}</p>
-    <div class="bw-acts bw-spreadacts">${card ? btn('This week’s ask card', { kind: 'secondary', sm: true, icon: 'megaphone', href: card })
+    <div class="bw-acts bw-spreadacts">${card ? btn(`This week’s ${ASK_CARD}`, { kind: 'secondary', sm: true, icon: 'megaphone', href: card })
       : listed ? `${btn('Copy link', { kind: 'secondary', sm: true, icon: 'link', attrs: { 'data-kit': 'link' } })}${btn('Copy a ready message', { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-kit': 'msg' } })}` : ''}${emailOk ? emailDoor({ bill: b }, { kind: 'secondary', sm: true })
       : btn('Email followers', { kind: 'secondary', sm: true, icon: 'mail', attrs: { 'data-email': '1', 'aria-disabled': 'true' } })}</div>
     <p class="bw-quiet">${[listed ? '' : 'Make it public to get its share link.', emailOk ? 'Someone who approves emails checks it before it sends.' : b.position === 'monitor' ? 'Monitor bills get no supporter emails. Take a position first.' : ''].filter(Boolean).join(' ')}</p>
