@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="climate">
+<circle cx="32" cy="32" r="32" fill="#DFF2EE"/>
+<path d="M32 10 C36 20 48 24 48 38 C48 47 41 54 32 54 C23 54 16 47 16 38 C16 30 21 26 24 20 C26 26 28 26 28 26 C28 20 30 14 32 10Z" fill="#1F665A"/>
+    <path d="M32 28 C35 34 40 36 40 43 C40 48 36 52 32 52 C28 52 24 48 24 43 C24 38 29 34 32 28Z" fill="#F4B223"/>
+</svg>

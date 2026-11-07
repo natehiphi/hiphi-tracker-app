@@ -18,6 +18,10 @@ import { skeleton, loadFail } from '../ui.js';
 import F0, { parse, startSearch, searchNote, capNote, issueMatches, findHooks, wireSearch, shows, offSeason } from '../find.js';
 import { stopped, becameLaw, numCmp, what } from '../mybills.js';
 import { recSec, recRow, recEmpty, BOX, keep } from '../rec/kit.js';
+import { issueMark, loadMarks } from '../art.js';
+
+// Which issues have a mark (R-363), known before the first row is drawn so a row never gains one after it shows.
+await loadMarks();
 
 const F = S.fd;   // find.js's search state (the query, its results, its cache)
 const DAY = 864e5, SHOW = 4, VOICES = 5, OTHER_SEARCH = 10;
@@ -152,11 +156,14 @@ const isOpen = (i, q) => M.open.has('i:' + i.id) || (!!(M.topic || q) && !M.open
 const soonCount = bills => bills.filter(b => { const d = dueOf(b); return d?.at && Date.parse(d.h.scheduled_at) < Date.now() + 7 * DAY; }).length;
 const countLine = bills => { const n = bills.length, v = soonCount(bills);
   return `${n} bill${n === 1 ? '' : 's'}${v ? ` · ${v} need${v === 1 ? 's' : ''} voices this week` : ''}`; };
+// The row's lead: the issue's mark (R-363) on every width, or, for an issue without one, its icon on a laptop only (none on a phone).
+const lead = i => { const m = issueMark(i, { size: 28 });
+  return m ? `<span class="v3b-imark" aria-hidden="true">${m}</span>` : `<span class="v3b-ilead" aria-hidden="true">${icon(issueIcon(i.icon))}</span>`; };
 function issueSec({ i, bills }, q) {
   const open = isOpen(i, q), id = `v3b-ib-${esc(i.slug)}`;
   return `<li class="v3b-isec${open ? ' open' : ''}" id="v3b-i-${esc(i.slug)}">
     <div class="v3b-ihead"><h3 class="v3b-ih"><button type="button" class="v3b-itog" data-v3open="${esc(i.id)}" aria-expanded="${open}" aria-controls="${id}">
-      <span class="v3b-ilead" aria-hidden="true">${icon(issueIcon(i.icon))}</span><span class="v3b-iname"><span class="v3b-in">${esc(i.name)}</span><span class="v3b-icount">${esc(countLine(bills))}</span></span>${icon('chevron-down', { cls: 'v3b-ichev' })}</button></h3>${follow(i, issueFollowed(i))}</div>
+      ${lead(i)}<span class="v3b-iname"><span class="v3b-in">${esc(i.name)}</span><span class="v3b-icount">${esc(countLine(bills))}</span></span>${icon('chevron-down', { cls: 'v3b-ichev' })}</button></h3>${follow(i, issueFollowed(i))}</div>
     ${open ? `<div class="v3b-ibody" id="${id}">${rowsOf(bills, i.id, SHOW, i)}<p class="v3b-ipage"><a class="btn text" href="#/issue/${esc(i.slug)}"><span>About ${esc(i.name)}</span>${icon('chevron-right')}</a></p></div>` : `<div class="v3b-ibody" id="${id}" hidden></div>`}</li>`;
 }
 const issueList = (secs, q) => `<ul class="v3b-ilist" role="list">${secs.map(x => issueSec(x, q)).join('')}</ul>`;

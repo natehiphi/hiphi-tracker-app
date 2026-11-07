@@ -22,6 +22,9 @@ body.v3 .v3b-itog:hover .v3b-in { color: var(--p700); }
 body.v3 .v3b-itog:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; border-radius: var(--r12); }
 body.v3 .v3b-ilead { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); }
 body.v3 .v3b-ilead .ic { width: 18px; height: 18px; }
+/* An issue's mark (R-363): 36px on a laptop, 28px on a phone, where the icon of an issue without one is not drawn. */
+body.v3 .v3b-imark { flex: none; display: grid; place-items: center; width: 36px; }
+body.v3 .v3b-imark .art-mark { display: block; width: 36px; height: 36px; border-radius: 50%; }   /* Find does not load card.css */
 body.v3 .v3b-iname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 body.v3 .v3b-in { font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; text-wrap: pretty; }
 body.v3 .v3b-icount { font-size: var(--t13); color: var(--n700); }
@@ -31,9 +34,11 @@ body.v3 .v3b-follow { flex: none; }
 /* Ninety outlined pills in one box are loud: in the list the Follow is a quiet text button until pressed (then the pale Following). */
 body.v3 .v3b-ilist .v3b-follow.rc-fpill:not(.on) { box-shadow: none; background: none; }
 body.v3 .v3b-ilist .v3b-follow.rc-fpill:not(.on):hover { background: var(--p50); }
-/* A phone: no mark and a tighter Follow, so most names take one or two lines and 91 rows stay under eight screens. */
+/* A phone: no icon (an issue's own mark stays, R-363) and a tighter Follow, so most names take one or two lines and 91 rows stay under eight screens. */
 @media (max-width: 599px) {
   body.v3 .v3b-ilead { display: none; }
+  body.v3 .v3b-imark { width: 28px; }
+  body.v3 .v3b-imark .art-mark { width: 28px; height: 28px; }
   body.v3 .v3b-itog { min-height: 48px; padding: 5px 0 5px var(--s12); gap: var(--s8); }
   body.v3 .v3b-iname { gap: 1px; }
   body.v3 .v3b-in { font-size: .9375rem; line-height: 1.2; }
@@ -42,6 +47,8 @@ body.v3 .v3b-ilist .v3b-follow.rc-fpill:not(.on):hover { background: var(--p50);
   body.v3 .v3b-follow.rc-fpill { padding: 0 10px; gap: 4px; }
   body.v3 .v3b-follow.rc-fpill.on { padding-right: 10px; }
 }
+/* Under 360px the names already take two or three lines: the mark would cost them one more, so it waits for a wider screen (R-363). */
+@media (max-width: 359px) { body.v3 .v3b-imark { display: none; } }
 body.v3 .v3b-ibody { padding: 0 var(--s12) var(--s12); }
 body.v3 .v3b-ibody[hidden] { display: none; }
 body.v3 .v3b-ipage { margin: var(--s4) 0 0; }

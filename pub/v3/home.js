@@ -2,8 +2,7 @@
 // Version 3's Home (?v3=1, R-362 Part 3; docs/requests/R-362/PLAN.md). One module, two shapes, read each time it is drawn:
 //   The door, for someone who follows nothing yet (followsAnything() false). It replaces the welcome (step 0): a newcomer's
 //   Home is never redirected into the steps (pub/app.js under v3). Ported from act.html's Home (one/home.js, R-360 part 6):
-//   the rainbow-and-people drawing (art.js HELLO, its speech bubble moved beside the middle person's head), what HIPHI does in
-//   one heading and one line, "Needs voices this week" with the one thing (pub/v3/pick.js: the page's only filled button,
+//   what HIPHI does in one heading (the cropped group drawing went in R-363: Nate said it cannot be made out at that size) and one line, "Needs voices this week" with the one thing (pub/v3/pick.js: the page's only filled button,
 //   A-3), "Or start with what you care about": four issues, each opening its page, then "Choose your issues" outlined (it
 //   starts the steps at the topics, #/start/1) and "See all issues". Nothing is asked before a first action (C-1, C-11).
 //   The private counts still record the arrival as the welcome did: 'arrive' / 'view' (visitlog.js, R-023 decision 8).
@@ -13,18 +12,16 @@
 //   block: This week (pub/v3/week.js) has those, and Home says each thing once (A-14). The tour does not run (app.js).
 // Between sessions nothing moves, so the card is the calm Home's (pub/calm/home.js offSession) in short: the break, what
 // HIPHI backed that became law, and the one thing to do then, knowing who represents you.
-// Laptop: one 640px reading column; from 1100px the card stands beside the issues, the drawing beside the heading.
+// Laptop: one 640px reading column; from 1100px the card stands beside the issues.
 import { S, app, esc, icon, nick, billPath, wiz, followsAnything, issueBills, issuesOf, recommendations, sessionInfo, ensureRecapPool,
   winsIn, followedIssues, issueIcon, DEMO, HST } from '../core.js';
 import { btn, skeleton } from '../ui.js';
-import { HELLO, issueBand } from '../art.js';
+import { issueBand, issueMark, loadMarks } from '../art.js';
 import { logVisit } from '../visitlog.js';
 import { oneThing, nextThings, cardHtml, wireCard, sendBy, issueOfThing } from './pick.js';
 
-// The drawing as act.html's Home draws it: the speech bubble moves from the top right of the sky to beside the middle person's
-// head, so it stays inside the band that shows (home.css crops the sky) and clear of the practice copy's chip.
-const ART = HELLO.replace('<rect x="256" y="30"', '<g class="bubble" transform="translate(-56 56)"><rect x="256" y="30"')
-  .replace(/(<path d="M279 49\.1C[^>]*\/>)/, '$1</g>');
+// Which issues have a mark (R-363), known before the door's rows are drawn.
+await loadMarks();
 const ISSUES = 4;
 const plural = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
 const myName = () => { try { return (wiz().name || JSON.parse(localStorage.getItem('hiphi_me') || '{}').name || '').trim().split(/\s+/)[0]; } catch { return ''; } };
@@ -51,10 +48,11 @@ function fourIssues(skip) {
 }
 function issueRows(skip) {
   return `<ul class="v3h-rows" role="list">${fourIssues(skip).map(({ i, n }) => {
-    const band = issueBand(i, DEMO), th = String(band || '').startsWith('<img') ? band : `<span class="v3h-ic">${icon(issueIcon(i.icon))}</span>`;
+    // Its mark (R-363) when it has one; else its small drawing or icon, as before.
+    const mark = issueMark(i, { size: 28 }), band = mark ? '' : issueBand(i, DEMO), th = mark || (String(band || '').startsWith('<img') ? band : `<span class="v3h-ic">${icon(issueIcon(i.icon))}</span>`);
     const cat = (S.cats || []).find(c => c.key === i.category)?.name || '';
     const sub = n ? `${plural(n, 'bill')} need${n === 1 ? 's' : ''} voices this week` : cat;
-    return `<li><a class="v3h-row" href="#/issue/${esc(i.slug)}" data-v3h-issue="${esc(i.slug)}"><span class="v3h-th">${th}</span>
+    return `<li><a class="v3h-row" href="#/issue/${esc(i.slug)}" data-v3h-issue="${esc(i.slug)}"><span class="v3h-th${mark ? ' v3h-mk' : ''}">${th}</span>
       <span class="v3h-t"><b>${esc(i.name)}</b>${sub ? `<span>${esc(sub)}</span>` : ''}</span>${icon('chevron-right', { cls: 'chev' })}</a></li>`;
   }).join('')}</ul>`;
 }
@@ -102,8 +100,7 @@ function alsoLine() {
 function door(si) {
   const on = si.phase === 'in', o = on ? oneThing() : null;
   return `<div class="v3h v3h-door">
-    <header class="v3h-top"><div class="v3h-art">${ART}</div>
-      <div class="v3h-words"><h1 class="v3h-h1" id="v3h-h">Speak up for a healthier Hawaiʻi</h1>
+    <header class="v3h-top"><div class="v3h-words"><h1 class="v3h-h1" id="v3h-h">Speak up for a healthier Hawaiʻi</h1>
       <p class="lede">We follow the health bills at the Capitol and tell you when your voice counts.</p></div></header>
     <div class="v3h-cols">
       <section class="v3h-now" aria-labelledby="v3h-now-h"><h2 class="v3h-h2" id="v3h-now-h">${on ? 'Needs voices this week' : 'Between sessions'}</h2>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-hidden="true" data-topic="family">
+<circle cx="32" cy="32" r="32" fill="#F0E6F4"/>
+<path d="M30 31 C16 22 19 10 26 10 C28 10 29.500 12 30 13 C30.500 12 32 10 34 10 C41 10 44 22 30 31 Z" fill="#8E5A9E"/>
+    <path d="M8 36 H52 Q52 54 30 54 Q8 54 8 36 Z" fill="#6B4078"/>
+    <rect x="44" y="26" width="9" height="20" rx="4.500" fill="#6B4078" transform="rotate(-18 48 40)"/>
+</svg>
