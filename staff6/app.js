@@ -222,6 +222,7 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
 S.go = go;
 // R-365 B: what Back calls the page you are leaving: its place's name for a place ("Today", "Calendar", "My issues", "Search"),
 // else the page's own title (an issue's name, "HB 2121", a committee, a person). Never the page you are going to.
+const vbPlaceWord = t => ({ Hearings: 'Calendar', Issues: 'My issues' })[t] || t;   // the old place names, in B's
 function vbPageName(route, title) {
   const t = String(title || '').trim();
   switch (route?.name) {
@@ -230,7 +231,7 @@ function vbPageName(route, title) {
     case 'myissues': return 'My issues';
     case 'issues': return 'All issues';
     case 'search': return 'Search';
-    default: return t.replace(/^Hearings$/, 'Calendar') || 'Today';
+    default: return vbPlaceWord(t) || 'Today';
   }
 }
 // The same page with another tab: #/issue/ID and #/issue/ID/testimony, #/bill/HB2121 and #/bill/HB2121/talk.
@@ -347,7 +348,7 @@ function header(route, scr, title) {
   let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
   // A long label shortens to "Back" on a phone, unless the screen marks it full (the issue page's "Back to SB2175" fits).
   // R-365 B: Back always names its place (never a bare arrow, never a bare "Back").
-  if (VB && b) { const nm = /^Back( to)?$/i.test(b.label.trim()) ? backName(b.href) : b.label.replace(/^Back to /i, ''); b = { ...b, label: nm, full: true }; }
+  if (VB && b) { const nm = /^Back( to)?$/i.test(b.label.trim()) ? backName(b.href) : vbPlaceWord(b.label.replace(/^Back to /i, '')); b = { ...b, label: nm, full: true }; }
   S.vbBack = VB && b ? { label: b.label, href: b.href, cold: !from } : null;
   const short = !!b && b.label.length > 14 && !b.full;
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
