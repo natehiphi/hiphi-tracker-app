@@ -17,7 +17,7 @@
 // its bills); a chair ask recorded anywhere is one of them. Log a talk from a chair's page offers "This was an ask for a
 // hearing" with their bills to tick (V24), and, on the practice copy, "Add a note instead" (R-335), so there is one door
 // for writing down what happened.
-import { S, DB, esc, hooks } from './data.js';
+import { S, DB, esc, hooks, VB } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billByRef, billRoute, chairIdsOf, hstDayOf } from './model.js';
 import { icon, btn, empty, toast, ASK_TAB } from './ui.js';
 import { showAllBtn } from './ui.js';
@@ -161,7 +161,7 @@ function pageHTML(route, l, back) {
     return b.nickname ? row : row.replace(/<span class="v6-row-name">([^<]*)<\/span>/, (m, t) => { const full = unesc(t), cut = cutName(full);
       return cut === full ? m : `<span class="v6-row-name" title="${esc(full)}">${esc(cut)}</span>`; }); };
   return `<div class="lg6-page">
-    <a class="lg6-back" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(back.label)}</span></a>
+    <a class="lg6-back" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(VB ? `Back to ${back.label}` : back.label)}</span></a>
     <header class="lg6-phead">${faceHTML(l)}<div class="lg6-pt"><h1>${esc(legName(l))}</h1><p class="lg6-psub">${esc(sub)}</p>${l.title ? `<p class="lg6-psub">${esc(l.title)}</p>` : ''}</div></header>
     ${actionsHTML(l, from, asks)}
     ${PROFILES() ? profileTipHTML(l) : ''}
@@ -190,7 +190,12 @@ export default {
   tab: 'legislators',
   title: route => { const l = legById(route.id); return l ? shortName(l) : 'Legislator'; },
   back: route => { const b = fromBill(route), t = FROM_TAB[route.from];
-    return b ? { href: billRoute(b), label: b.bill_number } : t ? { href: t[0], label: t[1] } : { href: '#/legislators', label: 'Legislators' }; },
+    const r = b ? { href: billRoute(b), label: b.bill_number } : t ? { href: t[0], label: t[1] } : { href: '#/legislators', label: 'Legislators' };
+    // R-365 B: Back names the page this one was opened from ("Back to Search", "Back to HB 2121") and goes there (app.js go()
+    // keeps that page's title in history.state.from; Back is the browser's own when the page was opened inside the app).
+    // A cold arrival (a link from Slack) keeps the parent above.
+    if (VB) { const from = history.state?.from; return { ...r, label: from || r.label }; }
+    return r; },
   render(route) {
     const l = legById(route.id);
     if (!l) return empty({ title: 'We could not find that legislator', text: 'The link may be from an earlier session.', action: btn('See everyone', { href: '#/legislators' }), h: 'h1' });

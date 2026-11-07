@@ -11,8 +11,8 @@
 // nothing typed, this page is the palette: every place and the everyday things to do, each with its shortcut.
 // Rows are a name and one line (V04, D15: no codes in rows). Up and Down move through the results from the box, Enter
 // opens one, Esc returns to the box (they are the list's own keys, not shortcuts).
-import { S, DB, DEMO, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, SESSION_YEAR, advocate } from './data.js';
-import { plain, diedish, personName, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, ASK_ANSWERS, askReply, billRoute, blurb } from './model.js';
+import { S, DB, DEMO, VB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, SESSION_YEAR, advocate } from './data.js';
+import { plain, diedish, personName, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, codesOf, ASK_ANSWERS, askReply, billRoute, blurb } from './model.js';
 import { icon, btn, toast, showAllBtn, keysUsed, keysOn, ASK_TAB } from './ui.js';
 import { shortName } from './pathway.js';
 import { matchLegs, weekIndex, districtQ } from './legislators.js';
@@ -245,6 +245,59 @@ const teamHref = a => `#/team?who=${encodeURIComponent(a.id)}`;
 const issueHits = q => { const co = coalOf(q), res = co ? [wholeRx(plain(co.name))] : plain(q).split(/\s+/).filter(Boolean).map(termRx);
   return res.length ? (S.issues || []).filter(i => !i.archived_at && res.every(re => re.test(plain(`${i.name} ${i.description || ''}`)))) : []; };
 
+// ---- R-365 version B: committees, hearings, and what a bill is "in" (only under ?vb=1) ----
+const B_PLACEHOLDER = 'Search issues, bills, hearings, people';
+// A bill's issues by name, so "HB 2121 · bill in Disposable e-cigarette ban" tells a bill from its issue (they share a title).
+const issueNamesOf = b => (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).filter(i => i && !i.archived_at).map(i => i.name);
+const billInLine = b => { const n = issueNamesOf(b); return `${numWords(b)} · bill${n.length ? ' in ' + n[0] + (n.length > 1 ? ` +${n.length - 1}` : '') : ''}`; };
+const issueBillCount = i => (S.billIssues || []).filter(x => x.issue_id === i.id).length;
+const issueLineB = i => { const n = issueBillCount(i); return `Issue${n ? ` · ${plural(n, 'bill')}` : ''}`; };
+// A committee: every word typed starts a word of its full name ("House Transportation", "Judiciary", "Senate Health"). A bare
+// "house", "senate" or "committee" names too many to be a search of their own.
+const CM_STOP = new Set(['committee', 'committees', 'hearing', 'hearings']);
+const CM_SOLO = new Set(['house', 'senate']);
+function committeeHits(q) {
+  if (!VB) return [];
+  const ws = qWords(q).filter(w => !CM_STOP.has(w)); if (!ws.length || ws.every(w => CM_SOLO.has(w))) return [];
+  const full = ws.join(' ');
+  return Object.keys(S.committees || {}).map(code => { const nm = committeeName(code), t = plain(nm.replace(/[’']/g, '').replace(/&/g, ' ')); if (!ws.every(w => starts(t, w))) return null;
+    return [code, nm, (t === full ? 4 : 0) + (t.startsWith(full) ? 2 : 0) + (S.committees[code].chamber === 'H' ? 0.1 : 0)]; }).filter(Boolean)
+    .sort((a, b) => b[2] - a[2] || a[1].localeCompare(b[1])).map(([code, nm]) => ({ code, name: nm }));
+}
+const HSTZ = { timeZone: 'Pacific/Honolulu' };
+const sittingWhen = t => `${new Date(t).toLocaleDateString('en-US', { ...HSTZ, weekday: 'short', month: 'numeric', day: 'numeric' })}, ${new Date(t).toLocaleTimeString('en-US', { ...HSTZ, hour: 'numeric', minute: '2-digit' })}`;
+const cmteSub = c => { const nb = (S.bills || []).filter(b => b.tracked !== false && !diedish(b) && codesOf(b.committee).includes(c.code)).length;
+  const next = (S.hearings || []).filter(h => h.status !== 'cancelled' && codesOf(h.committee).includes(c.code) && new Date(h.scheduled_at).getTime() >= Date.now()).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at))[0];
+  return ['Committee', nb ? `${plural(nb, 'of our bills', 'of our bills')}` : '', next ? `next hearing ${sittingWhen(next.scheduled_at)}` : 'no hearing set'].filter(Boolean).join(' · '); };
+// An issue found by its words shows its own bills right under it (they share a title, so the bill's line says "bill in <issue>").
+const billsOfIssues = is => { const ids = new Set(is.flatMap(i => (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => x.bill_id)));
+  return S.bills.filter(b => ids.has(b.id)).sort((a, b) => (diedish(a) - diedish(b)) || (a.priority || 9) - (b.priority || 9) || a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true })); };
+// When a committee is named, the legislators who only sit on it are not the answer: keep the ones whose own name matches.
+const nameKeep = (q, ls) => { const ws = qWords(q); return ls.filter(l => ws.every(w => starts(plain(l.name || ''), w))); };
+const cmteHref = c => `#/hearings?cmte=${encodeURIComponent(c.code)}`;
+// Hearings found through the bills they hear ("HB 1562"), the committee's name and the word "hearing". A committee's name alone
+// is the Committees result's job, so its every sitting does not crowd the list.
+function hearingHits(q) {
+  if (!VB) return [];
+  const ws = plain(q).split(/\s+/).filter(Boolean), onlyHearing = ws.filter(w => !/^hearings?$/.test(w)); if (!onlyHearing.length) return [];
+  const res = onlyHearing.map(termRx), by = new Map();
+  for (const h of S.hearings || []) { if (h.status === 'cancelled') continue; const b = billById(h.bill_id); if (!b || b.tracked === false) continue;
+    const k = `${h.committee}|${h.scheduled_at}`, g = by.get(k) || by.set(k, { h, bills: [] }).get(k); g.bills.push(b); }
+  const now = Date.now() - 864e5, wantsHearing = ws.length > onlyHearing.length;
+  return [...by.values()].filter(g => { const bills = plain(g.bills.map(b => `${b.bill_number} ${b.nickname || ''} ${b.title || ''}`).join(' | '));
+    return res.every(re => re.test(bills) || wantsHearing && re.test(plain(committeeName(g.h.committee)))); })
+    .sort((a, b) => ((new Date(a.h.scheduled_at) < now) - (new Date(b.h.scheduled_at) < now)) || a.h.scheduled_at.localeCompare(b.h.scheduled_at))
+    .map(g => ({ h: g.h, bills: g.bills, name: committeeName(g.h.committee) || g.h.committee }));
+}
+const hearingSub = x => `${sittingWhen(x.h.scheduled_at)} · ${x.bills.slice(0, 3).map(numWords).join(', ')}${x.bills.length > 3 ? ` +${x.bills.length - 3}` : ''}`;
+const hearingHref = x => `#/hearing/${encodeURIComponent(x.h.id)}`;
+// The header box says what it finds (app.js draws the box; this keeps its words right for B without an edit there).
+if (VB && typeof document !== 'undefined') {
+  const fix = () => { const h = document.getElementById('hq'); if (h && h.placeholder !== B_PLACEHOLDER) h.placeholder = B_PLACEHOLDER;
+    const l = h && document.querySelector('label[for="hq"]'); const t = 'Search issues, bills, hearings and people'; if (l && l.textContent !== t) l.textContent = t; };
+  new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true }); fix();
+}
+
 // ---- conversations with legislators (R-316 H-15) ----
 // A logged conversation, and every ask to a chair, is found by what was said, who it was with, who logged it and the bill
 // it was about. One meeting with several legislators is one result; a chair ask and its replies are one result too.
@@ -312,7 +365,7 @@ const firstSentence = s => { const t = String(s); let end = 0;
 // At most seven rows under the box, shared out so every kind that matches shows. Things to do and places come first and
 // take their rows first; then tracked bills (an exact or leading number first), bills not tracked yet (they open this page
 // at that bill, where Track is), issues, legislators, teammates, profiles, conversations and supporters.
-const ROWS = 7;
+const ROWS = VB ? 10 : 7;
 const numOf = b => b.bill_number.toLowerCase().replace(/\s/g, '');
 function share(lists, rows = ROWS) {
   const n = lists.map(() => 0); let left = rows, more = true;
@@ -337,12 +390,13 @@ export function headerHits(q) {
   const name = b => nameWords(b, 1e4);   // whole (A-1): a bill named by its summary is never cut
   const shows = b => cm || co || numOf(b).includes(qn) || res.every(re => re.test(plain(`${name(b)} ${STAGE_LABEL[effStage(b)] || ''}`)));
   const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
-  const bills = billHits(q).filter(shows).map((b, k) => [b, k])
+  const bills0 = billHits(q).filter(shows), isB = VB ? billsOfIssues(issueHits(q)) : [], bills = (VB ? [...isB, ...bills0.filter(b => !isB.includes(b))] : bills0).map((b, k) => [b, k])
     .sort((x, y) => lead(x[0]) - lead(y[0]) || (lead(x[0]) === 1 ? diedish(x[0]) - diedish(y[0]) || byNum(x[0], y[0]) : x[1] - y[1])).map(([b]) => ({
-      href: billRoute(b), title: name(b), icon: 'scroll-text', inline: true, sub: [numWords(b), stageWords(b)].filter(Boolean).join(' · ') }));
+      href: billRoute(b), title: name(b), icon: 'scroll-text', inline: !VB, sub: VB ? [billInLine(b), stageWords(b)].filter(Boolean).join(' · ') : [numWords(b), stageWords(b)].filter(Boolean).join(' · ') }));
   const cat = k => (S.categories || []).find(c => c.key === k);
-  const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: cat(i.category)?.name || 'Issue', icon: issueIcon(i) }));
-  const legs = coalKeep(q, matchLegs(q), l => l.name).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
+  const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: VB ? issueLineB(i) : cat(i.category)?.name || 'Issue', icon: issueIcon(i) }));
+  const cmtes = committeeHits(q).map(c => ({ href: cmteHref(c), title: c.name, sub: cmteSub(c), icon: 'landmark' })), hears = hearingHits(q).map(x => ({ href: hearingHref(x), title: `${x.name} hearing`, sub: hearingSub(x), icon: 'calendar-days' }));
+  const legs = (VB && cmtes.length ? nameKeep(q, coalKeep(q, matchLegs(q), l => l.name)) : coalKeep(q, matchLegs(q), l => l.name)).map(l => ({ href: `#/legislator/${l.id}`, title: l.name, sub: `${l.chamber === 'S' ? 'Senate' : 'House'} district ${l.district || ''}`.trim(), icon: 'landmark' }));
   const team = teamHits(q).map(a => ({ href: teamHref(a), title: a.full_name, sub: `${ROLE(a)} · their list`, icon: 'user-round' }));
   loadAllNotes();
   const convs = convHits(q).map(g => ({ href: convHref(g), title: `${convWho(g)}: ${saidText(convQuote(g, q, 60))}`, sub: `${convDay(g)} · ${convSub(g)}`, icon: 'message-square' }));
@@ -351,7 +405,7 @@ export function headerHits(q) {
   // Bills not tracked: the same rule, their number or their words (a district, "sd 12", is not a bill search).
   const dist = districtQ(plain(q).trim()), ids = new Set(S.bills.map(b => b.id));
   const unRows = rows => unShown(rows, q).filter(r => !ids.has(r.id) && (numOf(r).includes(qn) || res.every(re => re.test(plain(`${r.title || ''} ${r.description || ''}`)))))
-    .map(r => ({ href: `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: true, sub: numWords(r) }));
+    .map(r => ({ href: VB ? billRoute(r) : `#/search?q=${encodeURIComponent(r.bill_number)}`, title: r.description || titleCaseSmart(r.title || ''), icon: 'scroll-text', inline: !VB, sub: VB ? `${numWords(r)} · bill, not tracked yet` : numWords(r) }));
   // A step first (at most two), then the places (at most three), then what a Capitol word means (at most two); but a place
   // whose name is typed ("coalitions", "partner update") comes first of all, and a place matched on its name comes before
   // steps matched only on their other words (V32, B-10: the critic's "coalitions" gave Email supporters first).
@@ -375,7 +429,12 @@ export function headerHits(q) {
   const quietUn = (rawActs.some(onTitle) || rawPlaces.some(onTitle)) && !/\d/.test(q);
   // Tracked bills before bills not tracked yet: the untracked take rows only after every other kind (Nate's team works on
   // the tracked ones).
-  const groups = (ppl, un0) => { const un = quietUn ? [] : un0, [b, i, l, t, f, c, p, u] = share([bills, issues, legs, team, profs, convs, ppl, un], ROWS - acts.length - places.length - words.length - helps.length);
+  const groupsB = (ppl, un0) => { const un = quietUn ? [] : un0.slice(0, 2), rest = ROWS - acts.length - places.length - words.length - helps.length,
+      [i, b, u, hr, c, l, t, p, f, cv] = share([issues, bills, un, hears, cmtes, legs, team, ppl, profs, convs], Math.max(rest, 6)),
+      body = [{ label: 'Issues', items: i }, { label: 'Bills', items: [...b, ...u] }, { label: 'Hearings', items: hr }, { label: 'Committees', items: c },
+        { label: 'People', items: [...l, ...t, ...p] }, { label: 'Profiles', items: f }, { label: 'Conversations', items: cv }];
+    return placesFirst ? [...head, ...body] : [...body, ...head]; };
+  const groups = (ppl, un0) => { if (VB) return groupsB(ppl, un0); const un = quietUn ? [] : un0, [b, i, l, t, f, c, p, u] = share([bills, issues, legs, team, profs, convs, ppl, un], ROWS - acts.length - places.length - words.length - helps.length);
     return [...head, { label: 'Bills', items: b }, { label: 'Not tracked yet', items: u },
       { label: 'Issues', items: i }, { label: 'Legislators', items: l }, { label: 'Teammates', items: t }, { label: 'Profiles', items: f }, { label: 'Conversations', items: c }, { label: 'Supporters', items: p }]; };
   const peopleReady = S.peopleLoaded || (S.people || []).length, lookUn = q.trim().length >= 3 && !(dist && dist[1]) && !cm, key = plain(q).trim();
@@ -424,9 +483,9 @@ function startHTML() {
 function resultsHTML(q) {
   const s = st();
   if (!q) return startHTML();
-  const tracked = billHits(q), ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
+  const tracked0 = billHits(q), isB = VB ? billsOfIssues(issueHits(q)) : [], tracked = VB ? [...isB, ...tracked0.filter(b => !isB.includes(b))] : tracked0, ids = new Set(S.bills.map(b => b.id)), nums = new Set(S.bills.map(b => b.bill_number));
   const un = s.un && s.un.q === q ? unShown(s.un.rows, q).filter(r => !ids.has(r.id) && !nums.has(r.bill_number)) : null;
-  const legs = coalKeep(q, matchLegs(q), l => l.name), week = weekIndex(), convs = convHits(q), profs = PROFILES() ? profileHits(q) : [], team = teamHits(q), issues = issueHits(q);
+  const legs0 = coalKeep(q, matchLegs(q), l => l.name), legs = VB && committeeHits(q).length ? nameKeep(q, legs0) : legs0, week = weekIndex(), convs = convHits(q), profs = PROFILES() ? profileHits(q) : [], team = teamHits(q), issues = issueHits(q);
   const peopleReady = S.peopleLoaded || (S.people || []).length, people = peopleReady ? peopleHits(q) : [];
   const N = (k, all) => s.more.has(k) ? all.length : SHOW[{ b: 'bills', u: 'un', l: 'legs', c: 'convs', p: 'people', f: 'profs', t: 'team', i: 'issues' }[k]];
   const lookUn = q.length >= 3 && !cmteOf(q);
@@ -439,6 +498,28 @@ function resultsHTML(q) {
   const top = [...(wd.some(w => w.whole) || !acts.length ? [wG, aG] : [aG, wG]),
     pl.length ? group('sr-gp', 'Places', pl.length, list(pl.map(placeRowH).join(''), 'Places')) : '',
     hp.length ? group('sr-gh', 'Help', hp.length, list(hp.map(placeRowH).join(''), 'Help guides')) : ''].filter(Boolean);
+  if (VB) {
+    // R-365 B: one column, one heading per kind, in the order the header's list uses: Issues, Bills, Hearings, Committees, People.
+    const isl = issues, cms = committeeHits(q), hrs = hearingHits(q), secs = [];
+    if (isl.length) secs.push(group('sr-gi', 'Issues', isl.length, list(isl.slice(0, N('i', isl)).map(i => itemRow({ key: i.id, name: i.name, line: esc([issueLineB(i), i.description ? String(i.description).replace(/\s+/g, ' ').slice(0, 110) : ''].filter(Boolean).join(' · ')), href: `#/issue/${encodeURIComponent(i.id)}`, icon: issueIcon(i), cls: 'sr-row' })).join(''), 'Issues') + more('i', isl.length, N('i', isl), 'issues')));
+    const nB = tracked.length + (un ? un.length : 0);
+    if (tracked.length || (un && un.length) || un === null && lookUn)
+      secs.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nB, (tracked.length ? list((sh => { const tw = twinsAmong(sh); return sh.map(b => withBar(glanceRow(billRow(b, { line: esc(billInLine(b).replace(/^.*? · bill/, 'Bill')) + ' · ' + billLine(b), button: false, cls: 'sr-row' }), b, { twins: tw }), b)); })(tracked.slice(0, N('b', tracked))).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
+    if (hrs.length) secs.push(group('sr-gh2', 'Hearings', hrs.length, list(hrs.slice(0, 5).map(x => itemRow({ key: x.h.id, name: `${x.name} hearing`, line: esc(hearingSub(x)), icon: 'calendar-days', href: hearingHref(x), cls: 'sr-row' })).join(''), 'Hearings')));
+    if (cms.length) secs.push(group('sr-gcm', 'Committees', cms.length, list(cms.slice(0, 6).map(c => itemRow({ key: c.code, name: c.name, line: esc(cmteSub(c)), icon: 'landmark', href: cmteHref(c), cls: 'sr-row' })).join(''), 'Committees')));
+    const ppl = [], pn = legs.length + team.length + (peopleReady ? people.length : 0);
+    if (legs.length) ppl.push(list(legs.slice(0, N('l', legs)).map(l => legRowH(l, week)).join(''), 'Legislators') + more('l', legs.length, N('l', legs), 'legislators'));
+    if (team.length) ppl.push(list(team.slice(0, N('t', team)).map(teamRowH).join(''), 'Teammates') + more('t', team.length, N('t', team), 'teammates'));
+    if (!peopleReady) ppl.push(`<p class="sr-wait" role="status">${icon('loader-circle', { cls: 'sr-spin' })}<span>Loading supporters</span></p>`);
+    else if (people.length) ppl.push(list(people.slice(0, N('p', people)).map(personRowH).join(''), 'Supporters') + more('p', people.length, N('p', people), 'supporters'));
+    if (ppl.length) secs.push(group('sr-gs', 'People', peopleReady ? pn : '', ppl.join('')));
+    if (profs.length) secs.push(group('sr-gf', 'Profiles', profs.length, list(profs.slice(0, N('f', profs)).map(h => profRowH(h, q)).join(''), 'Profiles') + more('f', profs.length, N('f', profs), 'profile lines')));
+    if (convs.length) secs.push(group('sr-gc', 'Conversations', convs.length, list(convs.slice(0, N('c', convs)).map(g => convRowH(g, q)).join(''), 'Conversations') + more('c', convs.length, N('c', convs), 'conversations')));
+    if (!secs.length) return top.length ? `<div class="sr-top">${top.join('')}</div>` : `<div class="sr-empty"><p class="sr-empty-h">Nothing matches “${esc(q)}”</p><p>Try an issue, a bill number such as HB 1562, a committee such as House Judiciary, or a last name. Or look in <a href="#/help">Help</a>.</p></div>`;
+    if (cms.length) { const k = secs.findIndex(x => x.includes('id="sr-gcm"')); if (k > 0) secs.splice(isl.length ? 1 : 0, 0, secs.splice(k, 1)[0]); }   // a committee named is the answer: it comes first
+    const nq = qWords(q).join(' '), placeFirst = pl.some(p => plain(p.title.replace(/[’']/g, '')) === nq);
+    return `<div class="sr-vb">${placeFirst && top.length ? `<div class="sr-top">${top.join('')}</div>` : ''}<div class="sr-col">${secs.join('')}</div>${!placeFirst && top.length ? `<div class="sr-top">${top.join('')}</div>` : ''}</div>`;
+  }
   const nBills = tracked.length + (un ? un.length : 0), main = [], side = [];
   if (tracked.length || (un && un.length) || un === null && lookUn)
     main.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nBills, (tracked.length ? list((sh => { const tw = twinsAmong(sh); return sh.map(b => withBar(glanceRow(billRow(b, { line: billLine(b), button: false, cls: 'sr-row' }), b, { twins: tw }), b)); })(tracked.slice(0, N('b', tracked))).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
@@ -479,18 +560,23 @@ function moveResult(e, box) {
 
 export default {
   tab: '', title: () => 'Search',
+  // R-365 B: the page names where Back goes (the header's Back on a phone, this page's own link on a laptop). The header says
+  // the page you searched from when it was opened inside the app; a cold arrival goes to Today.
+  back: VB ? () => ({ href: '#/', label: 'Today' }) : undefined,
   wide: () => true,   // two groups side by side need more than the 720px reading column; the CSS caps the page at 1120px
   render(route) {
     const q = qOf(route), s = st();
     if (s.q !== q) { s.q = q; s.more = new Set(); }
     loadAllNotes();   // every conversation, once, when the data layer offers the list
     if (!S.peopleLoaded && !S.peopleLoading && !S.lgPeopleTried) { S.lgPeopleTried = true; DB.loadPeople().then(refresh).catch(() => { S.peopleLoaded = true; S.people ??= []; refresh(); }); }
+    const from = VB ? (history.state?.from || '') : '';
     return `<div class="sr-page">
+      ${VB ? `<a class="sr-back" href="#/" data-back>${icon('chevron-left')}<span>Back to ${esc(from || 'Today')}</span></a>` : ''}
       <h1 class="v6-ptitle sv-h1 sr-h1">Search</h1>
       <form class="sr-box" role="search" data-srform novalidate>
-        <label class="sr" for="sr-q">Search bills, legislators, teammates, supporters and places</label>
+        <label class="sr" for="sr-q">${VB ? 'Search issues, bills, hearings and people' : 'Search bills, legislators, teammates, supporters and places'}</label>
         ${icon('search')}
-        <input id="sr-q" type="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="Bills, people, places" value="${esc(q)}">
+        <input id="sr-q" type="search" enterkeyhint="search" autocomplete="off" spellcheck="false" placeholder="${VB ? B_PLACEHOLDER : 'Bills, people, places'}" value="${esc(q)}">
       </form>
       <p class="sr" role="status" id="sr-status"></p>
       <div id="sr-res">${resultsHTML(q)}</div>
@@ -532,7 +618,10 @@ export default {
     res.addEventListener('keydown', keys);
     boxes.forEach(b => b.addEventListener('keydown', e => { if (e.key === 'ArrowDown') keys(e); }));
     // Enter: a bill number that names exactly one tracked bill opens that bill (a number in hand is two steps from its page).
-    const openExact = q => { const b = exactBill(q); if (!b) return false; S.go(billRoute(b)); return true; };
+    const openExact = q => { const b = exactBill(q); if (b) { S.go(billRoute(b)); return true; }
+      // R-365 B: laptop and phone alike: when the words name exactly one thing (one issue, one committee), Enter opens it.
+      if (VB && q.trim()) { const one = [...issueHits(q).map(i => `#/issue/${encodeURIComponent(i.id)}`), ...committeeHits(q).map(cmteHref)]; if (one.length === 1 && !billHits(q).length) { S.go(one[0]); return true; } }
+      return false; };
     root.querySelector('[data-srform]').onsubmit = e => { e.preventDefault(); if (!openExact(own.value)) own.blur(); };
     const hf = hdr?.closest('form');
     if (hf) hf.addEventListener('submit', e => { e.preventDefault(); e.stopImmediatePropagation(); if (!openExact(hdr.value)) onType(hdr); }, { capture: true });
