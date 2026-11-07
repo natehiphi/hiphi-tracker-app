@@ -24,7 +24,7 @@
 #
 #   python3 tests/staff6_wayfind.py --out wayfind.json --shots shots/      the whole walk
 #   --only T1,T4        some tasks            --who KV,NT      some people        --phone / --laptop   one device
-#   --flow 2            appends &flow=2 to every address (today it changes nothing; after the redesign it measures it)
+#   --flow 2            appends &vb=1 to every address, so the walk measures version B (R-365; the option keeps its name, and no other value changes anything)
 #   --host URL          where the practice copy is served (or set HOST / V4_ROOT as staff6_lib does; default :8832)
 # T9 (and T10) are walked on the laptop, T11 is the same two on the phone's bar; each is walked only on its own device. T10/T11's
 # Back walk stands on the screens the other tasks landed on, so run it with the others (`--only T10` alone has nothing to stand on).
@@ -44,7 +44,7 @@ if ARGS.host: os.environ['HOST'] = ARGS.host
 sys.path.insert(0, HERE)
 import staff6_lib as L
 
-FLOWX = f'&flow={ARGS.flow}' if ARGS.flow else ''
+FLOWX = '&vb=1' if ARGS.flow == '2' else (f'&flow={ARGS.flow}' if ARGS.flow else '')
 ONLY = {t.strip().upper() for t in ARGS.only.split(',') if t.strip()}
 WHO = [w.strip().upper() for w in ARGS.who.split(',') if w.strip()]
 SHOTS = ARGS.shots
