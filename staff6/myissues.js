@@ -106,12 +106,15 @@ function topsSheet() {
     wire: d => d.querySelectorAll('.v6-row-main').forEach(a => a.addEventListener('click', () => closeSheet({ silent: true }))) });
 }
 
-// Version B's head: the path line, a hidden page title for screen readers, and the four tabs.
-const vbHead = () => `<header class="i6-head vbi-head">${pathLine([['My issues']])}<h1 class="vbi-h1">My issues</h1>${sectionNav('issues', 'mine')}</header>`;
+// Version B's head: the page's own title (28px: the place keeps Nate's name, My issues) over the four tabs; no path line or
+// pill switch above or beside it (critic 7).
+const vbHead = () => `<header class="i6-head vbi-head"><h1 class="vbi-h1">My issues</h1>${sectionNav('issues', 'mine')}</header>`;
 
 export default {
   tab: 'myissues',
-  title: () => 'Issues · My issues',
+  // Version B: the place keeps Nate's name as its heading (the frame's placeTitle would rename the h1 "Issues"), and the phone's top bar says it too.
+  ownTitle: VB,
+  title: () => VB ? 'My issues' : 'Issues · My issues',
   render() {
     // R-316 W16: between sessions, My issues opens as the 2027 prep list, as Nate chose for Staff v2 on 10/16 (R-263).
     if (myIssuesPrep()) return renderMinePrep();

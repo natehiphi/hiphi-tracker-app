@@ -46,6 +46,7 @@ import { askTodoOf, askSummary, toAskWords, decideWords, nwParts, askTabWords } 
 import { isLead } from './more.js';
 import { teamSlipCount } from './team.js';   // a cycle (team.js reads today.js), safe: used only when a page draws
 import { newSteps, markNewStep } from './help.js';
+import { recordAsk } from './chairask.js';
 import { moveMe, notGoing, keepAskUp, seedMoved } from './moved.js';
 import { pqItems, pqOthers, wantQueue, wantAsks, admitsPartners, approvesPartners, pqRow, pqItem, pqCard, wirePartner } from './partnerq.js';
 import { dailyWord, HELD_NEXT } from './composer.js';
@@ -444,7 +445,11 @@ const JOB_NAME = { nodraft: 'Make the draft', write: 'Send for approval', submit
   missed: 'Did we file?', stale: 'Check your testimony', chair: 'Ask for a hearing', follow: 'Follow up',
   ask: 'Write the public ask', email: 'Approve an email', fix: 'Fix your email', send: 'Send your email', partner: 'Approve partner words',
   moved: 'Your hearing moved', prep: 'Get the issues ready' };
-const withBill = (job, b) => b ? `${job} · ${fullName(b)}` : job;
+// R-365 B (critic 10): the bill first, its issue after ("File testimony on HB 2121 (Disposable e-cigarette ban)"), never the
+// issue's name as the title; the bill's number is then in the words, so the row's small number is left out (vbNum).
+const withBill = (job, b) => !b ? job : VB ? `${job.replace(/\?$/, '')} ${/^Write the public ask/.test(job) ? 'for' : 'on'} ${numWords(b)}${vbParen(b)}` : `${job} · ${fullName(b)}`;
+const vbParen = b => { const i = issuesOfBill(b.id)[0], n = i ? i.name : (nameWords(b) !== numWords(b) ? nameWords(b) : ''); return n ? ` (${n})` : ''; };
+const vbNum = (b, num, name = numWords(b)) => VB && b && name.includes(numWords(b)) ? '' : num;
 // { name, num, line (HTML), tone, icon, bold } for one of the viewer's own rows.
 function rowWords(it, v = S.me, soon = false) {
   const b = it.b, sx = sitSuffix(it, v), jk = jobOf(it);
@@ -462,11 +467,12 @@ function rowWords(it, v = S.me, soon = false) {
     const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
     // only a step due today or late keeps the amber time (D3): a chair ask due later this week is plain words
     const calm = it.kind === 'chair' && a?.by != null && a.by > endOfDay() && !tone;
-    return { name: withBill(job, b), num: numWords(b), line: nw(esc(line + sx)), tone, icon: tone ? st.icon : st.soon && !calm ? 'clock' : '', bold: !!st.soon && !tone && !calm };
+    const nm = withBill(job, b);
+    return { name: nm, num: vbNum(b, numWords(b), nm), line: nw(esc(line + sx)), tone, icon: tone ? st.icon : st.soon && !calm ? 'clock' : '', bold: !!st.soon && !tone && !calm };
   }
   const r = miniOf(it, v), due = dueTone(it, false), when = it.at != null ? actBy({ kind: 'due', due: it.at, verb: 'Due' }).words : '';
   const tone = due.tone && !['neutral', 'today'].includes(due.tone) ? due.tone : '', ic = tone ? due.icon : due.icon || '';
-  const out = (name, line, num = b ? numWords(b) : '') => ({ name, num, line: nw(plainCodes(esc(line + sx))), tone, icon: ic, bold: due.bold });
+  const out = (name, line, num = b ? numWords(b) : '') => ({ name, num: vbNum(b, num, name), line: nw(plainCodes(esc(line + sx))), tone, icon: ic, bold: due.bold });
   switch (it.kind) {
     case 'stale': return { ...out(withBill('Check your testimony', b), `The bill is now ${versionWords(b.current_version)}`), icon: '', bold: false };
     case 'todo': return it.share ? out(withBill('Write the public ask', b), when || (it.h ? `For the ${dayWords(it.h.scheduled_at)} hearing` : ''))
@@ -486,7 +492,8 @@ function rowWords(it, v = S.me, soon = false) {
 function jobButton(it, v) {
   const b = it.b;
   if (it.kind === 'chair') return rowButton(it.s);
-  if (it.kind === 'followask') return btn('Follow up', { kind: 'secondary', sm: true, icon: PIC.follow.btnIcon, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': it.s.ask.code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } });
+  const fb = it.kind === 'followask' ? btn('Follow up', { kind: 'secondary', sm: true, icon: PIC.follow.btnIcon, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': it.s.ask.code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } }) : '';
+  if (it.kind === 'followask') return VB ? fb + btn('Mark it done', { kind: 'text', sm: true, attrs: { 'data-t6act': 'fudone', 'data-t6k': it.key, 'aria-label': `Mark the follow-up done: ${sayWords(b)}` } }) : fb;
   if (it.kind === 'stale') return '';
   if (it.s && b) return it.s.you && rowButtonOK(it.s) ? rowButton(it.s) : '';
   const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
@@ -502,6 +509,36 @@ function jobRow(it, { v = S.me, noButton = false } = {}) {
   return vbRowIssue(itemRow({ key: it.key, name: y.name, num: y.num, line: y.line, tone: y.tone, icon: y.icon, bold: y.bold, href: href || '#/', pick, button, cls: `t6-k-${it.kind}`, lead }), it.b);
 }
 // ---- R-365 version B (all under VB; see css/vb-today.css) ----
+// My issues' cards (myviews.js nextB, critic 3 and 8) ask Today what the viewer has to do on an issue's bills, so the two
+// places never disagree: the same items work() builds (testimony, chair asks, the public ask, to-dos, emails), in Today's order.
+export function vbStepsOn(billIds) {
+  if (!VB || !S.me) return [];
+  try { return work(S.me).own.filter(it => it.b && billIds.has(it.b.id) && it.kind !== 'partner' && it.kind !== 'prep'); } catch (e) { console.error(e); return []; }
+}
+// A step that has no testimony or chair step behind it, as a verb phrase in Today's words ("write the public ask for HB 2121,
+// due tomorrow 4:00 PM"); null when steps.js's own words apply (it.s).
+export function vbItemWords(it) {
+  const n = numWords(it.b), when = it.at != null ? `, ${lower(actBy({ kind: 'due', due: it.at, verb: 'Due' }).words)}` : '';
+  switch (it.kind) {
+    case 'rally': return `write the public ask for ${n}${when}`;
+    case 'todo': return it.share ? `write the public ask for ${n}${when}` : `${lower(clip(it.t.title, 80))}${when}`;
+    case 'email': return `approve an email on ${n}${when}`;
+    case 'fix': return `fix your email on ${n}`;
+    case 'send': return `send your email on ${n}`;
+    case 'reply': return `reply to ${it.from} on ${n}`;
+    case 'moved': return `say whether you still go to the moved hearing on ${n}`;
+    case 'askup': return `decide whether to keep the public ask up for ${n}`;
+    case 'stale': return `check your testimony on ${n} against the new version`;
+  }
+  return null;
+}
+// The one rule for a button on a card: the step is the viewer's own and due today or late (steps.js rowButtonOK, but never a chair
+// ask, which has days to go), and the button is the one Today's own row carries.
+export function vbDueToday(it) {
+  if (it.s && it.s.you && !['chair', 'followask', 'stale'].includes(it.kind)) return rowButtonOK(it.s);
+  return !it.s && (it.tone === 'overdue' || (it.at != null && it.at <= endOfDay()));
+}
+export const vbJobButton = it => { try { return jobButton(it, S.me); } catch (e) { console.error(e); return ''; } };
 // A row names its issue and links to it: "for <issue>" under the row's words, its own link beside the row's one link
 // (a link cannot sit inside a link, so the row's main link and this one share a column).
 const vbIssueOf = b => (VB && b?.id ? issuesOfBill(b.id)[0] : null) || null;
@@ -537,7 +574,7 @@ let BANNER = null;
 const noDot = t => String(t || '').trim().replace(/[.\s]+$/, '');
 function vbBanner(v, next) {
   if (!VB) return '';
-  if (S.vbDone) { const d = S.vbDone; S.vbDone = null; if (Date.now() - d.at < 120000) BANNER = { ...d, left: S.vbLeft || 0 }; }
+  if (S.vbDone) { const d = S.vbDone; S.vbDone = null; if (S.vbFuWhat) { d.what = S.vbFuWhat; } S.vbFuWhat = null; if (Date.now() - d.at < 120000) BANNER = { ...d, left: S.vbLeft || 0 }; }
   if (BANNER && (BANNER.left !== (S.vbLeft || 0) || Date.now() - BANNER.at >= 120000)) BANNER = null;
   if (!BANNER) return '';
   const nx = next ? noDot(sayOf(next, v).plain) : '';
@@ -1001,7 +1038,7 @@ function noHearingLine(v, w, p) {
     (isPos(b) ? pos : mon).set(sitKey(h), { h, b });
   }
   for (const k of pos.keys()) mon.delete(k);
-  if (!ownsAny && pos.size) return lineA('#/hearings/week?scope=coal', 'gavel', `<b>${plural(pos.size, 'hearing')} on your coalitions’ bills this week</b> · Hearings`);
+  if (!ownsAny && pos.size) return lineA('#/hearings/week?scope=coal', 'gavel', `<b>${plural(pos.size, 'hearing')} on your coalitions’ bills this week</b> · ${VB ? 'Calendar' : 'Hearings'}`);
   const label = ownsAny ? 'your bills' : names.length ? `${andWords(names)} bills` : 'your coalitions’ bills';
   const m = [...mon.values()].sort((x, y) => ms(x.h.scheduled_at) - ms(y.h.scheduled_at));
   if (!m.length) return !ownsAny && !names.length && !all ? '' : p(`No hearings on ${esc(label)} this week.`, 'gavel');
@@ -1060,20 +1097,24 @@ function startedAt(me) {
 }
 // The one list is Help's (help.js newSteps: by season and by role, each ticking from what the person has done, the look-only
 // ones from the frame's 'v6:route'), so Today and Help say the same steps and the same count (A-14, one source).
+// The Getting started step (help.js newSteps' k) that the next step is the doing of.
+const vbStartKey = it => !it ? null : it.kind === 'rally' || it.share ? 'publicask' : ['approve', 'second', 'review', 'review2', 'write', 'nodraft', 'submit', 'revise'].includes(it.kind) ? 'job' : it.kind === 'chair' || it.kind === 'followask' ? 'ask' : null;
 function startSteps() { try { return newSteps(); } catch (e) { console.error(e); return []; } }
 function startCard(v = S.me, { line = false, bare = false, n: sfx = '' } = {}) {
   if (!v || v.id !== S.me?.id || v.prefs?.firstrun?.hidden) return '';
   const at = startedAt(v); if (at == null || Date.now() - at > 45 * DAY) return '';
   const steps = startSteps(), n = steps.filter(s => s.done).length; if (!steps.length || n === steps.length) return '';
+  // R-365 B (critic 8): the step Today already shows as "Your next step" is not listed again (Saya's "Write a public ask").
+  const nxk = VB ? vbStartKey(groupsOf(work(v)).next) : null, show = nxk ? steps.filter(s => s.k !== nxk) : steps;
   // After a week it is one line, the way back to the list in Help (V29: it fades); the first week it is the short list: the
   // first three steps still to do, one a line, under "<done> of <total> done" (Help's own count), and the whole list in
   // Help. In the work column it is always the one line (R-316 W7), so the work under it stays on the first screen.
   const a = `<a class="t6-line t6-startln" href="#/help/new">${icon('sparkles')}<span class="t6-lt"><b>Getting started</b> · ${n} of ${steps.length} done</span>${icon('chevron-right', { cls: 't6-chev' })}</a>`;
   if (bare) return a;   // the line alone, the first of the doors (render: nothing listed between it and the next step)
-  if (line || Date.now() - at > 7 * DAY) return `<nav class="t6-doors t6-startl" aria-label="Getting started">${a}</nav>`;
+  if (line || Date.now() - at > 7 * DAY || !show.some(s => !s.done)) return `<nav class="t6-doors t6-startl" aria-label="Getting started">${a}</nav>`;
   return `<section class="t6-start" aria-labelledby="t6-start-h${sfx}"><h2 class="t6-starth" id="t6-start-h${sfx}">${icon('sparkles')}<span>Getting started</span> <span class="t6-startn">${n} of ${steps.length} done</span></h2>
-    <ul class="t6-steps">${steps.filter(s => !s.done).slice(0, 3).map(s => `<li><a class="t6-stp" href="${esc(s.href)}"${s.ext ? ' target="_blank" rel="noopener"' : ''}>${icon('circle-dashed')}<span class="sr">To do: </span><span>${esc(s.title)}</span></a></li>`).join('')}</ul>
-    ${steps.length - n > 3 ? `<a class="t6-startall" href="#/help/new">See all ${steps.length} in Help</a>` : ''}</section>`;
+    <ul class="t6-steps">${show.filter(s => !s.done).slice(0, 3).map(s => `<li><a class="t6-stp" href="${esc(s.href)}"${s.ext ? ' target="_blank" rel="noopener"' : ''}>${icon('circle-dashed')}<span class="sr">To do: </span><span>${esc(VB && s.k === 'hearings' ? 'See this week on the Calendar' : s.title)}</span></a></li>`).join('')}</ul>
+    ${show.filter(s => !s.done).length > 3 ? `<a class="t6-startall" href="#/help/new">See all ${steps.length} in Help</a>` : ''}</section>`;
 }
 
 // ---- Done today (a quiet band, Undo on each) ----
@@ -1135,7 +1176,7 @@ export function listHTML(v = S.me, { ro = false, skip = null, hideHear = false }
   // (doorLines). Coming up ends with one quiet line to the week, whose one home is Hearings (Nate 27 Oct: the calendar is
   // Hearings' only). A teammate's read-only list keeps rowOf.
   if (!ro) {
-    const wk = `<p class="t6-weekln"><a href="#/hearings/week?view=cal">See the week on Hearings<span aria-hidden="true">&nbsp;›</span></a></p>`;
+    const wk = `<p class="t6-weekln"><a href="#/hearings/week?view=cal">See the week on ${VB ? 'the Calendar' : 'Hearings'}<span aria-hidden="true">&nbsp;›</span></a></p>`;
     // (with no list at all, no line: nothing above it to end, and Hearings is in the sidebar)
     const tail = today.length || soon.length || later.length ? wk : '';
     const groups = `${vbReviewGroup(rv, nx?.d && rvIds.has(String(nx.d.id)) && ['approve', 'second', 'review', 'review2'].includes(nx.kind) ? nx.d : null)}${groupHTML('today', 'Do today', [...today].sort(byTime).map(i => jobRow(i, { v })).join(''), '', 'In the order they are due')}${soon.length ? groupHTML('soon', 'Coming up', [...soon].sort(byTime).map(i => jobRow(i, { v, noButton: true })).join(''), laterL + tail) : laterL + tail}`;
@@ -1320,6 +1361,9 @@ const ACTS = {
     if (VB) return vbFinish(it.share || it.kind === 'rally' ? `Wrote the public ask for ${numWords(it.b)}` : clip(it.t.title, 60), undo);
     redraw();
     toast(words, { ok: true, undo }); }); },
+  // R-365 B: the asker's follow-up, said done on the row ("Mark it done": the Follow up button opens a sheet and the email app, so Today
+  // cannot know it was sent). It logs the ask again, as the sheet's own "asked" does, and ends in the Done banner with its Undo.
+  async fudone(el, it) { await busy(el, async () => { S.vbFuWhat = `Followed up with the chair on ${numWords(it.b)}`; await recordAsk([{ id: it.b.id, code: it.s.ask.code }], 'asked', { next: false }); }); },
   async fu(el, it) { await busy(el, async () => {
     const f = it.f; await DB.doneFollowup(f.id);
     // There is no "not done" call, so Undo adds the same follow-up back (v5's way).

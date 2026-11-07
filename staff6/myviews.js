@@ -45,7 +45,8 @@ import { icon, iconBtn, toast, btn } from './ui.js';
 import { sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { plural } from './lists.js';
 import { numWords, dayWords, committeeName, nw, chairStepWords, billStep, stepTime, rowButton, orWords } from './steps.js';
-import { hearPart, markOf, byUrgency, rowOf, searchHTML, searcher, FEW } from './issuestand.js';
+import { hearPart, markOf, byUrgency, rowOf, searchHTML, searcher, FEW, standOf } from './issuestand.js';
+import { vbStepsOn, vbItemWords, vbDueToday, vbJobButton } from './today.js';   // a cycle (today.js reads steps.js, not this), used only when a page draws
 import { ICONS } from '../icons.js';
 import { issueIcon } from './issuegrid.js';
 
@@ -207,7 +208,8 @@ export function toolsHTML(q, count) {
   return `<div class="i6-tools mi-tools${q ? ' open' : ''}" data-istools="mi-q">
     ${filter ? `${iconBtn(FI, 'Filter your issues', { 'data-istq': 'open', 'aria-expanded': String(!!q), 'aria-controls': 'mi-q-find' }, 'i6-findbtn')}
     <div class="i6-find" id="mi-q-find">${icon(FI)}<input id="mi-q" type="search" placeholder="Filter your issues" value="${esc(q)}" autocomplete="off" aria-label="Filter your issues: a word, a bill number or a bill’s nickname" aria-controls="mi-q-body">${iconBtn('x', 'Clear the filter', { 'data-istq': 'clear', hidden: !q })}</div>` : ''}
-    <div class="sv-seg mi-seg" role="group" aria-label="Show your issues as">${(VB ? VB_VIEWS : VIEWS).map(([k, l]) => `<button type="button" data-miview="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>
+    ${VB ? `<label class="vbi-sort"><span>Sort by</span><select class="vbi-sel" data-miview-sel>${VB_VIEWS.map(([k, l]) => `<option value="${k}"${v === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`
+      : `<div class="sv-seg mi-seg" role="group" aria-label="Show your issues as">${VIEWS.map(([k, l]) => `<button type="button" data-miview="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>`}
   </div>`;
 }
 
@@ -451,19 +453,37 @@ export function billLineB(x) {
   if (gone.length) parts.push(`${gone.length} stopped`);
   return `${plural(all.length, 'bill')}: ${parts.join(', ')}`;
 }
-const STATUS_B = { risk: { word: 'At risk', ic: 'triangle-alert' }, hearing: { word: 'Needs a hearing', ic: 'calendar-plus' }, track: { word: 'On track', ic: 'circle-check' }, stopped: { word: 'Stopped', ic: 'circle-minus' } };
+// 'At risk' is neutral words with the eye (watch it), never amber (amber is only late, still accepted: A-5) and never the warning
+// triangle (Session setup's Blocking); 'Due today' is a step already in hand, not a worry about the issue.
+const STATUS_B = { due: { word: 'Due today', ic: 'alarm-clock' }, risk: { word: 'At risk', ic: 'eye' }, hearing: { word: 'Needs a hearing', ic: 'calendar-plus' }, track: { word: 'On track', ic: 'circle-check' }, stopped: { word: 'Stopped', ic: 'circle-minus' } };
+// Testimony on the issue's leading hearing that is open and due by the end of today (or late, or past due): whoever's step it is
+// (critic 4: "On track" stood on an issue whose sent-back testimony was due that day).
+const hdayNow = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+function dueNow(j) {
+  const s = j.hp?.s; if (!j.alive || !s?.state || ['filed', 'missed'].includes(s.state.key) || s.off) return null;
+  const at = s.act?.at ?? s.due, late = s.status?.tone === 'late', over = s.status?.tone === 'overdue';
+  if (late || over || (at != null && at <= endOf(hdayNow()))) return { s, word: over ? 'Past due' : late ? 'Late' : 'Due today' };
+  return null;
+}
 export function statusB(j) {
   const x = j.x;
   if (!j.alive) return 'stopped';
+  if (dueNow(j)) return 'due';
   if (x.state === 'risk' || j.dstate === 'risk') return 'risk';
   if (j.ask.length || (x.state === 'ahead' && x.facing?.length)) return 'hearing';
   return 'track';
 }
 // One status per issue everywhere in B (R-365): the card's chip and the issue page's banner both come from here.
 // x: issuestand.js standOf(i) with `own`. Returns { key, word, ic, reason } (reason: one line, why).
-export function issueStatusB(x) {
-  const j = judge(x), key = statusB(j), S1 = STATUS_B[key];
+export function issueStatusB(arg) {
+  const x = arg?.i ? arg : { ...standOf(arg), own: arg?.owner_id === S.me?.id };   // the standing (issuestand.js standOf) or the issue itself
+  const j = judge(x), key = statusB(j), S1 = STATUS_B[key], dn = key === 'due' ? dueNow(j) : null;
   let reason = j.health.text || '';
+  if (dn) {
+    // the most urgent thing, in one line: "SB 3076 testimony was sent back and is due today 2:00 PM (Capitol)"
+    const t = stepTime(dn.s, { soon: false }) || 'due today', n = `${numWords(dn.s.b)} testimony`;
+    return { key, word: dn.word, ic: S1.ic, reason: dn.s.state.sentBack ? `${n} was sent back and is ${t}` : `${n} is ${t}` };
+  }
   if (key === 'hearing' || key === 'risk') {
     const bs = j.ask.length ? j.ask.map(y => y.b) : (x.facing || []);
     if (bs.length) reason = `${bs.slice(0, 3).map(numWords).join(', ').replace(/, ([^,]*)$/, ' and $1')} ${bs.length === 1 ? 'needs' : 'need'} a hearing${j.D ? ` by ${dayWords(j.D.date)}` : ''}`;
@@ -492,7 +512,12 @@ function verbsB(s) {
 // What the card says is next, and whose: { s, you, who, html, done }.
 function nextB(j) {
   const { hp, ask } = j; let s = null;
-  if (hp?.s && hp.s.kind !== 'none') s = hp.s;
+  // The viewer's own steps first, as Today holds them (today.js work(): testimony, chair asks, the public ask, to-dos, emails), so
+  // My issues and Today never disagree (critic 3, 8): a step of theirs puts the card under "Needs you".
+  const it = j.alive ? vbStepsOn(new Set((j.x.bills || []).map(b => b.id)))[0] : null;
+  if (it && (!it.s || it.kind === 'stale')) { const w = vbItemWords(it); if (w) return { s: null, it, you: true, who: 'You', html: nw(esc(w)) }; }
+  if (it?.s && it.kind !== 'stale') s = it.s;
+  else if (hp?.s && hp.s.kind !== 'none') s = hp.s;
   else if (ask.length) { const t = billStep(ask[0].b, { viewer: S.me }); if (t?.kind === 'chair' && t.ask?.key !== 'scheduled') s = t; }
   const wait = html => ({ s: null, you: false, who: 'Waiting', html: nw(esc(html)) });
   if (!j.alive) return { s: null, you: false, who: 'Nothing moving', html: nw(esc(j.health.text || 'Nothing moving this session')) };
@@ -504,17 +529,15 @@ function nextB(j) {
   if (s.nobody) return s.takeFor ? { s, you: true, take: true, who: 'You', html: nw(esc(`take ${numWords(s.b)}: no owner yet${time}`)) }
     : { s, you: false, who: 'No owner yet', html: nw(esc(v ? `nobody has ${numWords(s.b)}'s step${time}` : `nobody has ${numWords(s.b)}`)) };
   if (!v) return { s, you: s.you, who: s.you ? 'You' : cap1(s.whose.words), html: nw(esc(String(s.line || ''))) };
-  if (s.you) return { s, you: true, who: 'You', html: nw(esc(`${v[0]}${time}`)) };
+  if (s.you) return { s, it: it?.s === s ? it : null, you: true, who: 'You', html: nw(esc(`${v[0]}${time}`)) };
   const many = s.whose.ids.length > 1, who = cap1(s.whose.words);
   return { s, you: false, who, verb: true, html: nw(esc(`${v[many ? 2 : 1]}${time}`)) };
 }
 const GROUPS_B = [['you', 'Needs you'], ['others', 'Others are on it'], ['wait', 'Waiting on the Legislature']];
-function cardB(j, nx, st) {
+// `act`: the card's one tonal button, given to at most one card on the page (cardsHTML); no card carries a filled one (A-3).
+function cardB(j, nx, st, act = '') {
   const { i, x } = j, S1 = STATUS_B[st], href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
   const tag = x.via ? `Through ${x.via}` : !x.own ? 'You help' : '';
-  let act = '';
-  if (nx.you && nx.s) act = nx.take ? btn('Take it', { kind: 'primary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': nx.s.b.id } })
-    : (!nx.s.nobody && rowButton(nx.s, { kind: 'primary' })) || btn('Open it', { kind: 'primary', sm: true, href });
   return `<article class="vbc vbc-${st}${nx.you ? ' you' : ''}" role="listitem" data-v6row="${esc(i.id)}">
     <div class="vbc-top"><a class="vbc-name" href="${href}" data-mirow="${esc(i.id)}">${topicIc(i)}<span>${esc(i.name)}</span></a><span class="vbc-chip">${icon(S1.ic)}<span>${esc(S1.word)}</span></span></div>
     ${tag ? `<p class="vbc-tag">${esc(tag)}</p>` : ''}
@@ -531,9 +554,12 @@ export function cardsHTML(js) {
     const st = statusB(j), nx = nextB(j), card = { j, st, nx };
     (st === 'stopped' ? g.stop : nx.you ? g.you : nx.s ? g.others : g.wait).push(card);
   }
-  const sortC = (a, b) => ({ risk: 0, hearing: 1, track: 2 }[a.st] - { risk: 0, hearing: 1, track: 2 }[b.st]) || byUrgency(a.j.x, b.j.x);
+  const RK = { due: -1, risk: 0, hearing: 1, track: 2 }, sortC = (a, b) => (RK[a.st] - RK[b.st]) || byUrgency(a.j.x, b.j.x);
+  // The one button: the first card whose step is the viewer's own and due today (or late), in Today's own words for it.
+  g.you.sort(sortC);
+  const lead = g.you.find(c => c.nx.it && vbDueToday(c.nx.it) && vbJobButton(c.nx.it));
   const list = l => {
-    const one = c => cardB(c.j, c.nx, c.st);
+    const one = c => cardB(c.j, c.nx, c.st, c === lead ? vbJobButton(c.nx.it) : '');
     return `<div class="vbc-list" role="list">${l.slice(0, SHOW_B + 2 >= l.length ? l.length : SHOW_B).map(one).join('')}</div>${l.length > SHOW_B + 2 ? `<details class="i6-more vbc-more"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Show the other ${l.length - SHOW_B}</span></summary><div class="vbc-list" role="list">${l.slice(SHOW_B).map(one).join('')}</div></details>` : ''}`;
   };
   const sec = (k, title) => g[k].length ? `<section class="vbc-sec" aria-labelledby="vbc-${k}"><h2 class="vbc-h" id="vbc-${k}">${esc(title)} <span class="vbc-n">${g[k].length}</span></h2>${list(g[k].sort(sortC))}</section>` : '';
@@ -553,6 +579,7 @@ export function wireBody(root, { paint }) {
 export function wireSwitch(root, { paint }) {
   const pick = v => { setViewNow(v); root.querySelectorAll('[data-miview]').forEach(o => o.setAttribute('aria-pressed', String(o.dataset.miview === v))); paint(); };
   root.querySelectorAll('[data-miview]').forEach(b => b.onclick = () => pick(b.dataset.miview));
+  root.querySelectorAll('[data-miview-sel]').forEach(sel => sel.onchange = () => pick(sel.value));
 }
 // Back from an issue opened here puts the focus on the item it was opened from (rule 10), on any view.
 export function restoreMine(root, recent) {

@@ -1,8 +1,12 @@
 /* R-365 version B: My issues as one card per issue, stacked in one column (staff6/myviews.js cardsHTML). Rules under html.vb only.
-   Every card has the same parts in the same places: name + status chip, the next step and whose, the bill line, a button only
-   when the step is the viewer's. Tokens only; chip = icon + word (never colour alone, A-5). */
-html.vb .vbi-h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-html.vb .vbi-head .vb-path ol { margin-bottom: var(--s8); }
+   Every card has the same parts in the same places: name + status chip, the next step and whose, the bill line, one tonal button at most on the page, for the viewer's own step due today. Tokens only; chip = icon + word (never colour alone, A-5). */
+html.vb .vbi-h1 { margin: var(--s8) 0 var(--s12); font: 700 var(--v6-t28)/var(--v6-lh28) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+@media (max-width: 767px) { html.vb .vbi-h1 { margin: 0 0 var(--s8); } }
+/* the one "Sort by" menu beside the filter (a select, so it reads as a menu, not as tabs) */
+html.vb .vbi-sort { display: inline-flex; align-items: center; gap: var(--s8); margin-left: auto; font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); color: var(--v6-muted); }
+html.vb .vbi-sel { min-height: 44px; padding: 0 var(--s12); border-radius: var(--v6-r12, 12px); border: 1px solid var(--v6-field); background: var(--v6-card); color: var(--v6-ink); font: 400 var(--v6-t16)/var(--v6-lh16) var(--font); }
+html.vb .vbi-sel:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (max-width: 599px) { html.vb .vbi-sort > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } html.vb .vbi-sort { flex: 1 1 auto; } html.vb .vbi-sel { flex: 1 1 auto; min-width: 0; } }
 html.vb .vbc-sec { margin-top: var(--s24, 24px); }
 html.vb .vbc-h { margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 html.vb .vbc-n { margin-left: var(--s8); font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
@@ -17,7 +21,8 @@ html.vb .vbc-name:hover span { text-decoration: underline; }
 html.vb .vbc-name .mi-ic { flex: none; margin-top: 1px; }
 html.vb .vbc-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: var(--v6-pill, 999px); font: 500 var(--v6-t14)/var(--v6-lh14) var(--font); white-space: nowrap; background: var(--v6-leaf-wash); color: var(--v6-leaf); }
 html.vb .vbc-chip svg { width: 16px; height: 16px; }
-html.vb .vbc-risk .vbc-chip { background: var(--v6-late-wash); color: var(--v6-late); }
+html.vb .vbc-risk .vbc-chip { background: var(--v6-wash); color: var(--v6-ink); }   /* neutral: amber is only late, still accepted */
+html.vb .vbc-due .vbc-chip { background: var(--v6-action-wash); color: var(--v6-action); }
 html.vb .vbc-hearing .vbc-chip { background: var(--v6-action-wash); color: var(--v6-action); }
 html.vb .vbc.vbc-stopped .vbc-chip { background: var(--v6-hair); color: var(--v6-muted); }
 html.vb .vbc-tag { margin: 0; font: 400 var(--v6-t14)/var(--v6-lh14) var(--font); color: var(--v6-muted); }
