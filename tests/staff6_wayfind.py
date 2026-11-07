@@ -313,7 +313,8 @@ def record(w, task, variant='', reached=None, met=None, why='', extra=None, clic
 
 # ---- finishing a step ----
 FINISH = [rx(rf'^\s*{n}\b') for n in ('Approve', 'Resubmit', 'Mark filed', 'File', 'Send for approval', 'Submit', 'Save', 'Post', 'Publish', 'Mark done', 'Done', 'Confirm')]   # in the order a person would trust; never "Send back"
-def toast(w): return w.p.page.evaluate("() => (document.getElementById('toast')?.innerText || '').replace(/\\s+/g, ' ').trim()")
+# Version B says a step is done with Today's "Done: … Next: …" banner (data-vbdone) in place of a toast: either counts.
+def toast(w): return w.p.page.evaluate("() => (document.getElementById('toast')?.innerText || document.querySelector('[data-vbdone]')?.innerText || '').replace(/\\s+/g, ' ').trim()")
 def finish(w, limit=3):
   """After the first press: if a sheet or page asks for more (a note, a Save), do the one obvious finishing press, and another only while a sheet stays open. Returns the toast or ''."""
   pg = w.p.page
@@ -546,7 +547,8 @@ def t9(br, who, dev, task):
     w = Walk(br, who, dev, task, variant); ok = path_clicks(w, steps)
     ls = w.landings[1:]
     full = bool(ls) and all(l['signs'] == 3 for l in ls)
-    record(w, task, variant, reached=ok and len(ls) >= 3, met=ok and full and w.dead == 0, why='3 of 3 signs on every screen', extra={'path': ' > '.join(s[1] for s in steps)})
+    full_top = bool(ls) and all(l['signs'] == 3 or (l.get('top_level') and l['signs'] == 2) for l in ls)   # a top-level place needs no Back (baseline.md's 96% line)
+    record(w, task, variant, reached=ok and len(ls) >= 3, met=ok and full and w.dead == 0, why='3 of 3 signs on every screen', extra={'path': ' > '.join(s[1] for s in steps), 'met_excusing_top_level': ok and full_top and w.dead == 0})
     w.close()
 
 def t10(br, who, dev, task, pool):
