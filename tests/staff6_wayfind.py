@@ -55,6 +55,8 @@ rx = lambda s: re.compile(s, re.I)
 
 # The places a newcomer tries, in the sidebar's order, when asked to find a bill (a written assumption, see the header).
 # A route is the clicks from the start; a name is a place or tab as the screen words it.
+# Version B (--flow 2) names Issues "My issues" and Hearings "Calendar"; Testimony and Outreach live in Today and the issue's tabs.
+B_PLACE = {'Issues': 'My issues', 'Hearings': 'Calendar'}
 TOPLEVEL = {'today', 'hearings', 'testimony', 'outreach', 'issues', 'more', 'tools', 'legislators', 'inbox', 'help', 'team', 'people', 'partners', 'setup', 'me'}
 ROUTE_ORDER = [['Hearings'], ['Testimony'], ['Issues', 'Bills'], ['Issues', 'All issues'], ['Outreach']]
 HB1562 = 'HB1562'
@@ -190,6 +192,7 @@ class Walk:
   def place(s, name):
     """The sidebar's (or the phone bar's) link for a place, by its words."""
     # a place's name can carry its count ("Today 2"), so the name is matched from its start
+    name = B_PLACE.get(name, name) if ARGS.flow == '2' else name    # version B renames two places; the route stays the same
     return L.find(s.p.page, rx(rf'^\s*{re.escape(name)}(\s*\d+.*)?$'), roles=('link', 'button'), scope='nav[aria-label="Places"], aside[aria-label="Sidebar"]')
   def resolve(s, step):
     t = step['t']
@@ -481,6 +484,8 @@ def my_issue(w):
 
 SUBGOALS = [('bills', r'#/bill/', rx(r'\bbills?\b'), 'its bills'), ('hearing', r'#/hearing/', rx(r'\bhearing\b'), 'its next hearing'),
             ('testimony', r'#/(testimony|review)', rx(r'\btestimony\b'), 'its testimony'), ('outreach', r'#/(outreach|email|list|supporters)', rx(r'\b(outreach|supporters|public ask|action alert|email|rally)\b'), 'its outreach')]
+if ARGS.flow == '2':   # in version B the issue's own tab (#/issue/<id>/hearings ...) lists that work with its actions: reaching it counts
+  SUBGOALS = [(v, rf'{g}|#/issue/[^/?]+/{v}s?\b', w, l) for v, g, w, l in SUBGOALS]
 def t6(br, who, dev):
   """T6 From an issue you own, reach its bills, its next hearing, its testimony and its outreach."""
   w0 = Walk(br, who, dev, 'prep', shots=False); iss = my_issue(w0); w0.close()
