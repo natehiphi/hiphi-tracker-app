@@ -1,1 +1,79 @@
-/* Version 3 (?v3=1, R-362): Home, the front door and the returner (pub/v3/home.js). Loaded after every other sheet on Home under the flag (pub/app.js V3_CSS). */
+/* Version 3 (?v3=1, R-362): Home, the front door and the returner (pub/v3/home.js). Loaded after every other sheet on Home under the flag (pub/app.js V3_CSS).
+   Phone first: the door's drawing about 120px tall so the card's heading starts inside 400px at 390x844 (A-1); one filled button (A-3).
+   Laptop: one 640px reading column; from 1100px the drawing beside the heading and the card beside the issues. */
+.v3h { max-width: 640px; margin: 0 auto; }
+.v3h h1, .v3h h2, .v3h h3 { color: var(--n900); }
+.v3h .small { font-size: var(--t14); color: var(--n500); }
+
+/* ---- the door's top: the drawing cropped to the people (its sky cut), then what HIPHI does ---- */
+.v3h-art { position: relative; height: clamp(84px, 24vw, 200px); border-radius: var(--r16); overflow: hidden; background: #EAF7FD; }
+.v3h-art .art { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: auto; display: block; transform: translateY(5%); }
+@media (max-width: 359px) { .v3h-art .bubble { display: none; } }
+.v3h-h1 { margin: var(--s12) 0 0; font: 700 var(--t22)/1.2 var(--font-h); letter-spacing: -.02em; text-wrap: balance; }
+.v3h-h1:focus, .v3h-hi:focus { outline: none; }
+.v3h-top .lede { margin: var(--s8) 0 0; color: var(--n700); }
+.v3h-note { margin: calc(-1 * var(--s4)) 0 var(--s12); font-size: var(--t14); color: var(--n700); }
+.v3h-h2 { margin: var(--s20, 20px) 0 var(--s8); font: 700 var(--t18)/1.25 var(--font-h); letter-spacing: -.01em; }
+
+/* ---- the card (pub/v3/pick.js cardHtml): scoped to Home, This week styles its own ---- */
+.v3h .v3-card { padding: var(--s16); }
+.v3h .v3c-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); margin: 0; font-size: var(--t13); }
+.v3h .v3c-num { font-weight: 700; letter-spacing: .04em; color: var(--n500); white-space: nowrap; }
+.v3h .v3c-pos { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: var(--pill); background: var(--p50); color: var(--p800); font-weight: 700; }
+.v3h .v3c-h { margin: var(--s8) 0 0; font: 700 var(--t22)/1.2 var(--font-h); letter-spacing: -.02em; text-wrap: balance; }
+.v3h .v3c-h a { color: inherit; text-decoration: none; }
+.v3h .v3c-h a:hover { text-decoration: underline; }
+.v3h .v3c-sum { margin: 6px 0 0; color: var(--n700); }
+.v3h .v3c-when { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s12) 0 0; font-size: var(--t14); line-height: 1.45; color: var(--n700); }
+.v3h .v3c-when .ic, .v3h .v3c-when svg { flex: none; width: 1.1em; height: 1.1em; margin-top: .15em; color: var(--n500); }
+.v3h .v3c-when b { color: var(--n900); }
+.v3h .v3c-when.soon b, .v3h .v3c-when.soon .ic, .v3h .v3c-when.soon svg { color: var(--warn-text, #8a4b00); }
+.v3h .v3c-go { margin-top: var(--s16); }
+.v3h .v3c-time { margin: var(--s8) 0 0; text-align: center; }
+.v3h .v3-empty .v3c-calm { margin: 0; color: var(--n700); }
+.v3h .v3c-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; }
+
+/* ---- the door's four issues: a row each, its small drawing, its name and one line ---- */
+.v3h-rows { list-style: none; margin: 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); overflow: hidden; }
+.v3h-rows li + li { border-top: 1px solid var(--n100); }
+.v3h-row { display: flex; align-items: center; gap: var(--s12); min-height: 64px; padding: var(--s8) var(--s12); color: var(--n900); text-decoration: none; }
+.v3h-row:hover { background: var(--p50); }
+.v3h-row:focus-visible { outline-offset: -2px; }
+.v3h-th { flex: none; width: 56px; height: 40px; border-radius: 10px; overflow: hidden; background: #EAF7FD; display: flex; align-items: center; justify-content: center; color: var(--p700); }
+.v3h-th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.v3h-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.v3h-t b { font: 700 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; }
+.v3h-t > span { font-size: var(--t13); color: var(--n500); }
+.v3h-row .chev { flex: none; color: var(--n500); }
+.v3h-pick { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8) var(--s12); margin-top: var(--s16); }
+.v3h-all { margin: var(--s4) 0 0; font-size: var(--t14); }
+.v3h-all a, .v3h-line a, .v3h-week a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; }
+
+/* ---- the returner: one line of hello, the card, at most two plain lines, then This week ---- */
+.v3h-back { padding-top: var(--s8); }
+.v3h-hi { margin: 0 0 var(--s16); font: 400 var(--t18)/1.4 var(--font); color: var(--n700); letter-spacing: 0; }
+.v3h-hi b { font: 700 var(--t22)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.v3h-lines { margin-top: var(--s12); }
+.v3h-line { margin: 0; font-size: var(--t14); }
+.v3h-line a { font-weight: 400; color: var(--n700); text-decoration: none; }
+.v3h-line a:hover { color: var(--p700); text-decoration: underline; }
+.v3h-line .ic, .v3h-line svg { color: var(--p700); }
+.v3h-week { margin: var(--s4) 0 0; }
+
+/* ---- a laptop: the drawing beside the heading, the card beside the issues ---- */
+@media (min-width: 720px) {
+  .v3h-art { height: 200px; }
+  .v3h-h1 { font-size: var(--t28); }
+  /* the button sized to its words, "About 10 minutes" under it on the same edge, rather than a 600px bar */
+  .v3h .v3c-go.full { width: auto; padding-inline: 32px; }
+  .v3h .v3c-time { text-align: left; }
+}
+@media (min-width: 1100px) {
+  .v3h-door { max-width: 1040px; }
+  .v3h-door .v3h-top { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: var(--s32); align-items: center; }
+  .v3h-door .v3h-art { order: 2; height: 220px; }
+  .v3h-door .v3h-art .art { transform: none; }
+  .v3h-door .v3h-h1 { margin-top: 0; font-size: 2.25rem; }
+  .v3h-door .lede { font-size: var(--t18); }
+  .v3h-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s32); align-items: start; }
+}
