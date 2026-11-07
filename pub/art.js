@@ -173,7 +173,7 @@ const SCENES = {
 // The topic key (pub/topics.js) to its band; '' for a topic with no scene.
 export const issueScene = key => SCENES[key] ? svgBand(key, SCENES[key]()) : '';
 
-// One drawing per issue (R-284, Nate's yes 10/15 to the first 18; R-361 adds 25 more): the issue's slug (public_issues.slug) to its sky colour, which
+// One drawing per issue (R-284, Nate's yes 10/15 to the first 18; R-361 adds the other 73): the issue's slug (public_issues.slug) to its sky colour, which
 // tints the band while the picture loads. Each picture is a file in pub/issue-art/ holding both band layers (made by the
 // backend's docs/requests/R-283-art/ship.js), not a string here: 18 drawings are ~100 KB and a card needs only its own.
 const ISSUE_ART = {
@@ -221,11 +221,60 @@ const ISSUE_ART = {
   'drivers-stop-for-people-in-crosswalks': '#EAF7FD',
   'tougher-drunk-driving-consequences': '#FFE6C4',
   'pesticide-use-reporting': '#EAF7FD',
+  // R-361, part 2: the other 48 issues, so every issue has its own drawing
+  'no-child-denied-a-meal': '#FFF6E8',
+  'snap-nutrition-education': '#FFF6E8',
+  'snap-match-for-local-food': '#EAF7FD',
+  'snap-before-prison-release': '#EAF7FD',
+  'no-surge-pricing-on-snap-foods': '#EEF6F8',
+  'no-snap-for-sugary-drinks': '#EEF6F8',
+  'sugary-drink-warning-labels': '#FFF6E8',
+  'no-surveillance-pricing': '#EAF7FD',
+  'fda-proof-to-sell-e-cigarettes': '#FFF6E8',
+  'state-e-cigarette-maker-directory': '#FFF6E8',
+  'limit-nicotine-levels': '#FFF6E8',
+  'tobacco-free-generation': '#EAF7FD',
+  'seize-untaxed-tobacco': '#EAF7FD',
+  'cancer-warnings-on-alcohol-ads': '#EAF7FD',
+  'youth-substance-misuse-prevention': '#EAF7FD',
+  'forgive-medical-debt': '#FFF6E8',
+  'state-buys-vaccines': '#FFF6E8',
+  'youth-mental-health-app': '#EAF7FD',
+  'update-sex-marker': '#EAF7FD',
+  'rural-community-health-workers': '#EAF7FD',
+  'workers-comp-for-student-workers': '#EAF7FD',
+  'canadian-dental-licenses': '#FFF6E8',
+  'renters-tax-credit': '#FFF6E8',
+  'cap-rent-increases': '#EAF7FD',
+  'homes-for-local-residents': '#EAF7FD',
+  'higher-taxes-on-top-earners': '#EAF7FD',
+  'tax-capital-gains-fairly': '#FFF6E8',
+  'tax-real-estate-investment-trusts': '#EAF7FD',
+  'graduated-tax-on-property-sales': '#EAF7FD',
+  'income-tax-changes': '#FFF6E8',
+  'poverty-is-not-neglect': '#FFF6E8',
+  'no-tax-on-period-products': '#FFF6E8',
+  'legal-sports-betting': '#FFF6E8',
+  'red-light-and-speed-cameras': '#EAF7FD',
+  'fairer-jaywalking-rules': '#EAF7FD',
+  'pedestrian-safety-pilot': '#EAF7FD',
+  'safer-pedestrian-signals': '#EAF7FD',
+  'safer-walking-near-schools': '#EAF7FD',
+  'summer-streets': '#EAF7FD',
+  'maui-wildfire-health-study': '#EAF7FD',
+  'fight-invasive-species': '#EAF7FD',
+  'wildfire-prevention': '#EAF7FD',
+  'ban-neonicotinoids': '#EAF7FD',
+  'ban-telone': '#EAF7FD',
+  'clearer-water-shortage-rules': '#FFF3DC',
+  'replace-cesspools': '#EAF7FD',
+  'packaging-recycling': '#EAF7FD',
+  'right-to-a-clean-environment': '#EAF7FD',
 };
 // Practice copy first (Show me lane, R-284): the issue drawings show on ?demo=1 until Nate's yes on the screenshots, then
 // this turns true and the live tracker gets them too.
 const ISSUE_ART_LIVE = false;
-const ARTV = 1;   // bump when a drawing changes, so phones fetch the new one
+const ARTV = 2;   // bump when a drawing changes, so phones fetch the new one
 // The band for a bill's issue: its own drawing when it has one, else its topic's scene (issueScene); '' for neither.
 export const issueBand = (iss, demo = false) => iss?.slug && ISSUE_ART[iss.slug] && (demo || ISSUE_ART_LIVE)
   ? `<img class="art art-band art-issue" src="${new URL(`issue-art/${iss.slug}.svg?v=${ARTV}`, import.meta.url)}" alt="" decoding="async" style="background:${ISSUE_ART[iss.slug]}">`
