@@ -162,7 +162,7 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .kicker .back[data-back] { margin: -10px 0 -6px; }
 
 /* Bills: the slim band, then the list. Issues are the unit people follow; their bills sit beneath (Nate, 6 Nov). */
-.sheet.bills, .sheet.soon { padding-top: 22px; }
+.sheet.bills { padding-top: 22px; }
 .bills h1 { margin: 0 0 14px; }
 .find { display: flex; gap: 8px; margin: 0 0 14px; }
 .find .box { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 12px; border: 1px solid var(--n400); border-radius: var(--r12); background: var(--n0); color: var(--n500); }
@@ -189,6 +189,8 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .r .t b { display: block; font: 600 var(--t16)/1.3 var(--font-h); color: var(--n900); letter-spacing: -.01em; overflow-wrap: anywhere; }
 .r .t span { display: block; margin-top: 2px; font-size: var(--t14); color: var(--n500); }
 .r .t span.due.soon { color: var(--warn-text); font-weight: 700; }
+/* A name's kept-together word ("e-cigarette", keepHyphens) stays part of the name, not a second line. */
+.r .t b span.nw { display: inline; margin: 0; font: inherit; color: inherit; }
 .r .chev { flex: none; color: var(--n400); }
 .r.more { min-height: 48px; }
 .r.more .t span { margin: 0; color: var(--p700); font-weight: 700; }
@@ -225,6 +227,26 @@ h1 { font-size: var(--t28); margin: 6px 0 8px; text-wrap: balance; }
 .calm { margin-top: 6px; color: var(--n700); }
 .calm a { display: inline-flex; align-items: center; min-height: 44px; }
 .week .r .t span { color: var(--n500); }
+
+/* Home (part 6): the drawing, what HIPHI does, the one thing, four issues, a quiet footer. */
+.home h1 { margin: 2px 0 0; }
+.lede { margin-top: 8px; }
+.home h2.sec { margin: 24px 0 10px; font: 700 var(--t18)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.01em; }
+.pick .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.home .pick h3 { margin: 10px 0 2px; font: 700 var(--t22)/1.2 var(--font-h); color: var(--n900); letter-spacing: -.02em; text-wrap: balance; }
+.home .pick .ln { margin-top: 10px; }
+.home .pick .primary { margin-top: 16px; }
+.pick .small { text-align: center; margin-top: 10px; font-size: var(--t14); color: var(--n500); }
+/* An issue row: its small drawing when it has one (Bills' .iss .th), its name, its topic. */
+.r .th { flex: none; width: 56px; height: 40px; border-radius: 10px; overflow: hidden; background: #EAF7FD; }
+.r .th img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.r .t span.lab { font-size: var(--t13); }
+.allis { margin-top: 4px; font-size: var(--t14); }
+.allis a { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 700; }
+.allis .ic { width: 1em; height: 1em; }
+/* The footer: four quiet links, 44px tall to tap (A-6), wrapping as the width needs. */
+.foot { display: flex; flex-wrap: wrap; justify-content: center; column-gap: 16px; margin-top: 20px; padding-top: 8px; border-top: 1px solid var(--n100); font-size: var(--t14); }
+.foot a { display: inline-flex; align-items: center; min-height: 44px; color: var(--n500); }
 
 /* Loading: grey lines where the words will be. */
 .bar { height: 14px; border-radius: 7px; background: var(--n100); margin: 12px 0; }

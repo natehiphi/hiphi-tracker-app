@@ -15,10 +15,11 @@ export const keepHyphens = s => esc(s).replace(/(\S+-\S+)/g, '<span class="nw">$
 // Nate's yes for act.html (R-360). An issue with no drawing of its own gets a calm plain band, not the topic scenes: the
 // header is a greeting, and a scene from another issue would say the wrong thing. The HIPHI mark sits on it either way.
 // slim: the write and send screens keep the drawing's colours in a short band, so the letter has the room (one view at 390x844).
-export function header(issue, { slim = false } = {}) {
+// own, brand: Home's own drawing (the rainbow and the people, pub/art.js HELLO) and its longer name on the pill (part 6).
+export function header(issue, { slim = false, own = '', brand = '' } = {}) {
   const band = issue && !slim ? issueBand(issue, true) : '';
-  const art = band.startsWith('<img') ? band : '';
-  return `<header class="hd${art ? '' : ' plain'}${slim ? ' slim' : ''}">${art}<div class="brand">${MARK}<span>${esc(t('mark'))}</span></div>${DEMO ? `<span class="demo">${esc(t('practice'))}</span>` : ''}</header>`;
+  const art = own || (band.startsWith('<img') ? band : '');
+  return `<header class="hd${art ? '' : ' plain'}${slim ? ' slim' : ''}">${art}<div class="brand">${MARK}<span>${esc(brand || t('mark'))}</span></div>${DEMO ? `<span class="demo">${esc(t('practice'))}</span>` : ''}</header>`;
 }
 
 const LINE_ICON = { capitol: 'landmark', calendar: 'calendar', flag: 'flag' };

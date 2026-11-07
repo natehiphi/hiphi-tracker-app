@@ -2,14 +2,15 @@
 // own #/bill/HB2121 and #/bill/2026/HB2121 too, so a link made for track.html opens here unchanged. Then the one action:
 // #/HB2121/write (one/write.js), #/HB2121/send (one/send.js) and #/HB2121/thanks (one/thanks.js). The counts (one/counts.js)
 // are the only calls to the database: a visit, the bill's arrival, the letter's clock and the action.
-// Part 4 makes it the start of the whole public app: #/ is Home, #/bills is Bills (one/bills.js; #/bills/<issue-slug> opens
+// Part 4 makes it the start of the whole public app: #/ is Home (one/home.js, part 6), #/bills is Bills (one/bills.js; #/bills/<issue-slug> opens
 // it at that issue), #/week is This week (one/week.js, part 5), with the tab bar (one/tabs.js) on those three and on the bill.
 // A returning person (a done mark, or an issue followed) who opens act.html with no address at all lands on This week.
 import { loadBill, loadPeople, loadList, LoadError } from './data.js';
 import { billScreen, loadingScreen, missingScreen, failScreen } from './bill.js';
 import { billsScreen, billsLoading, wireBills, atIssue, state as billsState, followsAny } from './bills.js';
 import { weekScreen, weekLoading, weekData } from './week.js';
-import { tabs, soonScreen } from './tabs.js';
+import { tabs } from './tabs.js';
+import { homeScreen, homeLoading } from './home.js';
 import { thanksScreen, wireThanks, freshThanks } from './thanks.js';
 import { countVisit, arrive, letterShown } from './counts.js';
 import { writeScreen, wireWrite, loadMe } from './write.js';
@@ -51,7 +52,7 @@ async function route() {
     last = o[1] || o[3] || 'home';
     if (o[1]) return bills(o[2] || '', was.startsWith('bill:'));
     if (o[3]) return week();
-    show(soonScreen(last)); return;
+    return home();
   }
   const r = parse();
   if (!r) { last = ''; show(missingScreen()); return; }
@@ -110,6 +111,17 @@ async function bills(slug, back) {
   show(billsScreen(L)); wireBills(root, L);
   if (i && atIssue(root, slug)) return;
   if (back && billsState.y) window.scrollTo(0, billsState.y);
+}
+
+// Home (part 6): the list and This week's one thing (weekData), drawn afresh each visit as This week is.
+async function home() {
+  const at = location.hash;
+  show(homeLoading());
+  let D, L;
+  try { L = await loadList(); D = await weekData(L); }
+  catch (e) { if (location.hash !== at) return; if (!(e instanceof LoadError)) console.error(e); show(failScreen('list')); return; }
+  if (location.hash !== at) return;
+  show(homeScreen(D, L));
 }
 
 // This week: the list (as Bills has it), then the bills the screen looks at; drawn afresh each visit, so a bill sent

@@ -1,10 +1,9 @@
 // The Mahalo screen of act.html (R-360 part 3): #/HB2121/thanks, after "Yes, I sent it" (send.js). One line on what happened,
 // exactly one primary button (Share with a friend: the share sheet, or a copy of this page's link to the bill, without /thanks), one quiet
-// link to the tracker, and Back to the bill. The email case says the email is on its way to the chair.
+// link to Bills (part 6: the app's own list, no longer track.html), and Back to the bill. The email case says the email is on its way to the chair.
 import { header, esc } from './bill.js';
 import { icon } from '../icons.js';
 import { t } from './i18n.js';
-import { DEMO } from './data.js';
 import { HST } from './words.js';
 import { copyText } from './send.js';
 import { later } from './later.js';
@@ -30,7 +29,7 @@ export function thanksScreen(B) {
     <p class="sum">${esc(line)}</p>
     <div class="cta"><button type="button" class="primary" data-share>${icon(s.copied ? 'check' : 'share-2')}<span>${esc(s.copied ? t('send.copied') : t('thanks.share'))}</span></button></div>
     ${s.fail ? `<p class="err" role="alert">${icon('circle-alert', { size: '1em' })}${esc(t('thanks.copyfail'))}</p><input class="sel" readonly value="${esc(shareLink(B))}" aria-label="${esc(t('thanks.share'))}">` : ''}
-    <div class="after"><a href="track.html${DEMO ? '?demo=1' : ''}">${esc(t('thanks.other'))}</a>
+    <div class="after"><a href="#/bills">${esc(t('thanks.other'))}</a>
       <a class="back" href="#/${esc(B.number)}">${icon('arrow-left', { size: '1em' })}${esc(t('thanks.back'))}</a></div>
   </main>`;
 }

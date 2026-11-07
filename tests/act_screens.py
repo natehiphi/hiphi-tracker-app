@@ -8,6 +8,8 @@
 # (Home · Bills · This week), the bill's "Part of <issue>" line and its Back to Bills. Saves part4-bills and part4-bill.
 # Part 5: This week (#/week): the date, the one thing (the soonest deadline, the followed issue's first), Your issues, the
 # hearings by day, a returning person landing there. Saves part5-week (following the e-cigarette ban) and part5-week-nofollow.
+# Part 6: Home (#/), the front door: what HIPHI does, This week's one thing as a card with the one primary button, four issues
+# opening Bills at each, All issues, the footer to the tracker's pages. Saves part6-home (390x844) and part6-home-laptop.
 #   python3 tests/act_screens.py [base] [shots_dir]   base defaults to http://127.0.0.1:8861/act.html?demo=1
 import os, sys
 from playwright.sync_api import sync_playwright
@@ -143,7 +145,7 @@ with sync_playwright() as p:
     a1, a2 = pg.locator('.after a').nth(0).bounding_box(), pg.locator('.after a').nth(1).bounding_box()
     ok(a2['y'] - (a1['y'] + a1['height']) >= 15.5, f'thanks: the two quiet links stand 16px apart ({round(a2["y"] - a1["y"] - a1["height"])})')
     ok(pg.locator('.primary').count() == 1 and pg.locator('.primary').inner_text().strip() == 'Share with a friend', 'thanks: exactly one primary, Share with a friend')
-    ok(pg.locator('a[href="track.html?demo=1"]').count() == 1 and pg.locator('a', has_text='See HIPHI’s other bills').count() == 1, 'thanks: one quiet link to track.html, kept in the practice copy')
+    ok(pg.locator('a', has_text='See HIPHI’s other bills').get_attribute('href') == '#/bills' and pg.locator('#main a[href^="track.html"]').count() == 0, 'thanks: "See HIPHI’s other bills" goes to Bills, in the app (part 6)')
     ok('vape' not in pg.content().lower(), 'thanks: no "vape"')
     if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part3-thanks.png'))
     want = pg.evaluate("() => location.origin + location.pathname + '#/HB2121'")
@@ -271,12 +273,11 @@ with sync_playwright() as p:
     pg.wait_for_selector('#issue-disposable-e-cigarette-ban', timeout=10000); pg.wait_for_timeout(100)
     top = pg.locator('#issue-disposable-e-cigarette-ban').bounding_box()['y']
     ok(0 <= top < 120 and pg.evaluate("document.activeElement.id") == 'ih-disposable-e-cigarette-ban', f'"Part of" opens Bills scrolled to that issue ({round(top)})')
-    # The tab bar: not on Write; Home stands in for now (This week is part 5's, below).
+    # The tab bar: not on Write; on Home (part 6, below), with Home current.
     pg.goto(BASE + '#/HB2121/write'); pg.wait_for_selector('#w-letter', timeout=10000)
     ok(pg.locator('.tabs').count() == 0, 'no tab bar on Write')
-    for h, cur, word in (('#/', 'Home', 'Home, coming next'),):
-        pg.goto(BASE + h); pg.wait_for_selector('.tabs', timeout=10000)
-        ok(pg.locator('h1').inner_text().strip() == word and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == cur and pg.locator('#main a[href="#/bills"]').count() == 1, f'{h}: "{word}", with a way to Bills')
+    pg.goto(BASE + '#/'); pg.wait_for_selector('#main.home:not([aria-busy])', timeout=30000)
+    ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Home' and pg.locator('#main a[href="#/bills"]').count() >= 1, '#/: Home, current in the tab bar, with a way to Bills')
     pg.locator('.tabs a[data-tab="bills"]').click(); pg.wait_for_selector('#b-res .r', timeout=10000)
     ok(pg.evaluate('location.hash') == '#/bills', 'the Bills tab opens Bills')
     pg.set_viewport_size({'width': 320, 'height': 640}); open_bills(); sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
@@ -366,6 +367,83 @@ with sync_playwright() as p:
     ok(pg2.evaluate('location.hash') == '' and pg2.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Home', 'a first visit with no address stays on Home')
     ctx.close()
     ok(not errs5, f'part 5: no page errors {errs5[:2]}')
+
+    # ---- Part 6: Home, the front door ----
+    ctx = br.new_context(viewport={'width': 390, 'height': 844})
+    pg = ctx.new_page(); errs6 = []; pg.on('pageerror', lambda e: errs6.append(str(e)))
+    def open_home(h=''):
+        pg.goto(BASE + h); pg.wait_for_selector('#main.home:not([aria-busy]) .pick', timeout=60000); pg.evaluate(FONTS); pg.wait_for_function(IMGS, timeout=20000)
+    open_home()
+    ok(pg.evaluate('location.hash') == '' and pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Home', 'Home: a first visit with no address lands on Home, Home current')
+    ok(pg.title() == 'HIPHI Bill Tracker', f'act.html is titled "HIPHI Bill Tracker" ({pg.title()!r})')
+    ok(pg.locator('h1').inner_text().replace('\n', ' ').strip() == 'Speak up for a healthier Hawaiʻi' and pg.locator('.lede').inner_text().strip() == 'We follow the health bills at the Capitol and tell you when your voice counts.', 'Home: the heading and what HIPHI does')
+    ok(pg.locator('.hd svg.art-hello').count() == 1 and 'HIPHI Bill Tracker' in pg.locator('.hd .brand').inner_text(), 'Home: the rainbow-and-people drawing, with the HIPHI pill')
+    ok(pg.locator('h2.sec').all_inner_texts()[:2] == ['Needs voices this week', 'Or start with what you care about'], 'Home: the two sections in order')
+    # The one thing is This week's (week.js weekData): with no follows at 9:00 am Mon 16 Mar, SB 3234.
+    nm, ln = pg.locator('.pick h3').inner_text().replace('\n', ' ').strip(), pg.locator('.pick .ln').inner_text().strip()
+    ok(nm == 'Safer walking routes next to schools' and pg.locator('.pick .num').inner_text().strip() == 'SB 3234' and pg.locator('.pick .pos').inner_text().strip() == 'HIPHI supports', f'the card: the one thing This week offers, its number and position ({nm!r})')
+    ok(ln == 'Send by Mon, Mar 16, 9:30 AM. House Transportation hears it Tue, Mar 17.', f'the card: when to send by, who hears it and when ({ln!r})')
+    ps = pg.locator('.pick .psum').inner_text().strip()
+    ok(ps.endswith('.') and ps.count('. ') == 0, f'the card: a one-sentence summary ({ps!r})')
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'Send testimony' and pg.locator('.pick .primary').get_attribute('href') == '#/SB3234/write'
+       and pg.locator('.pick .small').inner_text().strip() == 'About 10 minutes. We help you write it.', 'Home: exactly one primary button, Send testimony to the letter, "About 10 minutes"')
+    rows = pg.locator('a.ri'); slugs = rows.evaluate_all('rs => rs.map(r => r.dataset.issue)')
+    ok(rows.count() == 4 and all(rows.nth(k).get_attribute('href') == '#/bills/' + slugs[k] for k in range(4)) and all(rows.nth(k).locator('.lab').count() == 1 for k in range(4)), f'four issues, each with its topic, each to Bills at the issue ({slugs})')
+    ok(rows.locator('.th img').count() >= 1, 'an issue with a drawing shows it small')
+    ok(pg.locator('#main a', has_text='All issues').get_attribute('href') == '#/bills', '"All issues" goes to Bills')
+    feet = pg.locator('.foot a').evaluate_all('as => as.map(a => [a.textContent.trim(), a.getAttribute("href")])')
+    ok(feet == [['Help', 'track.html?demo=1#/help'], ['Privacy', 'track.html?demo=1#/privacy'], ['For advocacy groups', 'track.html?demo=1#/groups'], ['The full tracker', 'track.html?demo=1']], f'the footer: Help, Privacy, For advocacy groups, The full tracker, in the practice copy ({feet})')
+    budget = pg.evaluate("""() => { const H = innerHeight - document.querySelector('.tabs').getBoundingClientRect().height, inView = b => b.height && b.top < H && b.bottom > 0 && b.left < innerWidth && b.right > 0;
+      const taps = [...document.querySelectorAll('#app a, #app button, #app input')].filter(e => !e.closest('.tabs') && inView(e.getBoundingClientRect())).length;
+      const words = document.querySelector('#main').innerText.split(/\\s+/).filter(Boolean).length;
+      return { taps, words }; }""")
+    ok(budget['taps'] <= 8 and budget['words'] <= 120, f'Home: the first screenful at most 8 things to tap (tab bar aside), the page at most 120 words ({budget})')
+    ok('vape' not in pg.content().lower(), 'Home: no "vape"')
+    sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    ok(sw[0] <= sw[1], f'Home: no sideways scroll at 390 ({sw})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part6-home.png'))
+    # Each issue row opens Bills scrolled to that issue.
+    good = 0
+    for sl in slugs:
+        open_home('#/'); pg.locator(f'a.ri[data-issue="{sl}"]').click()
+        pg.wait_for_selector(f'#issue-{sl}', timeout=10000); pg.wait_for_timeout(100)
+        top = pg.locator(f'#issue-{sl}').bounding_box()['y']
+        good += pg.evaluate('location.hash') == '#/bills/' + sl and 0 <= top < 120 and pg.evaluate('document.activeElement.id') == 'ih-' + sl
+    ok(good == 4, f'each of the four issues opens Bills at that issue ({good} of 4)')
+    # A followed issue comes first: follow the fourth on Bills, and Home leads with it.
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=60000)
+    pg.locator(f'#issue-{slugs[3]} [data-follow]').click()
+    pg.locator('.tabs a[data-tab="home"]').click(); pg.wait_for_selector('#main.home:not([aria-busy]) .pick', timeout=30000)
+    ok(pg.locator('a.ri').first.get_attribute('data-issue') == slugs[3] and pg.locator('a.ri').count() == 4, f'a followed issue leads the four ({pg.locator("a.ri").first.get_attribute("data-issue")})')
+    ok(pg.locator('.tabs a[aria-current="page"]').inner_text().strip() == 'Home', 'the Home tab opens Home, current')
+    # The bill screen keeps "Read the whole bill at the Capitol"; the inner screens' slim band keeps the HIPHI pill.
+    pg.goto(BASE + '#/HB2121'); pg.wait_for_selector('#main:not([aria-busy]) .primary', timeout=30000)
+    ok(pg.locator('a', has_text='Read the whole bill at the Capitol').count() == 1, 'the bill screen keeps "Read the whole bill at the Capitol"')
+    pg.goto(BASE + '#/bills'); pg.wait_for_selector('#b-res .r', timeout=30000)
+    ok(pg.locator('.hd.slim .brand').inner_text().strip() == 'HIPHI', 'the slim band on the inner screens keeps the HIPHI pill')
+    ctx.close()
+    # Nothing needs voices (no hearings ahead): a calm line, and the one primary becomes See the bills.
+    ctx = br.new_context(viewport={'width': 390, 'height': 844}); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs6.append(str(e)))
+    import json
+    def quiet(route):
+        r = route.fetch(); d = r.json(); d['hearings'] = []; route.fulfill(response=r, body=json.dumps(d), headers={**r.headers, 'content-type': 'application/json'})
+    pg.route('**/demo/snapshot.json*', quiet)
+    pg.goto(BASE + '#/'); pg.wait_for_selector('#main.home:not([aria-busy]) .pick', timeout=60000)
+    ok(pg.locator('.primary').count() == 1 and pg.locator('.pick .primary').inner_text().strip() == 'See the bills' and pg.locator('.pick .primary').get_attribute('href') == '#/bills'
+       and 'Nothing needs your voice this week' in pg.locator('.pick .calm').inner_text(), 'nothing needs voices: a calm line, and the one primary is See the bills')
+    ctx.close()
+    # Phones' narrowest width, and a laptop: the centred column holds.
+    ctx = br.new_context(viewport={'width': 320, 'height': 640}); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs6.append(str(e)))
+    open_home('#/'); sw = pg.evaluate('() => [document.documentElement.scrollWidth, document.documentElement.clientWidth]')
+    ok(sw[0] <= sw[1], f'Home: no sideways scroll at 320 ({sw})')
+    ctx.close()
+    ctx = br.new_context(viewport={'width': 1280, 'height': 800}); pg = ctx.new_page(); pg.on('pageerror', lambda e: errs6.append(str(e)))
+    open_home('#/')
+    box = pg.locator('#app').bounding_box(); tb = pg.locator('.tabs').bounding_box()
+    ok(box['width'] <= 600 and abs(box['x'] + box['width'] / 2 - 640) < 2 and abs(tb['x'] - box['x']) < 2 and tb['width'] <= 600, f'laptop: one centred column, the tab bar under it ({box["x"]}, {box["width"]})')
+    if SHOTS: pg.mouse.move(0, 0); pg.screenshot(path=os.path.join(SHOTS, 'part6-home-laptop.png'))
+    ctx.close()
+    ok(not errs6, f'part 6: no page errors {errs6[:2]}')
     br.close()
 
     # The failed load (B-8): the snapshot cannot be fetched, so the page says so and offers Try again.

@@ -91,7 +91,8 @@ export async function weekData(L) {
   const byId = new Map(L.bills.map(b => [b.id, b])), group = days => days.map(d => ({ day: d, rows: L.hearings.filter(h => hstDay(h.at) === d && byId.has(h.billId)) })).filter(g => g.rows.length);
   let left = ROWS; const cut = gs => gs.map(g => { const rows = g.rows.slice(0, Math.max(0, left)); left -= rows.length; return { ...g, rows }; }).filter(g => g.rows.length);
   const days = cut(group(W.days)), next = cut(group(W.next));
-  return { W, pick, sent, issues, following: mine.length > 0, days, next, byId };
+  // soon: a bill whose testimony closes before the week is out (Home counts them per issue, part 6).
+  return { W, pick, sent, issues, following: mine.length > 0, days, next, byId, soon };
 }
 
 function card(D, L) {
