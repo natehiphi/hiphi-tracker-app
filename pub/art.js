@@ -173,7 +173,7 @@ const SCENES = {
 // The topic key (pub/topics.js) to its band; '' for a topic with no scene.
 export const issueScene = key => SCENES[key] ? svgBand(key, SCENES[key]()) : '';
 
-// One drawing per issue (R-284, Nate's yes 10/15 to all 18): the issue's slug (public_issues.slug) to its sky colour, which
+// One drawing per issue (R-284, Nate's yes 10/15 to the first 18; R-361 adds 25 more): the issue's slug (public_issues.slug) to its sky colour, which
 // tints the band while the picture loads. Each picture is a file in pub/issue-art/ holding both band layers (made by the
 // backend's docs/requests/R-283-art/ship.js), not a string here: 18 drawings are ~100 KB and a card needs only its own.
 const ISSUE_ART = {
@@ -195,6 +195,32 @@ const ISSUE_ART = {
   'funding-for-community-nonprofits': '#EAF7FD',
   'child-and-dependent-care-credit': '#EAF7FD',
   'family-caregiver-tax-credit': '#EAF7FD',
+  // R-361: the 25 busiest issues that had none (Nate 11/6: same style; practice copy until his yes)
+  'more-local-food-in-school-meals': '#EAF7FD',
+  'lower-school-meal-prices': '#FFF6E8',
+  'free-school-meals-for-more-families': '#FFF6E8',
+  'farm-to-families': '#EAF7FD',
+  'replace-shutdown-food-aid': '#FFF6E8',
+  'more-snap-help': '#FFF6E8',
+  'no-tax-on-groceries': '#FFF6E8',
+  'higher-minimum-wage': '#EAF7FD',
+  'cash-support-for-families-with-babies': '#FFF6E8',
+  'plan-for-a-changing-climate': '#EAF7FD',
+  'flavored-tobacco-ban': '#FFF6E8',
+  'higher-tobacco-and-e-cigarette-taxes': '#EAF7FD',
+  'cigars-shipped-by-mail': '#EAF7FD',
+  'looser-alcohol-sales-rules': '#FFF1D6',
+  'legal-adult-use-cannabis': '#FFF6E8',
+  'protect-gender-affirming-care': '#FFF6E8',
+  'protect-abortion-and-contraception': '#FFF6E8',
+  'end-non-medical-vaccine-exemptions': '#EAF7FD',
+  'tax-credit-for-training-health-students': '#FFF6E8',
+  'single-payer-health-care': '#EAF7FD',
+  'free-bus-rides-for-kids': '#EAF7FD',
+  'fund-safe-routes-to-school': '#EAF7FD',
+  'drivers-stop-for-people-in-crosswalks': '#EAF7FD',
+  'tougher-drunk-driving-consequences': '#FFE6C4',
+  'pesticide-use-reporting': '#EAF7FD',
 };
 // Practice copy first (Show me lane, R-284): the issue drawings show on ?demo=1 until Nate's yes on the screenshots, then
 // this turns true and the live tracker gets them too.
