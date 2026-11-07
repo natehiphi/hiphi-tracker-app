@@ -10,14 +10,14 @@
 // check and Say mahalo). Hearings > Bills That Need Hearings is the only screen that draws this board (Legislators > Who to ask went away in R-356 round 2)
 // that list different bills (X7). The v5 board's exports (chairGroupHTML, chairBoardHTML, wirePush) stay for the screens
 // that still call them until each moves to askBoard.
-import { S, DB, DEMO, esc, advocate } from './data.js';
+import { S, DB, DEMO, VB, esc, advocate } from './data.js';
 import { chairMail, codesOf, askWords, billTag, billSay, billRoute, blurb, ASK_LOG, chairAskOf, chairAskMail, chairIdsOf } from './model.js';
 import { askLine, askedChip, answerSheet, ASK_TODO, askTodoOf, chairsOf, chairWho, askAnotherWay, saidNoSheet, askDay, followSheet, notPushing, afterMail } from './chairask.js';   // R-316 W3
 import { askWords as stepAsk, committeeName, deadlineWords, nameWords, numWords, sayWords, itemRow, nw, helpersOf, timeWords, dayWords, billStep } from './steps.js';   // v6 words (spec 5)
 import { isMine, isMuted, hooks } from './data.js';
 import { stopOf, whenAt, suggState, setSugg } from './model.js';
 import { chairRole, contactWords, ensureContacts } from './holding.js';   // the chair's role and last contact, back from Who to ask
-import { icon, btn, iconBtn, avatar, toast, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
+import { icon, btn, iconBtn, avatar, toast, vbFinish, pickerSheet, menuSheet, WHOSE, ASK_TAB, andWords } from './ui.js';
 import { ACTS as PIC } from './verbs.js';   // one icon per action: Follow up is the mail, as on Today (R-352 FIX-2)
 const PIC_FOLLOW = PIC.follow.btnIcon;
 
@@ -112,8 +112,11 @@ async function markAsked(k, el, after) {
     const made = [];
     for (const x of todo) for (const id of ids) made.push([await DB.addLegNote(id, x.b.id, `Asked for a hearing on ${x.b.bill_number} (${g.code}).`, ASK_LOG() ? { answer: 'asked', committee: g.code } : {}), id]);   // one wording with logAsk
     for (const x of todo) { const t = askTodoOf(x.b); if (t && isMeId(t.assignee_id)) await DB.updateTodo(x.b.id, t.id, { done: true }); }
+    const undo = async () => { for (const [n, id] of made) await DB.delLegNote(n.id, id); after(); };
+    const what = todo.length === 1 ? sayWords(todo[0].b) : plural(todo.length, 'bill');
+    if (VB) return vbFinish(`Marked ${what} asked with ${g.m?.who || 'the chair'}`, undo);   // R-365 B: Today, with Done and Undo
     toast(`Marked asked: ${todo.length === 1 ? sayWords(todo[0].b) : plural(todo.length, 'bill')} with ${g.m?.who || 'the chair'}. The team sees it on ${todo.length === 1 ? 'the bill' : 'each bill'}.`,
-      { ok: true, undo: async () => { for (const [n, id] of made) await DB.delLegNote(n.id, id); after(); } });
+      { ok: true, undo });
     after();
   } catch (e) { toast(e, { err: true }); } finally { el?.removeAttribute('aria-busy'); }
 }
@@ -142,6 +145,7 @@ export async function assignAsk(rows, code, id, after) {
     }
     const undo = async () => { for (const z of made) await DB.updateTodo(z.b.id, z.t.id, z.prev || { done: true }); after(); };
     const by = due ? askDay(due + 'T12:00:00-10:00') : '';
+    if (VB) return vbFinish(isMeId(id) ? `Took the ask to ${who} for ${rows.length === 1 ? sayWords(rows[0].b) : plural(rows.length, 'bill')}` : `Gave the ask to ${who} for ${rows.length === 1 ? sayWords(rows[0].b) : plural(rows.length, 'bill')} to ${firstOf(id)}`, undo);
     toast(isMeId(id) ? `It is yours: ask ${who}${by ? ` by ${by}` : ''}. It is on your Today.` : `${firstOf(id)} has it now and gets a Slack message. The ask is on ${firstOf(id)}’s Today${by ? ` for ${by}` : ''}.`, { ok: true, undo });
     after();
   } catch (e) { toast(e, { err: true }); }

@@ -13,8 +13,8 @@
 // versionWords ("House draft 1") and deadlineWords (steps.js, the one source). plainCodes() turns the codes in a line of
 // text into those words; a code still shown (About this bill, the filing card) sits small beside its words and taps open
 // what it means, on phones too, and inside a sheet it opens in place under the word (a second sheet would close the first).
-import { S, DEMO, esc } from './data.js';
-import { openSheet, closeSheet } from './ui.js';
+import { S, DEMO, VB, esc } from './data.js';
+import { openSheet, closeSheet, sl } from './ui.js';
 import { gateGloss } from './model.js';
 import { committeeName, versionWords, COMMITTEES } from './steps.js';
 
@@ -29,7 +29,7 @@ export const WORDS = [
   ['48-hour notice', 'A committee must post a hearing at least 48 hours ahead. A bill’s first Senate committee must post 72 hours ahead. If its last regular meeting before a deadline is closer than that, only the chair can help.'],
   ['Decision making', 'A later meeting where a committee votes on bills it already heard. Testimony is still taken, and the tracker treats it like a hearing, with its own deadline: HIPHI filed at eight of them in 2026.'],
   ['Deferred', 'The committee held the bill. For the year, that almost always ends it.'],
-  ['Triple filing', 'The last day a triple-referred bill can clear its first committee.'],
+  [VB ? 'Three-committee deadline' : 'Triple filing', 'The last day a triple-referred bill can clear its first committee.'],
   // R-277 W-2: one definition each, the same words as the bill page's stage note (model.js STAGE_GLOSS, GATE_WORDS).
   ['Lateral', 'The last day a bill can reach its last committee in the chamber it is in. Its last committee is usually the money committee (FIN in the House, WAM in the Senate).'],
   ['Decking', 'The last day a bill can clear its last committee and be filed for its floor vote in that chamber.'],
@@ -37,7 +37,7 @@ export const WORDS = [
   ['Cross back', 'A bill the second chamber changed goes back to where it started, to agree or disagree.'],
   ['Conference', 'House and Senate negotiators settle one version. Final decking is the last day they can agree.'],
   ['Sine die', 'The last day of the session.'],
-  ['HD1, SD1, CD1', 'Versions. HD1 is the first House draft, SD1 the first Senate draft, CD1 the conference draft. Testimony written for an older version needs a second look.'],
+  ['HD1, SD1, CD1', 'Versions. HD1 is the first House draft, SD1 the first Senate draft, CD1 the conference draft. Testimony written for an older version needs a ' + sl + '.'],
   ['Companion', 'The same bill introduced in the other chamber, an HB and an SB with the same text. If one stalls, the other may still move.'],
   ['GM', 'A message from the Governor, such as a nomination or a report. Not a bill.'],
 ];

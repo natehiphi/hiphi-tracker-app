@@ -25,7 +25,7 @@
 import { S, DB, esc, capitolUrl, hooks } from './data.js';
 import { draftHearing, streamOf, attendees, billRoute, whenAt, codesOf } from './model.js';
 import { icon, btn, toast, openSheet, closeSheet, field, POS_WORD, ownerOf } from './ui.js';
-import { setStepHook, finish, sayWords, committeeName, orWords, dayWords, timeWords, billStep, statusTile, shownStatus, firstWords } from './steps.js';
+import { setStepHook, stepDone, finish, sayWords, committeeName, orWords, dayWords, timeWords, numWords, billStep, statusTile, shownStatus, firstWords } from './steps.js';
 
 const HIPHI = 'Hawaiʻi Public Health Institute';
 // The Capitol form's three positions (Help, How to file: "Support, Oppose or Comments").
@@ -109,8 +109,9 @@ async function markFiled(b, d, root, el, after) {
     if (el?.closest('dialog')) await closeSheet({ silent: true });
     else await finish(el);
     redraw();
-    toast(`Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true,
-      undo: async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); } });
+    const unfile = async () => { await DB.transition(b.id, d.id, 'unfile'); toast('Filing undone. It is approved and ready to file again.'); redraw(); };
+    if (stepDone(`Filed ${numWords(b)}’s testimony`, unfile)) return;   // B: back to Today with Done and Undo
+    toast(`Filed. ${sayWords(b)} is done for ${committeeName(d.committee) || d.committee}.`, { ok: true, undo: unfile });
   } catch (e) { toast(e, { err: true }); if (el?.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
 }
 

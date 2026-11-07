@@ -28,6 +28,7 @@ import { S, DB, SESSION_OVER, esc, advocate, hooks, seesTeam } from './data.js';
 import { work, listHTML, t6Season, t6Groups, t6Fresh, T6REG, noOwnerBills, slipList, shareAsk, partnersLine } from './today.js';
 import { billRoute, billById, lateLine, roomName, diedish, wantsHearing, standingIn, liveAsk } from './model.js';
 import { icon, btn, toast, pickerSheet, avatar, faceLead } from './ui.js';
+import { SL } from './ui.js';   // R-365 B plain words
 import { statusLine, stepTime, billStep, billRow, itemRow, rowButton, rowButtonOK, shownStatus, status, leftSoon, nameWords, numWords, sayWords, firstWords, orWords, dayWords, timeWords,
   committeeName, goingWords, askWords, nw, wireSteps, othersWords, NO_OWNER, takeFor } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -116,7 +117,7 @@ const noOwnBtn = b => S.me?.is_admin ? giveBtn(b) : takeBtn(b);
 // (the clock), by A-5 on v6. The face before the name says whose it is.
 const kindIcon = k => { const j = jobKind(k); return j === 'none' ? 'list-checks' : actIcon(j); };
 // The step's name, for a bill's second row in the list (HB 1523's to-do and its approval read as one row twice).
-const STEP_NAME = { approve: 'Approve testimony', second: 'Second look', file: 'File testimony', revise: 'Revise testimony', submit: 'Send testimony for approval',
+const STEP_NAME = { approve: 'Approve testimony', second: SL, file: 'File testimony', revise: 'Revise testimony', submit: 'Send testimony for approval',
   write: 'Send testimony for approval', nodraft: 'Make the draft', stale: 'Check the testimony' };
 // Someone's step in one phrase (steps.js othersWords, spec 5): "Lauren or Patti revises it", "Second look from Jaylen or
 // Jess", "No owner yet"; the viewer's own step is its own words ("File · late, still accepted until 1:10 PM today"), a
@@ -261,7 +262,7 @@ function nobodySteps() {
 // Testimony and Bills say for a step nobody holds; the filer's earlier time is in the open item); the list's title says no
 // one holds it.
 const NOBODY_STEP = { nodraft: 'Make the draft', write: 'Send testimony for approval', submit: 'Send testimony for approval', revise: 'Resubmit testimony',
-  approve: 'Approve testimony', second: 'Second look', file: 'File testimony' };
+  approve: 'Approve testimony', second: SL, file: 'File testimony' };
 const nobodyLine = s => { const u = unheld(s);
   if (!s?.state || !NOBODY_STEP[s.kind] || ['missed', 'filed'].includes(s.state.key) || s.off) return u;
   return statusLine(s, { who: false }); };   // the list's title says no one holds it; the state and time are the one status line

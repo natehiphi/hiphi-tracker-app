@@ -39,6 +39,7 @@
 // steel blue for filing, the action blue for chair asks, rose for outreach and partners, slate for taking a step on.
 import { esc, effStage } from './data.js';
 import { icon } from './ui.js';
+import { SL, sl } from './ui.js';   // R-365 B plain words
 
 // ---- actions (Rule 1) ----
 // The words are steps.js VERB's (the step's own verb, the same on the row and the card, V19); icons and hues added here.
@@ -52,8 +53,8 @@ export const ACTS = {
   // Review opens the approval, so it wears Approve's picture (the review: one picture for one job on a row)
   approve: A('Approve', 'user-check', 'approve', 'approve'),
   review: A('Approve', 'user-check', 'approve', 'approve'),
-  review2: A('Approve', 'users-round', 'approve', 'second look', 'user-check'),
-  second: A('Approve', 'users-round', 'approve', 'second look', 'user-check'),
+  review2: A('Approve', 'users-round', 'approve', sl, 'user-check'),
+  second: A('Approve', 'users-round', 'approve', sl, 'user-check'),
   email: A('Approve', 'user-check', 'approve', 'approve'),
   file: A('File', 'clipboard-check', 'file', 'file at the Capitol'),
   missed: A('Did we file?', 'circle-x', 'file', 'missed', 'circle-help'),
@@ -129,7 +130,7 @@ export const STATES = {
     write: St('Writing', 'pencil', '', 'write words'),
     sent: St('Sent back', 'undo-2', '', 'sent back for changes'),
     approve: St('With an approver', 'user-check', '', 'approve'),
-    second: St('Second look', 'users-round', '', 'second look'),
+    second: St(SL, 'users-round', '', sl),
     file: St('Ready to file', 'clipboard-check', '', 'file at the Capitol'),
     filed: St('Filed', 'circle-check', 'done', 'done'),
     late: St('Late, still accepted', 'alarm-clock', 'late', 'late, still accepted'),   // the plain clock is due today's
@@ -208,7 +209,7 @@ export function chamberDots(bills) {
 // step it is at: its state's shape on the action colour; still to come: a hollow ring) with its word beside it,
 // 14px ink. One line at every width: when the steps would not fit (a container query: 400px with Second look, 280px without) the done steps keep their dot and give up their word
 // (said to screen readers), so "Second look" never wraps. A sent-back draft's first step is "Revise" with the sent-back shape.
-const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', 'Second look'], ['file', 'File']];
+const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', SL], ['file', 'File']];
 export function testimonyTrack(s, { second: needSecond } = {}) {
   const d = s?.d, st = s?.state, key = st?.key; if (!key || key === 'missed') return '';
   const second = needSecond ?? (key === 'second' || !!d?.second_approved_by || !!d?.first_for_bill);

@@ -32,6 +32,7 @@ import { S, DB, DEMO, VB, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, ho
 import v5, { todayItems, slipNow } from './today5.js';
 import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords, vbFinish } from './ui.js';
+import { SL } from './ui.js';   // R-365 B plain words
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML, statusLine } from './steps.js';
@@ -351,7 +352,7 @@ function rowOf(it, { ro = false, v = S.me } = {}) {
     // The second look says its state word on the row (spec 5's five words): "Second look · approve by tomorrow 10:00 AM".
     if (s.state?.key === 'second' && s.you && !ro && s.act?.words) {
       const st = shownStatus(s), hushed = st !== s.status, tone = st.tone;
-      return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`Second look · ${lower(s.act.words)}${sx}`)), tone, icon: tone !== 'neutral' ? st.icon : st.soon || hushed ? 'clock' : '',
+      return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`${SL} · ${lower(s.act.words)}${sx}`)), tone, icon: tone !== 'neutral' ? st.icon : st.soon || hushed ? 'clock' : '',
         bold: !!st.soon && tone === 'neutral', href: billRoute(b), pick, button: rowButtonOK(s) ? rowButton(s) : '', lead: rowLeadOf(it) });
     }
     return billRow(b, { viewer: v, step: s, pick, button: ro ? false : undefined, lead: rowLeadOf(it) });
@@ -406,7 +407,7 @@ function sayOf(it, v = S.me) {
     let sub = s.line || '';
     if (it.kind === 'chair') sub = s.ask?.key === 'giving' && s.you ? `Ask ${s.ask.chair || 'the chair'} by ${dayWords(s.ask.by)}` : ss.chair || s.line;
     else if (newNotice(it)) sub = `New hearing ${dayWords(it.h.scheduled_at)}: make the draft · send by ${dayWords(s.act?.at ?? s.due)}`;
-    else if (s.state?.key === 'second' && s.you && s.act?.words) sub = `Second look · ${lower(s.act.words)}`;
+    else if (s.state?.key === 'second' && s.you && s.act?.words) sub = `${SL} · ${lower(s.act.words)}`;
     const tone = ['late', 'overdue', 'today'].includes(st.tone) ? st.tone : '';
     // A-25: the row's tile and button say the job, so its quiet line stops repeating the verb ("Due today 10:00 AM").
     if (s.you && sub === s.line) sub = dropVerb(sub, s.act?.verb);
@@ -439,7 +440,7 @@ function sayOf(it, v = S.me) {
 // today mixes kinds; verbs.js's one icon per job), and at most one tonal button, only on the viewer's own step due now
 // (A-3 on v6, D16).
 const JOB_NAME = { nodraft: 'Make the draft', write: 'Send for approval', submit: 'Send for approval', revise: 'Resubmit',
-  approve: 'Approve testimony', review: 'Approve testimony', second: 'Second look', review2: 'Second look', file: 'File testimony',
+  approve: 'Approve testimony', review: 'Approve testimony', second: SL, review2: SL, file: 'File testimony',
   missed: 'Did we file?', stale: 'Check your testimony', chair: 'Ask for a hearing', follow: 'Follow up',
   ask: 'Write the public ask', email: 'Approve an email', fix: 'Fix your email', send: 'Send your email', partner: 'Approve partner words',
   moved: 'Your hearing moved', prep: 'Get the issues ready' };
@@ -505,8 +506,11 @@ function jobRow(it, { v = S.me, noButton = false } = {}) {
 // (a link cannot sit inside a link, so the row's main link and this one share a column).
 const vbIssueOf = b => (VB && b?.id ? issuesOfBill(b.id)[0] : null) || null;
 const vbIssueA = (i, cls = 'vb-row-issue') => `<a class="${cls}" href="#/issue/${encodeURIComponent(i.id)}"><span class="vb-for">for</span> <span>${esc(i.name)}</span></a>`;
+// The "for <issue>" line is dropped when the row's or card's own title already says the issue (its words, any case).
+const vbPlain = t => String(t || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;|’/g, "'").replace(/\s+/g, ' ').toLowerCase();
+const vbNamed = (html, i) => { const t = (/class="(?:v6-row-name|v6-step-what)[^"]*"[^>]*>([\s\S]*?)<\/(?:span|h3)>/.exec(html) || [])[1]; return !!t && vbPlain(t).includes(vbPlain(i.name)); };
 function vbRowIssue(html, b) {
-  const i = vbIssueOf(b); if (!i) return html;
+  const i = vbIssueOf(b); if (!i || vbNamed(html, i)) return html;
   return html.replace(/(<(a|button) class="v6-row-main[\s\S]*?<\/\2>)/, `<div class="vb-rowcol">$1${vbIssueA(i)}</div>`);
 }
 // Testimony waiting for this person's review, each with its bill, issue, time and one Review button, soonest first (the
@@ -527,31 +531,22 @@ function vbReviewGroup(items, nextD) {
   return groupHTML('review', nextD ? 'More to review' : 'To review', rows, '', 'The soonest first. Review shows one at a time.');
 }
 // "Done: <what>. Next: <the first step waiting>" at the top of Today after a step is finished anywhere (ui.js vbFinish sets
-// S.vbDone; render takes it once). It stays through redraws until the person leaves Today, or two minutes pass.
+// S.vbDone; render takes it once). It stays through redraws (a step's own late redraw too) until the person goes to another
+// page (app.js counts those in S.vbLeft), or two minutes pass.
 let BANNER = null;
 const noDot = t => String(t || '').trim().replace(/[.\s]+$/, '');
 function vbBanner(v, next) {
   if (!VB) return '';
-  if (S.vbDone) { const d = S.vbDone; S.vbDone = null; if (Date.now() - d.at < 120000) BANNER = { ...d, route: S.route }; }
-  if (BANNER && (BANNER.route !== S.route || Date.now() - BANNER.at >= 120000)) BANNER = null;
+  if (S.vbDone) { const d = S.vbDone; S.vbDone = null; if (Date.now() - d.at < 120000) BANNER = { ...d, left: S.vbLeft || 0 }; }
+  if (BANNER && (BANNER.left !== (S.vbLeft || 0) || Date.now() - BANNER.at >= 120000)) BANNER = null;
   if (!BANNER) return '';
   const nx = next ? noDot(sayOf(next, v).plain) : '';
   return `<div class="vb-done" role="status" data-vbdone>${icon('circle-check')}
     <p class="vb-done-t"><b>Done:</b> ${esc(noDot(BANNER.what))}. ${nx ? `<b>Next:</b> ${esc(nx)}.` : 'Nothing else is waiting for you today.'}</p>
     ${BANNER.undo ? btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-vbundo': '1' } }) : ''}</div>`;
 }
-// A step finished in place (steps.js's own buttons: Resubmit, Mark filed, Approve ...) ends as one finished elsewhere does:
-// whatever "Done today" now holds that the last draw did not is what was just done.
-let SNAP = new Set();
-const vbWhat = x => x.act === 'unfile' ? `Filed ${numWords(x.b)}’s testimony` : x.act === 'withdraw' ? `Sent ${numWords(x.b)}’s testimony for approval`
-  : /^Second look/.test(x.words) ? `Gave the second look on ${numWords(x.b)}’s testimony` : x.act === 'unapprove' ? `Approved ${numWords(x.b)}’s testimony` : String(x.words || 'Done').replace(/^Done: /, '');
-const VB_UNDO = { unfile: ['Filing undone. It is approved and ready to file again.'], unapprove: ['Approval undone. It is waiting for approval again.'], withdraw: ['Pulled back to draft. It is yours to send again.'] };
-function vbAfter() {
-  const x = VB && S.me ? doneToday(S.me).find(y => !SNAP.has(y.words)) : null;
-  if (!x) return redraw();
-  SNAP.add(x.words);
-  vbFinish(vbWhat(x), x.undo || (x.act && x.d ? async () => { await DB.transition(x.b.id, x.d.id, x.act); toast(VB_UNDO[x.act][0]); } : null));
-}
+// A step finished in place (steps.js's own buttons: Resubmit, Mark filed, Approve ...) ends through steps.js's stepDone hook:
+// vbFinish with what was done and its Undo, so nothing here compares what "Done today" held before and after.
 // Do today in the order the day runs: by the time, what has no time last (the next step stays the one groupsOf picks).
 const byTime = (x, y) => (x.at ?? Infinity) - (y.at ?? Infinity) || byOrder(x, y);
 
@@ -1095,7 +1090,7 @@ function doneToday(v = S.me) {
     else if (['second_review', 'approved'].includes(d.status) && d.approved_by === v.id && d.approved_at && hday(ms(d.approved_at)) === day && !d.second_approved_by)
       out.push({ at: ms(d.approved_at), words: `Approved: ${sayWords(b)}`, act: 'unapprove', b, d });
     else if (d.status === 'approved' && d.second_approved_by === v.id && d.second_approved_at && hday(ms(d.second_approved_at)) === day)
-      out.push({ at: ms(d.second_approved_at), words: `Second look given: ${sayWords(b)}`, act: 'unapprove', b, d });
+      out.push({ at: ms(d.second_approved_at), words: `${SL} given: ${sayWords(b)}`, act: 'unapprove', b, d });
     else if (d.status === 'review' && d.submitted_by === v.id && d.submitted_at && hday(ms(d.submitted_at)) === day)
       out.push({ at: ms(d.submitted_at), words: `Sent for approval: ${sayWords(b)}`, act: 'withdraw', b, d });
   }
@@ -1134,7 +1129,7 @@ export function listHTML(v = S.me, { ro = false, skip = null, hideHear = false }
   const laterL = later.length ? (ro ? `<p class="t6-quiet t6-later">${icon('calendar-clock')}<span>${esc(`${plural(later.length, 'more', 'more')} later · the first by ${dayWords(later[0].at)}`)}</span></p>`
     : `<nav class="t6-doors t6-later" aria-label="Later">${lineA('#/', 'calendar-clock', `<b>${later.length} more later</b> · the first by ${esc(dayWords(later[0].at))}`, { attrs: ' data-v6pick="later"' })}</nav>`) : '';
   // `hideHear`: the next step's sitting is a card on the same page (a hearing day), so its card leaves out the hearing line.
-  const nextH = (n = '') => nx ? `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : 'Your next step'}</h2>${ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n)}${!ro && vbIssueOf(nx.b) ? `<p class="vb-next-for">${vbIssueA(vbIssueOf(nx.b), 'vb-next-issue')}</p>` : ''}</section>`
+  const nextH = (n = '') => nx ? (card => `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : 'Your next step'}</h2>${card}${!ro && vbIssueOf(nx.b) && !vbNamed(card, vbIssueOf(nx.b)) ? `<p class="vb-next-for">${vbIssueA(vbIssueOf(nx.b), 'vb-next-issue')}</p>` : ''}</section>`)(ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n))
     : clearCard(v, w, ro, n);
   // R-352: one's own list, each row the job first (jobRow), in time order; partner words to approve are the Team lines'
   // (doorLines). Coming up ends with one quiet line to the week, whose one home is Hearings (Nate 27 Oct: the calendar is
@@ -1241,7 +1236,6 @@ function render(route) {
   const bd = badgeOf(), P = plan(v), { w, sits, phone, phoneDay } = P;
   const L = listHTML(v, { skip: phoneDay ? P.onCard : null, hideHear: P.hideHear });
   const coal = true, lead = leadLine(), done = doneBand(v), banner = vbBanner(v, P.next);
-  if (VB) SNAP = new Set(doneToday(v).map(x => x.words));
   // Getting started sits right under the next step (the critic's 11) as one line below 1100px (R-316 W7: its list pushed a
   // 1024 laptop's lists a sixth of a screen down; the line opens it in Help); from 1100px its short list leads the side
   // column (sideHTML) and the line is not drawn, so the rows start where they always do. At the Capitol on a phone's
@@ -1450,7 +1444,7 @@ function balance(main) {
 function wire(route, root) {
   if (route?.place === 'hearings' || route?.q?.view === 'week' || route?.q?.view === 'ahead') return v5.wire(route, root);
   const main = root.querySelector('.t6-root'); if (!main) return;
-  wireSteps(main, { after: VB ? vbAfter : redraw });
+  wireSteps(main, { after: redraw });
   wirePartner(main);
   // The frame routes every a[href^="#/"] itself (app.js wireFrame, wired after this), which would open the bill instead of
   // the item beside the list. A picked row's address keeps the page's own path, so the frame leaves it to wireListDetail and

@@ -15,6 +15,7 @@ import { S, DB, VB, esc, hooks, startedFromLine, raceLine } from './data.js';
 import { agoWords, alertTarget, alertsToReview, billById, diedish, whyDead, hearingAhead, stopOf, approves, canFirstApprove, canSecondApprove, standingIn, draftHearing, blurb } from './model.js';
 import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './model.js';
 import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn, vbFinish } from './ui.js';
+import { SL, sl } from './ui.js';   // R-365 B plain words
 import { emailPreview, HELD_NEXT } from './composer.js';
 import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
 import { plainCodes } from './terms.js';
@@ -105,7 +106,7 @@ function billState(b, { email = false, h = null } = {}) {
 function track(d) {
   const second = d.status === 'second_review' || !!d.second_approved_by || !!d.first_for_bill
     || (d.status === 'review' && !Object.values(S.drafts || {}).flat().some(x => x.bill_id === d.bill_id && x.id !== d.id && (['approved', 'filed'].includes(x.status) || x.second_approved_at)));
-  const steps = [['draft', 'Write'], ['review', 'Approve'], ...(second ? [['second_review', 'Second look']] : []), ['approved', 'File']];
+  const steps = [['draft', 'Write'], ['review', 'Approve'], ...(second ? [['second_review', SL]] : []), ['approved', 'File']];
   const cur = Math.max(0, steps.findIndex(([k]) => k === d.status));
   return `<ol class="v6-track rv6-track" aria-label="Testimony steps">${steps.map(([, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : '<span class="v6-track-dot" aria-hidden="true"></span>'}<span>${esc(l)}</span></li>`).join('')}</ol>`;
 }
@@ -126,7 +127,7 @@ function draftBody(it) {
   // The one time to act (spec 5 actBy), or "Late, still accepted until 9:30 AM" in amber while the Capitol still takes it.
   const s = billStep(b, { d, h }), shown = s ? shownStatus({ ...s, mine: true }) : null;
   const tile = !s ? null : ['late', 'overdue'].includes(shown.tone) ? shown : s.act?.words ? { tone: 'neutral', icon: s.status.soon ? 'clock' : 'calendar', words: s.act.words } : null;
-  const who = two ? `${cap(first(d.approved_by))} approved it ${ago(d.approved_at)}. It is this bill’s first testimony, so it gets a second look.`
+  const who = two ? `${cap(first(d.approved_by))} approved it ${ago(d.approved_at)}. It is this bill’s first testimony, so it gets a ${sl}.`
     : d.submitted_by ? `Sent by ${own ? 'you' : first(d.submitted_by)} ${ago(d.submitted_at)}` : 'Not sent by anyone yet';
   const late = staleLine(b, d), from = late && d.from_draft_id ? '' : startedFromLine(b, d);
   const hear = h ? `${committeeName(h.committee) || h.committee} · ${h.status === 'cancelled' ? 'hearing cancelled, no new date yet' : `${whenAt(h.scheduled_at)}${h.room ? ` · ${roomName(h.room)}` : ''}`}` : '';
@@ -179,7 +180,7 @@ function current(route) {
   return { r, it: !end && r.i < r.keys.length ? resolve(r.keys[r.i]) : null };
 }
 // The draft's place for "no longer waiting for you", in the state words (spec 5).
-const STATE_SAID = { draft: 'back with its writer', review: 'with an approver', second_review: 'waiting for its second look', approved: 'ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' };
+const STATE_SAID = { draft: 'back with its writer', review: 'with an approver', second_review: `waiting for its ${sl}`, approved: 'ready to file', filed: 'filed', cancelled: 'for a cancelled hearing' };
 function render(route) {
   if (!S.me) return `<div class="rv6"><p>No staff record yet. Ask your admin to add you.</p></div>`;
   const { r, it } = current(route);
@@ -291,7 +292,7 @@ async function approve(route, el) {
     await DB.transition(it.b.id, it.d.id, 'approve'); markNotices(it.b.id);
     // Written from the state the server returned: a first testimony goes on to its second look.
     const d = resolve(it.key)?.d || it.d, fid = filerOf(d), filer = fid && fid !== S.me.id ? first(fid) : null;   // W20 (T-3): model.js filerOf
-    const next = d.status === 'second_review' ? `${cap(whoseStep(d, it.b).words) || 'A second approver'} gives the second look next` : filer && filer !== 'Someone' ? `${filer} files it next` : 'File it at the Capitol next';
+    const next = d.status === 'second_review' ? `${cap(whoseStep(d, it.b).words) || 'A second approver'} gives the ${sl} next` : filer && filer !== 'Someone' ? `${filer} files it next` : 'File it at the Capitol next';
     if (VB) { S.tdRev = null; return vbFinish(`Approved ${numWords(it.b)}’s testimony`, async () => { await DB.transition(it.b.id, it.d.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
     const entry = { num: sayWords(it.b), what: `Approved by you · ${next}`, icon: 'check' };
     toast(`Approved. ${next}.`, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);

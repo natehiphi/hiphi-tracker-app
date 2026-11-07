@@ -3,7 +3,7 @@
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
 import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
-import { changedSince } from './data.js';   // R-316 W24: staleFromLine
+import { changedSince, VB } from './data.js';   // R-316 W24: staleFromLine
 import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
 // R-316 W2: one rule on every staff screen. HIPHI never asks a chair to hear a bill it opposes (the public page already
 // says "Ask the chair to hold it"), so Oppose and Strongly oppose bills get no hearing ask, no thanks for moving it, and
@@ -131,7 +131,9 @@ export const plainGate = (label, day) => `Bills must ${gateNeed(label, 2)} by ${
 export const gateHead = (label, day) => { const w = gateWords(label); return w && w[1] ? `Must ${w[1](false)} by ${day}` : `${w?.[2] ? w[2][0].toUpperCase() + w[2].slice(1) : label}, ${day}`; };
 // A bill's own deadline by its full name: { key: 'second_lateral', label: 'Lateral' } -> "Second lateral".
 export const deadlineName = d => d ? gateName({ phase: d.key || '', label: d.label }) : '';
-export const gateName = g => /^(first|second)_/.test(g.phase) && /^(Lateral|Decking|Triple filing)$/.test(g.label) ? `${g.phase.startsWith('first') ? 'First' : 'Second'} ${g.label.toLowerCase()}` : g.label;
+// A deadline's own name for a screen: B says what it is (the Capitol calls it Triple filing).
+export const gateLabel = l => VB && l === 'Triple filing' ? 'Three-committee deadline' : l;
+export const gateName = g => /^(first|second)_/.test(g.phase) && /^(Lateral|Decking|Triple filing)$/.test(g.label) ? `${g.phase.startsWith('first') ? 'First' : 'Second'} ${VB && g.label === 'Triple filing' ? 'three-committee deadline' : g.label.toLowerCase()}` : g.label;
 export function sessionGates(list) {
   const now = Date.now(), endOf = d => new Date(d + 'T23:59:59-10:00').getTime();
   const live = list.filter(b => wantsHearing(b) && !diedish(b)).map(b => ({ b, st: stopOf(b) }));   // W2: not the bills HIPHI opposes
@@ -898,12 +900,12 @@ export const lateWord = ts => ts.w === 'File' ? 'File late' : `${ts.w} · late`;
 export const stepKey = (ts, h) => ts?.at ? '0' + ts.at : ts?.late ? '0' + h.scheduled_at : '1' + h.scheduled_at;
 export const STAGE_GLOSS = {
   introduced: 'Introduced. Waiting for its committee referrals and a first hearing.',
-  first_triple: 'Triple filing: a bill sent to three or more committees has to clear its first one by this date, or it is dead.',
+  first_triple: `${VB ? 'Three-committee deadline' : 'Triple filing'}: a bill sent to three or more committees has to clear its first one by this date, or it is dead.`,
   first_lateral: 'Lateral: the bill has to reach its last committee in the chamber it started in by this date.',
   first_decking: 'Decking: the bill has to clear its last committee and be filed for its floor vote in the first chamber by this date.',
   first_floor: 'Through committee in the first chamber: the full chamber has to pass it by Crossover.',
   first_crossover: 'Crossover: bills that passed their first chamber move to the other one. Anything left behind is dead.',
-  second_triple: 'Triple filing in the second chamber: clear the first of three or more committees by this date.',
+  second_triple: `${VB ? 'Three-committee deadline' : 'Triple filing'} in the second chamber: clear the first of three or more committees by this date.`,
   second_lateral: 'Lateral in the second chamber: reach the last committee by this date.',
   second_decking: 'Decking in the second chamber: clear the last committee and be filed for the floor vote by this date.',
   second_floor: 'Through committee in the second chamber: the full chamber has to pass it by the Cross back date.',
