@@ -34,13 +34,15 @@ const APPS = [
   { app: 'staff v2', own: f => f.startsWith('staff/') || ['staff.html', 'app.js', 'index.html', 'styles.css'].includes(f),
     prefix: 'staff_', smoke: 'staff_flows.py', layout: null,
     shared: ['staff/app.js', 'staff/ui.js', 'staff/data.js', 'staff/model.js', 'staff.html', 'app.js', 'index.html', 'styles.css'] },
+  // act.html, one bill and one action (R-360): its own small app in one/, with its own test.
+  { app: 'act', own: f => f === 'act.html' || f.startsWith('one/'), prefix: 'act_', smoke: 'act_screens.py', layout: null, shared: [] },
   { app: 'public', own: f => f.startsWith('pub/') || /^(track|track-a|public|embed|404)\.html$/.test(f) || f === 'stops.js' || f === 'demo/snapshot.json',
     prefix: '', smoke: 'screens_smoke.py', layout: 'python3 tests/density.py --check',
     shared: ['pub/kernel.js', 'pub/core.js', 'pub/app.js', 'pub/ui.js', 'pub/fx.js', 'pub/fx.css', 'pub/base.css', 'pub/i18n.js',
       'pub/demo.js', 'pub/start.js', 'track.html', 'stops.js', 'demo/snapshot.json'] },
 ];
 const FROZEN = /^(staff3|staff4)[_/.]/;
-const testApp = t => t.startsWith('staff6_') ? 'staff6' : t.startsWith('staff5_') ? 'staff5' : FROZEN.test(t) ? null
+const testApp = t => t.startsWith('act_') ? 'act' : t.startsWith('staff6_') ? 'staff6' : t.startsWith('staff5_') ? 'staff5' : FROZEN.test(t) ? null
   : t.startsWith('staff_') ? 'staff v2' : 'public';
 
 const sh = (cmd, args) => { try { return execFileSync(cmd, args, { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return ''; } };
