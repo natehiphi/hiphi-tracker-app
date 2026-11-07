@@ -10,18 +10,41 @@ body.v3 .v3b-chip:focus-visible { outline: 3px solid var(--p700); outline-offset
 body.v3 .v3b-chip[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); }
 @media (min-width: 900px) { body.v3 .v3b-chips { flex-wrap: wrap; overflow: visible; margin: var(--s16) 0 0; padding: 0; } }
 
-/* An issue: its mark, its name (to its page) over its topic, and the quiet Follow on the right; then its bills in one white box. */
-body.v3 .v3b-isec { margin-top: var(--s24); }
-body.v3 .v3b-isec:first-of-type { margin-top: var(--s8); }
-body.v3 .v3b-ihead { display: flex; align-items: center; gap: var(--s12); margin-bottom: var(--s8); }
-body.v3 .v3b-ilead { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); }
-body.v3 .v3b-ilead .ic { width: 20px; height: 20px; }
+/* The issues: one white box of closed rows (a row each: its mark, its name over "5 bills · 2 need voices this week", a chevron),
+   the quiet Follow beside each. A tap opens the issue's bills under its row, in the same box. */
+body.v3 .v3b-ilist { list-style: none; margin: var(--s8) 0 0; padding: 0; background: var(--n0); border: 1px solid var(--n200); border-radius: var(--r16); overflow: hidden; }
+body.v3 .v3b-isec + .v3b-isec { border-top: 1px solid var(--n100); }
+body.v3 .v3b-ihead { display: flex; align-items: center; gap: var(--s8); padding-right: var(--s12); }
+body.v3 .v3b-ih { flex: 1; min-width: 0; margin: 0; font: inherit; }
+body.v3 .v3b-itog { display: flex; align-items: center; gap: var(--s12); width: 100%; min-height: 60px; padding: var(--s8) var(--s4) var(--s8) var(--s12); border: 0; background: none;
+  color: var(--n900); font: inherit; text-align: left; cursor: pointer; }
+body.v3 .v3b-itog:hover .v3b-in { color: var(--p700); }
+body.v3 .v3b-itog:focus-visible { outline: 3px solid var(--p700); outline-offset: -3px; border-radius: var(--r12); }
+body.v3 .v3b-ilead { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--p50); color: var(--p700); }
+body.v3 .v3b-ilead .ic { width: 18px; height: 18px; }
 body.v3 .v3b-iname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-body.v3 .v3b-iname h3 { margin: 0; font: 600 var(--t16)/1.25 var(--font-h); }
-body.v3 .v3b-iname h3 a { color: var(--n900); text-decoration: none; }
-body.v3 .v3b-iname h3 a:hover { color: var(--p700); text-decoration: underline; }
-body.v3 .v3b-iname h3 a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
-body.v3 .v3b-cat { color: var(--n700); font-size: var(--t13); }
+body.v3 .v3b-in { font: 600 var(--t16)/1.25 var(--font-h); letter-spacing: -.01em; text-wrap: pretty; }
+body.v3 .v3b-icount { font-size: var(--t13); color: var(--n700); }
+body.v3 .v3b-ichev { flex: none; width: 20px; height: 20px; color: var(--n500); transition: transform .15s; }
+body.v3 .v3b-isec.open .v3b-ichev { transform: rotate(180deg); }
 body.v3 .v3b-follow { flex: none; }
+/* Ninety outlined pills in one box are loud: in the list the Follow is a quiet text button until pressed (then the pale Following). */
+body.v3 .v3b-ilist .v3b-follow.rc-fpill:not(.on) { box-shadow: none; background: none; }
+body.v3 .v3b-ilist .v3b-follow.rc-fpill:not(.on):hover { background: var(--p50); }
+/* A phone: no mark and a tighter Follow, so most names take one or two lines and 91 rows stay under eight screens. */
+@media (max-width: 599px) {
+  body.v3 .v3b-ilead { display: none; }
+  body.v3 .v3b-itog { min-height: 48px; padding: 5px 0 5px var(--s12); gap: var(--s8); }
+  body.v3 .v3b-iname { gap: 1px; }
+  body.v3 .v3b-in { font-size: .9375rem; line-height: 1.2; }
+  body.v3 .v3b-icount { line-height: 1.25; }
+  body.v3 .v3b-ihead { gap: 0; padding-right: var(--s8); }
+  body.v3 .v3b-follow.rc-fpill { padding: 0 10px; gap: 4px; }
+  body.v3 .v3b-follow.rc-fpill.on { padding-right: 10px; }
+}
+body.v3 .v3b-ibody { padding: 0 var(--s12) var(--s12); }
+body.v3 .v3b-ibody[hidden] { display: none; }
+body.v3 .v3b-ipage { margin: var(--s4) 0 0; }
 body.v3 .v3b-more { margin-top: var(--s4); }
 body.v3 .v3b-foot { margin-top: var(--s32); }
+@media (prefers-reduced-motion: reduce) { body.v3 .v3b-ichev { transition: none; } }

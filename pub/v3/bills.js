@@ -3,9 +3,10 @@
 // the layout and the words ported and the data rewritten over core.js and the live search (find.js).
 // From the top: the search box (find.js's own search: its synonyms, so "vape" finds the e-cigarette bills, and bill numbers in
 // any spacing); HIPHI's topics as chips (aria-pressed); "Needs voices this week", up to five bills from the ranking behind
-// today's Find (core.js recommendations) with a hearing inside the week; one section per issue with a quiet Follow (kernel.js
-// setFollows, nothing else writes a follow) and its bills, testimony open first, then still moving, then became law, then the
-// rest, four shown and "Show N more" in place; "Other bills" (HIPHI's bills on no issue); and the foot: Every bill HIPHI tracks,
+// today's Find (core.js recommendations) with a hearing inside the week; one closed row per issue with a quiet Follow (kernel.js
+// setFollows, nothing else writes a follow) and "5 bills · 2 need voices this week", opening on a tap to its bills, testimony
+// open first, then still moving, then became law, then the rest, four shown and "Show N more" in place (a topic or a search
+// opens the issues it leaves); "Other bills" (HIPHI's bills on no issue); and the foot: Every bill HIPHI tracks,
 // Committees, For advocacy groups. Lists from HIPHI (as rec/find.js listRows draws them) come after Needs voices (see listRows).
 // What the screen remembers (B-6): the topic, the search, the issues opened and where it was scrolled to, for the visit in
 // sessionStorage under its own key (the practice copy's under _demo). A search also lives in the address, as Find's does.
@@ -139,15 +140,25 @@ function voices() {
 const follow = (i, on) => on
   ? `<button type="button" class="rc-fpill on v3b-follow" data-v3follow="${esc(i.id)}" aria-pressed="true" aria-label="Following ${esc(i.name)}. Press to stop following.">${icon('check')}<span>Following</span></button>`
   : `<button type="button" class="rc-fpill v3b-follow" data-v3follow="${esc(i.id)}" aria-pressed="false" aria-label="Follow ${esc(i.name)}">${icon('star')}<span>Follow</span></button>`;
-function issueSec({ i, bills }) {
-  const cat = !M.topic ? (S.cats || []).find(c => c.key === i.category)?.name : '';
-  return `<section class="v3b-isec" id="v3b-i-${esc(i.slug)}" aria-labelledby="v3b-ih-${esc(i.slug)}">
-    <div class="v3b-ihead"><span class="v3b-ilead" aria-hidden="true">${icon(issueIcon(i.icon))}</span><span class="v3b-iname"><h3 id="v3b-ih-${esc(i.slug)}"><a href="#/issue/${esc(i.slug)}">${esc(i.name)}</a></h3>${cat ? `<span class="v3b-cat">${esc(cat)}</span>` : ''}</span>${follow(i, issueFollowed(i))}</div>
-    ${rowsOf(bills, i.id)}</section>`;
+// An issue starts closed (91 issues with their bills open made Find about 26,700px on a phone): one row with its mark, its name,
+// "5 bills · 2 need voices this week" and a chevron, the quiet Follow beside it. A tap of the row opens its bills (four, then
+// "Show N more") and a link to the issue's page. A chosen topic or a search opens the issues it leaves; a tap closes one again.
+// Opened and closed issues are remembered for the visit (M.open: "i:<id>" opened, "x:<id>" closed against a topic or search).
+const isOpen = (i, q) => M.open.has('i:' + i.id) || (!!(M.topic || q) && !M.open.has('x:' + i.id));
+const soonCount = bills => bills.filter(b => { const d = dueOf(b); return d?.at && Date.parse(d.h.scheduled_at) < Date.now() + 7 * DAY; }).length;
+const countLine = bills => { const n = bills.length, v = soonCount(bills);
+  return `${n} bill${n === 1 ? '' : 's'}${v ? ` · ${v} need${v === 1 ? 's' : ''} voices this week` : ''}`; };
+function issueSec({ i, bills }, q) {
+  const open = isOpen(i, q), id = `v3b-ib-${esc(i.slug)}`;
+  return `<li class="v3b-isec${open ? ' open' : ''}" id="v3b-i-${esc(i.slug)}">
+    <div class="v3b-ihead"><h3 class="v3b-ih"><button type="button" class="v3b-itog" data-v3open="${esc(i.id)}" aria-expanded="${open}" aria-controls="${id}">
+      <span class="v3b-ilead" aria-hidden="true">${icon(issueIcon(i.icon))}</span><span class="v3b-iname"><span class="v3b-in">${esc(i.name)}</span><span class="v3b-icount">${esc(countLine(bills))}</span></span>${icon('chevron-down', { cls: 'v3b-ichev' })}</button></h3>${follow(i, issueFollowed(i))}</div>
+    ${open ? `<div class="v3b-ibody" id="${id}">${rowsOf(bills, i.id)}<p class="v3b-ipage"><a class="btn text" href="#/issue/${esc(i.slug)}"><span>About ${esc(i.name)}</span>${icon('chevron-right')}</a></p></div>` : `<div class="v3b-ibody" id="${id}" hidden></div>`}</li>`;
 }
+const issueList = (secs, q) => `<ul class="v3b-ilist" role="list">${secs.map(x => issueSec(x, q)).join('')}</ul>`;
 // Lists from HIPHI (rec/find.js listRows): quiet rows in a white box, each to the list's page, whose one button follows it. Above
-// the issues, not at the foot the plan named: with every issue's bills under it the foot is about 25,000px down a phone, where
-// HIPHI's lists would be lost. Hidden while a topic is chosen (a list spans topics).
+// the issues, not at the foot the plan named: with 91 issue rows the foot is several screens down a phone, where HIPHI's lists
+// would be lost. Hidden while a topic is chosen (a list spans topics).
 const listRows = () => { const ls = S.lists || []; if (!ls.length) return '';
   return recSec('v3b-lists-h', 'Lists from HIPHI', `<ul class="rc-rows rc-lists ${BOX}" role="list">${ls.map(l => recRow({ name: l.title,
     text: S.listFollows?.has(l.id) ? 'You follow this list' : l.description || '', href: `#/list/${encodeURIComponent(l.slug)}`, lead: issueIcon(l.icon, 'list') })).join('')}</ul>`,
@@ -164,7 +175,7 @@ function browse() {
   return `${si.phase !== 'in' ? `<p class="rc-note rc-off">The Legislature is on break until ${esc(openWords(si))}. Here is where each ${si.recapYear} bill ended up.</p>` : ''}
     ${vs.length ? recSec('v3b-voices-h', 'Needs voices this week', `<ul class="rc-rows ${BOX}" role="list">${vs.map(row).join('')}</ul>`) : ''}
     ${M.topic ? '' : listRows()}
-    ${S1.issues.length || S1.other.length ? `<section class="rc-sec v3b-issues" aria-labelledby="v3b-iss-h"><h2 class="rc-h2" id="v3b-iss-h">Bills by issue</h2>${S1.issues.map(issueSec).join('')}</section>` : recEmpty('No bills on this topic yet.')}
+    ${S1.issues.length || S1.other.length ? `<section class="rc-sec v3b-issues" aria-labelledby="v3b-iss-h"><h2 class="rc-h2" id="v3b-iss-h">Bills by issue</h2>${issueList(S1.issues, '')}</section>` : recEmpty('No bills on this topic yet.')}
     ${S1.other.length ? recSec('v3b-other-h', 'Other bills', rowsOf(S1.other, 'other')) : ''}
     ${foot()}`;
 }
@@ -176,7 +187,7 @@ function found(q) {
   const S1 = sections(q);
   if (!S1.issues.length && !S1.other.length) return `${recEmpty(M.topic ? `Nothing in this topic matches “${q}”. Try All topics.` : `Nothing matches “${q}”. Try one word, like e-cigarettes, or a bill number like HB 1563.`)}${everyLink()}`;
   return `${searchNote(F.res, P)}
-    ${S1.issues.length ? `<section class="rc-sec v3b-issues" aria-labelledby="v3b-iss-h"><h2 class="rc-h2" id="v3b-iss-h">Bills by issue</h2>${S1.issues.map(issueSec).join('')}</section>` : ''}
+    ${S1.issues.length ? `<section class="rc-sec v3b-issues" aria-labelledby="v3b-iss-h"><h2 class="rc-h2" id="v3b-iss-h">Bills by issue</h2>${issueList(S1.issues, q)}</section>` : ''}
     ${S1.other.length ? recSec('v3b-other-h', S1.issues.length ? 'Other bills' : 'Bills', rowsOf(S1.other, 'q-other', OTHER_SEARCH)) : ''}
     ${capNote(F.res)}${everyLink()}`;
 }
@@ -231,6 +242,14 @@ function wireRes(box, links) {
     el.setAttribute('aria-busy', 'true');
     try { await toggleFollow(i); } catch (e) { console.error(e); }
     paint(); document.querySelector(`#v3b-res [data-v3follow="${CSS.escape(i.id)}"]`)?.focus({ preventScroll: true });
+  });
+  box.querySelectorAll('[data-v3open]').forEach(el => el.onclick = () => {
+    const id = el.dataset.v3open, i = S.issueById.get(id); if (!i) return;
+    const was = el.getAttribute('aria-expanded') === 'true';
+    M.open.delete('i:' + id); M.open.delete('x:' + id);
+    if (isOpen(i, F.cur) === was) M.open.add((was ? 'x:' : 'i:') + id);
+    save(); paint();
+    document.querySelector(`#v3b-res [data-v3open="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
   });
   box.querySelectorAll('[data-v3more]').forEach(el => el.onclick = () => {
     const k = el.dataset.v3more, n = document.querySelectorAll(`#v3b-rows-${CSS.escape(k)} > li`).length;

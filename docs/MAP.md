@@ -411,6 +411,33 @@ Nate, 30 Oct 2026: "make the bold changes but keep the my issues tab".
   and calls `storyMark()`; "Not now" does too. The card's rules are inline in its markup. Tests: `tests/v2_first_visit.py`, and the card's
   place on Home in `tests/v2_home.py`.
 
+### Version 3 (?v3=1, R-362)
+
+Built 7 Nov 2026 from the 6 Nov review of act.html (R-360): track.html with act.html's parts folded in. **A review version, not a
+try-both test**: a flag like v2, nothing counted, every A/B test pinned to its first version under it (`pub/variant.js`). Look at it:
+https://natehiphi.github.io/hiphi-tracker-app/track.html?demo=1&v3=1&restart#/ (the plan: backend `docs/requests/R-362/PLAN.md`).
+
+- **The switch.** `V3()` in `pub/app.js`, read as `app.v3()`; the body carries `.v3` (not on the first visit's routes). `V2()` stays
+  false under it; v3 borrows v2's letter (`pub/v2/letter.js`, under `x.v3`) and its island road. Each v3 screen is a lazy module in
+  `pub/v3/`, and `V3_CSS` brings its sheet after everything else's. Tabs: Home · This week · Find · You.
+- **The first visit.** Home's front door (`pub/v3/home.js`) replaces the welcome; "Choose your issues" opens the topics, then Your
+  issues with nothing ticked, then the road cut to four pages, then Home (`pub/start.js`, `pub/start-rest.js`): two strip parts ("Your issues", "Your voice"),
+  about 11 taps door to Home, no phone or profile ask on the way.
+- **Home** (`pub/v3/home.js`, `home.css`): a newcomer's door is the one thing worth doing (`pub/v3/pick.js` picks it and draws its
+  card) and four issues; a returner gets the same card and at most two plain lines (the later-visit asks), then This week.
+- **Find** (`pub/v3/bills.js`, `bills.css`, the `#/find` route): the search, the topic chips, Needs voices this week, Lists from
+  HIPHI, then every issue as one closed row ("5 bills · 2 need voices this week", its quiet Follow) that opens on a tap to its bills
+  (four, then Show N more); a chosen topic or a search opens the issues it leaves. Opened issues, the topic, the search and the
+  place are kept for the visit in sessionStorage (`hiphi_v3_find`).
+- **This week** (`pub/v3/week.js`, `week.css`, the `#/bills` tab): the one thing's card, Your issues, the week's hearings by day.
+- **The card's styles** are one sheet, `pub/v3/card.css`, loaded with Home and This week.
+- **The bill page** (`pub/v3/bill.js`, `bill.css`): name, one status line, the deadline and one button first; stance chips below.
+- **The letter and the Mahalo** (`pub/v2/letter.js` under `x.v3`, `pub/v3/thanks.js`, `thanks.css`): name and town the only fields,
+  own words a link; a calm Mahalo with one follow ask, then the alerts card. No share card under v3, and its Done records no pass on
+  the share ask (`pub/helper.js`).
+- **Tests:** `tests/v3_screens.py` runs `v3_first_visit.py`, `v3_home.py`, `v3_bills_week.py`, `v3_bill.py` and `v3_letter.py`
+  in turn (Tests, shard 3).
+
 ## Staff v6 (`staff6.html` + `staff6/`), the calm rebuild (R-336, 23 Oct 2026)
 
 Nate: "It still feels far too overwhelming with too many things to do in too many places." Staff v5 rebuilt around the

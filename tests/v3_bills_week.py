@@ -1,7 +1,8 @@
 # R-362 part 4: version 3's Find as bills by issue (pub/v3/bills.js, the #/find route) and This week (pub/v3/week.js, the #/bills tab),
 # behind ?v3=1 on the practice copy (16 Mar 2026). DESIGN B-3, B-6, A-3, A-14, B-13, C-15.
 #   Find: the box, the topic chips (aria-pressed; one chosen filters the issues), Needs voices this week (at most five), Lists from HIPHI
-#     (each to #/list/...), one section per issue with a quiet Follow and at most 4 bills + "Show N more" in place, the foot rows to
+#     (each to #/list/...), one closed row per issue with a quiet Follow and "N bills", a tap opens it to at most 4 bills + "Show N more"
+#     in place (kept over a reload), a topic chip or a search opens the issues it leaves, under about 8 phone screens with All topics, the foot rows to
 #     Every bill HIPHI tracks, Committees and For advocacy groups; no filled button; "hb2121" and "vape" both find their bills; Back
 #     from a bill finds the topic and the place it was scrolled to.
 #   This week: the tab reads "This week" and is lit; the one thing's card is the one filled button; Your issues; the hearings by day,
@@ -9,11 +10,11 @@
 #     "Pick your issues".
 #   Both: a Follow pressed on Find shows on This week and survives a reload; no "dead" and no "vape" in the words; no sideways
 #     scroll at 390x844 and 1440x900; no page errors.
-# usage: python3 tests/v3_bills_week.py [BASE]   (BASE defaults to http://127.0.0.1:8874); SHOTS=<dir> saves both screens at both sizes
+# usage: python3 tests/v3_bills_week.py [BASE]   (BASE defaults to http://localhost:8832); SHOTS=<dir> saves both screens at both sizes
 import os, re, sys
 from playwright.sync_api import sync_playwright
 
-BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:8874').split('/track.html')[0].rstrip('/')
+BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').split('/track.html')[0].rstrip('/')
 SHOTS = os.environ.get('SHOTS') or ''
 if SHOTS: os.makedirs(SHOTS, exist_ok=True)
 URL = BASE + '/track.html?demo=1&v3=1'
@@ -48,7 +49,7 @@ FIRST = """() => { const h = innerHeight, els = [...document.querySelectorAll('#
   return els.length; }"""
 
 def find(pg, route='#/find'):
-  pg.goto(URL + route); pg.wait_for_selector('.v3b #v3b-res .rc-row', timeout=60000); pg.wait_for_timeout(500)
+  pg.goto(URL + route); pg.wait_for_selector('.v3b #v3b-res .v3b-isec', timeout=60000); pg.wait_for_timeout(500)
 def week(pg):
   pg.goto(URL + '#/bills'); pg.wait_for_selector('.v3w #v3w-hear-h', timeout=60000); pg.wait_for_timeout(500)
 def search(pg, q):
@@ -72,24 +73,34 @@ with sync_playwright() as p:
     ls = pg.evaluate("[...document.querySelectorAll('.rc-lists .rc-row')].map(a => a.getAttribute('href'))")
     ok(len(ls) >= 2 and all(x.startswith('#/list/') for x in ls), f'{t}: Lists from HIPHI reachable, each to its page {ls}')
     ok(pg.evaluate("['#/allbills', '#/committees', '#/groups'].every(h => document.querySelector(`.v3b-foot a[href=\"${h}\"]`))"), f'{t}: the foot: Every bill HIPHI tracks, Committees, For advocacy groups')
-    secs = pg.evaluate("[...document.querySelectorAll('.v3b-isec')].map(s => [s.querySelectorAll('.rc-rows > li').length, !!s.querySelector('[data-v3more]'), s.querySelectorAll('[data-v3follow]').length])")
-    ok(len(secs) >= 10 and all(n <= 5 and f == 1 for n, m, f in secs) and all(n == 4 for n, m, f in secs if m), f'{t}: {len(secs)} issues, each one Follow and at most four bills before Show N more')
+    secs = pg.evaluate("[...document.querySelectorAll('.v3b-isec')].map(s => [s.querySelectorAll('.rc-rows > li').length, s.querySelector('[data-v3open]').getAttribute('aria-expanded'), s.querySelectorAll('[data-v3follow]').length, /^\\d+ bills?( · \\d+ needs? voices this week)?$/.test(s.querySelector('.v3b-icount').innerText)])")
+    ok(len(secs) >= 10 and all(n == 0 and e == 'false' and f == 1 and c for n, e, f, c in secs), f'{t}: {len(secs)} issues, each closed with one Follow and "N bills" (none open)')
     ok(pg.evaluate("!document.querySelector('#main .btn.primary')"), f'{t}: no filled button (A-3: browsing)')
     words = pg.evaluate(MAIN); ok(not BAD.search(words), f'{t}: no "dead" or "vape" in the words (C-15, R-158)')
     ok(not pg.evaluate(WIDE), f'{t}: no sideways scroll')
-    print(f'INFO {t}: {pg.evaluate(FIRST)} controls in the first screenful; page {pg.evaluate("document.documentElement.scrollHeight")}px')
+    H = pg.evaluate("document.documentElement.scrollHeight")
+    if tag == 'phone': ok(H < 8.5 * h, f'{t}: All topics fits in about 8 phone screens ({H}px, {H / h:.1f} screens)')
+    print(f'INFO {t}: {pg.evaluate(FIRST)} controls in the first screenful; page {H}px')
+    # a tap of an issue's row opens its bills (four, then Show N more), and the opened issue is kept over a reload
+    k = pg.evaluate("[...document.querySelectorAll('.v3b-isec')].find(s => +s.querySelector('.v3b-icount').innerText.split(' ')[0] > 5)?.querySelector('[data-v3open]').dataset.v3open")
+    pg.click(f'[data-v3open="{k}"]'); pg.wait_for_timeout(200)
+    ok(pg.evaluate(f"document.querySelector('[data-v3open=\"{k}\"]').getAttribute('aria-expanded')") == 'true' and pg.evaluate(f"document.querySelectorAll('#v3b-rows-{k} > li').length") == 4
+       and pg.evaluate(f"!!document.querySelector('[data-v3more=\"{k}\"]')") and pg.evaluate("document.querySelectorAll('.v3b-isec.open').length") == 1, f'{t}: a tap opens that issue alone, four bills and Show N more')
+    pg.reload(); pg.wait_for_selector('.v3b #v3b-res .v3b-isec', timeout=30000); pg.wait_for_timeout(400)
+    ok(pg.evaluate(f"document.querySelector('[data-v3open=\"{k}\"]').getAttribute('aria-expanded')") == 'true', f'{t}: the opened issue is still open after a reload (B-6)')
     # Show N more opens in place and is remembered
-    k = pg.evaluate("document.querySelector('[data-v3more]')?.dataset.v3more")
-    if k:
-      n0 = pg.evaluate(f"document.querySelectorAll('#v3b-rows-{k} > li').length")
-      pg.click(f'[data-v3more="{k}"]'); pg.wait_for_timeout(200)
-      ok(pg.evaluate(f"document.querySelectorAll('#v3b-rows-{k} > li').length") > n0 and pg.evaluate("location.hash") == '#/find', f'{t}: Show N more opens the rest in place')
+    n0 = pg.evaluate(f"document.querySelectorAll('#v3b-rows-{k} > li').length")
+    pg.click(f'[data-v3more="{k}"]'); pg.wait_for_timeout(200)
+    ok(pg.evaluate(f"document.querySelectorAll('#v3b-rows-{k} > li').length") > n0 and pg.evaluate("location.hash") == '#/find', f'{t}: Show N more opens the rest in place')
+    pg.click(f'[data-v3open="{k}"]'); pg.wait_for_timeout(200)
+    ok(pg.evaluate("document.querySelectorAll('.v3b-isec.open').length") == 0, f'{t}: a second tap closes it')
     # a topic chip filters
     allsec = len(secs)
     pg.click('[data-v3topic="tobacco"]'); pg.wait_for_timeout(300)
-    names = pg.evaluate("[...document.querySelectorAll('.v3b-isec h3')].map(e => e.innerText)")
+    names = pg.evaluate("[...document.querySelectorAll('.v3b-isec .v3b-in')].map(e => e.innerText)")
     ok(pg.evaluate("document.querySelector('[data-v3topic=tobacco]').getAttribute('aria-pressed')") == 'true' and 0 < len(names) < allsec
        and not any(re.search(r'school meal', n, re.I) for n in names), f'{t}: the Tobacco chip leaves its issues only ({len(names)} of {allsec}: {names[:3]})')
+    ok(pg.evaluate("[...document.querySelectorAll('.v3b-isec')].every(s => s.classList.contains('open') && s.querySelector('.rc-rows > li'))"), f'{t}: and opens every one of them')
     # Back from a bill finds the topic and the place
     pg.evaluate("window.scrollTo(0, Math.min(900, document.documentElement.scrollHeight - innerHeight))"); pg.wait_for_timeout(400)
     y0 = pg.evaluate("scrollY")
@@ -104,6 +115,8 @@ with sync_playwright() as p:
     # search
     search(pg, 'hb2121')
     ok(pg.evaluate("[...document.querySelectorAll('#v3b-res .rc-row')].some(a => /HB 2121\\b/.test(a.innerText))"), f'{tag} search "hb2121": finds HB 2121')
+    ok(pg.evaluate("document.querySelectorAll('.v3b-isec').length > 0 && [...document.querySelectorAll('.v3b-isec')].every(s => s.classList.contains('open') && s.querySelector('.rc-rows > li'))"), f'{tag} search "hb2121": the matching issues open')
+    ok(pg.evaluate("[...document.querySelectorAll('.v3b-isec')].length > 0 && [...document.querySelectorAll('.v3b-isec')].every(s => s.classList.contains('open'))"), f'{tag} search "hb2121": the matching issues open')
     search(pg, 'vape')
     hits = pg.evaluate("[...document.querySelectorAll('#v3b-res .rc-row')].map(a => a.innerText)")
     ok(any(re.search(r'e-cigarette|nicotine|tobacco|smok', x, re.I) for x in hits), f'{tag} search "vape": finds the e-cigarette bills ({len(hits)} rows)')
@@ -138,7 +151,7 @@ with sync_playwright() as p:
     week(pg); t = f'{tag} newcomer This week'
     ok(pg.evaluate("!!document.querySelector('.v3w-empty a[href=\"#/find\"]') && /Pick your issues/.test(document.querySelector('.v3w-empty').innerText) && /what happens at the Capitol/.test(document.querySelector('.v3w-empty').innerText)"),
        f'{t}: what the page is for, with Pick your issues (B-3)')
-    find(pg); name = pg.evaluate("document.querySelector('.v3b-isec h3').innerText.trim()")
+    find(pg); name = pg.evaluate("document.querySelector('.v3b-isec .v3b-in').innerText.trim()")
     pg.click('.v3b-isec [data-v3follow]'); pg.wait_for_function("document.querySelector('.v3b-isec [data-v3follow]').getAttribute('aria-pressed') === 'true'", timeout=15000)
     ok(True, f'{tag} newcomer Find: Follow on "{name}" turns to Following')
     week(pg)

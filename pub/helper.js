@@ -2000,8 +2000,9 @@ function onClick(e) {
   // bill goes on to the rest of their first visit.
   if (a === 'done') { const x = S.helper, b = x.b;
     // Done while the share card shows is a pass for that hearing: Home does not ask again (the review, P-5; C-3's rule for
-    // the profile ask, "no second ask on Home after a skip", kept for this one too; home.js reads hiphi_askf_no).
-    if (friendOpen(x) && x.h) try { const k = 'hiphi_askf_no', no = JSON.parse(localStorage.getItem(k) || '[]'); localStorage.setItem(k, JSON.stringify([...no, x.h.id].slice(-50))); } catch { /* this visit only */ }
+    // the profile ask, "no second ask on Home after a skip", kept for this one too; home.js reads hiphi_askf_no). Version 3's
+    // Mahalo has no share card (pub/v3/thanks.js), so its Done is no pass on a share ask it never showed (R-362).
+    if (!x.v3 && friendOpen(x) && x.h) try { const k = 'hiphi_askf_no', no = JSON.parse(localStorage.getItem(k) || '[]'); localStorage.setItem(k, JSON.stringify([...no, x.h.id].slice(-50))); } catch { /* this visit only */ }
     afterClose = () => { if (!app.onbActed?.(x)) app.newcomerNext?.(b); }; requestClose(); }
   else if (a === 'close') requestClose();
   else if (a === 'going') { const x = S.helper; noteGoing(x.h, true); markDone(x.b.id, x.h.id, 'attend', true, { quiet: true }).then(() => { if (S.helper === x) paint({ focus: 'gdt-' + x.h.id }); }); }

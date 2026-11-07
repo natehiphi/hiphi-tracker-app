@@ -93,7 +93,7 @@ const find3 = lazy('find3', () => './v3/bills.js', { tab: 'find', title: 'Find' 
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
 // Off a phone's first wave (R-357 5c): actions.css comes with every screen but the first visit's (cssFor0), wide.css with the first
 // screen only in a window of 900px or more (cssFor) and a moment after it on a phone, print.css after it too (track.html, __hiphiPrint.css).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'v3/home', 'v3/bills', 'v3/week', 'v3/bill', 'v3/thanks', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'v3/card', 'v3/home', 'v3/bills', 'v3/week', 'v3/bill', 'v3/thanks', 'a/a'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -116,7 +116,7 @@ const REC_CSS = { issue: ['bill', 'rec/issue'], category: ['rec/issue'] };
 // screen's. Only the screens that have a v2 page (V2_CSS) ask for it.
 const V2_CSS = { bill: ['v2/v2'] };
 // Version 3 (?v3=1, R-362): each of its screens' own stylesheet, after everything else's (pub/v3/).
-const V3_CSS = { home: ['v3/home'], find: ['v3/bills'], bills: ['v3/week'], bill: ['v3/bill'] };
+const V3_CSS = { home: ['v3/card', 'v3/home'], find: ['v3/bills'], bills: ['v3/card', 'v3/week'], bill: ['v3/bill'] };
 const wideCss = () => matchMedia('(min-width: 900px)').matches ? ['wide'] : [];   // R-357 5c: a wide window's first screen needs it; a phone's comes after
 const cssFor = name => { const base = REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
   const own2 = V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base;
