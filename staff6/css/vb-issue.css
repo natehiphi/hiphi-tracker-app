@@ -1,1 +1,51 @@
-/* R-365 version B: issue (filled by its builder). Rules under html.vb only. */
+/* R-365 version B (?vb=1), part (c): the issue page. Every rule under html.vb. The words and shapes come from v6's own
+   (issues.css ip6-*, steps.css v6-*); this adds the kind label, the step band, the tabs' room and B's few blocks. */
+html.vb .vb-issue .vb-kind { margin: 0 0 2px; font-size: var(--v6-t14); line-height: 20px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--v6-muted); }
+html.vb .vb-issue .vb-head { margin-top: 10px; }
+html.vb .vb-issue .vb-path ol { margin-bottom: 0; }
+
+/* the viewer's next step: one filled button, with what and when beside it; or one quiet line when it is someone else's */
+html.vb .vb-step { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; margin: var(--s16, 16px) 0 0; padding: 16px 20px;
+  border-radius: var(--v6-r12, 12px); background: var(--v6-card); box-shadow: var(--v6-shadow, 0 1px 3px rgba(0,0,0,.12)); }
+html.vb .vb-step.is-none { justify-content: flex-start; box-shadow: none; background: var(--v6-wash); gap: 12px; color: var(--v6-ink); }
+html.vb .vb-step.is-none > .ic { flex: none; width: 20px; height: 20px; }
+html.vb .vb-stepbody { min-width: 0; }
+html.vb .vb-steplab { margin: 0; font-size: var(--v6-t14); line-height: 20px; font-weight: 700; color: var(--v6-muted); }
+html.vb .vb-stepnow { margin: 2px 0 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: var(--v6-t18, 18px); line-height: 26px; color: var(--v6-ink); }
+html.vb .vb-stepsub { margin: 2px 0 0; font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); color: var(--v6-muted); }
+html.vb .vb-stepgo { flex: none; }
+html.vb .vb-stepgo .btn { white-space: nowrap; }
+
+html.vb .vb-tabs { margin: var(--s16, 16px) 0 0; border-bottom: 1px solid var(--v6-hair); flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+html.vb .vb-tabs::-webkit-scrollbar { display: none; }
+html.vb .vb-tabs a { --tp: 12px; }
+html.vb .vb-panel { margin-top: var(--s16, 16px); }
+html.vb .vb-sec { margin-top: var(--s24, 24px); }
+html.vb .vb-panel > .vb-sec:first-child, html.vb .vb-panel > .ip6-health + .vb-sec { margin-top: var(--s16, 16px); }
+html.vb .vb-panel .ip6-health { margin-top: 0; }
+html.vb .vb-more { margin: 8px 0 0; font-size: var(--v6-t16); }
+html.vb .vb-more a { color: var(--v6-action); font-weight: 700; text-decoration: none; }
+
+/* the next hearing */
+html.vb .vb-hearbox { padding: 12px 16px; border-radius: var(--v6-r12, 12px); background: var(--v6-card); }
+html.vb .vb-hearwhen { margin: 0; font-family: Poppins, system-ui, sans-serif; font-weight: 600; font-size: 18px; line-height: 26px; color: var(--v6-ink); }
+html.vb .vb-hearwhere, html.vb .vb-hearbills { margin: 2px 0 0; color: var(--v6-body); }
+html.vb .vb-hearwhere a { color: var(--v6-action); text-decoration: none; font-weight: 700; }
+html.vb .vb-hearbox .v6-step-go { margin-top: 8px; }
+
+/* testimony, one line a bill, and what was filed */
+html.vb .vb-tsum, html.vb .vb-filed { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+html.vb .vb-tsum li { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+html.vb .vb-tsum li b { font-weight: 700; }
+html.vb .vb-tsum a { color: var(--v6-ink); text-decoration: none; }
+html.vb .vb-filed li { display: flex; gap: 8px; align-items: flex-start; }
+html.vb .vb-filed .ic { flex: none; width: 18px; height: 18px; margin-top: 3px; }
+html.vb .vb-ask { quotes: none; display: block; overflow-wrap: anywhere; }
+html.vb .vb-cards { display: grid; gap: 12px; }
+
+@media (max-width: 640px) {
+  html.vb .vb-step:not(.is-none) { flex-direction: column; align-items: stretch; padding: 16px; }
+  html.vb .vb-stepgo .btn { width: 100%; justify-content: center; }
+  html.vb .vb-tabs { gap: 0; padding: 2px 0; }
+  html.vb .vb-tabs a { --tp: 5px; font-size: 14px; gap: 2px; }
+}

@@ -24,20 +24,21 @@
 //
 // Moved here from issues.js (R-336 walk 3): pageRender and its helpers, the bill search to put a bill on the issue,
 // related issues, merge, archive, the first-visit switch. issues.js re-exports issuePage, so app.js is unchanged.
-import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL } from './data.js';
-import { billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
-import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB } from './ui.js';
+import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, seesTeam } from './data.js';
+import { liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
+import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB, pathLine } from './ui.js';
 import { plural, afterClose, billName, iconName } from './lists.js';
 import { logConversation, refreshConversations } from './conversation.js';
 import { prepCardHTML, wirePrepCard, isDraft, stateOf, prepListHref, BOARD_HREF, prepHoldsOutlook, helpersOf as issueHelpersOf, takeIssue } from './prep.js';
-import { testimonyOf, dueOf } from './hearing.js';
+import { testimonyOf, dueOf, sittingOf } from './hearing.js';
 import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead } from './issuestand.js';
 import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { STATES } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
-import { itemRow, billRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK } from './steps.js';
+import { itemRow, billRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus, othersWords, billInIssue, hearingCard, goingRowHTML, timeWords } from './steps.js';
+import { askWriteHref, askCardHref, onBill } from './asks.js';
 import { surname } from './pathway.js';
 import { trackerModel } from './tracker.js';
 import { STANCE_WORD, STANCE_ICON, photo, shortName, legHref, roleWord } from './pathway.js';
@@ -203,7 +204,7 @@ function nextSteps(bills) {
       const hear = blast ? (S.hearings || []).find(x => 'eb' + x.id === t.id) : null, hch = hear ? CH[S.committees?.[codesOf(hear.committee)[0]]?.chamber] || (/^Senate/.test(cw(hear.committee)) ? 'Senate' : /^House/.test(cw(hear.committee)) ? 'House' : '') : '';
       const name = blast ? `Send the action alert for the ${blast[1]}${hch ? ' ' + hch : ''} hearing` : unCode(t.title);
       out.push({ at: due, b, html: itemRow({ key: 'td' + t.id, name, line: nw(esc([num, who || 'No owner yet', due != null ? `due ${dayWords(due)}` : ''].filter(Boolean).join(' · '))), href: billRoute(b), cls: 'ip6-todo' }),
-        who: t.assignee_id ? [t.assignee_id] : [], verb: 'todo' });
+        who: t.assignee_id ? [t.assignee_id] : [], verb: 'todo', title: name, dueAt: due });
     }
   }
   return out.sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity));
@@ -252,7 +253,7 @@ function health(xs, earlier) {
 // ---- who is working on it ----
 const VERB = { nodraft: 'writes the testimony for', write: 'writes the testimony for', submit: 'sends the testimony for', revise: 'revises the testimony for',
   approve: 'approves the testimony for', second: 'gives a second look to', file: 'files the testimony for', missed: 'checks the testimony for', chair: 'asks the chair about', todo: 'has a to-do on' };
-function whoHTML(i, xs, steps) {
+function whoHTML(i, xs, steps, { vb = false } = {}) {
   const ppl = new Map(), add = (id, k, v) => { if (!id || !advocate(id)) return; const p = ppl.get(id) || ppl.set(id, { own: false, help: false, bills: [], steps: [] }).get(id); if (k === 'own' || k === 'help') p[k] = true; else p[k].push(v); };
   add(i.owner_id, 'own');
   for (const h of issueHelpersOf(i)) add(h.id, 'help');
@@ -261,7 +262,7 @@ function whoHTML(i, xs, steps) {
   const nobody = steps.filter(s => s.nobody).length;
   const name = id => id === S.me?.id ? 'You' : advocate(id).full_name;
   const lineOf = p => [p.own ? 'Owns the issue' : p.help ? 'Helps on it' : '',
-    p.bills.length ? `owns ${p.bills.length > 2 ? `${p.bills.length} of its bills` : listAnd(p.bills.map(numWords))}` : '',
+    !vb && p.bills.length ? `owns ${p.bills.length > 2 ? `${p.bills.length} of its bills` : listAnd(p.bills.map(numWords))}` : '',
     p.steps.length === 1 ? `${VERB[p.steps[0].verb] || 'has a step on'} ${numWords(p.steps[0].b)}` : p.steps.length ? `${p.steps.length} steps now` : ''].filter(Boolean).join(' · ');
   const rows = [...ppl.entries()].sort((a, b) => (b[1].own - a[1].own) || (b[1].steps.length - a[1].steps.length) || name(a[0]).localeCompare(name(b[0])))
     .map(([id, p]) => `<div class="v6-row ip6-prow" role="listitem"><span class="ip6-pmain"><span class="v6-row-name">${esc(name(id))}</span><span class="v6-row-line"><span>${nw(esc(cap(lineOf(p))))}</span></span></span></div>`).join('');
@@ -763,6 +764,7 @@ const foldSec = (key, hid, title, { sum = '', body = '' }, { late = key + 'sum',
 function pageRender(route) {
   const i = issueById(route.id);
   if (!i) return `<div class="le-page i6-page">${empty({ h: 'h1', title: 'This issue is not here', text: 'It may have been merged into another, or the link is old.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>`;
+  if (VB) return vbRender(route, i);   // R-365 version B: its own page, same data and wire
   wantPeople();
   const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), { now, earlier } = billsSplit(i);
   const from = billFrom(route), bk = backTo(route);
@@ -805,6 +807,179 @@ function pageRender(route) {
     foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' }),
   ].join('');
   return `<div class="le-page is6-page ip6-page">${back}${head}${prepFirst ? prep : ''}${hc.html}${next}${billsSec}${who}${lines ? `<div class="ip6-lines">${lines}</div>` : ''}<div class="ip6-folds">${folds}</div>${i.archived_at ? '' : relatedLine(i)}${prepFirst ? '' : prep}</div>`;
+}
+
+
+// =====================================================================================================================
+// R-365 version B (?vb=1): the issue is the home for its bills, hearings, testimony and outreach. Direction B of
+// docs/requests/R-365/directions.html: the path line and a kind label so it never reads as a bill page, the viewer's next
+// step as the page's one filled button (or who has it), five tabs with counts kept in the address (#/issue/<id>/hearings,
+// so Back and shared links work), and the quiet reference (stance, people, committees, coalition, public numbers) folded
+// under About. Same data, same wire() as v6; this only draws. Without vb=1 none of it runs (pageRender's first line).
+// Repeats a walk named and this page drops: the issue's name over every row (billInIssue says the number alone when a bill
+// is named like its issue), "Owns HB 2121 and SB 2175" under a person (whoHTML vb), and a banner restating the bill counts.
+// =====================================================================================================================
+const VB_TABS = [['overview', 'Overview'], ['bills', 'Bills'], ['hearings', 'Hearings'], ['testimony', 'Testimony'], ['outreach', 'Outreach']];
+const vbTabOf = () => { const m = /^#\/issue\/[^/?]+\/([a-z]+)/.exec(location.hash); return VB_TABS.some(t => t[0] === m?.[1]) ? m[1] : 'overview'; };
+const TESTI_KINDS = new Set(['nodraft', 'write', 'submit', 'revise', 'approve', 'second', 'file', 'missed']);
+const vbFirst = id => (advocate(id)?.full_name || '').split(' ')[0] || 'someone';
+
+// The viewer's step on this issue: the first, by date, that is theirs (a testimony or chair step of theirs, or a to-do assigned to them).
+const vbMine = steps => steps.find(x => x.s ? x.s.you : !!S.me && x.who.includes(S.me.id));
+// What a step's button says when the step's own row has none (a step not yet due, a to-do): a link to where it is done.
+function vbStepButton(x) {
+  const s = x.s, b = x.b;
+  if (s) { const own = rowButton(s, { kind: 'primary', sm: false }); if (own) return own;
+    if (s.kind === 'chair') return btn('Ask the chair', { kind: 'primary', href: '#/hearings/ask?scope=mine' }); }
+  return btn(`Open ${esc(numWords(b))}`, { kind: 'primary', href: billRoute(b) });
+}
+// The one filled button with its due time, or one plain line saying whose the next step is.
+function vbStep(i, steps, { prepNext }) {
+  const mine = vbMine(steps);
+  if (mine) {
+    const s = mine.s, b = mine.b;
+    const what = s ? (s.act?.words || s.line || 'Your step') : mine.title;
+    const nm = billInIssue(b, i), sub = [numWords(b), nm !== numWords(b) ? nm : '', s ? '' : mine.dueAt != null ? `due ${dayWords(mine.dueAt)}` : ''].filter(Boolean).join(' · ');
+    return `<section class="vb-step is-mine" aria-labelledby="vb-sh"><div class="vb-stepbody"><p class="vb-steplab" id="vb-sh">Your next step</p>
+      <p class="vb-stepnow">${nw(esc(cap(what)))}</p><p class="vb-stepsub">${nw(esc(sub))}</p></div>
+      <div class="vb-stepgo">${vbStepButton(mine)}</div></section>`;
+  }
+  if (prepNext) return `<section class="vb-step" aria-labelledby="vb-sh"><div class="vb-stepbody"><p class="vb-steplab" id="vb-sh">Your next step</p><p class="vb-stepnow">Get it ready for 2027</p><p class="vb-stepsub">Every bill stopped this session.</p></div>
+    <div class="vb-stepgo">${btn('Get it ready for 2027', { kind: 'primary', attrs: { 'data-ip': 'prep' } })}</div></section>`;
+  const other = steps.find(x => x.s && x.s.whose && (x.s.nobody || (x.s.whose.ids || []).length)) || steps.find(x => x.who.length);
+  let line = 'Nothing for you here right now';
+  if (other?.s) line = other.s.nobody ? `Nothing for you here; no one has ${numWords(other.b)} yet` : `Nothing for you here; ${othersWords(other.s)}`;
+  else if (other) line = `Nothing for you here; ${vbFirst(other.who[0])} has a to-do on ${numWords(other.b)}`;
+  return `<p class="vb-step is-none">${icon('circle-check')}<span>${nw(esc(line))}</span></p>`;
+}
+
+// The next hearing of the issue's bills: its day, time, committee, room, the bills of this issue on it, and I'm going.
+function vbNextHearing(now) {
+  const { up } = vbSittings(now); if (!up.length) return '';
+  const h = up[0].h, ids = new Set(now.map(b => b.id)), at = ms(h.scheduled_at);
+  const nums = sittingOf(h).filter(r => ids.has(r.bill_id)).map(r => numWords(billById(r.bill_id)));
+  const today = dayWords(at) === dayWords(Date.now()), room = h.room ? roomName(h.room) : '';
+  return `<section class="vb-sec vb-hear" aria-labelledby="vb-nh"><h2 class="ip6-h" id="vb-nh">Next hearing</h2>
+    <div class="vb-hearbox"><p class="vb-hearwhen">${nw(esc(`${today ? 'Today' : dayWords(at)}, ${timeWords(at)}${room ? ` · ${room}` : ''}`))}</p>
+      <p class="vb-hearwhere"><a href="#/hearing/${encodeURIComponent(h.id)}">${esc(committeeName(h.committee) || h.committee)}</a></p>
+      <p class="vb-hearbills">${esc(`${listAnd([...new Set(nums)])} on the agenda`)}</p>${goingRowHTML(h, { viewer: S.me })}</div></section>`;
+}
+// Every hearing of the issue's bills, one per sitting: coming ones by date, then the earlier and cancelled.
+function vbSittings(now) {
+  const ids = new Set(now.map(b => b.id)), seen = new Map(), t = Date.now();
+  for (const h of S.hearings || []) { if (!ids.has(h.bill_id)) continue; const k = h.committee + '|' + h.scheduled_at; (seen.get(k) || seen.set(k, []).get(k)).push(h); }
+  const all = [...seen.values()].map(rows => ({ h: rows.find(r => r.status !== 'cancelled') || rows[0], off: rows.every(r => r.status === 'cancelled') }));
+  return { up: all.filter(x => !x.off && ms(x.h.scheduled_at) > t).sort((a, b) => ms(a.h.scheduled_at) - ms(b.h.scheduled_at)),
+    past: all.filter(x => x.off || ms(x.h.scheduled_at) <= t).sort((a, b) => ms(b.h.scheduled_at) - ms(a.h.scheduled_at)) };
+}
+// One bill's row on B's pages: its name only when it says more than the issue's own (billInIssue), its line, and the one action.
+function vbRow(i, b, s, line, { button = '', href = billRoute(b) } = {}) {
+  const nm = billInIssue(b, i), same = nm === numWords(b), t = s ? shownStatus(s) : null;
+  const tone = t && t.tone !== 'neutral' ? t.tone : '', ic = t ? (t.tone !== 'neutral' ? t.icon : (t.soon && s.you) ? 'clock' : '') : '';
+  return itemRow({ key: b.id, name: nm, num: same ? '' : numWords(b), line, tone, icon: ic, bold: !!t && t.soon && s.you && t.tone === 'neutral', href, button, bill: b.id });
+}
+const vbAction = s => !s ? '' : s.you && TESTI_KINDS.has(s.kind) ? rowButton(s) : s.nobody && s.takeFor ? btn('Take it', { kind: 'secondary', sm: true, attrs: { 'data-v6act': 'take', 'data-v6b': s.b.id } }) : '';
+// The compact bill rows: where each alive bill is now (a lead also sees who owns it).
+function vbBillRows(i, xs, { owners = false } = {}) {
+  const alive = xs.filter(x => x.alive), gone = xs.length - alive.length;
+  const rows = alive.map(x => { const o = ownerOf(x.b), who = owners ? ` · ${o ? (o.id === S.me?.id ? 'You own it' : `${vbFirst(o.id)} owns it`) : 'No owner yet'}` : '';
+    return vbRow(i, x.b, null, nw(esc(`${x.law ? 'Signed into law' : nowWords(x.b, x.st)}${who}`))); }).join('');
+  return `${rows ? `<div class="v6-list i6-list" role="list">${rows}</div>` : '<p class="ip6-quiet">No bill is alive on this issue.</p>'}
+    ${gone ? `<p class="vb-more"><a href="#/issue/${encodeURIComponent(i.id)}/bills">${plural(gone, 'bill')} stopped</a></p>` : ''}`;
+}
+// Testimony, bill by bill (the bills we take a position on): the state in the step's own words, and the viewer's action.
+function vbTestimony(i, xs) {
+  const v = S.me, out = [];
+  for (const x of xs) { if (!x.alive || !thisSession(x.b) || !isPos(x.b)) continue; out.push({ b: x.b, s: billStep(x.b, { viewer: v }) }); }
+  return out;
+}
+const vbOpenTestimony = list => list.filter(x => x.s && TESTI_KINDS.has(x.s.kind));
+function vbTestimonyRows(i, list) {
+  if (!list.length) return '<p class="ip6-quiet">No bill on this issue has a position yet, so there is no testimony to write.</p>';
+  return `<div class="v6-list i6-list" role="list">${list.map(({ b, s }) => vbRow(i, b, s, nw(esc(s.line || '')), { button: vbAction(s) })).join('')}</div>`;
+}
+function vbFiled(i, now) {
+  const ids = new Set(now.map(b => b.id)), fl = Object.values(S.drafts || {}).flat().filter(d => ids.has(d.bill_id) && d.status === 'filed').sort((a, b) => String(b.filed_at || b.updated_at).localeCompare(String(a.filed_at || a.updated_at)));
+  if (!fl.length) return '';
+  return `<h3 class="ip6-h3">Filed so far</h3><ul class="vb-filed" role="list">${fl.map(d => { const b = billById(d.bill_id);
+    return `<li>${icon('file-text')}<span><a href="${esc(billRoute(b))}">${esc(numWords(b))}</a> for ${esc(cw(d.committee))}${d.filed_at ? `, filed ${nw(esc(dayAny(d.filed_at)))}` : ''}${d.filed_by ? ` by ${esc(cap(firstWords(d.filed_by, S.me)))}` : ''}</span></li>`; }).join('')}</ul>`;
+}
+// What a lead looks at first: who owns what, and where nobody does.
+function vbGaps(i, xs, steps) {
+  const alive = xs.filter(x => x.alive && thisSession(x.b)), lines = [];
+  if (!i.owner_id && S.me && !i.archived_at) lines.push(`<p class="ip6-pl">${icon('user-round')}<span>The issue has no owner yet</span>${btn('Take it', { kind: 'text', sm: true, attrs: { 'data-ip': 'take', 'aria-label': `Take ${i.name}: you become its owner` } })}</p>`);
+  const bare = alive.filter(x => !ownerOf(x.b)).length, nob = steps.filter(s => s.nobody).length;
+  if (bare) lines.push(`<p class="ip6-pl">${icon('user-plus')}<span>${plural(bare, 'bill')} with no owner</span></p>`);
+  if (nob) lines.push(`<p class="ip6-pl">${icon('user-plus')}<span>${plural(nob, 'step')} with no one on ${nob === 1 ? 'it' : 'them'}</span></p>`);
+  const noHear = alive.filter(x => isPos(x.b) && !hearingAhead(x.b) && x.st.phase !== 'law' && !x.law && x.st.hearingState !== 'held' && !PAST.has(x.st.phase) && x.st.phase !== 'floor').length;
+  if (noHear) lines.push(`<p class="ip6-pl">${icon('gavel')}<span>${plural(noHear, 'bill')} with no hearing yet</span></p>`);
+  return `<section class="vb-sec vb-gaps" aria-labelledby="vb-gh"><h2 class="ip6-h" id="vb-gh">Owners and gaps</h2>${lines.join('') || `<p class="ip6-quiet">Every bill and step has someone on it.</p>`}</section>`;
+}
+// The public ask, bill by bill: the words that went out, and Write the public ask for anyone on the bill (R-358, Nate 31 Oct).
+function vbOutreach(i, xs, now) {
+  const pub = xs.filter(x => x.alive && thisSession(x.b) && x.b.is_public && isPos(x.b));
+  const rows = pub.map(x => { const b = x.b, a = String(liveAsk(b) || '').trim(), mine = onBill(b);
+    const go = mine ? btn(a ? 'Change the public ask' : 'Write the public ask', { kind: a ? 'text' : 'secondary', sm: true, icon: a ? '' : 'megaphone', href: askWriteHref(b) || `${billRoute(b, 'public')}?focus=ask` }) : '';
+    return vbRow(i, b, null, a ? `<q class="vb-ask">${esc(a)}</q>` : nw(esc(mine ? 'No public ask written yet' : `No public ask yet${ownerOf(b) ? ` · ${vbFirst(ownerOf(b).id)} is on the bill` : ''}`)), { button: go, href: askCardHref(b) || billRoute(b, 'public') }); }).join('');
+  return `<section class="vb-sec" aria-labelledby="vb-oh"><h2 class="ip6-h" id="vb-oh">The public ask</h2>
+    ${rows ? `<div class="v6-list i6-list" role="list">${rows}</div>` : `<p class="ip6-quiet">No bill on this issue is on the public page with a position yet, so there is no ask to write.</p>`}</section>
+    <section class="vb-sec" aria-labelledby="vb-ph"><h2 class="ip6-h" id="vb-ph">On the public page</h2>${(publicLine(i, now) || '<p class="ip6-quiet">Nothing counted yet.</p>').replace('On the public page: ', '')}</section>
+    <div class="ip6-folds">${foldSec('points', 'ip-mh', 'Talking points and materials', pointsHTML(i, now, billsSplit(i).earlier))}</div>`;
+}
+
+function vbRender(route, i) {
+  wantPeople();
+  const c = catByKey(i.category), also = alsoIn(i).map(catByKey).filter(Boolean), { now, earlier } = billsSplit(i);
+  wantTl(i, now.concat(earlier));
+  const xs = now.map(placeOfBill);
+  const steps = nextSteps(now), hc = health(xs, earlier), prepNext = hc.k === 'stopped' && !i.archived_at && !isDraft(i) && stateOf(i) !== 'approved';
+  const lead = seesTeam(), tab = vbTabOf(), id = encodeURIComponent(i.id);
+  const outlook = i.outlook ? `<p class="is6-desc"><span class="is6-dl">Between sessions, the public reads:</span> ${esc(i.outlook)}</p>` : '';
+  const test = vbTestimony(i, xs), openT = vbOpenTestimony(test), { up } = vbSittings(now);
+  const pubN = xs.filter(x => x.alive && thisSession(x.b) && x.b.is_public && isPos(x.b)).length;
+  const counts = { bills: now.length, hearings: up.length, testimony: openT.length, outreach: pubN };
+  const head = `<header class="is6-head ip6-head vb-head">
+      <span class="is6-icon mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>
+      <div class="is6-hbody"><p class="vb-kind">Issue</p><h1 class="is6-h1">${esc(i.name)}</h1>
+        ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}${SESSION_OVER && !prepHoldsOutlook(i) ? outlook : ''}</div>
+      <div class="is6-hacts">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
+    </header>
+    ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
+  const tabs = `<nav class="v6-tabs vb-tabs" aria-label="Parts of ${esc(i.name)}">${VB_TABS.map(([k, label]) => `<a href="#/issue/${id}${k === 'overview' ? '' : '/' + k}"${k === tab ? ' aria-current="page"' : ''} data-vbtab="${k}">${label}${counts[k] != null ? ` <span class="v6-tab-n">${counts[k]}</span>` : ''}</a>`).join('')}</nav>`;
+  const prep = prepCardHTML(i, { outlook: SESSION_OVER ? '' : outlook, always: hc.k === 'stopped' }), prepFirst = (SESSION_OVER && !isDraft(i) && !i.archived_at && stateOf(i) !== 'approved') || isDraft(i);
+  let body = '';
+  if (tab === 'overview') {
+    const about = foldSec('about', 'vb-abh', 'About', { sum: 'Stance, people, committees, coalition', body: `<p class="is6-meta"><span class="is6-stl">HIPHI’s stance</span>${mayStance(i) ? stanceChip(i, { 'data-is': 'stance' }) : stanceWords(i)}<span class="is6-cat">${esc([c?.name || i.category, also.length ? `also in ${also.map(x => x.name).join(' and ')}` : '', i.recommended ? 'pre-ticked for new visitors' : ''].filter(Boolean).join(' · '))}</span></p>
+      ${stanceNote(i, now)}${whoHTML(i, xs, steps, { vb: true })}${legsHTML(i, xs)}${publicLine(i, now)}` });
+    const tl = `<section class="vb-sec" aria-labelledby="vb-th"><h2 class="ip6-h" id="vb-th">Testimony</h2>${vbTestimonySummary(i, test, id)}</section>`;
+    const billsS = `<section class="vb-sec" aria-labelledby="vb-bh"><h2 class="ip6-h" id="vb-bh">Bills</h2>${vbBillRows(i, xs, { owners: lead })}</section>`;
+    const folds = [foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' }), foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' })].join('');
+    body = `${prepFirst ? prep : ''}${hc.html}${lead ? vbGaps(i, xs, steps) + billsS + vbNextHearing(now) + tl : vbNextHearing(now) + billsS + tl}<div class="ip6-folds">${about}${folds}</div>${i.archived_at ? '' : relatedLine(i)}${prepFirst ? '' : prep}`;
+  } else if (tab === 'bills') {
+    const edit = !!P().edit[i.id] || !(now.length + earlier.length);
+    const anyAlive = xs.some(x => x.alive), cols = now.length ? `<div class="ip6-cols">${columnHTML('H', xs.filter(x => x.side === 'H'), { anyAlive })}${columnHTML('S', xs.filter(x => x.side === 'S'), { anyAlive })}</div>` : '';
+    const editBtn = now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : '';
+    body = `<section class="vb-sec ip6-bills" aria-labelledby="is-bh"><div class="i6-hrow"><h2 class="ip6-h" id="is-bh">Bills by the chamber they started in</h2>${editBtn}</div>${cols}${edit ? editHTML(i, now, earlier) : ''}</section>`;
+  } else if (tab === 'hearings') {
+    const { up: u, past } = vbSittings(now);
+    const mine = new Set(now.map(b => b.id)), card = x => hearingCard(x.h, { viewer: S.me, omit: sittingOf(x.h).filter(r => !mine.has(r.bill_id)).map(r => r.bill_id) });
+    body = `<section class="vb-sec" aria-labelledby="vb-hh"><h2 class="ip6-h" id="vb-hh">Coming up</h2>
+      ${u.length ? `<div class="vb-cards">${u.map(card).join('')}</div>` : `<p class="ip6-quiet">No hearing is scheduled for its bills.${xs.some(x => x.alive && !hearingAhead(x.b)) ? ` <a href="#/hearings/ask?scope=team">Ask on ${ASK_TAB} ›</a>` : ''}</p>`}</section>
+      ${past.length ? `<div class="ip6-folds">${foldSec('hpast', 'vb-hph', 'Earlier and cancelled hearings', { sum: plural(past.length, 'hearing'), body: `<div class="vb-cards">${past.map(card).join('')}</div>` })}</div>` : ''}`;
+  } else if (tab === 'testimony') {
+    body = `<section class="vb-sec" aria-labelledby="vb-th"><h2 class="ip6-h" id="vb-th">Testimony by bill</h2>${vbTestimonyRows(i, test)}${vbFiled(i, now)}
+      <p class="vb-more"><a href="#/testimony">All testimony</a></p></section>`;
+  } else {
+    body = vbOutreach(i, xs, now);
+  }
+  const path = pathLine([['My issues', '#/issues'], [i.name]]);
+  return `<div class="le-page is6-page ip6-page vb-issue" data-vbtab="${tab}">${path}${head}${vbStep(i, steps, { prepNext })}${tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(VB_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
+}
+// Testimony on the Overview: one line a bill, the state in the step's words; the actions are on the Testimony tab and in the one button above.
+function vbTestimonySummary(i, list, id) {
+  if (!list.length) return '<p class="ip6-quiet">No bill on this issue has a position yet.</p>';
+  return `<ul class="vb-tsum" role="list">${list.map(({ b, s }) => `<li><a href="${esc(billRoute(b))}"><b>${esc(numWords(b))}</b></a><span>${nw(esc(s.line || ''))}</span></li>`).join('')}</ul>
+    <p class="vb-more"><a href="#/issue/${id}/testimony">Testimony tab ›</a></p>`;
 }
 
 export const issuePage = {
