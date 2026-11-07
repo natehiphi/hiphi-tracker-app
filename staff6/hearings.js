@@ -21,7 +21,7 @@
 // Team switch's week, and the two other "who to ask" screens (Legislators > Who to ask and Holding our bills went away in R-356 round 2, decision 4: asking chairs for a hearing lives only here, in Bills That Need Hearings).
 import { S, DB, esc, hooks, SESSION_OVER, seesTeam, VB } from './data.js';
 import { billById, suggestions, SUGGEST_CAP, setSugg, suggState, billRoute, codesOf, deadlineCalendar, gateApplies, gateGloss, gateLabel, plainDeadlines, sittingDraft, roomName, teamFirst } from './model.js';
-import { icon, btn, iconBtn, toast, segmented, filterBtn, openSheet, closeSheet, ASK_TAB } from './ui.js';
+import { icon, btn, iconBtn, toast, segmented, filterBtn, openSheet, closeSheet, ASK_TAB, pathLine } from './ui.js';
 import { hearingCard, nameWords, numWords, sayWords, nw, dayWords, timeWords, wireSteps, billStep, shownStatus, committeeName } from './steps.js';
 import { dueOf } from './hearing.js';   // a testimony's due time: the notice's, else 24 hours before the hearing
 import { todayItems } from './today5.js';   // the person's own to-dos and follow-ups, as Today reads them
@@ -545,8 +545,9 @@ function cmteHTML(code) {
   const nBills = (S.bills || []).filter(b => b.tracked !== false && codesOf(b.committee).includes(code)).length;
   return `<div class="hw-page v-week hw-cmte">
     <a class="hw-cback" href="#/hearings" data-back>${icon('chevron-left')}<span>Back to ${esc(history.state?.from || 'Calendar')}</span></a>
+    ${pathLine([['Calendar', '#/hearings'], [`${name} hearings`]])}
     <h1 class="v6-ptitle sv-h1">${esc(name)} hearings</h1>
-    <p class="hw-cline"><span>${esc(`Committee · ${plural(sits.length, 'hearing')} on bills we track`)}</span> <a class="hw-cclear" href="#/hearings">${icon('x')}<span>Show all hearings</span></a>${nBills ? ` <a href="#/search?q=${encodeURIComponent(code)}">${esc(plural(nBills, 'bill'))} in this committee</a>` : ''}</p>
+    <p class="hw-cline"><span>${esc(`Committee · ${plural(sits.length, 'hearing')} on bills we track`)}</span> <a class="hw-cclear" href="#/hearings">${icon('calendar-days')}<span>Show the whole Calendar</span></a>${nBills ? ` <a href="#/search?q=${encodeURIComponent(code)}">${esc(plural(nBills, 'bill'))} in this committee</a>` : ''}</p>
     ${ahead.length ? days.map(dayHTML).join('') : `<p class="hw-none">${icon('calendar')}<span>${esc(`No hearing ahead for ${name} on the bills we track.`)}</span></p>`}
     ${past.length ? `<details class="hw-earlier"${S.hwEarlier ? ' open' : ''}><summary>${icon('history')}<span>${esc(`Earlier: ${plural(past.length, 'hearing')} held`)}</span>${icon('chevron-down', { cls: 'hw-chev' })}</summary>${past.map(slot).join('')}</details>` : ''}
   </div>`;
@@ -564,7 +565,7 @@ function tabs(view, sum) {
   const n = tabCounts() ? sum?.need || 0 : 0;   // decision 9: the bills still needing a hearing, as the board's line and Today's door say it
   // Each label keeps room for its bold self (staff.css .sv-tl, as sectionNav's), so the row never shifts when a tab is picked.
   const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
-  return `<nav class="sv-tabrow sv-secnav" aria-label="Hearings"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} ${n === 1 ? 'needs' : 'need'} a hearing</span>` : ''}</a></nav>`;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="${VB ? 'Calendar' : 'Hearings'}"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} ${n === 1 ? 'needs' : 'need'} a hearing</span>` : ''}</a></nav>`;
 }
 
 // The buttons a week's cards carry besides the cards' own (wireSteps): shared by this page and Team's "The team's hearings" tab.
@@ -600,7 +601,7 @@ export function wireTeamHearings(root) {
 export default {
   tab: 'hearings',
   back: route => cmteOfRoute(route) ? { href: '#/hearings', label: 'Calendar' } : null,
-  title: route => { const c = cmteOfRoute(route); return c ? `${committeeName(c)} hearings` : 'Hearings'; },
+  title: route => { const c = cmteOfRoute(route); return c ? `${committeeName(c)} hearings` : VB ? 'Calendar' : 'Hearings'; },
   render(route) {
     if (!S.me) return `<h1 class="v6-ptitle sv-h1">Hearings</h1><p class="hw-none">${icon('info')}<span>You are signed in, but the tracker does not know who you are yet. Ask your admin to add you.</span></p>`;
     seedMoved();   // the practice copy's moved sittings have someone down for the old date (W53), as Today's
@@ -611,7 +612,8 @@ export default {
     // An old Today link to one day of its week (#/?view=cal&day=2026-03-18, sent here by app.js) opens on that day, once.
     if (route.q?.day && S.hcDayAt !== location.hash) { S.hcDayAt = location.hash; S.hcDay = route.q.day; }
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
-      <h1 class="v6-ptitle sv-h1">Hearings</h1>
+      ${VB ? pathLine(view === 'ask' ? [['Calendar', '#/hearings/week'], [ASK_TAB]] : mode === 'cal' ? [['Calendar', '#/hearings/week'], ['As a calendar']] : [['Calendar', '#/hearings/week'], ['This week']]) : ''}
+      <h1 class="v6-ptitle sv-h1">${VB ? 'Calendar' : 'Hearings'}</h1>
       ${tabs(view, sum)}
       <div class="hw-bar"><div class="hw-picks">${view === 'week' && phoneNow() && scopes().length > 1 ? '' : switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? filterBar(route, scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}

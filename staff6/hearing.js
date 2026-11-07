@@ -262,6 +262,10 @@ function membersHTML(c) {
 const FROM = { today: ['#/', 'Today', 'today'], week: ['#/hearings', 'Hearings', 'hearings'], hearings: ['#/hearings', 'Hearings', 'hearings'],
   bills: ['#/issues/bills', 'Bills', 'bills'], testimony: ['#/testimony', 'Testimony', 'testimony'], team: ['#/team', 'Team', 'team'], legislators: ['#/legislators', 'Legislators', 'legislators'] };
 function backOf(route) {
+  const r = backOf0(route);
+  return VB && r.label === 'Hearings' ? { ...r, label: 'Calendar' } : r;   // B: the place is called Calendar
+}
+function backOf0(route) {
   const from = String(route.q?.from || '');
   if (FROM[from]) return { href: FROM[from][0], label: FROM[from][1], place: FROM[from][2] };
   const b = from && billByRef(from);
@@ -360,7 +364,7 @@ export default {
     const back = backOf(route); route.place = back.place;
     const h = hearingById(route.id);
     // Never a dead end (B-3): the hearing may have been moved and removed, or the link may be from another session.
-    if (!h) return `<div class="hr-page">${empty({ h: 'h1', title: 'We could not find that hearing', text: 'It may have been moved to a new time, or the link is from an earlier session. This week’s hearings are on Hearings.',
+    if (!h) return `<div class="hr-page">${empty({ h: 'h1', title: 'We could not find that hearing', text: 'It may have been moved to a new time, or the link is from an earlier session. This week’s hearings are on ' + (VB ? 'the Calendar' : 'Hearings') + '.',
       action: btn('See this week’s hearings', { href: '#/hearings/week' }) })}</div>`;
     return pageHTML(context(h), back);
   },

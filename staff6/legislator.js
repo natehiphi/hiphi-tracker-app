@@ -19,7 +19,7 @@
 // for writing down what happened.
 import { S, DB, esc, hooks, VB } from './data.js';
 import { stopOf, stanceOf, legById, legsForSponsors, codesOf, diedish, hearingAhead, billByRef, billRoute, chairIdsOf, hstDayOf } from './model.js';
-import { icon, btn, empty, toast, ASK_TAB } from './ui.js';
+import { icon, btn, empty, toast, ASK_TAB, pathLine } from './ui.js';
 import { showAllBtn } from './ui.js';
 import { legName, shortName, seatsOf, roleWord, legMail, openStance, wireLinks, STANCE_WORD, STANCE_ICON } from './pathway.js';
 import { ourBill, islandFor } from './legislators.js';
@@ -162,6 +162,7 @@ function pageHTML(route, l, back) {
       return cut === full ? m : `<span class="v6-row-name" title="${esc(full)}">${esc(cut)}</span>`; }); };
   return `<div class="lg6-page">
     <a class="lg6-back" href="${esc(back.href)}" data-back>${icon('chevron-left')}<span>${esc(VB ? `Back to ${back.label}` : back.label)}</span></a>
+    ${VB ? pathLine([['Search', '#/search'], [legName(l)]]) : ''}
     <header class="lg6-phead">${faceHTML(l)}<div class="lg6-pt"><h1>${esc(legName(l))}</h1><p class="lg6-psub">${esc(sub)}</p>${l.title ? `<p class="lg6-psub">${esc(l.title)}</p>` : ''}</div></header>
     ${actionsHTML(l, from, asks)}
     ${PROFILES() ? profileTipHTML(l) : ''}
@@ -190,7 +191,8 @@ export default {
   tab: 'legislators',
   title: route => { const l = legById(route.id); return l ? shortName(l) : 'Legislator'; },
   back: route => { const b = fromBill(route), t = FROM_TAB[route.from];
-    const r = b ? { href: billRoute(b), label: b.bill_number } : t ? { href: t[0], label: t[1] } : { href: '#/legislators', label: 'Legislators' };
+    // B: a cold arrival goes to Search (the lit place), not to the Legislators list, which is not one of B's places.
+    const r = b ? { href: billRoute(b), label: b.bill_number } : t ? { href: t[0], label: VB && t[0] === '#/legislators' ? 'Search' : t[1] } : VB ? { href: '#/search', label: 'Search' } : { href: '#/legislators', label: 'Legislators' };
     // R-365 B: Back names the page this one was opened from ("Back to Search", "Back to HB 2121") and goes there (app.js go()
     // keeps that page's title in history.state.from; Back is the browser's own when the page was opened inside the app).
     // A cold arrival (a link from Slack) keeps the parent above.
