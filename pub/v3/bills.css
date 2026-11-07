@@ -1,1 +1,27 @@
 /* Version 3 (?v3=1, R-362): Find as bills by issue (pub/v3/bills.js). Loaded after every other sheet on Find under the flag (pub/app.js V3_CSS). */
+/* Topics: one row of pills that scrolls sideways inside itself on a phone (the page never does), wrapping on a laptop. */
+body.v3 .v3b-chips { display: flex; gap: var(--s8); margin: var(--s12) calc(-1 * var(--gutter, 16px)) 0; padding: 2px var(--gutter, 16px) var(--s4); overflow-x: auto; scrollbar-width: none; }
+body.v3 .v3b-chips::-webkit-scrollbar { display: none; }
+body.v3 .v3b-chip { flex: none; min-height: 40px; padding: 0 var(--s16); border: 1px solid var(--n300); border-radius: var(--pill); background: var(--n0); color: var(--n900);
+  font: 500 var(--t14)/1 var(--font); white-space: nowrap; cursor: pointer; transition: background .12s, border-color .12s; }
+body.v3 .v3b-chip:hover { background: var(--p50); border-color: var(--p400); }
+body.v3 .v3b-chip:active { transform: scale(.98); }
+body.v3 .v3b-chip:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; }
+body.v3 .v3b-chip[aria-pressed="true"] { background: var(--p700); border-color: var(--p700); color: var(--n0); }
+@media (min-width: 900px) { body.v3 .v3b-chips { flex-wrap: wrap; overflow: visible; margin: var(--s16) 0 0; padding: 0; } }
+
+/* An issue: its mark, its name (to its page) over its topic, and the quiet Follow on the right; then its bills in one white box. */
+body.v3 .v3b-isec { margin-top: var(--s24); }
+body.v3 .v3b-isec:first-of-type { margin-top: var(--s8); }
+body.v3 .v3b-ihead { display: flex; align-items: center; gap: var(--s12); margin-bottom: var(--s8); }
+body.v3 .v3b-ilead { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--p50); color: var(--p700); }
+body.v3 .v3b-ilead .ic { width: 20px; height: 20px; }
+body.v3 .v3b-iname { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+body.v3 .v3b-iname h3 { margin: 0; font: 600 var(--t16)/1.25 var(--font-h); }
+body.v3 .v3b-iname h3 a { color: var(--n900); text-decoration: none; }
+body.v3 .v3b-iname h3 a:hover { color: var(--p700); text-decoration: underline; }
+body.v3 .v3b-iname h3 a:focus-visible { outline: 3px solid var(--p700); outline-offset: 2px; border-radius: 4px; }
+body.v3 .v3b-cat { color: var(--n700); font-size: var(--t13); }
+body.v3 .v3b-follow { flex: none; }
+body.v3 .v3b-more { margin-top: var(--s4); }
+body.v3 .v3b-foot { margin-top: var(--s32); }
