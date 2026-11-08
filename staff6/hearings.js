@@ -470,8 +470,61 @@ function calEntry(e, { wkend = false } = {}) {
   return `<li class="hc-e hc-todo">${head('list-todo', 'To-do')}${job(e.href, e.words)}${e.who ? `<p class="hc-es">${esc(`For ${e.who === 'You' ? 'you' : e.who}`)}</p>` : ''}${e.b ? list(billLi(e.b, {})) + issueTags([e.b]) : ''}</li>`;
 }
 const dayShort = d => fmt(d, { weekday: 'short' }), dateShort = d => fmt(d, { month: 'numeric', day: 'numeric' });
+// ---- Version B's week (R-365, Nate 7 Nov: "Make the calendar look a lot better and not cluttered or overwhelming") ----
+// His picks: each hearing one short soft block (time, committee, how many bills), testimony due times on their own day, the
+// Capitol's deadlines as a thin strip at the top of the day, and a tap opens a details panel so the week stays in view.
+// The person's own to-dos stay on Today (not picked). Everything a block leaves out is in its panel.
+let CALB = [];   // this draw's blocks and deadline strips, by index, for the panel
+const toneOf = bills => ['overdue', 'late', 'today'].find(t => (bills || []).some(y => y.tone === t)) || '';
+const TONE_W = { overdue: 'overdue', late: 'late', today: 'due today' };
+function calBlock(e) {
+  const i = CALB.push(e) - 1, t = timeWords(e.t);
+  if (e.k === 'h') {
+    const h = e.x.h, cn = committeeName(h.committee) || h.committee, n = e.bills.length, going = goingTo(e.x.rows);
+    const sub = e.cancelled ? 'Cancelled' : n ? plural(n, 'bill') : (h.room ? roomName(h.room) : '');
+    return `<li><button type="button" class="hb-e hb-h${e.cancelled ? ' off' : ''}" data-hce="${i}" aria-label="${esc(`${t}, hearing: ${cn}${sub ? `, ${sub}` : ''}${going ? ', you’re going' : ''}. Show details`)}">
+      <span class="hb-t">${esc(t)}${going ? `<span class="hb-go">${icon('user-check')}</span>` : ''}</span><span class="hb-n">${esc(cn)}</span>${sub ? `<span class="hb-s">${esc(sub)}</span>` : ''}</button></li>`;
+  }
+  const tone = toneOf(e.bills), n = e.bills.length;
+  return `<li><button type="button" class="hb-e hb-due${tone ? ' ' + tone : ''}" data-hce="${i}" aria-label="${esc(`${t}, testimony due${tone ? `, ${TONE_W[tone]}` : ''}, ${plural(n, 'bill')}. Show details`)}">
+    <span class="hb-t">${icon(tone === 'overdue' ? 'circle-alert' : tone === 'late' ? 'alarm-clock' : 'file-text')}${esc(t)}</span><span class="hb-n">Testimony due</span><span class="hb-s">${esc(`${plural(n, 'bill')}${tone ? ` · ${TONE_W[tone]}` : ''}`)}</span></button></li>`;
+}
+const capStrip = ds => (ds || []).map(d => { const i = CALB.push({ k: 'cap', d }) - 1;
+  return `<button type="button" class="hb-cap" data-hce="${i}" aria-label="${esc(`Capitol deadline: ${gateLabel(d.label)}. Show what it means`)}">${icon('flag')}<span>${esc(gateLabel(d.label))}</span></button>`; }).join('');
+function calPanel(e) {
+  if (!e) return;
+  const hearingBtn = h => btn('Open the hearing', { href: `#/hearing/${encodeURIComponent(h.id)}?from=week`, full: true, iconEnd: 'chevron-right', attrs: { 'data-hbgo': '1' } });
+  const when = t => `${new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'long', month: 'short', day: 'numeric' })}, ${timeWords(t)}`;
+  const ul = items => items ? `<ul class="hc-bills hb-pb">${items}</ul>` : '';
+  let title = '', body = '', foot = '';
+  if (e.k === 'h') {
+    const h = e.x.h, room = h.room ? roomName(h.room) : '';
+    title = committeeName(h.committee) || h.committee;
+    body = `<p class="hb-pw">${icon('clock')}<span>${esc(when(e.t))}${room ? ` · ${esc(room)}` : ''}</span></p>${e.cancelled ? '<p class="hb-pw">Cancelled, no new date yet</p>' : ''}
+      ${goingTo(e.x.rows) ? `<p class="hb-pw hb-pgo">${icon('user-check')}<span>You’re going</span></p>` : ''}
+      ${e.bills.length ? `<h3 class="hb-ph">${esc(e.bills.length === 1 ? 'Our bill' : `Our ${e.bills.length} bills`)}</h3>${ul(e.bills.map(y => billLi(y.b, stepOfB(y.r, y.b))).join(''))}${issueTags(e.bills.map(y => y.b))}` : ''}`;
+    foot = hearingBtn(h);
+  } else if (e.k === 'due') {
+    const h = e.h, cn = committeeName(h.committee) || h.committee;
+    title = 'Testimony due';
+    body = `<p class="hb-pw">${icon('clock')}<span>${esc(when(e.t))}</span></p><p class="hb-pw">${icon('gavel')}<span>${esc(`For ${weekdayLong(h.scheduled_at)}’s ${cn} hearing`)}</span></p>
+      <h3 class="hb-ph">${esc(e.bills.length === 1 ? 'The bill' : `${e.bills.length} bills`)}</h3>${ul(e.bills.map(y => billLi(y.b, y)).join(''))}${issueTags(e.bills.map(y => y.b))}`;
+    foot = hearingBtn(h);
+  } else {
+    const g = gateGloss(e.d.label), lab = gateLabel(e.d.label);
+    title = lab;
+    body = `<p class="hb-pw">${icon('flag')}<span>A Capitol deadline</span></p>${g ? `<p class="hb-pg">${esc(g.charAt(0).toUpperCase() + g.slice(1))}.</p>` : ''}`;
+    foot = btn('More about this deadline', { kind: 'text', href: `#/help/words?w=${encodeURIComponent(lab)}`, attrs: { 'data-hbgo': '1' } });
+  }
+  openSheet({ title, pop: true, body: `<div class="hb-panel">${body}</div>`, foot,
+    wire: d => d.querySelectorAll('[data-hbgo], a.hc-bl, a.hc-iss').forEach(a => a.addEventListener('click', ev => {
+      ev.preventDefault(); const to = a.getAttribute('href'); closeSheet({ silent: true }).then(() => S.go(to)); })) });
+}
+const wireCalB = root => root.querySelectorAll('[data-hce]').forEach(el => el.onclick = () => calPanel(CALB[+el.dataset.hce]));
 function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', steps = null } = {}) {
   const now = Date.now(), today = hst(now), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), cw = calWeek(scope, mon, { tasks, steps });
+  // Version B keeps hearings and testimony due only (Nate's picks); the rest of the week is Today's
+  if (VB) { CALB = []; for (const [d, l] of cw.days) cw.days.set(d, l.filter(e => e.k === 'h' || e.k === 'due')); }
   const askL = () => ask && off === 0 ? askLine(sum, scope) : '', ent = (e, o = {}) => calEntry(e, { ...o, tag });
   const wd = [0, 1, 2, 3, 4].map(i => addDays(mon, i)), we = [addDays(mon, 5), addDays(mon, 6)];
   const has = d => (cw.days.get(d) || []).length > 0 || (cw.caps.get(d) || []).length > 0;
@@ -489,11 +542,19 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
       <h2 class="hc-dh" id="${id}"><span class="hc-dw">${esc(dayShort(d))}</span> <span class="hc-dd">${esc(dateShort(d))}</span>${isT ? ' <span class="hc-today">Today</span>' : ''}<span class="sr">${esc(`, ${plural(list.length, 'entry', 'entries')}`)}</span></h2>
       ${capCal(cw.caps.get(d))}
       ${list.length ? `<ul class="hc-list" aria-labelledby="${id}">${list.map(e => ent(e)).join('')}</ul>` : `<p class="hc-nothing">Nothing scheduled</p>`}</section>`; };
+  const dayColB = d => { const list = cw.days.get(d) || [], isT = d === today, id = `hc-d-${d}`;
+    return `<section class="hc-day${isT ? ' today' : ''}${d < today ? ' past' : ''}${d === pick ? ' on' : ''}" data-hcday="${d}" aria-labelledby="${id}"${isT ? ' aria-current="date"' : ''}>
+      <h2 class="hc-dh hb-dh" id="${id}"><span class="hb-dw">${esc(dayShort(d))}</span><span class="hb-dn">${esc(fmt(d, { day: 'numeric' }))}</span><span class="sr">${esc(`${fmt(d, { month: 'long' })}${isT ? ', today' : ''}, ${plural(list.length, 'entry', 'entries')}`)}</span></h2>
+      ${capStrip(cw.caps.get(d))}
+      ${list.length ? `<ul class="hc-list hb-list" aria-labelledby="${id}">${list.map(calBlock).join('')}</ul>` : ''}</section>`; };
   const wkList = we.flatMap(d => cw.days.get(d) || []), wkCaps = we.flatMap(d => cw.caps.get(d) || []);
   const weekend = wkList.length || wkCaps.length ? `<section class="hc-wkend" aria-labelledby="hc-d-wkend"><h2 class="hc-dh" id="hc-d-wkend"><span class="hc-dw">Weekend</span> <span class="hc-dd">${esc(`${dateShort(we[0])} and ${dateShort(we[1])}`)}</span></h2>
       ${capCal(wkCaps)}${wkList.length ? `<ul class="hc-list">${wkList.map(e => ent(e, { wkend: true })).join('')}</ul>` : ''}</section>` : '';
   const btns = `<div class="hc-pick" role="group" aria-label="Pick a day">${wd.map(d => `<button type="button" data-hcpick="${d}" aria-pressed="${d === pick}" aria-label="${esc(`${fmt(d, { weekday: 'long', month: 'long', day: 'numeric' })}${d === today ? ', today' : ''}${has(d) ? '' : ', nothing scheduled'}`)}">
       <span class="hc-pw">${esc(dayShort(d))}</span><span class="hc-pd">${esc(dateShort(d))}</span><span class="hc-dot${has(d) ? ' on' : ''}" aria-hidden="true"></span></button>`).join('')}</div>`;
+  if (VB) { const weekendB = wkList.length || wkCaps.length ? `<section class="hc-wkend hb-wkend" aria-labelledby="hc-d-wkend"><h2 class="hc-dh" id="hc-d-wkend"><span class="hc-dw">Weekend</span> <span class="hc-dd">${esc(`${dateShort(we[0])} and ${dateShort(we[1])}`)}</span></h2>
+      ${capStrip(wkCaps)}${wkList.length ? `<ul class="hc-list hb-list">${wkList.map(calBlock).join('')}</ul>` : ''}</section>` : '';
+    return `<div class="hc-cal hb">${btns}<div class="hc-grid">${wd.map(dayColB).join('')}</div>${weekendB}</div>${monLine}${askL()}`; }
   return `<div class="hc-cal">${btns}<div class="hc-grid">${wd.map(dayCol).join('')}</div>${weekend}</div>${monLine}${askL()}`;
 }
 
@@ -509,6 +570,7 @@ export function weekCalHTML(route, { scope = 'team' } = {}) {
   return calHTML(route, scope, null, { ask: false });
 }
 export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
+  wireCalB(root);
   root.querySelectorAll('[data-hweek]').forEach(el => el.onclick = () => {
     S.hcRefocus = `[aria-label="${el.getAttribute('aria-label') || 'Next week'}"]`; S.hcDay = null;
     S.go(href(+el.dataset.hweek || 0), { replace: true, keepScroll: true });
@@ -583,6 +645,7 @@ function tabs(view, sum) {
 
 // The buttons a week's cards carry besides the cards' own (wireSteps): shared by this page and Team's "The team's hearings" tab.
 function wireWeek(page) {
+  wireCalB(page);
   // A phone's day buttons show one day at a time; no redraw, so the focus stays on the button pressed
   page.querySelectorAll('[data-hcpick]').forEach(el => el.onclick = () => {
     const d = el.dataset.hcpick; S.hcDay = d;

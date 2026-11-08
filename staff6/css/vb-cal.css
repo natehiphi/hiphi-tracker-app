@@ -1,0 +1,81 @@
+/* R-365 version B: the Monday-to-Friday week (hearings.js calBlock, calPanel; only under html.vb).
+   Nate 7 Nov: "Make the calendar look a lot better and not cluttered or overwhelming". Clean columns split by a hairline,
+   one soft block per hearing (teal wash), testimony due as a white block with a thin rule, deadlines as a quiet strip;
+   everything else is in the panel a tap opens. */
+html.vb body.staff6 .hc-cal.hb { gap: 12px; max-width: none; }
+html.vb body.staff6 .hb .hc-grid { gap: 0; padding: 4px 0 8px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+html.vb body.staff6 .hb .hc-day { gap: 8px; min-height: 280px; padding: 12px 10px 16px; border-radius: 0; background: none; }
+html.vb body.staff6 .hb .hc-day + .hc-day { border-left: 1px solid var(--v6-hair); }
+html.vb body.staff6 .hb .hc-day.today { background: none; }
+html.vb body.staff6 .hb .hc-day.past .hb-list, html.vb body.staff6 .hb .hc-day.past .hb-cap { opacity: .6; }
+
+/* The day's head: the weekday small, the date large; today's date in a teal circle (as calendars mark today). */
+html.vb body.staff6 .hb .hb-dh { display: grid; justify-items: center; gap: 2px; padding: 0 0 6px; }
+html.vb body.staff6 .hb .hb-dw { font-family: var(--font); font-size: var(--v6-t14); line-height: 20px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--v6-muted); }
+html.vb body.staff6 .hb .hb-dn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-family: Poppins, system-ui, sans-serif; font-size: 22px; font-weight: 500; color: var(--v6-ink); }
+html.vb body.staff6 .hb .hc-day.today .hb-dw { color: var(--v6-action); }
+html.vb body.staff6 .hb .hc-day.today .hb-dn { background: var(--v6-action); color: #fff; }
+
+/* A Capitol deadline: one quiet line, the whole day's width. */
+html.vb body.staff6 .hb-cap { display: flex; align-items: flex-start; gap: 6px; width: 100%; min-height: 32px; padding: 6px 8px; border: 0; border-radius: var(--v6-r12); background: var(--v6-wash);
+  font: 400 var(--v6-t14)/20px var(--font); color: var(--v6-body); text-align: left; cursor: pointer; }
+html.vb body.staff6 .hb-cap svg { width: 14px; height: 14px; flex: none; margin-top: 3px; color: var(--v6-muted); }
+
+/* The blocks */
+html.vb body.staff6 .hb-list { gap: 6px; }
+html.vb body.staff6 .hb-e { display: grid; gap: 1px; width: 100%; min-height: 44px; padding: 8px 10px 8px 12px; border: 0; border-radius: var(--v6-r12); text-align: left; cursor: pointer;
+  font-family: var(--font); color: var(--v6-ink); transition: background-color 120ms ease, box-shadow 120ms ease; }
+html.vb body.staff6 .hb-e:focus-visible, html.vb body.staff6 .hb-cap:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+html.vb body.staff6 .hb-t { display: inline-flex; align-items: center; gap: 4px; font-size: var(--v6-t14); line-height: 20px; font-weight: 700; color: var(--v6-action); white-space: nowrap; }
+html.vb body.staff6 .hb-t svg { width: 14px; height: 14px; flex: none; }
+html.vb body.staff6 .hb-go { display: inline-flex; margin-left: 2px; }
+html.vb body.staff6 .hb-n { font-size: var(--v6-t16); line-height: 21px; font-weight: 600; overflow-wrap: anywhere; }
+html.vb body.staff6 .hb-s { font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
+/* a hearing: the soft teal block */
+html.vb body.staff6 .hb-h { background: var(--v6-action-wash); box-shadow: inset 3px 0 0 var(--v6-action); }
+html.vb body.staff6 .hb-h.off { background: var(--v6-wash); box-shadow: inset 3px 0 0 var(--v6-hair); }
+html.vb body.staff6 .hb-h.off .hb-n { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--v6-body); }
+/* testimony due: white with a thin outline; its time says late or overdue in the app's colours of time (A-5) */
+html.vb body.staff6 .hb-due { background: var(--v6-card); box-shadow: inset 0 0 0 1px var(--v6-hair); }
+html.vb body.staff6 .hb-due .hb-t { color: var(--v6-body); }
+html.vb body.staff6 .hb-due.today .hb-t { color: var(--v6-action); }
+html.vb body.staff6 .hb-due.late .hb-t, html.vb body.staff6 .hb-due.late .hb-s { color: var(--v6-late); }
+html.vb body.staff6 .hb-due.overdue .hb-t, html.vb body.staff6 .hb-due.overdue .hb-s { color: var(--v6-bad); }
+@media (hover: hover) and (pointer: fine) {
+  html.vb body.staff6 .hb-h:hover { box-shadow: inset 3px 0 0 var(--v6-action), var(--v6-sh1); }
+  html.vb body.staff6 .hb-due:hover { box-shadow: inset 0 0 0 1px var(--v6-action); }
+  html.vb body.staff6 .hb-cap:hover { background: var(--v6-wash-hover, var(--v6-wash)); }
+}
+
+/* The weekend, only when it has something: the same blocks in a slim row under the week. */
+html.vb body.staff6 .hb-wkend { padding: 12px 16px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+html.vb body.staff6 .hb-wkend .hb-list { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+/* The panel a block opens */
+html.vb body.staff6 .hb-panel { display: grid; gap: 8px; }
+html.vb body.staff6 .hb-pw { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: var(--v6-t16); line-height: 22px; color: var(--v6-body); }
+html.vb body.staff6 .hb-pw svg { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--v6-muted); }
+html.vb body.staff6 .hb-pgo, html.vb body.staff6 .hb-pgo svg { color: var(--v6-action); }
+html.vb body.staff6 .hb-pg { margin: 0; font-size: var(--v6-t16); line-height: 24px; color: var(--v6-ink); }
+html.vb body.staff6 .hb-ph { margin: 8px 0 0; font: 600 var(--v6-t14)/20px var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--v6-muted); }
+html.vb body.staff6 .hb-pb { margin: 0; padding: 0; border-top: 0; gap: 10px; }
+html.vb body.staff6 .hb-pb li { font-size: var(--v6-t16); line-height: 22px; }
+html.vb body.staff6 .hb-pb .hc-bl { color: var(--v6-action); font-weight: 600; text-decoration: none; }
+
+/* A laptop narrower than 1100: tighter columns */
+@media (max-width: 1099.98px) and (min-width: 768px) {
+  html.vb body.staff6 .hb .hc-day { padding: 10px 6px 14px; }
+  html.vb body.staff6 .hb-e { padding: 6px 8px 6px 10px; }
+  html.vb body.staff6 .hb-n { font-size: var(--v6-t14); line-height: 20px; }
+}
+/* A phone: one day under the day buttons, as a card of its own */
+@media (max-width: 767.98px) {
+  html.vb body.staff6 .hb .hc-grid { padding: 0; background: none; box-shadow: none; }
+  html.vb body.staff6 .hb .hc-day { min-height: 0; padding: 16px; border: 0; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); }
+  html.vb body.staff6 .hb .hb-dh { display: none; }
+  html.vb body.staff6 .hb .hc-day.on:not(:has(li)):not(:has(.hb-cap))::after { content: 'Nothing this day'; color: var(--v6-muted); }
+  html.vb body.staff6 .hb .hc-pick button { background: none; }
+  html.vb body.staff6 .hb .hc-pick button[aria-pressed="true"] { background: var(--v6-card); }
+  html.vb body.staff6 .hb-wkend .hb-list { grid-template-columns: minmax(0, 1fr); }
+  html.vb body.staff6 .hb-e { padding: 10px 12px 10px 14px; }
+}
