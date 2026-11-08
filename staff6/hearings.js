@@ -109,14 +109,14 @@ function filterSheet(route) {
   const group = (title, kind, list, value) => `<h3 class="hw-fh">${esc(title)}</h3><div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${list.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" ${kind}="${esc(v)}"><span class="body"><span class="title">${esc(l)}</span></span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`;
   const who = phoneNow() && scopes().length > 1;
   openSheet({ title: 'Filter this week', pop: true,
-    body: `${who ? group('Whose hearings', 'data-pscope', scopes(), scope) : ''}${opts.length || ISS ? group('Show hearings on', 'data-pv', [['all', 'All issues'], ...opts.map(i => [String(i.id), i.name])], ISS || 'all') : ''}${group('Show the week as', 'data-pview', [['list', 'A list'], ['cal', 'A calendar']], mode)}`,
+    body: `${who ? group('Whose hearings', 'data-pscope', scopes(), scope) : ''}${opts.length || ISS ? group('Show hearings on', 'data-pv', [['all', 'All issues'], ...opts.map(i => [String(i.id), i.name])], ISS || 'all') : ''}${group('Show the week as', 'data-pview', [['list', 'A list'], ['cal', VB ? 'Monday to Friday' : 'A calendar']], mode)}`,
     wire: d => {
       d.querySelectorAll('[data-pscope]').forEach(el => el.onclick = async () => { const v = el.dataset.pscope; await closeSheet({ silent: true }); await remember(v);
         S.hwRefocus = '[data-hwfilter]'; S.go(`#/hearings/week?${viewQuery(route, { scope: v })}`, { replace: true, keepScroll: true }); });
       d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true });
         S.hwRefocus = '[data-hwfilter]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, { issue: el.dataset.pv === 'all' ? '' : el.dataset.pv })}`, { replace: true, keepScroll: true }); });
       d.querySelectorAll('[data-pview]').forEach(el => el.onclick = async () => { const v = el.dataset.pview; await closeSheet({ silent: true });
-        if (v !== mode) await rememberView(v);
+        if (v !== mode) await (VB ? rememberVB(v) : rememberView(v));
         S.hwRefocus = '[data-hwfilter]'; S.go(`#/hearings/week?${viewQuery(route, { view: v })}`, { replace: true, keepScroll: true }); });
     } });
 }
@@ -320,7 +320,20 @@ async function rememberView(v) {
   try { localStorage.setItem(VKEY(), v); } catch { /* a private window: this visit only */ }
   try { await DB.patchPrefs({ hview: v }); } catch { /* the address keeps it for this visit */ }
 }
-const modeOf = route => [route?.q?.view, S.me?.prefs?.hview, viewSaved()].find(x => x === 'cal' || x === 'list') || 'list';
+const modeOf = route => VB ? ([route?.q?.view, S.me?.prefs?.vbhview, vbSaved()].find(x => x === 'cal' || x === 'list') || 'cal')
+  : [route?.q?.view, S.me?.prefs?.hview, viewSaved()].find(x => x === 'cal' || x === 'list') || 'list';
+// R-365 version B (Nate 7 Nov, trying B: "There needs to be a calendar view Monday to Friday style"): B's Calendar opens on
+// the Monday-to-Friday week; the list is one plain link away, and a pick is B's own (vbhview), so v6's choice is untouched.
+const VBKEY = () => `hiphi6_vbhview_${S.me?.id || ''}`;
+const vbSaved = () => { try { return localStorage.getItem(VBKEY()) || ''; } catch { return ''; } };
+async function rememberVB(v) {
+  try { localStorage.setItem(VBKEY(), v); } catch { /* a private window: this visit only */ }
+  try { await DB.patchPrefs({ vbhview: v }); } catch { /* the address keeps it for this visit */ }
+}
+// The one way to the other view, beside Filter: a link that says where it goes (A-12 on v6).
+const vbViewLink = mode => !VB ? '' : mode === 'cal'
+  ? btn('Show as a list', { kind: 'text', sm: true, icon: 'list', attrs: { 'data-hwview': 'list' } })
+  : btn('Show Mon to Fri', { kind: 'text', sm: true, icon: 'calendar-days', attrs: { 'data-hwview': 'cal', 'aria-label': 'Show the week Monday to Friday' } });
 // This week's address with the page's own picks (whose, which week, the issue, the view), changed by `o`.
 function viewQuery(route, o = {}) {
   const q = { scope: route?.q?.scope || route?.q?.who || '', w: weekOff(route) ? String(weekOff(route)) : '', issue: ISS, view: route?.q?.view || '', ...o };
@@ -612,10 +625,10 @@ export default {
     // An old Today link to one day of its week (#/?view=cal&day=2026-03-18, sent here by app.js) opens on that day, once.
     if (route.q?.day && S.hcDayAt !== location.hash) { S.hcDayAt = location.hash; S.hcDay = route.q.day; }
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
-      ${VB ? pathLine(view === 'ask' ? [['Calendar', '#/hearings/week'], [ASK_TAB]] : mode === 'cal' ? [['Calendar', '#/hearings/week'], ['As a calendar']] : [['Calendar', '#/hearings/week'], ['This week']]) : ''}
+      ${VB ? pathLine(view === 'ask' ? [['Calendar', '#/hearings/week'], [ASK_TAB]] : [['Calendar', '#/hearings/week'], ['This week']]) : ''}
       <h1 class="v6-ptitle sv-h1">${VB ? 'Calendar' : 'Hearings'}</h1>
       ${tabs(view, sum)}
-      <div class="hw-bar"><div class="hw-picks">${view === 'week' && phoneNow() && scopes().length > 1 ? '' : switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? filterBar(route, scope) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
+      <div class="hw-bar"><div class="hw-picks">${view === 'week' && phoneNow() && scopes().length > 1 ? '' : switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? filterBar(route, scope) + vbViewLink(mode) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
   },
@@ -636,6 +649,9 @@ export default {
     });
     // Filter: the issue and the list-or-calendar choice, in one sheet (see filterSheet); both live in the address
     page.querySelector('[data-hwfilter]')?.addEventListener('click', () => filterSheet(route));
+    page.querySelector('[data-hwview]')?.addEventListener('click', async e => { const v = e.currentTarget.dataset.hwview;
+      await rememberVB(v); S.hwRefocus = '[data-hwview]'; S.hcDay = null;
+      S.go(`#/hearings/week?${viewQuery(route, { view: v })}`, { replace: true, keepScroll: true }); });
     wireWeek(page);
     // A redraw after an answer keeps the focus near where it was (B-4).
     if (S.hwRefocus) { const f = page.querySelector(S.hwRefocus); S.hwRefocus = null; f?.focus({ preventScroll: true }); }
