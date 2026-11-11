@@ -195,9 +195,9 @@ export const segmented = (name, opts, value, label = '') => `<div class="sv-seg"
 // `opts` names the ones a list offers (My coalitions only for someone who helps on one), each [key, value]; the words and the
 // order come from here.
 export const WHOSE = { mine: 'Mine', coal: 'My coalitions', team: 'Team' };
-export const whoseSeg = (name, opts, value, { label = 'Whose work', cls = '' } = {}) => {
+export const whoseSeg = (name, opts, value, { label = 'Whose work', cls = '', names = WHOSE } = {}) => {
   const list = ['mine', 'coal', 'team'].filter(k => opts[k] !== undefined && opts[k] !== null);
-  return `<div class="sv-seg sv-whose${cls ? ' ' + cls : ''}" role="group" aria-label="${esc(label)}">${list.map(k => `<button type="button" data-seg="${esc(name)}" data-val="${esc(opts[k])}" data-whose="${k}" aria-pressed="${String(opts[k]) === String(value)}">${WHOSE[k]}</button>`).join('')}</div>`;
+  return `<div class="sv-seg sv-whose${cls ? ' ' + cls : ''}" role="group" aria-label="${esc(label)}">${list.map(k => `<button type="button" data-seg="${esc(name)}" data-val="${esc(opts[k])}" data-whose="${k}" aria-pressed="${String(opts[k]) === String(value)}">${names[k] || WHOSE[k]}</button>`).join('')}</div>`;
 };
 export const switchRow = (id, label, on, help = '', a = {}) => `<label class="sv-switchrow" for="${esc(id)}"><span class="body"><span class="title">${label}</span>${help ? `<span class="sub">${help}</span>` : ''}</span><input type="checkbox" role="switch" id="${esc(id)}" ${on ? 'checked' : ''}${attrs(a)}><span class="sv-switch" aria-hidden="true"></span></label>`;
 export const field = (id, label, input, help = '') => `<div class="field"><label for="${esc(id)}">${label}</label>${input}${help ? `<span class="help" id="${esc(id)}-help">${help}</span>` : ''}</div>`;
@@ -539,7 +539,8 @@ export function confirmSheet({ title, text = '', ok = 'OK', danger = false }) {
 // The Hearings tab that lists the bills still waiting for a hearing, in Nate's words and his title case (Nate 25 Oct walk 1:
 // "Bills That Need Hearings", was "Get hearings"). One constant, so the tab, This week's line, Today's line, search and Help
 // say the same name (C-15: one name per place). Its address stays #/hearings/ask.
-export const ASK_TAB = VB ? 'Ask Chairs for Hearings' : 'Bills That Need Hearings';
+// B kept Nate's words too (Nate 10 Nov: "Bills That Need Hearings", not B's "Ask Chairs for Hearings").
+export const ASK_TAB = 'Bills That Need Hearings';
 // R-365 B plain words (Nate 7 Nov): each shared phrase is one constant, v6's words unchanged without vb=1.
 export const SL = VB ? 'Second review' : 'Second look', sl = VB ? 'second review' : 'second look';   // a second reviewer reads the testimony
 export const TEAM_CUT = VB ? 'our deadline' : 'team cut-off';   // when the team needs it, ahead of the Capitol's deadline

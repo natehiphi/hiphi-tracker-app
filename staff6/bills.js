@@ -22,7 +22,7 @@
 // words where it can, the bill number kept (D15); R-336 (Nate 25 Oct) made every column sort, a team cell (position, owner,
 // nickname) a button that opens its picker with Undo (no Edit mode), added Priority and Nickname, and Copy for Google Sheets. Keys on a laptop (F96): j/k walk the rows, Space or o opens
 // the bill beside the list, Enter opens its page, x selects, Esc closes, "/" puts the cursor in the filter box (app.js).
-import { S, DB, DEMO, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks, seesTeam } from './data.js';
+import { S, DB, DEMO, VB, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks, seesTeam as seesTeamV6 } from './data.js';
 import { factsOf, stopOf, whyDead, billNum, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
@@ -169,6 +169,10 @@ const rowStep = b => { const s = stepOf(b); if (!s) return s;
   return line === s.line ? s : { ...s, line }; };
 
 // ---- the page ----
+// R-365 B (Nate 10 Nov): everyone gets "Team's bills" beside their own, so any bill is reachable by browsing, not only
+// by search (the walk's T8: 0 of 10 by browsing). v6 keeps R-356 decision 2 (Team only for people who see Team).
+const seesTeam = () => VB || seesTeamV6();
+const B_WHOSE = { mine: 'Your bills', coal: 'Your coalitions’', team: 'Team’s bills' };
 // R-356 decision 2: Team (scope 'all') is a choice only for people who see Team; with one choice left no switch is drawn.
 // A remembered or linked Team scope (a saved view, a coalition's bills opened from Issues) for someone without it falls back
 // to My coalitions when they have some, else Mine, so the page is never empty or in error. Done on every draw, before any
@@ -181,7 +185,7 @@ function scopeSwitch() {
   const v = bl(), co = scopeOpts().some(([k]) => k === 'coal'), team = seesTeam();
   if (!co && !team) return '';
   // C-15's words from ui.js WHOSE, as Hearings, Legislators and Outreach say them ("Mine · My coalitions · Team").
-  return whoseSeg('blscope', { mine: 'me', coal: co ? 'coal' : null, team: team ? 'all' : null }, v.scope, { label: 'Whose bills' });
+  return whoseSeg('blscope', { mine: 'me', coal: co ? 'coal' : null, team: team ? 'all' : null }, v.scope, { label: 'Whose bills', ...(VB ? { names: B_WHOSE } : {}) });
 }
 // R-356 round 1, decision 5 (A-14, D1): the "N to ask · first by … · Bills That Need Hearings" line that stood over this list
 // (F95, V19) is gone: "bills need a hearing" is said once on Hearings (the line under its days) and once as a line on Today,
@@ -193,11 +197,12 @@ function scopeWords(q, n) {
   // With the sub-tab row on the page the count is the By stage tab's number (billshead.js); the line stays only when that row is not drawn
   return `${subTabsShown('bills') ? '' : `<p class="bl-sum bl-scope">${mine} · ${total.toLocaleString()}</p>`}${rest ? `<p class="bl-sum bl-scope-more">The team tracks ${rest.toLocaleString()} more · search finds any bill</p>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span>`;
 }
-const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more under Team</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
+const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="button" class="linkbtn" data-scopeall="1">${more} more ${VB ? 'in Team’s bills' : 'under Team'}</button>` : ''}<span class="sr" aria-live="polite">${q ? `${n} bill${n === 1 ? ' matches' : 's match'}` : ''}</span></p>`;
 // The list's toolbar: the filter box, Filter, Select, then (on a laptop) Rows | Table; the table adds Columns, Edit, Export.
 // Under 768px the toolbar is one row (R-356 round 3): Select moves into the Filter sheet's foot.
 // With the switch in the sheet on a phone, the button says the scope when it is not Mine ("Filter · Team"): nothing hidden.
-const whoseList = () => { const l = scopeOpts().filter(([k]) => k !== 'all' || seesTeam()); return l.length > 1 && selInFilter() ? l : null; };
+const B_SCOPE = { me: B_WHOSE.mine, coal: B_WHOSE.coal, all: B_WHOSE.team };   // the phone sheet says what the laptop switch says
+const whoseList = () => { const l = scopeOpts().filter(([k]) => k !== 'all' || seesTeam()).map(([k, w]) => [k, VB ? B_SCOPE[k] || w : w]); return l.length > 1 && selInFilter() ? l : null; };
 function filterBtnW(n) {
   const sc = whoseList() && bl().scope !== 'me' ? (whoseList().find(x => x[0] === bl().scope) || [])[1] : '';
   return filterBtn(n, { 'data-filter': '', ...(sc ? { 'aria-label': `Filter, ${sc}` } : {}) }).replace('<span>Filter</span>', `<span>Filter${sc ? ` · ${esc(sc)}` : ''}</span>`);

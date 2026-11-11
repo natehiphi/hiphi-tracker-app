@@ -220,7 +220,7 @@ function build(v) {
     if (!rallierOf(b).includes(v.id)) continue;
     out.rally.push({ b, h });
     if (liveAsk(b) || out.own.some(i => i.kind === 'rally' && i.b.id === b.id)) continue;
-    const due = askDueAt(h); if (now < due - 2 * DAY) continue;
+    const due = askDueAt(h); if (now < due - (VB ? 7 : 2) * DAY) continue;   // B: a week ahead, in Coming up (Nate 10 Nov)
     add({ key: `ra:${b.id}`, kind: 'rally', b, h, at: due, tone: due <= now ? 'overdue' : 'neutral', due });
   }
   // ---- v5's own items: to-dos, follow-ups, emails, questions, the moved hearings (the same data, v6 rows) ----
