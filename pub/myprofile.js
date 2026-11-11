@@ -47,6 +47,19 @@ export const storyName = k => !k ? '' : S.issueById?.get(k)?.name || (S.cats || 
 // from their own life, not an argument (Marshall Ganz's "story of self").
 export const storyAsk = k => k ? 'Why does this issue matter to you?' : 'Why do these issues matter to you?';
 export const STORY_HINT = 'A moment from your own life works best. One or two sentences is plenty.';
+// R-212 #53 (the walk's Person Who Lived It): letters are public, so a child is better named by who they are to you.
+export const NAME_HINT = 'About your child? Leave out their name: “my son” or “my daughter” is enough.';
+// R-212 #53: after a letter that carries the person's own story (often a hard one), the thank-you stays quiet: no
+// milestone chips, no flowers. The milestones are kept here and greet them on Home at their next visit instead.
+// Device only (no personal data, only the milestone names); a visit is a page load after the one that held them.
+const HELD_KEY = 'hiphi_held_miles', LOAD = Math.random().toString(36).slice(2);   // this page load (the practice copy's clock is fixed, so not a time)
+export function holdMiles(list) {
+  if (!list?.length) return;
+  try { const o = JSON.parse(localStorage.getItem(HELD_KEY) || '{}'); localStorage.setItem(HELD_KEY, JSON.stringify({ load: LOAD, miles: [...new Set([...(o.miles || []), ...list])] })); } catch { /* this visit only */ }
+}
+export function takeHeldMiles() {
+  try { const o = JSON.parse(localStorage.getItem(HELD_KEY) || 'null'); if (!o?.miles?.length || o.load === LOAD) return []; localStorage.removeItem(HELD_KEY); return o.miles; } catch { return []; }
+}
 // How they'd help (R-165, Nate 10/5: "more inviting and warm"; "dozens of options"; his answer: all four groups, and a
 // "Something else? Tell us" box). Kept as interests (people.interests, backend 135 allows 24); 'testify' also chooses the
 // next ask on a hearing's card (R-156 C1), the others tell HIPHI's team who to invite to what. Sharing a story with

@@ -63,7 +63,7 @@ import { introMark } from './speakup.js';
 import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
-import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, saveProfile, quoteLevel, QUOTE, CLOSINGS } from './myprofile.js';   // R-147, R-156, R-165, R-304
+import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, NAME_HINT, holdMiles, saveProfile, quoteLevel, QUOTE, CLOSINGS } from './myprofile.js';   // R-147, R-156, R-165, R-304
 import { pickTitle, asWords, aWords, needsSelf, setSelfPref, cleanTitles, titleLabel } from './titles.js';
 import { pickerHTML, wirePicker, pendingTitle } from './titlepick.js';
 import { aboutBill as readMore, billTextUrl } from './billtext.js';   // "Read more about the bill" where people pick a side (R-178)
@@ -419,6 +419,19 @@ function pastDay(iso) {
 // Milestones as [key, label]. The confirmation celebrates acts only: following and taking a stand have their own
 // moments elsewhere, and a first action that is a testimony gets one chip ("First testimony"), not two for one act.
 const earned = () => MILESTONES.filter(m => { try { return m[3](myActions()); } catch { return false; } }).map(m => [m[0], m[1]]);
+// R-212 #53: a letter that carries the person's own story keeps its thank-you quiet. Its new milestones wait for Home at
+// the next visit (myprofile.js holdMiles), and the first-testimony flowers are not drawn. A story, not a reason: a "why"
+// past two short sentences (140 characters); a one-line reason ("Our keiki deserve clean air") keeps the celebration.
+// Not "matches a saved story": since #26 any reason is kept as the story, so every later letter would match. Length is
+// a guess at what reads as personal; real letters will tell (R-212 #53).
+const STORY_LEN = 140;
+const toldStory = x => { const w = String(x.why || '').trim(); return !!w && !x.noWhy && !own2() && w.length >= STORY_LEN; };
+function shownMiles(x) {
+  if (x.milesShown) return x.milesShown;
+  const m = newMilestones(x.before);
+  if (m.length && toldStory(x)) { holdMiles(m); return (x.milesShown = []); }
+  return (x.milesShown = m);
+}
 function newMilestones(before = []) {
   const had = new Set(before.map(m => m[0])), fresh = earned().filter(([k]) => !had.has(k) && k !== 'follow' && k !== 'stance');
   return fresh.filter(([k]) => !(k === 'first' && fresh.some(([k2]) => k2 === 'testimony'))).map(m => m[1]);
@@ -1203,9 +1216,9 @@ function aboutNote(x) {
 // Under the "why" box: where its words came from (their saved story, R-147; by topic since R-156), else what it is for.
 function whyHelp(x) {
   const saved = x.whyStory && storyFor(catsOf(x.mode === 'intro' ? null : x.b));
-  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, ${hasProfile() ? 'from your profile' : 'kept on this device'}. Change it to fit this bill.`;
+  if (saved && x.why.trim() === saved.text) return `${icon('user')} Your story${saved.topic && topicName(saved.topic) ? ` about “${esc(topicName(saved.topic))}”` : ''}, ${hasProfile() ? 'from your profile' : 'kept on this device'}. Change it to fit this bill. ${NAME_HINT}`;
   if (x.mode === 'intro') return 'One or two sentences in your own words. Leave it empty if you like.';
-  return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words.` : 'One or two sentences. A personal reason carries the most weight, but you can leave it empty.';
+  return own2() ? `This is the heart of your ${isMail(x) ? 'email' : 'letter'}. One or two sentences in your own words. ${NAME_HINT}` : `One or two sentences. A personal reason carries the most weight, but you can leave it empty. ${NAME_HINT}`;
 }
 // The one issue the hello names (R-172, Nate 10/10: "someone picked many issues"): picked from the issues they follow, the
 // letter's default already chosen, one tap to change it. Following one issue leaves nothing to pick, so no step. A whole
@@ -1491,7 +1504,7 @@ function doneScreen() {
   const held = new Date(h.scheduled_at) < Date.now(), plural = codesOf(h.committee).length > 1;
   const when = `${dateLong(h.scheduled_at)} at ${timeWord(h.scheduled_at)}`;
   const next = held ? `The ${cmteLabel(h.committee)} heard it ${when}.` : `The ${cmteLabel(h.committee)} ${plural ? 'hear' : 'hears'} it ${when}.`;
-  const v = streamOf(h), miles = newMilestones(x.before);
+  const v = streamOf(h), miles = shownMiles(x);
   const watch = v ? `<a class="btn text hp-watch" href="${esc(v.url)}" target="_blank" rel="noopener">${icon('play')}<span>${v.state === 'live' ? 'Watch live now' : v.state === 'after' ? 'Watch the recording' : 'Watch it live on YouTube'}</span>${icon('external-link')}</a>` : '';
   // The ask (R-184): right under the thank-you, the first thing seen after it. It sat under "What happens next" and "Going
   // in person?", which on a phone put it below the first screen, so "Done" in the bar came first. The old place is the test
@@ -1503,7 +1516,7 @@ function doneScreen() {
       ${DEMO ? notice('info', 'info', 'Practice: nothing went to the Capitol. This is what someone sees after sending.') : ''}
       <p class="hp-lede">${DEMO ? 'When you send it for real, the committee reads it before they vote, and it becomes part of the public record.' : x.late ? `You sent testimony on ${esc(n)}. It’s on the record, marked late. It may reach them after the vote.`
         : `You sent testimony on ${esc(n)}. The committee reads it before they vote, and it becomes part of the public record.`}</p>
-      ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
+      ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : toldStory(x) ? '<p class="hp-told">Mahalo for trusting them with something personal.</p>' : ''}
     </div>${up ? ask : ''}${x.v2 ? story : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${esc(next)} ${followWords(x, n)}</p>
@@ -1660,7 +1673,7 @@ function emailAsk(x) {
 }
 // The Mahalo for an email (R-079): what they did, in words, and what happens next.
 function mailDoneScreen() {
-  const x = S.helper, { b, h } = x, first = firstOf(x.name), names = andList(x.to.map(shortName)), miles = newMilestones(x.before);
+  const x = S.helper, { b, h } = x, first = firstOf(x.name), names = andList(x.to.map(shortName)), miles = shownMiles(x);
   lateStory(x);
   const n = b ? spaced(b.bill_number) : '', stance = x.stance || (b ? hiphiStance(b) : ''), m = x.moment || {};
   const lede = x.mode === 'intro' ? `You introduced yourself to ${names}. When a bill on your issues comes up, they’ll know who is writing.`
@@ -1682,7 +1695,7 @@ function mailDoneScreen() {
       <div class="hp-badge" aria-hidden="true">${doneArt(x)}</div>
       <h2 class="hp-mahalo" id="hp-done-t" tabindex="-1">${first ? `Mahalo, ${esc(first)}!` : 'Mahalo!'}</h2>
       <p class="hp-lede">${esc(lede)}</p>
-      ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : ''}
+      ${miles.length ? `<div class="chips hp-miles" aria-label="Milestones you just earned">${miles.map(m => `<span class="chip yay">${flower(16)}${esc(m)}</span>`).join('')}</div>` : toldStory(x) ? '<p class="hp-told">Mahalo for trusting them with something personal.</p>' : ''}
     </div>${up ? ask : ''}${x.v2 ? story : ''}${friendCard(x)}
     <section class="card hp-next" aria-labelledby="hp-next-t"><h3 id="hp-next-t">What happens next</h3>
       <p>${next}</p>
@@ -1882,7 +1895,7 @@ function download() {
 async function confirmSent() {
   const x = S.helper; if (!x || x.busy) return;
   x.busy = true; x.failMsg = ''; paintFoot();
-  x.before = earned();   // [key, label] pairs; newMilestones() compares by key
+  x.before = earned(); x.milesShown = null;   // [key, label] pairs; newMilestones() compares by key
   try { x.first = !!(await markDone(x.b.id, x.h.id, 'testimony', true, { quiet: true }))?.firstTestimony; }
   catch (e) { x.busy = false; x.failMsg = friendly(e); paint(); return; }
   if (!x.again && x.t0) logTime('testimony', (Date.now() - x.t0) / 1000, x.firstTime);   // R-169: a letter sent again starts written
@@ -1904,7 +1917,7 @@ async function confirmSent() {
   x.busy = false; x.screen = 'done'; saveDraft();
   paint({ focus: 'hp-done-t', top: true });
   x.askShown = !!S.nudge;
-  if (x.first && !fxOn('sent')) requestAnimationFrame(burst);   // with the rooster on trial (fx=sent) its hop is the one celebration (calm, R-281)
+  if (x.first && !fxOn('sent') && !toldStory(x)) requestAnimationFrame(burst);   // with the rooster on trial (fx=sent) its hop is the one celebration (calm, R-281)
 }
 // First testimony ever: 16 hibiscus burst from behind the title over 900 ms, once. Under reduce-motion the title takes a
 // brief colour change instead (R-140: the words and a colour, nothing moves). Inside the dialog, because a modal dialog
@@ -1944,7 +1957,7 @@ function finishLater() { const x = S.helper; x.toast = `Saved on this device. Op
 async function confirmMail() {
   const x = S.helper; if (!x || x.busy) return;
   x.busy = true; x.failMsg = ''; paintFoot();
-  x.before = earned();
+  x.before = earned(); x.milesShown = null;
   try {
     if (x.mode === 'intro') { app.onAct?.('intro'); introMark('sent'); }   // counted apart (089, R-087)
     else {

@@ -13,7 +13,7 @@ import { S, DEMO, app, esc, icon, toast, friendly, textSaved, followedIssues, HS
 import { btn, notice, inlineErr } from './ui.js';
 import { CHOICES, check, busy, unbusy, submitBtn, say, myDistricts, distHTML, addrField, wireAddr, rememberDistricts } from './more.js';
 import { alertFields, alertButton, wireAlertForm, phoneDigits, codeStep, confirmWords, LEVEL_WORDS, getsAlerts, levelSwitch, EMAIL_ALERTS, EMAIL_SAME, EMAIL_EVERY, alertStatus } from './alerts.js';
-import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
+import { hasProfile, signedIn, myName, myTitles, myStory, myStories, storyName, quoteLevel, QUOTE, storyAsk, STORY_HINT, NAME_HINT, myInterests, HELP_GROUPS, HELP_KEYS,
   myHelpNote, initials, saveProfile, loadMe, forgetProfileOnDevice, CLOSINGS, myClosing } from './myprofile.js';
 import { pickerHTML, wirePicker } from './titlepick.js';
 import { codesOn, myEmail, myNumber } from './phone.js';   // sign-in by text code (R-155)
@@ -189,7 +189,7 @@ function storyBody() {
   const d = P.draft, keys = storyKeys(), have = new Set(keys);
   const follow = followedIssues().filter(i => !have.has(i.id)), others = (S.issues || []).filter(i => !have.has(i.id) && !follow.includes(i));
   return `<p class="pf-warm" id="pf-story-h">${esc(storyAsk(''))} ${esc(STORY_HINT)} We’ll put it in your letters, and you can change it in each one.</p>
-    <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
+    <p class="small muted">Testimony is public: a story you send is posted with your letter. ${esc(NAME_HINT)}</p>
     ${storyGone()}
     ${storyField('', d.story)}
     ${keys.map(k => storyField(k, d.stories[k] || '')).join('')}
@@ -624,11 +624,11 @@ function voiceStoryBody() {
   // when that story is saved, helper.js quoteAsk).
   if (!keys.length) return `${storyGone()}
     <p class="pfv-none">No stories yet. You add one when you write a letter, and it’s kept for the next one.</p>
-    <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>`;
+    <p class="small muted">Testimony is public: a story you send is posted with your letter. ${esc(NAME_HINT)}</p>`;
   return `${storyGone()}
     <ul class="pfv-stories">${keys.map(storyItem).join('')}</ul>
     <p class="small pfv-how">You add a story when you write a letter, and it’s kept for the next one.</p>
-    <p class="small muted">Testimony is public: a story you send is posted with your letter.</p>
+    <p class="small muted">Testimony is public: a story you send is posted with your letter. ${esc(NAME_HINT)}</p>
     <fieldset class="mr-set pf-f" id="pf-quote-f"><legend>Can HIPHI quote your stories?</legend>${status('pf-quote-st')}
       <p class="small muted">This applies to all of them. HIPHI asks you again before using one anywhere public.</p>
       ${[['', 'No'], ...QUOTE].map(([k, l]) => radio('pf-quote', k, l, P.draft.quote === k)).join('')}</fieldset>`;

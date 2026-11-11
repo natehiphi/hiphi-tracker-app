@@ -24,6 +24,7 @@ import { btn, chip, posChip, row, empty, skeleton } from './ui.js';
 import { actionCard, wireActions, nudgeCard, wireNudge, declineNudge, goingPlans, goingCard, remindWhen, remindDone } from './actions.js';
 import { CAPITOL, islands, flower } from './art.js';
 import { lettersFor, letterButtons, wireKept, sessionWhere } from './myletters.js';
+import { takeHeldMiles } from './myprofile.js';   // R-212 #53
 // More's account cards (the follow-ups after a sign-in) load with More itself, on first use: only a signed-in person
 // sees them, and Home must not carry More, People and the address picker for everyone (R-122).
 let more = null; const moreLoad = () => import('./more.js').then(m => { more = m; app.render(); });
@@ -1081,6 +1082,10 @@ export const calmParts = { goodNews, momentText, seeMoment, sinceItems, askCard,
 export const extras = { profile: () => profileLine(), account: () => accountCards(), draft: skip => draftsCard(skip), meet: () => meetCard(), friend: () => friendCard() };
 export function wireExtras(root) {
   wireProfileLine(root);
+  // R-212 #53: milestones held back after a letter with the person's own story (myprofile.js holdMiles) say themselves at
+  // the next visit, once, as a quiet toast with no burst. Both Homes wire through here; "See all" opens the session page.
+  const held = takeHeldMiles();
+  if (held.length) setTimeout(() => toast(`New ${held.length === 1 ? 'milestone' : 'milestones'} from what you sent last time: ${held.length > 1 ? held.slice(0, -1).join(', ') + ' and ' + held[held.length - 1] : held[0]}.`, { yay: true, also: { label: 'See all', action: () => app.go('#/recap') } }), 600);
   try { more?.wireAccountCards?.(); } catch (e) { console.error(e); }
   // Ask a friend, on a bill they acted on (R-205 B4): the sheet, with what they did first; "Not now" for that hearing.
   root.querySelectorAll('[data-hm-askf]').forEach(el => el.onclick = async () => {
