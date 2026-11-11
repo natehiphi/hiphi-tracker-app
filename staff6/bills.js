@@ -172,7 +172,7 @@ const rowStep = b => { const s = stepOf(b); if (!s) return s;
 // R-365 B (Nate 10 Nov): everyone gets "Team's bills" beside their own, so any bill is reachable by browsing, not only
 // by search (the walk's T8: 0 of 10 by browsing). v6 keeps R-356 decision 2 (Team only for people who see Team).
 const seesTeam = () => VB || seesTeamV6();
-const B_WHOSE = { mine: 'Your bills', coal: 'Your coalitions’', team: 'Team’s bills' };
+const B_WHOSE = { mine: 'Your bills', coal: 'Coalitions’ bills', team: 'Team’s bills' };
 // R-356 decision 2: Team (scope 'all') is a choice only for people who see Team; with one choice left no switch is drawn.
 // A remembered or linked Team scope (a saved view, a coalition's bills opened from Issues) for someone without it falls back
 // to My coalitions when they have some, else Mine, so the page is never empty or in error. Done on every draw, before any
@@ -204,7 +204,7 @@ const moreLine = (n, more, q) => `<p class="bl-sum">${more ? `<button type="butt
 const B_SCOPE = { me: B_WHOSE.mine, coal: B_WHOSE.coal, all: B_WHOSE.team };   // the phone sheet says what the laptop switch says
 const whoseList = () => { const l = scopeOpts().filter(([k]) => k !== 'all' || seesTeam()).map(([k, w]) => [k, VB ? B_SCOPE[k] || w : w]); return l.length > 1 && selInFilter() ? l : null; };
 function filterBtnW(n) {
-  const sc = whoseList() && bl().scope !== 'me' ? (whoseList().find(x => x[0] === bl().scope) || [])[1] : '';
+  const sc = whoseList() && bl().scope !== 'me' ? VB ? { coal: 'Coalitions', all: 'Team' }[bl().scope] || '' : (whoseList().find(x => x[0] === bl().scope) || [])[1] : '';   // B: short on the phone's button, so the box keeps its room
   return filterBtn(n, { 'data-filter': '', ...(sc ? { 'aria-label': `Filter, ${sc}` } : {}) }).replace('<span>Filter</span>', `<span>Filter${sc ? ` · ${esc(sc)}` : ''}</span>`);
 }
 const selInFilter = () => matchMedia('(max-width: 767.98px)').matches;

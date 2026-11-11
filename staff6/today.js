@@ -843,7 +843,7 @@ function doorLines(w, v = S.me, { coal = true, lead = '', leadShown = !!lead } =
     // D4's own words: "Lauren has 15 hearing asks · Offer to help", opening the coalition's Get hearings board (My
     // coalitions), where "I'll ask" takes one on. The count is every bill still to ask, so no "this week" (Nate's walk:
     // "Lauren's bills: 15 to ask" read as Patti's own backlog). A door, never the screen's filled button.
-    out.push(lineA('#/hearings/ask?scope=coal', 'hand-heart', `<b>${esc(cap(who))} ${owners.length > 1 ? 'have' : 'has'} ${plural(n, 'hearing ask')}</b> · Offer to help`, { attrs: ` aria-label="${esc(`Offer to help ${who}: ${plural(n, 'hearing ask')}`)}"` }));
+    out.push(lineA('#/hearings/ask?scope=coal', 'hand-heart', `<b>${esc(cap(who))} ${owners.length > 1 ? 'have' : 'has'} ${VB ? plural(n, 'bill') + (n === 1 ? ' that needs a hearing' : ' that need hearings') : plural(n, 'hearing ask')}</b> · Offer to help`, { attrs: ` aria-label="${esc(`Offer to help ${who}: ${VB ? plural(n, 'bill') + ' needing a hearing' : plural(n, 'hearing ask')}`)}"` }));
   }
   // This week's asks the viewer rallies that are still to write and not already a row here (Nate's walk: after Saya wrote
   // HB 2121's ask, "1 public ask" counted it, which read as one more to do); none left, no line.
