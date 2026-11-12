@@ -68,10 +68,14 @@ function scopeWords(route, scope) {
   const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), keep = x => !x.mon || monOn();
   const mine = new Set(weekSittings(scope, mon).filter(keep).map(x => sitKey(x.h)));
   const rest = weekSittings('team', mon).filter(keep).filter(x => !mine.has(sitKey(x.h))).length;
-  const w = scope === 'coal' ? 'Your coalitions’ hearings' : 'Your hearings';
-  const when = off === 0 ? ' this week' : off === 1 ? ' next week' : off === -1 ? ' last week' : '';
-  return `<p class="hw-scope">${esc(w + when)}</p>${rest ? `<p class="hw-scope-more">The team has ${rest} more${when || ' that week'}</p>` : ''}`;
+  // R-373 (A-1, A-14): whose week it is now rides on the tab ("Your hearings", weekTab), and the dates say which week, so "this
+  // week" is said by neither; the line keeps only what the team has beyond it.
+  const when = off === 0 ? '' : off === 1 ? ' next week' : off === -1 ? ' last week' : ' that week';
+  return rest ? `<p class="hw-scope-more">The team has ${rest} more${when}</p>` : '';
 }
+// The first tab says whose hearings these are when no switch does (one choice of scope): "Your hearings", "Your coalitions’
+// hearings"; else "This week".
+const weekTab = (view, scope) => view === 'week' && scopes().length <= 1 ? (scope === 'coal' ? 'Your coalitions’ hearings' : 'Your hearings') : 'This week';
 
 // ---- one issue's hearings (R-352: the job All issues' calendar did, now here) ----
 // The address holds the pick (?issue=<id>), nothing else does: a filter kept out of sight would hide hearings from someone
@@ -201,8 +205,11 @@ const capLine = ds => (ds || []).map(d => { const g = gateGloss(d.label);
 // says them in the board's own words, so Get hearings is still one tap away for them.
 function askLine(s, scope) {
   const t = SESSION_OVER ? '' : toAskWords(s) || decideWords(s?.decide || 0); if (!t || !tabCounts()) return '';
+  // R-373 (A-14): the tab beside the week already says how many ("Bills That Need Hearings 3"), so the line under the days keeps what
+  // the tab does not: ask the chairs, first by Wed 3/25.
+  const said = tabCounts() && s?.need && !SESSION_OVER ? t.replace(/^\d+ (?:of your coalitions’ )?(?:bills? )?(?:need|needs) a hearing(?: by [^·]*)? · /, '') : t;
   const href = `#/hearings/ask${scope !== safeScope(defaultScope()) ? `?scope=${scope}` : ''}`;
-  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(t))}</span></span><span class="hw-ask-go">${askTabWords()}</span></a>`;
+  return `<a class="hw-ask" href="${esc(href)}">${icon('flag')}<span class="hw-ask-t"><span class="hw-ask-n">${nwParts(esc(said === t ? t : said.charAt(0).toUpperCase() + said.slice(1)))}</span></span><span class="hw-ask-go">${askTabWords()}</span></a>`;
 }
 // Someone who owns no bills has no pile of their own to ask: the tab carries no count for them, and the line is not drawn
 // (Nate's walk: Patti's Get hearings showed Lauren's 15 on every visit; D4's door on Today is the way to help).
@@ -640,11 +647,11 @@ const boardHas = scope => !!askSummary({ scope });
 // The page tabs (ui.js sectionNav's words and look; its This week address is #/hearings, which may open Get hearings by the
 // rule above, so the tabs name their views). Get hearings carries how many bills are still to ask (sectionNav's count), so
 // the number is in view without a card over the week (critic A-1).
-function tabs(view, sum) {
+function tabs(view, sum, weekLabel = 'This week') {
   const n = tabCounts() ? sum?.need || 0 : 0;   // decision 9: the bills still needing a hearing, as the board's line and Today's door say it
   // Each label keeps room for its bold self (staff.css .sv-tl, as sectionNav's), so the row never shifts when a tab is picked.
   const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
-  return `<nav class="sv-tabrow sv-secnav" aria-label="${VB ? 'Calendar' : 'Hearings'}"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl('This week')}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} ${n === 1 ? 'needs' : 'need'} a hearing</span>` : ''}</a></nav>`;
+  return `<nav class="sv-tabrow sv-secnav" aria-label="${VB ? 'Calendar' : 'Hearings'}"><a href="#/hearings/week"${view === 'week' ? ' aria-current="page"' : ''}>${tl(weekLabel)}</a><a href="#/hearings/ask"${view === 'ask' ? ' aria-current="page"' : ''}>${tl(ASK_TAB)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(plural(n, 'bill'))} ${n === 1 ? 'needs' : 'need'} a hearing</span>` : ''}</a></nav>`;
 }
 
 // The buttons a week's cards carry besides the cards' own (wireSteps): shared by this page and Team's "The team's hearings" tab.
@@ -692,9 +699,8 @@ export default {
     // An old Today link to one day of its week (#/?view=cal&day=2026-03-18, sent here by app.js) opens on that day, once.
     if (route.q?.day && S.hcDayAt !== location.hash) { S.hcDayAt = location.hash; S.hcDay = route.q.day; }
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
-      ${VB ? pathLine(view === 'ask' ? [['Calendar', '#/hearings/week'], [ASK_TAB]] : [['Calendar', '#/hearings/week'], ['This week']]) : ''}
-      <h1 class="v6-ptitle sv-h1">${VB ? 'Calendar' : 'Hearings'}</h1>
-      ${tabs(view, sum)}
+            <h1 class="v6-ptitle sv-h1">${VB ? 'Calendar' : 'Hearings'}</h1>
+      ${tabs(view, sum, weekTab(view, scope))}
       <div class="hw-bar"><div class="hw-picks">${view === 'week' && phoneNow() && scopes().length > 1 ? '' : switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? filterBar(route, scope) + vbViewLink(mode) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
