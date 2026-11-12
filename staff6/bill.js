@@ -489,7 +489,24 @@ function vbPart(b, s, tab) {
 function vbTracker(b, html) {
   let w = ''; try { w = vbWhereWords(trackerModel(b)); } catch { w = ''; }
   if (w) html = html.replace(/<span>Stop \d+ of \d+<\/span>(<span class="tk-sw"> · [^<]*<\/span>)?/, `<span>${esc(w)}</span>`).replace(/Stop \d+ of \d+\. /, `${esc(w)}. `);
+  // R-370 second walk: "Where it is" read as one long line of Capitol words (every stop's state, every deadline). The caption
+  // now says the next one or two stops and the next deadline in plain words, the Capitol's term in brackets so staff learn it;
+  // the whole path stays behind "Show the whole path" (and the bar). The screen-reader sentence says the same, short.
+  try { const L = vbNextWords(trackerModel(b)); if (L) html = html.replace(/<div class="tk-cap">[\s\S]*?<\/div>/, `<div class="tk-cap"><p class="tk-vbnext"><b>${esc(L.next)}</b></p>${L.must ? `<p class="tk-vbmust">${esc(L.must)}</p>` : ''}</div>`)
+    .replace(/(<h2 class="sr" id="tk-h">Where it is<\/h2>)<p class="sr">[\s\S]*?<\/p>/, `$1<p class="sr">${esc(L.next)}.${L.must ? ' ' + esc(L.must) + '.' : ''} The whole path is under Show the whole path.</p>`); } catch { /* keep the tracker's own caption */ }
   return html.replace('See every stop', 'Show the whole path').replace('Hide the stops', 'Hide the path');
+}
+// "Next: Senate Commerce and Health hearing · then Ways and Means" and "Must pass its last Senate committee by Mon 3/30 (second lateral)".
+// null unless the bill is live with a place on the path.
+function vbNextWords(m) {
+  if (!m || m.place?.state !== 'live' || m.cur == null || m.cur < 0) return null;
+  const stops = m.stops || [], cur = stops[m.cur]; if (!cur) return null;
+  const ahead = stops.slice(m.cur + (cur.kind === 'cmte' || cur.kind === 'cmtes' ? 0 : 1)).filter(x => x.state !== 'done');
+  const say = x => x.kind === 'cmte' ? `${x.full} hearing` : x.full.replace(/^A /, 'a ');
+  const [a, b2] = ahead; if (!a) return null;
+  const next = `${m.cur === stops.indexOf(a) ? 'Now' : 'Next'}: ${cap1(say(a))}${b2 ? ` · then ${say(b2)}` : ''}`;
+  const f = m.next, must = f && m.must?.full ? `${cap1(m.must.full)} by ${dayWords(f.date)} (${String(f.name || '').toLowerCase()})` : '';
+  return { next, must };
 }
 // ---- the tabs (F128): Next step · Team talk · Public, keys 1 to 3, an unread count on Team talk ----
 // From Team talk or Public, a dot on Next step says the step there is yours (B-7: v5's Next up card showed on every tab;
@@ -567,6 +584,16 @@ function yourStep(card) {
   if (card.includes('<p class="v6-step-eyebrow">')) return card.replace('<p class="v6-step-eyebrow">', `<p class="v6-step-eyebrow">${lead} · `);
   return card.replace(/(<section class="v6-step[^"]*"[^>]*>)/, `$1<p class="v6-step-eyebrow">${lead}</p>`);
 }
+// R-370 second walk: the other half of yourStep. Saya on Kevin's bill read "What's next" over Kevin's step and, below it, her
+// own to-do, with nothing saying which was whose. Someone else's step now leads with "Kevin’s step", as hers leads with
+// "Your step"; the sentence under it stays as it was.
+function theirStep(card, s) {
+  const w = s?.whose, ids = w?.ids || [], name = (w?.words || '').trim();
+  if (!name || s?.you || !ids.length) return card;
+  const lead = `<span class="bw-yours bw-theirs">${esc(ids.length === 1 ? `${name}’s step` : `${name}: their step`)}</span>`;
+  if (card.includes('<p class="v6-step-eyebrow">')) return card.replace('<p class="v6-step-eyebrow">', `<p class="v6-step-eyebrow">${lead} · `);
+  return card.replace(/(<section class="v6-step[^"]*"[^>]*>)/, `$1<p class="v6-step-eyebrow">${lead}</p>`);
+}
 // R-316 W18: on a chair ask the chair's name opens their page (v5's did: one click to the office's phone and the team's
 // history with them; fresh-eyes review: it took Committees › members › the name). Only inside the card's sentence.
 function chairLinked(b, card, code) {
@@ -588,7 +615,7 @@ function whatsNext(b, s) {
   let card = s?.heardNow ? `<div class="bw-calm">${icon('gavel')}<p>If the committee does not vote at this hearing, asking the chair to schedule a vote comes next.</p></div>`
     : dm || (!s || s.kind === 'none' ? noneCard(b) : stepCard(b, { where: 'bill', from: b.bill_number, hear: !sideHearing(b, s) }));
   if (s?.kind === 'chair') card = chairLinked(b, card, s.ask?.code);
-  if (mine) card = yourStep(card);
+  if (mine) card = yourStep(card); else if (s && s.kind !== 'none' && s.kind !== 'chair' && !s.heardNow) card = theirStep(card, s);
   return `<section class="bw-sec bw-next" aria-labelledby="bw-next-h">
     <h2 class="sr" id="bw-next-h">${mine ? 'What’s next for you' : 'What’s next'}</h2>
     ${card}${stepExtras(b, s, card)}
@@ -654,6 +681,14 @@ function todoRow(b, t) {
   const sw = shareTodoWords(b, t);
   const st = sw ? shareTone(sw, t) : todoTone(b, t), who = sw ? (sw.by ? `(${sw.by})` : '') : t.assignee_id ? nameOrYou(advocate(t.assignee_id)) : 'Anyone';
   const tone = st && st.tone !== 'neutral' && !t.done ? ' t-' + st.tone : st?.soon ? ' soon' : '';
+  // R-370 second walk: a to-do that is the viewer's own job reads "Your to-do: write the public ask · by tomorrow 4 PM",
+  // without "(Kevin's to-do)" (the owner it was filed under); someone else's keeps "Saya writes the public ask … (Kevin's to-do)".
+  if (sw?.mine && !t.done && /^You write /.test(sw.title)) { const w = st ? st.words : ''; const mineTitle = `Your to-do: ${sw.title.replace(/^You write /, 'write ')}`;
+    return `<li class="bw-todo" data-todo="${esc(t.id)}">
+    <button type="button" class="bw-tick" data-tick="${esc(t.id)}" role="checkbox" aria-checked="false" aria-label="${esc(`Mark done: ${sw.title}`)}">${icon('square')}</button>
+    <span class="bw-tbody"><span class="bw-ttl">${esc(mineTitle)}</span><span class="bw-tmeta${tone}">${st?.icon ? icon(st.icon) : ''}<span>${nw(esc(w ? w.replace(/^By /, 'by ') : ''))}</span></span></span>
+    ${iconBtn('ellipsis', `More for “${t.title}”`, { 'data-tmore': t.id, 'aria-haspopup': 'dialog' })}
+  </li>`; }
   return `<li class="bw-todo${t.done ? ' done' : ''}" data-todo="${esc(t.id)}">
     <button type="button" class="bw-tick" data-tick="${esc(t.id)}" role="checkbox" aria-checked="${!!t.done}" aria-label="${esc(sw ? `Mark done: ${sw.title}` : t.title)}">${icon(t.done ? 'square-check-big' : 'square')}</button>
     <span class="bw-tbody"><span class="bw-ttl">${esc(sw ? sw.title : t.title)}</span><span class="bw-tmeta${tone}">${st && !t.done && st.icon ? icon(st.icon) : ''}<span>${nw(esc([st && !t.done ? st.words : '', who].filter(Boolean).join(sw ? ' ' : ' · ')))}</span></span></span>

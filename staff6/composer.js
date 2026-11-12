@@ -211,7 +211,7 @@ function stateFor(route) {
   if (route.id) {
     const src = alertById(route.id); if (!src) return null;
     const { ask, msg } = splitAsk(src);
-    return S.leCmp = { key, a: { ...src }, subject: src.subject || '', ask, msg, step: 1, edited: true, dirty: false, savedAt: src.updated_at || src.created_at, q: '',
+    return S.leCmp = { key, a: { ...src }, subject: src.subject || '', ask, msg, step: 1, pre: true, edited: true, dirty: false, savedAt: src.updated_at || src.created_at, q: '',
       push: !!src.big_push, tline: src.text_line || '' };
   }
   const a = { id: null, bill_id: null, list_id: null, segment_id: null, status: 'draft', author_id: S.me?.id };
@@ -219,7 +219,7 @@ function stateFor(route) {
   else if (q.list) { const l = listById(q.list); if (l) a.list_id = l.id; }
   else if (q.segment) { const sg = segById(q.segment); if (sg) a.segment_id = sg.id; }
   const c = S.leCmp = { key, a, subject: '', ask: '', msg: '', step: 0, edited: false, dirty: false, savedAt: null, q: '', check: audKey(a) !== '||', push: false, tline: '' };
-  if (c.check) { fill(c); c.step = 1; }
+  if (c.check) { fill(c); c.step = 1; c.pre = true; }   // R-370: who it goes to was handed over, so the numbered steps start at Write (stepBar)
   return c;
 }
 function fill(c) { if (c.edited) return; const t = draftText(audienceOf(c.a)); Object.assign(c, { subject: t.subject, ask: t.ask, msg: t.msg }); }
@@ -262,7 +262,10 @@ const STEPS = ['Who', 'Write', 'Preview', 'Submit'];
 // v6 (V35: the step bar looked like tabs): a quiet progress line, "Step 2 of 4", with each step's number in a dot.
 // On a phone only the step you are on shows, "Step 2 of 4 · Write" (lists.css), so the bar never wraps a step onto a
 // second line.
-const stepBar = step => `<ol class="le-steps" aria-label="Step ${step + 1} of ${STEPS.length}">${STEPS.map((l, i) => `<li class="${i < step ? 'done' : i === step ? 'cur' : ''}"${i === step ? ' aria-current="step"' : ''}><span class="le-sdot" aria-hidden="true">${i < step ? icon('check') : i + 1}</span><span>${i === step ? `<span class="le-sof">Step ${i + 1} of ${STEPS.length} · </span>` : ''}${l}</span></li>`).join('')}</ol>`;
+// R-370 second walk: a composer opened on a bill, list or group (c.pre) has its "Who" already answered, so the bar leaves that
+// step out and the first screen reads "Step 1 of 3 · Write" instead of opening on "Step 2 of 4".
+const stepBar = (step, pre = false) => { const L = pre ? STEPS.slice(1) : STEPS, at = step - (pre ? 1 : 0);
+  return `<ol class="le-steps" aria-label="Step ${at + 1} of ${L.length}">${L.map((l, i) => `<li class="${i < at ? 'done' : i === at ? 'cur' : ''}"${i === at ? ' aria-current="step"' : ''}><span class="le-sdot" aria-hidden="true">${i < at ? icon('check') : i + 1}</span><span>${i === at ? `<span class="le-sof">Step ${i + 1} of ${L.length} · </span>` : ''}${l}</span></li>`).join('')}</ol>`; };
 
 // A segment's size, when Supporters has loaded (the exact audience is counted once it is picked).
 const segSub = s => { if (!S.me?.is_admin || !S.peopleLoaded) return 'A saved group of supporters'; try { return `${people(segmentPeople(s.id).length)} in this group`; } catch { return 'A saved group of supporters'; } };
@@ -514,7 +517,7 @@ function render(route) {
   // get it, redrawn as you type, which stays in view (.sv-cols + .sv-aside in staff.css).
   if (two) return `<div class="le-cmp le-two">${top}
     <div class="sv-cols le-panes">
-      <div class="le-form">${stepBar(c.step)}
+      <div class="le-form">${stepBar(c.step, c.pre)}
         <section class="le-step">${c.step === 1 ? lateNotice(c) : ''}${body}</section>
         <div class="le-formbar">${stepButtons(c)}<span class="le-savest" data-savestate aria-live="polite">${saveState(c)}</span>${c.step === 1 ? btn('Save draft', { kind: 'text', sm: true, icon: 'check', attrs: { 'data-le': 'save', title: 'Save draft (Ctrl+S or Cmd+S)' } }) : ''}</div>
       </div>
@@ -524,13 +527,13 @@ function render(route) {
       </aside>
     </div></div>`;
   return `<div class="le-cmp">${top}
-    ${stepBar(c.step)}
+    ${stepBar(c.step, c.pre)}
     <section class="le-step">${c.step === 1 ? lateNotice(c) : ''}${body}</section>
   </div>`;
 }
 const livePreview = c => audKey(c.a) === '||' ? `<div class="le-noprev">${icon('mail')}<p>Pick who it goes to, and the email shows here as you write it.</p></div>` : emailPreview(previewOf(c));
 function stepButtons(c) {
-  const backB = c.step > 0 ? btn('Back', { kind: 'secondary', icon: 'chevron-left', attrs: { 'data-le': 'back' } }) : '';
+  const backB = c.step > (c.pre ? 1 : 0) ? btn('Back', { kind: 'secondary', icon: 'chevron-left', attrs: { 'data-le': 'back' } }) : '';
   const nextB = c.step < 3 ? btn('Next', { iconEnd: 'chevron-right', attrs: { 'data-le': 'next' } }) : btn('Send for approval', { icon: 'send', attrs: { 'data-le': 'submit' } });
   return backB + nextB;
 }
@@ -778,7 +781,7 @@ function wire(route, root) {
     c.check = false;
     const target = { bill: c.a.bill_id && billById(c.a.bill_id), list: c.a.list_id && listById(c.a.list_id), segment: c.a.segment_id && segById(c.a.segment_id) };
     const deny = () => { const who = askWho(target); c.denied = { target, who: who ? `${first(who)}${target.bill ? ', its owner,' : ''}` : 'its owner', name: target.bill ? numWords(target.bill) : target.list ? target.list.title : 'these people' };
-      Object.assign(c.a, { bill_id: null, list_id: null, segment_id: null }); c.step = 0; c.edited = false; redraw(); };
+      Object.assign(c.a, { bill_id: null, list_id: null, segment_id: null }); c.step = 0; c.pre = false; c.edited = false; redraw(); };
     if (!mayEmail(target)) deny();
     else DB.canAlert(c.a.bill_id, c.a.list_id, c.a.segment_id).then(ok => { if (!ok) deny(); }).catch(() => {});
   }
