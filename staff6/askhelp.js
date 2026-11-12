@@ -5,7 +5,7 @@
 // be taken down.
 import { esc, fmtDate, fmtDT, DB, TRIAL } from './data.js';
 import { hstDayOf, liveAsk, FACTS } from './model.js';
-import { icon, toast } from './ui.js';
+import { icon, toast, confirmSheet } from './ui.js';
 
 const DAY = 864e5;
 // When the public's written testimony closes: the hearing's deadline, else a day before it (as Today and Outreach count it).
@@ -45,6 +45,19 @@ export const noteHTML = (text, h, id) => { const n = dateNote(text, h); return `
 // Repaint a note made by noteHTML as the words change.
 export function paintNote(el, text, h) { if (!el) return; const n = dateNote(text, h); el.hidden = !n; el.innerHTML = n ? `${icon('triangle-alert')}<span>${esc(n)}</span>` : ''; }
 
+// ---- one tap used to publish (R-370 third walk) ----
+// Publishing goes on the public page at once, so it asks first, in the same words from Outreach's box and the bill's Public tab.
+// `updating`: the bill already has a live ask, so the words are about changing what people see. `until` is the date field's value.
+export function confirmPublish(b, until, updating) {
+  const num = String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2'), where = TRIAL ? 'the practice copy' : 'the public page';
+  const thru = until ? `, through ${dayWord(until)}` : '';
+  return updating
+    ? confirmSheet({ title: 'Update the live public ask?', text: `${esc(num)}’s public ask is live now. This changes it on ${where} now${thru}. You can take it down any time.`, ok: 'Update' })
+    : confirmSheet({ title: `Publish the public ask for ${esc(num)}?`, text: `It goes on ${where} now${thru}. You can take it down any time.`, ok: 'Publish' });
+}
+// Said beside the button, not below the date field.
+export const goesLive = () => `<span class="ask-golive">Goes live on the ${TRIAL ? 'practice copy' : 'public page'} now</span>`;
+
 // ---- once it is live ----
 // "Live on the public page through Fri 3/20 · Take down". `take` is the button's attribute (data-asktake / data-pubtake).
 export function liveLine(b, attr) {
@@ -56,5 +69,5 @@ export async function takeDown(b, after) {
   const prev = { public_action: b.public_action ?? null, public_action_until: b.public_action_until ?? null };
   await DB.updateBill(b.id, { public_action: null, public_action_until: null });
   FACTS.clear(); after();
-  toast('The ask is off the public page.', { ok: true, undo: async () => { await DB.updateBill(b.id, prev); FACTS.clear(); after(); toast('The ask is back on the public page.'); } });
+  toast('The public ask is off the public page.', { ok: true, undo: async () => { await DB.updateBill(b.id, prev); FACTS.clear(); after(); toast('The public ask is back on the public page.'); } });
 }

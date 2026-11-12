@@ -93,7 +93,7 @@ const TOPICS = [
       ['Say I’m going to a hearing', 'Press <b>I’m going</b> on the hearing’s card: on Hearings, the hearing’s page or the bill’s page. It can be undone for 10 seconds.'],
       ['Ask the chair for a hearing', PL.H + ', then <b>' + ASK_TAB + '</b>: each chair with the bills waiting for them. <b>Email the chair</b> shows on the chairs whose ask is due this week; for the others it is under <b>Ask or hand it on</b>. The email is written for you and opens in your own mail; send it, then answer <b>Did you send it?</b> so the team sees who asked. Steps: <a href="#/help/hearing">Getting a bill a hearing</a>.'],
       ['Hand a bill or a to-do to someone', 'Give to… beside a bill’s owner (on its page) or on a to-do hands it to a teammate, who gets a Slack message. A chair ask: Give this ask to… on ' + ASK_TAB + '. Someone leaving or away: an admin hands over all they hold, from People.'],
-      ['Send this week’s ask', PL.O + ', <b>This week’s asks</b>: each bill’s ask and its deadline, with Copy link, Copy message, Copy post and Email followers.'],
+      ['Send this week’s ask', PL.O + ', <b>This week’s asks</b>: each bill’s ask and its deadline, with Copy link, Copy message, Copy for social and Email followers.'],
       ['Follow an issue I don’t lead', PL.I + ', then <b>All issues</b>: open the issue and press <b>Follow</b>. It and its bills join ' + PL.I + ', Today and your alerts, without making you a helper. Press <b>Following</b> to stop. A bill alone: Follow on its page.'],
       ['See what I owe today', 'Today: your next step first, then what to do today. The number beside Today in the sidebar counts it.'],
       ['Cover for a teammate', 'More, then See a teammate’s list: their Today, to read. Leads (and anyone with “Sees Team”) also have Team.'],
@@ -304,7 +304,7 @@ const MOVED_ALL = () => [
     ['Correct the stage, in the bill’s menu (admins)', 'About this bill, on the bill’s page: <b>Correct the stage</b>.', isAdmin],
     ['Mute, for a bill waiting for a hearing', 'Still in the bill’s menu (the three dots), where it reads <b>Not pushing this bill</b>. Unmute is on Bills’ Muted tab.'],
     ['The bill’s hearing menu: Watch, I’m going, Send a teammate, Fix the video link', '<b>Watch</b> and <b>I’m going</b> are on the hearing’s card; <b>Send a teammate…</b> and <b>Fix the video link</b> are on the hearing’s own page.'],
-    [`The ${SHARE_KIT.toLowerCase()}, on a bill’s Public tab and on a hearing’s page`, `${go('Outreach', '#/outreach')}, under This week’s asks: one card per bill with Copy link, Copy message, Copy post and Email followers. The bill and the hearing link to it.`],
+    [`The ${SHARE_KIT.toLowerCase()}, on a bill’s Public tab and on a hearing’s page`, `${go('Outreach', '#/outreach')}, under This week’s asks: one card per bill with Copy link, Copy message, Copy for social and Email followers. The bill and the hearing link to it.`],
     ['The weekly memo, in Bills’ menu', `${go('Outreach', '#/outreach/partners')}, under Partner update.`]]],
   ['Legislators', [
     ['Legislators’ This week', `${go('Legislators', '#/legislators')}: <b>Hearing our bills this week</b>.`],

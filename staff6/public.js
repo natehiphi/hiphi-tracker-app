@@ -23,7 +23,7 @@
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
 import { S, DB, DEMO, esc, VB } from './data.js';
-import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, timeFirst } from './model.js';
+import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, timeFirst, liveAsk } from './model.js';
 import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet, SHARE_KIT, ASK_CARD } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
 import { versionWords, numWords } from './steps.js';
@@ -32,7 +32,7 @@ import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.j
 // still opens this bill after 20 Jan 2027, when numbers start again.
 const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
-import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with Outreach's box
+import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown, confirmPublish, goesLive } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with Outreach's box
 // OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
 import { askCardHref, askWriteHref, askWhose, writesAsk, onBill } from './asks.js';
 import { emailDoor } from './composer.js';
@@ -62,6 +62,10 @@ const rawOf = b => ({ nickname: b.nickname || null, public_summary: b.public_sum
   is_public: !!b.is_public, recommended: !!b.recommended, talking_points: b.talking_points || null, talking_points_edited_at: b.talking_points_edited_at || null });
 // The ask shows through a date; if that is before the next hearing the ask stops while people can still act on it (R-152 C).
 // A hint, not a block: some asks are meant to end early. Hawaiʻi dates, as everywhere else in the app.
+// R-370 third walk: one name ("public ask"), and the button says what it will do. Publishing = an ask that is new or changed.
+const SAVE_WORD = 'Save changes';
+const publishing = (b, ask) => !!String(ask || '').trim() && String(ask).trim() !== String(b.public_action || '').trim();
+const pubWord = b => liveAsk(b) ? 'Update the public ask' : 'Publish the public ask';
 const untilWarn = (b, ask, until) => {
   if (!String(ask || '').trim()) return '';
   if (!until) return 'Required: pick the last day the ask should show.';
@@ -69,7 +73,7 @@ const untilWarn = (b, ask, until) => {
   const day = new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   return until < day ? `This stops showing on ${dayOf(until)}, before the ${h.committee} hearing on ${dayOf(day)}. Pick a later day to keep it up until then.` : '';
 };
-const LABEL = { nickname: 'Nickname', public_summary: 'Public summary', public_action: 'The ask', public_action_until: 'Show the ask until', is_public: 'On the public page', recommended: 'Recommended', talking_points: 'Talking points' };
+const LABEL = { nickname: 'Nickname', public_summary: 'Public summary', public_action: 'Public ask', public_action_until: 'Show the public ask through', is_public: 'On the public page', recommended: 'Recommended', talking_points: 'Talking points' };
 const asText = v => Array.isArray(v) ? v.join('\n') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
 const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
 const dirty = b => FIELDS.some(k => valOf(b, k) !== saved(b, k));
@@ -98,9 +102,9 @@ function previewInner(b, v) {
   // something to know about the ask being typed, or the page is hidden.
   const note = !v.is_public ? [ 'eye-off', 'Hidden. Nobody sees this until it is switched on and saved.' ]
     : !ask ? null
-    : !until ? ['triangle-alert', 'The ask needs a date, or it never shows.']
+    : !until ? ['triangle-alert', 'The public ask needs a date, or it never shows.']
     : until < hiToday() ? ['triangle-alert', 'That date has passed, so the ask does not show.']
-    : ['calendar-days', `The ask shows through ${dayOf(until)}.`];
+    : ['calendar-days', `The public ask shows through ${dayOf(until)}.`];
   return `<div class="card bw-prevcard${v.is_public ? '' : ' off'}">
       <p class="bw-pnum">${esc(numWords(b))}</p>
       <p class="bw-pname${nick ? '' : ' bw-long'}">${esc(name)}</p>
@@ -248,14 +252,14 @@ export function renderPublic(b) {
         <input id="bw-nick" type="text" maxlength="40" autocomplete="off" value="${esc(nickname)}" aria-describedby="bw-nick-n" placeholder="Disposable e-cigarette ban">${count(nickname.length, 'bw-nick-n', 40)}</div>
       <div class="field"><label for="bw-psum">Public summary</label>
         <textarea id="bw-psum" maxlength="280" rows="3" aria-describedby="bw-psum-n" placeholder="One sentence a neighbor would understand. No jargon, no bill numbers.">${esc(sum)}</textarea>${count(sum.length, 'bw-psum-n')}</div>
-      ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
+      ${card ? `<div class="field bw-askro"><p class="bw-asklabel">Public ask</p>
         <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!writesAsk(b) && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
         <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask ? 'See it on This week’s asks' : 'Open This week’s asks')   /* R-358: with no ask yet there is nothing to "see" */}</a></p>
         ${onBill(b) ? liveLine(b, 'data-pubtake') : ''}<input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
-      : `<div class="field"><label for="bw-pact">The ask</label>
+      : `<div class="field"><label for="bw-pact">Public ask</label>
         ${hearingLine(hearingAhead(b))}
         <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n bw-pact-d" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}${noteHTML(ask, hearingAhead(b), 'bw-pact-d')}${liveLine(b, 'data-pubtake')}</div>
-      <div class="field"><label for="bw-puntil">Show the ask through <span class="ask-req">(required with an ask)</span></label>
+      <div class="field"><label for="bw-puntil">Show the public ask through <span class="ask-req">(required with an ask)</span></label>
         <input id="bw-puntil" type="date" required value="${esc(valOf(b, 'public_action_until') || (ask.trim() && hearingAhead(b) ? hearingDay(hearingAhead(b)) : ''))}" aria-describedby="bw-puntil-w">
         <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>`}
       ${reachNote(b)}
@@ -265,7 +269,7 @@ export function renderPublic(b) {
         <div class="bw-ptfoot">${btn('Add a point', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-ptadd': '1', ...(pointsIn(valOf(b, 'talking_points')).length >= MAX_PTS ? { hidden: '' } : {}) } })}
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div></fieldset>
       <div id="bw-perr" role="alert"></div>
-      <div class="bw-acts bw-pubsave">${btn(ask.trim() && ask.trim() !== String(b.public_action || '').trim() ? 'Publish the ask' : 'Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
+      <div class="bw-acts bw-pubsave">${btn(publishing(b, ask) ? pubWord(b) : SAVE_WORD, { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
       <p class="bw-prevh" id="bw-prev-h">How the public page shows it</p>
@@ -340,7 +344,8 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
       if (el.value.trim() && !f.public_action_until.value && h) { f.public_action_until.value = hearingDay(h); f.public_action_until.dispatchEvent(new Event('input', { bubbles: true })); }
       paintNote(form.querySelector('#bw-pact-d'), el.value, h);
     }
-    const lbl = form.querySelector('[type="submit"] span'); if (lbl) lbl.textContent = f.public_action.value.trim() && f.public_action.value.trim() !== String(b.public_action || '').trim() ? 'Publish the ask' : 'Save public page';
+    const lbl = form.querySelector('[type="submit"] span'), pub = publishing(b, f.public_action.value); if (lbl) lbl.textContent = pub ? pubWord(b) : SAVE_WORD;
+    const gl = form.querySelector('[data-golive]'); if (gl) gl.hidden = !pub;
   });
   // R-370: Take down removes the live ask the way Undo does, with its own Undo.
   pnl.querySelectorAll('[data-pubtake]').forEach(el => el.onclick = async () => { el.disabled = true;
@@ -361,6 +366,8 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
       t.setAttribute('aria-invalid', 'true'); t.focus(); return; }
     if (pts.length > MAX_PTS) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Up to five talking points. There are ${pts.length}: take some out.</p>`; return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
+    // R-370 third walk: publishing (or changing a live ask) goes on the public page at once, so it asks first.
+    if (publishing(b, action) && f.is_public.checked !== false && !await confirmPublish(b, until, !!liveAsk(b))) return;
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
     // Only what changed is written, compared with what the form held when editing began, and a teammate's newer save of the
     // same field is shown to the person before anything is written (R-152 B; DB.saveBillFields).
@@ -371,7 +378,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     const finish = res => {
       drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
       if (!res.changed.length) { toast('Nothing to save: this already matches what is saved.'); return; }
-      toast(res.changed.includes('public_action') && action ? `Published. The ask is live through ${dayWord(until)}. Take it down from the card.` : 'Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
+      toast(res.changed.includes('public_action') && action ? `Published. The public ask is live through ${dayWord(until)}. Take it down from the card.` : 'Saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
     };
     try {
       const res = await DB.saveBillFields(b.id, want, base);

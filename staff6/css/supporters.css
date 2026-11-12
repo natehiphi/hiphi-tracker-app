@@ -402,6 +402,9 @@ body.staff6 .ot-grp { display: flex; flex-direction: column; gap: var(--s8); min
 body.staff6 .ot-emg { max-width: 34ch; padding-left: var(--s24); border-left: 1px solid var(--v6-hair); }
 body.staff6 .ot-gt, body.staff6 .ot-gh { margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh16); color: var(--v6-muted); }
 body.staff6 .ot-row { display: flex; flex-wrap: wrap; gap: var(--s8); }
+body.staff6 .ask-golive { font-weight: 600; color: var(--v6-body); }
+body.staff6 .ot-golive { display: flex; align-items: center; gap: var(--s8); }
+body.staff6 .ot-golive .ic { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
 body.staff6 .ot-paused { font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .ot-more { margin: var(--s12) 0 0; }
 /* The foot: what to do on the left, the followers on the right; wrapped, the followers sit under it at the left
@@ -440,7 +443,6 @@ body.staff6 .ot-empty .empty { margin: 0; padding: var(--s32) var(--s24); border
 @media (max-width: 599px) {
   body.staff6 .ot-emg { padding-left: 0; border-left: 0; border-top: 1px solid var(--v6-hair); padding-top: var(--s12); max-width: none; flex: 1 1 100%; }
   body.staff6 .ot-cp .ot-cw, body.staff6 .ot-cp .ic { display: none; }
-  body.staff6 .ot-cp > span { text-transform: capitalize; }
   body.staff6 .ot-acts .ot-cp { padding: 0 var(--s12); }
   body.staff6 .ot-door { display: block; flex: 1 1 100%; }
   body.staff6 .ot-noask > .btn { flex: none; }
