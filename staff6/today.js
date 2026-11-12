@@ -1133,6 +1133,7 @@ function startedAt(me) {
 // The Getting started step (help.js newSteps' k) that the next step is the doing of.
 const vbStartKey = it => !it ? null : it.kind === 'rally' || it.share ? 'publicask' : ['approve', 'second', 'review', 'review2', 'write', 'nodraft', 'submit', 'revise'].includes(it.kind) ? 'job' : it.kind === 'chair' || it.kind === 'followask' ? 'ask' : null;
 function startSteps() { try { return newSteps(); } catch (e) { console.error(e); return []; } }
+const startFresh = v => { try { const at = v && v.id === S.me?.id ? startedAt(v) : null; return at != null && Date.now() - at <= 7 * DAY; } catch { return false; } };
 function startCard(v = S.me, { line = false, bare = false, n: sfx = '' } = {}) {
   if (!v || v.id !== S.me?.id || v.prefs?.firstrun?.hidden) return '';
   const at = startedAt(v); if (at == null || Date.now() - at > 45 * DAY) return '';
@@ -1316,8 +1317,12 @@ function render(route) {
   // hearing day it is not the job: it waits.
   // With nothing listed under the next step, its line is the first of the doors, which then follow the next step at once
   // (one card fewer: Patti's 1024 Today was 1.38 screens against 1.2).
-  const startIn = !phoneDay && !P.rows ? startCard(v, { bare: true }) : '';
-  const start = phoneDay || startIn ? '' : startCard(v, { line: true });
+  // R-370 (second walk): in a person's first week, below 1100px (a phone above all) Getting started is the small card with its
+  // first three steps, not the one line that was easy to miss; after the week it is the line, as before. From 1100px the
+  // side column has the card.
+  const fresh = !phoneDay && !WIDE() && startFresh(v);
+  const startIn = !phoneDay && !fresh && !P.rows ? startCard(v, { bare: true }) : '';
+  const start = phoneDay || startIn ? '' : fresh ? startCard(v, { n: '-c' }) : startCard(v, { line: true });
   const picked = S.v6ld?.today?.key ?? null, item = picked === 'waiting' ? waitingItem(v) : picked === 'later' ? laterItem(v) : picked != null && REG.has(picked) ? itemFor(picked, v) : '';
   if (picked != null && !item) S.v6ld.today.key = null;
   // A phone's hearing day (V14): one big card per sitting first (time and room at a glance), the person's own step inside

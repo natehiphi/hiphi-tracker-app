@@ -409,3 +409,4 @@ body.staff6 .v6-row[data-v6row^="w:pq:"] > .v6-row-main:not(.has-lead)::before {
   body.staff6 .v6-row[data-v6row^="w:pq:"] > .v6-row-main:not(.has-lead) { grid-template-columns: 32px minmax(0, 1fr); }
   body.staff6 .v6-row[data-v6row^="w:pq:"] > .v6-row-main:not(.has-lead)::before { width: 32px; height: 32px; background-size: 18px 18px; }
 }
+body.staff6 .pe-filt { margin: 0 0 var(--v6-gap); }

@@ -320,7 +320,9 @@ async function rememberView(v) {
   try { localStorage.setItem(VKEY(), v); } catch { /* a private window: this visit only */ }
   try { await DB.patchPrefs({ hview: v }); } catch { /* the address keeps it for this visit */ }
 }
-const modeOf = route => VB ? ([route?.q?.view, S.me?.prefs?.vbhview, vbSaved()].find(x => x === 'cal' || x === 'list') || 'cal')
+// R-370 (second walk): on a phone (under 768px) B's This week opens as the list of the week's hearings, not the one-day grid
+// (the day view showed Monday's "Testimony due" while a hearing was tomorrow); the switch to the grid stays, and a saved pick wins.
+const modeOf = route => VB ? ([route?.q?.view, S.me?.prefs?.vbhview, vbSaved()].find(x => x === 'cal' || x === 'list') || (phoneNow() ? 'list' : 'cal'))
   : [route?.q?.view, S.me?.prefs?.hview, viewSaved()].find(x => x === 'cal' || x === 'list') || 'list';
 // R-365 version B (Nate 7 Nov, trying B: "There needs to be a calendar view Monday to Friday style"): B's Calendar opens on
 // the Monday-to-Friday week; the list is one plain link away, and a pick is B's own (vbhview), so v6's choice is untouched.
@@ -542,9 +544,11 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
       <h2 class="hc-dh" id="${id}"><span class="hc-dw">${esc(dayShort(d))}</span> <span class="hc-dd">${esc(dateShort(d))}</span>${isT ? ' <span class="hc-today">Today</span>' : ''}<span class="sr">${esc(`, ${plural(list.length, 'entry', 'entries')}`)}</span></h2>
       ${capCal(cw.caps.get(d))}
       ${list.length ? `<ul class="hc-list" aria-labelledby="${id}">${list.map(e => ent(e)).join('')}</ul>` : `<p class="hc-nothing">Nothing scheduled</p>`}</section>`; };
+  // R-370: each day's head says how many hearings it has (laptop grid)
+  const hN = l => l.filter(e => e.k === 'h' && !e.cancelled).length;
   const dayColB = d => { const list = cw.days.get(d) || [], isT = d === today, id = `hc-d-${d}`;
     return `<section class="hc-day${isT ? ' today' : ''}${d < today ? ' past' : ''}${d === pick ? ' on' : ''}" data-hcday="${d}" aria-labelledby="${id}"${isT ? ' aria-current="date"' : ''}>
-      <h2 class="hc-dh hb-dh" id="${id}"><span class="hb-dw">${esc(dayShort(d))}</span><span class="hb-dn">${esc(fmt(d, { day: 'numeric' }))}</span><span class="sr">${esc(`${fmt(d, { month: 'long' })}${isT ? ', today' : ''}, ${plural(list.length, 'entry', 'entries')}`)}</span></h2>
+      <h2 class="hc-dh hb-dh" id="${id}"><span class="hb-dw">${esc(dayShort(d))}</span><span class="hb-dn">${esc(fmt(d, { day: 'numeric' }))}</span>${hN(list) ? `<span class="hb-dc">${esc(plural(hN(list), 'hearing'))}</span>` : ''}<span class="sr">${esc(`${fmt(d, { month: 'long' })}${isT ? ', today' : ''}, ${plural(list.length, 'entry', 'entries')}`)}</span></h2>
       ${capStrip(cw.caps.get(d))}
       ${list.length ? `<ul class="hc-list hb-list" aria-labelledby="${id}">${list.map(calBlock).join('')}</ul>` : ''}</section>`; };
   const wkList = we.flatMap(d => cw.days.get(d) || []), wkCaps = we.flatMap(d => cw.caps.get(d) || []);

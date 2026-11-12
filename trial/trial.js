@@ -87,9 +87,21 @@ function signInScreen(note = '') {
     const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: HERE, shouldCreateUser: true } });
     b.disabled = false;
     if (error) return say('.tr-msg', `The link could not be sent: ${error.message}`, true);
-    door(`<h1 tabindex="-1">Check your email</h1><p>We sent a sign-in link to <b>${esc(email)}</b>. It opens this page, signed in. You can close this tab.</p>
-      <p><button class="btn secondary" type="button" id="tr-again">Use another email</button></p>`);
-    document.getElementById('tr-again').onclick = () => signInScreen();
+    sentScreen(email);
+  };
+}
+// R-370 (second walk): the check-your-email screen says how long the link lasts and gives a way to send another, so
+// "nothing came" is not a dead end. Sign-in itself is unchanged: the same call, sent again.
+function sentScreen(email, note = '') {
+  door(`<h1 tabindex="-1">Check your email</h1><p>We sent a sign-in link to <b>${esc(email)}</b>. It opens this page, signed in. You can close this tab.</p>
+    <p>The link works once, for an hour. Nothing after a few minutes? Check spam, or send a new link.</p>
+    <p><button class="btn primary" type="button" id="tr-resend">Send a new link</button> <button class="btn secondary" type="button" id="tr-again">Use another email</button></p>
+    <p class="tr-msg${note.startsWith('The link could') ? ' bad' : ''}" role="status" aria-live="polite">${esc(note)}</p>`);
+  document.getElementById('tr-again').onclick = () => signInScreen();
+  document.getElementById('tr-resend').onclick = async e => {
+    e.target.disabled = true; say('.tr-msg', 'Sending…');
+    const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: HERE, shouldCreateUser: true } });
+    sentScreen(email, error ? `The link could not be sent: ${error.message}` : 'A new link is on its way. The earlier one no longer works.');
   };
 }
 
