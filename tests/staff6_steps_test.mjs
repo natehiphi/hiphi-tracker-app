@@ -250,7 +250,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     ok(!/btn primary/.test(card) && (t.match(/No owner/g) || []).length === 1 && /No owner yet/.test(t) && /data-v6act="take"/.test(card) && !/Open to anyone|no one holds it/i.test(t), `the card says it once, "No owner yet", with Take it and no filled button: ${nb.b.bill_number}`);
     // The card is titled with the step, not the owner situation; "No owner yet" sits beside Take it (the critic's HB 2300).
     ok(/<h3 class="v6-step-what"[^>]*>File the testimony on <a class="v6-step-in"[^>]*>[^<]*<\/a>(?: <span class="v6-step-num">[^<]*<\/span>)? at the Capitol/.test(card) && /class="v6-step-noown"[^>]*>[\s\S]*No owner yet[\s\S]*data-v6act="take"/.test(card), 'the card is titled "File the testimony at the Capitol", with "No owner yet" beside Take it');
-    ok(nb.s.line.startsWith(`${nb.s.state.word} · ${X.NO_OWNER}, `) && / by .+|Capitol closes/.test(nb.s.line), `the row says so: state, "No owner yet", one labelled time: "${nb.s.line}"`);
+    ok(nb.s.line.startsWith(`${nb.s.state.word} · ${X.NO_OWNER}, `) && / by .+|Testimony due/.test(nb.s.line), `the row says so: state, "No owner yet", one labelled time: "${nb.s.line}"`);
     ok(X.billStep(nb.b, { viewer: NT }).takeFor && !X.billStep(nb.b, { viewer: JMM }).takeFor, 'it reaches whoever may hand it (an admin, the issue’s owner), not everyone');
   }
   // The card names its bill where nothing else does, and not in the open item (its h2 does).
@@ -306,7 +306,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // Someone else's step says who does what, then when (spec 6's "Kris approves · due today 3:00 PM"); R-352: the team's
   // time where one is still ahead, "by", the same time its owner sees ("Kris approves it · by 11:00 AM today"; R-352 FIX-2: the clock first, as "until 1:10 PM today").
   const oth = S.bills.map(b => X.billStep(b, { viewer: JMM })).find(s => s && s.kind === 'approve' && !s.you);
-  ok(!!oth && /^With an approver · [A-Z][\w ,]* approves it · (Approval by|Capitol closes|Late|Capitol closed)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
+  ok(!!oth && /^With an approver · [A-Z][\w ,]* approves it · (Approval by|Testimony due|Late|Testimony was due)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
   // Hearing cards: every one of our bills on every sitting says where its testimony stands, in two parts.
   const sittings = [...new Map(S.hearings.filter(h => h.status !== 'cancelled').map(h => [h.committee + h.scheduled_at, h])).values()];
   const noState = [], tooLong = [];
@@ -319,7 +319,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(!noState.length, `every bill on every hearing card says where its testimony stands (the people test: Kris 10 of 11)${noState.length ? '; not: ' + noState.slice(0, 3).join(' | ') : ''}`);
   ok(!tooLong.length, `a hearing card's bill line has two parts at most (hearings rows measured 6 facts)${tooLong.length ? '; e.g. ' + tooLong.slice(0, 3).join(' | ') : ''}`);
   const ownLine = S.bills.map(b => X.billStep(b, { viewer: KR })).find(s => s && s.you && s.kind === 'approve' && s.act?.kind === 'hand');
-  ok(!ownLine || (h => /^With an approver · (Approval by|Capitol closes|Late) /.test(h) && !/\byou\b/.test(h))(X.hearingLine(ownLine)), `the viewer's own step on a card leads with its state, and its one labelled time, no "you": "${ownLine && X.hearingLine(ownLine)}"`);
+  ok(!ownLine || (h => /^With an approver · (Approval by|Testimony due|Late) /.test(h) && !/\byou\b/.test(h))(X.hearingLine(ownLine)), `the viewer's own step on a card leads with its state, and its one labelled time, no "you": "${ownLine && X.hearingLine(ownLine)}"`);
   // Same words, same order (spec 5, V19): the viewer's own step on a card is its state and the row's own words; someone
   // else's is one phrase on every screen ("Second look from Jaylen or Jess"), never "Second look · Jaylen or Jess".
   for (const when of [MON9, '2026-03-17T08:00:00-10:00']) { at(when);
@@ -339,7 +339,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     ok(!two.length, `${when.slice(0, 10)}: someone else's second look reads "Second look · from …" in rows too${two.length ? '; not: ' + two.slice(0, 3).join(' | ') : ''}`); }
   at(MON9);
   const nd = S.bills.map(b => X.billStep(b, { viewer: NT })).find(s => s?.you && s.kind === 'nodraft' && s.act?.kind === 'hand');
-  ok(!nd || /^Not started · Draft to the team by .+/.test(X.hearingLine(nd)) && !/\byou\b/.test(X.hearingLine(nd)), `no draft yet, one's own: "Not started · Draft to the team by … · Capitol closes …" (${nd && X.hearingLine(nd)})`);
+  ok(!nd || /^Not started · Draft to the team by .+/.test(X.hearingLine(nd)) && !/\byou\b/.test(X.hearingLine(nd)), `no draft yet, one's own: "Not started · Draft to the team by … · Testimony due …" (${nd && X.hearingLine(nd)})`);
   const sec = S.bills.map(b => X.billStep(b, { viewer: NT })).find(s => s && !s.you && s.kind === 'second');
   ok(!sec || X.hearingLine(sec).startsWith(`Second look · from ${sec.whose.words}`) && X.hearingLine(sec) === sec.line, `someone else's second look on a card: "${sec && X.hearingLine(sec)}"`);
   // The card's parts are joined by spaces and " · " for screen readers and copied text.

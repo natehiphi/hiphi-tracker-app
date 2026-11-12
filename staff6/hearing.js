@@ -16,7 +16,7 @@ import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks, VB } from './data.js';
 import { codesOf, draftFor, attendees, billById, billSay, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, shareKit, billByRef,
   billRoute, whenAt, lateLine, spanOf, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf, publicResponse } from './model.js';
 import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD, avatar, timeTone, pathLine } from './ui.js';
-import { teamFirst, filerOf } from './model.js';
+import { teamFirst, filerOf, capitolAt } from './model.js';
 import { legName, partyDist, legHref, wireLinks } from './pathway.js';
 import { rerender, viewIsNew } from './bill.js';
 import { movedGoingHTML, wireMoved, newSitting } from './moved.js';   // R-316 W53: still going to the sitting it moved to?
@@ -161,7 +161,7 @@ function dueHTML(c, card = '') {
   // its time in bold (A-5 on v6, R-352: amber is late's alone).
   // It names whose deadline it is (the Capitol's), so it never reads as a second time for a teammate's hand-on step.
   const tone = past ? '' : timeTone(due);
-  return `<p class="hr-due${tone ? ' ' + tone : ''}">${icon('clock')}<span>${nw(esc(past ? `Written testimony: ${lateLine(c.h.scheduled_at, { lower: true })}` : `The Capitol takes written testimony until ${whenAt(due)} · in ${spanOf(due)}`))}</span></p>`;
+  return `<p class="hr-due${tone ? ' ' + tone : ''}">${icon('clock')}<span>${nw(esc(past ? `Written testimony: ${lateLine(c.h.scheduled_at, { lower: true })}` : `Written testimony due ${capitolAt(due)} · in ${spanOf(due)}`))}</span></p>`;
 }
 // A cancelled sitting points to where each bill is heard next, so the page is never a dead end (B-3), and asks whoever was
 // going whether they still are (W53).

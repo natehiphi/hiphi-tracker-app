@@ -17,7 +17,7 @@
 // typed in), so a teammate who sees something slipping nudges in two taps.
 // Route: { name: 'testimony', view } (app.js parseRoute); ?view=write|approve|sent|file|filed|missed|library.
 import { S, DB, VB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
-import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf, spanOf } from './model.js';
+import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf, spanOf, capitolAt } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
 import { SL, sl } from './ui.js';   // R-365 B plain words
 import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK, whoWords } from './steps.js';
@@ -127,11 +127,10 @@ function lateStrip(m) {
   if (!VB) return '';
   const list = lateStripItems(m); if (!list.length) return '';
   const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS());
-  const clock = at => new Date(at).toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: '2-digit' });
   const row = ({ it, at }) => { const s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
     return `<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
       <span class="tp-lr-name"><b>${esc(nameWords(it.b, 60))}</b> <span class="tp-lr-num">${esc(numWords(it.b))}</span></span>
-      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${late ? 'Late · ' : ''}Capitol ${late ? 'takes it until' : 'closes'} ${esc(clock(at))} · in ${esc(spanOf(at))}</span>${icon('chevron-right')}</button></li>`; };
+      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${late ? 'Late · ' : ''}Testimony due ${esc(capitolAt(at))} · in ${esc(spanOf(at))}</span>${icon('chevron-right')}</button></li>`; };
   return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today <span class="tp-ghn">${list.length}</span></h2>
     <ul class="tp-late-list">${shown.map(row).join('')}</ul>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
 }

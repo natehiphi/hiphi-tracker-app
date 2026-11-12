@@ -26,7 +26,7 @@ import { S, DB, VB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './dat
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
-  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt } from './model.js';
+  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt, capitolAt } from './model.js';
 import { icon, btn, toast, vbFinish, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
 import { SL, sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
@@ -546,18 +546,18 @@ function rowLine(s, v) {
 // `lateSaid`: the hearing card already says the late window once, so a late row says only "late" (toned) or nothing.
 // `soon: false` leaves out ", in 59 min" (a small card). `flat`: one piece, a comma for the dot, for a row whose name already holds a dot (Today's "File testimony · Bill").
 // R-370 (trial walk 11/11): ONE deadline pattern on Testimony rows, Today, the hearing page and Outreach, built only here:
-// "Draft to the team by Tue 4 PM · Capitol closes Wed 9:30 AM" (both when both are ahead), "Capitol closes today 10 AM" when only
-// the Capitol's is left, and late "Late · Capitol closes today 1:10 PM". It replaces "due today 2:00 PM (Capitol)",
+// "Draft to the team by Tue 4 PM · Testimony due Wed 3/18, 9:30 AM" (both when both are ahead), "Testimony due today 10 AM" when only
+// the Capitol's is left, and late "Late · Testimony due today 1:10 PM". It replaces "due today 2:00 PM (Capitol)",
 // "by 4:00 PM tomorrow (our deadline)" and "late, still accepted until ...", which mixed three wordings for two deadlines.
 const TEAM_BY = { write: 'Draft to the team by', nodraft: 'Draft to the team by', submit: 'Draft to the team by', revise: 'Draft to the team by',
   approve: 'Approval by', review: 'Approval by', second: 'Approval by', review2: 'Approval by', file: 'File by' };   // the state already says "Second review"
 export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {}) {
   const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
-  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `Late · Capitol closes ${deadlineAt(s.until)}`;
-  if (tone === 'overdue') return `Capitol closed ${deadlineAt(s.due)}`;
-  const cap = s.due != null ? deadlineAt(s.due) : '';
-  if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${ls(a.at)}${cap ? ` · Capitol closes ${cap}` : ''}`;
-  if (s.due != null) return `Capitol closes ${cap}${ls(s.due)}`;
+  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `Late · Testimony due ${capitolAt(s.until)}`;
+  if (tone === 'overdue') return `Testimony was due ${capitolAt(s.due)}`;
+  const cap = s.due != null ? capitolAt(s.due) : '';
+  if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${ls(a.at)}${cap ? ` · Testimony due ${cap}` : ''}`;
+  if (s.due != null) return `Testimony due ${cap}${ls(s.due)}`;
   return '';
 }
 export function stateWords(s) { const st = s.state; return st ? st.word : ''; }
@@ -949,7 +949,7 @@ function testimonyCard(s, v, own, x = '') {
   // R-370 (second walk): a late step on its own card says why it is late and what is still open: "Late: past our draft time ·
   // Capitol takes it until today 1:10 PM" (version B; the rows keep the short "Late · Capitol closes ...").
   let words = statusLine(s, { who: false });
-  if (VB && own && s.status.tone === 'late') words = words.replace('Late · Capitol closes ', 'Late: past our draft time · Capitol takes it until ');
+  if (VB && own && s.status.tone === 'late') words = words.replace('Late · Testimony due ', 'Late: past our draft time · Testimony due ');
   const tile = ['late', 'overdue'].includes(s.status.tone) ? { ...shown, words }
     : own ? (words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words } : null)
     : { tone: 'neutral', icon: '', words };
@@ -961,7 +961,7 @@ function testimonyCard(s, v, own, x = '') {
   // R-344 Rule 3, one time per step: the tile says the team's time to act ("File by today 7:30 AM"); this line says whose the
   // other time is, the Capitol's, so the two never read as two deadlines for one step.
   // With the time left, as every other time on the screen (R-352 FIX-2: "today 9:30 AM, in 1 hour").
-  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Capitol closes ${deadlineAt(s.due)}${s.due > Date.now() ? `, in ${spanOf(s.due)}` : ''}.`;   // R-370: the one deadline pattern
+  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Testimony due ${capitolAt(s.due)}${s.due > Date.now() ? `, in ${spanOf(s.due)}` : ''}.`;   // R-370: the one deadline pattern
   let note = '';
   // Headed with words that are not a state: a capitalised "Sent back" over the note read as a sixth state beside the tile's
   // "Writing · sent back" (spec 12.6: "sent back", lower case, is the flag on Writing; C-15).
@@ -1387,9 +1387,9 @@ function confirmResubmit(el, b, d) {
   const w = whoseStep({ ...d, status: 'review', submitted_by: S.me?.id }, b), to = w.ids.length && w.ids.length <= 2 ? w.words : '';
   openSheet({ title: `Send ${esc(numWords(b))} back ${to ? `to ${esc(to)} ` : ''}for approval?`, size: 'auto',
     body: `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'text', attrs: { 'data-v6doc': d.id } })}</p>` : ''}<label class="v6-rs-ok"><input type="checkbox" id="v6-rs-ok"> <span>I made the changes in the note</span></label>`,
-    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-cancel': '1' } })} ${btn('Send', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1', disabled: 'disabled', 'aria-disabled': 'true' } })}`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-cancel': '1' } })} ${btn('Send', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1', disabled: 'disabled', 'aria-disabled': 'true' } })}<p class="v6-rs-hint" id="v6-rs-hint">Tick the box once the note’s changes are made</p>`,
     wire: dlg => { const go = dlg.querySelector('[data-go]'), ok = dlg.querySelector('#v6-rs-ok');
-      ok.onchange = () => { go.disabled = !ok.checked; go.setAttribute('aria-disabled', String(!ok.checked)); };
+      ok.onchange = () => { dlg.querySelector('#v6-rs-hint').hidden = ok.checked; go.disabled = !ok.checked; go.setAttribute('aria-disabled', String(!ok.checked)); };
       dlg.querySelector('[data-cancel]').onclick = () => closeSheet();
       go.onclick = () => { if (!ok.checked) return; closeSheet({ silent: true }); ACTS.submit(el, b, d, null, '', true); }; } });
 }
@@ -1400,7 +1400,8 @@ const ACTS = {
     await DB.transition(b.id, d.id, 'submit'); clearReminders(b, d);
     const who = whoseStep(draftById(b.id, d.id) || d, b).words;
     await finish(el); redraw();
-    doneToast(`Sent ${numWords(b)}’s testimony for approval`, who ? `Sent to ${who} for approval. You file it once it is approved.` : 'Sent for approval.', { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } }); }); },
+    // R-370 (third walk): the toast says who holds it now, in the sheet's words (whoseStep).
+    doneToast(who ? `Sent to ${who} for approval` : `Sent ${numWords(b)}’s testimony for approval`, who ? `Sent to ${who} for approval. You file it once it is approved.` : 'Sent for approval.', { ok: true, undo: async () => { await DB.transition(b.id, d.id, 'withdraw'); toast('Pulled back to draft.'); redraw(); } }); }); },
   async approve(el, b, d) {
     // A leftover second tap never approves the next step that lands in the same spot (review mode's guard, build 3).
     if (performance.now() - approvedAt < 1000) return;

@@ -205,7 +205,7 @@ with L.browser() as B:
     pg.nav('/bill/HB1523')
     bp = pg.page.evaluate("""(() => ({ tt: !!document.querySelector('.v6-step .v6-tt'), old: !!document.querySelector('.v6-step .v6-track'),
       tile: !!document.querySelector('.v6-step .v6-at'), btn: [...document.querySelectorAll('.v6-step-acts .btn:not(.text)')].every(b => b.querySelector('svg')),
-      cap: /Capitol (?:’s deadline|closes)/.test(document.querySelector('.v6-step')?.innerText || ''), pill: document.querySelector('.bw-if-pill')?.dataset.state || '' }))()""")
+      cap: /(?:Capitol’s deadline|Testimony due)/.test(document.querySelector('.v6-step')?.innerText || ''), pill: document.querySelector('.bw-if-pill')?.dataset.state || '' }))()""")
     # R-352 (A-18 on v6): no job tile on the card, its filled button carries the job's icon
     R.check(f'{w} Bill page: the step card shows the bigger step picture, icons on its buttons and no job tile', bp['tt'] and not bp['old'] and not bp['tile'] and bp['btn'], bp)
     R.check(f'{w} Bill page: the card says whose the other time is ("The Capitol’s deadline")', bp['cap'], bp)

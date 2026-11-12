@@ -222,6 +222,15 @@ export function deadlineAt(t) {
   const day = new Date(ms).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
   return ms - now > 6 * 864e5 || ms < now ? `${day} ${new Date(ms).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })} ${clock}` : `${day} ${clock}`;
 }
+// R-370 (third walk): the Capitol's deadline, said one way everywhere ("Testimony due ..." is that phrase's tail): "today 2 PM",
+// "tomorrow 9:30 AM", otherwise the weekday and date: "Wed 3/18, 9:30 AM". Reviewers read "Capitol closes" as the building closing.
+export function capitolAt(t) {
+  if (t == null || t === '') return '';
+  const ms = new Date(t).getTime(), d = hstDayOf(ms), now = Date.now();
+  if ([0, 1, -1].some(k => d === hstDayOf(now + k * 864e5))) return deadlineAt(t);
+  const o = { timeZone: 'Pacific/Honolulu' };
+  return `${new Date(ms).toLocaleDateString('en-US', { weekday: 'short', ...o })} ${new Date(ms).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', ...o })}, ${clockOf(ms).replace(':00', '')}`;
+}
 // The time between now and `t`: minutes rounded down ("28 min", "59 min"), hours to the nearest hour ("4h59m" reads "5 hours", not
 // "4": R-370 second walk, a reviewer saw "in 4 hours" at 9 AM for a 2 PM close), days rounded down: "28 min" / "4 hours" / "3 days"
 // (short: "28m" / "4h" / "3d"). It reads Date.now(), which the practice clock moves, so the page and this agree.

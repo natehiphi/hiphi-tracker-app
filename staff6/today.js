@@ -30,7 +30,7 @@
 // draws for the Hearings stub until HEARINGS replaces it (render() hands a route with place 'hearings' to v5).
 import { S, DB, DEMO, VB, TRIAL, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
 import v5, { todayItems, slipNow, startDay } from './today5.js';
-import { draftHearing, diedish, stopOf, wantsHearing, whenAt, deadlineAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
+import { draftHearing, diedish, stopOf, wantsHearing, whenAt, deadlineAt, capitolAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords, vbFinish } from './ui.js';
 import { SL } from './ui.js';   // R-365 B plain words
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
@@ -567,7 +567,7 @@ function vbReviewGroup(items, nextD) {
   if (!list.length) return '';
   const rows = list.map(x => {
     const { b, d, h } = x, s = billStep(b, { viewer: S.me, d, h }), st = s ? shownStatus(s) : null;
-    const when = s ? statusLine(s, { flat: true }) : x.due ? `Capitol closes ${deadlineAt(x.due)}` : '';
+    const when = s ? statusLine(s, { flat: true }) : x.due ? `Testimony due ${capitolAt(x.due)}` : '';
     const line = [when, d.submitted_by && d.submitted_by !== S.me.id ? `Sent by ${first(d.submitted_by)}` : ''].filter(Boolean).join(' · ');
     const tone = st && ['late', 'overdue'].includes(st.tone) ? st.tone : '';
     const go = `#/review/${encodeURIComponent(x.key)}?from=today`;

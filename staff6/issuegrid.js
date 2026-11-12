@@ -118,8 +118,8 @@ function hearNext(x) {
   // Decision 9: hearPart's text is steps.js statusLine's one text; a small card shortens only the label, "(team cut-off)" to "(team)".
   const sh = shownStatus(s) || {};
   const tone = ['late', 'overdue', 'today'].includes(sh.tone) ? sh.tone : '';
-  // R-370: a small card keeps the team's time only where both deadlines are ahead ("…by Tue 4 PM, Capitol closes Wed 9:30 AM"); the open item has both.
-  return { text: hp.text.replace(' (team cut-off)', ' (team)').replace(' (our deadline)', ' (team)').replace(/( by [^,]+), Capitol closes .*$/, '$1'), tone, ic: tone ? sh.icon || '' : '' };
+  // R-370: a small card keeps the team's time only where both deadlines are ahead ("…by Tue 4 PM, Testimony due Wed 9:30 AM"); the open item has both.
+  return { text: hp.text.replace(' (team cut-off)', ' (team)').replace(' (our deadline)', ' (team)').replace(/( by [^,·]+)[,·].*?Testimony due .*$/, '$1'), tone, ic: tone ? sh.icon || '' : '' };
 }
 // The card's next step and its date, one line, or none when there is none (stopped, no bills). At risk and a dying bill lead
 // (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.

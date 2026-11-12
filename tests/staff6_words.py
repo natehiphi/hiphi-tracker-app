@@ -51,9 +51,9 @@ STATES = [   # a leading "=" keeps the case (a capitalised label); the rest igno
 ]
 # ---- 6: one status phrase per state (decision 9) ----
 STATE_RX = r'(Writing(?:(?: ·|,) sent back)?|Not started|With an approver|Second look|Ready to file)(?![a-z])'   # Today\'s flat rows use a comma for the dot
-# R-370: the one deadline pattern (steps.js stepTime): "Draft to the team by Tue 4 PM · Capitol closes Wed 9:30 AM", "Capitol closes today 10 AM",
-# late "Late · Capitol closes today 1:10 PM". Both deadlines on one row is the pattern now, not a clash.
-TIME_RX = (r'(?:(?:(?:Draft to the team|Approval|File|draft to the team|approval|file) by|Capitol closes|Capitol closed) (?:today|tomorrow|[A-Z][a-z]{2}(?: \d{1,2}/\d{1,2})?) \d{1,2}(?::\d{2})? [AP]M'
+# R-370: the one deadline pattern (steps.js stepTime): "Draft to the team by Tue 4 PM · Testimony due Wed 3/18, 9:30 AM", "Testimony due today 10 AM",
+# late "Late · Testimony due today 1:10 PM". Both deadlines on one row is the pattern now, not a clash.
+TIME_RX = (r'(?:(?:(?:Draft to the team|Approval|File|draft to the team|approval|file) by|[Tt]estimony due|[Tt]estimony was due) (?:today|tomorrow|yesterday|[A-Z][a-z]{2}(?: \d{1,2}/\d{1,2},?)?) \d{1,2}(?::\d{2})? [AP]M'
            r'|[Pp]ast our deadline)')
 ROUTES6 = {'KV': ['/', '/hearings', '/hearings/ask', '/issues', '/issues/bills', '/issues/all', '/testimony'],
            'NT': ['/', '/hearings', '/hearings/ask', '/issues', '/issues/bills', '/issues/all', '/testimony', '/team', '/coalition/' + L.HEAL],

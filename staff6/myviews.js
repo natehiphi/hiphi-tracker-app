@@ -505,8 +505,8 @@ export function issueStatusB(arg) {
   const j = judge(x), key = statusB(j), S1 = STATUS_B[key], dn = key === 'due' ? dueNow(j) : null;
   let reason = j.health.text || '';
   if (dn) {
-    // the most urgent thing, in one line: "SB 3076 testimony was sent back · Capitol closes today 2 PM" (R-370: the one deadline pattern)
-    const t = stepTime(dn.s, { soon: false }) || 'Capitol closes today', n = `${numWords(dn.s.b)} testimony`;
+    // the most urgent thing, in one line: "SB 3076 testimony was sent back · Testimony due today 2 PM" (R-370: the one deadline pattern)
+    const t = stepTime(dn.s, { soon: false }) || 'Testimony due today', n = `${numWords(dn.s.b)} testimony`;
     return { key, word: dn.word, ic: S1.ic, reason: dn.s.state.sentBack ? `${n} was sent back · ${t}` : `${n} · ${t}` };
   }
   if (key === 'hearing' || key === 'risk') {

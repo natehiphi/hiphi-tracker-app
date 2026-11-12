@@ -265,7 +265,7 @@ MEASURE = r"""(arg) => {
     return [...own.values()]; };
   const rowInfo = rows.map(row => { const rr = row.getBoundingClientRect(), area = rr.width * rr.height;
     const btns = ctrls.filter(c => c !== row && row.contains(c) && (btnLike(c) || c.matches('input, select, textarea')) && (() => { const q = c.getBoundingClientRect(); return q.width * q.height < 0.6 * area; })());
-    const parts = rowText(row, btns); const facts = parts.reduce((k, p) => k + p.replace(/ · (Capitol close)/g, ', $1').split(/\s[·•|]\s|\s[·•]|[·•]\s|\s—\s/).filter(s => /[A-Za-z0-9]/.test(s)).length, 0);
+    const parts = rowText(row, btns); const facts = parts.reduce((k, p) => k + p.replace(/ · (Testimony due)/g, ', $1').split(/\s[·•|]\s|\s[·•]|[·•]\s|\s—\s/).filter(s => /[A-Za-z0-9]/.test(s)).length, 0);
     return { facts, buttons: btns.length, codes: codesIn(parts.join(' ')).total, text: parts.join(' | ').slice(0, 120) }; });
   const med = a => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 

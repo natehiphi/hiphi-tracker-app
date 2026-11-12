@@ -579,3 +579,7 @@ body.staff6 .sv-onetab { margin: 0; font: 600 var(--v6-t16)/1.3 var(--font); col
 .v6-rs-ok { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; cursor: pointer; }
 .v6-rs-ok input { width: 20px; height: 20px; flex: none; }
 .sv-sh-foot [data-cancel] { margin-right: 8px; }
+/* R-370 (third walk): the grey Send says why, under it; it goes once the box is ticked */
+.sv-sh-foot:has(.v6-rs-hint) { flex-wrap: wrap; }
+.v6-rs-hint { flex: 1 0 100%; margin: 6px 0 0; text-align: right; font: 400 var(--v6-t14, 14px)/1.3 var(--font); color: var(--v6-muted); }
+.v6-rs-hint[hidden] { display: none; }
