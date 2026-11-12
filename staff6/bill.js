@@ -498,15 +498,42 @@ function vbTracker(b, html) {
 }
 // "Next: Senate Commerce and Health hearing · then Ways and Means" and "Must pass its last Senate committee by Mon 3/30 (second lateral)".
 // null unless the bill is live with a place on the path.
-function vbNextWords(m) {
+export function vbNextWords(m) {
   if (!m || m.place?.state !== 'live' || m.cur == null || m.cur < 0) return null;
   const stops = m.stops || [], cur = stops[m.cur]; if (!cur) return null;
   const ahead = stops.slice(m.cur + (cur.kind === 'cmte' || cur.kind === 'cmtes' ? 0 : 1)).filter(x => x.state !== 'done');
   const say = x => x.kind === 'cmte' ? `${x.full} hearing` : x.full.replace(/^A /, 'a ');
   const [a, b2] = ahead; if (!a) return null;
-  const next = `${m.cur === stops.indexOf(a) ? 'Now' : 'Next'}: ${cap1(say(a))}${b2 ? ` · then ${say(b2)}` : ''}`;
+  // R-370 third walk: "Now: ... hearing" read as a hearing on the calendar when none was noticed. "Now:" with a hearing only
+  // when one is scheduled; a committee the bill waits in says it waits.
+  const here = m.cur === stops.indexOf(a), hs = m.place?.st?.hearingState, st = m.place?.st;
+  const then = b2 ? ` · then ${say(b2)}` : '';
+  let next;
+  if (here && a.kind === 'cmte' && hs === 'scheduled' && st?.hearing?.scheduled_at) next = `Now: ${cap1(a.full)} hearing ${dayWords(st.hearing.scheduled_at)}${then}`;
+  else if (here && a.kind === 'cmte' && hs === 'held') next = `Heard in ${a.full}, waiting for a vote${then}`;
+  else if (here && a.kind === 'cmte') next = `Waiting for a hearing in ${a.full}${then}`;
+  else next = `${here ? 'Now' : 'Next'}: ${cap1(say(a))}${then}`;
   const f = m.next, must = f && m.must?.full ? `${cap1(m.must.full)} by ${dayWords(f.date)} (${String(f.name || '').toLowerCase()})` : '';
   return { next, must };
+}
+// R-370 third walk: where a bill stands in a few words, for Search's rows (the same sentence logic as "Where it is" above:
+// "Now:" with a hearing only when one is noticed). "Waiting for a hearing · Senate Commerce", "Hearing Fri 3/20 · ...".
+// '' when the bill has no live place (the caller falls back to its stage).
+export function stageInWords(b) {
+  let m; try { m = trackerModel(b); } catch { return ''; }
+  const st = m?.place?.st; if (!m || m.place?.state !== 'live' || !st) return '';
+  const hs = st.hearingState, c = st.committee ? committeeName(st.committee) : '';
+  if (st.phase === 'committee') {
+    if (!c) return 'Waiting to be sent to a committee';
+    if (hs === 'scheduled' && st.hearing?.scheduled_at) return `Hearing ${dayWords(st.hearing.scheduled_at)} · ${c}`;
+    if (hs === 'held') return `Heard, waiting for a vote · ${c}`;
+    if (hs === 'decided') return `Decided in committee · ${c}`;
+    return `Waiting for a hearing · ${c}`;
+  }
+  if (st.phase === 'floor') return 'Waiting for a floor vote';
+  if (st.phase === 'conference') return 'In conference';
+  if (st.phase === 'governor') return 'On the Governor’s desk';
+  return '';
 }
 // ---- the tabs (F128): Next step · Team talk · Public, keys 1 to 3, an unread count on Team talk ----
 // From Team talk or Public, a dot on Next step says the step there is yours (B-7: v5's Next up card showed on every tab;
