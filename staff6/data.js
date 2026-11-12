@@ -29,11 +29,13 @@ export const VB = new URLSearchParams(location.search).get('vb') !== '0';
 // R-371 (mockup A, Nate's pick): the issue page that opens on its bills, one row each. Version B only, and only in the practice
 // copy, in trials, or with ?ia=1, until Nate says yes: live staff keep today's issue page.
 // ?ia=0 shows the old issue page in the practice copy, to compare (Nate 11/12).
-export const IA = VB && new URLSearchParams(location.search).get('ia') !== '0' && (DEMO || !!TRIAL || new URLSearchParams(location.search).has('ia'));
+// On for everyone in version B since Nate's yes of 12 Nov (R-373, "Yes, turn on"); ?ia=0 shows the old issue page.
+export const IA = VB && new URLSearchParams(location.search).get('ia') !== '0';
 // R-373 option B (Nate 12 Nov): every issue gets its own soft colour within its coalition (issuegrid.js issueColor), shown as
 // its tile and a soft edge on rows and cards. Version B only, and only in the practice copy, in trials, or with ?ic=1, until
 // Nate says yes: live staff keep the topic tints. ?ic=0 shows the old look in the practice copy, to compare.
-export const IC = VB && new URLSearchParams(location.search).get('ic') !== '0' && (DEMO || !!TRIAL || new URLSearchParams(location.search).has('ic'));
+// On for everyone in version B since Nate's yes of 12 Nov (R-373); ?ic=0 shows the topic tints instead.
+export const IC = VB && new URLSearchParams(location.search).get('ic') !== '0';
 if (VB) document.documentElement.classList.add('vb');   // version B's styles all sit under html.vb (css/vb*.css)
 // R-316 W43 (C-5): an open page looks for drafts and to-dos a teammate changed, about every 2 minutes (app.js), and a
 // button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's
