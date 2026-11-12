@@ -222,6 +222,13 @@ export function deadlineAt(t) {
   const day = new Date(ms).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
   return ms - now > 6 * 864e5 || ms < now ? `${day} ${new Date(ms).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })} ${clock}` : `${day} ${clock}`;
 }
+// R-370 (fourth walk): our own draft, approval or file time, said short for "Late for our 9 AM draft time": the clock alone on
+// today ("9 AM"), else the weekday and clock ("Tue 4 PM"), since "our yesterday 4 PM draft time" does not read.
+export function teamTimeAt(t) {
+  if (t == null || t === '') return '';
+  const ms = new Date(t).getTime(), clock = clockOf(ms).replace(':00', '');
+  return hstDayOf(ms) === hstDayOf(Date.now()) ? clock : `${new Date(ms).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' })} ${clock}`;
+}
 // R-370 (third walk): the Capitol's deadline, said one way everywhere ("Testimony due ..." is that phrase's tail): "today 2 PM",
 // "tomorrow 9:30 AM", otherwise the weekday and date: "Wed 3/18, 9:30 AM". Reviewers read "Capitol closes" as the building closing.
 export function capitolAt(t) {

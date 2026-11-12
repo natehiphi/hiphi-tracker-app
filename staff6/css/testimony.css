@@ -315,6 +315,9 @@ body.staff6 .tp-lr-line { grid-column: 1; font-size: var(--v6-t14); line-height:
 body.staff6 .tp-lr svg { grid-column: 2; grid-row: 1 / span 2; width: 20px; height: 20px; color: var(--v6-action); }
 body.staff6 .tp-lr:focus-visible { outline: 3px solid var(--v6-action); outline-offset: -3px; }
 @media (hover: hover) and (pointer: fine) { body.staff6 .tp-lr:hover { background: var(--v6-action-wash); } }
+/* R-370 (fourth walk): "Yours" and "The team's" label the two groups, each by soonest close */
+body.staff6 .tp-lr-grp { list-style: none; padding: 8px 12px 0; font-family: Lato, system-ui, sans-serif; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); font-weight: 700; color: var(--v6-ink); }
+body.staff6 .tp-lr-grp:not(:first-child) { border-top: 1px solid var(--v6-hair, rgba(0,0,0,.08)); margin-top: 4px; padding-top: 10px; }
 body.staff6 .tp-late > .btn { margin-top: 4px; }
 body.staff6 .tp-lr-num { white-space: nowrap; }
 @media (max-width: 599px) { body.staff6 .tp-lr { min-height: 44px; padding: 4px 12px; } }

@@ -297,6 +297,8 @@ export function trackerHTML(b, opts = {}) {
     const fl = flags.filter(f => Math.ceil(f.edge) - 1 === i).map(f => `<li class="tk-lf">${icon('flag', { cls: 'tk-fi' })}<span>${esc(plain ? `Deadline ${dayWords(f.date)}` : `${f.name}, ${dayWords(f.date)}`)}</span></li>`).join('');
     return `${h}<li class="tk-li is-${s.state}"><span class="tk-dot" aria-hidden="true"></span><span class="tk-lt">${esc(s.kind === 'cmte' ? s.full : s.label)}${word ? `<span class="tk-lw"> · ${esc(word)}</span>` : ''}</span></li>${fl}`;
   }).join('');
+  // R-370 (fourth walk): screen readers heard the place three times (this sentence, the visible caption, the path list). The sentence
+  // above is the one accessible copy; the caption (aria-hidden) is its picture, and the path list is read only when opened.
   const open = !!S.tkOpen?.has(b.id);
   return `<section class="tk${opts.says ? ' tk-short' : ''}" aria-labelledby="tk-h" data-tk="${esc(b.id)}">
     <h2 class="sr" id="tk-h">Where it is</h2><p class="sr">${esc(sr)}</p>
@@ -305,7 +307,7 @@ export function trackerHTML(b, opts = {}) {
       <div class="tk-bar" style="${col}">${segs}</div>
     </div>
     <div class="tk-slim" aria-hidden="true" style="${col}">${stops.map(s => `<i class="is-${s.state}"></i>`).join('')}</div>
-    <div class="tk-cap">${nowLine.replace('class="tk-now"', 'class="tk-now tk-onwide"')}${nextLine.replace('class="tk-next"', 'class="tk-next tk-onwide"')}${stepLine.replace(/class="tk-(step|now)"/, 'class="tk-$1 tk-onslim"')}${m.cur < 0 || m.place.state !== 'live' ? nextLine.replace('class="tk-next"', 'class="tk-next tk-onslim"') : ''}</div>
+    <div class="tk-cap" aria-hidden="true">${nowLine.replace('class="tk-now"', 'class="tk-now tk-onwide"')}${nextLine.replace('class="tk-next"', 'class="tk-next tk-onwide"')}${stepLine.replace(/class="tk-(step|now)"/, 'class="tk-$1 tk-onslim"')}${m.cur < 0 || m.place.state !== 'live' ? nextLine.replace('class="tk-next"', 'class="tk-next tk-onslim"') : ''}</div>
     ${btn(open ? (VB ? 'Hide the stops' : 'Hide the steps') : (VB ? 'See every stop' : 'See every step'), { kind: 'text', iconEnd: open ? 'chevron-up' : 'chevron-down', cls: 'tk-more', attrs: { 'data-tkmore': '1', 'aria-expanded': String(open), 'aria-controls': 'tk-list' } })}
     <ol class="tk-list" id="tk-list"${open ? '' : ' hidden'}>${list}</ol></div>
   </section>`;

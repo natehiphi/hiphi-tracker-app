@@ -372,8 +372,19 @@ export function toast(msg, opt = {}) {
   // reading or reaching for stays put: its clock starts again when they leave it.
   if (opt.undo || opt.action || opt.err) { el.insertAdjacentHTML('beforeend', `<button type="button" class="toastx" aria-label="Dismiss">${icon('x')}</button>`); el.querySelector('.toastx').onclick = () => { el.remove(); placeToast(); }; }
   if (opt.err) { el.setAttribute('role', 'alert'); host.appendChild(el); stack(el); placeToast(); return; }   // no clock: it waits for its X
-  const arm = () => { clearTimeout(toast.t); toast.t = setTimeout(() => { if (el.isConnected) { el.remove(); placeToast(); } }, opt.undo || opt.action ? 10000 : 4000); }, hold = () => clearTimeout(toast.t);
-  el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', arm); el.addEventListener('focusin', hold); el.addEventListener('focusout', arm);
+  // R-370 (fourth walk): a newcomer could not press Undo before it went. A toast with a button stays at least 10 seconds (12 when
+  // its words are long), its clock is its own (a later plain message no longer shares it), and it waits while the pointer, a
+  // finger or the keyboard focus is on it or the tab is hidden; it starts again 4 seconds after they leave. Leaving the page
+  // still closes it (leavePageToasts).
+  const keep = !!(opt.undo || opt.action), life = keep ? Math.max(10000, Math.min(15000, 7000 + String(msg || '').length * 60)) : 4000;
+  let held = 0;
+  const arm = (ms = life) => { clearTimeout(el._t); el._t = setTimeout(() => {
+    if (!el.isConnected) return;
+    if (keep && (held > 0 || document.hidden || el.matches(':hover') || el.contains(document.activeElement))) return arm(4000);
+    el.remove(); placeToast(); }, ms); };
+  const hold = () => { held++; clearTimeout(el._t); }, free = () => { held = Math.max(0, held - 1); arm(keep ? 4000 : life); };
+  el.addEventListener('mouseenter', hold); el.addEventListener('mouseleave', free); el.addEventListener('focusin', hold); el.addEventListener('focusout', free);
+  el.addEventListener('touchstart', () => arm(8000), { passive: true });
   if (dlg) el.classList.add('insheet');
   host.appendChild(el); stack(el); arm(); placeToast();
 }

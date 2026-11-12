@@ -20,7 +20,7 @@ import { S, DB, VB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './d
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf, spanOf, capitolAt } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
 import { SL, sl } from './ui.js';   // R-365 B plain words
-import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK, whoWords } from './steps.js';
+import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK, whoWords, lateWords } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
@@ -121,16 +121,21 @@ function lateStripItems(m) {
   return ['write', 'approve', 'sent', 'file'].flatMap(tb => m.tabs[tb]).filter(it => !it.s.off && it.s.state && !['filed', 'missed'].includes(it.s.state.key)).map(it => ({ it, at: capClose(it) }))
     .filter(x => x.at != null && x.at > now && (x.it.s.status?.tone === 'late' || hstDay(x.at) === today)).sort((x, y) => x.at - y.at);
 }
+// R-370 (fourth walk): the viewer's own rows first, then the team's, each by soonest Capitol close.
+const mineFirst = list => [...list.filter(x => x.it.s.you), ...list.filter(x => !x.it.s.you)];
 // Five on a laptop; three on a phone, so the stage tabs stay on the first screen (R-370, rule 7).
 const LATE_ROWS = () => { try { return matchMedia("(min-width: 768px)").matches ? 5 : 3; } catch { return 5; } };
 function lateStrip(m) {
   if (!VB) return '';
-  const list = lateStripItems(m); if (!list.length) return '';
+  const list = mineFirst(lateStripItems(m)); if (!list.length) return '';
+  const split = list.some(x => x.it.s.you) && list.some(x => !x.it.s.you);
   const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS());
-  const row = ({ it, at }) => { const s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
-    return `<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
+  const row = (x, i, a) => { const { it, at } = x, s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
+    const when = late ? `${lateWords(s)} · testimony due ${capitolAt(at)}` : `Testimony due ${capitolAt(at)} · in ${spanOf(at)}`;   // late says no "in 4 hours": the Capitol still takes it
+    const head = split && (i === 0 || a[i - 1].it.s.you !== s.you) ? `<li class="tp-lr-grp">${s.you ? 'Yours' : 'The team\u2019s'}</li>` : '';
+    return `${head}<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
       <span class="tp-lr-name"><b>${esc(nameWords(it.b, 60))}</b> <span class="tp-lr-num">${esc(numWords(it.b))}</span></span>
-      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${late ? 'Late · ' : ''}Testimony due ${esc(capitolAt(at))} · in ${esc(spanOf(at))}</span>${icon('chevron-right')}</button></li>`; };
+      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${esc(when)}</span>${icon('chevron-right')}</button></li>`; };
   return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today <span class="tp-ghn">${list.length}</span></h2>
     <ul class="tp-late-list">${shown.map(row).join('')}</ul>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
 }

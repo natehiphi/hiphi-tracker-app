@@ -26,7 +26,7 @@ import { S, DB, VB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './dat
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
-  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt, capitolAt } from './model.js';
+  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt, capitolAt, teamTimeAt } from './model.js';
 import { icon, btn, toast, vbFinish, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
 import { SL, sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
@@ -551,9 +551,17 @@ function rowLine(s, v) {
 // "by 4:00 PM tomorrow (our deadline)" and "late, still accepted until ...", which mixed three wordings for two deadlines.
 const TEAM_BY = { write: 'Draft to the team by', nodraft: 'Draft to the team by', submit: 'Draft to the team by', revise: 'Draft to the team by',
   approve: 'Approval by', review: 'Approval by', second: 'Approval by', review2: 'Approval by', file: 'File by' };   // the state already says "Second review"
+// R-370 (fourth walk): "Late · Testimony due today 1:10 PM · in 4 hours" read as a contradiction. Late is against OUR time, the
+// step's own draft, approval or file time, which the Capitol's later close does not change: "Late for our 9 AM draft time".
+// No time to name (no due date, or a step with no team time): "Late for our deadline". Never followed by "in 4 hours".
+const TEAM_WORD = { write: 'draft', nodraft: 'draft', submit: 'draft', revise: 'draft', approve: 'approval', review: 'approval', second: 'approval', review2: 'approval', file: 'file' };
+export function lateWords(s) {
+  const hours = HAND[s.kind], w = TEAM_WORD[s.kind], due = ms(s.due);
+  return hours && w && due != null ? `Late for our ${teamTimeAt(handTime(due, hours))} ${w} time` : 'Late for our deadline';
+}
 export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {}) {
   const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
-  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `Late · Testimony due ${capitolAt(s.until)}`;
+  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `${lateWords(s)} · testimony due ${capitolAt(s.until)}`;
   if (tone === 'overdue') return `Testimony was due ${capitolAt(s.due)}`;
   const cap = s.due != null ? capitolAt(s.due) : '';
   if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${ls(a.at)}${cap ? ` · Testimony due ${cap}` : ''}`;
@@ -946,10 +954,8 @@ function testimonyCard(s, v, own, x = '') {
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
   // Decision 9: the tile is statusLine's words (state, flag, the one time and whose it is), as every row says them; the
   // sentence beside it says who. Colour only from shownStatus (amber late, red overdue, the viewer's own).
-  // R-370 (second walk): a late step on its own card says why it is late and what is still open: "Late: past our draft time ·
-  // Capitol takes it until today 1:10 PM" (version B; the rows keep the short "Late · Capitol closes ...").
+  // R-370 (fourth walk): a late step's tile says "Late for our 9 AM draft time · testimony due today 1:10 PM" (stepTime), on a card as on a row.
   let words = statusLine(s, { who: false });
-  if (VB && own && s.status.tone === 'late') words = words.replace('Late · Testimony due ', 'Late: past our draft time · Testimony due ');
   const tile = ['late', 'overdue'].includes(s.status.tone) ? { ...shown, words }
     : own ? (words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words } : null)
     : { tone: 'neutral', icon: '', words };
