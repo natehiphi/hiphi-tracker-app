@@ -86,9 +86,15 @@ function model() {
   const asking = it => !it.recorded && ms(it.h.scheduled_at) >= Date.now() - 2 * DAY;
   for (const it of tabs.missed) { it.asking = asking(it); if (!it.asking) it.own = false; }
   tabs.missed.sort((x, y) => (y.asking ? 1 : 0) - (x.asking ? 1 : 0) || ms(y.h.scheduled_at) - ms(x.h.scheduled_at));
+  // R-373 (A-14, C-15): what the late block above the tabs holds is in the block and nowhere else, so each tab's count and list
+  // drop to match (the block opens its own items beside it, as a row of a tab does).
+  const late = lateItems(tabs), out = new Set(late.map(x => x.it));
+  if (out.size) for (const t of ['write', 'approve', 'sent', 'file']) tabs[t] = tabs[t].filter(it => !out.has(it));
   const mine = t => tabs[t].filter(it => it.own);
-  return { tabs, mine, fy };
+  return { tabs, mine, fy, late };
 }
+// The item with this key: in the tab's list, or in the late block above the tabs (an item is in one place only).
+const itemOf = (m, view, key) => [...m.tabs[view], ...m.late.map(x => x.it)].find(it => it.key === String(key)) || null;
 // The tab it opens on (spec 13, Changed): the one that holds the viewer's most urgent own step, late first (amber "late,
 // still accepted" and red overdue), then the soonest time to act (Nate's walk: he opened on To approve, HB 1523 by
 // 11:00 AM, while his late HB 1562 filing and SB 3025's 10:00 AM sat on Ready to file). With none of their own: To approve
@@ -115,34 +121,29 @@ function openOn(m) {
 // ---- the team-wide late strip (R-370, second walk, version B) ----
 // "Late or due today · N": every step on any stage (write, approve, second review, file) that is late or whose Capitol deadline
 // is today, soonest Capitol close first, whoever's it is, so a teammate's 9:30 AM never hides in another tab. Five rows, then
-// "Show all N". Hidden when N is 0. A row opens the item on its own tab.
+// "Show all N". Hidden when N is 0. A row opens its item beside the list of whatever tab is showing (R-373).
 const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 const capClose = it => it.s.status?.tone === 'late' ? ms(it.s.until) : ms(it.s.due);
-function lateStripItems(m) {
+function lateItems(tabs) {
+  if (!VB) return [];
   const now = Date.now(), today = hstDay(now);
-  return ['write', 'approve', 'sent', 'file'].flatMap(tb => m.tabs[tb]).filter(it => !it.s.off && it.s.state && !['filed', 'missed'].includes(it.s.state.key)).map(it => ({ it, at: capClose(it) }))
-    .filter(x => x.at != null && x.at > now && (x.it.s.status?.tone === 'late' || hstDay(x.at) === today)).sort((x, y) => x.at - y.at);
+  return mineFirst(['write', 'approve', 'sent', 'file'].flatMap(tb => tabs[tb]).filter(it => !it.s.off && it.s.state && !['filed', 'missed'].includes(it.s.state.key)).map(it => ({ it, at: capClose(it) }))
+    .filter(x => x.at != null && x.at > now && (x.it.s.status?.tone === 'late' || hstDay(x.at) === today)).sort((x, y) => x.at - y.at));
 }
 // R-370 (fourth walk): the viewer's own rows first, then the team's, each by soonest Capitol close.
 const mineFirst = list => [...list.filter(x => x.it.s.you), ...list.filter(x => !x.it.s.you)];
-// Five on a laptop; three on a phone, so the stage tabs stay on the first screen (R-370, rule 7).
-const LATE_ROWS = () => { try { return matchMedia("(min-width: 768px)").matches ? 5 : 3; } catch { return 5; } };
-function lateStrip(m) {
-  if (!VB) return '';
-  const list = mineFirst(lateStripItems(m)); if (!list.length) return '';
-  const split = list.some(x => x.it.s.you) && list.some(x => !x.it.s.you);
-  const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS());
-  const row = (x, i, a) => { const { it, at } = x, s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
-    const when = late ? `${lateWords(s)} · testimony due ${capitolAt(at)}` : `Testimony due ${capitolAt(at)} · in ${spanOf(at)}`;   // late says no "in 4 hours": the Capitol still takes it
-    const iss = (i0 => i0 ? { i: i0, same: plain(i0.name) === plain(nameWords(it.b)) } : null)(issuesOfBill(it.b.id)[0]);
-    const head = split && (i === 0 || a[i - 1].it.s.you !== s.you) ? `<li class="tp-lr-grp">${s.you ? 'Yours' : 'The team\u2019s'}</li>` : '';
-    return `${head}<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
-      <span class="tp-lr-name">${iss?.same ? `<b>${esc(numWords(it.b))}</b>` : `<b>${esc(nameWords(it.b, 60))}</b> <span class="tp-lr-num">${esc(numWords(it.b))}</span>`}</span>
-      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${esc(when)}</span>${icon('chevron-right')}</button>${iss ? `<a class="vb-row-issue tp-lr-iss" href="#/issue/${encodeURIComponent(iss.i.id)}"><span class="vb-for">for</span> <span>${esc(iss.i.name)}</span></a>` : ''}</li>`; };
+// R-373 (A-1, A-14, C-15): the block is drawn as the tabs' own list is: the same card, width and rows (rowOf, one wording for each
+// state, steps.js's), "For you" and "The team's" as the tabs say them. Up to five rows on any screen, then "Show all N".
+const LATE_ROWS = 5;
+function lateStrip(m, picked) {
+  const list = m.late; if (!list.length) return '';
+  const youN = list.filter(x => x.it.s.you).length, split = youN > 0 && youN < list.length;
+  const all = !!(S.tpAll ??= {}).late, shown = (all ? list : list.slice(0, LATE_ROWS)).map(x => x.it);
+  const grp = xs => { const slot = xs.some(faced); return xs.map(it => rowOf(it, picked, it.tab, slot)).join(''); };
+  const rows = split ? gh('For you', 'tp-g-late-you', youN) + grp(shown.filter(it => it.s.you)) + (shown.some(it => !it.s.you) ? gh('The team’s', 'tp-g-late-team', list.length - youN) + grp(shown.filter(it => !it.s.you)) : '') : grp(shown);
   return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today <span class="tp-ghn">${list.length}</span></h2>
-    <ul class="tp-late-list">${shown.map(row).join('')}</ul>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
+    <div class="v6-ld-list tp-late-list" role="list" aria-label="Late or due today">${rows}</div>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
 }
-let GO = null;   // { view, key }: a strip row was pressed; the page it lands on opens that item (taken by wire)
 
 // ---- rows ----
 // One line per row (V04, D15): the person's own step says its verb and its one time (steps.js actBy, the same words as
@@ -351,9 +352,9 @@ function head(cur, m, strip = '') {
 // One calm line per tab under the tabs: what it holds. To approve also starts Review (F41, F42) and says how many
 // supporter emails wait in Outreach › Emails (F172).
 function intro(view, m) {
-  const n = m.mine(view).length;
+  const n = m.mine(view).length + m.late.filter(x => x.it.own && x.it.tab === view).length;   // the block's own items are this tab's too
   // An empty tab says it once, in its empty box (A-14); Filed keeps its library.
-  if (!m.tabs[view].length && view !== 'filed') return '';
+  if (!m.tabs[view].length && !m.late.some(x => x.it.tab === view) && view !== 'filed') return '';
   switch (view) {
     case 'write': return `<p class="tp-intro">${n ? 'Testimony to write, from the day its hearing notice lands. Send each for approval by the time on its row.' : 'Nothing for you to write right now. A draft shows here the day its hearing notice lands.'}</p>`;
     case 'approve': {
@@ -377,6 +378,8 @@ function emailsLine() {
   const n = approves(S.me) ? alertsToReview().length : 0; if (!n) return '';
   return `<a class="tp-emails" href="#/outreach/emails">${icon('mail')}<span>${n === 1 ? '1 supporter email to approve' : `${n} supporter emails to approve`}</span><span class="tp-open">Open</span>${icon('chevron-right')}</a>`;
 }
+// A tab whose only items are in the late block says "Nothing else" (R-373), so the block above and the tab never disagree.
+const emptyWords = (view, m) => m.late.some(x => x.it.tab === view) ? EMPTY[view].replace(/^Nothing/, 'Nothing else') : EMPTY[view];
 const EMPTY = { write: 'Nothing to write right now. A draft shows here the day its hearing notice lands.', approve: 'Nothing is with an approver right now.', sent: 'Nothing has come back for changes.', file: 'Nothing is ready to file right now.', filed: 'Nothing filed yet this session.', missed: 'Nothing missed.' };
 // The draft made for hearing `hid` (the row that stood for it before the draft came), among `items`.
 function draftFor(hid, items) {
@@ -400,7 +403,7 @@ function render(route) {
   const m = model(), view = TABS.includes(route.view) && (route.view !== 'missed' || m.tabs.missed.length) ? route.view : openOn(m);
   S.tpView = view;
   const items = m.tabs[view], id = `tp-${view}`;
-  let picked = ldPicked(id); let pit0 = picked != null ? items.find(it => it.key === String(picked)) : null;
+  let picked = ldPicked(id); let pit0 = picked != null ? itemOf(m, view, picked) : null;
   // Make the draft on a hearing with no draft yet: its row was "h<hearing id>" and is now the new draft's own, so the open
   // item follows it there instead of closing (R-344 C7).
   if (picked != null && !pit0 && /^h/.test(String(picked))) { const nd = draftFor(String(picked).slice(1), items);
@@ -408,15 +411,16 @@ function render(route) {
   // Below 1100px the picked item is a page of its own: arriving at the tab by a link (not Back to the item's own history
   // entry, not a redraw after a step) shows the list, so a tab never opens on something picked an hour ago.
   const narrow = !matchMedia('(min-width: 1100px)').matches, stale = narrow && pit0 && !history.state?.panel;
-  if (S.tpGo && S.tpGo.view === view) { GO = S.tpGo; (S.v6ld ??= {})[id] = { ...(S.v6ld[id] || {}), key: null }; picked = null; pit0 = null; }   // the strip's row opens in wire
-  S.tpGo = null;
   const pit = stale ? null : pit0;
   if (picked != null && !pit) { S.v6ld[id].key = null; picked = null; }   // its step moved on (approved, filed), or a fresh arrival
   const em = view === 'approve' ? emailsLine() : '';
-  return `<div class="tp" data-tpview="${esc(view)}">${head(view, m, lateStrip(m))}${intro(view, m)}
-    ${items.length ? listDetail({ id, label: `Testimony: ${TAB_WORD[view]}`, rows: listRows(view, items, picked) + (em ? `<div class="tp-mailrow" role="listitem">${em}</div>` : ''), picked, detail: pit ? detailOf(pit, view) : '' })
-      : `<div class="tp-empty"><p>${icon('circle-check')}<span>${esc(EMPTY[view])}</span></p></div>${em ? `<div class="tp-mailrow tp-mailalone">${em}</div>` : ''}`}</div>`;
+  return `<div class="tp" data-tpview="${esc(view)}">${head(view, m, lateStrip(m, picked))}${intro(view, m)}
+    ${items.length || m.late.length ? listDetail({ id, label: `Testimony: ${TAB_WORD[view]}`, rows: (items.length ? listRows(view, items, picked) : `<div class="tp-empty tp-empty-in" role="listitem"><p>${icon('circle-check')}<span>${esc(emptyWords(view, m))}</span></p></div>`) + (em ? `<div class="tp-mailrow" role="listitem">${em}</div>` : ''), picked, detail: pit ? detailOf(pit, view) : '' })
+      : `<div class="tp-empty"><p>${icon('circle-check')}<span>${esc(emptyWords(view, m))}</span></p></div>${em ? `<div class="tp-mailrow tp-mailalone">${em}</div>` : ''}`}</div>`;
 }
+// The picked item's row in the late block shows as picked, as the tab's rows do (wireListDetail marks only its own box).
+const markLate = key => document.querySelectorAll('.tp-late .v6-row').forEach(r => { const on = key != null && r.querySelector('[data-v6pick]')?.dataset.v6pick === String(key);
+  r.classList.toggle('sel', on); r.querySelector('[data-v6pick]')?.toggleAttribute('aria-current', on); });
 function wire(route, root) {
   const view = S.tpView, id = `tp-${view}`;
   // (the open item's panel is sized by steps.js wireListDetail alone: the local fitter fought it on every scroll)
@@ -451,20 +455,20 @@ function wire(route, root) {
     const q = root.querySelector('#tp-libq');
     if (q) q.addEventListener('input', () => { S.tpLibQ = q.value; hooks.render(); const n = document.getElementById('tp-libq'); if (n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } });
   } else {
-    wireListDetail(root, { id, open: key => { const it = model().tabs[view].find(x => x.key === String(key)); return it ? detailOf(it, view) : ''; } });
+    wireListDetail(root, { id, open: key => { const it = itemOf(model(), view, key); return it ? detailOf(it, view) : ''; }, onChange: markLate });
   }
-  if (GO && GO.view === view) { const g = GO; GO = null; root.querySelector(`[data-v6ld="${CSS.escape(id)}"]`)?.v6api?.open(g.key); }
-  root.querySelectorAll('[data-tpgo]').forEach(a => a.addEventListener('click', e => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
-    e.preventDefault(); e.stopPropagation(); const [tab, key] = a.dataset.tpgo.split('|');
-    S.tpGo = { view: tab, key }; if (S.tpView === tab) hooks.render(); else S.go(`#/testimony?view=${tab}`);
-  }));
   root.querySelectorAll('[data-tpall]').forEach(b => b.addEventListener('click', () => { (S.tpAll ??= {})[b.dataset.tpall] = true; hooks.render(); }));
   // The frame gives every #/ link its own click (app.js wireFrame), which ran before listDetail's and opened the bill's
   // page instead of the item beside the list. Once the frame has wired the page, each row's link is swapped for a copy
   // without it, so a click opens the item (and Cmd-click still opens the bill). Shared change asked: wireFrame to skip
   // a[data-v6pick]. Links in an item drawn later go through S.go, as the frame's do.
-  queueMicrotask(() => root.querySelectorAll('.v6-ld a.v6-row-main[data-v6pick]').forEach(a => a.replaceWith(a.cloneNode(true))));
+  queueMicrotask(() => {
+    root.querySelectorAll('.v6-ld a.v6-row-main[data-v6pick]').forEach(a => a.replaceWith(a.cloneNode(true)));
+    // R-373: a row of the late block opens its item beside the tab's list, whatever tab it is on (the item is in the block only)
+    root.querySelectorAll('.tp-late a.v6-row-main[data-v6pick]').forEach(a => { const c = a.cloneNode(true); a.replaceWith(c);
+      c.addEventListener('click', e => { if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
+        e.preventDefault(); root.querySelector(`[data-v6ld="${CSS.escape(id)}"]`)?.v6api?.open(c.dataset.v6pick); }); });
+  });
   const aside = root.querySelector('.v6-ld-detail');
   aside?.addEventListener('click', e => {
     const a = e.target?.closest?.('a[href^="#/"]'); if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || a.target) return;

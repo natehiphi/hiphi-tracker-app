@@ -304,22 +304,11 @@ body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-lead.tp-nofa
 body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead:has(> .tp-noface) > .v6-row-line { display: flex; }
 
 /* R-370 (second walk, version B): the team-wide late strip above the tabs; compact rows, at most five, then "Show all N" */
-body.staff6 .tp-late { margin: 0 0 16px; max-width: 720px; }
+/* R-373 (A-1, A-14, C-15): the late block above the tabs is the tabs' own list: the same card (.v6-ld-list) and rows. Beside an open
+   item it is as wide as the list is; on a phone an open item is a page of its own, so the block steps aside. */
+body.staff6 .tp-late { margin: 0 0 16px; }
 body.staff6 .tp-late-h { margin: 0 0 4px; font-family: Lato, system-ui, sans-serif; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); font-weight: 700; color: var(--v6-ink); letter-spacing: 0; }
-body.staff6 .tp-late-list { list-style: none; margin: 0; padding: 0; border-radius: var(--v6-r12); background: var(--v6-wash); }
-body.staff6 .tp-lr { display: grid; grid-template-columns: 1fr 20px; align-items: center; gap: 0 8px; width: 100%; min-height: 48px; padding: 6px 12px; border: 0; background: transparent; text-align: left;
-  font: inherit; color: var(--v6-body); cursor: pointer; border-radius: var(--v6-r12); }
-body.staff6 .tp-lr-name { grid-column: 1; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); overflow-wrap: anywhere; }
-body.staff6 .tp-lr-num { color: var(--v6-muted); font-size: var(--v6-t14); }
-body.staff6 .tp-lr-line { grid-column: 1; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-body); }
-body.staff6 .tp-lr svg { grid-column: 2; grid-row: 1 / span 2; width: 20px; height: 20px; color: var(--v6-action); }
-body.staff6 .tp-lr:focus-visible { outline: 3px solid var(--v6-action); outline-offset: -3px; }
-@media (hover: hover) and (pointer: fine) { body.staff6 .tp-lr:hover { background: var(--v6-action-wash); } }
-/* R-370 (fourth walk): "Yours" and "The team's" label the two groups, each by soonest close */
-body.staff6 .tp-lr-grp { list-style: none; padding: 8px 12px 0; font-family: Lato, system-ui, sans-serif; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); font-weight: 700; color: var(--v6-ink); }
-body.staff6 .tp-lr-grp:not(:first-child) { border-top: 1px solid var(--v6-hair, rgba(0,0,0,.08)); margin-top: 4px; padding-top: 10px; }
 body.staff6 .tp-late > .btn { margin-top: 4px; }
-body.staff6 .tp-lr-num { white-space: nowrap; }
-@media (max-width: 599px) { body.staff6 .tp-lr { min-height: 44px; padding: 4px 12px; } }
-/* R-371 S1: a late-strip row's issue, its own link under the row (the row is a button, so the link sits beside it, not inside) */
-body.staff6 .tp-lr-iss { display: block; padding: 0 12px 8px; margin-top: -2px; }
+body.staff6 .tp-empty.tp-empty-in { margin: 0; }
+@media (min-width: 1100px) { body.staff6 .tp:has(.v6-ld.open) .tp-late { max-width: calc(100% - 404px); } }
+@media (max-width: 1099.98px) { body.staff6 .tp:has(.v6-ld.open) .tp-late { display: none; } }

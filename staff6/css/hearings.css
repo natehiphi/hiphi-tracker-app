@@ -27,6 +27,15 @@ body.staff6 .hw-fh:first-child { margin-top: 0; }
    first-class; Nate's walk: with the arrows hidden Patti could not look at next week) */
 @media (max-width: 599.98px) {
   body.staff6 .hw-bar .hw-nav { flex: 1 1 100%; justify-content: space-between; margin: 0; }
+  /* R-373 (A-1): Filter, the week's dates and its arrows share one row; the team line and the way to the other view share the
+     next, so the first hearing starts within the budget (the two on row 2 overlap their columns on purpose, they never meet) */
+  body.staff6 .hw-page.v-week .hw-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 12px; align-items: center; }
+  body.staff6 .hw-page.v-week .hw-picks, body.staff6 .hw-page.v-week .hw-bar .hw-nav { display: contents; }
+  body.staff6 .hw-page.v-week .hw-filt { grid-area: 1 / 1; }
+  body.staff6 .hw-page.v-week .hw-range { grid-area: 1 / 2; }
+  body.staff6 .hw-page.v-week .hw-wbtns { grid-area: 1 / 3; justify-self: end; }
+  body.staff6 .hw-page.v-week .hw-scope-more { grid-area: 2 / 1 / 3 / 3; margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+  body.staff6 .hw-page.v-week .hw-picks > .btn { grid-area: 2 / 2 / 3 / 4; justify-self: end; }
 }
 body.staff6 .hw-cap-n { color: var(--v6-action); }
 
