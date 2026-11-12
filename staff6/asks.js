@@ -128,7 +128,7 @@ function leftOut(items) {
   const blank = items.filter(x => !askOf(x.b)), late = items.filter(x => askOf(x.b) && x.soon), one = blank.length === 1;
   if (!blank.length && !late.length) return `Both cover all ${plural(items.length, 'bill')}.`;
   const parts = [];
-  if (blank.length) parts.push(`Both leave out ${listNums(blank)}: no ask written yet. Write ${one ? 'it' : 'them'} on ${one ? 'its card' : 'the cards'} below.`);
+  if (blank.length) parts.push(`Both leave out ${listNums(blank)}: no public ask yet. Write ${one ? 'it' : 'them'} on ${one ? 'its card' : 'the cards'} below.`);
   if (late.length) parts.push(`The newsletter also leaves out ${listNums(late)}: testimony closes within 3 hours, too soon for a newsletter.`);
   return parts.join(' ');
 }
@@ -243,7 +243,7 @@ function shareHTML(x) {
   // one that emails followers (with what it does, and "(paused)" while email is off: paused(), the existing email setting).
   const off = paused() ? ' <span class="ot-paused">(paused)</span>' : '';
   const em = door ? `<div class="ot-grp ot-emg" role="group" aria-label="Email followers"><span class="ot-door">${door}${off}</span><p class="ot-gh">Emails people who follow this bill and said yes; someone who approves emails checks it first.</p></div>` : '';
-  return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><div class="ot-grp ot-cpg" role="group" aria-label="Copy to share yourself"><p class="ot-gt">Copy to share yourself</p><div class="ot-row">${cb('link', 'link', 'link', 'Copy link')}${cb('message', 'message', 'copy', 'Copy message')}${cb('post', 'post', 'message-square', 'Copy for social')}</div></div>${em}</div>`;
+  return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><div class="ot-grp ot-cpg" role="group" aria-label="Copy to share yourself"><p class="ot-gt">Copy to share yourself</p><div class="ot-row">${cb('link', 'link', 'link', 'Copy link')}${cb('message', 'message', 'copy', 'Copy message')}${cb('post', 'post', 'message-square', 'Copy for social')}${cb('newsletter', 'newsletter', 'copy', 'Copy for newsletter')}</div></div>${em}</div>`;
 }
 function cardHTML(x, { hl = false, lead = false } = {}) {
   const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);
@@ -310,9 +310,10 @@ const cut = (items, want) => items.length > SHOW && !S.otEvery && !(want && item
 // The week's asks as cards under a Copy all bar: Outreach draws it with its head, Team's Public asks tab (R-356) without.
 function listHTML(items, want) {
   const nl = copyAll(items, 'newsletter').use.length, po = copyAll(items, 'social').use.length;
+  // R-370 fourth walk: also before the first publish (buttons asleep) so the note on who is left out is there.
   // Copy all shows once there is something to copy, and says what it leaves out; with no ask written yet it is not
   // drawn at all (each card says its ask is not written), rather than a line that looks like a dead button.
-  const bar = nl + po ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
+  const bar = nl + po || items.some(x => !askOf(x.b)) ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
     <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all for social', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
     <p class="ot-left">${esc(leftOut(items))}</p></div>` : '';
   const lead = leadId(items, want), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
@@ -369,6 +370,8 @@ function wireAsks(root, items) {
       const k = el.dataset.askcopy, has = !!askOf(x.b), bare = 'Copied: the bill, its deadline and the link. No ask is written yet.';
       if (k === 'link') copy(link(x.b), 'Link copied: the bill’s page for testifying.');
       else if (k === 'message') copy(messageOf(x), has ? 'Message copied: the ask, the deadline and the link.' : bare);
+      else if (k === 'newsletter') { const one = copyAll([x], 'newsletter'); if (!one.use.length) { toast(has ? `${pubNum(x.b)} closes within 3 hours, too soon for a newsletter.` : `${pubNum(x.b)} has no public ask yet, so there is nothing to put in the newsletter.`, { err: true }); return; }
+        markNewStep({ newsletter: 1 }); copy(one.text.split('\n\n').slice(1).join('\n\n'), 'Newsletter text copied: the ask, the deadline and the link.'); }
       else copy(postOf(x), has ? 'Post copied. It fits in one post.' : bare);
     });
     // Write the ask / Change: the box opens in place, the cursor in it. Cancel closes it and puts focus back.
@@ -418,7 +421,7 @@ async function saveAsk(root, billId, el) {
   const x = weekAskItems().find(i => i.b.id === billId), until = x ? hst(new Date(x.h.scheduled_at).getTime()) : null;
   if (!until) return say('This bill has no hearing this week, so the ask would not show. Write it on the bill’s Public tab.');
   // R-370 third walk: one tap used to put it on the public page; now it asks first (and asks differently for a live ask).
-  if (!await confirmPublish(b, until, !!liveAsk(b))) return;
+  if (!await confirmPublish(b, text, until, !!liveAsk(b))) return;
   el.setAttribute('aria-busy', 'true'); el.disabled = true;
   try {
     const res = await DB.saveBillFields(b.id, { public_action: text, public_action_until: until }, BASE.get(b.id) || { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
