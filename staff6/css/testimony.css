@@ -302,3 +302,19 @@ body.staff6 .tp .v6-row-lead.tp-noface { visibility: hidden; }
 body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead:has(> .tp-noface) { display: block; }
 body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead > .v6-row-lead.tp-noface { display: none; }
 body.staff6 .tp .v6-row.v6-face-row .v6-row-main.has-lead:has(> .tp-noface) > .v6-row-line { display: flex; }
+
+/* R-370 (second walk, version B): the team-wide late strip above the tabs; compact rows, at most five, then "Show all N" */
+body.staff6 .tp-late { margin: 0 0 16px; max-width: 720px; }
+body.staff6 .tp-late-h { margin: 0 0 4px; font-family: Lato, system-ui, sans-serif; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); font-weight: 700; color: var(--v6-ink); letter-spacing: 0; }
+body.staff6 .tp-late-list { list-style: none; margin: 0; padding: 0; border-radius: var(--v6-r12); background: var(--v6-wash); }
+body.staff6 .tp-lr { display: grid; grid-template-columns: 1fr 20px; align-items: center; gap: 0 8px; width: 100%; min-height: 48px; padding: 6px 12px; border: 0; background: transparent; text-align: left;
+  font: inherit; color: var(--v6-body); cursor: pointer; border-radius: var(--v6-r12); }
+body.staff6 .tp-lr-name { grid-column: 1; color: var(--v6-ink); font-size: var(--v6-t16); line-height: var(--v6-lh16, 24px); overflow-wrap: anywhere; }
+body.staff6 .tp-lr-num { color: var(--v6-muted); font-size: var(--v6-t14); }
+body.staff6 .tp-lr-line { grid-column: 1; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-body); }
+body.staff6 .tp-lr svg { grid-column: 2; grid-row: 1 / span 2; width: 20px; height: 20px; color: var(--v6-action); }
+body.staff6 .tp-lr:focus-visible { outline: 3px solid var(--v6-action); outline-offset: -3px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .tp-lr:hover { background: var(--v6-action-wash); } }
+body.staff6 .tp-late > .btn { margin-top: 4px; }
+body.staff6 .tp-lr-num { white-space: nowrap; }
+@media (max-width: 599px) { body.staff6 .tp-lr { min-height: 44px; padding: 4px 12px; } }

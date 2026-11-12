@@ -16,11 +16,11 @@
 // the list. Someone else's step in the open item says who has it and offers "Message Kris" (F63, the bill's chat with @Kris
 // typed in), so a teammate who sees something slipping nudges in two taps.
 // Route: { name: 'testimony', view } (app.js parseRoute); ?view=write|approve|sent|file|filed|missed|library.
-import { S, DB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
-import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf } from './model.js';
+import { S, DB, VB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
+import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf, spanOf } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
 import { SL, sl } from './ui.js';   // R-365 B plain words
-import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK } from './steps.js';
+import { statusLine, billStep, billRow, itemRow, listDetail, wireListDetail, ldPicked, stepCard, committeeName, numWords, nameWords, sayWords, notFiled, dayWords, testimonyState, nw, firstWords, orWords, versionWords, othersWords, NO_OWNER, wireSteps, writersOf, issueLinksHTML, rowButtonOK, whoWords } from './steps.js';
 import { closeBtn, aboutBill } from './billpane.js';
 import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
@@ -95,6 +95,13 @@ const urgent = it => ['late', 'overdue'].includes(it.s?.status?.tone) ? 0 : 1;
 const actAt = it => it.s?.act?.at ?? it.s?.due ?? Infinity;
 function openOn(m) {
   const own = ['write', 'approve', 'sent', 'file', 'missed'].flatMap(t => m.mine(t).filter(it => t !== 'missed' || it.asking).map(it => ({ it, t })));
+  // R-370 (second walk, version B): it opens on the viewer's own queue first, by where they have items: an approver on To approve
+  // when something there is theirs, otherwise To write, then Sent back, Ready to file. (The late strip above the tabs carries
+  // the urgency now, across every tab.) v6 keeps the most-urgent-first choice.
+  if (VB && own.length) {
+    const has = t => own.some(x => x.t === t);
+    return ((approves(S.me) || S.me?.is_reviewer) && has('approve') ? 'approve' : ['write', 'sent', 'approve', 'file', 'missed'].find(has));
+  }
   own.sort((x, y) => urgent(x.it) - urgent(y.it) || actAt(x.it) - actAt(y.it));
   if (own.length) return own[0].t;
   if ((approves(S.me) || S.me?.is_reviewer) && m.tabs.approve.length) return 'approve';
@@ -102,6 +109,32 @@ function openOn(m) {
   // Between sessions nothing is in hand: the session's record (Filed, with the library) is where it opens.
   return TABS.find(k => k !== 'filed' && m.tabs[k].length) || TABS.find(k => m.tabs[k].length) || 'write';
 }
+
+// ---- the team-wide late strip (R-370, second walk, version B) ----
+// "Late or due today · N": every step on any stage (write, approve, second review, file) that is late or whose Capitol deadline
+// is today, soonest Capitol close first, whoever's it is, so a teammate's 9:30 AM never hides in another tab. Five rows, then
+// "Show all N". Hidden when N is 0. A row opens the item on its own tab.
+const hstDay = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+const capClose = it => it.s.status?.tone === 'late' ? ms(it.s.until) : ms(it.s.due);
+function lateStripItems(m) {
+  const now = Date.now(), today = hstDay(now);
+  return ['write', 'approve', 'sent', 'file'].flatMap(tb => m.tabs[tb]).filter(it => !it.s.off && it.s.state && !['filed', 'missed'].includes(it.s.state.key)).map(it => ({ it, at: capClose(it) }))
+    .filter(x => x.at != null && x.at > now && (x.it.s.status?.tone === 'late' || hstDay(x.at) === today)).sort((x, y) => x.at - y.at);
+}
+const LATE_ROWS = 5;
+function lateStrip(m) {
+  if (!VB) return '';
+  const list = lateStripItems(m); if (!list.length) return '';
+  const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS);
+  const clock = at => new Date(at).toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: '2-digit' });
+  const row = ({ it, at }) => { const s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
+    return `<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
+      <span class="tp-lr-name"><b>${esc(nameWords(it.b, 60))}</b> <span class="tp-lr-num">${esc(numWords(it.b))}</span></span>
+      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${late ? 'Late · ' : ''}Capitol ${late ? 'takes it until' : 'closes'} ${esc(clock(at))} · in ${esc(spanOf(at))}</span>${icon('chevron-right')}</button></li>`; };
+  return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today <span class="tp-ghn">${list.length}</span></h2>
+    <ul class="tp-late-list">${shown.map(row).join('')}</ul>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
+}
+let GO = null;   // { view, key }: a strip row was pressed; the page it lands on opens that item (taken by wire)
 
 // ---- rows ----
 // One line per row (V04, D15): the person's own step says its verb and its one time (steps.js actBy, the same words as
@@ -302,10 +335,10 @@ function renderLibrary() {
 // The tabs are plain words and the person's own counts (R-352, A-18 on v6: no icons on tabs). A late step is said on its
 // own row, in the late colour with its words (status by exception, A-5), not by a mark on the tab: the row carries the
 // lateness, not the door. The tab it opens on (openOn) is still the one holding the most urgent own step.
-function head(cur, m) {
+function head(cur, m, strip = '') {
   const hide = !m || !m.tabs.missed.length ? ['missed'] : [];
   const counts = m ? Object.fromEntries(['write', 'approve', 'sent', 'file', 'missed'].map(t => [t, m.mine(t).length]).filter(([, n]) => n)) : {};
-  return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${sectionNav('testimony', cur, { hide, counts })}`;
+  return `<h1 class="v6-ptitle sv-h1 tp-h1">Testimony</h1>${strip}${sectionNav('testimony', cur, { hide, counts })}`;
 }
 // One calm line per tab under the tabs: what it holds. To approve also starts Review (F41, F42) and says how many
 // supporter emails wait in Outreach › Emails (F172).
@@ -367,10 +400,12 @@ function render(route) {
   // Below 1100px the picked item is a page of its own: arriving at the tab by a link (not Back to the item's own history
   // entry, not a redraw after a step) shows the list, so a tab never opens on something picked an hour ago.
   const narrow = !matchMedia('(min-width: 1100px)').matches, stale = narrow && pit0 && !history.state?.panel;
+  if (S.tpGo && S.tpGo.view === view) { GO = S.tpGo; (S.v6ld ??= {})[id] = { ...(S.v6ld[id] || {}), key: null }; picked = null; pit0 = null; }   // the strip's row opens in wire
+  S.tpGo = null;
   const pit = stale ? null : pit0;
   if (picked != null && !pit) { S.v6ld[id].key = null; picked = null; }   // its step moved on (approved, filed), or a fresh arrival
   const em = view === 'approve' ? emailsLine() : '';
-  return `<div class="tp" data-tpview="${esc(view)}">${head(view, m)}${intro(view, m)}
+  return `<div class="tp" data-tpview="${esc(view)}">${head(view, m, lateStrip(m))}${intro(view, m)}
     ${items.length ? listDetail({ id, label: `Testimony: ${TAB_WORD[view]}`, rows: listRows(view, items, picked) + (em ? `<div class="tp-mailrow" role="listitem">${em}</div>` : ''), picked, detail: pit ? detailOf(pit, view) : '' })
       : `<div class="tp-empty"><p>${icon('circle-check')}<span>${esc(EMPTY[view])}</span></p></div>${em ? `<div class="tp-mailrow tp-mailalone">${em}</div>` : ''}`}</div>`;
 }
@@ -410,6 +445,12 @@ function wire(route, root) {
   } else {
     wireListDetail(root, { id, open: key => { const it = model().tabs[view].find(x => x.key === String(key)); return it ? detailOf(it, view) : ''; } });
   }
+  if (GO && GO.view === view) { const g = GO; GO = null; root.querySelector(`[data-v6ld="${CSS.escape(id)}"]`)?.v6api?.open(g.key); }
+  root.querySelectorAll('[data-tpgo]').forEach(a => a.addEventListener('click', e => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
+    e.preventDefault(); e.stopPropagation(); const [tab, key] = a.dataset.tpgo.split('|');
+    S.tpGo = { view: tab, key }; if (S.tpView === tab) hooks.render(); else S.go(`#/testimony?view=${tab}`);
+  }));
   root.querySelectorAll('[data-tpall]').forEach(b => b.addEventListener('click', () => { (S.tpAll ??= {})[b.dataset.tpall] = true; hooks.render(); }));
   // The frame gives every #/ link its own click (app.js wireFrame), which ran before listDetail's and opened the bill's
   // page instead of the item beside the list. Once the frame has wired the page, each row's link is swapped for a copy

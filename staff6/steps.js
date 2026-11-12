@@ -946,7 +946,10 @@ function testimonyCard(s, v, own, x = '') {
     when: `The hearing started ${whenAt(s.h.scheduled_at)}.` };
   // Decision 9: the tile is statusLine's words (state, flag, the one time and whose it is), as every row says them; the
   // sentence beside it says who. Colour only from shownStatus (amber late, red overdue, the viewer's own).
-  const words = statusLine(s, { who: false });
+  // R-370 (second walk): a late step on its own card says why it is late and what is still open: "Late: past our draft time ·
+  // Capitol takes it until today 1:10 PM" (version B; the rows keep the short "Late · Capitol closes ...").
+  let words = statusLine(s, { who: false });
+  if (VB && own && s.status.tone === 'late') words = words.replace('Late · Capitol closes ', 'Late: past our draft time · Capitol takes it until ');
   const tile = ['late', 'overdue'].includes(s.status.tone) ? { ...shown, words }
     : own ? (words ? { tone: s.status.tone === 'today' ? 'today' : 'neutral', icon: 'clock', words } : null)
     : { tone: 'neutral', icon: '', words };

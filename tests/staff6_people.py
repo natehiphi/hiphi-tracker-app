@@ -80,7 +80,7 @@ def main():
       door = pg.page.evaluate("() => [...document.querySelectorAll('main a[href^=\"#/team\"]')].some(a => { const r = a.getBoundingClientRect(); return a.getClientRects().length && r.top < innerHeight && r.bottom > 0; })")
       check('Nate: the slipping line opens Team in one click', door, '' if door else 'no link to #/team on his first screen')
     m = pg.measure()
-    check('Nate: one filled button on Today\'s first screen, for his own next step', m['filled'] == 1 and (V5 or re.search(r'your next step|late: do this first', main_text(pg), re.I)),
+    check('Nate: one filled button on Today\'s first screen, for his own next step', m['filled'] == 1 and (V5 or re.search(r'your next step', main_text(pg), re.I)),
           f"{m['filled']} filled" + ('' if V5 else '; "Your next step" ' + ('shown' if re.search(r'your next step', main_text(pg), re.I) else 'not shown')))
     nb = place(pg, team_route()); txt = main_text(pg)
     check('Nate: Team opens on the Slipping list', 'Slipping' in txt[:400], txt[:80].replace('\n', ' '), skip=nb)
