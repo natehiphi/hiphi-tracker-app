@@ -17,7 +17,7 @@ import { ISLANDS, INTERESTS, personName, parsePeopleCSV, exportPeopleCSV, billBy
 import { icon, btn, iconBtn, chip, empty, skeleton, toast, openSheet, closeSheet, pickerSheet, confirmSheet, switchRow, keysOn, sheetOpen, sectionNav, filterBtn } from './ui.js';
 import { pageHead } from './lists.js';
 import { nameWords, numWords } from './steps.js';
-import { emailDoor } from './composer.js';   // one email rule at every door (V20)
+import { emailDoor, paused } from './composer.js';   // one email rule at every door (V20)
 const SCORE_LINE = () => true;   // R-316 W55: live at Nate's go 10/22 (R-332)
 // R-343 (Nate's yes 10/27): rows say what they have done; Select can Email the picked people; a saved group says its
 // count once; Delete group is in Edit group.
@@ -149,12 +149,15 @@ function deskRow(p, v) {
     <td class="c-active">${p.last_active ? esc(shortDate(p.last_active)) : DASH}</td></tr>`;
 }
 
+// R-370 third walk: while email is paused (the existing setting, composer.js paused()) the button says so, as Outreach's does.
+const pausedTag = () => paused() ? ' <span class="ot-paused" title="Email is paused. You can still write and approve; approved emails go out in the first 4:30 PM email after it is turned on.">(paused)</span>' : '';
+
 // ---- the results bar (V31): once a filter, a search or a group is on, the count and what to do with these people ----
 function barHTML(v, rows) {
   const seg = segOf(v), changed = !!seg && norm(v.f) !== norm(seg.filter), n = rows.length;
   if (pfEmpty(v.f) && !seg) return '';
   const acts = [];
-  if (seg && !changed) acts.push(emailDoor({ segment: seg }, { label: 'Email this group' }),
+  if (seg && !changed) acts.push(emailDoor({ segment: seg }, { label: 'Email this group' }) + pausedTag(),
     btn('Edit group', { kind: 'text', icon: 'pencil', attrs: { 'data-sp': 'segedit', 'aria-haspopup': 'dialog' } }));   // R-343, A-20: Delete is inside
   else {
     if (changed) acts.push(btn(`Save changes to “${esc(seg.name)}”`, { kind: 'secondary', icon: 'bookmark-check', attrs: { 'data-sp': 'segupdate' } }));
@@ -332,7 +335,7 @@ function teamPageHTML(nav) {
   const who = adminWho();
   const segs = S.segments || [];
   const groups = segs.length ? `<section class="sp-tgroups" aria-labelledby="sp-tg-h"><h2 class="sp-th" id="sp-tg-h">Email a saved group</h2>
-      <ul class="sp-tglist">${segs.map(sg => `<li><span class="sp-tgname">${icon('users')}<span><b>${esc(sg.name)}</b><span class="meta">${esc(groupCount(sg))}</span></span></span>${emailDoor({ segment: sg }, { sm: true, label: 'Write an email' })}</li>`).join('')}</ul>
+      <ul class="sp-tglist">${segs.map(sg => `<li><span class="sp-tgname">${icon('users')}<span><b>${esc(sg.name)}</b><span class="meta">${esc(groupCount(sg))}</span></span></span>${emailDoor({ segment: sg }, { sm: true, label: 'Write an email' })}${pausedTag()}</li>`).join('')}</ul>
       <p class="meta">An approver reads it before it goes out.</p></section>` : '';
   return `<div class="le-page sp-page sp-team">${pageHead(nav, 'Outreach', '', '')}
     <section class="sp-tadd"><div><h2 class="sp-th">Met someone who wants to help?</h2><p>Add them here. They get supporter emails only if they say yes.</p></div>

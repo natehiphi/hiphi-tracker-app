@@ -233,9 +233,9 @@ JOURNEYS = [
      Step(r'^\s*Save as a group'), Step(r'^\s*Save\b', fill='Oʻahu supporters (test)')], r'Saved',
     [Step('Filter'), Step(r'^\s*O.?ahu'), Step(r'^\s*Show \d+ people'), Step('More actions'), Step('Save as segment'), Step(r'^\s*Save segment', fill='Oʻahu supporters (test)')], r'Saved',
     start='/outreach/supporters', needs=('#/outreach/supporters',)),
-  # R-358: the row's button lands IN the open box (?write=1), so the ask is three moves: the button, the words, Save.
-  J('public-ask', 'Write the public ask (Saya), from Today', 'SY', 2,
-    [Step('Write the public ask', in_view=True), Type({'[data-askbox]': 'Send testimony by Wed 3/18, 9:30 AM. Two sentences in your own words are enough.'}), Step('Publish the ask')], TOAST(r'Published'),
+  # R-358: the row's button lands IN the open box (?write=1), so the ask is three moves: the button, the words, Save. R-370 third walk: Save now confirms, so the budget is 3 clicks (the extra tap is the point).
+  J('public-ask', 'Write the public ask (Saya), from Today', 'SY', 3,
+    [Step('Write the public ask', in_view=True), Type({'[data-askbox]': 'Send testimony by Wed 3/18, 9:30 AM. Two sentences in your own words are enough.'}), Step('Publish the public ask'), Step(rx(r'^\s*Publish\s*$'), note='the confirm (R-370 third walk)')], TOAST(r'Published'),
     None, needs=('staff6/asks.js',), v5=3, v5_note="v5: Today's Write it, the Public tab's box, Save public page"),
   # R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone on the bill, from Outreach, one click to the open box.
   J('outreach-ask-kevin', 'Open the box to write a public ask (Kevin, on CTFH bills), from Outreach', 'KV', 1,

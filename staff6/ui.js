@@ -364,6 +364,7 @@ export function toast(msg, opt = {}) {
   // An Undo belongs to the page it was raised on (A-16, B-5): app.js closes it when the person moves to another page, so it
   // can never quietly take back something from a page they have left. `at` lets the step's own move (Review's next item, a
   // save that opens the bill) take it along.
+  if (opt.leave) el.dataset.leave = '1';   // R-370: a copy failure belongs to the page it was raised on, and goes when the person moves on
   if (opt.undo || opt.action) { el.dataset.undo = '1'; el.dataset.at = String(Math.round(performance.now())); }
   if (opt.undo) el.querySelector('.toastundo').onclick = async () => { clear(); try { await opt.undo(); } catch (e) { toast(e, true); } };
   if (opt.action) el.querySelector('.toastact').onclick = () => { clear(); opt.action.run(); };
@@ -401,6 +402,7 @@ export function placeToast() {
 export function leavePageToasts() {
   const now = performance.now();
   let gone = false;
+  document.querySelectorAll('#toast .toastmsg[data-leave]').forEach(t => { t.remove(); gone = true; });
   document.querySelectorAll('#toast .toastmsg[data-undo]').forEach(t => { if (now - (+t.dataset.at || 0) > 700) { t.remove(); gone = true; } });
   if (gone) placeToast();
 }

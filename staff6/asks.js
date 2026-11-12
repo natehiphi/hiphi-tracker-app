@@ -4,7 +4,7 @@
 //   - the deadline (when testimony closes), the position and the committee;
 //   - the ask's own words (the Public tab's "The ask"), or one line that says it is not written yet, whose it is and by
 //     when, with "Write the public ask", which opens the box in place (saved to the same field);
-//   - once an ask exists, Copy link · Copy message · Copy post · Email followers in one row (the bill's and the hearing's
+//   - once an ask exists, Copy link · Copy message · Copy for social · Email followers in one row (the bill's and the hearing's
 //     share kits link here);
 //   - how it is landing: the bill's followers (and what people did, from 10 people, D4).
 // At the top, "Copy all for the newsletter" and "Copy all as posts" say which bills they leave out (X23: the old copy
@@ -22,7 +22,7 @@ export { rallierOf, onBill };
 import { emailDoor, paused, dailyWord, HELD_HEAD } from './composer.js';
 import { weekLanding } from './firstvisit.js';
 import { ACTS } from './verbs.js';   // R-344: one icon per action (Write the public ask: the megaphone, the job's own picture)
-import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with the Public tab
+import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown, confirmPublish, goesLive } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with the Public tab
 import { markNewStep } from './help.js';   // Getting started's rallier steps tick from here (Write a public ask, Copy this week's newsletter)
 
 const HR = 36e5, DAY = 864e5;
@@ -229,20 +229,21 @@ function writeBox(x, d, lead) {
     <p class="ot-ex">Shows on the ${TRIAL ? 'practice copy' : 'public page'} through ${esc(dayWord(hearingDay(x.h) + 'T12:00:00-10:00'))}, the hearing day.</p>
     <p class="ot-ex" id="${id}-x">For example: “Send testimony by ${esc(fmtDT(x.due))}. Two sentences in your own words are enough.”</p>
     <div id="${id}-e" role="alert"></div>
-    <div class="ot-wacts">${btn('Publish the ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div></div>`;
+    <div class="ot-wacts">${btn(changing ? 'Update the public ask' : 'Publish the public ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div>
+    <p class="ot-ex ot-golive">${icon('globe')}<span>${goesLive()}. You can take it down any time.</span></p></div>`;
 }
-// Copy link · Copy message · Copy post, then the email door. On a phone the three read "Copy: Link Message Post" in one
-// row of compact buttons (the word "Copy" said once); each button's name still says it whole.
+// Copy link · Copy message (a text or DM) · Copy for social (the post), then the email door; each named by its use (R-370 third walk).
 function shareHTML(x) {
   const b = x.b, nm = nameWords(b, 60), deadline = fmtDT(x.due);
-  const cb = (k, word, ic) => btn(`<span class="ot-cw">Copy </span>${word}`, { kind: 'secondary', sm: true, icon: ic, cls: 'ot-cp', attrs: { 'data-askcopy': k, 'data-bill': b.id, 'aria-label': `Copy ${word} for ${nm}` } });
+  // R-370 third walk: each button is named by where it goes (social, newsletter-or-message, link), not by what it is.
+  const cb = (k, word, ic, full) => btn(full, { kind: 'secondary', sm: true, icon: ic, cls: 'ot-cp', attrs: { 'data-askcopy': k, 'data-bill': b.id, 'aria-label': `${full} for ${nm}` } });
   // Nobody follows it yet: no email door at all (the line under the card says why), never "ask Kevin to email nobody".
   const door = followers(b) ? emailDoor({ bill: b }, { sm: true, say: `could you email ${pubNum(b)}’s followers about the ${deadline} testimony deadline? The ask is on Outreach.` }) : '';
   // R-370 second walk: nobody could tell which of the five reach real people. Three buttons you send yourself, apart from the
   // one that emails followers (with what it does, and "(paused)" while email is off: paused(), the existing email setting).
   const off = paused() ? ' <span class="ot-paused">(paused)</span>' : '';
   const em = door ? `<div class="ot-grp ot-emg" role="group" aria-label="Email followers"><span class="ot-door">${door}${off}</span><p class="ot-gh">Emails people who follow this bill and said yes; someone who approves emails checks it first.</p></div>` : '';
-  return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><div class="ot-grp ot-cpg" role="group" aria-label="Copy to share yourself"><p class="ot-gt">Copy to share yourself</p><div class="ot-row">${cb('link', 'link', 'link')}${cb('message', 'message', 'copy')}${cb('post', 'post', 'message-square')}</div></div>${em}</div>`;
+  return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><div class="ot-grp ot-cpg" role="group" aria-label="Copy to share yourself"><p class="ot-gt">Copy to share yourself</p><div class="ot-row">${cb('link', 'link', 'link', 'Copy link')}${cb('message', 'message', 'copy', 'Copy message')}${cb('post', 'post', 'message-square', 'Copy for social')}</div></div>${em}</div>`;
 }
 function cardHTML(x, { hl = false, lead = false } = {}) {
   const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);
@@ -254,7 +255,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
-  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${onBill(b) ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>${onBill(b) ? liveLine(b, 'data-asktake') : ''}`; left = shareHTML(x); }
+  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${onBill(b) ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the public ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>${onBill(b) ? liveLine(b, 'data-asktake') : ''}`; left = shareHTML(x); }
   // R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone on the bill gets the button; only the
   // expected writer's own step is red or carries the tile (P-5). Beside the button, the writer reads the clock; someone else on a
   // strong position reads who writes it and by when; on an optional ask (nobody is expected to write it) everyone on the bill reads
@@ -312,7 +313,7 @@ function listHTML(items, want) {
   // Copy all shows once there is something to copy, and says what it leaves out; with no ask written yet it is not
   // drawn at all (each card says its ask is not written), rather than a line that looks like a dead button.
   const bar = nl + po ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
-    <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all as posts', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
+    <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all for social', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
     <p class="ot-left">${esc(leftOut(items))}</p></div>` : '';
   const lead = leadId(items, want), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
   const more = short ? `<p class="ot-more">${btn(`Show all ${items.length} asks`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-otmore': '1' } })}</p>` : '';
@@ -355,7 +356,7 @@ export default {
 // The cards' buttons: copy, write, save. `items` says which list the page shows (Outreach's pick, or Team's whole list).
 function wireAsks(root, items) {
     root.querySelector('[data-otmore]')?.addEventListener('click', () => { const n = SHOW; S.otEvery = true; redraw(); root.querySelectorAll('.ot-card')[n]?.querySelector('.ot-name a')?.focus({ preventScroll: true }); });
-    const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok, { ok: true }); } catch { toast('Could not copy. Select the words on the card and copy them yourself.', { err: true }); } };
+    const copy = async (text, ok) => { try { await navigator.clipboard.writeText(text); toast(ok, { ok: true }); } catch { toast('Could not copy. Select the words on the card and copy them yourself.', { err: true, leave: true }); } };
     root.querySelectorAll('[data-askall]').forEach(el => el.onclick = () => {
       const list = items(), { use, text } = copyAll(list, el.dataset.askall);
       if (!use.length) return;
@@ -416,11 +417,13 @@ async function saveAsk(root, billId, el) {
   if (text.length < 10) return say('Write the public ask first: what to do, and by when.');
   const x = weekAskItems().find(i => i.b.id === billId), until = x ? hst(new Date(x.h.scheduled_at).getTime()) : null;
   if (!until) return say('This bill has no hearing this week, so the ask would not show. Write it on the bill’s Public tab.');
+  // R-370 third walk: one tap used to put it on the public page; now it asks first (and asks differently for a live ask).
+  if (!await confirmPublish(b, until, !!liveAsk(b))) return;
   el.setAttribute('aria-busy', 'true'); el.disabled = true;
   try {
     const res = await DB.saveBillFields(b.id, { public_action: text, public_action_until: until }, BASE.get(b.id) || { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
     S.otOpen = null; if (S.otDraft) delete S.otDraft[b.id]; BASE.delete(b.id); markNewStep({ publicask: 1 }); redraw(`#${cardId(b)}`);
-    if (res.conflicts.length) { toast('A teammate saved a different ask a moment ago. It shows on the card now; change it if you need to.', { err: true }); return; }
-    toast(`Published. The ask shows on the public page through ${fmtDT(until + 'T12:00:00-10:00').replace(/,.*$/, '')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); redraw(`#${cardId(b)}`); toast('The ask is back as it was.'); } });
+    if (res.conflicts.length) { toast('A teammate saved a different public ask a moment ago. It shows on the card now; change it if you need to.', { err: true }); return; }
+    toast(`Published. The public ask shows on the public page through ${fmtDT(until + 'T12:00:00-10:00').replace(/,.*$/, '')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); redraw(`#${cardId(b)}`); toast('The public ask is back as it was.'); } });
   } catch (e) { el.removeAttribute('aria-busy'); el.disabled = false; toast(e, { err: true }); }
 }
