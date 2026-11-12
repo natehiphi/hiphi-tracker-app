@@ -29,7 +29,7 @@
 // (review.js, bills.js, inbox.js, asks.js, legislators.js, profile.js and app.js still use them), and v5's This week still
 // draws for the Hearings stub until HEARINGS replaces it (render() hands a route with place 'hearings' to v5).
 import { S, DB, DEMO, VB, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
-import v5, { todayItems, slipNow } from './today5.js';
+import v5, { todayItems, slipNow, startDay } from './today5.js';
 import { draftHearing, diedish, stopOf, wantsHearing, whenAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords, vbFinish } from './ui.js';
 import { SL } from './ui.js';   // R-365 B plain words
@@ -1090,10 +1090,17 @@ function endedLine() {
 // live, the first 45 days from a person's first sign-in (v5's rule, today5.js startDay). A short list for the first week,
 // then one line, gone when every step is done or hidden.
 const NEW_IN_DEMO = new Set(['PH', 'JMM', 'KR', 'SY']);
+// R-370 (walk 11/11): live and in a trial this returned null for anyone whose settings had no started_at, and only v5's
+// Today ever saved one, so nobody new on Staff v6 saw Getting started, though the first sign-in's welcome says "Getting
+// started is on Today". Now it is v5's rule: the day is worked out once (startDay) and saved in the person's own settings.
 function startedAt(me) {
   if (me.prefs?.started_at) return ms(me.prefs.started_at);
   if (DEMO) return NEW_IN_DEMO.has(me.initials) ? Date.now() : Date.now() - 90 * DAY;
-  return null;
+  if (me.id !== S.me?.id) return null;   // only ever saved in the signed-in person's own settings
+  const made = S.session?.user?.created_at ? ms(S.session.user.created_at) : 0;
+  const at = startDay(me.prefs, made);
+  if (!S.startSaving) { S.startSaving = true; DB.patchPrefs({ started_at: new Date(at).toISOString() }).catch(() => { S.startSaving = false; }); }
+  return at;
 }
 // The one list is Help's (help.js newSteps: by season and by role, each ticking from what the person has done, the look-only
 // ones from the frame's 'v6:route'), so Today and Help say the same steps and the same count (A-14, one source).

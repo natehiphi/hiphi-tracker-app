@@ -71,7 +71,7 @@ const say = (sel, msg, bad) => { const e = document.querySelector(sel); if (e) {
 
 // ---- 1. sign in: a link by email from the practice project (staff have no practice passwords) ----
 function signInScreen(note = '') {
-  door(`<h1 tabindex="-1">Practise a week of session</h1>
+  door(`<h1 tabindex="-1">Practice a week of session</h1>
     <p>A trial run plays back real days of the 2026 session in the tracker, on a practice copy. Nothing you do there changes the real tracker.</p>
     ${note ? `<p class="tr-note">${esc(note)}</p>` : ''}
     <form id="tr-signin" class="tr-form">
@@ -103,7 +103,7 @@ function notStaffScreen(email) {
 const weekPicker = () => `<fieldset class="tr-weeks"><legend>Start at</legend>${WEEKS.map(w => `
   <label class="tr-week"><input type="radio" name="tr-week" value="${w.n}"${w.n === 3 ? ' checked' : ''}>
     <span><b>${esc(w.name)}</b> <span class="tr-days">${esc(w.days)}</span><span class="tr-what">${esc(w.what)}</span></span></label>`).join('')}</fieldset>`;
-const HOW = 'Practise a week of session on a copy of the tracker: nothing you do here reaches the real tracker or the public. The clock stops four times a day, at 9 AM, noon, 3 PM and 6 PM, and moves only when you press Next. The trial carries on through the later weeks, and you can add teammates once it starts.';
+const HOW = 'Practice a week of session on a copy of the tracker: nothing you do here reaches the real tracker or the public. The clock stops four times a day, at 9 AM, noon, 3 PM and 6 PM, and moves only when you press Next. The trial carries on through the later weeks, and you can add teammates once it starts.';
 
 function startScreen() {
   door(`<h1 tabindex="-1">Start a trial run</h1><p>Hi ${esc(firstName(me.name))}. ${HOW}</p>
@@ -187,7 +187,7 @@ async function move(fn, busy) {
   drawBand({ busy });
   const { data, error } = await api.rpc(fn);
   if (error) { drawBand(); return toast(error.message); }
-  if (data?.drafts && /^no /.test(data.drafts)) sessionStorage.setItem('tr-drafts-note', data.drafts);
+  if (data?.drafts && /^no /.test(data.drafts) && data.drafts !== 'no drafts needed') sessionStorage.setItem('tr-drafts-note', data.drafts);
   location.reload();   // every screen reads the trial's new day; the address after # keeps the page you were on
 }
 
@@ -434,9 +434,17 @@ async function onDialog(e) {
   else if (k === 'endyes') { b.disabled = true; b.textContent = 'Ending…'; const { error } = await api.rpc('end_trial'); if (error) { b.disabled = false; b.textContent = 'End the trial'; return toast(error.message); } location.reload(); }
 }
 
-function toast(msg) {
+// R-370 (walk 11/11): the message used Staff v6's #toast as a bare text box with a 'show' class nothing styles, so it
+// stayed on the page for good, a plain line over the list. Now it is Staff v6's own card (.toastmsg, staff.css): a note
+// leaves after 6 s, an error stays until closed (E-9), and a newer message replaces the last.
+function toast(msg, { err = true } = {}) {
   const t = document.getElementById('toast');
-  if (t) { t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 6000); } else alert(msg);
+  if (!t) return alert(msg);
+  t.querySelectorAll('.toastmsg').forEach(x => x.remove());
+  const el = document.createElement('div'); el.className = 'toastmsg ' + (err ? 'err' : 'note');
+  el.innerHTML = `<span>${esc(msg)}</span>` + (err ? '<button type="button" class="toastx" aria-label="Dismiss">×</button>' : '');
+  t.appendChild(el);
+  if (err) el.querySelector('.toastx').onclick = () => el.remove(); else setTimeout(() => el.remove(), 6000);
 }
 
 // ---- boot ----
