@@ -25,7 +25,7 @@
 // no draft codes (D15). Nothing on a row is amber or red: "At risk" is a word and an icon (D3: amber is only late testimony
 // still accepted, red only a step of yours overdue); a late step of the viewer's own keeps its colour (steps.js shownStatus).
 import { S, SESSION_YEAR, SESSION_OVER, esc } from './data.js';
-import { stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
+import { issueHealth, stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
 import { icon, iconBtn, sectionNav } from './ui.js';
 import { statusLine, billInIssue, chairStepWords } from './steps.js';
 import { ICONS } from '../icons.js';
@@ -81,7 +81,9 @@ export function standOf(i) {
   const next = side.map(dl).filter(Boolean).sort((x, y) => x.date.localeCompare(y.date))[0] || null;
   if (!next) return { ...out, state: side.some(b => THROUGH.has(st.get(b.id).phase)) ? 'safe' : 'ahead', when: hearWhen(hear) || null };
   const carried = side.filter(b => past(b, next.date)), facing = side.filter(b => dl(b)?.date === next.date && st.get(b.id).column === 'a' && !hearingAhead(b));
-  return { ...out, state: carried.length ? 'safe' : 'ahead', deadline: next, facing, carried, when: hearWhen(hear) && hearWhen(hear) < next.date ? hearWhen(hear) : next.date + 'T23:59:59-10:00' };
+  // R-371: a bill still needing a hearing for a deadline two weeks away is At risk here too (model.js issueHealth, the one answer), not only within riskOf's week.
+  const hot = !carried.length && facing.length && issueHealth(i).key === 'risk';
+  return { ...out, state: carried.length ? 'safe' : hot ? 'risk' : 'ahead', deadline: next, facing, carried, when: hearWhen(hear) && hearWhen(hear) < next.date ? hearWhen(hear) : next.date + 'T23:59:59-10:00' };
 }
 
 // ---- the words ----
@@ -107,7 +109,7 @@ export function markOf(x, { under = null } = {}) {
     case 'ahead': return !x.deadline ? null : x.facing?.length ? { ic: 'clock', word: 'Needs a hearing', text: chairMark(x, by(x.deadline)) || `${names(x.facing)} ${needs(x.facing)} a hearing${by(x.deadline)}` }
       : { ic: 'clock', word: '', text: under === x.deadline.date ? 'No bill waiting for a hearing' : plainGate(x.deadline.label, dayAt(x.deadline.date)) };
     case 'oppose': return x.hear ? null : { ic: 'circle-x', word: 'HIPHI opposes', text: `HIPHI opposes it: no hearing set${x.next && under !== x.next.date ? `, next deadline ${dayAt(x.next.date)}` : ''}` };
-    case 'stopped': return { ic: 'circle-minus', word: '', text: i.stance === 'oppose' ? 'Its bills did not advance' : 'Nothing moving this session' };
+    case 'stopped': return { ic: 'circle-minus', word: '', text: i.stance === 'oppose' ? 'All of its bills stopped' : 'Nothing moving this session' };
     case 'none': return { ic: 'circle-dashed', word: '', text: `No ${SESSION_YEAR} bills on it yet` };
     case 'off': return x.bills.length ? { ic: '', word: '', text: `${plural(x.bills.length, 'bill')} in ${SESSION_YEAR}` } : { ic: 'circle-dashed', word: '', text: `No ${SESSION_YEAR} bills on it` };
   }
@@ -267,7 +269,7 @@ function listHTML(l, o) {
 function byDeadline(l, o) {
   const keyOf = x => (x.state === 'oppose' ? x.next : x.deadline) || null, groups = new Map();
   for (const x of l) { const d = keyOf(x), k = d ? d.date : ''; if (!groups.has(k)) groups.set(k, { d, l: [] }); groups.get(k).l.push(x); }
-  return [...groups.values()].map(({ d, l }) => `<h3 class="i6-sub">${!d ? 'No deadline set' : esc(gateHead(d.label, dayAt(d.date)))}</h3>
+  return [...groups.values()].map(({ d, l }) => `<h3 class="i6-sub">${!d ? 'No deadline set' : esc(gateHead(d.label, dayAt(d.date), d))}</h3>
     ${listHTML(l, { ...o, under: d?.date || null, cut: true })}`).join('');
 }
 const fold = (id, title, l, o) => `<details class="i6-fold" data-fold="${id}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${esc(title)} (${l.length})</span></summary>${listHTML(l, o)}</details>`;

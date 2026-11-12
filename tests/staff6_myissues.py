@@ -79,7 +79,7 @@ def main():
     # R-352 FIX-2: one name for one deadline, Who to ask's: "Must reach their last committee by Mon 3/30" (what it asks, with
     # its day), never the Capitol's name ("Second lateral"); the heading says it, so no second plain-words line under it
     R.check('each heading says what the deadline asks by its day ("Must reach their last committee by Mon 3/30") and its count of issues, and the count is its rows', all(re.match(r'^Must (clear|reach|pass|be) .+ by \w{3} \d+/\d+', h['head']) and re.search(rf"\b{len(h['rows'])} issues?\b", h['head']) for h in heads), [h['head'] for h in heads])
-    R.check('no heading uses the Capitol\'s name for its deadline, and none repeats it in a plain-words line', not any(re.search(r'lateral|decking|crossover|triple', h['head'], re.I) or h['sub'] for h in heads), [(h['head'], h['sub']) for h in heads])
+    R.check('no heading uses the Capitol\'s name for its deadline except in brackets after the day (R-371), and none repeats it in a plain-words line', not any(re.search(r'lateral|decking|crossover|triple', re.sub(r'\s*\([^)]*\)', '', h['head']), re.I) or h['sub'] for h in heads), [(h['head'], h['sub']) for h in heads])
     R.check('every issue stands under the deadline it must beat next (issuestand.js standOf)', all(r['want'] == h['date'] for h in heads for r in h['rows']), [(r['name'], r['want'], h['date']) for h in heads for r in h['rows'] if r['want'] != h['date']][:3])
     items = pg.page.evaluate(ROWS)
     R.check('every row has two cells, "HB:" then "SB:"', bool(items) and all(len(x['cells']) == 2 and x['cells'][0].startswith(('HB:', 'No HB alive')) and x['cells'][1].startswith(('SB:', 'No SB alive')) for x in items), items[0]['cells'] if items else None)
@@ -122,7 +122,7 @@ def main():
     sh = pg.page.evaluate("async () => { const d = await import('/staff6/data.js'); return { rows: document.querySelectorAll('#mi-q-body table.mi-tbl tbody tr').length, want: d.myIssueIds().size, heads: [...document.querySelectorAll('.mi-tbl thead th')].map(t => t.innerText.trim()), copy: !!document.querySelector('[data-micopy]') }; }")
     R.check('Spreadsheet: one row per issue, the seven columns, Copy for Google Sheets', sh['rows'] == sh['want'] and sh['heads'] == ['Issue', 'HB (House-started)', 'SB (Senate-started)', 'Next deadline', 'Cleared', 'Next step', 'Owner'] and sh['copy'] and len(pg.errors) == e0, (sh, pg.errors[e0:][:1]))
     dl = pg.page.evaluate("() => [...document.querySelectorAll('.mi-td-deadline')].map(t => t.innerText.trim()).filter(Boolean)")
-    R.check('Spreadsheet: the next deadline in the headings\' words ("Must ... by Mon 3/30"), never the Capitol\'s name', bool(dl) and all(re.match(r'^Must .+ by \w{3} \d+/\d+$', t) and not re.search(r'lateral|decking|crossover', t, re.I) for t in dl), dl[:3])
+    R.check('Spreadsheet: the next deadline in the headings\' words ("Must ... by Mon 3/30"), never the Capitol\'s name', bool(dl) and all(re.match(r'^Must .+ by \w{3} \d+/\d+( \([a-z -]+\))?$', t) and not re.search(r'lateral|decking|crossover', re.sub(r'\s*\([^)]*\)', '', t), re.I) for t in dl), dl[:3])
     pg.page.click('[data-misort="issue"]'); pg.page.wait_for_timeout(300)
     names = pg.page.evaluate("() => [...document.querySelectorAll('.mi-td-issue .mi-tlink')].map(a => a.innerText.trim())")
     R.check('Spreadsheet: pressing Issue sorts A to Z', names == sorted(names, key=str.lower) or names == sorted(names), names[:4])

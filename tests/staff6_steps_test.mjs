@@ -182,7 +182,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(X.versionWords(null) === 'As introduced' && X.versionWords('') === 'As introduced', 'no version: As introduced');
   const vs = [...new Set(S.bills.map(b => b.current_version).filter(Boolean))], badv = vs.filter(v => /\b[HSCF]D\d/.test(X.versionWords(v)));
   ok(!badv.length, `every version in the practice data (${vs.join(', ')}) reads as words${badv.length ? '; not: ' + badv.join(', ') : ''}`);
-  ok(X.deadlineWords('Second lateral', '2026-03-30') === 'must reach its last committee by Mon 3/30', `"${X.deadlineWords('Second lateral', '2026-03-30')}"`);
+  ok(X.deadlineWords('Second lateral', '2026-03-30') === 'must clear its last committee by Mon 3/30', `"${X.deadlineWords('Second lateral', '2026-03-30')}"`);
   ok(X.deadlineWords('Triple filing', '2026-03-19', { n: 3 }) === 'must clear their first committee by Thu 3/19', 'several bills: "their"');
   ok(X.deadlineWords('Sine die', '2026-05-07') === 'the session ends Thu 5/7', 'the last day says so');
 }

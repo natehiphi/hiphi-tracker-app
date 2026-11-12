@@ -15,7 +15,7 @@
 // this page's own: Take it (a bill nobody owns, a to-do anyone can take), the I help switch and the two Copy buttons.
 // Coalitions index: rows, the coalitions you help on first (F157), the others each with an "I help" switch (F159).
 import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
-import { diedish, riskOf, PUBLIC_APP, hiToday, billById, wantsHearing, billRoute, sittingDraft, whenAt } from './model.js';
+import { issueHealth, diedish, riskOf, PUBLIC_APP, hiToday, billById, wantsHearing, billRoute, sittingDraft, whenAt } from './model.js';
 import { ownerFirst, ownerName } from './model.js';   // R-316 W28: "Lauren (turned off)"
 import { icon, btn, empty, toast, switchRow, openSheet, ASK_TAB, andWords } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
@@ -272,9 +272,13 @@ function needsSecs(key, w, { take = false } = {}) {
 export function standLeadHTML(bills, { clear = [] } = {}) {
   if (SESSION_OVER) return `<p class="i6-lead">${icon('calendar')}<span>Between sessions: hearings and deadlines come back when the next session opens.</span></p>`;
   const w = waitingOfBills(bills), wk = weekOfBills(bills).length;
-  const risk = w.risk.filter(x => wantsHearing(x.b)), race = w.race.filter(x => wantsHearing(x.b));
+  // R-371: "At risk" is the issue's health (model.js issueHealth), the same word My issues and All issues give; it read "Nothing at
+  // risk" here for an issue the other two called At risk, because this page counted only bills a week from their deadline.
+  const hot = new Set(); for (const b of bills) for (const i of issuesOfBill(b.id)) if (issueHealth(i).key === 'risk') hot.add(b.id);
+  const all = [...w.risk, ...w.race.filter(x => !w.risk.some(y => y.b.id === x.b.id))].filter(x => wantsHearing(x.b));
+  const risk = all.filter(x => hot.has(x.b.id) || riskOf(x.b)).sort((x, y) => x.st.deadline.date.localeCompare(y.st.deadline.date)), race = all.filter(x => !risk.includes(x));
   const said = risk.length ? { ic: 'triangle-alert', t: `At risk: ${plural(risk.length, 'bill')} ${risk.length === 1 ? 'needs' : 'need'} a hearing by ${dayWords(risk[0].st.deadline.date)}` }
-    : race.length ? { ic: 'clock', t: `Nothing at risk. ${plural(race.length, 'bill')} ${race.length === 1 ? 'needs' : 'need'} a hearing by ${dayWords(w.next)}` }
+    : race.length ? { ic: 'clock', t: `Nothing at risk. ${plural(race.length, 'bill')} ${race.length === 1 ? 'needs' : 'need'} a hearing by ${dayWords(race[0].st.deadline.date)}` }
     : { ic: 'shield-check', t: `Nothing at risk${clear.length ? `, ${andList(clear)}` : ''}` };
   return `<p class="i6-lead">${icon(said.ic)}<span>${nw(esc(said.t))}${wk ? ` · ${nw(esc(hearWords(wk)))}` : ''}</span></p>`;
 }
