@@ -143,7 +143,7 @@ function stoppedWords(b) {
   if (m) return `Stopped ${+m[2]}/${+m[3]}: did not ${gateNeed(m[1], 1)}`;
   if (def) return `Stopped ${dayAny(def.scheduled_at).replace(/^\w+ /, '')}: deferred by ${cw(def.committee)}`;
   if (/failed to pass/i.test(b.last_action || '') || b.status_text === 'Failed a vote') return 'Stopped: failed a floor vote';
-  return SESSION_OVER ? 'Stopped when the session ended' : 'Stopped: did not advance';
+  return SESSION_OVER ? 'Stopped when the session ended' : 'Stopped';
 }
 // The slim stage bar (tracker.js's stops and states, drawn without labels: the row's line says where in words, and the
 // bill page holds the full bar). For the eye only; the row's words carry it for a screen reader.
@@ -940,7 +940,7 @@ function vbTestimony(i, xs) {
 const vbOpenTestimony = list => list.filter(x => x.s && TESTI_KINDS.has(x.s.kind));
 function vbTestimonyRows(i, list) {
   list = list.filter(x => x.s?.kind !== 'chair');   // asking the chair for a hearing is on the Hearings tab
-  if (!list.length) return '<p class="ip6-quiet">No bill on this issue has a position yet, so there is no testimony to write.</p>';
+  if (!list.length) return '<p class="ip6-quiet">Nothing to write for testimony on this issue yet.</p>';
   return `<div class="v6-list i6-list" role="list">${list.map(({ b, s }) => vbRow(i, b, s, nw(esc(s.line || '')), { button: vbAction(s) })).join('')}</div>`;
 }
 function vbFiled(i, now) {

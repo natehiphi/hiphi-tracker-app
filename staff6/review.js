@@ -93,7 +93,7 @@ function factsLine(b) {
   return `<p class="rv6-line rv6-facts">${bits.join('<span class="rv6-dot" aria-hidden="true">·</span>')}</p>`;
 }
 function billState(b, { email = false, h = null } = {}) {
-  if (diedish(b)) return notice('info', 'circle-x', `<b>This bill did not advance.</b> ${whyDead(b)} ${email ? 'This email would ask people to act on a bill that can no longer move.' : 'Testimony on it can no longer help.'}`);
+  if (diedish(b)) return notice('info', 'circle-x', `<b>This bill stopped.</b> ${whyDead(b)} ${email ? 'This email would ask people to act on a bill that can no longer move.' : 'Testimony on it can no longer help.'}`);
   const monitor = b.position === 'monitor';
   const noHearing = email ? stopOf(b).phase === 'committee' && !hearingAhead(b) : !h;
   const head = noHearing && monitor ? 'No hearing is set, and HIPHI only monitors this bill.' : noHearing ? 'No hearing is set.' : monitor ? 'HIPHI only monitors this bill.' : '';

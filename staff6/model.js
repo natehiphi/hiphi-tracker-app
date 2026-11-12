@@ -329,7 +329,7 @@ export function whyDead(b) {
   if (b.died_deadline) return `Missed the ${esc(b.died_deadline)} deadline.`;
   if (HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '')) return 'Deferred by the committee, which ends it for the year.';
   if (/failed to pass/i.test(b.last_action || '')) return 'Failed a floor vote.';
-  return effStage(b) === 'vetoed' ? 'Vetoed by the Governor.' : 'Did not advance.';
+  return effStage(b) === 'vetoed' ? 'Vetoed by the Governor.' : 'Stopped.';
 }
 export const diedish = b => { const st = effStage(b);
   if (st === 'dead' || st === 'vetoed') return true;

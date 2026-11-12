@@ -52,7 +52,7 @@ export function legMail(l, b) {
 // else where it waits. v6 (V05): committees in words ("Waiting for a hearing in Senate Commerce"), never their codes.
 const cw = code => committeeName(code) || code;
 export function billSub(b) {
-  if (diedish(b)) { const m = /^(.*?)\s+(\d+\/\d+)\/\d+$/.exec(b.died_deadline || ''); return m ? `Did not advance: missed ${m[1]} ${m[2]}` : `Did not advance: ${whyDead(b).replace(/<[^>]+>/g, '').replace(/\.$/, '').replace(/^./, c => c.toLowerCase()).replace(/while waiting in ([A-Z]{2,4}(?:\/[A-Z]{2,4})*)/, (x, c) => `while waiting in ${cw(c)}`)}`; }
+  if (diedish(b)) { const m = /^(.*?)\s+(\d+\/\d+)\/\d+$/.exec(b.died_deadline || ''); return m ? `Stopped: missed ${m[1]} ${m[2]}` : `Stopped: ${whyDead(b).replace(/<[^>]+>/g, '').replace(/\.$/, '').replace(/^./, c => c.toLowerCase()).replace(/while waiting in ([A-Z]{2,4}(?:\/[A-Z]{2,4})*)/, (x, c) => `while waiting in ${cw(c)}`)}`; }
   const h = hearingAhead(b);
   if (h) return `Hearing ${whenAt(h.scheduled_at)} · ${cw(h.committee)}`;
   const st = stopOf(b);

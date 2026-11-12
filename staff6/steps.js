@@ -158,7 +158,7 @@ export function whereWords(b, { hearing = true, pos = false, deadline = true } =
   const race = `${pos && st.stops && st.phase === 'committee' ? ` · committee ${st.stop} of ${st.stops} in the ${CHAMBER[st.chamber] || 'chamber'}` : ''}${dl ? ` · ${deadlineWords(dl.label, dl.date)}` : ''}`;
   if (h && hearing) return `Hearing ${whenAt(h.scheduled_at)} · ${committeeName(h.committee) || h.committee}`;
   if (h) return `In ${committeeName(st.committee || h.committee) || h.committee}${race}`;
-  if (diedish(b)) return st.phase === 'law' || st.phase === 'governor' || st.phase === 'ballot' ? String(st.says).replace(/\.$/, '') : 'Did not advance';
+  if (diedish(b)) return st.phase === 'law' || st.phase === 'governor' || st.phase === 'ballot' ? String(st.says).replace(/\.$/, '') : 'Stopped';
   if (['law', 'vetoed', 'ballot', 'governor'].includes(st.phase)) return String(st.says).replace(/\.$/, '');
   if (st.phase === 'conference') return `In conference${dl ? ` · House and Senate must agree by ${dayWords(dl.date)}` : ''}`;
   if (st.phase === 'floor') return `Through committee, waiting for the floor vote${race}`;
