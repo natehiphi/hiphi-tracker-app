@@ -129,7 +129,7 @@ with sync_playwright() as pw:
   f = Fake({}, signed_in=False)
   ctx, pg, errs, live = open_page(b, f, 390, 844)
   pg.wait_for_selector('#tr-email', timeout=15000)
-  ok('Practise a week of session' in pg.inner_text('h1'), 'signed out: the front door says what a trial is')
+  ok('Practice a week of session' in pg.inner_text('h1'), 'signed out: the front door says what a trial is')
   pg.fill('#tr-email', ME['email']); pg.click('#tr-signin button')
   pg.wait_for_selector('text=Check your email', timeout=8000)
   ok(any(p.startswith('/auth/v1/otp') for _, p, _ in f.calls), 'Email me a sign-in link asks the practice project for one')

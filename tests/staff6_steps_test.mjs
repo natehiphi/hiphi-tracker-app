@@ -306,7 +306,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // Someone else's step says who does what, then when (spec 6's "Kris approves · due today 3:00 PM"); R-352: the team's
   // time where one is still ahead, "by", the same time its owner sees ("Kris approves it · by 11:00 AM today"; R-352 FIX-2: the clock first, as "until 1:10 PM today").
   const oth = S.bills.map(b => X.billStep(b, { viewer: JMM })).find(s => s && s.kind === 'approve' && !s.you);
-  ok(!!oth && /^With an approver · [A-Z][\w ,]* approves it · (Approval by|Capitol closes|Past our deadline|Capitol closed)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
+  ok(!!oth && /^With an approver · [A-Z][\w ,]* approves it · (Approval by|Capitol closes|Late|Capitol closed)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
   // Hearing cards: every one of our bills on every sitting says where its testimony stands, in two parts.
   const sittings = [...new Map(S.hearings.filter(h => h.status !== 'cancelled').map(h => [h.committee + h.scheduled_at, h])).values()];
   const noState = [], tooLong = [];
@@ -319,7 +319,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(!noState.length, `every bill on every hearing card says where its testimony stands (the people test: Kris 10 of 11)${noState.length ? '; not: ' + noState.slice(0, 3).join(' | ') : ''}`);
   ok(!tooLong.length, `a hearing card's bill line has two parts at most (hearings rows measured 6 facts)${tooLong.length ? '; e.g. ' + tooLong.slice(0, 3).join(' | ') : ''}`);
   const ownLine = S.bills.map(b => X.billStep(b, { viewer: KR })).find(s => s && s.you && s.kind === 'approve' && s.act?.kind === 'hand');
-  ok(!ownLine || (h => /^With an approver · (Approval by|Capitol closes|Past our deadline) /.test(h) && !/\byou\b/.test(h))(X.hearingLine(ownLine)), `the viewer's own step on a card leads with its state, and its one labelled time, no "you": "${ownLine && X.hearingLine(ownLine)}"`);
+  ok(!ownLine || (h => /^With an approver · (Approval by|Capitol closes|Late) /.test(h) && !/\byou\b/.test(h))(X.hearingLine(ownLine)), `the viewer's own step on a card leads with its state, and its one labelled time, no "you": "${ownLine && X.hearingLine(ownLine)}"`);
   // Same words, same order (spec 5, V19): the viewer's own step on a card is its state and the row's own words; someone
   // else's is one phrase on every screen ("Second look from Jaylen or Jess"), never "Second look · Jaylen or Jess".
   for (const when of [MON9, '2026-03-17T08:00:00-10:00']) { at(when);
@@ -535,7 +535,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // Someone else's late filing on a hearing card names who files it (Kris's Friday: Kevin's HB 2121, late until 9:30).
   at('2026-03-20T07:30:00-10:00');
   const lt = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: KR }) })).find(x => x.s?.kind === 'file' && !x.s.you && !x.s.nobody && x.s.status.tone === 'late');
-  if (lt) ok(new RegExp(`^Ready to file · \\w+ files it · Past our deadline`).test(X.hearingLine(lt.s)), `someone else's late filing on a card: "${X.hearingLine(lt.s)}"`);
+  if (lt) ok(new RegExp(`^Ready to file · \\w+ files it · Late`).test(X.hearingLine(lt.s)), `someone else's late filing on a card: "${X.hearingLine(lt.s)}"`);
   else ok(false, 'someone else’s late filing on Kris’s Friday');
   at(MON9);
 }

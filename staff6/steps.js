@@ -547,13 +547,13 @@ function rowLine(s, v) {
 // `soon: false` leaves out ", in 59 min" (a small card). `flat`: one piece, a comma for the dot, for a row whose name already holds a dot (Today's "File testimony · Bill").
 // R-370 (trial walk 11/11): ONE deadline pattern on Testimony rows, Today, the hearing page and Outreach, built only here:
 // "Draft to the team by Tue 4 PM · Capitol closes Wed 9:30 AM" (both when both are ahead), "Capitol closes today 10 AM" when only
-// the Capitol's is left, and late "Past our deadline · Capitol closes today 1:10 PM". It replaces "due today 2:00 PM (Capitol)",
+// the Capitol's is left, and late "Late · Capitol closes today 1:10 PM". It replaces "due today 2:00 PM (Capitol)",
 // "by 4:00 PM tomorrow (our deadline)" and "late, still accepted until ...", which mixed three wordings for two deadlines.
 const TEAM_BY = { write: 'Draft to the team by', nodraft: 'Draft to the team by', submit: 'Draft to the team by', revise: 'Draft to the team by',
   approve: 'Approval by', review: 'Approval by', second: 'Approval by', review2: 'Approval by', file: 'File by' };   // the state already says "Second review"
 export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {}) {
   const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
-  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `Past our deadline · Capitol closes ${deadlineAt(s.until)}`;
+  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `Late · Capitol closes ${deadlineAt(s.until)}`;
   if (tone === 'overdue') return `Capitol closed ${deadlineAt(s.due)}`;
   const cap = s.due != null ? deadlineAt(s.due) : '';
   if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${ls(a.at)}${cap ? ` · Capitol closes ${cap}` : ''}`;
