@@ -30,6 +30,7 @@ body.staff6 .tp-gh { padding: 12px 8px 4px; }
 body.staff6 .tp-gh + .v6-row::before { background: transparent; }
 body.staff6 .v6-row + .tp-gh { margin-top: 12px; }
 /* a label, not a second title: 14px muted, regular weight, so the names under it carry the weight (bold at most a quarter) */
+body.staff6 .tp-ghn { margin-left: 4px; font-variant-numeric: tabular-nums; }
 body.staff6 .tp-ghh { margin: 0; font-family: Lato, system-ui, sans-serif; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); font-weight: 400; color: var(--v6-muted); letter-spacing: 0; }
 body.staff6 .tp-more { padding: 4px 0 0; }
 /* a long name or line wraps here rather than being cut (a joint committee's name runs long beside the open item) */

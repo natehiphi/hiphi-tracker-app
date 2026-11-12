@@ -522,6 +522,14 @@ body.staff6 .v6-tt-w { overflow: hidden; text-overflow: ellipsis; }
   body.staff6 .v6-tt.n4 li.done .v6-tt-w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   body.staff6 .v6-tt.n4 li + li::before { margin: 0 6px; }
 }
+/* R-370: when even that does not fit (the 340px detail pane at 1280 wide, nothing done yet) the steps wrap to a second line
+   whole, never cut to "W… App… F…": a word is always readable. */
+@container (max-width: 399.98px) {
+  body.staff6 .v6-tt { flex-wrap: wrap; row-gap: 6px; }
+  body.staff6 .v6-tt li { flex: none; }
+  body.staff6 .v6-tt-w { overflow: visible; text-overflow: clip; }
+  body.staff6 .v6-tt li + li::before { flex: none; width: 12px; margin: 0 5px; }
+}
 @container (max-width: 279.98px) {
   body.staff6 .v6-tt li.done .v6-tt-w { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   body.staff6 .v6-tt li + li::before { margin: 0 6px; }

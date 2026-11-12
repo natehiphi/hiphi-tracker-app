@@ -483,9 +483,9 @@ export function issueStatusB(arg) {
   const j = judge(x), key = statusB(j), S1 = STATUS_B[key], dn = key === 'due' ? dueNow(j) : null;
   let reason = j.health.text || '';
   if (dn) {
-    // the most urgent thing, in one line: "SB 3076 testimony was sent back and is due today 2:00 PM (Capitol)"
-    const t = stepTime(dn.s, { soon: false }) || 'due today', n = `${numWords(dn.s.b)} testimony`;
-    return { key, word: dn.word, ic: S1.ic, reason: dn.s.state.sentBack ? `${n} was sent back and is ${t}` : `${n} is ${t}` };
+    // the most urgent thing, in one line: "SB 3076 testimony was sent back · Capitol closes today 2 PM" (R-370: the one deadline pattern)
+    const t = stepTime(dn.s, { soon: false }) || 'Capitol closes today', n = `${numWords(dn.s.b)} testimony`;
+    return { key, word: dn.word, ic: S1.ic, reason: dn.s.state.sentBack ? `${n} was sent back · ${t}` : `${n} · ${t}` };
   }
   if (key === 'hearing' || key === 'risk') {
     const bs = j.ask.length ? j.ask.map(y => y.b) : (x.facing || []);
@@ -528,7 +528,7 @@ function nextB(j) {
   if (s.kind === 'filed') return wait(`${numWords(s.b)} testimony filed${s.h ? `, hearing ${whenAt(s.h.scheduled_at)}` : ''}`);
   const v = verbsB(s);
   let time = ''; if (s.kind === 'chair') { const a = s.ask; time = (a.key === 'ask' || a.key === 'giving') && a.day ? ` by ${a.day}` : ''; }
-  else { const t = stepTime(s, { soon: false }).replace(/ \((?:team cut-off|our deadline)\)/, ''); time = t ? (/^by /.test(t) ? ` ${t}` : `, ${t}`) : ''; }
+  else { const t = stepTime(s, { soon: false }); time = t ? `, ${/^Capitol/.test(t) ? t : t[0].toLowerCase() + t.slice(1)}`.replace(' · ', ', ') : ''; }   // R-370: stepTime says both deadlines in one pattern; commas keep a row's facts at four
   if (s.nobody) return s.takeFor ? { s, you: true, take: true, who: 'You', html: nw(esc(`take ${numWords(s.b)}: no owner yet${time}`)) }
     : { s, you: false, who: 'No owner yet', html: nw(esc(v ? `nobody has ${numWords(s.b)}'s step${time}` : `nobody has ${numWords(s.b)}`)) };
   if (!v) return { s, you: s.you, who: s.you ? 'You' : cap1(s.whose.words), html: nw(esc(String(s.line || ''))) };

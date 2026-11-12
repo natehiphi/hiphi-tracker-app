@@ -5,7 +5,7 @@
 // finds each one too. Tools a person's role cannot use are left out, and one quiet line at the foot names them (D8). A tool
 // that only repeats a tab or a control on its own place (Sort new bills, Muted, Saved views, Bulk change and Export on Bills;
 // the library on Testimony) is not a row here: the place already shows it.
-import { S, DEMO, VB, esc } from './data.js';
+import { S, DEMO, VB, TRIAL, esc } from './data.js';
 import { icon, menuSheet, avatar } from './ui.js';
 import { placeRow, placeList, leadKeys, isLead, seesTeam, syncWords, syncNote, syncStale, youName } from './more.js';
 import { messagesCount } from './inbox.js';   // the Inbox page's own count, so the row's number matches it (A-14)
@@ -24,7 +24,7 @@ const rowBtn = (attrs, ic, name, line) => `<button type="button" class="v6-more-
 // session calendar the deadlines' flag (My issues' Deadlines), supporters' groups the supporters' heart-handshake, a
 // teammate's list the eye that reads it; the people icons are left to Team (users) and People (user-round).
 function groups() {
-  const admin = !!S.me?.is_admin;
+  const admin = !!S.me?.is_admin, trialHides = TRIAL && !admin;
   return [
     ['Getting hearings', [
       // A-14, A-12: Legislators’ profiles was a second row to Legislators › Everyone, which Places above already opens.
@@ -48,9 +48,10 @@ function groups() {
       ['Getting started', '#/help/new', 'compass', 'The first things to do, for someone new'],
       // The practice copy: from the live app it opens in a new tab; inside it, the row says so and opens You, where the
       // practice's own steps are (practice as a teammate, start over). One spelling, the word list's: Practice (C-15).
-      DEMO ? rowBtn('data-you aria-haspopup="menu"', 'play', 'Practice copy', 'You’re in it now. Practice as a teammate or start it over')
+      // R-370: in a trial, only an admin sees Practice copy and What moved (the trial is the practice, and what moved is v5's story).
+      trialHides ? null : DEMO ? rowBtn('data-you aria-haspopup="menu"', 'play', 'Practice copy', 'You’re in it now. Practice as a teammate or start it over')
         : ['Practice copy', `staff6.html?demo=1${VB ? '&vb=1' : ''}`, 'play', 'Last March, to practice on; nothing reaches the team', true],
-      ['What moved', '#/help/moved', 'route', 'Where each v5 place and button is now'],
+      trialHides ? null : ['What moved', '#/help/moved', 'route', 'Where each v5 place and button is now'],
       ['Keyboard shortcuts', '#/help/keys', 'keyboard', 'Every key, and how to turn them off'],
     ]],
   ].map(([h, rows]) => [h, rows.filter(Boolean)]);
@@ -58,7 +59,7 @@ function groups() {
 // One place about versions, last on the page (A-14): F190's way back to v5 for everyone while v6 settles in (it goes 3 weeks
 // after the switch), and for admins the two older apps to compare with.
 const versions = admin => [
-  ['Back to Staff v5', `staff5.html${location.search}#/`, 'undo-2', 'The version before this one, at Today'],
+  TRIAL && !admin ? null : ['Back to Staff v5', `staff5.html${location.search}#/`, 'undo-2', 'The version before this one, at Today'],
   admin ? ['Compare with Staff v2', `staff.html${location.search}#/`, 'columns-3', 'The team’s app today, at Today'] : null,
   admin ? ['The old app', `classic.html${DEMO ? '?demo=1' : ''}`, 'external-link', 'The old staff app, to look at only'] : null,
 ].filter(Boolean).map(row);
@@ -91,7 +92,7 @@ export default {
     // Inbox and Help are here for everyone, one click from More (Nate, 22 Oct), and search finds each by its name.
     // In version B (R-365) Testimony and Outreach are rows here for everyone, on a laptop too, since the sidebar left them out.
     const places = [VB ? placeRow('testimony', { cls: 'v6-phone-only' }) : null, placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
-    const sec = (h, rows, id) => `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
+    const sec = (h, rows, id) => !rows.length ? '' : `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
     return `<div class="v6-more v6-tools">
       <h1 class="v6-ptitle sv-h1">More</h1>

@@ -170,7 +170,9 @@ const groupRows = (rows, picked, view) => { const slot = rows.some(faced); retur
 // between "For you" and "The team's", each row naming who acts next (Nate's walk: Lauren's HB 1523, Patti's draft, sat
 // under "The team's" on To approve, where she would not look; spec 5 whoseStep).
 const yoursToo = it => !it.own && !!S.me && ((S.assignments?.[it.b.id] || []).includes(S.me.id) || it.d?.submitted_by === S.me.id || (!!it.d && writersOf(it.d, it.b).includes(S.me.id) && (S.assignments?.[it.b.id] || []).includes(S.me.id)));
-const gh = (text, id) => `<div class="tp-gh" role="listitem"><h2 class="tp-ghh" id="${esc(id)}">${esc(text)}</h2></div>`;
+// R-370 (trial walk 11/11): a group heading says how many it holds ("For you 2", "The team's 8"), so the tab's own count above
+// ("To write 2") is the first group's and the team's rows are counted where they start, not left unaccounted for.
+const gh = (text, id, n) => `<div class="tp-gh" role="listitem"><h2 class="tp-ghh" id="${esc(id)}">${esc(text)}${n ? ` <span class="tp-ghn">${n}</span>` : ''}</h2></div>`;
 const moreBtn = (view, n) => `<div class="tp-more" role="listitem">${btn(`Show all ${n}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': view } })}</div>`;
 function listRows(view, items, picked) {
   const all = (S.tpAll ??= {})[view], rows = list => groupRows(list, picked, view);
@@ -182,8 +184,8 @@ function listRows(view, items, picked) {
   // four drafts on other coalitions' bills; spec 0, less on every screen). A picked one stays in sight.
   const folded = view === 'write' && !own.length && !mineB.length && team.length && !all && !team.some(it => it.key === String(picked));
   const teamPart = !team.length ? '' : folded ? `<div class="tp-fold" role="listitem"><button type="button" class="t6-line tp-foldbtn" data-tpall="${esc(view)}">${icon('users')}<span class="t6-lt"><b>The team has ${team.length === 1 ? '1 draft' : `${team.length} drafts`} to write</b> · See them</span>${icon('chevron-down', { cls: 't6-chev' })}</button></div>`
-    : gh('The team’s', `tp-g-${view}-team`) + rows(shown) + (team.length > shown.length ? moreBtn(view, team.length) : '');
-  return `${own.length ? gh('For you', `tp-g-${view}-you`) + rows(own) : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`) + rows(mineB) : ''}${teamPart}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rows(rec) : ''}`;
+    : gh('The team’s', `tp-g-${view}-team`, team.length) + rows(shown) + (team.length > shown.length ? moreBtn(view, team.length) : '');
+  return `${own.length ? gh('For you', `tp-g-${view}-you`, own.length) + rows(own) : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`, mineB.length) + rows(mineB) : ''}${teamPart}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rows(rec) : ''}`;
 }
 
 // ---- the open item: the step card, and the filing card for a step that is Ready to file ----
