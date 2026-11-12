@@ -39,6 +39,7 @@
 // steel blue for filing, the action blue for chair asks, rose for outreach and partners, slate for taking a step on.
 import { esc, effStage } from './data.js';
 import { icon } from './ui.js';
+import { issueHealth } from './model.js';   // R-371: the one health of an issue
 import { SL, sl } from './ui.js';   // R-365 B plain words
 
 // ---- actions (Rule 1) ----
@@ -150,8 +151,8 @@ export const STATES = {
   issue: {
     ontrack: St('On track', 'check', '', 'on track'),
     risk: St('At risk', 'triangle-alert', '', 'at risk'),
-    stopped: St('Stopped', 'circle-minus', '', 'stopped'),
-    won: St('Won', 'trophy', 'done', 'became law'),
+    stopped: St('Nothing moving', 'circle-minus', '', 'nothing moving'),   // R-371: an issue's word; a dead bill is Stopped
+    won: St('Done', 'trophy', 'done', 'became law'),
     none: St('No bills yet', 'circle-dashed', '', 'nothing yet'),
   },
   // HIPHI's stance: one word each (the review: "Support" everywhere, not "Support" here and "Strong support" there).
@@ -181,15 +182,8 @@ export const chairKey = a => !a ? 'notasked' : STATES.chair[a.answer] ? a.answer
 // dying bill are at risk; nothing alive is stopped; safe and ahead are on track. An issue HIPHI opposes reads the other
 // way: its bills stopping is the win, and a hearing set on one puts it at risk.
 export function issueKey(x) {
-  if (!x) return null;
-  const against = x.i?.stance === 'oppose' || x.state === 'oppose', law = (x.bills || []).some(b => effStage(b) === 'enacted');
-  if (law) return against ? 'stopped' : 'won';
-  if (against && x.state === 'stopped' && (x.bills || []).length) return 'won';
-  if (x.state === 'oppose') return x.hear ? 'risk' : 'ontrack';
-  if (['risk', 'dying'].includes(x.state)) return 'risk';
-  if (x.state === 'stopped') return 'stopped';
-  if (['none', 'off'].includes(x.state) && !(x.going || []).length) return 'none';
-  return 'ontrack';
+  // R-371: one function works the health out from the issue's bills (model.js issueHealth); this is its key.
+  return x?.i ? issueHealth(x.i).key : null;
 }
 export const stanceKey = p => ['strongly_support', 'support', 'support_amend'].includes(p) ? 'support' : ['oppose', 'strongly_oppose'].includes(p) ? 'oppose'
   : p === 'neutral' ? 'comments' : p === 'monitor' ? 'monitor' : 'none';

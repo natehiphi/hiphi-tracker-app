@@ -82,7 +82,7 @@ export const STAGES = [
   ['first_decking','First decking'], ['first_floor','First floor vote'], ['first_crossover','Crossover'], ['second_triple','Second triple filing'],
   ['second_lateral','Second lateral'], ['second_decking','Second decking'], ['second_floor','Second floor vote'],
   ['second_crossover','Passed Both'], ['conference','Conference'], ['governor','Governor'],
-  ['enacted','Law'], ['vetoed','Vetoed'], ['ballot','To the voters'], ['dead','Dead'],
+  ['enacted','Law'], ['vetoed','Vetoed'], ['ballot','To the voters'], ['dead','Stopped'],
 ];
 export const STAGE_LABEL = Object.fromEntries(STAGES);
 export const POSITIONS = [['','—'],['strongly_support','Strongly support'],['support','Support'],['support_amend','Support w/ amendments'],['strongly_oppose','Strongly oppose'],
@@ -123,7 +123,10 @@ export const fmtDate = (d, opts) => d ? asDate(d).toLocaleString('en-US',
   { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric', ...opts }) : '—';
 export const fmtDT = d => fmtDate(d, { weekday: 'short', hour: 'numeric', minute: '2-digit' }).replace(/^(\w{3}),/, '$1');   // "Wed 3/18, 1:00 PM": nobody should have to work out the weekday
 export const daysAgo = d => d ? Math.floor((Date.now() - new Date(d)) / 864e5) : null;
-export const effStage = b => b.stage_override || b.stage || 'introduced';
+// R-371: where a bill stands, said once. A bill whose last action is "Act 100, on 07/01/2026" became law whatever its stage column
+// says: Today's "how the session ended" counted it from that action while an issue's bill list read the stage and said "Stopped
+// when the session ended". Every screen reads effStage, so the Act number is read here, once. A staff override still wins.
+export const effStage = b => b.stage_override || (/^Act\s+\d+/i.test(b.last_action || '') && b.stage !== 'vetoed' ? 'enacted' : b.stage) || 'introduced';
 export const advocate = id => S.advocates.find(a => a.id === id);
 // R-356 decision 2: who sees Team and the team's lists (the Team page, and Team on Hearings, Bills, Legislators and Outreach).
 // Admins and second approvers always do (more.js isLead); anyone else only with the "Sees Team" switch on People. This is

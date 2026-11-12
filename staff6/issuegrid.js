@@ -125,7 +125,7 @@ function hearNext(x) {
 // (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.
 export function nextOf(x) {
   const m = markOf(x);
-  if (['risk', 'dying'].includes(x.state) && m) return { text: afterLabel(m.text) };
+  if (['risk', 'dying'].includes(x.state) && m) return { text: m.text.replace(/^(?:At risk|Safe, but a bill on it is dying)[:,] /, '') };   // R-371: only the label goes; "HB 756: Follow up..." keeps its bill
   const hn = hearNext(x); if (hn) return hn;
   switch (x.state) {
     case 'none': case 'stopped': return null;
@@ -179,7 +179,7 @@ const urgent = (a, b) => byUrgency(a, b) || byName(a, b);
 const quiet = x => ['stopped', 'none'].includes(x.state) && issueKey(x) !== 'won';
 function topicBody(c, l, o) {
   const live = l.filter(x => !quiet(x)), rest = l.filter(quiet), card = x => issueCard(x, { tags: o.tagsOf(x) });
-  return `${live.length ? gridHTML(live.map(card).join(''), c.name) : ''}${rest.length ? `<details class="i6-fold ig6-fold ig6-rest" data-fold="ig6-r-${esc(c.key)}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Not moving this session (${rest.length})</span></summary>${gridHTML(rest.map(card).join(''), `${c.name}: not moving this session`)}</details>` : ''}`;
+  return `${live.length ? gridHTML(live.map(card).join(''), c.name) : ''}${rest.length ? `<details class="i6-fold ig6-fold ig6-rest" data-fold="ig6-r-${esc(c.key)}"><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Nothing moving (${rest.length})</span></summary>${gridHTML(rest.map(card).join(''), `${c.name}: nothing moving`)}</details>` : ''}`;
 }
 function topicGroups(list, o) {
   return (S.categories || []).map((c, k) => { const l = list.filter(x => x.i.category === c.key).sort(urgent); if (!l.length) return null;

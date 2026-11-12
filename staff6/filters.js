@@ -234,7 +234,7 @@ export const freshFacts = () => { FACTS.clear(); ISS = null; DUE = null; TXT = n
 export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this week', (f, b) => hearWeek(f, b)], ['poss:monitor', 'Monitoring', (f, b) => b.position === 'monitor']];
 // "No hearing yet" is at risk and the rest together: Bills' two groups are "At risk: no hearing yet" and "No hearing yet",
 // and the deadline line says "with no hearing yet" (one word per fact, A-14; v6 had three names for it).
-const STAND_WORD = { a: 'No hearing yet', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Did not advance' };
+const STAND_WORD = { a: 'No hearing yet', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Stopped' };
 const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees' };
 // The filters kept on the Bills screen's own state (the rest live on S, where model.js's facets read them).
 const MINE = new Set(['owners', 'cmtes', 'issues', 'spons']);
@@ -392,7 +392,7 @@ const shown = (spec, n) => n > 0 || isOn(spec);   // no zero-count options (V32)
 // left out, unless that choice is on, so it can come off.
 const useful = (items, key, base) => items.length > 1 || items.some(([spec]) => isOn(spec)) || (items[0] && items[0][1] < cnt(base, key, () => true));
 // Exact stage in plain words (C-15, A-14): what the bill must do next, the Capitol's name for that deadline small after it;
-// "Did not advance", as everywhere in v6, never "Dead".
+// "Stopped" (R-371), as everywhere in v6, never "Dead" or "Did not advance".
 const STAGE_PLAIN = {
   introduced: ['Just introduced'], first_triple: ['First chamber: clear the first of 3 committees', 'First triple filing'],
   first_lateral: ['First chamber: reach its last committee', 'First lateral'], first_decking: ['First chamber: clear its last committee', 'First decking'],
@@ -400,7 +400,7 @@ const STAGE_PLAIN = {
   second_triple: ['Second chamber: clear the first of 3 committees', 'Second triple filing'], second_lateral: ['Second chamber: reach its last committee', 'Second lateral'],
   second_decking: ['Second chamber: clear its last committee', 'Second decking'], second_floor: ['Second chamber: floor vote next', 'Second floor vote'],
   second_crossover: ['Passed both chambers', 'Cross back'], conference: ['In conference'], governor: ['With the governor'], enacted: ['Law'], vetoed: ['Vetoed'],
-  ballot: ['To the voters'], dead: ['Did not advance'] };
+  ballot: ['To the voters'], dead: ['Stopped'] };
 export const stageWords = k => STAGE_PLAIN[k]?.[0] || STAGES.find(([x]) => x === k)?.[1] || k;
 const group = (title, inner, key) => inner ? `<section class="bl-fg" aria-labelledby="bl-fg-${key}"><h3 id="bl-fg-${key}">${title}</h3><div class="chips">${inner}</div></section>` : '';
 // The presets: one tap each, pressed while on. "Your usual list" resets everything (scope, filters, search), and shows only

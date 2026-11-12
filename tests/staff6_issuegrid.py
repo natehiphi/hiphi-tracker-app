@@ -79,8 +79,9 @@ with L.browser() as B:
     R.check(f'{w}: the most urgent first inside a topic, nothing moving last', all(got.get(t) == want[t] for t in topics), [t for t in topics if got.get(t) != want[t]][:2])
     rest = [c for c in cs if c['rest']]
     R.check(f'{w}: the issues with nothing moving wait in a closed fold at their topic\'s end', rest and all(c['state'] == 'issue:stopped' or c['state'] == 'issue:none' for c in rest)
-      and pg.page.evaluate("[...document.querySelectorAll('#is-q-body details.ig6-rest')].every(d => !d.open && /^Not moving this session \\(\\d+\\)$/.test(d.querySelector('summary').innerText.trim()))"), len(rest))
-    R.check(f'{w}: At risk leads its topic', all(got[c['group']][0] == c['id'] for c in cs if c['state'] == 'issue:risk'))
+      and pg.page.evaluate("[...document.querySelectorAll('#is-q-body details.ig6-rest')].every(d => !d.open && /^Nothing moving \\(\\d+\\)$/.test(d.querySelector('summary').innerText.trim()))"), len(rest))
+    # R-371: At risk is the one health (model.js issueHealth), so a topic can have several; they come before every other live card
+    R.check(f'{w}: At risk leads its topic', all(all(x['state'] == 'issue:risk' for x in [c2 for c2 in cs if c2['group'] == g][:n]) for g, n in {g: sum(1 for c2 in cs if c2['group'] == g and c2['state'] == 'issue:risk') for g in topics}.items()))
     n_of = {t: sum(1 for c in cs if c['group'] == t) for t in topics}
     R.check(f'{w}: a jump chip per topic, with its count', chips(pg) == [f'{t} {n_of[t]}' for t in topics], chips(pg))
     sn = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-sn')].map(e => e.innerText.trim())")
@@ -113,11 +114,11 @@ with L.browser() as B:
     R.check(f'{w}: each card shows the issue\'s small icon beside its name: no band, tile, monogram or badge', all(c['svg'] and not c['old'] and 0 < c['icH'] <= 20 for c in cs), [c['name'] for c in cs if not c['svg'] or c['old']][:3])
     R.check(f'{w}: no description on the card, nothing cut off with "…"', all(not c['desc'] and '…' not in c['text'] for c in cs), [c['name'] for c in cs if c['desc'] or '…' in c['text']][:3])
     R.check(f'{w}: the whole description is the card\'s title', all(c['title'] == by[c['id']]['desc'] for c in cs))
-    STAND = r'(At risk|On track|Stopped|Won|No bills yet)( · Not public yet)?'
+    STAND = r'(At risk|On track|Nothing moving|Done|No bills yet)( · Not public yet)?'
     bad = [c['stat'] for c in cs if not re.fullmatch(STAND, c['stat'])]
     R.check(f'{w}: how it stands, in one word on every card', not bad, bad[:4])
     R.check(f'{w}: the stands vary (on track, stopped, won, at risk)', len({c['state'] for c in cs}) >= 3, sorted({c['state'] for c in cs}))
-    NEXT = r'(.+: (?:Follow up|Asked by|Ask the chairs?).+|.+ needs? a hearing by \w{3} \d+/\d+|.+ testimony: .+|.+: (?:Writing|Not started|With an approver|Second look|Second review|Ready to file).+|.+ hearing \w+.*|.+ past .+|Next deadline: .+|Bills must .+|No hearing set.*|.+ reached .+|.+ (was|were) settled|Through its committees)'
+    NEXT = r'(.+: (?:Follow up|Asked by|Ask the chairs?).+|.+ needs? a hearing by \w{3} \d+/\d+|.+ testimony: .+|.+: (?:Writing|Not started|With an approver|Second look|Second review|Ready to file).+|.+ hearing \w+.*|.+ past .+|Next deadline: .+|Bills must .+|No hearing set.*|.+ (?:reached|cleared) .+|.+ (was|were) settled|Through its committees)'
     bad = [c['next'] for c in cs if c['next'] and not re.fullmatch(NEXT, c['next'])]
     R.check(f'{w}: the next step and its date in one line', not bad, bad[:4])
     R.check(f'{w}: every issue that can still move says its next step', all(c['next'] for c in cs if c['state'] in ('issue:ontrack', 'issue:risk')), [c['name'] for c in cs if c['state'] in ('issue:ontrack', 'issue:risk') and not c['next']][:3])
@@ -130,7 +131,7 @@ with L.browser() as B:
     if w >= 768:
       R.check(f'{w}: four cards a row', n == 4, n)
       ch = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-card')].slice(0, 40).map(c => Math.round(c.getBoundingClientRect().height))")
-      R.check(f'{w}: calm cards: about 160px at most (a name, a word, a line)', max(ch) <= 190, max(ch))
+      R.check(f'{w}: calm cards: about 160px at most (a name, a word, a line)', max(ch) <= 210, max(ch))   # R-371: At risk cards now lead, so a long conference-deadline line (3 lines, 204px) falls in the first 40
     else:
       R.check(f'{w}: on a phone, a row of a list card', n == 1 and pg.page.evaluate("(() => { const g = document.querySelector('#is-q-body .ig6-grid'), c = g.querySelector('.ig6-card'); return getComputedStyle(g).display === 'block' && /rgba\\(0, 0, 0, 0\\)|transparent/.test(getComputedStyle(c).backgroundColor); })()"), n)
       ch = pg.page.evaluate("[...document.querySelectorAll('#is-q-body .ig6-card')].slice(0, 40).map(c => Math.round(c.getBoundingClientRect().height))")

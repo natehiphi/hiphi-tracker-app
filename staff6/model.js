@@ -29,7 +29,7 @@ export const facets = () => [
   // No Priority facet since R-175 (Nate 10/5): priority follows the position, so P1 is "Strongly support" below.
   // every position the team can take, strongest first (Nate, 9/18: Strongly support and Strongly oppose were missing)
   { key: 'poss', label: 'Our position', opts: [['strongly_support', 'Strongly support'], ['support', 'Support'], ['support_amend', 'Support with amendments'], ['strongly_oppose', 'Strongly oppose'], ['oppose', 'Oppose'], ['neutral', 'Comments'], ['monitor', 'Monitor']], has: (f, v) => f.posx === v },
-  { key: 'stands', label: 'Where it stands', opts: [['a', 'Needs a hearing'], ['b', 'Hearing scheduled'], ['c', 'Through committee'], ['done', 'Governor or law'], ['dead', 'Did not advance']], has: (f, v) => f.stand === v },
+  { key: 'stands', label: 'Where it stands', opts: [['a', 'Needs a hearing'], ['b', 'Hearing scheduled'], ['c', 'Through committee'], ['done', 'Governor or law'], ['dead', 'Stopped']], has: (f, v) => f.stand === v },
   { key: 'camps', label: 'Coalition', opts: S.campaigns.map(c => [c.id, c.name]), has: (f, v) => f.camps.includes(v) },
   { key: 'lsts', label: 'List', opts: (S.lists || []).map(l => [l.id, l.title]), has: (f, v) => f.lsts.includes(v) },
 ];
@@ -109,7 +109,8 @@ export function lastSlotBefore(code, dateStr, slots, st) {
 // must agree", the conference season card's own words, rather than "settled in conference" (a Capitol word).
 const GATE_WORDS = [
   [/triple/i, one => `clear ${one ? 'its' : 'their'} first committee`, 'bills sent to 3 or more committees must clear their first committee'],
-  [/lateral/i, one => `reach ${one ? 'its' : 'their'} last committee`, 'bills must reach their last committee'],
+  [/lateral/i, one => `clear ${one ? 'its' : 'their'} last committee`,   // R-371 (Nate): one wording, "must clear its last committee by Mon 3/30 (second lateral)"
+    'bills must reach their last committee'],
   [/final decking/i, () => 'be agreed by the House and Senate', 'the House and Senate must agree on one version of each bill'],
   [/decking/i, one => `clear ${one ? 'its' : 'their'} last committee`, 'bills must clear their last committee'],
   [/cross ?back|second crossover/i, () => 'pass the second chamber', 'bills must pass the second chamber'],
@@ -124,11 +125,14 @@ export const gateGloss = label => gateWords(label)?.[2] || '';
 // R-277 ui-critic (C-15): someone who owns no bills and is not an admin (a coalition helper) reads a Capitol deadline as
 // what it asks, "Bills must reach their last committee by Mon 3/30", not "Second lateral"; Help keeps the names.
 export const plainDeadlines = () => !S.me?.is_admin && !(S.bills || []).some(b => (S.assignments?.[b.id] || []).includes(S.me?.id));
-export const plainGate = (label, day) => `Bills must ${gateNeed(label, 2)} by ${day}`;
+// R-371: the Capitol's name rides along in brackets, so "last committee", "second lateral" and "needs a hearing by" are one deadline.
+// Only where the deadline itself is at hand (d.key says first or second); a bare label would be "(lateral)", half a name.
+const capName = (label, d) => d?.key && gateWords(label)?.[1] ? ` (${gateName({ phase: d.key, label }).toLowerCase()})` : '';
+export const plainGate = (label, day, d) => `Bills must ${gateNeed(label, 2)} by ${day}${capName(label, d)}`;
 // A deadline as a heading in the staff screens, the one wording (R-352 FIX-2: My issues said "Must clear Second lateral",
 // Who to ask "Must reach their last committee by Mon 3/30", All issues "past second lateral"): what it asks, with its day,
 // "Must reach their last committee by Mon 3/30". The Capitol's name stays in the chair email, Help and the bar's tooltip.
-export const gateHead = (label, day) => { const w = gateWords(label); return w && w[1] ? `Must ${w[1](false)} by ${day}` : `${w?.[2] ? w[2][0].toUpperCase() + w[2].slice(1) : label}, ${day}`; };
+export const gateHead = (label, day, d) => { const w = gateWords(label); return w && w[1] ? `Must ${w[1](false)} by ${day}${capName(label, d)}` : `${w?.[2] ? w[2][0].toUpperCase() + w[2].slice(1) : label}, ${day}`; };
 // A bill's own deadline by its full name: { key: 'second_lateral', label: 'Lateral' } -> "Second lateral".
 export const deadlineName = d => d ? gateName({ phase: d.key || '', label: d.label }) : '';
 // A deadline's own name for a screen: B says what it is (the Capitol calls it Triple filing).
@@ -277,6 +281,38 @@ export function riskOf(b) {
   return st.column === 'a' && st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS ? st : null;
 }
 export const atRisk = b => !!riskOf(b);
+
+// R-371 (Nate 12 Nov): one fact, one word. An issue's health is worked out here from its bills and nowhere else; My issues,
+// All issues, Coalitions, search, the issue page and the bill page all read it (they said On track, At risk and Nothing at
+// risk for the same issue). Four words: At risk / On track / Nothing moving / Done.
+//   Done            a bill HIPHI supports became law (an issue HIPHI opposes is done when every bill of it stopped);
+//   Nothing moving  no bill of it is alive this session;
+//   At risk         a live bill on HIPHI's side still needs a hearing, its deadline is two weeks away or less (RADAR_DAYS, the
+//                   window My issues always used; riskOf's 7 days stays the bills lists' own), and no bill on the issue is
+//                   already past that deadline (then the issue is carried, On track);
+//   On track        every other issue with a live bill. An issue HIPHI opposes is At risk once a bill of it has a hearing.
+// `key` is verbs.js STATES.issue's (risk, ontrack, stopped, won, none); `word` is what the screen says.
+export const HEALTH = { risk: 'At risk', ontrack: 'On track', stopped: 'Nothing moving', won: 'Done', none: 'No bills yet' };
+const THROUGH_PHASES = new Set(['governor', 'law', 'ballot']);
+export function issueHealth(i) {
+  const sess = b => !b.session_year || +b.session_year === +SESSION_YEAR;
+  const bills = (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(b => b.id === x.bill_id)).filter(b => b && sess(b) && b.tracked !== false);
+  const against = i.stance === 'oppose', going = bills.filter(b => !diedish(b)), law = bills.some(b => effStage(b) === 'enacted');
+  const out = key => ({ key, word: HEALTH[key], bills, going });
+  if (!bills.length) return out('none');
+  if (law) return out(against ? 'stopped' : 'won');
+  if (!going.length) return out(against ? 'won' : 'stopped');
+  if (against) return out(going.some(b => hearingAhead(b)) ? 'risk' : 'ontrack');
+  let side = going.filter(b => b.position && b.position !== 'monitor' && !['strongly_oppose', 'oppose'].includes(b.position));
+  if (!side.length) side = going.filter(b => !['strongly_oppose', 'oppose'].includes(b.position));
+  const st = new Map(side.map(b => [b.id, stopOf(b)])), dl = b => { const d = st.get(b.id)?.deadline; return d && !d.missed ? d : null; };
+  const needy = side.filter(b => wantsHearing(b) && st.get(b.id).column === 'a' && !hearingAhead(b) && dl(b) && dl(b).days <= RADAR_DAYS)
+    .sort((x, y) => dl(x).date.localeCompare(dl(y).date));
+  if (!needy.length || SESSION_OVER) return out('ontrack');
+  const D = dl(needy[0]);
+  const carried = side.some(b => { const d = dl(b); return d ? d.date > D.date : THROUGH_PHASES.has(st.get(b.id).phase); });
+  return out(carried ? 'ontrack' : 'risk');
+}
 export const nextDeadline = b => { const st = stopOf(b); return st.phase === 'committee' && st.deadline && !st.deadline.missed ? st.deadline : null; };
 export const isTriple = b => (b.origin_stops || 0) >= 3 || (b.second_stops || 0) >= 3;
 export function whyDead(b) {
@@ -513,8 +549,8 @@ export function memoData() {
   const racePlain = x => `by ${memoDay(x.date)}, ${x.racing === 1 ? '1 of these bills' : `${x.racing} of these bills`} must ${gateNeed(x.name, x.racing)}${x.noHearing.length ? ` (${x.noHearing.length} with no hearing yet)` : ''}`;
   const racesPlain = clock && clock.racing ? ` Capitol deadlines next: ${racePlain(clock)}${clock.then ? `; ${racePlain(clock.then)}` : ''}.` : '';
   const who = partners ? `HIPHI has a position on ${bills.length} bill${bills.length === 1 ? '' : 's'}${coal ? ` in ${coalName}` : ''}` : `${v.who === 'me' ? 'You own or follow' : 'We have a position on'} ${bills.length} bill${bills.length === 1 ? '' : 's'}${p1 ? ` (${p1} top priority)` : ''}`;
-  const intro = partners ? `${who}: ${live.length} still moving, ${bills.length - live.length} did not advance.${racesPlain}`   // no legislative day for partners (W-3)
-    : `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} did not advance.${races}`;
+  const intro = partners ? `${who}: ${live.length} still moving, ${bills.length - live.length} stopped.${racesPlain}`   // no legislative day for partners (W-3)
+    : `${ld ? ld.text + '. ' : ''}${who}: ${live.length} still moving, ${bills.length - live.length} stopped.${races}`;
   const sections = [];
   // hearings in the next seven days. The team reads where our testimony stands; partners read when theirs is due.
   const hs = S.hearings.filter(h => ids.has(h.bill_id) && h.status !== 'cancelled' && new Date(h.scheduled_at) > now && new Date(h.scheduled_at) - now < wk).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
@@ -538,7 +574,7 @@ export function memoData() {
   if (racing.length) sections.push([`Needs a hearing by ${memoDay(next)}`, racing.slice(0, 12).map(({ b, st }) => line(b, `${where(st)}.`)).concat(more(racing.length - 12, 'more in the same position'))]);
   // stopped in the last seven days
   const died = bills.filter(b => { if (!diedish(b) || !b.died_deadline) return false; const m = /(\d+)\/(\d+)\/(\d+)$/.exec(b.died_deadline); if (!m) return false; const t = new Date(`20${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}T23:59:59-10:00`).getTime(); return now - t < wk && now >= t; });
-  if (died.length) sections.push(['Did not advance this week', died.slice(0, 12).map(b => line(b, (t => partners ? partnerWords(t) : t)(whyDead(b).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&')))).concat(more(died.length - 12))]);
+  if (died.length) sections.push(['Stopped this week', died.slice(0, 12).map(b => line(b, (t => partners ? partnerWords(t) : t)(whyDead(b).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&')))).concat(more(died.length - 12))]);
   // what supporters (and partners) can do: the ask on each bill's public page, which shows an ask only through its date
   // (an undated ask is not shown there, so it is not one here either; R-180)
   const today = hstDayOf(now), asks = live.filter(b => b.public_action && (DEMO || (b.public_action_until && b.public_action_until >= today)));

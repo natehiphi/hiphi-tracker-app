@@ -40,7 +40,7 @@
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
 import { S, DB, DEMO, VB, esc, SESSION_OVER } from './data.js';
-import { stopOf, codesOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
+import { stopOf, codesOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS, HEALTH, issueHealth } from './model.js';
 import { icon, iconBtn, toast, btn } from './ui.js';
 import { sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { plural } from './lists.js';
@@ -87,11 +87,8 @@ export function judge(x) {
   const alive = !['stopped', 'none', 'off'].includes(x.state) && bills.length > 0;
   const kind = !alive ? 'stopped' : oppose ? 'oppose' : H.length && Sn.length ? 'both' : 'one';
   const cleared = bills.filter(y => y.past);
-  // At risk keeps issuestand.js's meaning (the critic): no bill past D, D two weeks away or less (RADAR_DAYS), and no bill
-  // racing D has a hearing set or held (each still in the board's "needs a hearing" column). A hearing set: Not yet.
-  const racing = D ? bills.filter(y => y.dl?.date === D.date) : [];
-  const noHearing = racing.length > 0 && racing.every(y => y.st.column === 'a' && !hearingAhead(y.b));
-  const dstate = !alive || oppose ? '' : !D ? (cleared.length ? 'cleared' : '') : cleared.length ? 'cleared' : daysTo(D.date) <= RADAR_DAYS && noHearing ? 'risk' : 'notyet';
+  // At risk is model.js issueHealth (R-371): a live bill needs a hearing for a deadline two weeks away or less, none is past it.
+  const dstate = !alive || oppose ? '' : !D ? (cleared.length ? 'cleared' : '') : cleared.length ? 'cleared' : issueHealth(i).key === 'risk' ? 'risk' : 'notyet';   // R-371: At risk is the one health (model.js), not a second rule here
   // Bills that must still get a hearing for D, in a chamber with no bill past D yet: someone has to ask a chair.
   const chPast = c => bills.some(y => y.ch === c && y.past);
   const ask = !alive || oppose || !D ? [] : bills.filter(y => !y.past && y.dl?.date === D.date && y.st.column === 'a' && !hearingAhead(y.b) && !chPast(y.ch));
@@ -149,7 +146,9 @@ function deadlineLine(j) {
   if (!dstate) return null;
   if (dstate === 'cleared') return { ic: 'circle-check', tone: 'done', word: 'Cleared', text: D ? `Cleared: ${names(cleared.map(y => y.b))} ${cleared.length === 1 ? 'is' : 'are'} past ${dn(D)}` : 'Cleared: through its committees' };
   const racing = bills.filter(y => y.dl?.date === D.date), set = racing.filter(y => y.st.hearingState === 'scheduled' || y.st.hearingState === 'held');
-  const why = set.length ? `${names(set.map(y => y.b))} ${set.length === 1 ? 'has' : 'have'} a hearing` : racing.some(y => y.st.column === 'a') ? `${names(racing.filter(y => y.st.column === 'a').map(y => y.b))} ${racing.length === 1 ? 'needs' : 'need'} a hearing` : 'waiting for a floor vote';
+  const need = racing.filter(y => y.st.column === 'a' && !y.st.hearingState?.match(/scheduled|held/));
+  // R-371: an At risk issue names the bill that needs a hearing (a twin with a hearing does not make it safe: it is the other one at risk)
+  const why = dstate === 'risk' && need.length ? `${names(need.map(y => y.b))} ${need.length === 1 ? 'needs' : 'need'} a hearing` : set.length ? `${names(set.map(y => y.b))} ${set.length === 1 ? 'has' : 'have'} a hearing` : racing.some(y => y.st.column === 'a') ? `${names(racing.filter(y => y.st.column === 'a').map(y => y.b))} ${racing.length === 1 ? 'needs' : 'need'} a hearing` : 'waiting for a floor vote';
   return dstate === 'risk' ? { ic: 'triangle-alert', word: 'At risk', text: `At risk: no bill past ${dn(D)} yet${dayTail(D)}; ${why}` }
     : { ic: 'clock', word: 'Not yet', text: `Not yet: no bill past ${dn(D)}${dayTail(D)}; ${why}` };
 }
@@ -323,7 +322,7 @@ const meta = (bits) => `<span class="mi-dhm"><span class="mi-dhd" aria-hidden="t
 // heading says it now (A-14).
 function deadlineSec(D, l, k) {
   const id = `mi-d-${k}`, days = Math.max(0, daysTo(D.date));
-  const t = gateHead(D.label, dayWords(D.date));
+  const t = gateHead(D.label, dayWords(D.date), D);
   return `<section class="i6-sec mi-grp mi-dsec" id="${id}" data-dl="${esc(D.date)}" aria-labelledby="${id}-h"><h2 class="i6-h mi-dh" id="${id}-h">${esc(t)} ${meta([days === 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days} days`, plural(l.length, 'issue')])}</h2>
     <div class="mi-card">${inHeading(l).map(j => covItem(j, D.date)).join('')}</div></section>`;
 }
@@ -396,7 +395,7 @@ const ownerName = i => i.owner_id && i.owner_id === S.me?.id ? 'You' : (S.advoca
 const DSTATE = { cleared: 'Cleared', risk: 'At risk', notyet: 'Not yet' };
 // The next deadline in the Deadlines headings' own words ("Must reach their last committee by Mon 3/30": model.js gateHead,
 // one name for one deadline, R-352 FIX-2, C-15 on v6).
-const dlWords = j => j.D && j.alive ? gateHead(j.D.label, dayWords(j.D.date)) : '';
+const dlWords = j => j.D && j.alive ? gateHead(j.D.label, dayWords(j.D.date), j.D) : '';
 const COLS = [
   ['issue', 'Issue', j => j.i.name],
   ['house', 'HB (House-started)', j => j.H.length ? j.H.map(y => [numWords(y.b), whereNow(y.st)].filter(Boolean).join(', ')).join('; ') : `none${j.goneH.length ? ` · ${j.goneH.length} stopped` : ''}`],
@@ -480,7 +479,7 @@ export function billLineB(x) {
 }
 // 'At risk' is neutral words with the eye (watch it), never amber (amber is only late, still accepted: A-5) and never the warning
 // triangle (Session setup's Blocking); 'Due today' is a step already in hand, not a worry about the issue.
-const STATUS_B = { due: { word: 'Due today', ic: 'alarm-clock' }, risk: { word: 'At risk', ic: 'eye' }, hearing: { word: 'Needs a hearing', ic: 'calendar-plus' }, track: { word: 'On track', ic: 'circle-check' }, stopped: { word: 'Stopped', ic: 'circle-minus' } };
+const STATUS_B = { due: { word: 'Due today', ic: 'alarm-clock' }, risk: { word: HEALTH.risk, ic: 'eye' }, hearing: { word: 'Needs a hearing', ic: 'calendar-plus' }, track: { word: HEALTH.ontrack, ic: 'circle-check' }, stopped: { word: HEALTH.stopped, ic: 'circle-minus' }, done: { word: HEALTH.won, ic: 'trophy' } };   // R-371: the four health words are model.js HEALTH's
 // Testimony on the issue's leading hearing that is open and due by the end of today (or late, or past due): whoever's step it is
 // (critic 4: "On track" stood on an issue whose sent-back testimony was due that day).
 const hdayNow = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
@@ -494,7 +493,10 @@ export function statusB(j) {
   const x = j.x;
   if (!j.alive) return 'stopped';
   if (dueNow(j)) return 'due';
-  if (x.state === 'risk' || j.dstate === 'risk') return 'risk';
+  // R-371: At risk is model.js issueHealth, the one answer every screen gives (it was standOf's 7 days here, 14 there).
+  const h = issueHealth(j.i).key;
+  if (h === 'risk') return 'risk';
+  if (h === 'won') return 'done';
   if (j.ask.length || (x.state === 'ahead' && x.facing?.length)) return 'hearing';
   return 'track';
 }
@@ -579,7 +581,7 @@ export function cardsHTML(js) {
     const st = statusB(j), nx = nextB(j), card = { j, st, nx };
     (st === 'stopped' ? g.stop : nx.you ? g.you : nx.s ? g.others : g.wait).push(card);
   }
-  const RK = { due: -1, risk: 0, hearing: 1, track: 2 }, sortC = (a, b) => (RK[a.st] - RK[b.st]) || byUrgency(a.j.x, b.j.x);
+  const RK = { due: -1, risk: 0, hearing: 1, track: 2, done: 3 }, sortC = (a, b) => (RK[a.st] - RK[b.st]) || byUrgency(a.j.x, b.j.x);
   // The one button: the first card whose step is the viewer's own and due today (or late), in Today's own words for it.
   g.you.sort(sortC);
   const lead = g.you.find(c => c.nx.it && vbDueToday(c.nx.it) && vbJobButton(c.nx.it));

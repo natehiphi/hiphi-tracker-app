@@ -12,7 +12,7 @@
 // Rows are a name and one line (V04, D15: no codes in rows). Up and Down move through the results from the box, Enter
 // opens one, Esc returns to the box (they are the list's own keys, not shortcuts).
 import { S, DB, DEMO, VB, esc, hooks, fmtDate, owners, effStage, STAGE_LABEL, POSITIONS, SESSION_YEAR, advocate } from './data.js';
-import { plain, diedish, personName, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, codesOf, ASK_ANSWERS, askReply, billRoute, blurb } from './model.js';
+import { issueHealth, plain, diedish, personName, titleCaseSmart, exactBill, legNotesAll, legById, billById, hstDayOf, codesOf, ASK_ANSWERS, askReply, billRoute, blurb } from './model.js';
 import { icon, btn, toast, showAllBtn, keysUsed, keysOn, ASK_TAB, pathLine } from './ui.js';
 import { shortName } from './pathway.js';
 import { matchLegs, weekIndex, districtQ } from './legislators.js';
@@ -265,7 +265,8 @@ const numTitle = (b, n = 80) => { const t = nameWords(b, n), nm = numWords(b); r
 const stageLineB = b => stageInWords(b) || stageWords(b) || STAGE_LABEL[effStage(b)] || '';
 const billInLine = b => { const n = issueNamesOf(b); return `${numWords(b)} · bill${n.length ? ' in ' + n[0] + (n.length > 1 ? ` +${n.length - 1}` : '') : ''}`; };
 const issueBillCount = i => (S.billIssues || []).filter(x => x.issue_id === i.id).length;
-const issueLineB = i => { const n = issueBillCount(i); return `Issue${n ? ` · ${plural(n, 'bill')}` : ''}`; };
+// R-371: an issue's health word, from model.js issueHealth, the same one My issues, All issues and Coalitions say.
+const issueLineB = i => { const n = issueBillCount(i), h = issueHealth(i); return `Issue${n ? ` · ${h.word} · ${plural(n, 'bill')}` : ''}`; };
 // A committee: every word typed starts a word of its full name ("House Transportation", "Judiciary", "Senate Health"). A bare
 // "house", "senate" or "committee" names too many to be a search of their own.
 const CM_STOP = new Set(['committee', 'committees', 'hearing', 'hearings']);
