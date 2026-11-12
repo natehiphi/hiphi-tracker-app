@@ -48,12 +48,13 @@ export function paintNote(el, text, h) { if (!el) return; const n = dateNote(tex
 // ---- one tap used to publish (R-370 third walk) ----
 // Publishing goes on the public page at once, so it asks first, in the same words from Outreach's box and the bill's Public tab.
 // `updating`: the bill already has a live ask, so the words are about changing what people see. `until` is the date field's value.
-export function confirmPublish(b, until, updating) {
+export function confirmPublish(b, words, until, updating) {
   const num = String(b.bill_number || '').replace(/^([A-Z]+)\s*(\d)/, '$1 $2'), where = TRIAL ? 'the practice copy' : 'the public page';
+  const quoted = words ? `“${esc(String(words).trim())}” ` : '';
   const thru = until ? `, through ${dayWord(until)}` : '';
   return updating
-    ? confirmSheet({ title: 'Update the live public ask?', text: `${esc(num)}’s public ask is live now. This changes it on ${where} now${thru}. You can take it down any time.`, ok: 'Update' })
-    : confirmSheet({ title: `Publish the public ask for ${esc(num)}?`, text: `It goes on ${where} now${thru}. You can take it down any time.`, ok: 'Publish' });
+    ? confirmSheet({ title: 'Update the live public ask?', text: `${quoted}${esc(num)}’s public ask is live now. This changes it on ${where} now${thru}. You can take it down any time.`, ok: 'Update' })
+    : confirmSheet({ title: `Publish this public ask for ${esc(num)}?`, text: `${quoted}It goes on ${where} now${until ? `, through ${dayWord(until)}` : ''}. You can take it down any time.`, ok: 'Publish' });
 }
 // Said beside the button, not below the date field.
 export const goesLive = () => `<span class="ask-golive">Goes live on the ${TRIAL ? 'practice copy' : 'public page'} now</span>`;

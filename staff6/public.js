@@ -269,7 +269,8 @@ export function renderPublic(b) {
         <div class="bw-ptfoot">${btn('Add a point', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-ptadd': '1', ...(pointsIn(valOf(b, 'talking_points')).length >= MAX_PTS ? { hidden: '' } : {}) } })}
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div></fieldset>
       <div id="bw-perr" role="alert"></div>
-      <div class="bw-acts bw-pubsave">${btn(publishing(b, ask) ? pubWord(b) : SAVE_WORD, { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
+      <div class="bw-acts bw-pubsave">${card ? btn(SAVE_WORD, { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })
+        : `${btn(pubWord(b), { kind: 'primary', icon: 'check', attrs: { type: 'submit', 'data-pubgo': '1', ...(publishing(b, ask) ? {} : { disabled: true }) } })}${btn(SAVE_WORD, { kind: 'secondary', icon: 'check', attrs: { type: 'submit', 'data-pubsave2': '1' } })}`}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
       <p class="bw-prevh" id="bw-prev-h">How the public page shows it</p>
@@ -328,7 +329,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
   const errBox = form.querySelector('#bw-perr');
   const note = () => { const d = {}; for (const k of FIELDS) { const v = k === 'talking_points' ? ptVal() : BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
     if (Object.keys(d).length) { if (!bases.has(key)) bases.set(key, rawOf(b)); drafts.set(key, d); } else { drafts.delete(key); bases.delete(key); }
-    const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.small');
+    const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.muted');
     if (Object.keys(d).length && !hint) s.insertAdjacentHTML('beforeend', '<span class="small muted">Not saved yet</span>'); else if (!Object.keys(d).length && hint) hint.remove(); };
   const prev = pnl.querySelector('[data-prev]');
   const paint = () => { if (prev) prev.innerHTML = previewInner(b, { is_public: f.is_public.checked, nickname: f.nickname.value, public_summary: f.public_summary.value, public_action: f.public_action.value, public_action_until: f.public_action_until.value, talking_points: ptVal() }); };
@@ -344,7 +345,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
       if (el.value.trim() && !f.public_action_until.value && h) { f.public_action_until.value = hearingDay(h); f.public_action_until.dispatchEvent(new Event('input', { bubbles: true })); }
       paintNote(form.querySelector('#bw-pact-d'), el.value, h);
     }
-    const lbl = form.querySelector('[type="submit"] span'), pub = publishing(b, f.public_action.value); if (lbl) lbl.textContent = pub ? pubWord(b) : SAVE_WORD;
+    const go = form.querySelector('[data-pubgo]'), pub = publishing(b, f.public_action.value); if (go) go.disabled = !pub;   // R-370 fourth walk: the publish button keeps its label; it wakes when there are words to publish
     const gl = form.querySelector('[data-golive]'); if (gl) gl.hidden = !pub;
   });
   // R-370: Take down removes the live ask the way Undo does, with its own Undo.
@@ -367,16 +368,18 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     if (pts.length > MAX_PTS) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}Up to five talking points. There are ${pts.length}: take some out.</p>`; return; }
     if (bad) { errBox.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}${esc(bad)}</p>`; f.public_action_until.setAttribute('aria-invalid', 'true'); f.public_action_until.focus(); return; }
     // R-370 third walk: publishing (or changing a live ask) goes on the public page at once, so it asks first.
-    if (publishing(b, action) && f.is_public.checked !== false && !await confirmPublish(b, until, !!liveAsk(b))) return;
+    // R-370 fourth walk: "Save changes" saves the other fields and leaves a typed ask for the Publish button, so nothing goes live without its confirm.
+    const holdAsk = !!e.submitter?.hasAttribute('data-pubsave2') && publishing(b, action);
+    if (!holdAsk && publishing(b, action) && f.is_public.checked !== false && !await confirmPublish(b, action, until, !!liveAsk(b))) return;
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
     // Only what changed is written, compared with what the form held when editing began, and a teammate's newer save of the
     // same field is shown to the person before anything is written (R-152 B; DB.saveBillFields).
     const base = bases.get(key) || rawOf(b);
     const ptsChanged = JSON.stringify(pts) !== JSON.stringify(base.talking_points || []);
-    const want = { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, public_action: action || null, public_action_until: until || null, is_public: f.is_public.checked,
+    const want = { nickname: nickname || null, public_summary: f.public_summary.value.trim() || null, ...(holdAsk ? {} : { public_action: action || null, public_action_until: until || null }), is_public: f.is_public.checked,
       ...(ptsChanged ? { talking_points: pts.length ? pts : null, talking_points_edited_at: new Date().toISOString() } : {}) };
     const finish = res => {
-      drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
+      drafts.delete(key); bases.delete(key); FACTS.clear(); if (holdAsk) { const d = { public_action: action }; if (until !== saved(b, 'public_action_until')) d.public_action_until = until; drafts.set(key, d); } rerender('.bw-pubsave .btn');
       if (!res.changed.length) { toast('Nothing to save: this already matches what is saved.'); return; }
       toast(res.changed.includes('public_action') && action ? `Published. The public ask is live through ${dayWord(until)}. Take it down from the card.` : 'Saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
     };

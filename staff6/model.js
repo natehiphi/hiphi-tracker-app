@@ -383,7 +383,7 @@ export const publicResponse = b => (S.pubCounts || {})[b.id] || null;
 export function next430(from) { const d = new Date(from - 10 * 36e5); d.setUTCHours(16, 30, 0, 0); let t = d.getTime() + 10 * 36e5; if (t <= from) t += 864e5; return t; }
 export function askReach(b) {
   const h = hearingAhead(b), n = publicResponse(b)?.followers || 0, now = Date.now(), lines = [];
-  lines.push(b.is_public && b.tracked !== false ? 'On the public page now.' : 'Not on the public page yet: turn on “On the public page” above.');
+  lines.push(b.is_public && b.tracked !== false ? (liveAsk(b) ? 'On the public page now.' : 'Nothing on the public page yet.') : 'Not on the public page yet: turn on “On the public page” above.');
   const open = h && (!h.testimony_deadline || new Date(h.testimony_deadline) > now);
   if (S.emailCfg && S.emailCfg.enabled === false) return { lines: [...lines, 'Email to the public is off for now, so nothing goes out by email yet.'], again: false };
   if (!h || !open) return { lines: [...lines, 'By email: only as a supporter email, since no hearing alert is coming.'], again: true };
@@ -673,7 +673,7 @@ export function pubStateText(b) {
     return `Public ask ended ${fmtDate(b.public_action_until)} and is no longer shown.`;
   if (b.public_action)
     return `Summary live. Public ask runs through ${fmtDate(b.public_action_until)}.`;
-  return 'Summary live. No action ask set.';
+  return 'Summary live. No public ask yet.';
 }
 
 // Staff v6 (R-336, V19): steps.js testimonyState is the one source of a testimony's state (Writing · With an approver ·
