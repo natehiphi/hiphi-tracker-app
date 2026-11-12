@@ -301,7 +301,7 @@ function loadHTML(rows = loads()) {
   const busy = rows.filter(r => r.n > 0 || r.helps), idle = rows.length - busy.length, max = Math.max(1, ...rows.map(r => r.n));
   const bar = (av, name, n, helps = '') => helps
     ? `<li class="tm6-load tm6-helps">${av}<span class="tm6-ln">${esc(name)}</span><span class="tm6-hw">${esc(helps)}</span></li>`
-    : `<li class="tm6-load"><span class="sr">${esc(`${name}: ${plural(n, 'step')}`)}</span>${av}<span class="tm6-ln" aria-hidden="true">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></li>`;
+    : `<li class="tm6-load"><span class="sr">${esc(`${name}: ${plural(n, 'open step')} held, now and later`)}</span>${av}<span class="tm6-ln" aria-hidden="true">${esc(name)}</span><span class="tm6-bar" aria-hidden="true"><i style="width:${Math.round(n / max * 100)}%"></i></span><span class="tm6-n" aria-hidden="true">${n}</span></li>`;
   return `<ul class="tm6-loads" role="list">${busy.map(({ a, n, helps }) => bar(avatar(a, 28, { deco: true }), a.id === S.me?.id ? 'You' : a.full_name, n, helps)).join('')}
     ${idle ? `<li class="tm6-idle">${icon('circle-check')}<span>${busy.length ? 'Everyone else' : 'Everyone'}: nothing open</span></li>` : ''}</ul>`;
 }
@@ -368,7 +368,7 @@ const tabOf = route => { const w = route?.view || route?.q?.tab || ''; return TA
 function tabsHTML(cur, counts = {}) {
   const tl = l => `<span class="sv-tl" data-label="${esc(l)}">${esc(l)}</span>`;
   return `<nav class="sv-tabrow sv-secnav" aria-label="Team">${TABS.map(([k, v, l]) => { const n = counts[k] || 0;
-    return `<a href="#/team${v ? '/' + v : ''}"${k === cur ? ' aria-current="page"' : ''}>${tl(l)}${n ? ` <span class="sv-tn" aria-hidden="true">${n}</span><span class="sr">, ${esc(n)}</span>` : ''}</a>`; }).join('')}</nav>`;
+    return `<a href="#/team${v ? '/' + v : ''}"${k === cur ? ' aria-current="page"' : ''}>${tl(l)}${n ? ` <span class="sv-tn">${n}</span>` : ''}</a>`; }).join('')}</nav>`;
 }
 const head = () => `<header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">Team</h1><p class="t6-date">${esc(new Date().toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' }))}</p></header>`;
 // No owner: every bill with a position that nobody holds, soonest first, each with its one button (Give to… for an admin,
@@ -393,12 +393,15 @@ function slipTab() {
   // Said first, under the heading, in plain words, not a link: Today is the sidebar's first place, with its count.
   const yours = mine ? `<p class="tm6-sub tm6-yours">${esc(mine === 1 ? 'Your own one is on your Today, not here.' : `Your own ${mine} are on your Today, not here.`)}</p>` : '';
   const foot = more ? `<p class="tm6-more">${more}</p>` : '';
-  const slip = block('slip', 'Slipping', n ? `${yours}${prep}${rows.length ? rankedHTML(rows, all) : ''}${foot}`
-    : `${yours}${quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.')}`, { count: n || '', sr: true });
+  // R-370 (third walk): reviewers took this list and Testimony's "Late or due today" for one list. They are not: this is any
+  // step past its own time, to-dos included; Testimony's is testimony only. One line says so, with the way to the other.
+  const what = `<p class="tm6-sub tm6-what"><b>Slipping:</b> any step past its own time, to-dos included. <a href="#/testimony">Testimony late or due today →</a></p>`;
+  const slip = block('slip', 'Slipping', what + (n ? `${yours}${prep}${rows.length ? rankedHTML(rows, all) : ''}${foot}`
+    : `${yours}${quiet('circle-check', off ? 'Nothing is slipping: nothing late or due within a day.' : 'Nothing is slipping: nothing late or due within a day, and every hearing a day from its notice has an ask.')}`), { count: n || '', sr: true });
   // R-356 round 1 critic fixes (A-14): the tab already says "Slipping 5", so the heading is for screen readers only; the
   // folded "Hearings · 2 today, 4 tomorrow" card is gone, because the tab beside this one (The team's hearings) is that list.
   const people = loads(), busy = people.filter(r => r.n > 0).length;
-  const who = block('who', 'Who is on what', `<p class="tm6-sub">${esc(busy ? `${plural(busy, 'person', 'people')} with open steps, chair asks included.` : 'Nothing open on the team.')}</p>${loadHTML(people)}`);
+  const who = block('who', 'Who is on what', `<p class="tm6-sub">${esc(busy ? `${plural(busy, 'person', 'people')} with open steps. Each count is the steps they hold now and later, chair asks and this week’s public asks included.` : 'Nothing open on the team.')}</p>${loadHTML(people)}`);
   const partners = partnersHTML();
   return `<div class="tm6-cols"><div class="tm6-main">${prepBlock()}${slip}</div>
     <aside class="tm6-side" aria-label="The team">${who}${partners ? `<nav class="t6-doors tm6-lines" aria-label="Partners">${partners}</nav>` : ''}</aside></div>`;

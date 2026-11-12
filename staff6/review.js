@@ -308,9 +308,15 @@ function changes(route) {
   const { r, it } = current(route); if (movedOn(it) || !it || !actionable(it)) return;
   const to = first(it.type === 'email' ? it.a.author_id : it.d.submitted_by || (S.assignments[it.b.id] || [])[0]);
   const name = to === 'Someone' ? 'the writer' : to;
+  // R-370 (third walk): the note goes to whoever sent the testimony; the owner can revise it too (steps.js writersOf: the
+  // sender, then the bill's owners). So when they differ the button and the help line say both, not just the sender.
+  const own = it.type === 'email' ? null : ownerOf(it.b), ownN = own ? first(own.id) : '', sentBy = it.type !== 'email' && it.d.submitted_by && name !== 'the writer';
+  const both = sentBy && own && ownN && ownN !== name;
+  const toBtn = both ? `${name}, who sent it` : name;
+  const helpWho = both ? `${name} sent it, so ${name} sees this note with the testimony. ${ownN}, who owns the bill, can revise it too.` : `${name === 'the writer' ? 'The writer' : name} sees this note with the ${it.type === 'email' ? 'email' : 'testimony'}.`;
   openSheet({ title: 'What should change?', size: 'auto',
-    body: `<div class="field"><textarea id="td-note" rows="4" aria-labelledby="sv-sh-t" aria-describedby="td-note-h" required autofocus>${esc(S.rvNotes?.[it.key] || '')}</textarea><span class="help" id="td-note-h">${esc(name === 'the writer' ? 'The writer' : name)} sees this note with the ${it.type === 'email' ? 'email' : 'testimony'}.</span></div>${it.type === 'email' ? '' : `<p class="rv-chips">${btn(DOC_NOTE, { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-docnote': '1' } })}</p>`}`,
-    foot: btn(`Send back to ${esc(name)}`, { icon: 'undo-2', attrs: { 'data-send': '1' } }),
+    body: `<div class="field"><textarea id="td-note" rows="4" aria-labelledby="sv-sh-t" aria-describedby="td-note-h" required autofocus>${esc(S.rvNotes?.[it.key] || '')}</textarea><span class="help" id="td-note-h">${esc(helpWho)}</span></div>${it.type === 'email' ? '' : `<p class="rv-chips">${btn(DOC_NOTE, { kind: 'secondary', sm: true, icon: 'message-square', attrs: { 'data-docnote': '1' } })}</p>`}`,
+    foot: btn(`Send back to ${esc(toBtn)}`, { icon: 'undo-2', attrs: { 'data-send': '1' } }),
     wire: dlg => {
       const ta = dlg.querySelector('#td-note'), go = dlg.querySelector('[data-send]'); ta.focus();
       ta.oninput = () => { ta.removeAttribute('aria-invalid'); dlg.querySelector('#td-note-e')?.remove(); (S.rvNotes ??= {})[it.key] = ta.value; };   // kept if the sheet closes unsent (X10-6)
