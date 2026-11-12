@@ -407,9 +407,9 @@ body.staff6 .ot-golive { display: flex; align-items: center; gap: var(--s8); }
 body.staff6 .ot-golive .ic { width: 18px; height: 18px; flex: none; color: var(--v6-action); }
 body.staff6 .ot-paused { font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .ot-more { margin: var(--s12) 0 0; }
-/* The foot: what to do on the left, the followers on the right; wrapped, the followers sit under it at the left
-   (space-between puts a lone item at the start). */
-body.staff6 .ot-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s12) var(--s24); min-width: 0; }
+/* The foot: what to do (or whose it is), then the followers under it at the left, on every card at every width (R-373, A-14:
+   card 2's long line used to push its followers down while the others kept them on the right). */
+body.staff6 .ot-foot { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s12); min-width: 0; }
 body.staff6 .ot-foot > .ot-acts, body.staff6 .ot-foot > .ot-noask { flex: 0 1 auto; min-width: 0; }
 body.staff6 .ot-whose { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .ot-whose .ic { width: 18px; height: 18px; }

@@ -256,25 +256,25 @@ function groupsOf(v, ls, week, ch) {
     }).filter(Boolean);
   }
   // In All, each island's senators first and then its representatives, the first of them starting a new row under a small
-  // muted "Representatives" (so the gap after the senators never reads as a missing card): calmer than mixing them in
+  // muted "Representatives" and the senators under a matching "Senators" (so the gap never reads as a missing card): calmer than mixing them in
   // district order, where Senate District 1 and House District 1 would sit side by side as two "District 1" cards. The
-  // senators need no label: they lead, every name says Sen., and the island's count names both ("4 senators, 8
-  // representatives"). The label is for the eye (aria-hidden); a screen reader hears Sen. or Rep. in each name.
+  // island's count names both ("4 senators, 8 representatives"). The labels are for the eye (aria-hidden); a screen reader hears Sen. or Rep. in each name.
   return ISLAND_ORDER.map(i => { const g = ls.filter(l => islandFor(l) === i); if (!g.length) return null;
     const t = i === 'Hawaiʻi' ? 'Hawaiʻi Island' : i === 'Maui' ? 'Maui County' : i;
     if (full) g.sort(senFirst);
     const nS = g.filter(l => l.chamber === 'S').length, nH = g.length - nS;
     const count = full ? [nS ? plural(nS, 'senator') : '', nH ? plural(nH, 'representative') : ''].filter(Boolean).join(', ') : plural(g.length, whoOf(ch, 1), whoOf(ch, 2));
-    // A phone's chips say the island alone ("Hawaiʻi 12"), so all four fit 358px without sliding; the headings keep the full name.
-    return { id: `lg6-g-${plain(i).replace(/[^a-z]/g, '')}`, title: t, chip: t, short: i, n: g.length, count,
-      inner: g.map((l, k) => (full && k > 0 && l.chamber === 'H' && g[k - 1].chamber === 'S' ? '<div class="lg6-glabel" aria-hidden="true">Representatives</div>' : '') + personCard(l, week, { full, place: `District ${l.district}` })).join('') };
+    // R-373 (C-15): the chips say the island's full name at every width ("Hawaiʻi Island", "Maui County"), as the headings do; on a
+    // phone the row slides sideways, like the page tabs, when all four do not fit.
+    return { id: `lg6-g-${plain(i).replace(/[^a-z]/g, '')}`, title: t, chip: t, n: g.length, count,
+      inner: g.map((l, k) => (full && l.chamber === 'S' && k === 0 ? '<div class="lg6-glabel" aria-hidden="true">Senators</div>' : full && k > 0 && l.chamber === 'H' && g[k - 1].chamber === 'S' ? '<div class="lg6-glabel" aria-hidden="true">Representatives</div>' : '') + personCard(l, week, { full, place: `District ${l.district}` })).join('') };
   }).filter(Boolean);
 }
 // The jump chips: one per group, each scrolling to its heading (critic: three screens of one sort read as a long list
 // again). They replace the caption sentence; what it said (the chamber, the count, the order) is the row's name for a
 // screen reader and the short lead before the switch. One row that slides sideways on a phone, like the page tabs.
 const jumpHTML = (gs, label) => gs.length < 2 ? '' : `<nav class="lg6-jump" aria-label="${esc(label)}"><div class="lg6-jrow">${gs.map(g =>
-  `<button type="button" class="lg6-jchip" data-lgjump="${g.id}">${g.short ? `<span class="lg6-jl">${esc(g.chip)}</span><span class="lg6-js">${esc(g.short)}</span>` : esc(g.chip)}${g.n ? ` <span class="lg6-jn">${g.n}</span>` : ''}</button>`).join('')}</div></nav>`;
+  `<button type="button" class="lg6-jchip" data-lgjump="${g.id}">${esc(g.chip)}${g.n ? ` <span class="lg6-jn">${g.n}</span>` : ''}</button>`).join('')}</div></nav>`;
 function everyoneHTML(v) {
   const week = weekIndex(), ch = chamberOf(v), ls = everyoneList(v, week), all = (S.legislators || []).filter(l => inCh(l, ch)).length;
   const on = filtersN(v), who = whoOf(ch, ls.length), other = ch === 'H' ? 'S' : ch === 'S' ? 'H' : '';

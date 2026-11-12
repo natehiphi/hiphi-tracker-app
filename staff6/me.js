@@ -66,9 +66,9 @@ function routes() {
     ['file-text', 'Your testimony steps', say(on(steps), steps.length ? `: ${andList(steps.filter(k => w[k]).map(k => STEP_WORD[k]))}` : '')],
     ['message-square', 'Messages on your bills', say(w.chat)],
     ['clock', 'Testimony deadline alerts', deadline],
-    ['user-plus', 'Something given to you', say(Object.values(more).some(Boolean), ': a to-do, a hearing, an issue or a draft')],
+    ['hand-helping', 'Something given to you', say(Object.values(more).some(Boolean), ': a to-do, a hearing, an issue or a draft')],
     ...(approver ? [['user-check', 'Standing in for an approver', mode === 'app' ? `Always comes, ${me.slack_dm !== false ? 'by Slack DM' : 'by email'}, even with Only in the app` : `Always comes, ${way.startsWith('Email') ? 'by email' : 'by Slack DM'}`]] : []),
-    ['megaphone', 'New hearings', `Posted in ${ch} and your coalition’s channel, not to you alone`],
+    ['newspaper', 'New hearings', `Posted in ${ch} and your coalition’s channel, not to you alone`],
     ['inbox', 'Messages and the tracker’s notes', 'Kept in your Inbox, whatever you pick here'],
   ];
 }

@@ -180,7 +180,7 @@ function msgDetail(key) {
 const isFiltered = () => { const v = st(); return !!(v.q.trim() || v.unreadOnly || v.from); };
 function countLine(rows = messageRows(), filtered = isFiltered()) {
   const un = rows.filter(i => i.unread).length;
-  return `<p class="ib-count" aria-live="polite"><span>${plural(rows.length, 'message')}${un ? `, ${un} unread` : ', all read'}</span>${un ? '<button type="button" class="linkbtn" data-ibreadall>Mark all read</button>' : ''}${filtered ? '<button type="button" class="linkbtn" data-ibclear>Clear the filters</button>' : ''}</p>`;
+  return `<p class="ib-count" aria-live="polite"><span>${un && un === rows.length ? plural(un, 'unread message') : `${plural(rows.length, 'message')}${un ? `, ${un} unread` : ', all read'}`}</span>${un ? '<button type="button" class="linkbtn" data-ibreadall>Mark all read</button>' : ''}${filtered ? '<button type="button" class="linkbtn" data-ibclear>Clear the filters</button>' : ''}</p>`;
 }
 // B-3, no dead ends: an empty Inbox still shows how to start a message (Kris, on a hearing day, wanting to ask Kevin
 // something). Messages start on a bill's Team talk, so the way is the viewer's next bill (soonest hearing), else Bills.
@@ -335,9 +335,9 @@ function render(route) {
     DB.loadInbox().then(() => { S.ibLoadedAt = Date.now(); if (S.route?.name === 'inbox') hooks.render(); }).catch(() => {}).finally(() => { S.ibLoading = false; });
   }
   const view = viewOf(route), un = messagesCount();
-  // The place is the title; its two tabs sit under it (D12). The unread count is a quiet number on Messages, never coloured.
+  // The place is the title; its two tabs sit under it (D12). R-373 (A-14): the unread number is the bell's and sidebar's badge and the count line's; the tab carries none.
   return `<div class="ib-page">
-    <div class="sv-phead"><h1 class="sv-h1 ib-h1">Inbox</h1><span class="sv-phr">${sectionNav('inbox', view, { counts: un ? { messages: un > 99 ? '99+' : un } : {} })}</span></div>
+    <div class="sv-phead"><h1 class="sv-h1 ib-h1">Inbox</h1><span class="sv-phr">${sectionNav('inbox', view)}</span></div>
     ${view === 'updates' ? updatesHTML() : messagesHTML()}
   </div>`;
 }

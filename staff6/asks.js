@@ -215,7 +215,8 @@ function otherWords(d) {
   return d.who ? `No ask yet · ${d.who} writes it by ${timeFirst(d.due)}` : `No ask yet · due ${whenAt(d.due)}`;
 }
 // The clock goes with a time (A-18); "a post still helps" and "Saya can write one" have none, so they stand alone.
-const noAskLine = w => !/\d/.test(w) ? `<span>${nw(esc(w))}</span>` : `${icon('clock')}<span>${nw(esc(w))}</span>`;
+// R-373 (A-14, A-18): no clock here on any card, so the three cards lay out alike; the card's first line already carries the clock.
+const noAskLine = w => `<span>${nw(esc(w))}</span>`;
 function writeBox(x, d, lead) {
   const b = x.b, id = cardId(b) + '-w', a = liveAsk(b), changing = !!a;
   if (!BASE.has(b.id)) BASE.set(b.id, { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
@@ -260,7 +261,10 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   // expected writer's own step is red or carries the tile (P-5). Beside the button, the writer reads the clock; someone else on a
   // strong position reads who writes it and by when; on an optional ask (nobody is expected to write it) everyone on the bill reads
   // "a post still helps", the reason to write one, rather than "Saya can write one", which says it is not theirs.
-  else if (onBill(b)) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine || !d.strong ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
+  // R-373 (A-3 on v6): a card offers the button only where writing is the viewer's: their own step, or an optional ask nobody is
+  // expected to write. Someone else's strong-position ask ("Saya writes it by ...") names its writer and stays a line of words; the
+  // Public tab and Today's link still open the box for anyone on the bill (R-358).
+  else if (onBill(b) && (d.mine || !d.strong)) left = `<div class="ot-noask">${d.step ? ownTile(d) : `<span class="ot-nw">${noAskLine(d.mine || !d.strong ? optionalWords(x) : otherWords(d))}</span>`}${btn('Write the public ask', { kind: lead ? 'primary' : 'secondary', sm: true, icon: ACTS.ask.icon, attrs: { 'data-askopen': b.id, 'aria-label': `Write the public ask for ${nameWords(b, 60)}` } })}</div>`;
   else left = `<p class="ot-nw">${noAskLine(otherWords(d))}</p>`;
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
@@ -310,10 +314,9 @@ const cut = (items, want) => items.length > SHOW && !S.otEvery && !(want && item
 // The week's asks as cards under a Copy all bar: Outreach draws it with its head, Team's Public asks tab (R-356) without.
 function listHTML(items, want) {
   const nl = copyAll(items, 'newsletter').use.length, po = copyAll(items, 'social').use.length;
-  // R-370 fourth walk: also before the first publish (buttons asleep) so the note on who is left out is there.
-  // Copy all shows once there is something to copy, and says what it leaves out; with no ask written yet it is not
+  // R-373 (A-3 on v6): Copy all shows once there is something to copy, and says what it leaves out; with no ask written yet it is not
   // drawn at all (each card says its ask is not written), rather than a line that looks like a dead button.
-  const bar = nl + po || items.some(x => !askOf(x.b)) ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
+  const bar = nl + po ? `<div class="ot-copyall" role="group" aria-label="Copy every ask">
     <div class="ot-cabtns">${btn('Copy all for the newsletter', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'newsletter', ...(nl ? {} : { disabled: true }) } })}${btn('Copy all for social', { kind: 'secondary', icon: 'copy', attrs: { 'data-askall': 'social', ...(po ? {} : { disabled: true }) } })}</div>
     <p class="ot-left">${esc(leftOut(items))}</p></div>` : '';
   const lead = leadId(items, want), short = cut(items, want), shown = short ? items.slice(0, SHOW) : items;
@@ -330,7 +333,7 @@ export function wireTeamAsks(root) { wireAsks(root, () => weekAskItems()); }
 
 export default {
   tab: 'outreach',
-  title: () => 'This week’s asks',
+  title: () => 'Outreach',   // R-373 (A-14, A-8): the More row that leads here says Outreach, so the phone's top bar does too
   // Wide like Emails and Supporters, so Outreach's tab row stays in one place from tab to tab; the cards keep a reading
   // width (supporters.css .ot-page).
   wide: () => true,
@@ -341,7 +344,8 @@ export default {
     const items = all ? team : weekAskItems({ mine: true });
     // Team only for people who see it (R-356); with one choice left there is no switch.
     const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';
-    const head = pageHead(sectionNav('outreach', 'asks'), 'Outreach', '', sw);
+    // R-373 (A-14): someone without Sees Team gets no tab row, and sectionNav's one quiet heading would only say the page's own words again
+    const head = pageHead(seesTeam() ? sectionNav('outreach', 'asks') : '', 'Outreach', '', sw);
     if (!items.length) return `<div class="le-page ot-page">${head}${emptyHTML(all, team.length)}${partnersHTML()}</div>`;
     // Decision 6: staff see the asks alone; How it's landing is the leads' (Partner update, Emails, Supporters and Lists too)
     return `<div class="le-page ot-page">${head}${listHTML(items, want)}
