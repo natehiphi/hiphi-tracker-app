@@ -327,13 +327,13 @@ function groupsOf(w) {
   const askOpen = it => it.kind === 'chair' && it.at != null && it.at <= endOfDay(Date.now() + 7 * DAY);
   for (const it of w.own) (it.kind === 'partner' ? partner : (it.tone === 'overdue' || it.tone === 'late' || it.kind === 'missed' || it.at == null || it.at <= eod || askOpen(it)) ? today
     : it.at > horizon && !['moved', 'askup', 'chair', 'followask'].includes(it.kind) && !newNotice(it) ? later : soon).push(it);
-  return { today, soon, later, horizon, partner, next: today[0] || soon[0] || partner[0] || later[0] || w.prep || null };
-}
-// R-370 (trial walk 11/11): a late step stays the next step (the list is not reordered), but when something sooner-due sits below it the
-// heading says so, so nobody reads "Your next step" and misses the 10:00 AM one: "Late: do this first".
-function lateFirstOf(g) {
-  const nx = g.next, end = nx ? (nx.s?.until ?? nx.at) : null;
-  return !!nx && nx.tone === 'late' && end != null && [...g.today, ...g.soon].some(i => i !== nx && i.tone !== 'late' && i.at != null && i.at < end);
+  // R-370 (second walk): version B's first card is the viewer's own item whose Capitol deadline comes first (a late one competes
+  // by the time the Capitol stops taking it); what the Capitol has already closed on is not first (it is Missed). Do today uses
+  // the same order (byTime), so the first card and the first row always agree.
+  if (VB) { today.sort(byTime); soon.sort(byTime); }
+  const closed = it => it.kind === 'missed' || !!(it.s?.state && it.tone === 'overdue');
+  const openFirst = VB ? [...today, ...soon].find(i => !closed(i)) : null;
+  return { today, soon, later, horizon, partner, next: openFirst || today[0] || soon[0] || partner[0] || later[0] || w.prep || null };
 }
 // The Today badge: what needs the viewer today (D3); `lateN` names the overdue count (the frame's words, A-5).
 function badgeOf() {
@@ -591,7 +591,16 @@ function vbBanner(v, next) {
 // A step finished in place (steps.js's own buttons: Resubmit, Mark filed, Approve ...) ends through steps.js's stepDone hook:
 // vbFinish with what was done and its Undo, so nothing here compares what "Done today" held before and after.
 // Do today in the order the day runs: by the time, what has no time last (the next step stays the one groupsOf picks).
-const byTime = (x, y) => (x.at ?? Infinity) - (y.at ?? Infinity) || byOrder(x, y);
+// R-370 (second walk): version B sorts by the time the Capitol stops taking the item. Testimony: a late step by its window's close, any
+// other by its Capitol deadline (not by our own earlier draft time); a step the Capitol has closed on, and a missed one, go last.
+function capKey(it) {
+  if (!VB) return it.at ?? Infinity;
+  if (it.kind === 'missed' || (it.s?.state && it.tone === 'overdue')) return Infinity;
+  const s = it.s;
+  if (s?.state && s.due != null) return (s.status?.tone === 'late' ? ms(s.until) : ms(s.due)) ?? Infinity;
+  return it.at ?? Infinity;
+}
+const byTime = (x, y) => VB ? capKey(x) - capKey(y) || byOrder(x, y) : (x.at ?? Infinity) - (y.at ?? Infinity) || byOrder(x, y);
 
 // The words of an item that is not a testimony step: its name, number, line, where its row goes, its row button and the
 // buttons of its card (first one filled where the card holds the screen's filled button).
@@ -1183,7 +1192,7 @@ export function listHTML(v = S.me, { ro = false, skip = null, hideHear = false }
   const laterL = later.length ? (ro ? `<p class="t6-quiet t6-later">${icon('calendar-clock')}<span>${esc(`${plural(later.length, 'more', 'more')} later · the first by ${dayWords(later[0].at)}`)}</span></p>`
     : `<nav class="t6-doors t6-later" aria-label="Later">${lineA('#/', 'calendar-clock', `<b>${later.length} more later</b> · the first by ${esc(dayWords(later[0].at))}`, { attrs: ' data-v6pick="later"' })}</nav>`) : '';
   // `hideHear`: the next step's sitting is a card on the same page (a hearing day), so its card leaves out the hearing line.
-  const nextH = (n = '') => nx ? (card => `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : lateFirstOf(g0) ? 'Late: do this first' : 'Your next step'}</h2>${card}${!ro && vbIssueOf(nx.b) && !vbNamed(card, vbIssueOf(nx.b)) ? `<p class="vb-next-for">${vbIssueA(vbIssueOf(nx.b), 'vb-next-issue')}</p>` : ''}</section>`)(ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n))
+  const nextH = (n = '') => nx ? (card => `<section class="t6-next${hideHear ? ' t6-nohear' : ''}" aria-labelledby="t6-next-t${n}"><h2 class="t6-nexth" id="t6-next-t${n}">${ro ? `${esc(first(v.id))}’s next step` : 'Your next step'}</h2>${card}${!ro && vbIssueOf(nx.b) && !vbNamed(card, vbIssueOf(nx.b)) ? `<p class="vb-next-for">${vbIssueA(vbIssueOf(nx.b), 'vb-next-issue')}</p>` : ''}</section>`)(ro ? roCard(nx, v) : nextCard(nx, v, 't6-next-h' + n))
     : clearCard(v, w, ro, n);
   // R-352: one's own list, each row the job first (jobRow), in time order; partner words to approve are the Team lines'
   // (doorLines). Coming up ends with one quiet line to the week, whose one home is Hearings (Nate 27 Oct: the calendar is
@@ -1304,7 +1313,7 @@ function render(route) {
   // it with the filled button, the team's rows folded; the next-step card only when the next step is not on a sitting.
   const nextOn = h => P.next?.b && P.onCard(P.next) && sitKey(P.next.h) === sitKey(h) ? [P.next.b.id] : null;
   // The sitting holding the next step leads, under "Your next step"; the day's other sittings follow, without the step's row.
-  const bigOf = (h, i) => P.nextSit === h ? `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-tb"><h2 class="t6-nexth" id="t6-next-tb">${lateFirstOf(P.g) ? 'Late: do this first' : 'Your next step'}</h2>${stepFirst(sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.next, own: P.drop(h) }), P.next, v)}</section>`
+  const bigOf = (h, i) => P.nextSit === h ? `<section class="t6-next t6-nextsit" aria-labelledby="t6-next-tb"><h2 class="t6-nexth" id="t6-next-tb">Your next step</h2>${stepFirst(sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, lead: P.next, own: P.drop(h) }), P.next, v)}</section>`
     : sittingCard(h, { v, big: true, id: `t6-hcb-${i}`, drop: nextOn(h), own: P.drop(h) });
   const big = phoneDay ? `<section class="t6-hday-ph" aria-label="Your hearings today">${[...sits].sort((a, b) => (b === P.nextSit) - (a === P.nextSit)).map(bigOf).join('')}</section>` : '';
   // Below 1100px (not a phone) the day's other sittings come right under the next step; from 1100px they are in the side
