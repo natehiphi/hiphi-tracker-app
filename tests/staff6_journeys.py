@@ -419,7 +419,7 @@ TOASTED = r"""() => { const u = [...document.querySelectorAll('button, a')].find
   if (!u) return { undo: false };
   const live = u.closest('[aria-live], [role=status], [role=alert], [role=log]');
   return { undo: true, live: !!live, polite: live ? (live.getAttribute('aria-live') || live.getAttribute('role')) : '', early: !!(live && live.dataset.live0), text: (live || u.parentElement).innerText.replace(/\s+/g, ' ').trim().slice(0, 80) }; }"""
-TOAST_CASES = [('Resubmit (Patti)', 'PH', [Step('Resubmit')]), ("Approve (Kris, in Review)", 'KR', [Step(*REVIEW6), Step('Approve$', wait=1300)]),
+TOAST_CASES = [('Resubmit (Patti)', 'PH', [Step('Resubmit'), Step('I made the changes', roles=('checkbox',), optional=True), Step('Send$', optional=True)]),   # R-370: a sent-back draft asks first ("Approve (Kris, in Review)", 'KR', [Step(*REVIEW6), Step('Approve$', wait=1300)]),
                ('Looks right (Kevin, prep)', 'KV', [Step('Issues$', roles=('link',)), Step(rx(r'^\s*(Start|Next): '), roles=('link', 'button')), Step(r'^\s*Looks right')])]
 
 def toasts(b, R, only):

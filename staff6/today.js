@@ -1320,7 +1320,9 @@ function render(route) {
   // R-370 (second walk): in a person's first week, below 1100px (a phone above all) Getting started is the small card with its
   // first three steps, not the one line that was easy to miss; after the week it is the line, as before. From 1100px the
   // side column has the card.
-  const fresh = !phoneDay && !WIDE() && startFresh(v);
+  // Phones only (under 768px): a 1024 laptop already shows the line in view, and the card there put Patti's Today over 1.2
+  // screens (budget, spec 13). On a phone of 360px or less it stays the line (Patti's 320 Today was 2.13 screens with the card).
+  const fresh = !phoneDay && !mq('(min-width: 768px)') && !mq('(max-width: 360px)') && startFresh(v);
   const startIn = !phoneDay && !fresh && !P.rows ? startCard(v, { bare: true }) : '';
   const start = phoneDay || startIn ? '' : fresh ? startCard(v, { n: '-c' }) : startCard(v, { line: true });
   const picked = S.v6ld?.today?.key ?? null, item = picked === 'waiting' ? waitingItem(v) : picked === 'later' ? laterItem(v) : picked != null && REG.has(picked) ? itemFor(picked, v) : '';
