@@ -31,7 +31,7 @@ import { billRoute, billByNum, MEMO_SAYS, plain, companionsOf, wantsHearing, cha
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
-import { issueHealth } from './issuepage.js';   // how the issue stands, the issue page's own judgement (R-352)
+import { issueHealth, companionBillsOf } from './issuepage.js';   // how the issue stands, the issue page's own judgement (R-352)
 import { dayOf } from './standing.js';
 import { askedChip } from './chairask.js';
 import { STATES } from './verbs.js';
@@ -488,13 +488,14 @@ export function ownState(b) {
   if (ph === 'conference') return { key: 'track', word: 'Alive', ic: 'circle-dot', html: 'in conference' };
   return { key: 'track', word: 'Alive', ic: 'circle-dot', html: '' };
 }
-// "with SB 972 (stopped)": the twin as a link, under the title where a lead looks first.
+// "Companion: SB 972 (stopped)": the companion as a link, under the title where a lead looks first.
 function twinLine(b) {
-  const nums = companionsOf(b); if (!nums.length) return '';
-  return nums.map(n => { const t = billByNum(n, b.session_year);
-    if (!t) return `with ${esc(spaced(n))}`;
+  // R-371 (Nate 11/12): "Companion", and found the way the issue page pairs bills, so HB 2121 and SB 2175 link both ways too.
+  const found = companionBillsOf(b), nums = found.length ? found.map(t => t.bill_number) : companionsOf(b); if (!nums.length) return '';
+  return (nums.length > 1 ? 'Companions: ' : 'Companion: ') + nums.map(n => { const t = found.find(x => x.bill_number === n) || billByNum(n, b.session_year);
+    if (!t) return esc(spaced(n));
     const o = ownState(t), tail = o.key === 'stopped' ? 'stopped' : o.word === 'Needs a hearing' ? 'needs a hearing' : o.word === 'Hearing set' ? `hearing ${o.html}` : o.word === 'Alive' ? 'alive' : o.word.toLowerCase();
-    return `with <a href="${esc(billRoute(t))}">${esc(numWords(t))}</a> (${tail})`; }).join(', ');
+    return `<a href="${esc(billRoute(t))}">${esc(numWords(t))}</a> (${tail})`; }).join(', ');
 }
 function vbTitle(b) {
   const i = vbIssue(b), tw = twinLine(b), nm = billName(b), num = numWords(b);

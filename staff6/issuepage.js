@@ -1003,6 +1003,20 @@ function iaPairs(xs) {
   for (const g of byName.values()) { const H = g.filter(x => originOf(x.b) === 'H'), Sn = g.filter(x => originOf(x.b) === 'S'); if (H.length === 1 && Sn.length === 1) pairs.push([H[0], Sn[0]]); }
   return pairs;
 }
+// R-371 (Nate 11/12: "companions", easy to find from one bill to the other): a bill's companions, the same way this page pairs
+// them, for the bill page too: the Capitol's companion link first; else, on each of the bill's issues, the bill this page pairs it with.
+export function companionBillsOf(b) {
+  const out = new Map(), same = t => t && t.id !== b.id && t.session_year === b.session_year;
+  for (const n of companionsOf(b)) { const t = billByNumIn(n, b); if (same(t)) out.set(t.id, t); }
+  if (!out.size) for (const i of (issuesForBill(b) || [])) {
+    let bs; try { const sp = billsSplit(i); bs = sp.now.concat(sp.earlier); } catch { continue; }
+    const xs = bs.map(t => ({ b: t, alive: !diedish(t) })), me = xs.find(x => x.b.id === b.id); if (!me) continue;
+    const p = iaPairs(xs).find(q => q.includes(me)), m = p && p.find(y => y !== me); if (m && same(m.b)) out.set(m.b.id, m.b);
+  }
+  return [...out.values()];
+}
+const billByNumIn = (n, b) => (S.bills || []).find(t => numKey(t.bill_number) === numKey(n) && t.session_year === b.session_year);
+const issuesForBill = b => (S.issues || []).filter(i => { try { const sp = billsSplit(i); return sp.now.concat(sp.earlier).some(t => t.id === b.id); } catch { return false; } });
 // The groups to draw, for a set of bills: a pair when both are in the set, else the bill alone (its row says "with X").
 function iaGroups(xs, all = xs) {
   const mate = new Map(); for (const [x, y] of iaPairs(all)) { mate.set(x, y); mate.set(y, x); }
@@ -1026,7 +1040,7 @@ const iaMate = (x, all) => { const p = iaPairs(all).find(q => q.includes(x)); re
 function iaRow(i, x, all, { inPair = false } = {}) {
   const b = x.b, tw = !inPair ? iaMate(x, all) : null, num = numWords(b), nm = nameWords(b, 60);
   const title = `<a class="ia-title" href="${esc(billRoute(b))}"><b>${esc(num)}</b>${nm && nm !== num ? `<span>${esc(nm)}</span>` : ''}</a>`;
-  const withTw = tw ? `<p class="ia-with">with ${esc(numWords(tw.b))}${tw.alive ? '' : ', stopped'}</p>` : '';
+  const withTw = tw ? `<p class="ia-with">Companion: <a href="${esc(billRoute(tw.b))}">${esc(numWords(tw.b))}</a>${tw.alive ? '' : ', stopped'}</p>` : '';
   if (!x.alive) return `<div class="ia-row is-stop" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}"><div class="ia-main">${title}${withTw}<p class="ia-stand">${icon('circle-minus')}<span>${nw(esc(stoppedWords(b)))}</span></p></div></div>`;
   const s = !x.law && b.tracked !== false ? billStep(b, { viewer: S.me }) : null, h = hearingAhead(b), who = ownerOf(b);
   const stands = x.law ? 'Signed into law' : stageInWords(b) || nowWords(b, x.st);
@@ -1044,7 +1058,7 @@ function iaRow(i, x, all, { inPair = false } = {}) {
 }
 function iaGroupHTML(i, g, all) {
   if (g.length === 1) return iaRow(i, g[0], all);
-  const say = `${numWords(g[0].b)} with ${numWords(g[1].b)}`;
+  const say = `Companions: ${numWords(g[0].b)} and ${numWords(g[1].b)}`;
   return `<div class="ia-pair" role="listitem" aria-label="${esc(say)}"><p class="ia-pairh">${esc(say)}</p>
     <div class="ia-pairrows" role="list">${g.map(x => iaRow(i, x, all, { inPair: true })).join('')}</div></div>`;
 }

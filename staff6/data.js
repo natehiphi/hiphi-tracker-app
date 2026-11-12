@@ -28,7 +28,8 @@ export const DEMO = new URLSearchParams(location.search).has('demo');
 export const VB = new URLSearchParams(location.search).get('vb') !== '0';
 // R-371 (mockup A, Nate's pick): the issue page that opens on its bills, one row each. Version B only, and only in the practice
 // copy, in trials, or with ?ia=1, until Nate says yes: live staff keep today's issue page.
-export const IA = VB && (DEMO || !!TRIAL || new URLSearchParams(location.search).has('ia'));
+// ?ia=0 shows the old issue page in the practice copy, to compare (Nate 11/12).
+export const IA = VB && new URLSearchParams(location.search).get('ia') !== '0' && (DEMO || !!TRIAL || new URLSearchParams(location.search).has('ia'));
 if (VB) document.documentElement.classList.add('vb');   // version B's styles all sit under html.vb (css/vb*.css)
 // R-316 W43 (C-5): an open page looks for drafts and to-dos a teammate changed, about every 2 minutes (app.js), and a
 // button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's

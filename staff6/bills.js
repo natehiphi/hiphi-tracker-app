@@ -278,7 +278,7 @@ export function glanceRow(html, b, { stance = false, twins = null } = {}) {
   if (!html || !b) return html;
   const tw = twins?.get(b.id);
   // inside the number ("HB 2121 twin of SB 2175"): one fact, the bill's name in the Capitol's words (spec 8: four a row)
-  if (tw) html = html.replace(/(<span class="v6-row-num">[^<]*)(<\/span>)/, `$1 <span class="v6-twin" title="${esc(`Another bill goes by the same name: ${numWords(tw)}`)}">twin of ${esc(numWords(tw))}</span>$2`);
+  if (tw) html = html.replace(/(<span class="v6-row-num">[^<]*)(<\/span>)/, `$1 <span class="v6-twin" title="${esc(`Another bill goes by the same name: ${numWords(tw)}`)}">companion of ${esc(numWords(tw))}</span>$2`);
   // HIPHI's stance (D1) waits for a trade: a row already holds spec 8's four facts (name, number, a two-part line), and a
   // fifth on every row of a long list is what spec 8 forbids. stanceMark is ready (standing.js); `stance: true` draws it.
   if (stance === true) { const sm = stanceMark(b, { cls: 'bl-stance' });
