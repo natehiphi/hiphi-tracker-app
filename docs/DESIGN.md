@@ -1131,6 +1131,15 @@ green, and the person tints below are fixed, so a pick in My settings never chan
   at a glance (A-18 on v6: whose step it is on Team and on a hearing), beside names, never instead of them (`ui.js`
   `faceLead`; hidden from reading, since the words name the person), and where a face is added a repeated name goes
   (A-25). Legislators show their photo over their initial.
+- **Issue colours (R-373, Nate 12 Nov):** twelve soft identity colours per coalition (Sky, Lime, Jade, Orchid, Lagoon, Berry,
+  Cobalt, Rose, Iris, Marigold, Fern, Coral; wash / ink / mark in `css/myissues.css` `.ic-1` to `.ic-12`), handed out
+  automatically (`issuegrid.js` `issueColor`: the issue's coalition from its bills, then sort order and name, the 13th
+  repeating the 1st). Like the person tints they are **identity, never status**, and the opposite shape: **square, never
+  round** (a round one is a person). They appear only as the issue's tile, a 5px soft edge on its row or card, and its
+  "for <issue>" line (icon and name in the ink on the wash, no underline); never as text colour elsewhere, a button, a card
+  background or on Team, Outreach, Legislators, My settings or the Calendar's week grid. Colour-blind limit: a hue cannot
+  tell twelve apart for everyone, so the icon and the name always come with it (A-18 on v6). An issue with no coalition and
+  every topic heading stay neutral. Gate: `data.js` `IC` (practice copy, trials, `?ic=1`; `?ic=0` shows the topic tints).
 - Every status has its icon AND its word, from one function (`steps.js` `status()`); never colour alone (WCAG 1.4.1).
 - **At most 5 text colours in view**: ink, body, muted, action and white on the filled button. Status colours are counted
   apart, when a status is shown (spec 13), and so are the person tints, which are identity, not text colours or status.

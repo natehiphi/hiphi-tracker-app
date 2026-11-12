@@ -22,7 +22,7 @@
 // Every fact comes from model.js (drafts and their steps, deadlines and risk, who approves and files) and every action
 // calls the same data functions v5's Today, bill page and Review call, with the same Undo and who's-next toast (P2, P3).
 // The old word lists in model.js, today.js and hearing.js stay until each screen switches to these (spec section 5).
-import { S, DB, VB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js';
+import { S, DB, VB, IC, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './data.js';
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
@@ -30,7 +30,7 @@ import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft
 import { icon, btn, toast, vbFinish, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
 import { SL, sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
-import { issueIcon } from './issuegrid.js';   // R-339: an issue's own icon wherever an issue is named (used in functions only)
+import { issueIcon, icCls, icEdge, icForIc } from './issuegrid.js';   // R-339: an issue's own icon wherever an issue is named (used in functions only)
 import { askLine, answerSheet } from './chairask.js';
 import { askTodoOf, giveAsk, logAsk } from './push.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -769,7 +769,7 @@ function hearingLineHTML(h, v, from, { going = true } = {}) {
 // The bill's issue, a quiet link on the card's top line (R-226: the way from a bill to its issue is always clear): "Its
 // issue" when it shares the bill's name, else the issue's own name; at most two.
 const sameIssueName = (i, b) => (i.name || '').trim().toLowerCase() === (b?.nickname || '').trim().toLowerCase();
-export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : []).map(i => `<a class="v6-step-iss" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon(issueIcon(i))}<span>${sameIssueName(i, b) ? 'Its issue' : esc(i.name)}</span></a>`).join('');
+export const issueLinksHTML = b => (b?.id ? issuesOfBill(b.id).slice(0, 2) : []).map(i => `<a class="v6-step-iss${IC ? ' ic-for' + icCls(i) : ''}" href="${esc(issueLinkHref(i, b))}" aria-label="Issue: ${esc(i.name)}. Open it">${icon(issueIcon(i))}<span>${sameIssueName(i, b) ? 'Its issue' : esc(i.name)}</span></a>`).join('');
 const BILL_IN = '\u0001bill\u0001';
 // The bill's name inside the sentence: the app's in-sentence link (the bill page's chair name, bill.css .bw-chairl): the
 // action colour, underlined at rest (A-12, B-9). It keeps the sentence's size and weight, so the card has one heading.
@@ -1107,8 +1107,8 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     // R-371 S1: on the hearing's own page each bill links its issue ("for Disposable e-cigarette ban"); a bill named as its issue
     // leads with its number, so the issue is said once, as the link.
     const ri = self && VB ? issuesOfBill(x.b.id)[0] : null, same = !!ri && sameIssueName(ri, { nickname: fullName(x.b) });
-    const issA = ri ? `<a class="vb-row-issue v6-hcard-iss" href="#/issue/${encodeURIComponent(ri.id)}"><span class="vb-for">for</span> <span>${esc(ri.name)}</span></a>` : '';
-    return `<li class="v6-hcard-bill${first ? ' lead' : ''}${ri ? ' has-iss' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(same ? numWords(x.b) : fullName(x.b))}</span>${same ? '' : ` <span class="v6-row-num">${esc(numWords(x.b))}</span>`}</span>
+    const issA = ri ? `<a class="vb-row-issue v6-hcard-iss${IC ? ' ic-for' + icCls(ri) : ''}" href="#/issue/${encodeURIComponent(ri.id)}"><span class="vb-for">for</span> ${icForIc(ri)}<span>${esc(ri.name)}</span></a>` : '';
+    return `<li class="v6-hcard-bill${first ? ' lead' : ''}${ri ? ' has-iss' : ''}${ri ? icEdge(ri) : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(same ? numWords(x.b) : fullName(x.b))}</span>${same ? '' : ` <span class="v6-row-num">${esc(numWords(x.b))}</span>`}</span>
       <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late'})))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}${issA}</li>`; };
   // I'm going is the card's tonal button only on a hearing that is today or where the viewer owns a step (theirs to do, or
   // their bill); elsewhere it is a quiet link, so This week is not a column of the same button (A-3, A-2 on v6; R-352 FIX-2).
@@ -1218,8 +1218,8 @@ const rowIssue = (bill, name) => { const b = VB && bill ? billById(bill) : null,
 function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '', issue = false }) {
   const ri = issue ? rowIssue(bill, name) : null;
   if (ri?.same) { name = numWords(billById(bill)); num = ''; }
-  const out = rowHTML0({ key, name, num, line, tone, icon: ic, bold, href, pick, selected, hint, button, cls, bill, lead });
-  return ri ? out.replace(/(<(a|button) class="v6-row-main[\s\S]*?<\/\2>)/, `<div class="vb-rowcol">$1<a class="vb-row-issue" href="#/issue/${encodeURIComponent(ri.i.id)}"><span class="vb-for">for</span> <span>${esc(ri.i.name)}</span></a></div>`) : out;
+  const out = rowHTML0({ key, name, num, line, tone, icon: ic, bold, href, pick, selected, hint, button, cls: cls + (ri ? icEdge(ri.i) : ''), bill, lead });   // R-373: the soft edge in the issue's colour
+  return ri ? out.replace(/(<(a|button) class="v6-row-main[\s\S]*?<\/\2>)/, `<div class="vb-rowcol">$1<a class="vb-row-issue${IC ? ' ic-for' + icCls(ri.i) : ''}" href="#/issue/${encodeURIComponent(ri.i.id)}"><span class="vb-for">for</span> ${icForIc(ri.i)}<span>${esc(ri.i.name)}</span></a></div>`) : out;
 }
 function rowHTML0({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '' }) {
   const tag = href ? 'a' : 'button', attr = `${href ? `href="${esc(href)}"` : 'type="button"'}${pick != null ? ` data-v6pick="${esc(pick)}"` : ''}${selected ? ' aria-current="true"' : ''}${bill ? ` data-bill="${esc(bill)}"` : ''}`;

@@ -37,6 +37,7 @@ import { openItem, closeBtn, aboutBill } from './billpane.js';
 import { billsHead, loadSortCount, refreshTabs, setBillsCount, subTabsShown } from './billshead.js';
 import { issuesOfBill } from './issues.js';
 import { issueLead } from './issuestand.js';   // R-352 D: each row's issue tile
+import { icEdge } from './issuegrid.js';   // R-373: the row's soft issue-colour edge
 
 // ---- groups, in stage order: GROUPS and groupKey live in standing.js, shared with an issue's page (R-226) ----
 const FOLDED = new Set(['mon', 'dead']);
@@ -307,7 +308,7 @@ function rowsView(groups) {
   // No step buttons in Bills' rows (spec 11, settled 1): a viewer's own step has its button in the open bill beside the list,
   // on Today and on the bill's page; a row here says the step and opens the bill.
   const twins = twinsAmong(groups.filter(g => g.open).flatMap(g => g.shown));
-  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: v.cur === b.id ? 'bl-cur' : '', lead: issueSlot(b) }), b, { twins });
+  const rowOf = (b, g) => v.selecting ? selRow(b) : glanceRow(billRow(b, { viewer: S.me, pick: b.id, selected: v.look === b.id, step: rowStep(b), button: false, cls: `${v.cur === b.id ? 'bl-cur' : ''}${icEdge(issueOfBill(b))}`.trim(), lead: issueSlot(b) }), b, { twins });
   // A phone's toolbar holds the filter box and Filter only; Select (F91) is in the Filter sheet's foot there (R-356 round 3: one
   // row of controls above the first group), and a long press on a row still starts picking.
   const selBtn = pick && !selInFilter() ? `<span class="bl-ghsel">${selectBtn()}</span>` : '';

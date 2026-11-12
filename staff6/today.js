@@ -28,7 +28,7 @@
 // v5's Today moved, whole, to today5.js: every export other screens import from './today.js' is re-exported below
 // (review.js, bills.js, inbox.js, asks.js, legislators.js, profile.js and app.js still use them), and v5's This week still
 // draws for the Hearings stub until HEARINGS replaces it (render() hands a route with place 'hearings' to v5).
-import { S, DB, DEMO, VB, TRIAL, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
+import { S, DB, DEMO, VB, TRIAL, IC, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
 import v5, { todayItems, slipNow, startDay } from './today5.js';
 import { draftHearing, diedish, stopOf, wantsHearing, whenAt, deadlineAt, capitolAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords, vbFinish } from './ui.js';
@@ -36,7 +36,7 @@ import { SL } from './ui.js';   // R-365 B plain words
 import { billStep, stepCard, hearingCard, billRow, itemRow, rowButton, rowButtonOK, statusTile, status, shownStatus, nw,
   numWords, nameWords, sayWords, firstWords, orWords, dayWords, timeWords, committeeName, versionWords, deadlineWords,
   testimonyState, whoseStep, notFiled, wireListDetail, wireSteps, finish, actBy, takeFor, issueLinksHTML, stepHeadHTML, stepSentence, fullName, billNumHTML, statusLine } from './steps.js';
-import { issueIcon, tintOf } from './issuegrid.js';
+import { issueIcon, tintOf, icCls, icEdge, icForIc } from './issuegrid.js';
 import { iconizeButtons, jobKind, dropVerb, ACTS as PIC } from './verbs.js';   // one icon per job (A-18 on v6), every button its icon
 import { issuesOfBill, issueLinkHref } from './issues.js';
 import { aboutBill, closeBtn } from './billpane.js';
@@ -397,7 +397,7 @@ function dueTone(it, ro) {
 const billInA = b => `<a class="v6-step-in" href="${esc(billRoute(b))}">${esc(fullName(b))}</a>`;
 function issueChip(b) {
   const i = b?.id ? issuesOfBill(b.id)[0] : null; if (!i) return '';
-  const cats = S.categories || [], tint = tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0));
+  const cats = S.categories || [], tint = IC ? `ic-for${icCls(i)}` : tintOf(Math.max(cats.findIndex(c => c.key === i.category), 0));   // R-373: the issue's own colour
   // An issue named as its bill is ("Youth mental health app pilot" for HB 1562's nickname) is its icon alone: the name is
   // in the sentence just under it (A-14, the fresh-eyes review); the link keeps the issue's name for screen readers.
   const same = sameName(i, b);
@@ -552,12 +552,14 @@ export const vbJobButton = it => { try { return jobButton(it, S.me); } catch (e)
 // A row names its issue and links to it: "for <issue>" under the row's words, its own link beside the row's one link
 // (a link cannot sit inside a link, so the row's main link and this one share a column).
 const vbIssueOf = b => (VB && b?.id ? issuesOfBill(b.id)[0] : null) || null;
-const vbIssueA = (i, cls = 'vb-row-issue') => `<a class="${cls}" href="#/issue/${encodeURIComponent(i.id)}"><span class="vb-for">for</span> <span>${esc(i.name)}</span></a>`;
+const vbIssueA = (i, cls = 'vb-row-issue') => `<a class="${cls}${IC ? ' ic-for' + icCls(i) : ''}" href="#/issue/${encodeURIComponent(i.id)}"><span class="vb-for">for</span> ${icForIc(i)}<span>${esc(i.name)}</span></a>`;
 // The "for <issue>" line is dropped when the row's or card's own title already says the issue (its words, any case).
 const vbPlain = t => String(t || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;|’/g, "'").replace(/\s+/g, ' ').toLowerCase();
 const vbNamed = (html, i) => { const t = (/class="(?:v6-row-name|v6-step-what)[^"]*"[^>]*>([\s\S]*?)<\/(?:span|h3)>/.exec(html) || [])[1]; return !!t && vbPlain(t).includes(vbPlain(i.name)); };
 function vbRowIssue(html, b) {
-  const i = vbIssueOf(b); if (!i || vbNamed(html, i)) return html;
+  const i = vbIssueOf(b); if (!i) return html;
+  if (icEdge(i)) html = html.replace(/class="v6-row(?![\w-])/, `class="v6-row${icEdge(i)}`);   // R-373: the row's soft edge, even when the name already says the issue
+  if (vbNamed(html, i)) return html;
   return html.replace(/(<(a|button) class="v6-row-main[\s\S]*?<\/\2>)/, `<div class="vb-rowcol">$1${vbIssueA(i)}</div>`);
 }
 // Testimony waiting for this person's review, each with its bill, issue, time and one Review button, soonest first (the

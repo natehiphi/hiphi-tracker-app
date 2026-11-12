@@ -20,7 +20,7 @@
 // topic chip (the topic is the heading). At most four facts a card (spec 8). Inside a topic the most urgent issue comes
 // first (issuestand.js byUrgency: at risk, then the nearest hearing or deadline).
 // The find box is R-272's (issuestand.js searcher: words in any order, bill numbers with or without the space).
-import { S, SESSION_OVER, esc } from './data.js';
+import { S, SESSION_OVER, IC, esc } from './data.js';
 import { whenAt } from './model.js';
 import { icon, iconBtn, btn, pickerSheet } from './ui.js';
 import { ICONS } from '../icons.js';
@@ -45,8 +45,44 @@ const catOf = k => (S.categories || []).find(c => c.key === k) || null;
 // An issue's picture wherever an issue is shown (R-339): its own icon (issues.icon, migration 188; Nate's picks) when that
 // name is drawn in ICONS, else its topic's, else the tag.
 export const issueIcon = i => staffIcon(i?.icon || '') || staffIcon(catOf(i?.category)?.icon || '') || 'tag';
+// ---- issue colours (R-373 option B, Nate 12 Nov; A-5 and A-18 on v6) ----
+// Every issue has its own soft colour within its coalition: twelve (css/myissues.css .ic-1..12), handed out automatically.
+// An issue's coalition is the coalition of its bills (S.billCampaigns); General HIPHI counts as one like the others, except
+// that an issue also in another coalition takes the other's place. Within a coalition the issues go by sort_order then name,
+// and the n-th gets colour n (the 13th repeats the 1st: the icon and name tell them apart, since colour is identity and
+// never status). No coalition: neutral (ic-0). A lead's own pick would need issues.color (a migration, not built).
+// Off (IC false) the helpers say nothing and every screen keeps the topic tints.
+export const COLOURS = 12;
+let icMemo = null;
+function icTable() {
+  const sig = [S.issues, S.billIssues, S.billCampaigns, S.campaigns], key = `${(S.issues || []).length}|${(S.billIssues || []).length}|${(S.campaigns || []).length}`;
+  if (icMemo && icMemo.key === key && icMemo.sig.every((x, n) => x === sig[n]) && Date.now() - icMemo.at < 3000) return icMemo.map;
+  const camps = S.campaigns || [], rank = new Map(camps.map((c, n) => [c.id, n])), general = new Set(camps.filter(c => c.name === 'General HIPHI' || c.slug === 'general-hiphi').map(c => c.id));
+  const billsOf = new Map(); for (const x of S.billIssues || []) (billsOf.get(x.issue_id) || billsOf.set(x.issue_id, []).get(x.issue_id)).push(x.bill_id);
+  const coalOf = new Map();
+  for (const i of S.issues || []) {
+    if (i.archived_at) continue;
+    const ids = new Set(); for (const b of billsOf.get(i.id) || []) for (const c of S.billCampaigns?.[b] || []) if (rank.has(c)) ids.add(c);
+    const own = [...ids].sort((a, b) => rank.get(a) - rank.get(b)), pick = own.find(c => !general.has(c)) || own[0];
+    if (pick != null) coalOf.set(i.id, pick);
+  }
+  const by = new Map(), map = new Map();
+  for (const i of S.issues || []) if (coalOf.has(i.id)) (by.get(coalOf.get(i.id)) || by.set(coalOf.get(i.id), []).get(coalOf.get(i.id))).push(i);
+  for (const l of by.values()) l.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.name).localeCompare(String(b.name), 'en')).forEach((i, n) => map.set(i.id, `ic-${(n % COLOURS) + 1}`));
+  icMemo = { key, sig, at: Date.now(), map };
+  return map;
+}
+// 'ic-1'..'ic-12', or 'ic-0' (neutral) for an issue with no coalition.
+export const issueColor = i => (i && icTable().get(i.id)) || 'ic-0';
+// The class a tile or a "for" line takes, with a leading space; '' when colours are off.
+export const icCls = i => IC ? ` ${issueColor(i)}` : '';
+// The issue's small icon inside its "for <issue>" line (the line is the issue's colour chip); nothing when colours are off.
+export const icForIc = i => IC ? icon(issueIcon(i)) : '';
+// A row's or card's soft edge: the colour class plus ic-edge; nothing when off or neutral (a neutral edge says nothing).
+export const icEdge = i => IC && issueColor(i) !== 'ic-0' ? ` ic-edge ${issueColor(i)}` : '';
 // The small icon beside a card's name (R-352: no band, no tile, no monogram). Decorative: the name says it.
-export const picHTML = ({ ic = '' } = {}) => ic ? `<span class="ig6-ic" aria-hidden="true">${icon(ic)}</span>` : '';
+// With colours on (R-373) an issue card's icon is its coloured tile instead (`i`: the issue; coalition cards pass none).
+export const picHTML = ({ ic = '', i = null } = {}) => ic ? (IC && i ? `<span class="ig6-ic ig6-ictile${icCls(i)}" aria-hidden="true">${icon(ic)}</span>` : `<span class="ig6-ic" aria-hidden="true">${icon(ic)}</span>`) : '';
 
 // ---- a card ----
 // The whole card is one link (rule 10: focus ring on it, Back puts the focus on it again). `pic`: the small icon (picHTML);
@@ -62,7 +98,7 @@ export const gridHTML = (inner, label) => `<div class="ig6-grid" role="list" ari
 // its own soft tint, one tile a topic, so the six topics read apart as the page scrolls and each heading welcomes you into
 // its issues. The cards under it stay calm (their small icon only). A rounded square, never a circle, so it is never taken
 // for a person's initials (A-5 on v6: person tints are round). Decorative: the heading says the topic.
-export const headTile = (ic, tint = null) => `<span class="ig6-htile ${tintOf(tint)}" aria-hidden="true">${icon(ic || 'tag')}</span>`;
+export const headTile = (ic, tint = null) => `<span class="ig6-htile ${tintOf(IC ? null : tint)}" aria-hidden="true">${icon(ic || 'tag')}</span>`;
 // A group: its heading (22px) with its topic's tile when it has one (g.pic), and its count, a target for its chip; then its grid.
 export const groupHTML = g => `<section class="ig6-sec" aria-labelledby="${esc(g.id)}"><div class="ig6-sh">${g.pic || ''}<h2 id="${esc(g.id)}" tabindex="-1">${esc(g.title)}</h2>${g.count ? `<span class="ig6-sn">${esc(g.count)}</span>` : ''}</div>${g.body || gridHTML(g.inner, g.title)}</section>`;
 // The jump chips: Everyone's (legislators.css .lg6-jump), one per group, each bringing its heading to the top.
@@ -150,8 +186,8 @@ function issueCard(x, { tags = [], why = null, anchor = '' } = {}) {
   const shown = tags.filter(t => !/first visit/i.test(t));
   // How the issue stands: its shape and its word, neutral, no tint (R-344 Decision 4; A-5: never colour alone).
   const stand = `${stateMark('issue', issueKey(x), { size: 18, cls: 'ig6-sic' })}${shown.length ? `<span class="ig6-tag"> · ${esc(shown.join(', '))}</span>` : ''}`;
-  return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', anchor, cls: 'ig6-issue',
-    pic: picHTML({ ic: issueIcon(i) }),   // the issue's own icon (Nate's R-339 picks), else its topic's
+  return cardHTML({ key: i.id, href: '#/issue/' + encodeURIComponent(i.id), name: i.name, title: i.description || '', anchor, cls: 'ig6-issue' + icEdge(i),
+    pic: picHTML({ ic: issueIcon(i), i }),   // the issue's own icon (Nate's R-339 picks), else its topic's
     lines: [[stand, 'ig6-stat'], nextHTML(nx)] });
 }
 

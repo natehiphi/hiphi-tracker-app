@@ -36,7 +36,7 @@ import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead, standOf } from './issuestand.js';
 import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
-import { issueIcon } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
+import { issueIcon, icCls } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { STATES } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
 import { itemRow, billRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus, othersWords, billInIssue, hearingCard, goingRowHTML, timeWords } from './steps.js';
@@ -803,7 +803,7 @@ function pageRender(route) {
   const steps = nextSteps(now), hc = health(xs, earlier), prepNext = hc.k === 'stopped' && !i.archived_at && !isDraft(i) && stateOf(i) !== 'approved';
   const outlook = i.outlook ? `<p class="is6-desc"><span class="is6-dl">Between sessions, the public reads:</span> ${esc(i.outlook)}</p>` : '';
   const head = `<header class="is6-head ip6-head">
-      <span class="is6-icon mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>
+      <span class="is6-icon mi-c-${esc(i.category || 'none')}${icCls(i)}" aria-hidden="true">${icon(issueIcon(i))}</span>
       <div class="is6-hbody"><h1 class="is6-h1">${esc(i.name)}</h1>
         ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}
         ${SESSION_OVER && !prepHoldsOutlook(i) ? outlook : ''}
@@ -972,7 +972,7 @@ function vbOutreach(i, xs, now) {
 
 function vbHeadHTML(i, outlook) {
   return `<header class="is6-head ip6-head vb-head">
-      <span class="is6-icon mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>
+      <span class="is6-icon mi-c-${esc(i.category || 'none')}${icCls(i)}" aria-hidden="true">${icon(issueIcon(i))}</span>
       <div class="is6-hbody"><p class="vb-kind">Issue</p><h1 class="is6-h1">${esc(i.name)}</h1>
         ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}${SESSION_OVER && !prepHoldsOutlook(i) ? outlook : ''}</div>
       <div class="is6-hacts">${followBtn(i)}${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
