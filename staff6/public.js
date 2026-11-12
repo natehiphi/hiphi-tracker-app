@@ -32,6 +32,7 @@ import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.j
 // still opens this bill after 20 Jan 2027, when numbers start again.
 const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
+import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with Outreach's box
 // OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
 import { askCardHref, askWriteHref, askWhose, writesAsk, onBill } from './asks.js';
 import { emailDoor } from './composer.js';
@@ -62,7 +63,8 @@ const rawOf = b => ({ nickname: b.nickname || null, public_summary: b.public_sum
 // The ask shows through a date; if that is before the next hearing the ask stops while people can still act on it (R-152 C).
 // A hint, not a block: some asks are meant to end early. Hawaiʻi dates, as everywhere else in the app.
 const untilWarn = (b, ask, until) => {
-  if (!String(ask || '').trim() || !until) return '';
+  if (!String(ask || '').trim()) return '';
+  if (!until) return 'Required: pick the last day the ask should show.';
   const h = hearingAhead(b); if (!h) return '';
   const day = new Date(h.scheduled_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   return until < day ? `This stops showing on ${dayOf(until)}, before the ${h.committee} hearing on ${dayOf(day)}. Pick a later day to keep it up until then.` : '';
@@ -249,11 +251,12 @@ export function renderPublic(b) {
       ${card ? `<div class="field bw-askro"><p class="bw-asklabel">The ask</p>
         <p class="bw-asktext${ask ? '' : ' bw-askno'}">${ask ? esc(ask) : (!writesAsk(b) && whose?.who ? `${esc(whose.who)} writes it by ${esc(timeFirst(whose.due))}.` : 'Not written yet.')}</p>
         <p class="bw-askgo">${icon('megaphone')}<a href="${esc(askMine ? (ask ? card : askWriteHref(b) || card) : card)}">${askMine ? (ask ? 'Change it on This week’s asks' : 'Write the public ask on This week’s asks') : (ask ? 'See it on This week’s asks' : 'Open This week’s asks')   /* R-358: with no ask yet there is nothing to "see" */}</a></p>
-        <input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
+        ${onBill(b) ? liveLine(b, 'data-pubtake') : ''}<input id="bw-pact" type="hidden" value="${esc(ask)}"><input id="bw-puntil" type="hidden" value="${esc(valOf(b, 'public_action_until'))}"><span id="bw-pact-n" hidden></span><span id="bw-puntil-w" hidden></span></div>`
       : `<div class="field"><label for="bw-pact">The ask</label>
-        <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}</div>
-      <div class="field"><label for="bw-puntil">Show the ask through</label>
-        <input id="bw-puntil" type="date" value="${esc(valOf(b, 'public_action_until'))}" aria-describedby="bw-puntil-w">
+        ${hearingLine(hearingAhead(b))}
+        <textarea id="bw-pact" maxlength="280" rows="3" aria-describedby="bw-pact-n bw-pact-d" placeholder="What should someone do today? Leave it blank and the hearing itself is the ask.">${esc(ask)}</textarea>${count(ask.length, 'bw-pact-n')}${noteHTML(ask, hearingAhead(b), 'bw-pact-d')}${liveLine(b, 'data-pubtake')}</div>
+      <div class="field"><label for="bw-puntil">Show the ask through <span class="ask-req">(required with an ask)</span></label>
+        <input id="bw-puntil" type="date" required value="${esc(valOf(b, 'public_action_until') || (ask.trim() && hearingAhead(b) ? hearingDay(hearingAhead(b)) : ''))}" aria-describedby="bw-puntil-w">
         <span class="help bw-untilwarn" id="bw-puntil-w" role="status">${esc(untilWarn(b, ask, valOf(b, 'public_action_until')))}</span></div>`}
       ${reachNote(b)}
       <fieldset class="field bw-ptps"><legend>Talking points for testimony</legend>
@@ -262,7 +265,7 @@ export function renderPublic(b) {
         <div class="bw-ptfoot">${btn('Add a point', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-ptadd': '1', ...(pointsIn(valOf(b, 'talking_points')).length >= MAX_PTS ? { hidden: '' } : {}) } })}
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div></fieldset>
       <div id="bw-perr" role="alert"></div>
-      <div class="bw-acts bw-pubsave">${btn('Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
+      <div class="bw-acts bw-pubsave">${btn(ask.trim() && ask.trim() !== String(b.public_action || '').trim() ? 'Publish the ask' : 'Save public page', { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
       <p class="bw-prevh" id="bw-prev-h">How the public page shows it</p>
@@ -330,7 +333,18 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     if (k === 'public_summary' || k === 'public_action') form.querySelector(`#${el.id}-n`).textContent = countText(el.value.length);
     form.querySelector('#bw-puntil-w').textContent = untilWarn(b, f.public_action.value, f.public_action_until.value);
     if (k === 'nickname') form.querySelector('#bw-nick-n').textContent = countText(el.value.length, 40);
+    // R-370: the date is filled in as soon as there is an ask (through the hearing day, when there is one), so it is never a
+    // surprise after Save; a gentle check names a day that is neither the hearing's nor the deadline's; the button says what it does.
+    if (k === 'public_action') {
+      const h = hearingAhead(b);
+      if (el.value.trim() && !f.public_action_until.value && h) { f.public_action_until.value = hearingDay(h); f.public_action_until.dispatchEvent(new Event('input', { bubbles: true })); }
+      paintNote(form.querySelector('#bw-pact-d'), el.value, h);
+    }
+    const lbl = form.querySelector('[type="submit"] span'); if (lbl) lbl.textContent = f.public_action.value.trim() && f.public_action.value.trim() !== String(b.public_action || '').trim() ? 'Publish the ask' : 'Save public page';
   });
+  // R-370: Take down removes the live ask the way Undo does, with its own Undo.
+  pnl.querySelectorAll('[data-pubtake]').forEach(el => el.onclick = async () => { el.disabled = true;
+    try { await takeDown(b, () => { drafts.delete(key); bases.delete(key); rerender('.bw-pubsave .btn'); }); } catch (x) { el.disabled = false; toast(x, { err: true }); } });
   form.onsubmit = async e => {
     e.preventDefault();
     const action = f.public_action.value.trim(), until = f.public_action_until.value;
@@ -357,7 +371,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     const finish = res => {
       drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn');
       if (!res.changed.length) { toast('Nothing to save: this already matches what is saved.'); return; }
-      toast('Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
+      toast(res.changed.includes('public_action') && action ? `Published. The ask is live through ${dayWord(until)}. Take it down from the card.` : 'Public page saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
     };
     try {
       const res = await DB.saveBillFields(b.id, want, base);

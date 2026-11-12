@@ -481,3 +481,14 @@ body.staff6 .sp-team .sp-roll { margin-top: 0; }
   body.staff6 .sp-table th.c-where { width: 37%; }
   body.staff6 .sp-table th.c-active { width: 96px; }
 }
+
+/* R-370 (second walk): the public ask's hearing line, date check and live line, in Outreach's box and on the Public tab */
+body.staff6 .ask-hear, body.staff6 .ask-live { display: flex; align-items: flex-start; gap: var(--s8); margin: 0; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
+body.staff6 .ask-hear svg, body.staff6 .ask-live svg { flex: none; margin-top: 3px; }
+body.staff6 .ask-live { margin-top: var(--s8); }
+body.staff6 .ask-take { all: unset; cursor: pointer; font: inherit; font-weight: 600; color: var(--v6-link, inherit); text-decoration: underline; min-height: 24px; }
+body.staff6 .ask-take:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+@media (pointer: coarse) { body.staff6 .ask-take { padding: 10px 4px; } }
+body.staff6 .ask-datenote { display: flex; align-items: flex-start; gap: var(--s8); margin: var(--s8) 0 0; }
+body.staff6 .ask-datenote[hidden] { display: none; }
+body.staff6 .ask-req { font-weight: 400; color: var(--v6-muted); }
