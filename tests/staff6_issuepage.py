@@ -38,7 +38,7 @@ CASES = [
   ('both chambers', BOTH, r'^On track: bills that started in each chamber are still alive\.$'),
   ('one chamber', ONE, r'^At risk: all 4 alive bills started in the House\. If they stop in the Senate, the issue ends this year\.$'),
   ('past both chambers', PAST, r'^On track: HB 244 is in conference\.$'),
-  ('every bill stopped', STOPPED, r'^Stopped: every bill on this issue stopped this session\.$'),
+  ('every bill stopped', STOPPED, r'^Nothing moving: every bill on this issue stopped this session\.$'),
 ]
 with L.browser() as B:
   for (w, h) in [(1440, 900), (390, 844)]:
