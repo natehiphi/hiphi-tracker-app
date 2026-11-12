@@ -26,6 +26,9 @@ export const DEMO = new URLSearchParams(location.search).has('demo');
 // every page. Without vb=1 nothing changes for anyone. Hash links keep the query, so vb=1 follows every in-app link.
 // R-365: version B is everyone's version from 11 Nov 2026 (Nate: "We will go with version B"); ?vb=0 still opens the old v6.
 export const VB = new URLSearchParams(location.search).get('vb') !== '0';
+// R-371 (mockup A, Nate's pick): the issue page that opens on its bills, one row each. Version B only, and only in the practice
+// copy, in trials, or with ?ia=1, until Nate says yes: live staff keep today's issue page.
+export const IA = VB && (DEMO || !!TRIAL || new URLSearchParams(location.search).has('ia'));
 if (VB) document.documentElement.classList.add('vb');   // version B's styles all sit under html.vb (css/vb*.css)
 // R-316 W43 (C-5): an open page looks for drafts and to-dos a teammate changed, about every 2 minutes (app.js), and a
 // button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's
