@@ -210,6 +210,18 @@ export const lateLine = (until, { lower = false } = {}) => `${lower ? 'late' : '
 // A time after "by" or "until", its clock first on the near days, the one helper for it (R-352 FIX-2: "By today 4:00 PM"
 // beside "until 1:10 PM today"): "4:00 PM today", "9:30 AM tomorrow", "Fri 3/20, 9:30 AM".
 export function timeFirst(t) { const w = whenAt(t), m = /^(today|tomorrow|yesterday) (.+)$/.exec(w); return m ? `${m[2]} ${m[1]}` : w; }
+// R-370 (trial walk 11/11): the one way a deadline's moment is said in the deadline pattern (steps.js stepTime): the day word
+// ("today", "tomorrow", else the weekday, with the date from a week out) and the clock without ":00" ("Tue 4 PM", "Wed 9:30 AM").
+export function deadlineAt(t) {
+  if (t == null || t === '') return '';
+  const ms = new Date(t).getTime(), d = hstDayOf(ms), now = Date.now();
+  const clock = clockOf(ms).replace(':00', '');
+  if (d === hstDayOf(now)) return `today ${clock}`;
+  if (d === hstDayOf(now + 864e5)) return `tomorrow ${clock}`;
+  if (d === hstDayOf(now - 864e5)) return `yesterday ${clock}`;
+  const day = new Date(ms).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
+  return ms - now > 6 * 864e5 || ms < now ? `${day} ${new Date(ms).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })} ${clock}` : `${day} ${clock}`;
+}
 // The time between now and `t`, rounded down: "28 min" / "4 hours" / "3 days" (short: "28m" / "4h" / "3d").
 export function spanOf(t, { short = false } = {}) {
   const ms = Math.abs(new Date(t).getTime() - Date.now()), h = ms / 36e5;

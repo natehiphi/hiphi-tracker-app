@@ -54,7 +54,7 @@ export function testimonyOf(h, b) {
   const d = draftOf({ h, b });
   const e = !d && earlierFiled(h, b.id), eh = e && draftHearing(e);
   if (e) return { filed: true, earlier: true, word: 'filed for the hearing', label: `HIPHI filed for the ${eh ? new Date(eh.scheduled_at).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', month: 'numeric', day: 'numeric' }) + ' ' : 'earlier '}hearing`, icon: 'check' };
-  if (!d) return { filed: false, word: 'not started', label: 'Writing · not started', icon: 'file-text' };   // spec 12.6: one wording
+  if (!d) return { filed: false, word: 'not started', label: 'Not started', icon: 'file-text' };   // spec 12.6: one wording
   if (d.status === 'filed') return { filed: true, word: 'filed', label: 'Testimony filed', icon: 'check' };
   const st = b.current_version && (d.version || null) !== b.current_version ? ['out of date', 'triangle-alert']
     : d.status === 'approved' ? ['ready to file', 'clipboard-check'] : d.status === 'second_review' ? ['waiting for second approval', 'hourglass']

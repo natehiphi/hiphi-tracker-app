@@ -209,7 +209,8 @@ export function chamberDots(bills) {
 // step it is at: its state's shape on the action colour; still to come: a hollow ring) with its word beside it,
 // 14px ink. One line at every width: when the steps would not fit (a container query: 400px with Second look, 280px without) the done steps keep their dot and give up their word
 // (said to screen readers), so "Second look" never wraps. A sent-back draft's first step is "Revise" with the sent-back shape.
-const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', SL], ['file', 'File']];
+// R-370: "Second review" was cut to "Second r…" beside the other three at 1280 wide; the picture says "2nd review" (the sentence and the row keep the full words).
+const TRACK = [['write', 'Write'], ['approve', 'Approve'], ['second', SL === 'Second review' ? '2nd review' : SL], ['file', 'File']];
 export function testimonyTrack(s, { second: needSecond } = {}) {
   const d = s?.d, st = s?.state, key = st?.key; if (!key || key === 'missed') return '';
   const second = needSecond ?? (key === 'second' || !!d?.second_approved_by || !!d?.first_for_bill);

@@ -26,7 +26,7 @@ import { S, DB, VB, esc, advocate, capitolUrl, hooks, SESSION_OVER } from './dat
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
-  streamOf, billById, offTag, legById, askReply, billRef } from './model.js';
+  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt } from './model.js';
 import { icon, btn, toast, vbFinish, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
 import { SL, sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
@@ -265,10 +265,10 @@ export const shownStatus = s => !s?.status || s.mine || !['late', 'overdue', 'to
 // A time and its AM/PM, a room and its number, and a day and its date never part at a line's end ("2:00 / PM",
 // "Room / 329"): wrapped in a no-wrap span, so the text itself (and what tests read) keeps its plain spaces. `s` is
 // already escaped.
-const NW = /(\b\d{1,2}:\d{2}[\s  ]?[AP]M\b|\bRoom [\w-]+|\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}\/\d{1,2}(?:, \d{1,2}:\d{2}[\s  ]?[AP]M\b)?)/g;
+const NW = /(\b\d{1,2}(?::\d{2})?[\s  ]?[AP]M\b|\bRoom [\w-]+|\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}\/\d{1,2}(?:, \d{1,2}:\d{2}[\s  ]?[AP]M\b)?)/g;
 // A span holding a time of day also carries .v6-tm, the one part a due-today line bolds (spec 12.1, A-13: bolding every
 // no-wrap span made "Fri 3/20" and "Room 430" read as second deadlines beside the due time).
-export const nw = s => String(s ?? '').replace(NW, m => `<span class="v6-nw${/\d:\d{2}/.test(m) ? ' v6-tm' : ''}">${m}</span>`);
+export const nw = s => String(s ?? '').replace(NW, m => `<span class="v6-nw${/[AP]M/.test(m) ? ' v6-tm' : ''}">${m}</span>`);
 
 // ---- testimony: one state, five words and Missed (V12, V19) ----
 export const STATE_WORDS = { write: 'Writing', approve: 'With an approver', second: SL, file: 'Ready to file', filed: 'Filed', missed: 'Missed' };
@@ -287,7 +287,7 @@ export function testimonyState(d, b, { h } = {}) {
   const sentBack = key === 'write' && !!d?.review_note, noDraft = !d && key === 'write';
   const stale = !!d && !!b?.current_version && (d.version || null) !== b.current_version && !['filed', 'cancelled'].includes(d.status);
   const word = STATE_WORDS[key];
-  const label = sentBack ? `${word} · sent back` : noDraft ? `${word} · not started` : word;
+  const label = sentBack ? `${word} · sent back` : noDraft ? 'Not started' : word;   // R-370: the state alone, "Writing · not started" said it twice
   return { key, word, label, sentBack, noDraft, stale, toString() { return word; } };
 }
 
@@ -545,12 +545,19 @@ function rowLine(s, v) {
 // Filed, missed, cancelled, chair asks and no step are said by their own record (s.line).
 // `lateSaid`: the hearing card already says the late window once, so a late row says only "late" (toned) or nothing.
 // `soon: false` leaves out ", in 59 min" (a small card). `flat`: one piece, a comma for the dot, for a row whose name already holds a dot (Today's "File testimony · Bill").
+// R-370 (trial walk 11/11): ONE deadline pattern on Testimony rows, Today, the hearing page and Outreach, built only here:
+// "Draft to the team by Tue 4 PM · Capitol closes Wed 9:30 AM" (both when both are ahead), "Capitol closes today 10 AM" when only
+// the Capitol's is left, and late "Past our deadline · Capitol closes today 1:10 PM". It replaces "due today 2:00 PM (Capitol)",
+// "by 4:00 PM tomorrow (our deadline)" and "late, still accepted until ...", which mixed three wordings for two deadlines.
+const TEAM_BY = { write: 'Draft to the team by', nodraft: 'Draft to the team by', submit: 'Draft to the team by', revise: 'Draft to the team by',
+  approve: 'Approval by', review: 'Approval by', second: 'Approval by', review2: 'Approval by', file: 'File by' };   // the state already says "Second review"
 export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {}) {
   const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
-  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : lateLine(s.until, { lower: true });
-  if (tone === 'overdue') return `was due ${whenAt(s.due)} (Capitol)`;
-  if (a?.kind === 'hand' && a.at > now) return `by ${timeFirst(a.at)} (${TEAM_CUT})${ls(a.at)}`;
-  if (s.due != null) return `due ${whenAt(s.due)} (Capitol)${ls(s.due)}`;
+  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `Past our deadline · Capitol closes ${deadlineAt(s.until)}`;
+  if (tone === 'overdue') return `Capitol closed ${deadlineAt(s.due)}`;
+  const cap = s.due != null ? deadlineAt(s.due) : '';
+  if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${ls(a.at)}${cap ? ` · Capitol closes ${cap}` : ''}`;
+  if (s.due != null) return `Capitol closes ${cap}${ls(s.due)}`;
   return '';
 }
 export function stateWords(s) { const st = s.state; return st ? st.word : ''; }
@@ -567,9 +574,13 @@ export function statusLine(s, { lateSaid = false, toned = false, flat = false, w
   if (st.key === 'filed') return s.doneWords || s.line || '';
   if (st.key === 'missed') return `Missed · the hearing started ${whenAt(s.h.scheduled_at)}`;
   if (s.off) return `${st.word} · hearing cancelled, no new date yet`;
-  const flag = st.sentBack ? 'sent back' : st.noDraft || s.kind === 'nodraft' ? 'not started' : '';
-  const rest = [flag, who ? whoWords(s) : '', stepTime(s, { lateSaid, toned, soon })].filter(Boolean).join(', ');
-  return rest ? `${st.word}${flat ? ', ' : ' · '}${rest}` : st.word;
+  const notStarted = !st.sentBack && (st.noDraft || s.kind === 'nodraft');
+  // R-370: "Not started" alone; "Writing · not started" said the state twice.
+  const head = notStarted ? 'Not started' : st.word;
+  const rest = [st.sentBack ? 'sent back' : '', who ? whoWords(s) : ''].filter(Boolean).join(', '), time = stepTime(s, { lateSaid, toned, soon });
+  // the flag and whose step join the time with a comma, so a row keeps its four facts (state · who, by when · Capitol time)
+  const t2 = time && (flat || rest) ? (/^Capitol/.test(time) ? time : lc(time)) : time;
+  return flat ? [head, rest, t2.replace(' · ', ', ')].filter(Boolean).join(', ') : [head, [rest, t2].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
 }
 const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
 // A chair ask's line: the asker's own Follow up after 3 working days with no reply (spec 6), whose first for someone
@@ -947,7 +958,7 @@ function testimonyCard(s, v, own, x = '') {
   // R-344 Rule 3, one time per step: the tile says the team's time to act ("File by today 7:30 AM"); this line says whose the
   // other time is, the Capitol's, so the two never read as two deadlines for one step.
   // With the time left, as every other time on the screen (R-352 FIX-2: "today 9:30 AM, in 1 hour").
-  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `The Capitol’s deadline: ${whenAt(s.due)}${s.due > Date.now() ? `, in ${spanOf(s.due)}` : ''}.`;
+  else if (s.due != null && (own ? s.act.kind === 'hand' : s.status.tone !== 'late')) when = `Capitol closes ${deadlineAt(s.due)}${s.due > Date.now() ? `, in ${spanOf(s.due)}` : ''}.`;   // R-370: the one deadline pattern
   let note = '';
   // Headed with words that are not a state: a capitalised "Sent back" over the note read as a sixth state beside the tile's
   // "Writing · sent back" (spec 12.6: "sent back", lower case, is the flag on Writing; C-15).
@@ -1073,7 +1084,9 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     // Wherever the card offers Resubmit, the note is beside it (Hearings › This week too), so the button resubmits at once.
     // `buttons: false` (R-356 round 1, decision 5; A-14, D15): Hearings > This week shows each bill's testimony status as words;
     // the step's button is on Today and on Testimony.
-    const ok = buttons && rowButtonOK(s), home = buttons && (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
+    // R-370 (trial walk 11/11): on the hearing's own page (self) the viewer's own bill always carries its next step's button
+    // ("Make the draft", "Send for approval", "Review", "File"), not only once it is due: the page is where they came to act.
+    const ok = buttons && (rowButtonOK(s) || (self && !!s.you && !!s.state && !s.off && !['filed', 'none', 'chair', 'missed'].includes(s.kind) && !['filed', 'missed'].includes(s.state.key))), home = buttons && (first || big) && s.you && ['revise', 'write', 'submit'].includes(s.kind);
     const sbOn = s.you && s.kind === 'revise' && !!s.state?.sentBack && !!s.d?.review_note && (home || ok);
     const sb = sbOn ? `<p class="v6-hcard-sb"><span class="v6-hcard-sbl">${NOTE_HEAD}:</span> ${esc(s.d.review_note)}</p>` : '';
     // Open Doc beside Resubmit (the Doc is where the writer revises; Patti's finding), a plain link as on the step card:

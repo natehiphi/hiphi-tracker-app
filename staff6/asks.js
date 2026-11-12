@@ -13,8 +13,8 @@
 // v6 draws the cards itself: they used to come from today.js (weekAsksHTML), which TODAY is rebuilding (spec 11).
 // The rallier, with no migration (spec 6 and addendum 6): Saya on CTFH, else the coalition's owner, else the bill's owner.
 // TODAY may import rallierOf() and askDueAt() to put the ask on the rallier's Today two days before it is due.
-import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO, seesTeam } from './data.js';
-import { sharePageUrl, liveAsk, billRoute, whenAt, timeFirst, hstDayOf, publicResponse, billById, spanOf } from './model.js';
+import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO, TRIAL, seesTeam } from './data.js';
+import { sharePageUrl, liveAsk, billRoute, whenAt, deadlineAt, timeFirst, hstDayOf, publicResponse, billById, spanOf } from './model.js';
 import { icon, btn, empty, toast, sectionNav, whoseSeg } from './ui.js';
 import { pageHead } from './lists.js';
 import { nameWords, numWords, committeeName, statusTile, nw, rallierOf, leadOf, onBill } from './steps.js';
@@ -221,7 +221,7 @@ function writeBox(x, d, lead) {
   const text = (S.otDraft || {})[b.id] ?? (changing ? b.public_action || '' : '');
   const when = changing ? '' : d.step ? ownTile(d) : d.mine || !d.strong ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet · /, '')))}</span>`;
   return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the public ask' : 'Write the public ask'}</label>${when}</div>
-    <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. It shows on the public page and in the hearing alert.</p>
+    <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. ${TRIAL ? 'In this trial it shows on the practice copy only.' : 'It shows on the public page and in the hearing alert.'}</p>
     <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
     <p class="ot-ex" id="${id}-x">For example: “Send testimony by ${esc(fmtDT(x.due))}. Two sentences in your own words are enough.”</p>
     <div id="${id}-e" role="alert"></div>
@@ -239,8 +239,9 @@ function shareHTML(x) {
 function cardHTML(x, { hl = false, lead = false } = {}) {
   const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);
   // D3: a deadline today is said with its time in bold (and how long is left once it is under 3 hours); any other day plain.
-  const today = hst(x.due) === hst(Date.now()), at = esc(whenAt(x.due));
-  const closes = `Testimony closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)} (Capitol)${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
+  const today = hst(x.due) === hst(Date.now()), at = esc(deadlineAt(x.due));
+  // R-370: the one deadline pattern (steps.js stepTime): "Capitol closes today 10 AM".
+  const closes = `Capitol closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)}${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
   // The card's foot is one row: on the left what to do (share, or write the ask), on the right how it is landing; on a
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';

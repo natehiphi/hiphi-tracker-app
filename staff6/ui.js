@@ -5,7 +5,7 @@
 // a text button, 'danger' only inside a confirm. Countdowns and urgency tiles follow A-5 on v6 as Nate decided it on 26 Oct
 // (R-344): amber for due today and while late testimony is still accepted, red only once the deadline has passed, anything
 // further out neutral with its distance in words. sectionNav() knows every v6 place's page tabs (spec 3.3, D12).
-import { S, STAGES, VB, effStage, esc, advocate, seesTeam } from './data.js';
+import { S, STAGES, VB, TRIAL, effStage, esc, advocate, seesTeam } from './data.js';
 import { stopOf, STAGE_GLOSS, clockDay, spanOf, timeLeft, lateLine, hstDayOf, whenAt } from './model.js';
 export { clockDay, lateLine };   // R-277 fix 3: it lives with the other time words in model.js; callers still import it from here
 import { icon } from '../icons.js';
@@ -333,11 +333,16 @@ export const skeleton = (n = 5) => `<div class="skelpage" aria-busy="true" aria-
 export const notice = (tone, ic, html, action = '') => `<div class="notice ${tone} sv-notice">${icon(ic)}<div>${html}</div>${action}</div>`;
 export const inlineErr = (id, text) => `<div class="inlinemsg" id="${esc(id)}" role="alert">${icon('circle-alert')}<span>${esc(text)}</span></div>`;
 
+// R-370: the line a trial's message and chair-email sheets carry, so nobody thinks a practice message went to a real person.
+export const PRACTICE_NOTE = 'Practice: nothing is sent.';
 // ---- toast: one at a time, in #toast; Undo keeps it 10 seconds ----
 export function toast(msg, opt = {}) {
   if (opt === true) opt = { err: true };
   // R-316 W43: a step refused because a teammate already took it is news, not a failure ("Nate approved it at 9:42 AM.").
   if (opt.err && msg?.raced) { opt = { ...opt, err: false }; msg = msg.message; }
+  // R-370: in a trial nothing reaches the public or the team, so a toast that says a thing shows on the public page or was
+  // sent/messaged says "(practice)". One place, so no screen's wording has to know (live and the practice copy are unchanged).
+  if (TRIAL && !opt.err && typeof msg === 'string' && /public page|\b(sent|messaged)\b|\bSlack message|\bgets a message|\bin their Inbox/i.test(msg) && !/practice/i.test(msg)) msg += ' (practice)';
   const box = document.getElementById('toast'); if (!box) return;
   // A toast raised while a sheet is open has to live inside that sheet. #toast sits in the ordinary page, and the
   // browser puts an open <dialog> in the top layer above everything there, so an Undo button left outside could be
@@ -438,13 +443,20 @@ export const sheetOpen = () => !!cur;
 let trigger = null, triggerAt = 0;
 document.addEventListener('click', e => { trigger = e.target?.closest?.('button, a, [role="button"]') || null; triggerAt = performance.now(); }, true);
 const anchorNow = () => trigger && trigger.isConnected && performance.now() - triggerAt < 400 && !trigger.closest('dialog') ? trigger : null;
-function place(d, anchor) {
-  const r = anchor.getBoundingClientRect(), w = d.offsetWidth, h = d.offsetHeight, m = 8;
+// R-370: a popover never covers the practice band or the trial band over the page (the calendar's hearing card opened above its
+// card, over the band, when the card sat low): its top edge is under whichever band is showing.
+const topEdge = () => { let t = 8; for (const q of ['#trialband', '.band']) { const r = document.querySelector(q)?.getBoundingClientRect(); if (r && r.height) t = Math.max(t, Math.round(r.bottom) + 8); } return t; };
+function place(d, anchor, beside = false) {
+  const r = anchor.getBoundingClientRect(), w = d.offsetWidth, h = d.offsetHeight, m = 8, edge = topEdge();
+  if (beside) {   // to the right of the card (else its left), level with it, inside the page; below it only when neither side has room
+    const left = r.right + 8 + w <= innerWidth - m ? r.right + 8 : r.left - w - 8;
+    if (left >= m) { d.style.left = Math.round(left) + 'px'; d.style.top = Math.round(Math.max(edge, Math.min(r.top, innerHeight - h - m))) + 'px'; return; }
+  }
   let left = r.left; if (left + w > innerWidth - m) left = Math.max(m, r.right - w);
-  let top = r.bottom + 6; if (top + h > innerHeight - m) top = r.top - h - 6 >= m ? r.top - h - 6 : Math.max(m, innerHeight - h - m);
+  let top = r.bottom + 6; if (top + h > innerHeight - m) top = r.top - h - 6 >= edge ? r.top - h - 6 : Math.max(edge, innerHeight - h - m);
   d.style.left = Math.round(left) + 'px'; d.style.top = Math.round(top) + 'px';
 }
-export function openSheet({ title, body, foot = '', size = 'half', onClose, wire, pop = false } = {}) {
+export function openSheet({ title, body, foot = '', size = 'half', onClose, wire, pop = false, beside = false } = {}) {
   // A sheet opened from another sheet takes over its Back entry instead of undoing it and pushing a new one
   // (a Back that lands late would otherwise undo the new sheet's entry).
   let reuse = false, back = document.activeElement;
@@ -464,7 +476,7 @@ export function openSheet({ title, body, foot = '', size = 'half', onClose, wire
   const y0 = window.scrollY;
   if (anchor) { d.style.left = '0px'; d.style.top = '0px'; }
   d.showModal();
-  if (anchor) place(d, anchor);
+  if (anchor) place(d, anchor, beside);
   // Focus: a field marked autofocus; else, with a keyboard and mouse, the thing Enter should do (the chosen option,
   // the first menu item, the main button), so "open, Enter" works; else the heading, which a screen reader reads first.
   // (one selector per try: a comma list answers with whichever comes first in the page, not the first in the list)

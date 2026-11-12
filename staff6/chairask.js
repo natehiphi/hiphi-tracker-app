@@ -12,10 +12,10 @@
 //   - "I asked another way" logs an ask made by phone, in person or another email, with "This was an ask for a hearing"
 //     ticked, so it counts as the ask, and unticked it is a plain talk with the chair (V24, F138);
 //   - one chair of a joint committee can be asked on its own, and only that chair is marked (V24, chairsOf).
-import { S, DB, DEMO, VB, esc, advocate, hooks } from './data.js';
+import { S, DB, DEMO, VB, TRIAL, esc, advocate, hooks } from './data.js';
 import { ASK_LOG, ASK_ANSWERS, ASK_MAILS, chairAskOf, chairIdsOf, askReply, billById, chairMail, legById, legsOf,
   legNotesAll, companionsOf, billByNum, billRoute, hearingAhead, codesOf, whenAt } from './model.js';
-import { icon, btn, toast, vbFinish, menuSheet, sheetOpen, openSheet, closeSheet, ASK_TAB } from './ui.js';
+import { PRACTICE_NOTE, icon, btn, toast, vbFinish, menuSheet, sheetOpen, openSheet, closeSheet, ASK_TAB } from './ui.js';
 import { STATES, chairKey } from './verbs.js';   // R-344: the chair-ask states' shapes
 import { sayWords } from './steps.js';   // a bill as staff say it, with no draft code (D15); steps.js imports this file too (used in functions only)
 
@@ -99,10 +99,10 @@ export function sentSheet(e) {
   if (!e || sheetOpen?.()) return;
   const bills = e.items.map(x => billById(x.id)).filter(Boolean), what = bills.length === 1 ? sayWords(bills[0]) : plural(bills.length, 'bill');
   if (bills.length < 2) return menuSheet({ title: 'Did you send it?', items: [
-    { label: 'Yes, I sent it', icon: 'check', sub: `Saved for the team: you asked ${e.who} ${e.decide ? 'to schedule a vote' : 'for a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
+    { label: 'Yes, I sent it', icon: 'check', sub: `${TRIAL ? PRACTICE_NOTE + ' ' : ''}Saved for the team: you asked ${e.who} ${e.decide ? 'to schedule a vote' : 'for a hearing'}`, run: () => recordAsk(e.items, 'asked', { decide: e.decide }) },
     { label: 'Not yet', icon: 'clock', sub: 'Nothing is saved; the button stays', run: () => {} }] });
   openSheet({ title: 'Did you send it?', size: 'auto',
-    body: `<div class="ca-sheet"><p class="ca-lead">${esc(`To ${e.who} · ${what}`)}</p>${billTicks(bills, 'Which bills did it ask about?')}<p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}Tick the bills the email asked about.</p></div>`,
+    body: `<div class="ca-sheet"><p class="ca-lead">${esc(`To ${e.who} · ${what}`)}</p>${TRIAL ? `<p class="small muted">${PRACTICE_NOTE}</p>` : ''}${billTicks(bills, 'Which bills did it ask about?')}<p class="err" id="ca-err" role="alert" hidden>${icon('circle-alert')}Tick the bills the email asked about.</p></div>`,
     foot: `${btn('Not yet', { kind: 'text', attrs: { 'data-no': '1' } })}${btn('Yes, I sent it', { kind: 'primary', icon: 'check', attrs: { 'data-go': '1' } })}`,
     wire: d => {
       d.querySelector('[data-no]').onclick = () => closeSheet();

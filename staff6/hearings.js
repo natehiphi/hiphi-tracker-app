@@ -502,13 +502,13 @@ function calPanel(e) {
     title = committeeName(h.committee) || h.committee;
     body = `<p class="hb-pw">${icon('clock')}<span>${esc(when(e.t))}${room ? ` · ${esc(room)}` : ''}</span></p>${e.cancelled ? '<p class="hb-pw">Cancelled, no new date yet</p>' : ''}
       ${goingTo(e.x.rows) ? `<p class="hb-pw hb-pgo">${icon('user-check')}<span>You’re going</span></p>` : ''}
-      ${e.bills.length ? `<h3 class="hb-ph">${esc(e.bills.length === 1 ? 'Our bill' : `Our ${e.bills.length} bills`)}</h3>${ul(e.bills.map(y => billLi(y.b, stepOfB(y.r, y.b))).join(''))}${issueTags(e.bills.map(y => y.b))}` : ''}`;
+      ${e.bills.length ? `<h3 class="hb-ph">${esc(e.bills.length === 1 ? 'Our bill' : `Our ${e.bills.length} bills`)}</h3>${ul(e.bills.map(y => billLi(y.b, stepOfB(y.r, y.b))).join(''))}` : ''}`;   // R-370: no issue line under the bills ("Free bus rides for kids +1")
     foot = hearingBtn(h);
   } else if (e.k === 'due') {
     const h = e.h, cn = committeeName(h.committee) || h.committee;
     title = 'Testimony due';
     body = `<p class="hb-pw">${icon('clock')}<span>${esc(when(e.t))}</span></p><p class="hb-pw">${icon('gavel')}<span>${esc(`For ${weekdayLong(h.scheduled_at)}’s ${cn} hearing`)}</span></p>
-      <h3 class="hb-ph">${esc(e.bills.length === 1 ? 'The bill' : `${e.bills.length} bills`)}</h3>${ul(e.bills.map(y => billLi(y.b, y)).join(''))}${issueTags(e.bills.map(y => y.b))}`;
+      <h3 class="hb-ph">${esc(e.bills.length === 1 ? 'The bill' : `${e.bills.length} bills`)}</h3>${ul(e.bills.map(y => billLi(y.b, y)).join(''))}`;
     foot = hearingBtn(h);
   } else {
     const g = gateGloss(e.d.label), lab = gateLabel(e.d.label);
@@ -516,7 +516,7 @@ function calPanel(e) {
     body = `<p class="hb-pw">${icon('flag')}<span>A Capitol deadline</span></p>${g ? `<p class="hb-pg">${esc(g.charAt(0).toUpperCase() + g.slice(1))}.</p>` : ''}`;
     foot = btn('More about this deadline', { kind: 'text', href: `#/help/words?w=${encodeURIComponent(lab)}`, attrs: { 'data-hbgo': '1' } });
   }
-  openSheet({ title, pop: true, body: `<div class="hb-panel">${body}</div>`, foot,
+  openSheet({ title, pop: true, beside: true, body: `<div class="hb-panel">${body}</div>`, foot,
     wire: d => d.querySelectorAll('[data-hbgo], a.hc-bl, a.hc-iss').forEach(a => a.addEventListener('click', ev => {
       ev.preventDefault(); const to = a.getAttribute('href'); closeSheet({ silent: true }).then(() => S.go(to)); })) });
 }

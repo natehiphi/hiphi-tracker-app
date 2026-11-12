@@ -9,10 +9,10 @@
 // the newest entry is there, and a fixed box over the tab bar took a fifth of a small screen.
 // Above the stream, the conversations with legislators logged on this bill or under any of its issues (R-022 wave 2 #9,
 // conversation.js), shown once there is one. A message shows Reply; Copy text and Delete are in its "…" (F121).
-import { S, DB, LOG_TYPES, esc, fmtDate, fmtDT, advocate } from './data.js';
+import { S, DB, TRIAL, LOG_TYPES, esc, fmtDate, fmtDT, advocate } from './data.js';
 import { unreadCount, hstDayOf } from './model.js';
 import { committeeName, versionWords, COMMITTEES } from './steps.js';
-import { icon, btn, iconBtn, avatar, toast, menuSheet, confirmSheet, segmented } from './ui.js';
+import { PRACTICE_NOTE, icon, btn, iconBtn, avatar, toast, menuSheet, confirmSheet, segmented } from './ui.js';
 import { rerender, drafts, firstName, dayOf, viewIsNew, afterBack } from './bill.js';
 import { issuesOfBill } from './issues.js';
 import { convSectionHTML, wireConvSection, logConversation, refreshConversations } from './conversation.js';
@@ -200,6 +200,7 @@ export function composerBar(b) {
     <div class="bw-crow"><label class="sr" for="bw-chat">${esc(BOX_NAME[k])}</label>
       <textarea id="bw-chat" rows="${k === 'msg' ? 1 : 3}" maxlength="4000" placeholder="${esc(HINT[k])}">${esc(d)}</textarea>
       <button type="submit" class="bw-send" aria-label="${esc(SEND[k])}" title="${esc(SEND[k])}">${icon(k === 'talk' ? 'arrow-right' : 'send')}</button></div>
+    ${TRIAL && k === 'msg' ? `<p class="small muted bw-practice">${PRACTICE_NOTE}</p>` : ''}
     ${k === 'note' ? `<label class="bw-ntype"><span>What kind</span><select id="bw-ntype" class="input">${NOTE_TYPES.map(([v, l]) => `<option value="${v}"${v === nt ? ' selected' : ''}>${esc(NOTE_WORD[v] || LOG_LABEL[v] || l)}</option>`).join('')}</select></label>` : ''}
   </form>`;
 }

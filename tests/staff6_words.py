@@ -34,9 +34,9 @@ from staff6_budget import ROUTES
 # ---- 3: the wordings of each testimony state; the first is v6's one wording (spec 5 testimonyState) ----
 STATES = [   # a leading "=" keeps the case (a capitalised label); the rest ignore case. Verbs (Approve, Revise and resubmit)
              # are steps, not states, and are not counted.
-  # "Writing · not started" is the Writing state's one wording for no draft yet (12.6); "not started" alone is another. Today's rows say the
+  # R-370: a hearing with no draft yet is "Not started" alone (it was "Writing · not started"). Formerly: "Writing · not started" is the Writing state's one wording for no draft yet (12.6); "not started" alone is another. Today's rows say the
   # same line in one piece, a comma for the dot ("Writing, not started, by ..."), because their name already holds a dot (steps.js statusLine flat).
-  ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'(?<!Writing\s*[·•,]?\s*)\bnot started\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
+  ('Writing', [r'=\bWriting\b', r'\bbeing written\b', r'\bdraft in progress\b', r'\bno (?:testimony )?draft(?: yet)?\b', r'=\bDraft\b(?! [a-z])']),
   # the flag, naming nobody (11.5, 12.6): "sent back", or "Sent back" where a label or a sentence starts (12.6: one
   # wording, any case). A capital in the middle of a sentence ("was Sent back", after a lower-case word or a comma) is
   # another wording, and so is naming who sent it.
@@ -50,9 +50,11 @@ STATES = [   # a leading "=" keeps the case (a capitalised label); the rest igno
   ('Missed', [r'=\bMissed\b', r'\bnot filed\b', r'\bwasn.t filed\b', r'\bno testimony filed\b']),
 ]
 # ---- 6: one status phrase per state (decision 9) ----
-STATE_RX = r'(Writing(?:(?: ·|,) (?:sent back|not started))?|With an approver|Second look|Ready to file)(?![a-z])'   # Today\'s flat rows use a comma for the dot
-TIME_RX = (r'(?:(?:by|due|was due) (?:(?:today|tomorrow|[A-Z][a-z]{2} \d{1,2}/\d{1,2}),? \d{1,2}:\d{2} [AP]M|\d{1,2}:\d{2} [AP]M(?: (?:today|tomorrow))?)'
-           r'|late, still accepted until \d{1,2}:\d{2} [AP]M)')
+STATE_RX = r'(Writing(?:(?: ·|,) sent back)?|Not started|With an approver|Second look|Ready to file)(?![a-z])'   # Today\'s flat rows use a comma for the dot
+# R-370: the one deadline pattern (steps.js stepTime): "Draft to the team by Tue 4 PM · Capitol closes Wed 9:30 AM", "Capitol closes today 10 AM",
+# late "Past our deadline · Capitol closes today 1:10 PM". Both deadlines on one row is the pattern now, not a clash.
+TIME_RX = (r'(?:(?:(?:Draft to the team|Approval|File|draft to the team|approval|file) by|Capitol closes|Capitol closed) (?:today|tomorrow|[A-Z][a-z]{2}(?: \d{1,2}/\d{1,2})?) \d{1,2}(?::\d{2})? [AP]M'
+           r'|[Pp]ast our deadline)')
 ROUTES6 = {'KV': ['/', '/hearings', '/hearings/ask', '/issues', '/issues/bills', '/issues/all', '/testimony'],
            'NT': ['/', '/hearings', '/hearings/ask', '/issues', '/issues/bills', '/issues/all', '/testimony', '/team', '/coalition/' + L.HEAL],
            'KR': ['/', '/hearings', '/issues/bills', '/testimony'], 'LR': ['/', '/hearings', '/issues/bills', '/testimony']}
@@ -93,14 +95,13 @@ def rule6(R, b):
       st = re.search(STATE_RX, it['text']); tm = re.search(TIME_RX, it['text'])
       lab = next((m for m in LABEL_RX.finditer(it['text']) if not re.match(r' \((?:team cut-off|team|Capitol)\)', it['text'][m.end():])), None)
       if lab: unlabelled.append(f"{it['route']}: \"{it['text'][:70]}\"")
-      if re.search(r'\((?:team cut-off|team)\)', it['text']) and re.search(r'\(Capitol\)', it['text']): both.append(f"{it['route']}: \"{it['text'][:70]}\"")
       if not key or not st: continue
       d = per.setdefault(key, {'state': {}, 'time': {}})
       d['state'].setdefault(re.sub(r'^Writing,', 'Writing ·', st.group(1)), set()).add(it['route'])
-      if tm: d['time'].setdefault(re.sub(r', in \d+ \w+$', '', tm.group(0)), set()).add(it['route'])
+      if tm: d['time'].setdefault(re.sub(r', in \d+ \w+$', '', tm.group(0)).lower(), set()).add(it['route'])
     clash = [f"{k}: " + '; '.join(f"\"{v}\" on {', '.join(sorted(rs))}" for kind in ('state', 'time') for v, rs in d[kind].items()) for k, d in per.items() if len(d['state']) > 1 or len(d['time']) > 1]
     R.check(f'{NAMES_[who]}: one status phrase per bill on every screen ({len(per)} bills, {len(items)} lines read)', not clash, ' | '.join(clash[:3]))
-    R.check(f'{NAMES_[who]}: every time says whose it is (team cut-off / Capitol), never both on a row', not unlabelled and not both, ' | '.join((unlabelled + both)[:3]))
+    R.check(f'{NAMES_[who]}: no time is a bare "by" or "due" without whose it is (the team or the Capitol)', not unlabelled and not both, ' | '.join((unlabelled + both)[:3]))
     seen = {k for k, d in per.items() if d['time']}
     R.check(f'{NAMES_[who]}: the lines read carry times (the check is not empty)', bool(per), '' if per else 'no status lines found')
 
