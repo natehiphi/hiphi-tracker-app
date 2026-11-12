@@ -268,7 +268,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(/class="v6-step-chair"/.test(ownAsk) && /chair of Senate Health and Human Services/.test(askT), 'the chair is named on the line under the sentence, with the committee');
   // Follow up: the asker's own row and filled button after 3 working days with no reply.
   const fu = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: KV }) })).find(x => x.s.kind === 'chair' && x.s.ask.followUp && x.s.you);
-  ok(!!fu && /^Follow up · asked /.test(fu.s.line) && /no reply$/.test(fu.s.line), `the asker's row says to follow up: "${fu && fu.s.line}"`);
+  ok(!!fu && /^Follow up · (no reply|left a message, no reply) since [A-Z][a-z]{2} \d{1,2}\/\d{1,2}$/.test(fu.s.line), `the asker's row says to follow up: "${fu && fu.s.line}"`);
   if (fu) { const c = X.stepCard(fu.b, { viewer: KV, where: 'today' });
     ok(/btn primary[^"]*"[^>]*href="mailto:[^"]*Following%20up/.test(c) && /They replied/.test(c), 'its filled button emails the chair again (the subject says it follows up), They replied tonal');
     ok(X.rowButtonOK(fu.s) && /again/.test(X.billRow(fu.b, { viewer: KV })), 'the row carries the same Email the chair again'); }

@@ -472,7 +472,7 @@ function rowWords(it, v = S.me, soon = false) {
       if (a?.by != null) line = a.by <= endOfDay() ? `By ${dayWords(a.by)}` : soon ? (s.line || line) : `Ask this week, by ${dayWords(a.by)}`; }   // B-11, decision 8: Do today says why it is here (one piece, a comma); Coming up says the step in askWords' one wording
     // the follow-up says when it was asked ("Asked Tue 3/10, no reply"); whom, in the open item (one line a row)
     // R-352 (I, A-25): the button says "Follow up", so the row says what was done, as the ask board does ("Asked by you")
-    else if (it.kind === 'followask') { job = 'Asked the chair'; line = (s.line || '').replace(/ · /g, ', '); }   // decision 9: steps.js chairLine's wording ("Follow up, asked Tue 3/10, no reply"), a comma for the dot as this row's name holds one
+    else if (it.kind === 'followask') { job = 'Asked the chair'; line = s.line || ''; }   // R-373: steps.js chairLine's wording ("Follow up · no reply since Tue 3/10"), as it is: this row's name holds no dot, and "asked" was said twice
     else if (newNotice(it)) line = `New hearing ${dayWords(it.h.scheduled_at)} · send by ${dayWords(s.act?.at ?? s.due)}`;
     const tone = ['late', 'overdue'].includes(st.tone) ? st.tone : '';
     // only a step due today or late keeps the amber time (D3): a chair ask due later this week is plain words
@@ -503,7 +503,7 @@ function jobButton(it, v) {
   const b = it.b;
   if (it.kind === 'chair') return rowButton(it.s);
   const fb = it.kind === 'followask' ? btn('Follow up', { kind: 'secondary', sm: true, icon: PIC.follow.btnIcon, attrs: { 'data-hgact': 'follow', 'data-hgb': b.id, 'data-hgcode': it.s.ask.code, 'aria-haspopup': 'dialog', 'aria-label': `Follow up: ${sayWords(b)}` } }) : '';
-  if (it.kind === 'followask') return VB ? fb + btn('Mark it done', { kind: 'text', sm: true, attrs: { 'data-t6act': 'fudone', 'data-t6k': it.key, 'aria-label': `Mark the follow-up done: ${sayWords(b)}` } }) : fb;
+  if (it.kind === 'followask') return fb;   // R-373 (A-3 on v6: one tonal button a row): "Mark it done" moved to the open item (fuDoneBtn)
   if (it.kind === 'stale') return '';
   if (it.s && b) return it.s.you && rowButtonOK(it.s) ? rowButton(it.s) : '';
   const r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
@@ -570,8 +570,8 @@ function vbReviewGroup(items, nextD) {
   if (!list.length) return '';
   const rows = list.map(x => {
     const { b, d, h } = x, s = billStep(b, { viewer: S.me, d, h }), st = s ? shownStatus(s) : null;
-    const when = s ? statusLine(s, { flat: true }) : x.due ? `Testimony due ${capitolAt(x.due)}` : '';
-    const line = [when, d.submitted_by && d.submitted_by !== S.me.id ? `Sent by ${first(d.submitted_by)}` : ''].filter(Boolean).join(' · ');
+    const when = s ? statusLine(s) : x.due ? `Testimony due ${capitolAt(x.due)}` : '';
+    const line = [when, d.submitted_by && d.submitted_by !== S.me.id ? `sent by ${first(d.submitted_by)}` : ''].filter(Boolean).join(', ');   // R-373: the status line's own dot stays, so "sent by" joins with a comma (a row keeps four facts)
     const tone = st && ['late', 'overdue'].includes(st.tone) ? st.tone : '';
     const go = `#/review/${encodeURIComponent(x.key)}?from=today`;
     return vbRowIssue(itemRow({ key: 'rv:' + x.key, name: nameWords(b), num: numWords(b), line: nw(esc(line)), tone, icon: tone ? st.icon : 'clock', href: billRoute(b), cls: 'vb-rv',
@@ -708,7 +708,15 @@ function sharedWords(it, v = S.me) {
   const wh = it?.s?.whose; if (!wh || !wh.you || wh.role !== 'write' || (wh.ids || []).length < 2) return '';
   return `Shared with ${orWords(wh.ids.filter(id => id !== v.id), v, { and: true })}: whoever does it first`;
 }
+// R-373: the follow-up's "Mark it done" lives in the open item and the next-step card, at the end of the step's buttons (it was a
+// second button on the row). The Follow up sheet and the email app cannot tell Today it was sent, so the asker says so here.
+function fuDoneBtn(html, it) {
+  if (!VB || it?.kind !== 'followask') return html;
+  const b = btn('Mark it done', { kind: 'text', icon: 'check', attrs: { 'data-t6act': 'fudone', 'data-t6k': it.key, 'aria-label': `Mark the follow-up done: ${sayWords(it.b)}` } });
+  return html.replace(/(<div class="v6-step-acts[^"]*"[^>]*>[\s\S]*?)(<\/div>)/, `$1${b}$2`);
+}
 function shared(html, it, v = S.me) {
+  html = fuDoneBtn(html, it);
   const words = sharedWords(it, v); if (!words) return html;
   const inner = `${icon('users')}<span>${esc(words)}</span>`;
   // It joins the card's meta line (the due tile), which wraps: side by side where there is room, its own line on a phone.

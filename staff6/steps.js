@@ -26,7 +26,7 @@ import { S, DB, VB, IC, esc, advocate, capitolUrl, hooks, SESSION_OVER } from '.
 import { stopOf, diedish, wantsHearing, hearingAhead, draftHearing, sittingDraft, filerOf, canFirstApprove, canSecondApprove, standingIn,
   attendees, chairMail, chairAskOf, chairAskMail, chairIdsOf, askWords as stopAsk, gateNeed,
   whenAt, clockDay, lateLine, timeFirst, spanOf, roomName, blurb, billRoute, billYearPart, codesOf, movedFrom, isDecision,
-  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt, capitolAt, teamTimeAt } from './model.js';
+  streamOf, billById, offTag, legById, askReply, billRef, deadlineAt, capitolAt, teamTimeAt, hstDayOf } from './model.js';
 import { icon, btn, toast, vbFinish, openSheet, closeSheet, pickerSheet, goingBtn, docBtn, mayUnfile, segmented, field, avatar } from './ui.js';
 import { SL, sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { ACTS as PIC, rowLead, iconizeButtons, testimonyTrack, STATES, chairKey, BTN_ICON, dropVerb } from './verbs.js';   // R-344: the one table of action pictures and status shapes
@@ -76,6 +76,9 @@ export function fullName(b) {
 // A teammate's first name, "you" for the viewer, and "(turned off)" for someone who is (R-316 W28).
 export const firstWords = (id, viewer) => { const v = meOf(viewer); if (v && id === v.id) return 'you';
   const a = advocate(id); return a ? (String(a.full_name || '').split(' ')[0] || 'Someone') + offTag(a) : 'Someone'; };
+// R-373 (C-10): a teammate's full name ("May Rose") where a first name beside a time reads as a month ("Filed by May today 7:00 AM"), "you" for the viewer.
+export const fullWords = (id, viewer) => { const v = meOf(viewer); if (v && id === v.id) return 'you';
+  const a = advocate(id); return a ? (String(a.full_name || '').trim() || 'Someone') + offTag(a) : 'Someone'; };
 // "Kris", "Kris or Nate", "Kris, Jess or Nate"; the viewer first, as "you".
 export function orWords(ids, viewer, { and = false } = {}) {
   const v = meOf(viewer), list = uniq(ids), mine = v && list.includes(v.id);
@@ -508,7 +511,7 @@ function finishStep(step, v) {
   if (step.you && step.status.tone === 'neutral' && step.act?.at != null && step.act.at > now && (step.act.at - now <= 2 * HR || hday(step.act.at) === hday(now)))
     step.status = { ...step.status, tone: hday(step.act.at) === hday(now) ? 'today' : 'neutral', icon: 'clock', soon: true };
   if (step.you && step.act?.kind === 'now' && step.status.tone === 'neutral') step.status = { ...step.status, tone: 'today', icon: 'clock', soon: true };
-  if (step.state?.key === 'filed') step.doneWords = `Filed${step.d.filed_by ? ` by ${firstWords(step.d.filed_by, v)}` : ''}${step.d.filed_at ? ` ${whenAt(step.d.filed_at)}` : ''}`;
+  if (step.state?.key === 'filed') step.doneWords = `Filed${step.d.filed_by ? ` by ${fullWords(step.d.filed_by, v)}` : ''}${step.d.filed_at ? `${step.d.filed_by ? ' ·' : ''} ${whenAt(step.d.filed_at)}` : ''}`;
   step.mine = step.you || (!!v && ownersOf(b).includes(v.id));
   step.takeFor = step.nobody && takeFor(b, v);
   step.line = rowLine(step, v);
@@ -546,7 +549,7 @@ function rowLine(s, v) {
 // `lateSaid`: the hearing card already says the late window once, so a late row says only "late" (toned) or nothing.
 // `soon: false` leaves out ", in 59 min" (a small card). `flat`: one piece, a comma for the dot, for a row whose name already holds a dot (Today's "File testimony · Bill").
 // R-370 (trial walk 11/11): ONE deadline pattern on Testimony rows, Today, the hearing page and Outreach, built only here:
-// "Draft to the team by Tue 4 PM · Testimony due Wed 3/18, 9:30 AM" (both when both are ahead), "Testimony due today 10 AM" when only
+// "Draft to the team by Tue 4 PM (a day before the Capitol’s Wed 9:30 AM)" (both when both are ahead, R-373: one fact, gapWords), "Testimony due today 10 AM" when only
 // the Capitol's is left, and late "Late · Testimony due today 1:10 PM". It replaces "due today 2:00 PM (Capitol)",
 // "by 4:00 PM tomorrow (our deadline)" and "late, still accepted until ...", which mixed three wordings for two deadlines.
 const TEAM_BY = { write: 'Draft to the team by', nodraft: 'Draft to the team by', submit: 'Draft to the team by', revise: 'Draft to the team by',
@@ -557,14 +560,28 @@ const TEAM_BY = { write: 'Draft to the team by', nodraft: 'Draft to the team by'
 const TEAM_WORD = { write: 'draft', nodraft: 'draft', submit: 'draft', revise: 'draft', approve: 'approval', review: 'approval', second: 'approval', review2: 'approval', file: 'file' };
 export function lateWords(s) {
   const hours = HAND[s.kind], w = TEAM_WORD[s.kind], due = ms(s.due);
-  return hours && w && due != null ? `Late for our ${teamTimeAt(handTime(due, hours))} ${w} time` : 'Late for our deadline';
+  return hours && w && due != null ? `Our ${w} time passed ${teamTimeAt(handTime(due, hours))}` : 'Our deadline passed';   // R-373 (C-10): "Late for our Sun 11:10 AM file time" read as a riddle
+}
+// R-373: how far the Capitol's close is after the team's time, said once and by whichever the reader needs: "2 hours before the
+// Capitol's 9:30" on the same day (its clock only; AM or PM only when it differs from the team's), "a day before the Capitol's
+// Thu 9:30 AM" when the days differ (the weekday, and the date from a week out; "a day" only from 24 hours, else the hours). The one place this is worded.
+const hstClock = t => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Pacific/Honolulu' }).replace(':00', '');
+export function gapWords(teamAt, capAt) {
+  const ms = capAt - teamAt, h = ms / 36e5, n = Math.round(h), sameDay = hstDayOf(capAt) === hstDayOf(teamAt);
+  const days = Math.floor(h / 24), span = h >= 24 ? (days === 1 ? 'a day' : `${days} days`) : h < 1 ? `${Math.max(1, Math.floor(ms / 6e4))} min` : `${n} hour${n === 1 ? '' : 's'}`;
+  const c = hstClock(capAt);
+  if (sameDay) return `${span} before the Capitol’s ${c.slice(-2) === hstClock(teamAt).slice(-2) ? c.replace(/ [AP]M$/, '') : c}`;
+  const o = { timeZone: 'Pacific/Honolulu' }, d = new Date(capAt), wk = d.toLocaleDateString('en-US', { weekday: 'short', ...o });
+  const date = capAt - Date.now() > 6 * 864e5 ? ` ${d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', ...o })}` : '';
+  return `${span} before the Capitol’s ${wk}${date} ${c}`;
 }
 export function stepTime(s, { lateSaid = false, toned = false, soon = true } = {}) {
   const tone = s.status?.tone, a = s.act, now = Date.now(), ls = t => soon ? leftSoon(t) : '';
-  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `${lateWords(s)} · testimony due ${capitolAt(s.until)}`;
+  if (tone === 'late') return lateSaid ? (toned ? 'late' : '') : `${lateWords(s)}, testimony due ${capitolAt(s.until)}`   // R-373: one fact, so a comma (the row's dots count its facts);
   if (tone === 'overdue') return `Testimony was due ${capitolAt(s.due)}`;
   const cap = s.due != null ? capitolAt(s.due) : '';
-  if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${ls(a.at)}${cap ? ` · Testimony due ${cap}` : ''}`;
+  // R-373 (P-4, A-14): both times as ONE fact, the team's with the Capitol's in brackets, so nobody has to work out whose is whose
+  if (a?.kind === 'hand' && a.at > now) return `${TEAM_BY[s.kind] || 'Team deadline'} ${deadlineAt(a.at)}${cap && s.due > a.at ? ` (${gapWords(a.at, s.due)})` : ''}${ls(a.at)}${cap && !(s.due > a.at) ? ` · Testimony due ${cap}` : ''}`;
   if (s.due != null) return `Testimony due ${cap}${ls(s.due)}`;
   return '';
 }
@@ -588,7 +605,8 @@ export function statusLine(s, { lateSaid = false, toned = false, flat = false, w
   const rest = [st.sentBack ? 'sent back' : '', who ? whoWords(s) : ''].filter(Boolean).join(', '), time = stepTime(s, { lateSaid, toned, soon });
   // the flag and whose step join the time with a comma, so a row keeps its four facts (state · who, by when · Capitol time)
   const t2 = time && (flat || rest) ? (/^Capitol/.test(time) ? time : lc(time)) : time;
-  return flat ? [head, rest, t2.replace(' · ', ', ')].filter(Boolean).join(', ') : [head, [rest, t2].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  // R-373 (C-10): the dot is the one separator everywhere but `flat`, kept only for Today's job rows, whose name ("Approve testimony · Bill") already holds a dot and would make 5 facts (spec 8)
+  return flat ? [head, rest, t2].filter(Boolean).join(', ') : [head, [rest, t2].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
 }
 const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
 // A chair ask's line: the asker's own Follow up after 3 working days with no reply (spec 6), whose first for someone
@@ -596,8 +614,8 @@ const lc = w => w ? w[0].toLowerCase() + w.slice(1) : w;
 // Kevin Tue 3/10 · no reply yet").
 export function chairLine(s, v) {
   const a = s.ask, ask = a.chair || 'the chair';
-  // Decision 9, C-10: the state, then what was done: "Follow up · asked Tue 3/10, no reply" (the chair is named in the open step, and the button)
-  if ((a.key === 'waiting') && a.followUp && s.you) return `Follow up · asked ${dayWords(a.at)}, ${a.answer === 'left_message' ? 'left a message' : 'no reply'}`;
+  // Decision 9, C-10: the state, then what was done: "Follow up · no reply since Tue 3/10" (R-373: "asked" was said twice with the row's name; the chair is named in the open step, and the button)
+  if ((a.key === 'waiting') && a.followUp && s.you) return `Follow up · ${a.answer === 'left_message' ? 'left a message, no reply' : 'no reply'} since ${dayWords(a.at)}`;
   if (a.key !== 'ask' || s.you) return a.words;
   const by = a.decide ? `to schedule a vote${a.day ? ` by ${a.day}` : ''}` : `by ${a.day}`;
   if (s.nobody) return `${NO_OWNER} · ask ${ask} ${by}`;
