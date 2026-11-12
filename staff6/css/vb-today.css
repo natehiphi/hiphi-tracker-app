@@ -38,3 +38,11 @@ html.vb .vb-rv-back { display: inline-flex; align-items: center; gap: 4px; min-h
 html.vb .vb-rv-back:hover { background: var(--v6-wash, #e8f3f1); }
 html.vb .vb-rv-back:focus-visible { outline: 2px solid var(--v6-action, #0b6b7a); outline-offset: 2px; }
 html.vb .vb-rv-back svg { width: 20px; height: 20px; }
+
+/* R-373 (A-3 and C-14 on v6): the follow-up row keeps its one tonal button; below 900px the button sits under the words, left
+   under the name, so the name reads on one or two lines instead of one word a line beside two buttons */
+@media (max-width: 899px) {
+  html.vb .v6-row.t6-k-followask { flex-wrap: wrap; align-items: flex-start; row-gap: 0; }
+  html.vb .v6-row.t6-k-followask > .vb-rowcol, html.vb .v6-row.t6-k-followask > .v6-row-main { flex: 1 1 100%; }
+  html.vb .v6-row.t6-k-followask > .v6-row-act { flex: 1 1 100%; justify-content: flex-start; padding: 0 0 12px; }
+}
