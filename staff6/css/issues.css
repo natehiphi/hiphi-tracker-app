@@ -1018,3 +1018,14 @@ body.staff6 .is6-follow { min-width: 9.5em; justify-content: center; }
 body.staff6 .pr6-carry { margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
 body.staff6 .pr6-carry ul { margin: var(--s8) 0 0; padding: 0; list-style: none; display: grid; gap: var(--s8); }
 body.staff6 .pr6-co { color: var(--v6-muted); }
+
+/* ---- Issue colours on All issues (R-373; the tokens are myissues.css .ic-N) ----
+   The card gets the soft edge, its small icon becomes the issue's tile (a rounded square, never round: A-5 on v6). */
+body.staff6 .ig6-cell.ic-edge > .ig6-card { box-shadow: inset 5px 0 0 var(--mi-mark), var(--v6-sh1); }
+body.staff6 .ig6-cell.ic-edge .ig6-link { padding-left: 20px; }
+body.staff6 .ig6-ic.ig6-ictile { align-items: center; justify-content: center; width: 28px; height: 28px; margin-top: -1px; border-radius: 8px; background: var(--mi-tint); color: var(--mi-ink); }
+body.staff6 .ig6-ic.ig6-ictile .ic, body.staff6 .ig6-ic.ig6-ictile svg { width: 18px; height: 18px; }
+@media (hover: hover) and (pointer: fine) { body.staff6 .ig6-cell.ic-edge > .ig6-card:hover { box-shadow: inset 5px 0 0 var(--mi-mark), var(--v6-sh2); } }
+@media (max-width: 599px) {
+  body.staff6 .ig6-cell.ic-edge > .ig6-card { box-shadow: inset 5px 0 0 var(--mi-mark); }
+}

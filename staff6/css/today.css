@@ -1235,3 +1235,6 @@ body.staff6 .t6-nexth, body.staff6 .t6-ghd { margin-bottom: 8px; }   /* R-352: 8
 @media (min-width: 1100px) {
   body.staff6 .t6-ld:not(.open):has(> .t6-col > .t6-nextcol > .t6-next) > .t6-aside { padding-top: calc(var(--v6-lh22, 28px) + 8px); }
 }
+
+/* R-373: the issue chip on Today wears the issue's own colour (a rounded square-cornered chip, icon and name in the ink on the wash) */
+body.staff6 a.t6-iss.ic-for { background: var(--mi-tint); color: var(--mi-ink); font-weight: 700; border-radius: 7px; }

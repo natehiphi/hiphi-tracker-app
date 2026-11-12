@@ -447,3 +447,7 @@ body.staff6 .bl-fwho { margin-bottom: 16px; }
    in the body face, the count in the small number style beside it. Their fold behaves as before. */
 .bl-gh:has(> .bl-ghb) { font: 600 var(--v6-t16)/1.2 Lato, system-ui, sans-serif; color: var(--v6-muted); letter-spacing: 0; }
 .bl-gh:has(> .bl-ghb) .bl-gn { font: 400 var(--v6-t14)/1 Lato, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+
+body.staff6 .bl-rowsv .bl-groups .v6-row.ic-edge { box-shadow: inset 5px 0 0 var(--mi-mark), var(--v6-sh1); padding-left: 12px; }
+/* R-373: a picked bill keeps both its action edge and its issue's colour edge (the colour stays outside, the pick inside) */
+body.staff6 .bl-rowsv .bl-groups .v6-row.bl-cur.ic-edge { box-shadow: inset 5px 0 0 var(--mi-mark), inset 8px 0 0 var(--v6-action), var(--v6-sh1); }

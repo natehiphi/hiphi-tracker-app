@@ -39,7 +39,7 @@
 //                               so always Cleared or Not yet. Stopped: no bill on HIPHI's side still moving, or none.
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
-import { S, DB, DEMO, VB, esc, SESSION_OVER } from './data.js';
+import { S, DB, DEMO, VB, IC, esc, SESSION_OVER } from './data.js';
 import { stopOf, codesOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS, HEALTH, issueHealth } from './model.js';
 import { icon, iconBtn, toast, btn } from './ui.js';
 import { sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
@@ -48,7 +48,7 @@ import { numWords, dayWords, committeeName, nw, chairStepWords, billStep, stepTi
 import { hearPart, markOf, byUrgency, rowOf, searchHTML, searcher, FEW, standOf } from './issuestand.js';
 import { vbStepsOn, vbItemWords, vbDueToday, vbJobButton } from './today.js';   // a cycle (today.js reads steps.js, not this), used only when a page draws
 import { ICONS } from '../icons.js';
-import { issueIcon } from './issuegrid.js';
+import { issueIcon, icCls, icEdge } from './issuegrid.js';
 
 const AGAINST = new Set(['strongly_oppose', 'oppose']);
 const THROUGH = new Set(['governor', 'law', 'ballot']);
@@ -169,7 +169,8 @@ const tagsOf = j => [j.own ? '' : j.x.follow ? 'You follow' : 'You help', !j.nee
 const tagHTML = j => tagsOf(j).map(t => `<span class="mi-tag">${esc(t)}</span>`).join('');
 // The issue's own icon, else its topic's (issuegrid.js issueIcon, R-339): one small drawing in the topic's ink beside the
 // name, no tile (R-352, A-18 on v6). Topics' shelves keep their headings' tinted tiles (FIX-3: the topic is what they sort by).
-const topicIc = i => `<span class="mi-ic mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>`;
+// R-373: with issue colours on (data.js IC) the icon is the issue's own coloured tile instead (css/myissues.css .mi-ic.ic-N).
+const topicIc = i => `<span class="mi-ic mi-c-${esc(i.category || 'none')}${icCls(i)}" aria-hidden="true">${icon(issueIcon(i))}</span>`;
 
 // ---- the switch (remembered for the person) ----
 // Four views (R-352 FIX-3, Nate 28 Oct): Deadlines (the default), Status, Topics and Spreadsheet, as words (no tab icons,
@@ -307,7 +308,7 @@ function stepUnder(j, under) {
   return { ...nx, ic: j.dstate === 'risk' ? 'triangle-alert' : nx.ic, html: nw(esc(t)), text: t };
 }
 function covItem(j, under) {
-  return `<a class="mi-cov" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">
+  return `<a class="mi-cov${icEdge(j.i)}" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">
     <span class="mi-cvt"><span class="mi-name">${topicIc(j.i)}<span class="mi-nm">${esc(j.i.name)}</span>${tagHTML(j)}</span>${lineSpan(stepUnder(j, under) || j.health)}</span>
     <span class="mi-cells">${cellHTML(j, 'H')}${cellHTML(j, 'S')}</span></a>`;
 }
@@ -357,7 +358,7 @@ function deadlinesHTML(js, opts) {
 
 // ---- Status: Needs you · On track · Stopped, each with Cleared / At risk / Not yet ----
 function statusRow(j) {
-  return `<div class="v6-row i6-row mi-srow" role="listitem" data-v6row="${esc(j.i.id)}"><a class="v6-row-main" href="${href(j.i)}" data-mirow="${esc(j.i.id)}"><span class="v6-row-top"><span class="v6-row-name">${topicIc(j.i)}${esc(j.i.name)}</span>${tagsOf(j).length ? ` <span class="v6-row-num">${esc(tagsOf(j).join(', '))}</span>` : ''}</span>
+  return `<div class="v6-row i6-row mi-srow${icEdge(j.i)}" role="listitem" data-v6row="${esc(j.i.id)}"><a class="v6-row-main" href="${href(j.i)}" data-mirow="${esc(j.i.id)}"><span class="v6-row-top"><span class="v6-row-name">${topicIc(j.i)}${esc(j.i.name)}</span>${tagsOf(j).length ? ` <span class="v6-row-num">${esc(tagsOf(j).join(', '))}</span>` : ''}</span>
     ${lineSpan(j.next || j.health, 'v6-row-line')}${j.dline ? lineSpan(j.dline, 'v6-row-line mi-dl') : ''}</a></div>`;
 }
 function statusHTML(js, opts) {
@@ -381,11 +382,11 @@ function topicsHTML(js) {
   const cats = (S.categories || []).map(c => ({ c, l: js.filter(j => j.i.category === c.key) })).filter(g => g.l.length);
   const other = js.filter(j => !cats.some(g => g.c.key === j.i.category));
   if (other.length) cats.push({ c: { key: 'none', name: 'Other', icon: 'tag' }, l: other });
-  const card = j => `<a class="mi-tcard${j.alive ? '' : ' off'}" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">
+  const card = j => `<a class="mi-tcard${j.alive ? '' : ' off'}${icEdge(j.i)}" href="${href(j.i)}" data-mirow="${esc(j.i.id)}">
     <span class="mi-name">${topicIc(j.i)}<span class="mi-nm">${esc(j.i.name)}</span>${tagHTML(j)}</span>${lineSpan(j.alive ? j.next || j.health : j.health)}<span class="mi-kind">${esc(KIND[j.kind] || '')}</span></a>`;
-  return `${cats.length > 1 ? `<div class="mi-jump" role="group" aria-label="Jump to a topic">${cats.map(g => `<button type="button" data-mijump="${esc(g.c.key)}"><span class="mi-jic mi-c-${esc(g.c.key)}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>${esc(g.c.name)} <span class="mi-q">${g.l.length}</span></button>`).join('')}</div>` : ''}
+  return `${cats.length > 1 ? `<div class="mi-jump" role="group" aria-label="Jump to a topic">${cats.map(g => `<button type="button" data-mijump="${esc(g.c.key)}"><span class="mi-jic mi-c-${esc(g.c.key)}${IC ? ' ic-0' : ''}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>${esc(g.c.name)} <span class="mi-q">${g.l.length}</span></button>`).join('')}</div>` : ''}
     ${cats.map(g => { const live = g.l.filter(j => j.alive).length, l = [...g.l].sort((a, b) => (a.alive ? 0 : 1) - (b.alive ? 0 : 1) || byUrgency(a.x, b.x));
-      return `<section class="i6-sec mi-shelf" id="mi-t-${esc(g.c.key)}" aria-labelledby="mi-th-${esc(g.c.key)}"><div class="mi-shead"><span class="mi-sic mi-c-${esc(g.c.key)}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>
+      return `<section class="i6-sec mi-shelf" id="mi-t-${esc(g.c.key)}" aria-labelledby="mi-th-${esc(g.c.key)}"><div class="mi-shead"><span class="mi-sic mi-c-${esc(g.c.key)}${IC ? ' ic-0' : ''}" aria-hidden="true">${icon(g.c.icon || 'tag')}</span>
         <div><h2 class="i6-h" id="mi-th-${esc(g.c.key)}">${esc(g.c.name)}</h2><p class="mi-sub">${esc(`${plural(g.l.length, 'issue')} · ${live} still alive`)}</p></div></div>
         <div class="mi-tgrid">${l.map(card).join('')}</div></section>`; }).join('')}`;
 }
@@ -565,7 +566,7 @@ const GROUPS_B = [['you', 'Needs you'], ['others', 'Others are on it'], ['wait',
 function cardB(j, nx, st, act = '') {
   const { i, x } = j, S1 = STATUS_B[st], href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
   const tag = x.via ? `Through ${x.via}` : x.own ? '' : x.follow ? 'You follow' : 'You help';
-  return `<article class="vbc vbc-${st}${nx.you ? ' you' : ''}" role="listitem" data-v6row="${esc(i.id)}">
+  return `<article class="vbc vbc-${st}${nx.you ? ' you' : ''}${icEdge(i)}" role="listitem" data-v6row="${esc(i.id)}">
     <div class="vbc-top"><a class="vbc-name" href="${href}" data-mirow="${esc(i.id)}">${topicIc(i)}<span>${esc(i.name)}</span></a><span class="vbc-chip">${icon(S1.ic)}<span>${esc(S1.word)}</span></span></div>
     ${tag ? `<p class="vbc-tag">${esc(tag)}</p>` : ''}
     <p class="vbc-next"><b class="vbc-who">${esc(nx.who)}${nx.verb ? '' : ':'}</b> ${nx.html}</p>

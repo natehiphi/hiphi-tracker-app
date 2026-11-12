@@ -183,3 +183,31 @@ body.staff6 a.ip6-coal { display: inline-flex; align-items: center; gap: 4px; } 
 body.staff6 .mi6-page .v6-row-lead.i6-lead { width: 20px; height: 24px; grid-row: 1; align-self: start; background: none; color: var(--mi-ink, var(--v6-muted)); }
 body.staff6 .mi6-page .v6-row-lead.i6-lead svg { width: 18px; height: 18px; }
 body.staff6 .mi6-page .v6-row-main.has-lead:has(> .i6-lead) { grid-template-columns: 20px minmax(0, 1fr); }
+
+/* ---- Issue colours (R-373 option B, Nate 12 Nov; A-5 and A-18 on v6) ----
+   Twelve soft identity colours, handed out inside each coalition by issuegrid.js issueColor (.ic-1 to .ic-12; .ic-0 is the
+   neutral for an issue with no coalition). Colour says WHICH issue, never how it stands: it appears only as the issue's square
+   tile, a soft edge on its row or card, and its "for <issue>" line. Never text elsewhere, buttons, round shapes, status. Each
+   gives a wash (tile), an ink (icon and name on the wash, 4.5:1) and a mark (the edge). Always with the icon and the name. */
+body.staff6 .ic-1 { --mi-tint: #D6F1FF; --mi-ink: #005581; --mi-mark: #2D95D3; --ig-wash: #D6F1FF; --ig-ink: #005581; }   /* Sky */
+body.staff6 .ic-2 { --mi-tint: #EAF1D3; --mi-ink: #4B5600; --mi-mark: #86962C; --ig-wash: #EAF1D3; --ig-ink: #4B5600; }   /* Lime */
+body.staff6 .ic-3 { --mi-tint: #D4F6E8; --mi-ink: #006145; --mi-mark: #00A57D; --ig-wash: #D4F6E8; --ig-ink: #006145; }   /* Jade */
+body.staff6 .ic-4 { --mi-tint: #F7E5FF; --mi-ink: #643D75; --mi-mark: #AA72C2; --ig-wash: #F7E5FF; --ig-ink: #643D75; }   /* Orchid */
+body.staff6 .ic-5 { --mi-tint: #CFF6F5; --mi-ink: #006061; --mi-mark: #00A4A4; --ig-wash: #CFF6F5; --ig-ink: #006061; }   /* Lagoon */
+body.staff6 .ic-6 { --mi-tint: #FFE3F3; --mi-ink: #75375C; --mi-mark: #C3699E; --ig-wash: #FFE3F3; --ig-ink: #75375C; }   /* Berry */
+body.staff6 .ic-7 { --mi-tint: #DEEEFF; --mi-ink: #304E86; --mi-mark: #608BDB; --ig-wash: #DEEEFF; --ig-ink: #304E86; }   /* Cobalt */
+body.staff6 .ic-8 { --mi-tint: #FFE2E9; --mi-ink: #7B3548; --mi-mark: #CC6781; --ig-wash: #FFE2E9; --ig-ink: #7B3548; }   /* Rose */
+body.staff6 .ic-9 { --mi-tint: #E9EAFF; --mi-ink: #4B4684; --mi-mark: #857FD7; --ig-wash: #E9EAFF; --ig-ink: #4B4684; }   /* Iris */
+body.staff6 .ic-10 { --mi-tint: #F9EBCF; --mi-ink: #694A00; --mi-mark: #B08505; --ig-wash: #F9EBCF; --ig-ink: #694A00; }   /* Marigold */
+body.staff6 .ic-11 { --mi-tint: #DFF4DB; --mi-ink: #2F5D24; --mi-mark: #5E9F50; --ig-wash: #DFF4DB; --ig-ink: #2F5D24; }   /* Fern */
+body.staff6 .ic-12 { --mi-tint: #FFE5D9; --mi-ink: #7C3A21; --mi-mark: #CD6E4C; --ig-wash: #FFE5D9; --ig-ink: #7C3A21; }   /* Coral */
+body.staff6 .ic-0 { --mi-tint: var(--v6-wash); --mi-ink: var(--v6-body); --mi-mark: transparent; --ig-wash: var(--v6-wash); --ig-ink: var(--v6-body); }   /* neutral */
+/* the soft edge: 5px inside the row's or card's left side, and 4px more room so words never touch it */
+body.staff6 .v6-row.ic-edge, body.staff6 .v6-hcard-bill.ic-edge { box-shadow: inset 5px 0 0 var(--mi-mark); padding-left: 12px; }
+body.staff6 .mi-cov.ic-edge, body.staff6 a.mi-tcard.ic-edge { box-shadow: inset 5px 0 0 var(--mi-mark); padding-left: calc(var(--s8) + 4px); }
+body.staff6 a.mi-tcard.ic-edge { box-shadow: inset 5px 0 0 var(--mi-mark), var(--v6-sh1); padding-left: calc(var(--s16) + 4px); }
+@media (hover: hover) and (pointer: fine) { body.staff6 a.mi-tcard.ic-edge:hover { box-shadow: inset 5px 0 0 var(--mi-mark), var(--v6-sh2); } }
+/* the issue's small icon beside its name becomes its tile (24px rounded square, never round) */
+body.staff6 .mi-ic[class*=" ic-"] { align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--v6-r12); background: var(--mi-tint); color: var(--mi-ink); vertical-align: -6px; }
+body.staff6 .mi-ic[class*=" ic-"] .ic, body.staff6 .mi-ic[class*=" ic-"] svg { width: 16px; height: 16px; }
+body.staff6 .mi-sic.ic-0, body.staff6 .mi-jic.ic-0 { background: var(--v6-wash); color: var(--v6-body); }
