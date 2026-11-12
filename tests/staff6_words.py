@@ -75,7 +75,7 @@ SCAN6 = r"""(arg) => {
   }
   return { items, names };
 }"""
-LABEL_RX = re.compile(r'\b(by|due|was due) ((?:today|tomorrow|[A-Z][a-z]{2} \d{1,2}/\d{1,2}),? \d{1,2}:\d{2} [AP]M|\d{1,2}:\d{2} [AP]M(?: (?:today|tomorrow))?)')
+LABEL_RX = re.compile(r'(?<!estimony )\b(by|due|was due) ((?:today|tomorrow|[A-Z][a-z]{2} \d{1,2}/\d{1,2}),? \d{1,2}:\d{2} [AP]M|\d{1,2}:\d{2} [AP]M(?: (?:today|tomorrow))?)')
 def read6(b, who):
   pg = b.page(who, 1440, 900); out = []; names = {}; first = True
   for r in ROUTES6[who]:
