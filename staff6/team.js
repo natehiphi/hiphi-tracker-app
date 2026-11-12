@@ -167,7 +167,8 @@ function slipping() {
     // R-370 (fourth walk): "40 hours overdue · Alert James" read as the testimony's lateness. A to-do row names the to-do first,
     // then whose it is, then its time: "Ask the chair's office for a meeting · James · 40 hours overdue".
     const st = p.due != null ? status({ due: p.due }) : null;
-    const line = [cap(task), who, st ? st.words : ''].filter(Boolean).join(' · ');
+    // whose and when read as one fact ("James, 40 hours overdue"), so a phone row stays at four facts (budget, rule 4).
+    const line = [cap(task), [who, st ? st.words : ''].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
     return { key: 'sl:' + (p.key || b.id), b, p, s: null, ids, mine, line, kic: sh ? actIcon('ask') : kindIcon(p.kind), today: st?.tone === 'today', what: sh ? `write the public ask for ${numWords(b)}` : strip(p.s), over, lateOk: false, at: p.due ?? Infinity };
   });
   // Overdue first, then late testimony the Capitol still takes, then by the time to act (v5's "Late testimony, still open"
