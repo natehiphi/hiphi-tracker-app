@@ -668,11 +668,11 @@ export function pubStateText(b) {
   if (!b.public_summary)
     return 'Live with no summary — visitors see the bill title and status only.';
   if (b.public_action && !b.public_action_until)
-    return 'Action ask written but no expiry date, so it is NOT being shown. Set a date.';
+    return 'Public ask written but no end date, so it is NOT being shown. Set a date.';
   if (b.public_action && b.public_action_until < hiToday())
-    return `Action ask expired ${fmtDate(b.public_action_until)} and is no longer shown.`;
+    return `Public ask ended ${fmtDate(b.public_action_until)} and is no longer shown.`;
   if (b.public_action)
-    return `Summary live. Action ask runs through ${fmtDate(b.public_action_until)}.`;
+    return `Summary live. Public ask runs through ${fmtDate(b.public_action_until)}.`;
   return 'Summary live. No action ask set.';
 }
 

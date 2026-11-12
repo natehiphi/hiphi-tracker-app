@@ -15,10 +15,10 @@ export const dayWord = t => fmtDate(typeof t === 'number' ? new Date(t).toISOStr
 // The hearing's day as the date field holds it (Hawaiʻi time), the default for "show the ask through".
 export const hearingDay = h => h ? hstDayOf(new Date(h.scheduled_at).getTime()) : '';
 
-// One line above the box: "Hearing Fri 3/20, 9:30 AM · Capitol takes testimony until Wed 3/18, 9:30 AM".
+// One line above the box: "Hearing Fri 3/20, 9:30 AM · Testimony due Wed 3/18, 9:30 AM".
 export function hearingLine(h) {
   if (!h) return '';
-  return `<p class="ask-hear">${icon('calendar-days')}<span>Hearing ${esc(fmtDT(h.scheduled_at))} · Capitol takes testimony until ${esc(fmtDT(new Date(testimonyAt(h)).toISOString()))}</span></p>`;
+  return `<p class="ask-hear">${icon('calendar-days')}<span>Hearing ${esc(fmtDT(h.scheduled_at))} · Testimony due ${esc(fmtDT(new Date(testimonyAt(h)).toISOString()))}</span></p>`;
 }
 
 // ---- the date check ----

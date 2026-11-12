@@ -249,8 +249,8 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);
   // D3: a deadline today is said with its time in bold (and how long is left once it is under 3 hours); any other day plain.
   const today = hst(x.due) === hst(Date.now()), at = esc(deadlineAt(x.due));
-  // R-370: the one deadline pattern (steps.js stepTime): "Capitol closes today 10 AM".
-  const closes = `Capitol closes ${today ? `<b class="v6-nw">${at}</b>` : nw(at)}${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
+  // R-370: the one deadline pattern (steps.js stepTime): "Testimony due today 10 AM".
+  const closes = `Testimony due ${today ? `<b class="v6-nw">${at}</b>` : nw(at)}${x.soon ? `, in ${esc(spanOf(x.due))}` : ''}`;
   // The card's foot is one row: on the left what to do (share, or write the ask), on the right how it is landing; on a
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';
