@@ -1169,13 +1169,13 @@ function lineTone(s) {
 // what the step says; `button: false` draws none. Rows sit in a role="list" box (.v6-list, or listDetail's).
 // `act: true` (R-344 Rule 1): the row leads with its job's tile (verbs.js rowLead), the viewer's own steps only; any other
 // row keeps an empty slot of the same width, so every name in the list starts at one edge. Lists that opt in: Today's.
-export function billRow(b, { viewer, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '', act = false } = {}) {
+export function billRow(b, { viewer, name, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '', act = false } = {}) {
   if (!b) return '';
   const v = meOf(viewer), s = step || billStep(b, { viewer: v }), t = line == null ? lineTone(s) : { tone: '', icon: '', bold: false };
   if (act && !lead) lead = actLead(s);
   const text = line != null ? line : nw(esc(s.line));
   const btnHtml = button === false ? '' : button ? button : rowButtonFor(s);
-  return rowHTML({ key: b.id, name: fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id, lead });
+  return rowHTML({ key: b.id, name: name || fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id, lead });
 }
 // itemRow({ key, name, num, line, tone, icon, href, pick, button, selected, hint, cls }) -> any other item (a to-do, an
 // email, a person) in the same shape. `line` is HTML (escape it); `name` and `num` are text.

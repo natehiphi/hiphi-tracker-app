@@ -199,6 +199,9 @@ function folded(key, rows) {
 const two = s => { const p = String(s || '').split(' · '); return p.length > 2 ? [p[0], p.slice(1).join(', ')].join(' · ') : String(s || ''); };
 // A bill's row with its own step's line (steps.js billStep: the viewer's own step bold when due today; someone else's in
 // neutral words, D3), and no button (V07: the step's button lives at its home).
+// R-370: the one line My issues puts under a bill ("needs a hearing · Senate Commerce", "passed the House"); Search reuses it
+// so a bill's standing is worded the same in both places.
+export const billStatusWords = b => ownerWords(b, two(billStep(b)?.line || ''));
 export function billLineRow(b, { line, button = '', cls = '' } = {}) {
   const s = billStep(b), st = shownStatus(s) || {}, own = !!s?.you;
   const text = line != null ? line : ownerWords(b, two(s?.line || ''));

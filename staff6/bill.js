@@ -43,6 +43,7 @@ import { roomName, movedFrom } from './model.js';
 import { aboutBill } from './billpane.js';
 import { trackerHTML, wireTracker, trackerModel } from './tracker.js';
 import { vbWhereWords } from './model.js';
+import { askWriteHref } from './asks.js';   // R-370: the link into the public ask's box
 import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, the same as its card on My issues
 import { standOf } from './issuestand.js';
 // A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
@@ -459,8 +460,11 @@ const vbBackWords = l => /^Back\b/i.test(l) ? l : `Back to ${l === 'Hearings' ? 
 const vbIssue = b => issuesOfBill(b.id)[0] || null;
 function vbTitle(b) {
   const i = vbIssue(b), nm = billName(b), num = numWords(b);
+  // R-370: the bill's own short title (its plain summary) under the number, so a bill that shares its issue's name still says what it is.
+  const short = blurb(b, 1e4);
   return `<div class="vb-btitle"><p class="vb-kind">Bill</p><h1 class="bw-h1 vb-bh1" id="bw-h1" tabindex="-1">${esc(num)}</h1>
-    ${nm && nm !== num && nm !== i?.name ? `<p class="vb-bname">${esc(nm)}</p>` : ''}
+    ${nm && nm !== num && nm !== i?.name && nm !== short ? `<p class="vb-bname">${esc(nm)}</p>` : ''}
+    ${short ? `<p class="vb-bshort">${esc(short)}</p>` : ''}
     ${i ? `<p class="vb-in">in <a href="#/issue/${encodeURIComponent(i.id)}?from=${esc(billRef(b))}">${esc(i.name)}</a></p>` : ''}</div>`;
 }
 function vbPath(b) {
@@ -547,6 +551,10 @@ function stepExtras(b, s, card = '') {
   if (s.d?.doc_url && !/\bsv-doc\b/.test(card)) out.push(docBtn(s.d.doc_url, { kind: 'text' }));
   if (s.kind === 'chair' && ASK_LOG()) out.push(btn('Log a talk with a legislator', { kind: 'text', icon: 'message-square-plus', attrs: { 'data-logtalk': '1', 'aria-haspopup': 'dialog' } }));
   if (own && s.state?.stale && s.state.key === 'write') out.push(btn('Committee report', { kind: 'text', iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' }));
+  // R-370 (B): a hearing with testimony still open and no public ask yet: the way to the writer's box is on the card's own page.
+  // askWriteHref is '' unless the bill has an ask card this week (hearing ahead, testimony not yet due), so nothing shows otherwise.
+  const wr = VB && !liveAsk(b) ? askWriteHref(b) : '';
+  if (wr) out.push(btn('Write the public ask', { kind: 'text', icon: 'megaphone', href: wr }));
   const v = liveVideo(b, s);
   if (v) out.push(btn('Watch live now', { kind: 'text', icon: 'video', href: v.url, target: '_blank' }));
   return out.length ? `<div class="bw-stepx">${out.join('')}</div>` : '';
@@ -963,6 +971,8 @@ function issueSide(i, b) {
   const same = plain(i.name || '') === plain(billName(b));
   if (VB) {   // B: the same status and words as the issue's card on My issues (issueStatusB), neutral for At risk (no amber, no triangle)
     const v = issueStatusB({ ...standOf(i), own: i.owner_id === S.me?.id });
+    // R-370: the cut-off day is said once on this page (in the step card or under the bar); this card says only who is at risk.
+    v.reason = String(v.reason || '').replace(/ by (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}\/\d{1,2}$/, '');
     return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
     <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
     ${same ? '' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
@@ -985,7 +995,7 @@ function whoSide(b) {
   const owners = (S.assignments?.[b.id] || []).map(id => advocate(id)).filter(Boolean).map(a => a.id === S.me?.id ? 'You' : String(a.full_name || '').split(' ')[0]);
   return `<section class="bw-scard bw-wside" aria-labelledby="bw-ws-h">
     <div class="bw-shrow"><h2 class="bw-sh" id="bw-ws-h">Who is on it</h2>${btn('Edit', { kind: 'text', sm: true, attrs: { 'data-coal': '1', 'aria-label': 'Edit coalitions', 'aria-haspopup': 'dialog' } })}</div>
-    <p class="bw-ws-own"><span class="bw-ws-k">${owners.length > 1 ? 'Owners' : 'Owner'}:</span> ${owners.length ? esc(owners.join(' and ')) : '<span class="bw-quiet">no one yet</span>'}</p>
+    ${VB && owners.length === 1 ? '' : `<p class="bw-ws-own"><span class="bw-ws-k">${owners.length > 1 ? 'Owners' : 'Owner'}:</span> ${owners.length ? esc(owners.join(' and ')) : '<span class="bw-quiet">no one yet</span>'}</p>`}
     <p><span class="bw-ws-k">Teammates following:</span> ${f ? esc(f) : '<span class="bw-quiet">no one yet</span>'}</p>
     <p class="bw-ws-coal"><span class="bw-ws-k">${coal.length === 1 ? 'Coalition' : 'Coalitions'}:</span> ${coal.length ? coal.map(c => `<a class="bw-ws-a" href="#/coalition/${esc(c.id)}">${esc(coalName(c))}</a>`).join(', ') : '<span class="bw-quiet">none</span>'}</p>
   </section>`;

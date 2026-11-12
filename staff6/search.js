@@ -23,6 +23,7 @@ import { itemRow, billRow, nameWords, numWords, whereWords, committeeName, nw } 
 import { isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
 import { issueIcon } from './issuegrid.js';
+import { billStatusWords } from './coalition.js';   // R-370: a bill's standing in My issues' own words
 import { glanceRow, twinsAmong } from './bills.js';   // as Bills' rows: the twin (no job tile: R-352, A-18, each result group is one kind under its own heading)
 import { slimBarHTML } from './tracker.js';   // R-352 FIX-3 (Nate 28 Oct, "keep the bill progress bar there"): each bill result's slim bar, Now and Law
 // The slim bar under a bill result's line, inside its link (as live's glanceRow drew it): where the bill is, at a glance.
@@ -253,6 +254,9 @@ const issueHits = q => { const co = coalOf(q), res = co ? [wholeRx(plain(co.name
 const B_PLACEHOLDER = 'Search issues, bills, hearings, people';
 // A bill's issues by name, so "HB 2121 · bill in Disposable e-cigarette ban" tells a bill from its issue (they share a title).
 const issueNamesOf = b => (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).filter(i => i && !i.archived_at).map(i => i.name);
+// R-370 (version B): a bill row is named by the bill's OWN short title (its plain summary), not its nickname: six bills on one
+// issue share the nickname, so six rows read the same. Its number and where it stands (My issues' wording) go under it.
+const ownTitle = (b, n = 1e4) => blurb(b, n) || nameWords(b, n);
 const billInLine = b => { const n = issueNamesOf(b); return `${numWords(b)} · bill${n.length ? ' in ' + n[0] + (n.length > 1 ? ` +${n.length - 1}` : '') : ''}`; };
 const issueBillCount = i => (S.billIssues || []).filter(x => x.issue_id === i.id).length;
 const issueLineB = i => { const n = issueBillCount(i); return `Issue${n ? ` · ${plural(n, 'bill')}` : ''}`; };
@@ -403,7 +407,7 @@ export function headerHits(q) {
   const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numeric: true });
   const bills0 = billHits(q).filter(shows), isB = VB ? billsOfIssues(issueHits(q)) : [], bills = (VB ? [...isB, ...bills0.filter(b => !isB.includes(b))] : bills0).map((b, k) => [b, k])
     .sort((x, y) => lead(x[0]) - lead(y[0]) || (lead(x[0]) === 1 ? diedish(x[0]) - diedish(y[0]) || byNum(x[0], y[0]) : x[1] - y[1])).map(([b]) => ({
-      href: billRoute(b), title: name(b), icon: 'scroll-text', inline: !VB, sub: VB ? [billInLine(b), stageWords(b)].filter(Boolean).join(' · ') : [numWords(b), stageWords(b)].filter(Boolean).join(' · ') }));
+      href: billRoute(b), title: VB ? ownTitle(b, 80) : name(b), icon: 'scroll-text', inline: !VB, sub: VB ? [numWords(b), billStatusWords(b), stageWords(b)].filter(Boolean).join(' · ') : [numWords(b), stageWords(b)].filter(Boolean).join(' · ') }));
   const cat = k => (S.categories || []).find(c => c.key === k);
   const issues = issueHits(q).map(i => ({ href: `#/issue/${encodeURIComponent(i.id)}`, title: i.name, sub: VB ? issueLineB(i) : cat(i.category)?.name || 'Issue', icon: issueIcon(i) }));
   const cmtes = committeeHits(q).map(c => ({ href: cmteHref(c), title: c.name, sub: cmteSub(c), icon: 'gavel' })), hears = hearingHits(q).map(x => ({ href: hearingHref(x), title: `${x.name} hearing`, sub: hearingSub(x), icon: 'calendar-days' }));
@@ -515,7 +519,7 @@ function resultsHTML(q) {
     if (isl.length) secs.push(group('sr-gi', 'Issues', isl.length, list(isl.slice(0, N('i', isl)).map(i => itemRow({ key: i.id, name: i.name, line: esc([issueLineB(i), i.description ? String(i.description).replace(/\s+/g, ' ').slice(0, 110) : ''].filter(Boolean).join(' · ')), href: `#/issue/${encodeURIComponent(i.id)}`, icon: issueIcon(i), cls: 'sr-row' })).join(''), 'Issues') + more('i', isl.length, N('i', isl), 'issues')));
     const nB = tracked.length + (un ? un.length : 0);
     if (tracked.length || (un && un.length) || un === null && lookUn)
-      secs.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nB, (tracked.length ? list((sh => { const tw = twinsAmong(sh); return sh.map(b => withBar(glanceRow(billRow(b, { line: esc(billInLine(b).replace(/^.*? · bill/, 'Bill')) + ' · ' + billLine(b), button: false, cls: 'sr-row' }), b, { twins: tw }), b)); })(tracked.slice(0, N('b', tracked))).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
+      secs.push(group('sr-gb', cmteOf(q) ? `Bills in ${committeeName(cmteOf(q))}` : coalOf(q) ? `${coalOf(q).name}’s bills` : 'Bills', nB, (tracked.length ? list((sh => { const tw = twinsAmong(sh); return sh.map(b => withBar(glanceRow(billRow(b, { name: ownTitle(b), line: esc([billStatusWords(b), stageWords(b) ? `Stage: ${stageWords(b)}` : ''].filter(Boolean).join(' · ')), button: false, cls: 'sr-row' }), b, { twins: tw }), b)); })(tracked.slice(0, N('b', tracked))).join(''), 'Bills') : '') + more('b', tracked.length, N('b', tracked), 'tracked bills') + unBlock));
     if (hrs.length) secs.push(group('sr-gh2', 'Hearings', hrs.length, list(hrs.slice(0, 5).map(x => itemRow({ key: x.h.id, name: `${x.name} hearing`, line: esc(hearingSub(x)), icon: 'calendar-days', href: hearingHref(x), cls: 'sr-row' })).join(''), 'Hearings')));
     if (cms.length) secs.push(group('sr-gcm', 'Committees', cms.length, list(cms.slice(0, 6).map(c => itemRow({ key: c.code, name: c.name, line: esc(cmteSub(c)), icon: 'gavel', href: cmteHref(c), cls: 'sr-row' })).join(''), 'Committees')));
     const ppl = [], pn = legs.length + team.length + (peopleReady ? people.length : 0);

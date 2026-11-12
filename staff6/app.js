@@ -173,7 +173,8 @@ const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', te
 const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
 // R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
 const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'testimony', testimony: 'testimony', search: 'search',
-  outreach: 'issues', asks: 'issues', partners: 'issues', memo: 'issues', emails: 'issues', composer: 'issues', supporters: 'issues', person: 'issues', lists: 'issues', list: 'issues',
+  // R-370: in B, Outreach lives under More (the sidebar has no Outreach row), so it lights More, not My issues.
+  outreach: 'more', asks: 'more', partners: 'more', memo: 'more', emails: 'more', composer: 'more', supporters: 'more', person: 'more', lists: 'more', list: 'more',
   bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues',
   // A legislator is looked up, not part of an issue: it lights Search (the phone bar's fourth item; the laptop's header box), whatever page you came from.
   legislator: 'search' };
