@@ -813,6 +813,14 @@ export function slipList() {
   const rows = sl.rows.map(r => {
     const tasks = (r.tasks || [r.p]).filter(t => { const a = shareAsk(t); return !a || a.due == null || a.due - now <= DAY; });
     return tasks.length ? (tasks[0] === r.p ? r : { ...r, tasks, p: tasks[0], due: tasks[0].due }) : null;
+  }).filter(r => {
+    if (!r) return false;
+    // R-370 (second walk): approving a draft must not raise "N slipping". Before, its review row held the approver among its
+    // people, so Team left it out as the lead's own step; after, the same draft is a FILE row held by its filer, due within
+    // the day, and it counted as the team slipping (5 became 6 for the very draft just approved). A draft the viewer approved
+    // is on its way, not slipping, until the Capitol has closed (past the file time it is late, still accepted until the hearing).
+    const me = S.me?.id; if (!me || !r.p || r.p.kind !== 'file' || !r.p.d) return true;
+    const d = r.p.d; return !((d.approved_by === me || d.second_approved_by === me) && d.status === 'approved' && (r.p.due == null || r.p.due > now || (r.p.h && ms(r.p.h.scheduled_at) > now)));
   }).filter(Boolean);
   const held = new Set(rows.filter(r => r.b && !(r.ids || []).length).map(r => r.b.id)), eot = endOfDay(now + DAY);
   for (const b of noOwnerBills()) {

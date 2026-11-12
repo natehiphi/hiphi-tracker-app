@@ -222,11 +222,13 @@ export function deadlineAt(t) {
   const day = new Date(ms).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Pacific/Honolulu' });
   return ms - now > 6 * 864e5 || ms < now ? `${day} ${new Date(ms).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'Pacific/Honolulu' })} ${clock}` : `${day} ${clock}`;
 }
-// The time between now and `t`, rounded down: "28 min" / "4 hours" / "3 days" (short: "28m" / "4h" / "3d").
+// The time between now and `t`: minutes rounded down ("28 min", "59 min"), hours to the nearest hour ("4h59m" reads "5 hours", not
+// "4": R-370 second walk, a reviewer saw "in 4 hours" at 9 AM for a 2 PM close), days rounded down: "28 min" / "4 hours" / "3 days"
+// (short: "28m" / "4h" / "3d"). It reads Date.now(), which the practice clock moves, so the page and this agree.
 export function spanOf(t, { short = false } = {}) {
   const ms = Math.abs(new Date(t).getTime() - Date.now()), h = ms / 36e5;
   if (h < 1) { const m = Math.max(1, Math.floor(ms / 6e4)); return short ? `${m}m` : `${m} min`; }
-  if (h < 48) { const n = Math.floor(h); return short ? `${n}h` : `${n} hour${n === 1 ? '' : 's'}`; }
+  if (h < 48) { const n = Math.min(47, Math.max(1, Math.round(h))); return short ? `${n}h` : `${n} hour${n === 1 ? '' : 's'}`; }
   const n = Math.floor(h / 24); return short ? `${n}d` : `${n} days`;
 }
 // "28 min" before the moment, "4 hours overdue" after it.

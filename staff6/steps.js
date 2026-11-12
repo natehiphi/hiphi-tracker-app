@@ -1382,14 +1382,20 @@ let approvedAt = -1e4;
 // A row's Resubmit on a sent-back draft: the approver's note, Open Doc, then Resubmit (one sheet, one question). The
 // card's own Resubmit, with the note above it, sends at once.
 function confirmResubmit(el, b, d) {
-  openSheet({ title: 'Did you make the changes?', size: 'auto',
-    body: `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'text', attrs: { 'data-v6doc': d.id } })}</p>` : ''}`,
-    foot: btn('Resubmit', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1' } }),
-    wire: dlg => { dlg.querySelector('[data-go]').onclick = () => { closeSheet({ silent: true }); delete el.dataset.v6confirm; ACTS.submit(el, b, d); }; } });
+  // R-370 (second walk): every Resubmit of a sent-back draft asks first, the card's too: the note is quoted, the writer ticks
+  // that the changes are made, the Doc is one link away. A draft with no note keeps its one click.
+  const w = whoseStep({ ...d, status: 'review', submitted_by: S.me?.id }, b), to = w.ids.length && w.ids.length <= 2 ? w.words : '';
+  openSheet({ title: `Send ${esc(numWords(b))} back ${to ? `to ${esc(to)} ` : ''}for approval?`, size: 'auto',
+    body: `<blockquote class="v6-step-note"><span class="v6-step-nl">${NOTE_HEAD}</span>${esc(d.review_note)}</blockquote>${d.doc_url ? `<p class="v6-rs-doc">${docBtn(d.doc_url, { kind: 'text', attrs: { 'data-v6doc': d.id } })}</p>` : ''}<label class="v6-rs-ok"><input type="checkbox" id="v6-rs-ok"> <span>I made the changes in the note</span></label>`,
+    foot: `${btn('Cancel', { kind: 'text', attrs: { 'data-cancel': '1' } })} ${btn('Send', { kind: 'primary', icon: 'send', attrs: { 'data-go': '1', disabled: 'disabled', 'aria-disabled': 'true' } })}`,
+    wire: dlg => { const go = dlg.querySelector('[data-go]'), ok = dlg.querySelector('#v6-rs-ok');
+      ok.onchange = () => { go.disabled = !ok.checked; go.setAttribute('aria-disabled', String(!ok.checked)); };
+      dlg.querySelector('[data-cancel]').onclick = () => closeSheet();
+      go.onclick = () => { if (!ok.checked) return; closeSheet({ silent: true }); ACTS.submit(el, b, d, null, '', true); }; } });
 }
 const ACTS = {
-  async submit(el, b, d) {
-    if (el?.dataset?.v6confirm === '1' && d.review_note) return confirmResubmit(el, b, d);
+  async submit(el, b, d, h, code, confirmed) {
+    if (!confirmed && d.status === 'draft' && d.review_note) return confirmResubmit(el, b, d);
     await busy(el, async () => {
     await DB.transition(b.id, d.id, 'submit'); clearReminders(b, d);
     const who = whoseStep(draftById(b.id, d.id) || d, b).words;

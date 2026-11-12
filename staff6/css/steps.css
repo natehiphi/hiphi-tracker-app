@@ -574,3 +574,8 @@ body.staff6 a.v6-asktab:focus-visible { outline: 3px solid var(--v6-action); out
 
 /* R-356 round 3 (decision 6): staff have no Outreach tab row; the tab's name stands in its place as a quiet heading */
 body.staff6 .sv-onetab { margin: 0; font: 600 var(--v6-t16)/1.3 var(--font); color: var(--v6-muted); }
+
+/* R-370 (second walk): the Resubmit sheet's tick box, a full-height tap target in a row of its own */
+.v6-rs-ok { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; cursor: pointer; }
+.v6-rs-ok input { width: 20px; height: 20px; flex: none; }
+.sv-sh-foot [data-cancel] { margin-right: 8px; }

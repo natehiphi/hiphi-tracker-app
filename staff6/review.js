@@ -17,7 +17,7 @@ import { teamFirst, newOwnerTag, staleLine, filerOf, roomName, whenAt } from './
 import { icon, btn, notice, toast, openSheet, closeSheet, confirmSheet, keysOn, keysUsed, posIcons, POS_WORD, ownerOf, docBtn, vbFinish } from './ui.js';
 import { SL, sl, pathLine } from './ui.js';   // R-365 B plain words
 import { emailPreview, HELD_NEXT } from './composer.js';
-import { billStep, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
+import { billStep, stepTime, shownStatus, statusTile, whereWords, committeeName, numWords, nameWords, whoseStep, nw, sayWords, testimonyState, orWords } from './steps.js';
 import { plainCodes } from './terms.js';
 
 const DAY = 864e5;
@@ -126,11 +126,15 @@ function draftBody(it) {
   const { d, b, h } = it, me = S.me || {}, own = d.submitted_by && d.submitted_by === me.id, two = d.status === 'second_review';
   // The one time to act (spec 5 actBy), or "Late, still accepted until 9:30 AM" in amber while the Capitol still takes it.
   const s = billStep(b, { d, h }), shown = s ? shownStatus({ ...s, mine: true }) : null;
-  const tile = !s ? null : ['late', 'overdue'].includes(shown.tone) ? shown : s.act?.words ? { tone: 'neutral', icon: s.status.soon ? 'clock' : 'calendar', words: s.act.words } : null;
+  let tile = !s ? null : ['late', 'overdue'].includes(shown.tone) ? shown : s.act?.words ? { tone: 'neutral', icon: s.status.soon ? 'clock' : 'calendar', words: s.act.words } : null;
   const who = two ? `${cap(first(d.approved_by))} approved it ${ago(d.approved_at)}. It is this bill’s first testimony, so it gets a ${sl}.`
     : d.submitted_by ? `Sent by ${own ? 'you' : first(d.submitted_by)} ${ago(d.submitted_at)}` : 'Not sent by anyone yet';
   const late = staleLine(b, d), from = late && d.from_draft_id ? '' : startedFromLine(b, d);
   const hear = h ? `${committeeName(h.committee) || h.committee} · ${h.status === 'cancelled' ? 'hearing cancelled, no new date yet' : `${whenAt(h.scheduled_at)}${h.room ? ` · ${roomName(h.room)}` : ''}`}` : '';
+  // R-370 (second walk): the same "Approval by … · Capitol closes …" line the Testimony rows say (steps.js stepTime), unless the tile above already says it.
+  // The tile takes this line's words, so the card says it once (A-14) and in the Testimony rows' words.
+  const closes = s ? stepTime(s) : '';
+  if (closes) tile = { ...(tile || { tone: 'neutral', icon: 'clock' }), words: closes };
   const f = filerOf(d), filer = !f ? '' : f === me.id ? 'You file it once it is approved.' : `${cap(first(f))} files it once it is approved.`;
   return `<article class="rv6-card" aria-labelledby="rv6-b">
     <p class="rv6-eb">${icon(two ? 'badge-check' : 'file-text')}<span>${esc(`${testimonyState(d, b, { h })?.word || 'With an approver'}${own ? ' · your own testimony' : ''}`)}</span></p>
