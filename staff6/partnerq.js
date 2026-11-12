@@ -23,7 +23,7 @@ import { S, DB, esc, fmtDate, hooks } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
 import { dailyWord, paused, HELD_NEXT } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
-import { numWords, stepHeadHTML } from './steps.js';
+import { numWords, nameWords, stepHeadHTML } from './steps.js';
 import { ACTS, rowLead } from './verbs.js';   // R-344: Approve's one icon (verbs.js ACTS.approve; the bare check is On track's, Rule 5) and the row's tile   // Staff v6: the bill number as every row says it (D15)
 
 // ---- who ----
@@ -177,7 +177,7 @@ const askDone = pa => pa?.state === 'going_out' ? `The ask goes out in ${emailWo
 const billOf = it => billById(it.bill_id) || { bill_number: it.bill_number, title: it.title };
 const billLink = it => billRoute(billOf(it));
 const groupHref = slug => `#/partners/${encodeURIComponent(slug)}`;
-const nameOf = it => it.kind === 'issue' ? (it.words?.name || 'An issue of its own') : (it.words?.nickname || billOf(it).nickname || clip(billOf(it).title, 70));
+const nameOf = it => it.kind === 'issue' ? (it.words?.name || 'An issue of its own') : (it.words?.nickname || nameWords(billOf(it), 70))   // R-370: no nickname of the bill's own says the one name every screen gives it;
 const sentLine = it => [`Sent ${whenAt(it.words?.sent_at || it.words?.written_at)}${it.by ? ` by ${it.by}` : ''}`.replace(/\.?$/, '.'), it.live ? 'They changed their words: what is live now stays up until you approve.' : ''].filter(Boolean).join(' ');
 // HIPHI's issue by its id, else one of the group's own (the queue read brings their names: data.js partnerQueue).
 const issueName = id => S.issues?.find(i => i.id === id)?.name || (S.pq?.issueNames || {})[id] || null;

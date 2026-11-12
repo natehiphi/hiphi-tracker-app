@@ -143,8 +143,12 @@ function slipping() {
       return { key: r.key, b: r.b, p: null, s, ids: [], mine: false, line: s.line || [NO_OWNER, lc(s.act.words)].join(' · '), kic: kindIcon(s.kind), today: s.status?.tone === 'today', over: s.act.kind === 'overdue', lateOk: s.act.kind === 'late', at: s.act.at }; }
     // A share to-do is the rallier's public ask, by OUTREACH's time, only where the rallier has that row (today.js shareAsk;
     // spec 11.6): said and alerted as theirs. Anywhere else it is its owner's own to-do, in its own words and time.
-    const sh = shareAsk(r.p), p = sh ? { ...r.p, due: sh.due ?? r.p.due } : r.p, b = r.b, ids = sh?.rl.length ? sh.rl : r.ids || [];
+    const sh = shareAsk(r.p), p = sh ? { ...r.p, due: sh.due ?? r.p.due } : r.p, b = r.b;
     const s = (p.d || p.h) && ['file', 'review', 'review2', 'revise', 'submit', 'write', 'nodraft', 'stale'].includes(p.kind) ? billStep(b, { viewer: S.me, d: p.d || null, h: p.h || null }) : null;
+    // R-370 (second walk): the overdue line and its Alert name whoever holds the step NOW (steps.js whoseStep, which billStep
+    // carries as s.whose, the one Today reads), not the bill's owner or the draft's first assignee: HB 1523 said "Alert James"
+    // while Today had it as Nate's to review. A to-do with no draft keeps the people the slip list gave it.
+    const ids = sh?.rl.length ? sh.rl : s?.whose?.ids?.length ? s.whose.ids : r.ids || [];
     const mine = ids.includes(me), solo = ids.length === 1;
     const who = !ids.length ? NO_OWNER : mine && solo ? 'You' : cap(orWords(ids, S.me));
     if (s && s.state && s.act) {

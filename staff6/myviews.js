@@ -40,7 +40,7 @@
 // Nothing here is amber or red: a step of the viewer's own that is late keeps its colour from steps.js (shownStatus), and
 // "At risk" is a word and an icon (D3, A-5). Calm budgets (staff6_budget.py): names at 500, numbers at 500, labels 14px.
 import { S, DB, DEMO, VB, esc, SESSION_OVER } from './data.js';
-import { stopOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
+import { stopOf, codesOf, diedish, hearingAhead, gateHead, gateGloss, whenAt, RADAR_DAYS } from './model.js';
 import { icon, iconBtn, toast, btn } from './ui.js';
 import { sl, TEAM_CUT } from './ui.js';   // R-365 B plain words
 import { plural } from './lists.js';
@@ -265,11 +265,33 @@ function whereLine(y, c) {
 // chamber cleared the heading's deadline, a teal dot when one is alive, a grey ring when none is; the words say the same
 // (A-5: never colour alone). The furthest-along bill speaks for the chamber; the title names the bills.
 function cellHTML(j, c) {
+  if (VB) return cellHere(j, c);
   const l = c === 'H' ? j.H : j.S, st = !l.length ? 'no' : l.some(y => y.past) ? 'ok' : 'on';
   const y = [...l].sort((a, b) => (b.past ? 1 : 0) - (a.past ? 1 : 0))[0];
-  const words = !y ? VB ? `No ${HBSB[c]} moving` : `No ${HBSB[c]} alive` : j.D && y.past ? 'cleared' : billShort(y);
+  const words = !y ? `No ${HBSB[c]} alive` : j.D && y.past ? 'cleared' : billShort(y);
   const title = l.map(b => [num(b.b), whereLine(b, c)].filter(Boolean).join(', ')).join('; ');
   return `<div class="mi-cell ${st}" data-cell="${c}"${title ? ` title="${esc(title)}"` : ''}><span class="mi-gl ${st}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span><span class="mi-cl">${y ? `<span class="mi-chn" title="${c === 'H' ? 'House-started bills (HB)' : 'Senate-started bills (SB)'}">${HBSB[c]}:</span> ${esc(words)}` : `<span class="mi-chn" title="${c === 'H' ? 'House-started bills (HB)' : 'Senate-started bills (SB)'}">${esc(words)}</span>`}</span></div>`;
+}
+// R-370 (second walk): version B's cells say where the bills ARE, by the chamber each is in now, the same stop the bill page's
+// "Where it is" and step card use (model.js stopOf: st.chamber, st.committee), not the chamber it started in. HB 756 had
+// crossed to Senate Commerce and the cells still read "House bill: needs a hearing" and "No Senate bill moving". A bill in a
+// committee or on a floor counts in the chamber it is in; a bill past the chambers (conference, Governor, law) keeps the one
+// it started in. A chamber with nothing in it now says what became of the bills it passed on ("passed the House") before it
+// ever says nothing is moving.
+function cellHere(j, c) {
+  const here = y => (y.st.phase === 'committee' || y.st.phase === 'floor') ? y.st.chamber === c : y.ch === c;
+  const l = j.bills.filter(here), sent = j.bills.filter(y => y.ch === c && !here(y));
+  const y = [...l].sort((a, b) => (b.past ? 1 : 0) - (a.past ? 1 : 0))[0];
+  const st = !l.length ? 'no' : l.some(x => x.past) ? 'ok' : 'on';
+  const lbl = `${CH[c]}:`, tip = c === 'H' ? 'Bills now in the House' : 'Bills now in the Senate';
+  let words = '';
+  if (y) { words = j.D && y.past ? 'cleared' : billShort(y);
+    if (!(j.D && y.past) && y.st.phase === 'committee' && y.st.committee) words += ` · ${committeeName(codesOf(y.st.committee)[0])}`;   // a joint referral: the committee it is in now (the first), as the bill page's "committee 1 of 2"
+  }
+  else if (sent.length) words = `passed the ${CH[c]}`;
+  const title = [...l.map(x => [num(x.b), whereNow(x.st)].filter(Boolean).join(', ')), ...sent.map(x => `${num(x.b)}, passed the ${CH[c]}`)].join('; ');
+  const cls = st === 'no' && sent.length ? 'on' : st;
+  return `<div class="mi-cell ${cls}" data-cell="${c}"${title ? ` title="${esc(title)}"` : ''}><span class="mi-gl ${cls}" aria-hidden="true">${st === 'ok' ? icon('check') : ''}</span><span class="mi-cl">${words ? `<span class="mi-chn" title="${tip}">${lbl}</span> ${esc(words)}` : `<span class="mi-chn" title="${tip}">No ${HBSB[c]} moving</span>`}</span></div>`;
 }
 // A row: the name with its small icon and tags, the next step, and the two cells. No health sentence here: the heading
 // says the deadline and the cells say each chamber, so a third line would only repeat them (C-14 on v6: fewer lines).

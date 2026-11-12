@@ -454,7 +454,10 @@ const JOB_NAME = { nodraft: 'Make the draft', write: 'Send for approval', submit
 // R-365 B (critic 10): the bill first, its issue after ("File testimony on HB 2121 (Disposable e-cigarette ban)"), never the
 // issue's name as the title; the bill's number is then in the words, so the row's small number is left out (vbNum).
 const withBill = (job, b) => !b ? job : VB ? `${job.replace(/\?$/, '')} ${/^Write the public ask/.test(job) ? 'for' : 'on'} ${numWords(b)}${vbParen(b)}` : `${job} · ${fullName(b)}`;
-const vbParen = b => { const i = issuesOfBill(b.id)[0], n = i ? i.name : (nameWords(b) !== numWords(b) ? nameWords(b) : ''); return n ? ` (${n})` : ''; };
+// R-370 (second walk): the bracket names the BILL by steps.js nameWords, the helper every other screen names it with (the
+// issue's name first made HB 2116 "Funding for community nonprofits" here and "State grants for nonprofits" on Testimony);
+// a bill with no name of its own falls back to its issue's.
+const vbParen = b => { const nm = nameWords(b), i = issuesOfBill(b.id)[0], n = nm && nm !== numWords(b) ? nm : i ? i.name : ''; return n ? ` (${n})` : ''; };
 const vbNum = (b, num, name = numWords(b)) => VB && b && name.includes(numWords(b)) ? '' : num;
 // { name, num, line (HTML), tone, icon, bold } for one of the viewer's own rows.
 function rowWords(it, v = S.me, soon = false) {
