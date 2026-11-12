@@ -108,6 +108,9 @@ export const S = {
   categories: [], issues: [], issueCats: [], billIssues: [], issueLinks: [], issueLinkChoices: [],
   // The issues' prep for 2027 (091, R-088): each issue's helpers, and the due date (app_settings 'issue_prep').
   issueHelpers: [], issuePrep: { due: '2026-11-06' },
+  // R-368: the issues each teammate follows for themselves (staff_issue_follows, backend 195), issue id -> advocate ids, and
+  // whether that table could be read (until 195 is applied it cannot, and no Follow button shows on the live app).
+  issueFollowers: {}, issueFollowsOK: false,
 };
 export const $ = sel => document.querySelector(sel);
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
@@ -964,7 +967,7 @@ export const DB = {
   async loadIssues() {
     if (DEMO) return;
     try {
-      const [cats, iss, ic, bi, hl, prep, ln, lc] = await Promise.all([
+      const [cats, iss, ic, bi, hl, prep, ln, lc, fl] = await Promise.all([
         S.supa.from('categories').select('*').order('sort_order'),
         S.supa.from('issues').select('*').order('sort_order').order('name'),
         S.supa.from('issue_categories').select('issue_id,category'),
@@ -973,11 +976,13 @@ export const DB = {
         S.supa.from('app_settings').select('value').eq('key', 'issue_prep').maybeSingle(),
         S.supa.from('issue_links').select('issue_a,issue_b,score').eq('related', true),
         S.supa.from('issue_link_choices').select('issue_a,issue_b,related,set_by,set_at'),
+        S.supa.from('staff_issue_follows').select('issue_id,advocate_id'),
       ]);
       for (const r of [cats, iss, ic, bi]) if (r.error) throw r.error;
       S.categories = cats.data || []; S.issues = iss.data || []; S.issueCats = ic.data || []; S.billIssues = bi.data || [];
       S.issueHelpers = hl.error ? [] : hl.data || []; if (prep.data?.value) S.issuePrep = prep.data.value;
       S.issueLinks = ln.error ? [] : ln.data || []; S.issueLinkChoices = lc.error ? [] : lc.data || [];   // related issues (095, R-094)
+      S.issueFollowsOK = !fl.error; S.issueFollowers = {}; (fl.data || []).forEach(r => (S.issueFollowers[r.issue_id] ??= []).push(r.advocate_id));   // R-368
     } catch (e) { console.warn('issues:', e.message || e); return 'failed'; }   // loadAll names it in S.loadFailed (R-152 B)
   },
   // A new issue is a draft the public never sees until an admin publishes it (091); its owner is its maker unless chosen.
@@ -1104,6 +1109,17 @@ export const DB = {
     if (DEMO) return;
     const { error } = await S.supa.from('issue_helpers').insert({ issue_id: issueId, advocate_id: advocateId });
     if (error) { S.issueHelpers = S.issueHelpers.filter(h => h !== row); throw error; }
+  },
+  // R-368 (Nate 11 Nov): any teammate follows an issue for themselves, without becoming a helper: the issue and its bills
+  // join their My issues, Today and alerts (myIssueIds; backend 195 counts it in the inbox and chat alerts). Only their own.
+  async followIssue(issueId, on) {
+    const me = S.me?.id; if (!me) return;
+    const was = [...(S.issueFollowers[issueId] || [])];
+    S.issueFollowers[issueId] = on ? [...new Set([...was, me])] : was.filter(x => x !== me);
+    if (DEMO) return;
+    const r = on ? await S.supa.from('staff_issue_follows').insert({ advocate_id: me, issue_id: issueId })
+                 : await S.supa.from('staff_issue_follows').delete().eq('advocate_id', me).eq('issue_id', issueId);
+    if (r.error && !(on && r.error.code === '23505')) { S.issueFollowers[issueId] = was; throw r.error; }   // 23505: already following (another tab)
   },
   async removeIssueHelper(issueId, advocateId) {
     const had = S.issueHelpers.find(h => h.issue_id === issueId && h.advocate_id === advocateId); if (!had) return;
@@ -1772,7 +1788,7 @@ export async function demoInit() {
   S.people = (snap.people || []).map(x => ({ ...x })); S.peopleLoaded = true; S.segments = (snap.segments || []).map(x => ({ ...x })); S.followups = (snap.followups || []).map(x => ({ ...x, person: (snap.people || []).find(p => p.id === x.person_id) })); S.peopleNotes = {}; S.personTL = Object.fromEntries((snap.people || []).map(x => [x.id, x.timeline || []]));
   S.legislators = snap.legislators || []; S.committeeMembers = snap.committeeMembers || []; S.counterparts = snap.counterparts || []; S.stances = []; S.legNotes = {};
   S.lists = (snap.lists || []).map(l => ({ ...l })); S.listBills = (snap.listBills || []).map(x => ({ ...x })); hooks.afterLoad(); S.listFollowers = Object.fromEntries((snap.lists || []).map(l => [l.id, l.followers || 0]));
-  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, published_at: '2026-09-21T00:00:00Z', prep_state: 'todo', ...i })); S.issueHelpers = []; S.issueLinks = (snap.issueLinks || []).map(x => ({ ...x, related: true })); S.issueLinkChoices = []; S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
+  S.categories = (snap.categories || []).map(c => ({ ...c })); S.issues = (snap.issues || []).map(i => ({ archived_at: null, published_at: '2026-09-21T00:00:00Z', prep_state: 'todo', ...i })); S.issueHelpers = []; S.issueFollowers = {}; S.issueFollowsOK = true; S.issueLinks = (snap.issueLinks || []).map(x => ({ ...x, related: true })); S.issueLinkChoices = []; S.issueCats = (snap.issueCategories || []).map(x => ({ ...x })); S.billIssues = (snap.billIssues || []).map(x => ({ ...x }));
   S.slackCfg = { main_channel: '#hearing-alerts-2027', positions: ['strongly_support','support','support_amend','strongly_oppose','oppose','neutral'], workflow_dm: true, health_dm: true,
     reminder_defaults: { morning: '08:35', morning_on: true, hours_before: 1, before_on: true, after: '16:00', after_on: true },
     daily: { enabled: true, time: '07:00', days_ahead: 7, channel: null, post_when_empty: false },
@@ -1991,7 +2007,7 @@ export async function demoInit() {
   await seedV6(byIni);   // R-336 V33: Patti, Julie and the chair asks (Staff v6's practice copy only)
   // R-316 W38: what was changed in this tab before a person switch (savePractice), back on top of the seeds.
   if (PRACTICE) {
-    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes', 'legProfiles']) if (PRACTICE[k]) S[k] = PRACTICE[k];   // R-335: legislators' profiles (a store from before has none)
+    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes', 'legProfiles', 'issueFollowers']) if (PRACTICE[k]) S[k] = PRACTICE[k];   // R-368: issue follows   // R-335: legislators' profiles (a store from before has none)
     for (const b of S.bills) Object.assign(b, PRACTICE.bills?.[b.id] || {});
     DEMO_TL = [...(PRACTICE.tl || []), ...DEMO_TL.filter(t => t.source === 'auto')].sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)));
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => ids.includes(S.me.id)).map(([id]) => id));
@@ -2203,7 +2219,7 @@ export function savePractice() {
   for (const id of Object.keys(fb)) if (!S.follows?.has(id)) fb[id] = fb[id].filter(x => x !== me);
   for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
   const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
-    assignments: S.assignments, billCampaigns: S.billCampaigns, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null,
+    assignments: S.assignments, billCampaigns: S.billCampaigns, issueFollowers: S.issueFollowers || {}, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null,
     bills: Object.fromEntries(S.bills.map(b => [b.id, Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null]))])) };
   try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
 }
@@ -2239,8 +2255,11 @@ export const isMuted = b => !!S.mutes?.has(b.id);
 export const myIssueIds = () => {
   if (!S.me) return new Set();
   const help = new Set((S.issueHelpers || []).filter(h => h.advocate_id === S.me.id).map(h => String(h.issue_id)));
-  return new Set((S.issues || []).filter(i => !i.archived_at && (i.owner_id === S.me.id || help.has(String(i.id)))).map(i => String(i.id)));
+  return new Set((S.issues || []).filter(i => !i.archived_at && (i.owner_id === S.me.id || help.has(String(i.id)) || followsIssue(i))).map(i => String(i.id)));
 };
+// R-368: issues the viewer follows for themselves (not as a helper); they count as theirs, as a helper's do.
+export const followsIssue = i => !!S.me && !!i && (S.issueFollowers?.[i.id] || []).includes(S.me.id);
+export const helpsIssue = i => !!S.me && !!i && (S.issueHelpers || []).some(h => h.issue_id === i.id && h.advocate_id === S.me.id);
 // The bills on my issues, worked out once per change: isMine runs for every bill on every render.
 let MIB = { sig: '', ids: new Set() };
 export const myIssueBills = () => {

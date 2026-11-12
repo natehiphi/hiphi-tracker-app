@@ -17,7 +17,7 @@
 // A helper cannot mark an issue ready, so when the six steps are done their part is done: the card says "Your part is
 // done" and opens their next issue, never one already finished (X26). A prep date that has passed is "Still to finish",
 // in plain words with no red (spec 6, D3): nobody can act on a date, only on the steps.
-import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
+import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate, followsIssue } from './data.js';
 import { plain, legislativeDay } from './model.js';
 import { teamName, ownerName } from './model.js';   // R-316 W28
 import { icon, btn, empty, toast, openSheet, closeSheet, avatar, pickerSheet, menuSheet, confirmSheet, filterBtn, friendly } from './ui.js';
@@ -115,6 +115,8 @@ export function missing(i) {
 // My issues and the ones I help on.
 const mine = () => live().filter(i => S.me && i.owner_id === S.me.id && !isDraft(i));
 const helping = () => { const ids = new Set((S.issueHelpers || []).filter(h => h.advocate_id === S.me?.id).map(h => h.issue_id)); return live().filter(i => ids.has(i.id) && i.owner_id !== S.me?.id && !isDraft(i)); };
+// R-368: the issues I follow from their page (not as a helper): listed under the prep list, so they stay in My issues between sessions.
+const following = () => live().filter(i => followsIssue(i) && i.owner_id !== S.me?.id && !(S.issueHelpers || []).some(h => h.issue_id === i.id && h.advocate_id === S.me?.id) && !isDraft(i)).sort(byName);
 const myDrafts = () => live().filter(i => isDraft(i) && (i.owner_id === S.me?.id || i.created_by === S.me?.id));
 // W17: an admin's own issues are approved straight from their card, so they are not "waiting for you".
 const waitingForAdmin = () => live().filter(i => stateOf(i) === 'ready' && !(SELF_APPROVE() && i.owner_id === S.me?.id));
@@ -658,6 +660,7 @@ function mineRender({ asMyIssues = false } = {}) {
     ${own.length ? `<section class="i6-sec" aria-labelledby="pr-mine"><h2 class="i6-h" id="pr-mine">Yours</h2>${left.length ? box(left.map(i => prepRow(i)).join('')) : ''}${doneFold('own-done', own.filter(isDone), i => prepRow(i))}</section>` : ''}
     ${help.length ? `<section class="i6-sec" aria-labelledby="pr-help"><h2 class="i6-h" id="pr-help">Helping</h2>${box(help.map(i => prepRow(i, { helper: true })).join(''))}</section>` : ''}
     ${drafts.length ? `<section class="i6-sec" aria-labelledby="pr-dr"><h2 class="i6-h" id="pr-dr">Not public yet</h2>${box(drafts.map(i => prepRow(i)).join(''))}</section>` : ''}
+    ${(fol => fol.length ? `<section class="i6-sec" aria-labelledby="pr-fol"><h2 class="i6-h" id="pr-fol">Following</h2>${box(fol.map(i => prepRow(i)).join(''))}</section>` : '')(following())}
     ${listsLine()}
   </div>`;
 }

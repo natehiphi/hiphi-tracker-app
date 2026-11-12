@@ -21,7 +21,7 @@
 // switch. Walk 4 (Nate, the same day): the default is Deadlines, each issue under the deadline it must beat next with its
 // House | Senate cells (walk 3's Coverage and the column board folded into it), then Status, Topics and Spreadsheet (R-352
 // FIX-3, Nate 28 Oct: "keep the topics and spreadsheet tabs"). This file keeps the page: the head, the lines above, the filter, the prep list and the coalition fallback.
-import { S, DB, DEADLINES, SESSION_OVER, VB, hooks, esc, myIssueIds } from './data.js';
+import { S, DB, DEADLINES, SESSION_OVER, VB, hooks, esc, myIssueIds, helpsIssue } from './data.js';
 import { diedish } from './model.js';
 import { icon, btn, empty, toast, openSheet, closeSheet, pathLine, sectionNav } from './ui.js';
 import { plural } from './lists.js';
@@ -32,10 +32,12 @@ import { toolsHTML, bodyHTML, wireBody, wireSwitch, restoreMine } from './myview
 import { isPos } from './standing.js';
 import { dayWords, itemRow } from './steps.js';
 
-// Each of my issues, as issuestand.js judges it (R-272), with whether it is yours or one you help on.
+// Each of my issues, as issuestand.js judges it (R-272), with whether it is yours, one you help on, or one you follow
+// (R-368: Follow on the issue page; a helper who also follows is a helper).
 function myIssues() {
   const ids = myIssueIds();
-  const mine = (S.issues || []).filter(i => ids.has(String(i.id)) && !i.archived_at).map(i => ({ ...standOf(i), own: i.owner_id === S.me?.id }));
+  const mine = (S.issues || []).filter(i => ids.has(String(i.id)) && !i.archived_at).map(i => { const own = i.owner_id === S.me?.id;
+    return { ...standOf(i), own, follow: !own && !helpsIssue(i) }; });
   return mine;   // Nate 11 Nov: B's My issues lists what v6 lists (coalitionIssues stays for a later call)
 }
 // R-365 version B (Nate 7 Nov, "Saya's issues by name"): the issues of the coalitions the viewer owns or helps on, which they
@@ -52,7 +54,7 @@ function coalitionIssues(have) {
   return (S.issues || []).filter(i => via.has(i.id) && !i.archived_at).map(i => ({ ...standOf(i), own: false, via: via.get(i.id) }));
 }
 const Q = () => S.miSearch ??= { q: '' };
-const opts = () => ({ q: Q().q, from: 'mine', tagsOf: x => [x.via ? `Through ${x.via}` : x.own ? '' : 'You help', isDraft(x.i) ? 'Not public yet' : ''].filter(Boolean) });
+const opts = () => ({ q: Q().q, from: 'mine', tagsOf: x => [x.via ? `Through ${x.via}` : x.own ? '' : x.follow ? 'You follow' : 'You help', isDraft(x.i) ? 'Not public yet' : ''].filter(Boolean) });
 
 // ---- F52: live bills with a position on an issue you own, that nobody owns ----
 const onIssue = i => new Set((S.billIssues || []).filter(x => x.issue_id === i.id).map(x => x.bill_id));
@@ -119,17 +121,18 @@ export default {
     // R-316 W16: between sessions, My issues opens as the 2027 prep list, as Nate chose for Staff v2 on 10/16 (R-263).
     if (myIssuesPrep()) return renderMinePrep();
     const list = myIssues(), head = VB ? vbHead() : headHTML('mine');
-    const owned = list.filter(x => x.own).length, helped = list.length - owned;
+    const owned = list.filter(x => x.own).length, followed = list.filter(x => x.follow).length, helped = list.length - owned - followed;
     // Someone with no issue: their coalitions, where their week is (Patti: HEAL in one click).
     // The critic: say why the page shows coalitions, and how an issue would come to be here.
-    if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}<p class="i6-lede mi-noiss">No issues are yours yet. Owning or helping on an issue adds it here; helping a coalition shows its week below.</p>${coalSectionsHTML()}</div>`;
+    if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}<p class="i6-lede mi-noiss">No issues are yours yet. Owning, helping on or following an issue adds it here; helping a coalition shows its week below.</p>${coalSectionsHTML()}</div>`;
     if (!list.length) return `<div class="le-page i6-page mi6-page">${head}
-      <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div></div>`;
+      <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own, help on or follow an issue, it shows here with where it stands. Follow one from its page.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div></div>`;
     // Under the tabs, one line only when it says something the list does not (the critic: "You own 10 issues" counted the
     // rows below it, and "You help on 2." named no noun): for someone who helps on a coalition, that coalition and its week
     // (Patti: "Your coalition: HEAL · 3 hearings this week"), which replaces the lede (A-25); for a helper on issues only,
     // how many they help on.
-    const coal = helpLineHTML(), lede = coal || (!owned && helped ? `<p class="i6-lede">You help on ${esc(plural(helped, 'issue'))}. Each owner leads theirs.</p>` : '');
+    const others = [helped ? `help on ${plural(helped, 'issue')}` : '', followed ? `follow ${plural(followed, 'issue')}` : ''].filter(Boolean).join(' and ');
+    const coal = helpLineHTML(), lede = coal || (!owned && others ? `<p class="i6-lede">${esc(`You ${others}. Each owner leads theirs.`)}</p>` : '');
     const lines = linesHTML();
     // Nate 11 Nov: B keeps its look (its title over the tabs) but the page is organized as v6's: the four views, Deadlines
     // first, the notes above the list.

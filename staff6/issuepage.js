@@ -24,7 +24,7 @@
 //
 // Moved here from issues.js (R-336 walk 3): pageRender and its helpers, the bill search to put a bill on the issue,
 // related issues, merge, archive, the first-visit switch. issues.js re-exports issuePage, so app.js is unchanged.
-import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, seesTeam } from './data.js';
+import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, seesTeam, followsIssue, helpsIssue } from './data.js';
 import { liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB, pathLine, vbFinish } from './ui.js';
 import { sl } from './ui.js';   // R-365 B plain words
@@ -55,6 +55,24 @@ const byNum = (a, b) => a.bill_number.localeCompare(b.bill_number, 'en', { numer
 const thisSession = b => !b.session_year || +b.session_year === +SESSION_YEAR;
 const mayPublic = i => !!S.me && (!!S.me.is_admin || i.owner_id === S.me.id);
 const mayStance = mayPublic;
+// R-368 (Nate 11 Nov): Follow, for any teammate who is not the issue's owner or a helper (they have it already). A visible
+// button, as on the bill page (V22: one click): it says what is true ("Following") and pressing again stops following (A-12).
+// The live app shows it only once the database keeps issue follows (backend 195).
+function followBtn(i) {
+  if (!S.me || i.archived_at || i.owner_id === S.me.id || helpsIssue(i) || !S.issueFollowsOK) return '';
+  const on = followsIssue(i);
+  return btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'bell', cls: 'is6-follow',
+    attrs: { 'data-ip': 'follow', 'aria-pressed': String(on), ...(on ? { title: 'Press to stop following' } : {}), 'aria-label': on ? `Following ${i.name}. Press to stop following` : `Follow ${i.name}: it and its bills join your list and alerts` } });
+}
+async function toggleIssueFollow(i) {
+  const on = !followsIssue(i);
+  const redraw = () => { const y = scrollY; hooks.render(); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); document.querySelector('[data-ip="follow"]')?.focus({ preventScroll: true }); };
+  try {
+    await DB.followIssue(i.id, on); redraw();
+    toast(on ? `Following ${i.name}. It and its bills show in My issues and on Today, with their updates.` : `Unfollowed ${i.name}.`,
+      { undo: async () => { await DB.followIssue(i.id, !on); redraw(); } });
+  } catch (e) { toast(e, { err: true }); }
+}
 const wantPeople = () => { if (!S.peopleLoaded && !S.peopleLoading && !S.isPeopleTried) { S.isPeopleTried = true; DB.loadPeople().then(() => hooks.render()).catch(() => {}); } };
 function followers(i) {
   if (!S.peopleLoaded) return null;
@@ -791,7 +809,7 @@ function pageRender(route) {
         <p class="is6-meta"><span class="is6-stl">HIPHI’s stance</span>${mayStance(i) ? stanceChip(i, { 'data-is': 'stance' }) : stanceWords(i)}<span class="is6-cat">${esc([c?.name || i.category, also.length ? `also in ${also.map(x => x.name).join(' and ')}` : '', i.recommended ? 'pre-ticked for new visitors' : ''].filter(Boolean).join(' · '))}</span></p>
         ${stanceNote(i, now)}
       </div>
-      <div class="is6-hacts">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
+      <div class="is6-hacts">${followBtn(i)}${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
     </header>
     ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
   // The bills, House bills | Senate bills, by the chamber each started in.
@@ -966,7 +984,7 @@ function vbRender(route, i) {
       <span class="is6-icon mi-c-${esc(i.category || 'none')}" aria-hidden="true">${icon(issueIcon(i))}</span>
       <div class="is6-hbody"><p class="vb-kind">Issue</p><h1 class="is6-h1">${esc(i.name)}</h1>
         ${i.description ? `<p class="is6-desc">${esc(i.description)}</p>` : ''}${SESSION_OVER && !prepHoldsOutlook(i) ? outlook : ''}</div>
-      <div class="is6-hacts">${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
+      <div class="is6-hacts">${followBtn(i)}${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', cls: 'is6-edit', attrs: { 'data-is': 'edit', 'aria-haspopup': 'dialog', 'aria-label': `Edit ${i.name}` } })}${iconBtn('ellipsis', `More for ${i.name}: merge, public page, archive`, { 'data-is': 'more', 'aria-haspopup': 'dialog' })}</div>
     </header>
     ${i.archived_at ? `<p class="i6-line">${icon('archive')}<span><b>Archived.</b> The public does not see it, and its followers do not get its bills.</span>${btn('Restore', { kind: 'secondary', sm: true, attrs: { 'data-is': 'restore' } })}</p>` : ''}`;
   const keep = route.q?.from ? `?from=${encodeURIComponent(route.q.from)}` : '';   // a tab keeps where the issue was opened from, so Back reads the same on every tab
@@ -1039,6 +1057,7 @@ export const issuePage = {
     // The supporters' stories open in a sheet from the public page's line (R-352: they were a fold of their own).
     root.querySelector('[data-ip="stories"]')?.addEventListener('click', () => openSheet({ title: 'Stories from supporters', body: `<div class="le-sheet">${storiesHTML(i).body}</div>` }));
     root.querySelector('[data-ip="take"]')?.addEventListener('click', e => takeIssue(i, e.currentTarget));   // R-364
+    root.querySelector('[data-ip="follow"]')?.addEventListener('click', () => toggleIssueFollow(i));   // R-368
     root.querySelector('[data-ip="cvlog"]')?.addEventListener('click', () => logConversation({ issueId: i.id, onDone: () => { refreshConversations(); delete TL()[i.id]; hooks.render(); } }));
     // The "…" holds the rare actions (F155); Edit is also a visible text button beside it.
     root.querySelector('[data-is="edit"]')?.addEventListener('click', () => openIssueForm(i));

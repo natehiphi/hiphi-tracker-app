@@ -1005,4 +1005,12 @@ body.staff6 .v6-chd { display: inline-flex; align-items: center; gap: 4px; white
 body.staff6 .v6-chdot { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--v6-field); flex: none; }
 body.staff6 .v6-chd.on { color: var(--v6-body); }
 body.staff6 .v6-chd.on .v6-chdot { background: var(--v6-action); box-shadow: none; }
+/* R-368: on a phone the issue's Follow button would squeeze its name into a narrow column, so the head's buttons take their
+   own row under the name (Follow first, the "…" at the end). */
+@media (max-width: 599px) {
+  body.staff6 .is6-head:has(.is6-follow) { flex-wrap: wrap; row-gap: var(--s8); }
+  body.staff6 .is6-head:has(.is6-follow) .is6-hbody { flex: 1 1 0; }
+  body.staff6 .is6-head:has(.is6-follow) .is6-hacts { order: 3; flex-basis: 100%; justify-content: space-between; }
 }
+/* R-368 (critic): Follow keeps Following's width, so pressing it does not move the page. */
+body.staff6 .is6-follow { min-width: 9.5em; justify-content: center; }
