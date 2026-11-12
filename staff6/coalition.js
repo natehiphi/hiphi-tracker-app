@@ -14,21 +14,22 @@
 // chair and Mark asked live there, on Today and on the bill: the addendum's rule 1). The only buttons are the ones that are
 // this page's own: Take it (a bill nobody owns, a to-do anyone can take), the I help switch and the two Copy buttons.
 // Coalitions index: rows, the coalitions you help on first (F157), the others each with an "I help" switch (F159).
-import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate } from './data.js';
+import { S, DB, DEMO, SESSION_OVER, IC, hooks, esc, advocate } from './data.js';
 import { issueHealth, diedish, riskOf, PUBLIC_APP, hiToday, billById, wantsHearing, billRoute, sittingDraft, whenAt } from './model.js';
 import { ownerFirst, ownerName } from './model.js';   // R-316 W28: "Lauren (turned off)"
 import { icon, btn, empty, toast, switchRow, openSheet, ASK_TAB, andWords } from './ui.js';
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, afterClose, iconName } from './lists.js';
 import { issuesOfBill } from './issues.js';
-import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile } from './issuestand.js';
+import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile, standOf, byUrgency } from './issuestand.js';
+import { issueKey, stateMark } from './verbs.js';   // R-373: an issue's health, as the cards say it
+import { stageInWords } from './bill.js';   // R-373: where a bill stands, in the bill page's words (used only when a page draws)
 import { isPos, byPri, waitingOfBills } from './standing.js';
-import { statusLine, itemRow, billStep, shownStatus, testimonyState, goingWords, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
-import { cardHTML, picHTML, groupHTML, restoreCard, topicIcons } from './issuegrid.js';   // R-336 walk 3: the index as cards
+import { statusLine, itemRow, billStep, shownStatus, testimonyState, goingWords, billInIssue, committeeName, numWords, nameWords, dayWords, nw } from './steps.js';
+import { cardHTML, picHTML, groupHTML, restoreCard, topicIcons, icCls, icEdge } from './issuegrid.js';   // R-336 walk 3: the index as cards
 import { ICONS } from '../icons.js';
 
 const WEEK = 7 * 864e5, FOLD = 6;
-const DESK = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
 const coalById = id => (S.campaigns || []).find(c => String(c.id) === String(id)) || null;
 const andList = andWords;   // ui.js's one list join, "A, B and C" (Nate 25 Oct walk 1)
 const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
@@ -88,7 +89,7 @@ const coalHref = c => `#/coalition/${encodeURIComponent(c.id)}`;
 // Its issues, from its bills: each has its own public page, which is what R-018 made the public tracker's unit.
 function issuesOf(c) {
   const seen = new Map();
-  for (const b of billsOf(c)) for (const i of issuesOfBill(b.id)) seen.set(i.id, i);
+  for (const b of billsOf(c)) for (const i of issuesOfBill(b.id)) if (!i.archived_at) seen.set(i.id, i);
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -161,7 +162,8 @@ export function helpLineHTML() {
 // otherwise one link to the coalition. Your coalitions first, then the others, in Session setup's order: with nine
 // coalitions a sort would add a control and find nothing faster (A-25), so there is none.
 const ownerLine = c => { const o = advocate(c.owner_id); return o ? (o.id === S.me?.id ? 'You own it' : `Owner: ${ownerFirst(o)}`) : 'No owner yet'; };
-const weekWords = c => { const f = facts(c); return `${f.live ? plural(f.live, 'live bill') : 'No live bills'}, ${hearWords(f.hear)}`; };
+// R-373 (A-3 on v6): "10 issues · 6 live bills, 2 hearings this week"; the card is a link, so it carries no button.
+const weekWords = c => { const f = facts(c), n = issuesOf(c).length; return `${n ? plural(n, 'issue') + ' · ' : ''}${f.live ? plural(f.live, 'live bill') : 'No live bills'}, ${hearWords(f.hear)}`; };
 function coalCard(c) {
   // An icon Lucide has, or an emoji v5 kept that iconName knows; anything else gets none, not iconName's stand-in. A topic's
   // icon (HEAL's salad, CTFH's crossed-out cigarette) means that topic on All issues, so here it gets none either.
@@ -170,8 +172,7 @@ function coalCard(c) {
   const words = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''), full = c.public_name || c.name, short = words(full) !== words(c.name) ? c.name : '';
   return cardHTML({ key: c.id, href: coalHref(c), name: full, after: short, title: c.description || '', cls: 'co6-cell',
     pic: picHTML({ ic }),
-    lines: [[esc(ownerLine(c)), 'ig6-desc co6-own'], [`<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']],
-    foot: ownsCoal(c) ? '' : helpBtn(c) });
+    lines: [[esc(ownerLine(c)), 'ig6-desc co6-own'], [`<span>${nw(esc(weekWords(c)))}</span>`, 'ig6-stat']] });
 }
 export function coalCardsHTML({ yoursTitle = '' } = {}) {
   const all = (S.campaigns || []).slice().sort(byOrder), st = stays();
@@ -202,12 +203,13 @@ const two = s => { const p = String(s || '').split(' · '); return p.length > 2 
 // R-370: the one line My issues puts under a bill ("needs a hearing · Senate Commerce", "passed the House"); Search reuses it
 // so a bill's standing is worded the same in both places.
 export const billStatusWords = b => ownerWords(b, two(billStep(b)?.line || ''));
-export function billLineRow(b, { line, button = '', cls = '' } = {}) {
+export function billLineRow(b, { line, button = '', cls = '', lead = '', i = null } = {}) {
   const s = billStep(b), st = shownStatus(s) || {}, own = !!s?.you;
-  const text = line != null ? line : ownerWords(b, two(s?.line || ''));
+  const text = line != null ? line : [lead, ownerWords(b, two(s?.line || ''))].filter(Boolean).join(' · ');
   const tone = line == null && st.tone && st.tone !== 'neutral' ? st.tone : '';
   const ic = line != null ? '' : tone ? st.icon : (st.soon && own) ? 'clock' : '';
-  return itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(text)), tone, icon: ic, bold: !!(st.soon && own && line == null), href: billRoute(b), button, cls: `i6-row${cls ? ' ' + cls : ''}`, bill: b.id });
+  const nm = i ? billInIssue(b, i) : nameWords(b), same = !!i && nm === numWords(b);   // under its issue's heading a bill does not repeat the issue's name
+  return itemRow({ key: b.id, name: nm, num: same ? '' : numWords(b), line: nw(esc(text)), tone, icon: ic, bold: !!(st.soon && own && line == null), href: billRoute(b), button, cls: `i6-row${cls ? ' ' + cls : ''}`, bill: b.id });
 }
 
 // Its hearings this week, a row per sitting (status, not steps): the committee, then when, who is going, and where its
@@ -219,7 +221,7 @@ function sittingRow(s, from) {
   // Decision 9: one bill says its status line as every screen does, under its own name (nameWords: one name per bill).
   const one = items.length === 1 ? billStep(items[0].b, { d: sittingDraft(items[0].h, items[0].b.id) || null, h: items[0].h }) : null;
   const said = one?.state ? `${nameWords(items[0].b, 40)}: ${statusLine(one, { who: false, flat: true, soon: false })}`
-    : `${plural(items.length, 'bill')}${states.length ? `: ${[...new Set(states.map(x => x.word))].join(', ')}` : ''}`;
+    : `${plural(items.length, 'bill')}${states.length ? `: ${items.map(x => { const t = testimonyState(sittingDraft(x.h, x.b.id) || null, x.b, { h: x.h }); return t ? `${numWords(x.b)} ${t.word}` : ''; }).filter(Boolean).join(', ')}` : ''}`;
   const href = `#/hearing/${encodeURIComponent(h.id)}${from ? `?from=${encodeURIComponent(from)}` : ''}`;
   return itemRow({ key: h.id, name: committeeName(h.committee) || h.committee, line: [cap(whenAt(h.scheduled_at)), goingWords(h), said].map(t => nw(esc(t))).join(' · '), icon: 'calendar-days', href, cls: 'i6-row' });
 }
@@ -237,7 +239,7 @@ export function hearingsSec(bills, { key = '', from = '', byBill = false } = {})
   const rows = byBill ? week.flatMap(s => s.rows.map(h => [h, billById(h.bill_id)]).filter(([, b]) => b).sort((x, y) => byPri(x[1], y[1])).map(([h, b]) => billHearRow(h, b)))
     : week.map(s => sittingRow(s, from));
   return sec(`co6-h-${esc(key)}`, 'Hearings this week', folded(key + '|h', rows),
-    { more: `<p class="i6-more-link"><a href="#/hearings">See them on Hearings${icon('chevron-right')}</a></p>` });
+    { more: `<p class="i6-more-link"><a href="#/hearings">See them on Calendar${icon('chevron-right')}</a></p>` });
 }
 // The bills that still need a hearing, grouped by the deadline they race, at risk first (no hearing, deadline a week away
 // or less, model.js riskOf). Bills HIPHI opposes are left out (W2: a hearing is what we do not want for them). Each row is
@@ -317,8 +319,7 @@ function headHTML(c) {
   return `<header class="co6-head">
     <span class="co6-icon" aria-hidden="true">${icon(iconName(c.icon))}</span>
     <div class="co6-hbody">
-      <h1 class="co6-h1">${esc(c.name)}</h1>
-      ${c.public_name && c.public_name !== c.name ? `<p class="co6-pub">${esc(c.public_name)}</p>` : ''}
+      <h1 class="co6-h1">${esc(c.public_name && c.public_name !== c.name ? c.public_name : c.name)}${c.public_name && c.public_name !== c.name ? ` <small class="co6-short">${esc(c.name)}</small>` : ''}</h1>
       <p class="co6-meta"><span>${own ? `Owner: ${esc(own.id === S.me?.id ? 'you' : ownerName(own))}` : `No owner${S.me?.is_admin ? ` · <a href="#/setup/coalitions">choose one in Session setup</a>` : ''}`}</span><span aria-hidden="true"> · </span><span>${esc(live ? plural(live, 'live bill') : 'No live bills')}</span><span aria-hidden="true"> · </span><a href="${esc(billsHref(c))}">See all its bills</a></p>
     </div>
   </header>`;
@@ -357,24 +358,59 @@ function shareHTML(c) {
   </section>`;
 }
 
+// ---- R-373 (B-1, B-14 on v6): the page is the coalition's issues ----
+// One chip per issue (its tile, name and live-bill count) filters the page to that issue's group; tapping it again shows all. The
+// pick is kept for this visit (B-6). Then one group per issue, at risk first (issuestand.js byUrgency, the order My issues
+// uses), each with its live bills as rows of the shared shape and its stopped bills folded at the end. A live bill that is on
+// no issue yet is in a last group, so no bill of the coalition drops out of the page.
+const pickOf = c => (S.coPick ??= {})[c.id] || '';
+function issueGroups(c) {
+  const mine = new Set(billsOf(c).map(b => b.id)), inC = b => mine.has(b.id) && isPos(b);
+  const xs = issuesOf(c).map(i => ({ ...standOf(i), own: i.owner_id === S.me?.id })).sort(byUrgency)
+    .map(x => ({ x, i: x.i, live: x.going.filter(inC).sort(byPri), gone: x.gone.filter(inC).sort(byPri) }));
+  const placed = new Set(xs.flatMap(g => [...g.live, ...g.gone].map(b => b.id)));
+  return { xs, loose: liveOf(c).filter(b => !placed.has(b.id)).sort(byPri) };
+}
+const chipHTML = (g, on) => `<button type="button" class="co6-lg${icEdge(g.i) ? ' co6-lge' : ''}${icCls(g.i)}" data-colg="${esc(g.i.id)}" aria-pressed="${on}">${issueTile(g.i, 'xs')}<span class="co6-lgn">${esc(g.i.name)}</span><span class="co6-lgc">${g.live.length}<span class="sr"> live ${g.live.length === 1 ? 'bill' : 'bills'}</span></span></button>`;
+function stripHTML(gs, pick) {
+  if (gs.length < 2) return '';
+  return `<div class="co6-lgs" role="group" aria-label="Show one issue of this coalition">${gs.map(g => chipHTML(g, String(g.i.id) === pick)).join('')}</div>`;
+}
+function groupBillRow(b, i, take) {
+  const where = stageInWords(b);
+  return billLineRow(b, { lead: where, button: take && noOwner(b) ? takeBtn(b) : '', cls: icEdge(i).trim(), i });
+}
+function groupHTML2(c, g) {
+  const { i } = g, id = `co6-g-${esc(i.id)}`;
+  const rows = g.live.map(b => groupBillRow(b, i, true));
+  const stop = g.gone.length ? `<details class="ip6-fold co6-stopf" data-costop="${esc(c.id)}|${esc(i.id)}"${S.coStop?.has(`${c.id}|${i.id}`) ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>${plural(g.gone.length, 'bill')} stopped</span></summary>${box(g.gone.map(b => billLineRow(b, { line: 'Stopped', cls: icEdge(i).trim(), i })).join(''))}</details>` : '';
+  return `<section class="i6-sec co6-grp${icCls(i)}" aria-labelledby="${id}"><h2 class="co6-gh" id="${id}">${issueTile(i, 'sm')}<a href="#/issue/${encodeURIComponent(i.id)}?from=coalition">${esc(i.name)}</a><span class="co6-gs">${stateMark('issue', issueKey(g.x), { size: 18 })}</span></h2>
+    ${rows.length ? folded(`${c.id}|g|${i.id}`, rows) : '<p class="i6-quiet">No live bills.</p>'}${stop}</section>`;
+}
+function groupsHTML(c, pick) {
+  const { xs, loose } = issueGroups(c), shown = pick ? xs.filter(g => String(g.i.id) === pick) : xs;
+  const looseSec = !pick && loose.length ? `<section class="i6-sec co6-grp" aria-labelledby="co6-g-none"><h2 class="co6-gh" id="co6-g-none"><span class="co6-gname">Not on an issue yet</span></h2>${folded(`${c.id}|g|none`, loose.map(b => billLineRow(b, { button: noOwner(b) ? takeBtn(b) : '' })))}</section>` : '';
+  if (!xs.length && !loose.length) return '';
+  return `${stripHTML(xs, pick)}${shown.map(g => groupHTML2(c, g)).join('')}${looseSec}`;
+}
+
 function pageHTML(c) {
   const back = `<a class="co6-back" href="#/issues/coalitions" data-back>${icon('chevron-left')}<span>Coalitions</span></a>`;
-  const todos = openTodosOf(c), bills = billsOf(c), allUnowned = unownedOf(c);
-  const needing = SESSION_OVER ? new Set() : new Set(needsOf(waitingOfBills(bills)).map(x => x.b.id)), unowned = allUnowned.filter(b => !needing.has(b.id));
+  const todos = openTodosOf(c), bills = billsOf(c);
   const anyTodo = bills.some(b => (S.todos[b.id] || []).some(t => !t.done));
-  const clear = !allUnowned.length && !anyTodo ? [liveOf(c).length ? 'every live bill has an owner' : '', 'no open to-dos'].filter(Boolean) : [];
+  const clear = !unownedOf(c).length && !anyTodo ? [liveOf(c).length ? 'every live bill has an owner' : '', 'no open to-dos'].filter(Boolean) : [];
   const lead = standLeadHTML(bills, { clear });
-  const week = standWeekHTML(bills, { key: c.id, from: c.id, take: true, after: `${unowned.length ? unownedHTML(c, unowned) : ''}${todos.length ? todosHTML(c, todos) : ''}` });
+  // The hearings stay a short section above the groups; the bills that need a hearing, and those nobody owns, are rows in
+  // their issue's group now (with Take it), so the page says each bill once.
+  const pick = pickOf(c), hear = hearingsSec(bills, { key: c.id, from: c.id });
+  const groups = SESSION_OVER ? '' : groupsHTML(c, pick);
   // The partner update is the weekly job of the coalition's own people: one tonal button under the lead (one door,
   // Outreach › Partner update, B-13). Anyone else gets the I help switch in that place, the page's one useful act for them.
   const mine = mayUpdate(c);
   const act = mine ? `<p class="co6-acts">${btn('Write a partner update', { kind: 'secondary', icon: 'mail', href: memoHref(c) })}</p>` : supportHTML(c, { slot: true });
+  // A-24, A-13: sharing and your help come last, at every size, as a quiet section (it was a side panel the eye went to first).
   const side = `${mine ? supportHTML(c) : ''}${shareHTML(c)}`;
-  if (!DESK()) return `<div class="co6-page">${back}${headHTML(c)}${lead}${act}${week}${side}</div>`;
-  return `<div class="co6-page co6-desk">${back}<div class="co6-cols">
-    <div class="co6-main">${headHTML(c)}${lead}${act}${week}</div>
-    <aside class="co6-side" aria-label="Your help, and sharing with partners">${side}</aside>
-  </div></div>`;
+  return `<div class="co6-page">${back}${headHTML(c)}${lead}${act}${hear}${groups}${todos.length ? todosHTML(c, todos) : ''}<div class="co6-last">${side}</div></div>`;
 }
 
 // ---- actions ----
@@ -407,8 +443,6 @@ async function takeTodo(key) {
 
 export default {
   tab: 'myissues',   // the second tab of My issues
-  // One coalition is two columns from 1100px, which need more than the reading column.
-  wide: route => !!route.id && DESK(),
   title: route => route.id ? coalById(route.id)?.name || 'Coalition' : 'Issues · Coalitions',
   back: route => route.id ? { href: '#/issues/coalitions', label: 'Coalitions' } : null,
   render(route) {
@@ -428,6 +462,9 @@ export default {
     root.querySelectorAll('[data-cotakebill]').forEach(el => el.onclick = () => { const b = billById(el.dataset.cotakebill); if (b) takeBill(b); });
     root.querySelectorAll('[data-cotake]').forEach(el => el.onclick = () => takeTodo(el.dataset.cotake));
     wireWeek(root, () => redrawKeep());
+    root.querySelectorAll('[data-costop]').forEach(d => d.addEventListener('toggle', () => { const t = (S.coStop ??= new Set()); if (d.open) t.add(d.dataset.costop); else t.delete(d.dataset.costop); }));
+    // The filter strip: one issue, or all again (B-6: kept for this visit).
+    root.querySelectorAll('[data-colg]').forEach(el => el.onclick = () => { const k = (S.coPick ??= {}); const id = el.dataset.colg; if (k[c.id] === id) delete k[c.id]; else k[c.id] = id; redrawKeep(`[data-colg="${CSS.escape(id)}"]`); });
     root.querySelector('.co6-iss')?.addEventListener('toggle', e => { const s = (S.coIss ??= new Set()); if (e.currentTarget.open) s.add(c.id); else s.delete(c.id); });
   },
 };

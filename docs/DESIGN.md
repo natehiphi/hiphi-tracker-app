@@ -1352,8 +1352,8 @@ Rows and headings say things in words:
 - **Codes, versions and deadline names live in About this bill, the session calendar and Help** (deadline names also for
   owners and admins). The legislative day moves from Today's header to the session calendar.
 - **One name per act** (spec 8), checked by `tests/staff6_words.py`.
-- **One wording per testimony state** (`steps.js` `testimonyState`): **Writing · With an approver · Second look · Ready to
-  file · Filed**, plus **Missed**. A draft not yet started is "Writing · not started"; **"sent back" is a lower-case flag**
+- **One wording per testimony state** (`steps.js` `testimonyState`): **Writing · With an approver · Second review · Ready to
+  file · Filed** (R-365, Nate 7 Nov), plus **Missed**. A draft not yet started is "Writing · not started"; **"sent back" is a lower-case flag**
   on Writing that names nobody (11.5, 12.6).
 
 C-15's word list holds where it does not conflict; where it does (Waiting for approval, Sent back as a state, the
