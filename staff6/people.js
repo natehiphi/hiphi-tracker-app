@@ -20,7 +20,7 @@ import { queueChanged, wantQueue } from './partnerq.js';
 import { bl, save as saveBills } from './filters.js';
 
 // ---- the visit's state: who has signed in, who Slack reaches, the covers picked, a hand-over just done ----
-const P = () => S.v6people ??= { logins: null, loginsBusy: false, loginsErr: '', reach: null, reachBusy: false, reachErr: '', teamEmail: null, slackBusy: false, offOpen: false, cover: {}, done: {}, busy: '' };
+const P = () => S.v6people ??= { logins: null, loginsBusy: false, loginsErr: '', reach: null, reachBusy: false, reachErr: '', teamEmail: null, slackBusy: false, offOpen: false, notIn: false, cover: {}, done: {}, busy: '' };
 const redraw = () => { if (S.route?.name === 'people') hooks.render(); };
 function loadLogins(force) {
   const s = P(); if (s.loginsBusy || (s.logins && !force)) return;
@@ -156,10 +156,14 @@ function listPage(route) {
     actions: btn('Add a person', { icon: 'user-plus', attrs: { 'data-peadd': '1', 'aria-haspopup': 'dialog' } }) });
   const offRows = off.length ? `<details class="pe-off"${s.offOpen || (a && !live(a)) ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'chev' })}<span>${plural(off.length, 'person', 'people')} turned off</span></summary>
     <div class="v6-list" role="list" aria-label="Turned off">${off.map(x => rowOf(x, sel)).join('')}</div></details>` : '';
+  // R-370 (second walk): who still needs a sign-in link, at the top, from the same data each row's "No sign-in yet" reads.
+  // Anyone with no last sign-in counts (no login, link not used, login not used), so the admin sees them all at once.
+  const notIn = act.filter(x => s.logins && !s.logins[x.id]?.last_sign_in_at), showN = s.notIn && s.logins;
+  const chip = s.logins && (notIn.length || s.notIn) ? `<p class="pe-filt">${btn(`Not signed in · ${notIn.length}`, { kind: s.notIn ? 'secondary' : 'text', sm: true, icon: s.notIn ? 'x' : 'user-x', attrs: { 'data-penotin': '1', 'aria-pressed': String(!!s.notIn) } })}</p>` : '';
   const err = s.loginsErr ? notice('warn', 'info', `Could not check who has signed in. ${esc(s.loginsErr)}`) : '';
   const gone = sel && !a ? notice('info', 'info', 'That person is not on the team list.', btn('See everyone', { kind: 'text', href: '#/people' })) : '';
-  return `<div class="pe-page">${head}${err}${gone}
-    ${listDetail({ id: 'people', label: 'The team', rows: act.map(x => rowOf(x, sel)).join(''), picked: a ? a.id : null, detail: a ? record(a) : '', empty: 'Pick a person to see their record' })}
+  return `<div class="pe-page">${head}${err}${gone}${chip}
+    ${listDetail({ id: 'people', label: 'The team', rows: (showN ? notIn : act).map(x => rowOf(x, sel)).join(''), picked: a ? a.id : null, detail: a ? record(a) : '', empty: 'Pick a person to see their record' })}
     ${offRows}${reachCard()}</div>`;
 }
 
@@ -452,6 +456,7 @@ export default {
     const on = (sel, fn) => main.querySelectorAll(sel).forEach(el => el.onclick = e => fn(el, e));
     const who = id => advocate(id);
     on('[data-peadd]', () => personSheet(null));
+    on('[data-penotin]', () => { const s = P(); s.notIn = !s.notIn; redraw(); });
     on('[data-peedit]', el => personSheet(who(el.dataset.peedit), { focus: el.dataset.pefocus }));
     on('[data-pelink]', el => makeLink(who(el.dataset.pelink)));
     on('[data-peon]', el => busy(el, () => setActive(who(el.dataset.peon), true)));

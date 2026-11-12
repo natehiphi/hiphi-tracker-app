@@ -519,7 +519,7 @@ export function render() {
   // under the content it acts on (staff.css), never a screen-height away from it.
   // The practice copy's band (warm dark, V33): the date and who you practise as; the switch is in the You menu (A-6: no
   // control inside a 28px band).
-  const band = DEMO ? `<div class="band"><span class="band-hint"><b>Staff v6</b> · Practice copy · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' })} · as ${esc((S.me?.full_name || '').split(' ')[0])} · practice only<span class="band-hint"> · your changes stay in this tab · switch person or start over under You</span></div>` : '';
+  const band = DEMO ? `<div class="band"><span class="band-hint">Practice copy · </span>${new Date(DEMO_ASOF).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Pacific/Honolulu' }).replace(',', '')} · as ${esc((S.me?.full_name || '').split(' ')[0])}<span class="band-hint"> · nothing reaches the team · change under You</span></div>` : '';
   const navTop = document.querySelector('.sv-snav')?.scrollTop || 0;   // a redraw keeps the sidebar where it was scrolled
   // A redraw of the same page (data arriving, a 2-minute look) while someone is in the header's search box keeps them there:
   // the box is redrawn too, and an empty palette (Cmd/Ctrl-K's start list) lost its focus, so the keys typed next went nowhere.

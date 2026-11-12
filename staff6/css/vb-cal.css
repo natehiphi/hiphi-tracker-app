@@ -13,6 +13,7 @@ html.vb body.staff6 .hb .hc-day.past .hb-list, html.vb body.staff6 .hb .hc-day.p
 html.vb body.staff6 .hb .hb-dh { display: grid; justify-items: center; gap: 2px; padding: 0 0 6px; }
 html.vb body.staff6 .hb .hb-dw { font-family: var(--font); font-size: var(--v6-t14); line-height: 20px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--v6-muted); }
 html.vb body.staff6 .hb .hb-dn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; font-family: Poppins, system-ui, sans-serif; font-size: 22px; font-weight: 500; color: var(--v6-ink); }
+html.vb body.staff6 .hb .hb-dc { font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
 html.vb body.staff6 .hb .hc-day.today .hb-dw { color: var(--v6-action); }
 html.vb body.staff6 .hb .hc-day.today .hb-dn { background: var(--v6-action); color: #fff; }
 
