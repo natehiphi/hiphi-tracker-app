@@ -37,14 +37,15 @@ html.vb body.staff6 .hb-h { background: var(--v6-action-wash); box-shadow: inset
 html.vb body.staff6 .hb-h.off { background: var(--v6-wash); box-shadow: inset 3px 0 0 var(--v6-hair); }
 html.vb body.staff6 .hb-h.off .hb-n { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--v6-body); }
 /* testimony due: white with a thin outline; its time says late or overdue in the app's colours of time (A-5) */
-html.vb body.staff6 .hb-due { background: var(--v6-card); box-shadow: inset 0 0 0 1px var(--v6-hair); }
+/* R-370 (fourth walk): a testimony-due cell is an outline (dashed, no fill) so it never reads as a hearing, which is filled. */
+html.vb body.staff6 .hb-due { background: transparent; box-shadow: none; border: 1.5px dashed var(--v6-muted); padding: 6.5px 8.5px 6.5px 10.5px; }
 html.vb body.staff6 .hb-due .hb-t { color: var(--v6-body); }
 html.vb body.staff6 .hb-due.today .hb-t { color: var(--v6-action); }
 html.vb body.staff6 .hb-due.late .hb-t, html.vb body.staff6 .hb-due.late .hb-s { color: var(--v6-late); }
 html.vb body.staff6 .hb-due.overdue .hb-t, html.vb body.staff6 .hb-due.overdue .hb-s { color: var(--v6-bad); }
 @media (hover: hover) and (pointer: fine) {
   html.vb body.staff6 .hb-h:hover { box-shadow: inset 3px 0 0 var(--v6-action), var(--v6-sh1); }
-  html.vb body.staff6 .hb-due:hover { box-shadow: inset 0 0 0 1px var(--v6-action); }
+  html.vb body.staff6 .hb-due:hover { border-color: var(--v6-action); }
   html.vb body.staff6 .hb-cap:hover { background: var(--v6-wash-hover, var(--v6-wash)); }
 }
 

@@ -135,7 +135,9 @@ function rowOf(a, sel) {
   // No email yet says the first thing to do (sign-in goes by email), as v5's row did; "No sign-in yet" alone hid why.
   const n = holdings(a).bills.length, line = !live(a) ? 'Turned off' : [rolesWords(a), n ? plural(n, 'live bill') : '', a.email ? signWords(a) : 'No email yet'].filter(Boolean).join(' · ');
   // R-344 rule 4: each person's face, in their own colour, leads their row (the record's big circle is the same colour).
-  return itemRow({ key: a.id, name: a.full_name + (isMe(a) ? ' (you)' : ''), line: esc(line), href: `#/people/${encodeURIComponent(a.id)}`, selected: sel === a.id, cls: 'v6-face-row', lead: faceLead(a) });
+  return itemRow({ key: a.id, name: a.full_name + (isMe(a) ? ' (you)' : ''), line: esc(line), href: `#/people/${encodeURIComponent(a.id)}`, selected: sel === a.id, cls: 'v6-face-row', lead: faceLead(a),
+    // R-370 (fourth walk): "No email yet" opens the same edit as the record's Change, on the email field.
+    button: live(a) && !a.email ? btn('Add email', { kind: 'text', sm: true, icon: 'mail-plus', attrs: { 'data-peedit': a.id, 'data-pefocus': 'pe-email', 'aria-haspopup': 'dialog', 'aria-label': `Add email for ${a.full_name}` } }) : '' });
 }
 function reachCard() {
   const s = P();
@@ -159,7 +161,7 @@ function listPage(route) {
   // R-370 (second walk): who still needs a sign-in link, at the top, from the same data each row's "No sign-in yet" reads.
   // Anyone with no last sign-in counts (no login, link not used, login not used), so the admin sees them all at once.
   const notIn = act.filter(x => s.logins && !s.logins[x.id]?.last_sign_in_at), showN = s.notIn && s.logins;
-  const chip = s.logins && (notIn.length || s.notIn) ? `<p class="pe-filt">${btn(`Not signed in · ${notIn.length}`, { kind: s.notIn ? 'secondary' : 'text', sm: true, icon: s.notIn ? 'x' : 'user-x', attrs: { 'data-penotin': '1', 'aria-pressed': String(!!s.notIn) } })}</p>` : '';
+  const chip = s.logins && (notIn.length || s.notIn) ? `<p class="pe-filt">${btn(`Show only: not signed in (${notIn.length})`, { kind: s.notIn ? 'primary' : 'secondary', sm: true, icon: s.notIn ? 'check' : 'user-x', attrs: { 'data-penotin': '1', 'aria-pressed': String(!!s.notIn) } })}</p>` : '';
   const err = s.loginsErr ? notice('warn', 'info', `Could not check who has signed in. ${esc(s.loginsErr)}`) : '';
   const gone = sel && !a ? notice('info', 'info', 'That person is not on the team list.', btn('See everyone', { kind: 'text', href: '#/people' })) : '';
   return `<div class="pe-page">${head}${err}${gone}${chip}

@@ -473,8 +473,8 @@ function groupHTML(g, v, scope, { primary, shared }) {
     return btn(`Message ${firstOf(id)}`, { kind: 'text', sm: true, icon: 'message-square', href: `${billRoute(x.b, 'talk')}?mention=${advocate(id)?.initials || ''}` }); }).join('');
   const acts0 = `${mails}${R.give.length ? btn('Give this ask to…', { kind: 'text', sm: true, attrs: { 'data-hgact': 'give', 'data-hgk': g.key, 'aria-haspopup': 'dialog' } }) : ''}${msg}`;
   // Decision 8: the buttons sit on the chair's line only when an ask here is due this week; on every other chair they are in
-  // "Ask or hand it on", which opens in place, so the first screen holds words, not 15 controls.
-  const acts = !acts0 || g.week ? acts0 : `<details class="hg-more" data-hgmore="${esc(g.key)}"${MORE_OPEN.has(g.key) ? ' open' : ''}><summary>Ask or hand it on${icon('chevron-down', { cls: 'hg-morechev' })}</summary><div class="hg-cacts">${acts0}</div></details>`;
+  // "More for this ask", which opens in place, so the first screen holds words, not 15 controls.
+  const acts = !acts0 || g.week ? acts0 : `<details class="hg-more" data-hgmore="${esc(g.key)}"${MORE_OPEN.has(g.key) ? ' open' : ''}><summary>More for this ask${icon('chevron-down', { cls: 'hg-morechev' })}</summary><div class="hg-cacts">${acts0}</div></details>`;
   const who = m ? m.who : 'No chair listed yet', cn = committeeName(g.code) || g.code;
   const foot = '';   // "Asked another way? Log a talk" is said once, at the top of the board (askBoard)
   const hdrDay = mineDue ? askDay(mineDue + 'T12:00:00-10:00') : day || '';   // the day the chair's line says (`when` below)
@@ -501,7 +501,7 @@ function groupHTML(g, v, scope, { primary, shared }) {
 // chair's group, soonest notice first. One open board, nothing folded (V13).
 // `primary: false` is for a screen where another filled button owns it; buttons need no wiring (one document listener, below, and
 // steps.js's).
-const MORE_OPEN = new Set();   // the chairs' "Ask or hand it on" opened this visit (date|code), kept across redraws
+const MORE_OPEN = new Set();   // the chairs' "More for this ask" opened this visit (date|code), kept across redraws
 const HDAY = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 // R-356 round 3, decision 8 (D16): a chair is "due this week" when one of its asks is to be made (or heard-not-voted-on asked) by a day within 7 days of today or past.
 const dueWeek = x => ['ask', 'decide', 'giving'].includes(x.k) && x.at != null && HDAY(x.at) <= HDAY(Date.now() + 7 * 864e5);
@@ -579,7 +579,7 @@ function rowMenu(b, code) {
 // The board's own buttons, delegated once for the whole app (as steps.js and chairask.js do), so a screen that draws the
 // board wires nothing. After an action the page redraws (hooks.render), with the action's Undo in its toast.
 const after = () => hooks.render();
-// A chair's opened "Ask or hand it on" stays open when the page redraws (a Give, a switch), until the visit ends.
+// A chair's opened "More for this ask" stays open when the page redraws (a Give, a switch), until the visit ends.
 if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('toggle', e => {
   const el = e.target; if (!el?.matches?.('details[data-hgmore]')) return;
   if (el.open) MORE_OPEN.add(el.dataset.hgmore); else MORE_OPEN.delete(el.dataset.hgmore);

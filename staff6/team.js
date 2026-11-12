@@ -164,9 +164,10 @@ function slipping() {
     // own and an unheld one keep their word ("You:", "No owner yet:"), which the face alone cannot say to a screen reader.
     const task = sh ? `write the public ask${sh.h ? ` for the ${dayWords(sh.h.scheduled_at)} hearing` : ''}` : strip(plainCodes(esc(strip(p.s))));
     const named = ids.length && !(mine && solo) && ids.some(id => id !== me);
-    const what = named ? cap(task) : `${who}: ${task}`;
+    // R-370 (fourth walk): "40 hours overdue · Alert James" read as the testimony's lateness. A to-do row names the to-do first,
+    // then whose it is, then its time: "Ask the chair's office for a meeting · James · 40 hours overdue".
     const st = p.due != null ? status({ due: p.due }) : null;
-    const line = [st ? st.words : '', what].filter(Boolean).join(' · ');
+    const line = [cap(task), who, st ? st.words : ''].filter(Boolean).join(' · ');
     return { key: 'sl:' + (p.key || b.id), b, p, s: null, ids, mine, line, kic: sh ? actIcon('ask') : kindIcon(p.kind), today: st?.tone === 'today', what: sh ? `write the public ask for ${numWords(b)}` : strip(p.s), over, lateOk: false, at: p.due ?? Infinity };
   });
   // Overdue first, then late testimony the Capitol still takes, then by the time to act (v5's "Late testimony, still open"

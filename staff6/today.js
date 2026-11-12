@@ -586,7 +586,7 @@ function vbBanner(v, next) {
   if (S.vbDone) { const d = S.vbDone; S.vbDone = null; if (S.vbFuWhat) { d.what = S.vbFuWhat; } S.vbFuWhat = null; if (Date.now() - d.at < 120000) BANNER = { ...d, left: S.vbLeft || 0 }; }
   if (BANNER && (BANNER.left !== (S.vbLeft || 0) || Date.now() - BANNER.at >= 120000)) BANNER = null;
   if (!BANNER) return '';
-  const nx = next ? noDot(sayOf(next, v).plain) : '';
+  const nx = BANNER.next || (next ? noDot(sayOf(next, v).plain) : '');   // R-370: a review with items left says so
   return `<div class="vb-done" role="status" data-vbdone>${icon('circle-check')}
     <p class="vb-done-t"><b>Done:</b> ${esc(noDot(BANNER.what))}. ${nx ? `<b>Next:</b> ${esc(nx)}.` : 'Nothing else is waiting for you today.'}</p>
     ${BANNER.undo ? btn('Undo', { kind: 'text', sm: true, icon: 'undo-2', attrs: { 'data-vbundo': '1' } }) : ''}</div>`;
