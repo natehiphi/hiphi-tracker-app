@@ -485,7 +485,7 @@ function calBlock(e) {
     const h = e.x.h, cn = committeeName(h.committee) || h.committee, n = e.bills.length, going = goingTo(e.x.rows);
     const sub = e.cancelled ? 'Cancelled' : n ? plural(n, 'bill') : (h.room ? roomName(h.room) : '');
     return `<li><button type="button" class="hb-e hb-h${e.cancelled ? ' off' : ''}" data-hce="${i}" aria-label="${esc(`${t}, hearing: ${cn}${sub ? `, ${sub}` : ''}${going ? ', you’re going' : ''}. Show details`)}">
-      <span class="hb-t">${esc(t)}${going ? `<span class="hb-go">${icon('user-check')}</span>` : ''}</span><span class="hb-n">${esc(cn)}</span>${sub ? `<span class="hb-s">${esc(sub)}</span>` : ''}</button></li>`;
+      <span class="hb-t">${esc(`Hearing · ${t}`)}${going ? `<span class="hb-go">${icon('user-check')}</span>` : ''}</span><span class="hb-n">${esc(cn)}</span>${sub ? `<span class="hb-s">${esc(sub)}</span>` : ''}</button></li>`;
   }
   const tone = toneOf(e.bills), n = e.bills.length;
   return `<li><button type="button" class="hb-e hb-due${tone ? ' ' + tone : ''}" data-hce="${i}" aria-label="${esc(`${t}, testimony due${tone ? `, ${TONE_W[tone]}` : ''}, ${plural(n, 'bill')}. Show details`)}">

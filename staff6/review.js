@@ -110,12 +110,25 @@ function track(d) {
   const cur = Math.max(0, steps.findIndex(([k]) => k === d.status));
   return `<ol class="v6-track rv6-track" aria-label="Testimony steps">${steps.map(([, l], i) => `<li class="${i < cur ? 'done' : i === cur ? 'cur' : ''}"${i === cur ? ' aria-current="step"' : ''}>${i < cur ? icon('check') : '<span class="v6-track-dot" aria-hidden="true"></span>'}<span>${esc(l)}</span></li>`).join('')}</ol>`;
 }
+// R-370 (fourth walk): "1 of 2" counted a testimony and a supporter email together; say what is in the queue.
+function mixOf(r) {
+  const c = { draft: 0, email: 0 }; for (const k of r.keys) { const t = resolve(k)?.type; if (t) c[t]++; }
+  if (!c.draft || !c.email) return '';
+  return `: ${c.draft} ${c.draft === 1 ? 'testimony' : 'testimonies'}, ${c.email} ${c.email === 1 ? 'email' : 'emails'}`;
+}
+// R-370: Done on Today also says what is still waiting in this review ("Next: 1 email to review").
+function finishVB(r, what, undo) {
+  const rest = r.keys.slice(r.i + 1).map(resolve).filter(it => it && actionable(it)), e = rest.filter(x => x.type === 'email').length, t = rest.length - e;
+  const next = rest.length ? [t ? `${t} testimony to review` : '', e ? `${e} ${e === 1 ? 'email' : 'emails'} to review` : ''].filter(Boolean).join(', ') : '';
+  S.vbDone = { what, undo, at: Date.now(), next };
+  S.go('#/', { force: true });
+}
 function header(r, total) {
   const n = Math.min(r.i + 1, total);
   return `${VB ? pathLine([['Today', '#/'], ['Review']]) : ''}<div class="rv6-bar sv-phead">
     ${VB ? `<a class="vb-rv-back" href="#/" data-back>${icon('chevron-left')}<span>Back to Today</span></a>`   // R-365 B: Back names its place
       : `<a class="iconbtn rv6-x" href="#/testimony?view=approve" data-back aria-label="Close review" title="Close review">${icon('x')}</a>`}
-    <h1 class="rv6-h"><span class="rv6-hw">Review</span> <span class="rv6-n"><span class="rv6-hd" aria-hidden="true">· </span>${n} of ${total}</span></h1>
+    <h1 class="rv6-h"><span class="rv6-hw">Review</span> <span class="rv6-n"><span class="rv6-hd" aria-hidden="true">· </span>${n} of ${total}${mixOf(r)}</span></h1>
     ${btn('Skip', { kind: 'text', iconEnd: 'chevron-right', attrs: { 'data-rvskip': '1' } })}</div>`;
 }
 const head = b => `<span class="rv6-name">${esc(nameWords(b, 120))}</span> <span class="rv6-num">${esc(numWords(b))}</span>`;
@@ -205,7 +218,7 @@ function bar(route) {
   const { it } = current(route);
   if (!it) return '';
   if (!actionable(it)) return btn('Next', { attrs: { 'data-rvskip': '1' }, iconEnd: 'chevron-right' });
-  return `${btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-changes': '1' } })}${btn('Approve', { icon: 'check', attrs: { 'data-approve': '1' } })}`;
+  return `${btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-changes': '1' } })}${btn(it.type === 'email' && S.emailCfg?.enabled === false ? 'Approve (held while paused)' : 'Approve', { icon: 'check', attrs: { 'data-approve': '1' } })}`;
 }
 
 // Moving on: record the decision, then load the next item in place (replaceState, so Back leaves review).
@@ -288,7 +301,7 @@ async function approve(route, el) {
       const key = 'rv:' + it.key, done = { key, by: S.me?.id, at: Date.now(), words: `Approved: ${first(it.a.author_id)}’s email${it.b ? ` on ${sayWords(it.b)}` : ''}`,
         undo: async () => { await DB.alertStep(it.a.id, 'unapprove'); S.v6Done = (S.v6Done || []).filter(x => x.key !== key); hooks.render(); toast('Approval undone. It is waiting for approval again.'); } };
       // R-365 B: finishing a review goes back to Today, which says "Done: ... Next: ..." with the Undo (today.js)
-      if (VB) { S.tdRev = null; return vbFinish(`Approved ${first(it.a.author_id)}’s email${it.b ? ` on ${numWords(it.b)}` : ''}`, async () => { await DB.alertStep(it.a.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
+      if (VB) { const rr = S.tdRev; S.tdRev = null; return finishVB(rr || r, `Approved ${first(it.a.author_id)}’s email${it.b ? ` on ${numWords(it.b)}` : ''}`, async () => { await DB.alertStep(it.a.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
       (S.v6Done ??= []).push(done);
       toast(msg, { ok: true, undo: async () => { S.v6Done = (S.v6Done || []).filter(x => x.key !== key); await unapprove(r, it, entry); } }); advance(r, entry);
       return;
@@ -297,7 +310,7 @@ async function approve(route, el) {
     // Written from the state the server returned: a first testimony goes on to its second look.
     const d = resolve(it.key)?.d || it.d, fid = filerOf(d), filer = fid && fid !== S.me.id ? first(fid) : null;   // W20 (T-3): model.js filerOf
     const next = d.status === 'second_review' ? `${cap(whoseStep(d, it.b).words) || 'A second approver'} gives the ${sl} next` : filer && filer !== 'Someone' ? `${filer} files it next` : 'File it at the Capitol next';
-    if (VB) { S.tdRev = null; return vbFinish(`Approved ${numWords(it.b)}’s testimony`, async () => { await DB.transition(it.b.id, it.d.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
+    if (VB) { const rr = S.tdRev; S.tdRev = null; return finishVB(rr || r, `Approved ${numWords(it.b)}’s testimony`, async () => { await DB.transition(it.b.id, it.d.id, 'unapprove'); toast('Approval undone. It is waiting for you again.'); }); }
     const entry = { num: sayWords(it.b), what: `Approved by you · ${next}`, icon: 'check' };
     toast(`Approved. ${next}.`, { ok: true, undo: () => unapprove(r, it, entry) }); advance(r, entry);
   } catch (e) { toast(e, { err: true }); if (el && el.isConnected) { el.removeAttribute('aria-busy'); el.disabled = false; } }
