@@ -59,7 +59,7 @@ function groups() {
 // One place about versions, last on the page (A-14): F190's way back to v5 for everyone while v6 settles in (it goes 3 weeks
 // after the switch), and for admins the two older apps to compare with.
 const versions = admin => [
-  TRIAL && !admin ? null : ['Back to Staff v5', `staff5.html${location.search}#/`, 'undo-2', 'The version before this one, at Today'],
+  TRIAL && !admin ? null : ['Staff v5, the older app', `staff5.html${location.search}#/`, 'undo-2', 'The app from before Staff v6, opened at Today'],
   admin ? ['Compare with Staff v2', `staff.html${location.search}#/`, 'columns-3', 'The team’s app today, at Today'] : null,
   admin ? ['The old app', `classic.html${DEMO ? '?demo=1' : ''}`, 'external-link', 'The old staff app, to look at only'] : null,
 ].filter(Boolean).map(row);
@@ -86,7 +86,7 @@ export default {
   tab: 'more',
   title: () => 'More',
   render() {
-    const admin = !!S.me?.is_admin, leads = leadKeys(), sync = syncWords(), foot = footLine(), stale = syncStale();
+    const admin = !!S.me?.is_admin, leads = leadKeys(), foot = footLine(), stale = syncStale();
     let unread = 0; try { unread = messagesCount(); } catch { unread = 0; }
     // Outreach is in the laptop's sidebar, so its row shows on a phone only (staff.css v6-phone-only; Issues is in the phone bar too); Legislators,
     // Inbox and Help are here for everyone, one click from More (Nate, 22 Oct), and search finds each by its name.
@@ -105,7 +105,7 @@ export default {
         admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null], 'lead') : ''}
       ${sec('Other versions', versions(admin), 'ver')}
       <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${(stale && it.plainSub) || it.sub ? `<span class="v6-more-ln">${esc((stale && it.plainSub) || it.sub)}</span>` : ''}</span>${it.nav ? icon('chevron-right', { cls: 'chev' }) : ''}</button>`))}</section>
-      ${foot || sync ? `<div class="v6-more-foot">${foot ? `<p>${esc(foot)}</p>` : ''}${sync ? `<p class="v6-more-sync">${icon('refresh-cw')}<span>${esc(sync)}</span></p>` : ''}</div>` : ''}
+      ${foot ? `<div class="v6-more-foot"><p>${esc(foot)}</p></div>` : ''}
     </div>`;
   },
   wire(route, root) {

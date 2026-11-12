@@ -678,8 +678,8 @@ function accountItems() {
     // B is everyone's from 11 Nov: the way back to v6 is for the practice copy, trial runs and admins only.
     // R-370: in a trial only an admin sees the switch (a trial teammate has no use for another version).
     !(TRIAL ? S.me?.is_admin : DEMO || S.me?.is_admin) ? null
-      : VB ? { label: 'Back to Staff v6', icon: 'undo-2', sub: 'The version you had before', run: () => { location.href = vbSwitchHref(false); } }
-      : { label: 'Try version B', icon: 'flask-conical', sub: 'Three places: Today, My issues, Calendar', run: () => { location.href = vbSwitchHref(true); } },
+      : VB ? { label: 'Switch off the trial layout', icon: 'undo-2', sub: 'You are in the trial layout now. This goes back to the earlier Staff v6', run: () => { location.href = vbSwitchHref(false); } }
+      : { label: 'Switch on the trial layout', icon: 'flask-conical', sub: 'Three places: Today, My issues, Calendar', run: () => { location.href = vbSwitchHref(true); } },
     DEMO ? { label: 'Practice as someone else', icon: 'id-card', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the
     // sidebar's foot says it too, as a line, not a row (more.js syncNote, B-7, 12.4).
