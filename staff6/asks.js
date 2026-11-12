@@ -22,6 +22,7 @@ export { rallierOf, onBill };
 import { emailDoor, paused, dailyWord, HELD_HEAD } from './composer.js';
 import { weekLanding } from './firstvisit.js';
 import { ACTS } from './verbs.js';   // R-344: one icon per action (Write the public ask: the megaphone, the job's own picture)
+import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with the Public tab
 import { markNewStep } from './help.js';   // Getting started's rallier steps tick from here (Write a public ask, Copy this week's newsletter)
 
 const HR = 36e5, DAY = 864e5;
@@ -222,10 +223,13 @@ function writeBox(x, d, lead) {
   const when = changing ? '' : d.step ? ownTile(d) : d.mine || !d.strong ? `<span class="ot-wdue">${nw(esc(cap(optionalWords(x).replace(/^No ask yet · /, ''))))}</span>` : `<span class="ot-wdue">${esc(cap(otherWords(d).replace(/^No ask yet · /, '')))}</span>`;
   return `<div class="ot-write"><div class="ot-wtop"><label for="${id}">${changing ? 'Change the public ask' : 'Write the public ask'}</label>${when}</div>
     <p class="ot-help" id="${id}-h">What should people do, and by when? A sentence or two. ${TRIAL ? 'In this trial it shows on the practice copy only.' : 'It shows on the public page and in the hearing alert.'}</p>
-    <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
+    ${hearingLine(x.h)}
+    <textarea id="${id}" rows="3" maxlength="280" aria-describedby="${id}-h ${id}-x ${id}-n ${id}-e" data-askbox="${esc(b.id)}">${esc(text)}</textarea>
+    ${noteHTML(text, x.h, id + '-n')}
+    <p class="ot-ex">Shows on the ${TRIAL ? 'practice copy' : 'public page'} through ${esc(dayWord(hearingDay(x.h) + 'T12:00:00-10:00'))}, the hearing day.</p>
     <p class="ot-ex" id="${id}-x">For example: “Send testimony by ${esc(fmtDT(x.due))}. Two sentences in your own words are enough.”</p>
     <div id="${id}-e" role="alert"></div>
-    <div class="ot-wacts">${btn('Save the public ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div></div>`;
+    <div class="ot-wacts">${btn('Publish the ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div></div>`;
 }
 // Copy link · Copy message · Copy post, then the email door. On a phone the three read "Copy: Link Message Post" in one
 // row of compact buttons (the word "Copy" said once); each button's name still says it whole.
@@ -246,7 +250,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   // narrow card the followers drop under it, at the left (supporters.css .ot-foot).
   let body = '', left = '';
   if (open) body = writeBox(x, d, true);
-  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${onBill(b) ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>`; left = shareHTML(x); }
+  else if (a) { body = `<blockquote class="ot-words"><p>${esc(a)}</p>${onBill(b) ? btn('Change', { kind: 'text', sm: true, attrs: { 'data-askopen': b.id, 'aria-label': `Change the ask for ${nameWords(b, 60)}` } }) : ''}</blockquote>${onBill(b) ? liveLine(b, 'data-asktake') : ''}`; left = shareHTML(x); }
   // R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone on the bill gets the button; only the
   // expected writer's own step is red or carries the tile (P-5). Beside the button, the writer reads the clock; someone else on a
   // strong position reads who writes it and by when; on an optional ask (nobody is expected to write it) everyone on the bill reads
@@ -369,7 +373,11 @@ function wireAsks(root, items) {
     root.querySelectorAll('[data-askbox]').forEach(ta => ta.addEventListener('input', () => {
       (S.otDraft ??= {})[ta.dataset.askbox] = ta.value;   // a redraw meanwhile (the partners' asks arriving) keeps the words
       ta.removeAttribute('aria-invalid'); const e = document.getElementById(ta.id + '-e'); if (e) e.innerHTML = '';
+      const x = weekAskItems().find(i => i.b.id === ta.dataset.askbox); paintNote(document.getElementById(ta.id + '-n'), ta.value, x?.h);   // R-370: a gentle date check, never a block
     }));
+    // R-370: Take down removes the live ask the way Undo does, with its own Undo.
+    root.querySelectorAll('[data-asktake]').forEach(el => el.onclick = async () => { const b = billById(el.dataset.asktake); if (!b) return;
+      el.disabled = true; try { await takeDown(b, () => redraw(`#${cardId(b)}`)); } catch (e) { el.disabled = false; toast(e, { err: true }); } });
     // Arrived for a card (?bill=, ?hearing=): bring it into view once. The frame restores the scroll after a render (Back,
     // a cold arrival), so the page claims the scroll first (app.js S.scrollClaimed), or the card ends screens down.
     const hl = root.querySelector('.ot-card.hl');
@@ -409,6 +417,6 @@ async function saveAsk(root, billId, el) {
     const res = await DB.saveBillFields(b.id, { public_action: text, public_action_until: until }, BASE.get(b.id) || { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
     S.otOpen = null; if (S.otDraft) delete S.otDraft[b.id]; BASE.delete(b.id); markNewStep({ publicask: 1 }); redraw(`#${cardId(b)}`);
     if (res.conflicts.length) { toast('A teammate saved a different ask a moment ago. It shows on the card now; change it if you need to.', { err: true }); return; }
-    toast(`Saved. The ask shows on the public page through ${fmtDT(until + 'T12:00:00-10:00').replace(/,.*$/, '')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); redraw(`#${cardId(b)}`); toast('The ask is back as it was.'); } });
+    toast(`Published. The ask shows on the public page through ${fmtDT(until + 'T12:00:00-10:00').replace(/,.*$/, '')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); redraw(`#${cardId(b)}`); toast('The ask is back as it was.'); } });
   } catch (e) { el.removeAttribute('aria-busy'); el.disabled = false; toast(e, { err: true }); }
 }
