@@ -45,6 +45,7 @@ class Fake:
   def __init__(self, whoami, signed_in=True):
     self.whoami, self.signed_in, self.calls, self.profiles = whoami, signed_in, [], []
     self.heads = []
+    self.fn_calls = []
     self.after_next = None
     self.posts, self.mine = [], []
     self.alerts = [
@@ -101,7 +102,9 @@ class Fake:
     if path.startswith('/rest/v1/'):
       single = 'vnd.pgrst.object' in (r.headers.get('accept') or '')
       return route.fulfill(status=200, headers=h, body='null' if single else '[]')
-    if path.startswith('/functions/v1/'): return route.fulfill(status=404, headers=h, body='{}')
+    if path.startswith('/functions/v1/'):
+      self.fn_calls.append((path, r.headers.get('authorization') or ''))   # R-372: the trial page wakes the practice sender
+      return route.fulfill(status=404, headers=h, body='{}')
     route.fulfill(status=404, headers=h, body='{}')
 
 def open_page(b, fake, w=1440, h=900, hash_=''):
@@ -258,6 +261,8 @@ with sync_playwright() as pw:
     ok(len(s1) == 1 and s1[0]['page'], f'{tag}: the suggestion is saved with the page it was made on ({s1[:1]})')
     ok('Waiting for Nate' in pg.inner_text('#tr-mine'), f'{tag}: it is listed under What you have suggested, waiting for Nate')
     ok(not errs and not live, f'{tag}: no page errors, nothing to the live project ({errs[:2]})')
+    sends = [c for c in f.fn_calls if c[0] == '/functions/v1/notify-send']
+    ok(sends and all(a.startswith('Bearer ') for _, a in sends), f'{tag}: the trial page wakes the practice sender, signed in ({len(sends)} calls)')
     shot(pg, f'suggest-{tag}.png'); ctx.close()
 
   # 8. Act as a teammate (Nate 7 Nov): an admin switches to Kevin in the People menu; requests to the trial's copy carry

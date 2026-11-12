@@ -156,6 +156,7 @@ async function enter() {
   polling = setInterval(poll, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
   countNewAlerts();
+  sendAlerts();
   await import('../staff6/app.js');
 }
 
@@ -179,7 +180,18 @@ export function bandHTML(s, { busy = '', moved = null, alerts = 0 } = {}) {
 }
 function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML({ ...st, acting }, { ...o, alerts: alertsNew }); }
 
+// R-372 (Nate 12 Nov): the practice project's sender sends the trial's new alerts for real, by Slack DM or email marked
+// PRACTICE, to the people in the trial. Any open trial page wakes it: on opening (after each Next) and with each poll, so an
+// alert goes out within about 30 seconds, and a draft made a minute after a press too. Nothing waits on it.
+async function sendAlerts() {
+  try {
+    const tok = (await sb.auth.getSession()).data.session?.access_token;
+    if (tok) fetch(`${PRACTICE_URL}/functions/v1/notify-send`, { method: 'POST', headers: { Authorization: `Bearer ${tok}`, apikey: PRACTICE_KEY } }).catch(() => {});
+  } catch { /* the next poll tries again */ }
+}
+
 async function poll() {
+  sendAlerts();
   const { data, error } = await api.rpc('state');
   if (error) return;
   if (!data) { clearInterval(polling); return ended(); }
@@ -217,7 +229,7 @@ async function onBand(e) {
 }
 
 // ---- part 2: the alerts the trial made, each rated useful / not useful / wrong (Nate 10/24) ----
-// The practice project sends no Slack and no alert email, so the alerts the tracker would have sent come here instead.
+// Every alert the trial made is here, including the ones its sender held back or that went to someone outside the trial.
 const KIND = {
   draft_created: 'Testimony draft ready', draft_thread: 'Draft posted to the team', hearing_alert: 'Hearing alert',
   daily_list: 'Daily hearing list', reminder_morning: 'Testimony reminder, morning', reminder_before: 'Testimony reminder, before it is due',
@@ -276,7 +288,7 @@ async function alerts() {
   try { if (top) localStorage.setItem(seenKey(), String(top)); } catch { /* private window */ }
   alertsNew = 0; drawBand();
   setDialog(`<h2 tabindex="-1">${esc(whose)}</h2>
-    <p class="tr-quiet">${acting ? `What the tracker would have sent ${esc(firstName(acting.name))}, newest first. Your marks are kept as yours.` : 'Slack and email are off in a trial, so the alerts the tracker would have sent you are here, newest first. Mark each one: it shows what to keep and what to fix.'}</p>
+    <p class="tr-quiet">${acting ? `What the tracker would have sent ${esc(firstName(acting.name))}, newest first. Your marks are kept as yours.` : 'Your alerts also reach your Slack or email, marked PRACTICE, as they would in session. All of them are here, newest first. Mark each one: it shows what to keep and what to fix.'}</p>
     ${alertRows.length ? `<ul class="tr-alerts">${alertRows.map(a => alertHTML(a, seen)).join('')}</ul>`
       : `<p>No alerts yet. They come as the trial's days pass: hearing notices, testimony drafts and reminders.</p>`}
     <div class="tr-dacts"><button class="btn secondary" type="button" data-tr="close">Close</button></div>`);
