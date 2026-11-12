@@ -26,6 +26,8 @@ import { filingSteps, missedChoices, setFilingAfter } from './filing.js';
 import { renderEarlier, wireTestimony } from './testimony.js';
 import { queue } from './review.js';
 import { testimonyTrack, dropVerb } from './verbs.js';
+import { issuesOfBill } from './issues.js';   // R-371 S1: the late strip's rows carry their issue
+import { plain } from './model.js';
 
 const DAY = 864e5;
 const ms = t => t == null || t === '' ? null : new Date(t).getTime();
@@ -132,10 +134,11 @@ function lateStrip(m) {
   const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS());
   const row = (x, i, a) => { const { it, at } = x, s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
     const when = late ? `${lateWords(s)} · testimony due ${capitolAt(at)}` : `Testimony due ${capitolAt(at)} · in ${spanOf(at)}`;   // late says no "in 4 hours": the Capitol still takes it
+    const iss = (i0 => i0 ? { i: i0, same: plain(i0.name) === plain(nameWords(it.b)) } : null)(issuesOfBill(it.b.id)[0]);
     const head = split && (i === 0 || a[i - 1].it.s.you !== s.you) ? `<li class="tp-lr-grp">${s.you ? 'Yours' : 'The team\u2019s'}</li>` : '';
     return `${head}<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
-      <span class="tp-lr-name"><b>${esc(nameWords(it.b, 60))}</b> <span class="tp-lr-num">${esc(numWords(it.b))}</span></span>
-      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${esc(when)}</span>${icon('chevron-right')}</button></li>`; };
+      <span class="tp-lr-name">${iss?.same ? `<b>${esc(numWords(it.b))}</b>` : `<b>${esc(nameWords(it.b, 60))}</b> <span class="tp-lr-num">${esc(numWords(it.b))}</span>`}</span>
+      <span class="tp-lr-line">${esc(stage)} · ${esc(whose)} · ${esc(when)}</span>${icon('chevron-right')}</button>${iss ? `<a class="vb-row-issue tp-lr-iss" href="#/issue/${encodeURIComponent(iss.i.id)}"><span class="vb-for">for</span> <span>${esc(iss.i.name)}</span></a>` : ''}</li>`; };
   return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today <span class="tp-ghn">${list.length}</span></h2>
     <ul class="tp-late-list">${shown.map(row).join('')}</ul>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
 }
@@ -197,9 +200,9 @@ const leadOf = (it, slot) => faced(it) ? faceLead(it.s.whose.ids, FACE) : slot ?
 const hasBtn = (it, view) => it.own && view !== 'approve' && !['filed', 'missed'].includes(it.tab) && rowButtonOK(it.s);
 const rowLine = (it, view) => hasBtn(it, view) ? dropVerb(lineOf(it), it.s?.act?.verb) : lineOf(it);
 const rowOf = (it, picked, view, slot = false) => faceRow(soonRow(it)
-  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it, view))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it, slot) })
+  ? itemRow({ key: it.b.id, bill: it.b.id, name: nameWords(it.b), num: numWords(it.b), line: nw(esc(rowLine(it, view))), icon: 'clock', bold: true, href: billRoute(it.b), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it, slot), issue: true })
   : billRow(it.b, { ...(['filed', 'missed'].includes(it.tab) && !it.own ? { step: it.s, line: nw(esc(rowLine(it, view))) } : { step: { ...it.s, line: rowLine(it, view) } }),
-  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it, slot) }));
+  ...(view === 'approve' || it.tab === 'filed' || (it.tab === 'missed' && !it.asking) ? { button: false } : {}), pick: it.key, selected: it.key === picked || it.key === TP_HI, cls: 'tp-r', lead: leadOf(it, slot), issue: true }));
 // a face-led row takes the faces' own row class (staff.css .v6-face-row; testimony.css sizes it to 28px here)
 const faceRow = html => /sv-face/.test(html.slice(0, 600)) ? html.replace('class="v6-row', 'class="v6-row v6-face-row') : html;
 // A group's rows, each with the empty slot when any row of the group has a face.

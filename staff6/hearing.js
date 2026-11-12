@@ -168,7 +168,7 @@ function dueHTML(c, card = '') {
 function cancelledHTML(c) {
   if (!c.cancelled) return '';
   const next = c.items.map(x => ({ b: x.b, n: hearingAhead(x.b) })).filter(x => x.n);
-  const list = next.length ? `<div class="v6-list" role="list" aria-label="Where these bills are heard next">${next.map(({ b, n }) => itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`${committeeName(n.committee) || n.committee} · ${whenAt(n.scheduled_at)}`)), icon: 'gavel', href: `#/hearing/${encodeURIComponent(n.id)}` })).join('')}</div>` : '';
+  const list = next.length ? `<div class="v6-list" role="list" aria-label="Where these bills are heard next">${next.map(({ b, n }) => itemRow({ key: b.id, name: nameWords(b), num: numWords(b), line: nw(esc(`${committeeName(n.committee) || n.committee} · ${whenAt(n.scheduled_at)}`)), icon: 'gavel', href: `#/hearing/${encodeURIComponent(n.id)}`, bill: b.id, issue: true })).join('')}</div>` : '';
   const moved = !c.over ? movedGoingHTML(c.rows[0], btn) : '';
   return section('hr-s-next', 'This hearing was cancelled', `${moved ? `<div class="hr-moved">${moved}</div>` : ''}${next.length ? `<p class="hr-p">Where these bills are heard next:</p>${list}` : '<p class="hr-p">None of these bills has a new hearing yet.</p>'}`);
 }
@@ -178,14 +178,14 @@ function resultsHTML(c) {
   if (!c.over || c.cancelled) return '';
   const pos = c.items.filter(x => isPos(x.b) && x.h.status !== 'cancelled'); if (!pos.length) return '';
   const rows = pos.map(x => { const o = S.outcomes?.[x.h.id]?.outcome;
-    return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: esc(o ? OUTCOME_LABEL[o] || o : 'No result yet'), icon: o ? OUT_ICON[o] || 'gavel' : 'hourglass', href: billRoute(x.b) }); }).join('');
+    return itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: esc(o ? OUTCOME_LABEL[o] || o : 'No result yet'), icon: o ? OUT_ICON[o] || 'gavel' : 'hourglass', href: billRoute(x.b), bill: x.b.id, issue: true }); }).join('');
   return section('hr-s-res', 'What happened', `<div class="v6-list" role="list" aria-label="Results">${rows}</div>`);
 }
 // Bills we only monitor, folded away when bills with a position share the sitting (R-022 decision 4); a sitting of
 // monitored bills alone shows them open, or the page would be empty.
 function monitoredHTML(c) {
   const mon = c.items.filter(x => !isPos(x.b) && x.h.status !== 'cancelled'); if (!mon.length) return '';
-  const rows = `<div class="v6-list" role="list" aria-label="Bills we monitor">${mon.map(x => itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: 'We monitor it', icon: 'eye', href: billRoute(x.b) })).join('')}</div>`;
+  const rows = `<div class="v6-list" role="list" aria-label="Bills we monitor">${mon.map(x => itemRow({ key: x.b.id, name: nameWords(x.b), num: numWords(x.b), line: 'We monitor it', icon: 'eye', href: billRoute(x.b), bill: x.b.id, issue: true })).join('')}</div>`;
   const label = mon.length === 1 ? '1 bill we monitor' : `${mon.length} bills we monitor`;
   if (!c.items.some(x => isPos(x.b))) return section('hr-s-mon', 'On the agenda', rows);
   return `<details class="hr-fold"${S.hrMon ? ' open' : ''}><summary>${icon('eye')}<span>Also heard: ${esc(label)}</span>${icon('chevron-down', { cls: 'hr-chev' })}</summary>${rows}</details>`;

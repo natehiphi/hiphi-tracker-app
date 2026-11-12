@@ -1104,8 +1104,12 @@ export function hearingCard(sitting, { viewer, big = false, from = '', id = '', 
     const own = !buttons ? '' : ok ? rowButton(s, { ...(first ? { kind: 'primary', sm: false } : {}), confirm: !sbOn }) : rowButtonFor(s);
     const btnHtml = own + doc, t = lineTone(s);
     const more = facts ? facts(x.b) : '';
-    return `<li class="v6-hcard-bill${first ? ' lead' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(fullName(x.b))}</span> <span class="v6-row-num">${esc(numWords(x.b))}</span></span>
-      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late'})))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}</li>`; };
+    // R-371 S1: on the hearing's own page each bill links its issue ("for Disposable e-cigarette ban"); a bill named as its issue
+    // leads with its number, so the issue is said once, as the link.
+    const ri = self && VB ? issuesOfBill(x.b.id)[0] : null, same = !!ri && sameIssueName(ri, { nickname: fullName(x.b) });
+    const issA = ri ? `<a class="vb-row-issue v6-hcard-iss" href="#/issue/${encodeURIComponent(ri.id)}"><span class="vb-for">for</span> <span>${esc(ri.name)}</span></a>` : '';
+    return `<li class="v6-hcard-bill${first ? ' lead' : ''}${ri ? ' has-iss' : ''}"><a class="v6-hcard-bl" href="${esc(billRoute(x.b))}"><span class="v6-row-top"><span class="v6-row-name">${esc(same ? numWords(x.b) : fullName(x.b))}</span>${same ? '' : ` <span class="v6-row-num">${esc(numWords(x.b))}</span>`}</span>
+      <span class="v6-row-line${t.tone !== 'neutral' ? ' t-' + esc(t.tone) : ''}${t.bold ? ' soon' : ''}">${t.icon ? icon(t.icon) : ''}<span>${nw(esc(hearingLine(s, { lateSaid: lateAny, toned: t.tone === 'late'})))}</span></span>${more ? `<span class="v6-hcard-facts">${nw(esc(more))}</span>` : ''}</a>${sb ? ` ${sb}` : ''}${btnHtml ? ` <span class="v6-row-act">${btnHtml}</span>` : ''}${issA}</li>`; };
   // I'm going is the card's tonal button only on a hearing that is today or where the viewer owns a step (theirs to do, or
   // their bill); elsewhere it is a quiet link, so This week is not a column of the same button (A-3, A-2 on v6; R-352 FIX-2).
   const owns = pos.some(x => { const s = stepOf(x); return !!s && (s.you || s.mine); });
@@ -1191,13 +1195,13 @@ function lineTone(s) {
 // what the step says; `button: false` draws none. Rows sit in a role="list" box (.v6-list, or listDetail's).
 // `act: true` (R-344 Rule 1): the row leads with its job's tile (verbs.js rowLead), the viewer's own steps only; any other
 // row keeps an empty slot of the same width, so every name in the list starts at one edge. Lists that opt in: Today's.
-export function billRow(b, { viewer, name, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '', act = false } = {}) {
+export function billRow(b, { viewer, name, line, button, href, pick, selected = false, hint = false, step, cls = '', lead = '', act = false, issue = false } = {}) {
   if (!b) return '';
   const v = meOf(viewer), s = step || billStep(b, { viewer: v }), t = line == null ? lineTone(s) : { tone: '', icon: '', bold: false };
   if (act && !lead) lead = actLead(s);
   const text = line != null ? line : nw(esc(s.line));
   const btnHtml = button === false ? '' : button ? button : rowButtonFor(s);
-  return rowHTML({ key: b.id, name: name || fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id, lead });
+  return rowHTML({ key: b.id, name: name || fullName(b), num: numWords(b), line: text, tone: t.tone, icon: t.icon, bold: t.bold, href: href || billRoute(b), pick, selected, hint, button: btnHtml, cls, bill: b.id, lead, issue });
 }
 // itemRow({ key, name, num, line, tone, icon, href, pick, button, selected, hint, cls }) -> any other item (a to-do, an
 // email, a person) in the same shape. `line` is HTML (escape it); `name` and `num` are text.
@@ -1207,7 +1211,17 @@ export const itemRow = o => rowHTML(o);
 export const actLead = s => !s || ['none'].includes(s.kind) || !PIC[s.kind] ? '<span class="v6-row-lead v6-act-lead none" aria-hidden="true"></span>' : rowLead(s.kind);
 // `lead` (R-339, a trial behind ?icons=1): HTML for a small mark before the name, inside the link so it opens the row too;
 // the row's text moves into a second column so every name still starts at the same place.
-function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '' }) {
+// R-371 S1: a bill row that carries its issue (`issue: true`, Testimony's lists): the issue's name as its own link under the row's
+// words ("for Disposable e-cigarette ban"), the same markup as Today's rows (today.js vbIssueA). A row whose name IS the issue's
+// name leads with the bill's number instead, so the issue is said once, and as a link.
+const rowIssue = (bill, name) => { const b = VB && bill ? billById(bill) : null, i = b ? issuesOfBill(b.id)[0] : null; return i ? { i, same: sameIssueName(i, { nickname: name }) } : null; };
+function rowHTML({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '', issue = false }) {
+  const ri = issue ? rowIssue(bill, name) : null;
+  if (ri?.same) { name = numWords(billById(bill)); num = ''; }
+  const out = rowHTML0({ key, name, num, line, tone, icon: ic, bold, href, pick, selected, hint, button, cls, bill, lead });
+  return ri ? out.replace(/(<(a|button) class="v6-row-main[\s\S]*?<\/\2>)/, `<div class="vb-rowcol">$1<a class="vb-row-issue" href="#/issue/${encodeURIComponent(ri.i.id)}"><span class="vb-for">for</span> <span>${esc(ri.i.name)}</span></a></div>`) : out;
+}
+function rowHTML0({ key = '', name = '', num = '', line = '', tone = '', icon: ic = '', bold = false, href = '', pick, selected = false, hint = false, button = '', cls = '', bill = '', lead = '' }) {
   const tag = href ? 'a' : 'button', attr = `${href ? `href="${esc(href)}"` : 'type="button"'}${pick != null ? ` data-v6pick="${esc(pick)}"` : ''}${selected ? ' aria-current="true"' : ''}${bill ? ` data-bill="${esc(bill)}"` : ''}`;
   return `<div class="v6-row${selected ? ' sel' : ''}${hint ? ' hint' : ''}${cls ? ' ' + cls : ''}" role="listitem"${key ? ` data-v6row="${esc(key)}"` : ''}>
     <${tag} class="v6-row-main${lead ? ' has-lead' : ''}" ${attr}>${lead}<span class="v6-row-top"><span class="v6-row-name">${esc(name)}</span>${num ? ` <span class="v6-row-num">${esc(num)}</span>` : ''}</span>${line ? ` <span class="v6-row-line${tone && tone !== 'neutral' ? ' t-' + esc(tone) : ''}${bold ? ' soon' : ''}">${ic ? icon(ic) : ''}<span>${line}</span></span>` : ''}</${tag}>${button ? `<span class="v6-row-act">${button}</span>` : ''}</div>`;

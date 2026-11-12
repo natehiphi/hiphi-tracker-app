@@ -17,12 +17,15 @@
 // A helper cannot mark an issue ready, so when the six steps are done their part is done: the card says "Your part is
 // done" and opens their next issue, never one already finished (X26). A prep date that has passed is "Still to finish",
 // in plain words with no red (spec 6, D3): nobody can act on a date, only on the steps.
-import { S, DB, DEMO, SESSION_OVER, hooks, esc, advocate, followsIssue } from './data.js';
+import { S, DB, DEMO, SESSION_OVER, SESSION_YEAR, hooks, esc, advocate, followsIssue } from './data.js';
 import { plain, legislativeDay } from './model.js';
 import { teamName, ownerName } from './model.js';   // R-316 W28
 import { icon, btn, empty, toast, openSheet, closeSheet, avatar, pickerSheet, menuSheet, confirmSheet, filterBtn, friendly } from './ui.js';
 import { plural, afterClose } from './lists.js';
-import { itemRow, statusTile, nw, dayWords } from './steps.js';
+import { itemRow, statusTile, nw, dayWords, nameWords, numWords, committeeName } from './steps.js';
+import { billsOn } from './issues.js';
+import { stoppedAt } from '../stops.js';
+import { stopOf, diedish, blurb } from './model.js';
 import { headHTML } from './issuestand.js';
 
 const live = () => (S.issues || []).filter(i => !i.archived_at);
@@ -403,6 +406,19 @@ function stepsHTML(i, steps, { work = false, draftCard = false } = {}) {
         ${open ? body : peek ? `<div class="pr6-closed">${closed}</div><div class="pr6-peekb" hidden>${body}</div>` : closed}</div>
       ${open ? '' : peek ? `<span class="pr6-closed">${closedBtn}</span>` : closedBtn}</li>`; }).join('')}</ol>`;
 }
+// R-371 S6: "Bills to carry over": last session's bills on this issue, each with its number, title and how it ended, so the lead can
+// say which to bring back. Read-only, from what the bill pages already know (no new data); only once the session is over.
+// A bill named as its issue is titled by the Legislature's own short summary here, so the line adds something the heading does not.
+const titleOf = (b, i) => { const n = nameWords(b, 60); return plain(n) === plain(i.name) ? (blurb(b, 60) || n) : n; };
+function carryHTML(i) {
+  if (!SESSION_OVER) return '';
+  const rows = billsOn(i).filter(b => b.tracked !== false).sort((a, b) => numWords(a).localeCompare(numWords(b), 'en', { numeric: true })).map(b => {
+    const st = stopOf(b), at = stoppedAt(b), cm = at?.committee ? committeeName(at.committee) : st.committee ? committeeName(st.committee) : '';
+    const out = st.phase === 'law' ? 'became law' : diedish(b) ? (cm ? `stopped in ${cm}` : 'stopped when the session ended') : 'passed the Legislature, not yet law';
+    return `<li><b>${esc(numWords(b))}</b> ${esc(titleOf(b, i))} <span class="pr6-co">· ${esc(out)}</span></li>`;
+  });
+  return rows.length ? `<div class="pr6-carry"><p class="pr6-carryh"><b>Bills to carry over</b> <span class="pr6-co">from the ${esc(String(SESSION_YEAR))} session: which to bring back?</span></p><ul>${rows.join('')}</ul></div>` : '';
+}
 const listWords = l => l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
 const leftWords = n => `${n} step${n === 1 ? '' : 's'} left`;
 // The card's foot: one filled button, the step this person takes now (spec 4). Once it acts (the six steps done, or an
@@ -453,7 +469,7 @@ export function prepCardHTML(i, { outlook = '', always = false } = {}) {
     : st === 'approved' ? `<p class="pr6-note">${icon('circle-check')}<span><b>Approved${by ? ` by ${esc(first(by))}` : ''}.</b>${i.prep_note ? ` ${esc(i.prep_note)}` : ''}</span>${isAdmin() ? btn('Undo', { kind: 'text', sm: true, attrs: { 'data-pr': 'undo', 'aria-label': 'Undo the approval' } }) : ''}</p>` : '';
   const foot = footHTML(i);
   const inner = `${outlook ? `<div class="pr6-outlook">${outlook}</div>` : ''}
-    ${note}${peopleHTML(i)}${stepsHTML(i, STEPS, { work: work || (canWork(i) && st !== 'approved') })}
+    ${note}${peopleHTML(i)}${carryHTML(i)}${stepsHTML(i, STEPS, { work: work || (canWork(i) && st !== 'approved') })}
     ${foot ? `<div class="pr6-foot${foot.sticky ? ' sticky' : ''}">${foot.html}</div>` : ''}`;
   const sub = `<p class="pr6-sub">${stateChip(i)}<span>${esc(st === 'approved' ? '' : dueSay())}</span><a href="#/help/prep">How to get an issue ready</a></p>`;
   // Session work first (R-118): once the issue is approved, or the session is under way, the card folds to one line and

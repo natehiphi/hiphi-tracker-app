@@ -1014,3 +1014,7 @@ body.staff6 .v6-chd.on .v6-chdot { background: var(--v6-action); box-shadow: non
 }
 /* R-368 (critic): Follow keeps Following's width, so pressing it does not move the page. */
 body.staff6 .is6-follow { min-width: 9.5em; justify-content: center; }
+/* R-371 S6: "Bills to carry over" on the prep card, a short read-only list above the steps */
+body.staff6 .pr6-carry { margin: var(--s16) 0 0; padding: var(--s12) var(--s16); border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-ink); }
+body.staff6 .pr6-carry ul { margin: var(--s8) 0 0; padding: 0; list-style: none; display: grid; gap: var(--s8); }
+body.staff6 .pr6-co { color: var(--v6-muted); }

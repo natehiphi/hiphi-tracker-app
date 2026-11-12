@@ -155,6 +155,20 @@ function origin(route) {
   return { href: '#/', label: 'Today' };
 }
 
+// R-371 S3: the place a bill was opened from, as the sidebar and the path line name it (app.js placeOf reads it). A bill opened
+// from Calendar reads "Calendar › HB 756" with Calendar lit, matching "Back to Calendar"; from an issue it stays under My issues.
+export function billPlace(route) {
+  // Opened cold (a link from Slack, a reload with nothing behind it): no place to follow, so it stays under My issues.
+  if (!carry && !prevRoute && !(S.billNav && !Array.isArray(S.billNav) && S.billNav.href)) return 'issues';
+  const h = origin(route)?.href || '';
+  if (/^#\/?$/.test(h)) return 'today';
+  if (/^#\/hearing/.test(h)) return 'calendar';
+  if (/^#\/(review|testimony)/.test(h)) return 'testimony';
+  if (/^#\/search/.test(h)) return 'search';
+  return 'issues';
+}
+const PATH_HEAD = { search: ['Search', '#/search'], today: ['Today', '#/'], calendar: ['Calendar', '#/hearings'], testimony: ['Testimony', '#/testimony'] };
+
 // ---- Previous / Next through the list the bill was opened from (S.billNav, set by list screens) ----
 // S.billNav is an ordered list of bill ids (or numbers), or { ids, label, href }. Without it the buttons hide.
 function neighbours(b) {
@@ -458,17 +472,43 @@ function headHTML(b, route) {
 // the Back names its place: "Back to Calendar", "Back to My issues", "Back to HB 1562"
 const vbBackWords = l => /^Back\b/i.test(l) ? l : `Back to ${l === 'Hearings' ? 'Calendar' : l === 'Issues' ? 'My issues' : l}`;
 const vbIssue = b => issuesOfBill(b.id)[0] || null;
+// R-371 S2/S4: a bill's own state in a word and a reason ("Stopped: did not clear its last committee by Mon 3/30"), the one the
+// twin line and the Its issue card both use, so neither borrows the issue's headline about another bill. `html` is already escaped.
+export function ownState(b) {
+  if (diedish(b)) { const w = deadWords(b); return { key: 'stopped', word: 'Stopped', ic: 'circle-minus', html: /^missed the sine die/i.test(w) ? 'the session ended before it passed' : w ? w[0].toLowerCase() + w.slice(1) : '' }; }
+  const st = stopOf(b), ph = st.phase, cm = st.committee ? esc(committeeName(st.committee) || st.committee) : '';
+  if (ph === 'law') return { key: 'track', word: 'Became law', ic: 'circle-check', html: '' };
+  if (ph === 'governor' || ph === 'ballot') return { key: 'track', word: 'Passed the Legislature', ic: 'circle-check', html: '' };
+  if (ph === 'committee') {
+    const h = hearingAhead(b);
+    return h ? { key: 'track', word: 'Hearing set', ic: 'calendar-check', html: esc(`${dayWords(h.scheduled_at)}, ${timeWords(h.scheduled_at)}`) }
+      : { key: 'hearing', word: 'Needs a hearing', ic: 'calendar-plus', html: cm ? `waiting in ${cm}` : '' };
+  }
+  if (ph === 'floor') return { key: 'track', word: 'Alive', ic: 'circle-dot', html: `on the ${st.chamber === 'S' ? 'Senate' : 'House'} floor` };
+  if (ph === 'conference') return { key: 'track', word: 'Alive', ic: 'circle-dot', html: 'in conference' };
+  return { key: 'track', word: 'Alive', ic: 'circle-dot', html: '' };
+}
+// "with SB 972 (stopped)": the twin as a link, under the title where a lead looks first.
+function twinLine(b) {
+  const nums = companionsOf(b); if (!nums.length) return '';
+  return nums.map(n => { const t = billByNum(n, b.session_year);
+    if (!t) return `with ${esc(spaced(n))}`;
+    const o = ownState(t), tail = o.key === 'stopped' ? 'stopped' : o.word === 'Needs a hearing' ? 'needs a hearing' : o.word === 'Hearing set' ? `hearing ${o.html}` : o.word === 'Alive' ? 'alive' : o.word.toLowerCase();
+    return `with <a href="${esc(billRoute(t))}">${esc(numWords(t))}</a> (${tail})`; }).join(', ');
+}
 function vbTitle(b) {
-  const i = vbIssue(b), nm = billName(b), num = numWords(b);
+  const i = vbIssue(b), tw = twinLine(b), nm = billName(b), num = numWords(b);
   // R-370: the bill's own short title (its plain summary) under the number, so a bill that shares its issue's name still says what it is.
   const short = blurb(b, 1e4);
   return `<div class="vb-btitle"><p class="vb-kind">Bill</p><h1 class="bw-h1 vb-bh1" id="bw-h1" tabindex="-1">${esc(num)}</h1>
     ${nm && nm !== num && nm !== i?.name && nm !== short ? `<p class="vb-bname">${esc(nm)}</p>` : ''}
     ${short ? `<p class="vb-bshort">${esc(short)}</p>` : ''}
-    ${i ? `<p class="vb-in">in <a href="#/issue/${encodeURIComponent(i.id)}?from=${esc(billRef(b))}">${esc(i.name)}</a></p>` : ''}</div>`;
+    ${i || tw ? `<p class="vb-in">${i ? `in <a href="#/issue/${encodeURIComponent(i.id)}?from=${esc(billRef(b))}">${esc(i.name)}</a>` : ''}${i && tw ? ' · ' : ''}${tw}</p>` : ''}</div>`;
 }
 function vbPath(b) {
-  const i = vbIssue(b);
+  const i = vbIssue(b), pl = billPlace(S.route);
+  // R-371 S3: from Today, Calendar or Testimony the path starts there (no issue between: you did not come through it).
+  if (PATH_HEAD[pl]) return pathLine([PATH_HEAD[pl], [numWords(b)]]);
   return pathLine([['My issues', '#/issues'], ...(i ? [[i.name, `#/issue/${encodeURIComponent(i.id)}?from=${billRef(b)}`]] : []), [numWords(b)]]);
 }
 // "You: file testimony by Wed 3/18, 7:30 AM" as the one filled button (it takes you to the step card below), or one plain line
@@ -818,7 +858,7 @@ function aboutBody(b) {
     sum && b.nickname ? ['What it does', esc(sum)] : !sum && desc ? ['What it does', `${esc(desc)} <span class="bw-quiet">(the Capitol’s words)</span>`] : null,
     g ? [`Our ${esc(SESSION_YEAR)} goal`, `${esc(g.goal)} <span class="bw-quiet">(${esc(g.name)}, staff only)</span>`] : null,
     sp.length ? ['Introduced by', `<b>${sponsorHTML(b, sp[0], onCmte)}</b> <span class="bw-quiet">(lead)</span>${sp.length > 1 ? ', ' + sp.slice(1, all ? sp.length : 5).map(n => sponsorHTML(b, n, onCmte)).join(', ') : ''}${sp.length > 5 && !all ? ` ${btn(`Show all ${sp.length}`, { kind: 'text', sm: true, attrs: { 'data-sponsall': '1' } })}` : ''}`] : null,
-    companionsOf(b).length ? ['Companion', `<span id="bw-comp">${compHTML(b)}</span>`] : null,
+    !VB && companionsOf(b).length ? ['Companion', `<span id="bw-comp">${compHTML(b)}</span>`] : null,
     b.last_action ? ['Last action', `${b.last_action_date ? `<span class="bw-quiet">${esc(fmtDate(b.last_action_date, { year: '2-digit' }))}</span> ` : ''}${esc(shortAction(b.last_action))}`] : null,
     b.title ? ['Official title', esc(titleCaseTitle(b.title))] : null,
     sum && desc ? ['The Capitol’s description', esc(desc)] : null,
@@ -1032,13 +1072,12 @@ function issueSide(i, b) {
   const st = STATES.issue[k] || STATES.issue.none;
   const same = plain(i.name || '') === plain(billName(b));
   if (VB) {   // B: the same status and words as the issue's card on My issues (issueStatusB), neutral for At risk (no amber, no triangle)
-    const v = issueStatusB({ ...standOf(i), own: i.owner_id === S.me?.id });
-    // R-370: the cut-off day is said once on this page (in the step card or under the bar); this card says only who is at risk.
-    v.reason = String(v.reason || '').replace(/ by (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2}\/\d{1,2}$/, '');
+    // R-371 S2: this bill's own state, not the issue's headline about another bill (dead SB 972 read "At risk: HB 756 needs a hearing").
+    // The issue's name is said once, under the title ("in <issue>"), so the card does not repeat it.
+    const v = ownState(b);
     return `<section class="bw-scard bw-icard" aria-labelledby="bw-ic-h">
     <h2 class="bw-sh" id="bw-ic-h">Its issue</h2>
-    ${same ? '' : `<p class="bw-ic-n">${esc(i.name)}</p>`}
-    <p class="bw-ic-s"><span class="bw-if-pill is-${esc(v.key)}" data-state="issue:${esc(v.key)}">${icon(v.ic)}<span>${esc(`${v.word}: ${v.reason}`)}</span></span></p>
+    <p class="bw-ic-s"><span class="bw-if-pill is-${esc(v.key)}" data-state="issue:${esc(v.key)}">${icon(v.ic)}<span>${v.word}${v.html ? `: ${v.html}` : ''}</span></span></p>
     ${href ? `<p><a class="bw-go bw-if-go" href="${esc(href)}">Open the issue${icon('chevron-right')}</a></p>` : ''}
   </section>`;
   }

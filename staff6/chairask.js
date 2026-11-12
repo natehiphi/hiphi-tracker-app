@@ -231,14 +231,44 @@ export function installAskWatch() {
     const ans = ev.target.closest?.('[data-askanswer]');
     if (ans) { ev.preventDefault(); const [id, code] = ans.dataset.askanswer.split('|'); return answerSheet([id], code); }
     const a = ev.target.closest?.('a[href^="mailto:"]');
-    if (a) afterMail(a.getAttribute('href'));
+    if (a) afterMail(a.getAttribute('href'), a);
   });
+  // R-371 S5: the "Did you send it?" offer waits for the person to come back to this page (the mail app or tab was in front).
+  const back = () => { if (pend && pend.left) offerNow(); };
+  document.addEventListener('visibilitychange', () => { if (!pend) return; if (document.visibilityState === 'hidden') pend.left = true; else back(); });
+  addEventListener('blur', () => { if (pend) pend.left = true; });
+  addEventListener('focus', back);
 }
 // A chair email opened from a menu (location.href) asks too.
-export function afterMail(href) {
+// Version B: not a sheet over the page but a line beside the step, "Did you send it? Mark asked", shown when the person is back
+// (R-371 S5: a sheet appeared while the mail app was still opening). One bill: Mark asked saves the ask. Two or more: it opens
+// the sheet that ticks the bills the email named. Without version B the sheet comes as it always did.
+let pend = null;
+export function afterMail(href, anchor = null) {
   const e = ASK_MAILS.get(href); if (!e || !ASK_LOG()) return;
-  setTimeout(() => sentSheet(e), DEMO ? 400 : 900);
+  if (!VB) { setTimeout(() => sentSheet(e), DEMO ? 400 : 900); return; }
+  clearTimeout(pend?.t);
+  // Nobody left the page (no mail app took the link): offer it after a moment all the same.
+  pend = { e, anchor, left: false, t: setTimeout(() => { if (pend && !pend.shown) offerNow(); }, DEMO ? 350 : 1500) };
 }
+function offerNow() {
+  if (!pend || pend.shown) return;
+  if (document.visibilityState === 'hidden') return;
+  pend.shown = true; placeOffer();
+  if (!pend.mo) { pend.mo = new MutationObserver(() => { if (pend && !document.querySelector('[data-caback]')) placeOffer(); }); pend.mo.observe(document.getElementById('app') || document.body, { childList: true }); }
+}
+function placeOffer() {
+  if (!pend) return;
+  document.querySelectorAll('[data-caback]').forEach(x => x.remove());
+  const bills = pend.e.items.map(x => billById(x.id)).filter(Boolean);
+  const html = `<div class="ca-back" role="group" aria-label="Did you send it?" data-caback><span class="ca-back-q">Did you send it?</span>${btn('Mark asked', { kind: 'primary', sm: true, icon: 'check', attrs: { 'data-caback-yes': '1' } })}${btn('Not yet', { kind: 'text', sm: true, attrs: { 'data-caback-no': '1' } })}</div>`;
+  const a = pend.anchor?.isConnected ? pend.anchor : null, host = a?.closest('.v6-row, .v6-item, .bw-next, .v6-step, .v6-stepcard, li, p') || a;
+  if (host) host.insertAdjacentHTML('afterend', html); else document.querySelector('main')?.insertAdjacentHTML('afterbegin', html);
+  const el = document.querySelector('[data-caback]'); if (!el) return;
+  el.querySelector('[data-caback-yes]').onclick = () => { const e = pend.e; endOffer(); bills.length < 2 ? recordAsk(e.items, 'asked', { decide: e.decide }) : sentSheet(e); };
+  el.querySelector('[data-caback-no]').onclick = () => endOffer();
+}
+function endOffer() { pend?.mo?.disconnect(); clearTimeout(pend?.t); pend = null; document.querySelectorAll('[data-caback]').forEach(x => x.remove()); }
 // Live, once 183 is in: every chair ask, so each teammate's rows say who asked.
 export function loadAsks() {
   if (!ASK_LOG() || DEMO) return;
