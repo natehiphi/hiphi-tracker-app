@@ -121,11 +121,12 @@ function lateStripItems(m) {
   return ['write', 'approve', 'sent', 'file'].flatMap(tb => m.tabs[tb]).filter(it => !it.s.off && it.s.state && !['filed', 'missed'].includes(it.s.state.key)).map(it => ({ it, at: capClose(it) }))
     .filter(x => x.at != null && x.at > now && (x.it.s.status?.tone === 'late' || hstDay(x.at) === today)).sort((x, y) => x.at - y.at);
 }
-const LATE_ROWS = 5;
+// Five on a laptop; three on a phone, so the stage tabs stay on the first screen (R-370, rule 7).
+const LATE_ROWS = () => { try { return matchMedia("(min-width: 768px)").matches ? 5 : 3; } catch { return 5; } };
 function lateStrip(m) {
   if (!VB) return '';
   const list = lateStripItems(m); if (!list.length) return '';
-  const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS);
+  const all = !!(S.tpAll ??= {}).late, shown = all ? list : list.slice(0, LATE_ROWS());
   const clock = at => new Date(at).toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: '2-digit' });
   const row = ({ it, at }) => { const s = it.s, late = s.status?.tone === 'late', stage = it.st.sentBack ? 'Sent back' : it.st.word, whose = s.you ? 'Your turn' : s.nobody ? NO_OWNER : cap(whoWords(s));
     return `<li><button type="button" class="tp-lr${late ? ' tp-lr-late' : ''}" data-tpgo="${esc(it.tab)}|${esc(it.key)}">
