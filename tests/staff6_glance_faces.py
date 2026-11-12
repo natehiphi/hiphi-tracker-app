@@ -125,16 +125,18 @@ def main():
     pg.close()
 
     # ---- rule 5: one picture, one meaning ----
+    # The Inbox left the sidebar in R-356 (its tray sits in the header at every width), so the laptop's header tray is the
+    # other side of 'the same number' on a phone.
     lap = b.page('NT', 1440, 900); lap.open('/inbox'); lp = lap.page
-    side = lp.evaluate("document.querySelector('.sv-side a[href=\"#/inbox\"] .sv-sn')?.textContent.trim() || ''")
-    side_ic = lp.evaluate("[...(document.querySelector('.sv-side a[href=\"#/inbox\"] svg.ic')?.classList || [])].join(' ')")
+    side = lp.evaluate("document.querySelector('.sv-hdr a[href=\"#/inbox\"] .sv-trayn')?.textContent.trim() || ''")
+    side_ic = lp.evaluate("[...(document.querySelector('.sv-hdr a[href=\"#/inbox\"] svg.ic')?.classList || [])].join(' ')")
     reads = lp.evaluate(ICONS_IN, '.ib-read')
     check('Inbox: Mark read is not a check mark (the check is done and approve only)', reads and 'ic-check' not in reads, sorted(set(reads)))
     lap.close()
     ph = b.page('NT', 390, 844); ph.open('/inbox'); pp = ph.page
     tray = pp.evaluate("""() => { const a = document.querySelector('.sv-hdr a[href="#/inbox"]'); return a ? { ic: [...a.querySelector('svg.ic').classList].join(' '), n: a.querySelector('.sv-trayn')?.textContent.trim() || '', label: a.getAttribute('aria-label') } : null; }""")
-    check('Phone: the Inbox is the tray, as in the sidebar (no bell)', tray and 'ic-inbox' in tray['ic'] and 'ic-inbox' in side_ic and 'ic-bell' not in tray['ic'], (tray, side_ic))
-    check("Phone: the tray shows the sidebar's number", tray and side and tray['n'] == side, (tray and tray['n'], side))
+    check('Phone: the Inbox is the tray, as on a laptop (no bell)', tray and 'ic-inbox' in tray['ic'] and 'ic-inbox' in side_ic and 'ic-bell' not in tray['ic'], (tray, side_ic))
+    check("Phone: the tray shows the laptop's number", tray and side and tray['n'] == side, (tray and tray['n'], side))
     check('390: Inbox, no sideways scroll', pp.evaluate(OVER) <= 0, pp.evaluate(OVER)); ph.close()
 
     pg = b.page('NT', 1440, 900); pg.open(f'/legislator/{L.LEGISLATOR}'); p = pg.page
