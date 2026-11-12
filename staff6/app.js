@@ -172,7 +172,7 @@ const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', te
 // (hearing.js's Back, S.billFrom) lights Issues.
 const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
 // R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
-const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'today', testimony: 'today', search: 'search',
+const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'testimony', testimony: 'testimony', search: 'search',
   outreach: 'issues', asks: 'issues', partners: 'issues', memo: 'issues', emails: 'issues', composer: 'issues', supporters: 'issues', person: 'issues', lists: 'issues', list: 'issues',
   bill: 'issues', bills: 'issues', triage: 'issues', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues',
   // A legislator is looked up, not part of an issue: it lights Search (the phone bar's fourth item; the laptop's header box), whatever page you came from.
@@ -673,9 +673,9 @@ function accountItems() {
   return [
     { label: 'My settings', icon: 'settings', sub: 'How the tracker reaches you', nav: true, run: () => go('#/me') },
     // R-365: the switch between Staff v6 and version B; the same page, hash and other parameters kept.
-    VB ? { label: 'Back to Staff v6', icon: 'undo-2', sub: 'The version you had before', run: () => { location.href = vbSwitchHref(false); } }
-      // Until Nate has checked B, live staff don't see the row: practice copy, trial runs and admins only.
-      : !(DEMO || S.me?.is_admin || /trial\.html$/.test(location.pathname)) ? null
+    // B is everyone's from 11 Nov: the way back to v6 is for the practice copy, trial runs and admins only.
+    !(DEMO || S.me?.is_admin || /trial\.html$/.test(location.pathname)) ? null
+      : VB ? { label: 'Back to Staff v6', icon: 'undo-2', sub: 'The version you had before', run: () => { location.href = vbSwitchHref(false); } }
       : { label: 'Try version B', icon: 'flask-conical', sub: 'Three places: Today, My issues, Calendar', run: () => { location.href = vbSwitchHref(true); } },
     DEMO ? { label: 'Practice as someone else', icon: 'id-card', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the

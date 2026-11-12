@@ -90,7 +90,7 @@ export default {
     // Outreach is in the laptop's sidebar, so its row shows on a phone only (staff.css v6-phone-only; Issues is in the phone bar too); Legislators,
     // Inbox and Help are here for everyone, one click from More (Nate, 22 Oct), and search finds each by its name.
     // In version B (R-365) Testimony and Outreach are rows here for everyone, on a laptop too, since the sidebar left them out.
-    const places = [VB ? placeRow('testimony') : null, placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
+    const places = [VB ? placeRow('testimony', { cls: 'v6-phone-only' }) : null, placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
     const sec = (h, rows, id) => `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
     return `<div class="v6-more v6-tools">

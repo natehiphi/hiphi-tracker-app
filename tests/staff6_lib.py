@@ -132,7 +132,9 @@ class P:
     self.errors, self.extra, self.app = [], None, APP
     page.on('pageerror', lambda e: self.errors.append(str(e)))
   def url(self, route='/', extra='', app=None):
-    return f"{HOST}/{app or self.app}.html?demo=1&as={self.who}{extra}#{route}"
+    # B is the default from 11 Nov (R-365); these suites were written for v6, so they ask for it unless they name vb
+    vb = "" if "vb=" in extra else "&vb=0"
+    return f"{HOST}/{app or self.app}.html?demo=1&as={self.who}{vb}{extra}#{route}"
   def open(self, route='/', extra='', app=None, max_wait=9000):
     self.extra, self.app = extra, app or self.app
     self.page.goto(self.url(route, extra, app)); self.page.wait_for_timeout(600); return self.ready(max_wait)

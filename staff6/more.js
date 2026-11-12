@@ -33,13 +33,14 @@ export const MAIN = ['today', 'testimony', 'hearings', 'issues', 'outreach'];
 export const BAR = ['today', 'hearings', 'testimony', 'issues', 'more'];
 // R-365 version B (?vb=1): three places, the issue as the home for its work. Calendar opens Hearings' week; Testimony and
 // Outreach leave the sidebar and the bar (their addresses still open, and More lists them). Search joins the phone's bar.
-export const MAIN_B = ['today', 'issues', 'calendar'];
+// Nate 11 Nov: Testimony back in the left menu, after Today.
+export const MAIN_B = ['today', 'testimony', 'issues', 'calendar'];
 export const BAR_B = ['today', 'issues', 'calendar', 'search', 'more'];
 PLACES.calendar = ['#/hearings', 'calendar-days', 'Calendar', 'Calendar', 'This week’s hearings'];
 PLACES.search = ['#/search', 'search', 'Search', 'Search', 'Issues, bills, hearings and people'];
 if (VB) PLACES.issues = ['#/issues', 'tag', 'My issues', 'My issues', 'Your issues, every issue, and every bill we track'];
 // The same page with vb=1 added or removed (the You menu's switch row): hash and every other parameter kept.
-export const vbSwitchHref = on => { const u = new URL(location.href); on ? u.searchParams.set('vb', '1') : u.searchParams.delete('vb'); return u.toString(); };
+export const vbSwitchHref = on => { const u = new URL(location.href); on ? u.searchParams.delete('vb') : u.searchParams.set('vb', '0'); return u.toString(); };
 // Leads (V18): Team for admins and second approvers; People and Session setup for admins; Partners for admins and partner
 // approvers (R-328). Always in the same spot, and absent for everyone else (D8 names them at the foot of More tools).
 export const isLead = (a = S.me) => !!a && a.is_active !== false && (!!a.is_admin || !!a.is_reviewer);

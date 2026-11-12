@@ -180,9 +180,11 @@ const VKEY = () => `hiphi6_miview_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
 // R-365 version B: the default is the who's-up cards; Deadlines stays, and Topics. Remembered apart from v6's choice, so
 // turning B on or off never changes what the other version opens on.
 export const VB_VIEWS = [['whosup', 'Who’s up'], ['deadlines', 'Deadlines'], ['topics', 'Topics']];
+// Nate 11 Nov: B's My issues is organized as v6's (four views, Deadlines first); the who's-up cards stay here, unused, until he says.
+const VBV = false;
 const VBKEY = () => `hiphi6_vbview_${S.me?.id || ''}${DEMO ? '_demo' : ''}`;
 export function viewNow() {
-  if (VB) {
+  if (VBV) {
     const st = (S.vbView ??= {}), who = S.me?.id || '';
     if (st.for !== who) { let m = null; try { m = localStorage.getItem(VBKEY()); } catch { m = null; } st.v = VB_VIEWS.some(([k]) => k === m) ? m : 'whosup'; st.for = who; }
     return st.v;
@@ -193,7 +195,7 @@ export function viewNow() {
   return st.v;
 }
 export function setViewNow(m) {
-  if (VB) { viewNow(); if (!VB_VIEWS.some(([k]) => k === m)) return; S.vbView.v = m; try { localStorage.setItem(VBKEY(), m); } catch { /* this visit only */ } return; }
+  if (VBV) { viewNow(); if (!VB_VIEWS.some(([k]) => k === m)) return; S.vbView.v = m; try { localStorage.setItem(VBKEY(), m); } catch { /* this visit only */ } return; }
   viewNow(); const st = S.miView; if (st.v === m || !VIEWS.some(([k]) => k === m)) return;
   st.v = m;
   try { localStorage.setItem(VKEY(), m); } catch { /* this visit only */ }
@@ -208,17 +210,17 @@ export function toolsHTML(q, count) {
   return `<div class="i6-tools mi-tools${q ? ' open' : ''}" data-istools="mi-q">
     ${filter ? `${iconBtn(FI, 'Filter your issues', { 'data-istq': 'open', 'aria-expanded': String(!!q), 'aria-controls': 'mi-q-find' }, 'i6-findbtn')}
     <div class="i6-find" id="mi-q-find">${icon(FI)}<input id="mi-q" type="search" placeholder="Filter your issues" value="${esc(q)}" autocomplete="off" aria-label="Filter your issues: a word, a bill number or a bill’s nickname" aria-controls="mi-q-body">${iconBtn('x', 'Clear the filter', { 'data-istq': 'clear', hidden: !q })}</div>` : ''}
-    ${VB ? `<label class="vbi-sort"><span>Sort by</span><select class="vbi-sel" data-miview-sel>${VB_VIEWS.map(([k, l]) => `<option value="${k}"${v === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`
+    ${VBV ? `<label class="vbi-sort"><span>Sort by</span><select class="vbi-sel" data-miview-sel>${VB_VIEWS.map(([k, l]) => `<option value="${k}"${v === k ? ' selected' : ''}>${l}</option>`).join('')}</select></label>`
       : `<div class="sv-seg mi-seg" role="group" aria-label="Show your issues as">${VIEWS.map(([k, l]) => `<button type="button" data-miview="${k}" aria-pressed="${v === k}">${l}</button>`).join('')}</div>`}
   </div>`;
 }
 
 // ---- the body for the view in force ----
 export function bodyHTML(list, { q = '', opts = {} } = {}) {
-  if (q.trim() && !(VB && viewNow() === 'whosup')) return searchHTML(list, q, opts);
+  if (q.trim() && !(VBV && viewNow() === 'whosup')) return searchHTML(list, q, opts);
   if (q.trim()) { const f = searcher(q); list = list.map(x => ({ x, m: f(x) })).filter(y => y.m).sort((a, b) => a.m.score - b.m.score).map(y => y.x); }
   const js = list.map(judge);
-  if (VB && viewNow() === 'whosup') return cardsHTML(js);
+  if (VBV && viewNow() === 'whosup') return cardsHTML(js);
   switch (viewNow()) {
     case 'status': return statusHTML(js, opts);
     case 'topics': return topicsHTML(js);

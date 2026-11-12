@@ -36,7 +36,7 @@ import { dayWords, itemRow } from './steps.js';
 function myIssues() {
   const ids = myIssueIds();
   const mine = (S.issues || []).filter(i => ids.has(String(i.id)) && !i.archived_at).map(i => ({ ...standOf(i), own: i.owner_id === S.me?.id }));
-  return VB ? mine.concat(coalitionIssues(ids)) : mine;
+  return mine;   // Nate 11 Nov: B's My issues lists what v6 lists (coalitionIssues stays for a later call)
 }
 // R-365 version B (Nate 7 Nov, "Saya's issues by name"): the issues of the coalitions the viewer owns or helps on, which they
 // neither own nor help on, each named by its coalition's full name (public_name), never its code (CTFH). An issue belongs to a
@@ -122,7 +122,6 @@ export default {
     const owned = list.filter(x => x.own).length, helped = list.length - owned;
     // Someone with no issue: their coalitions, where their week is (Patti: HEAL in one click).
     // The critic: say why the page shows coalitions, and how an issue would come to be here.
-    if (VB && !list.length) return `<div class="le-page i6-page mi6-page">${head}${(S.campaigns || []).length ? `<p class="i6-lede mi-noiss">No issues here yet. Issues you own or help on, and the ones your coalitions work on, show here.</p>${coalSectionsHTML()}` : empty({ title: 'No issues here yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>`;
     if (!list.length && (S.campaigns || []).length) return `<div class="le-page i6-page mi6-page">${head}<p class="i6-lede mi-noiss">No issues are yours yet. Owning or helping on an issue adds it here; helping a coalition shows its week below.</p>${coalSectionsHTML()}</div>`;
     if (!list.length) return `<div class="le-page i6-page mi6-page">${head}
       <div class="le-empty">${empty({ title: 'No issues are yours yet', text: 'When you own or help on an issue, it shows here with where it stands.', action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div></div>`;
@@ -132,14 +131,9 @@ export default {
     // how many they help on.
     const coal = helpLineHTML(), lede = coal || (!owned && helped ? `<p class="i6-lede">You help on ${esc(plural(helped, 'issue'))}. Each owner leads theirs.</p>` : '');
     const lines = linesHTML();
-    // Version B: the filter and the switch are the one row above the first card; the notes come after the cards.
-    if (VB) return `<div class="le-page i6-page mi6-page vbi-page">
-      ${head}
-      ${toolsHTML(Q().q, list.length)}
-      <div id="mi-q-body" class="mi-body">${bodyHTML(list, { q: Q().q, opts: opts() })}</div>
-      ${lines ? `<div class="i6-lines vbi-lines">${lines}</div>` : ''}
-    </div>`;
-    return `<div class="le-page i6-page mi6-page">
+    // Nate 11 Nov: B keeps its look (its title over the tabs) but the page is organized as v6's: the four views, Deadlines
+    // first, the notes above the list.
+    return `<div class="le-page i6-page mi6-page${VB ? ' vbi-page' : ''}">
       ${head}
       ${toolsHTML(Q().q, list.length)}
       ${lede || lines ? `<div class="i6-lines">${lede}${lines}</div>` : ''}
