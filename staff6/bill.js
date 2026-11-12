@@ -43,7 +43,7 @@ import { roomName, movedFrom } from './model.js';
 import { aboutBill } from './billpane.js';
 import { trackerHTML, wireTracker, trackerModel } from './tracker.js';
 import { vbWhereWords } from './model.js';
-import { askWriteHref } from './asks.js';   // R-370: the link into the public ask's box
+import { askWriteHrefListed } from './asks.js';   // R-370: the link into the public ask's box
 import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, the same as its card on My issues
 import { standOf } from './issuestand.js';
 // A share to-do read as Today and Team read it (the rallier's public ask, by its own time), worked out once in today.js.
@@ -553,7 +553,7 @@ function stepExtras(b, s, card = '') {
   if (own && s.state?.stale && s.state.key === 'write') out.push(btn('Committee report', { kind: 'text', iconEnd: 'external-link', href: capitolUrl(b), target: '_blank' }));
   // R-370 (B): a hearing with testimony still open and no public ask yet: the way to the writer's box is on the card's own page.
   // askWriteHref is '' unless the bill has an ask card this week (hearing ahead, testimony not yet due), so nothing shows otherwise.
-  const wr = VB && !liveAsk(b) ? askWriteHref(b) : '';
+  const wr = VB ? askWriteHrefListed(b) : '';
   if (wr) out.push(btn('Write the public ask', { kind: 'text', icon: 'megaphone', href: wr }));
   const v = liveVideo(b, s);
   if (v) out.push(btn('Watch live now', { kind: 'text', icon: 'video', href: v.url, target: '_blank' }));

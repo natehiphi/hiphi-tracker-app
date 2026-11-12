@@ -77,6 +77,9 @@ export const askCardHref = b => b && weekAskItems().some(x => x.b.id === b.id) ?
 
 // R-358: the address that lands IN the open box (Today's row, no second click); '' without a card, callers use the Public tab.
 export const askWriteHref = b => { const c = askCardHref(b); return c ? `${c}&write=1` : ''; };
+// R-370: the write link for a bill the viewer will SEE in This week's asks and can write for (the page's own list rule, weekAskItems
+// {mine}; the box opens only for onBill and no ask yet), else '': a link to a card that is not listed would be a dead end.
+export const askWriteHrefListed = b => b && onBill(b) && !liveAsk(b) && weekAskItems({ mine: true }).some(x => x.b.id === b.id) ? askWriteHref(b) : '';
 // Whose ask a bill's card is, for a screen that is not the card (the Public tab): the writer's first name, when it is due.
 export function askWhose(b) {
   const x = b && weekAskItems().find(i => i.b.id === b.id); if (!x) return null;
