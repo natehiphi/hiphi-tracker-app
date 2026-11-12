@@ -21,7 +21,7 @@ import { icon, btn, empty, toast, switchRow, openSheet, ASK_TAB, andWords } from
 import { showAllBtn } from './ui.js';   // R-277 fix 4 (U-4): one "Show all" on every screen
 import { plural, afterClose, iconName } from './lists.js';
 import { issuesOfBill } from './issues.js';
-import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile, standOf, byUrgency } from './issuestand.js';
+import { headHTML as tabsHead, rememberRow, restoreRow, numNb, issueTile, issueLead, standOf, byUrgency } from './issuestand.js';
 import { issueKey, stateMark } from './verbs.js';   // R-373: an issue's health, as the cards say it
 import { stageInWords } from './bill.js';   // R-373: where a bill stands, in the bill page's words (used only when a page draws)
 import { isPos, byPri, waitingOfBills } from './standing.js';
@@ -387,11 +387,20 @@ function groupHTML2(c, g) {
   return `<section class="i6-sec co6-grp${icCls(i)}" aria-labelledby="${id}"><h2 class="co6-gh" id="${id}">${issueTile(i, 'sm')}<a href="#/issue/${encodeURIComponent(i.id)}?from=coalition">${esc(i.name)}</a><span class="co6-gs">${stateMark('issue', issueKey(g.x), { size: 18 })}</span></h2>
     ${rows.length ? folded(`${c.id}|g|${i.id}`, rows) : '<p class="i6-quiet">No live bills.</p>'}${stop}</section>`;
 }
+function quietHTML(c, list, open) {
+  if (!list.length) return '';
+  const key = `${c.id}|quiet`, line = g => itemRow({ key: g.i.id, name: g.i.name, line: `${stateMark('issue', issueKey(g.x), { size: 18 })} · ${nw(esc(g.gone.length ? `${plural(g.gone.length, 'bill')} stopped` : 'No bills yet'))}`, href: `#/issue/${encodeURIComponent(g.i.id)}?from=coalition`,
+    cls: `i6-row${icEdge(g.i)}`, lead: issueLead(g.i) });
+  return `<details class="ip6-fold co6-quiet" data-costop="${esc(key)}"${open || S.coStop?.has(key) ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Not moving: ${plural(list.length, 'issue')}</span></summary>${box(list.map(line).join(''))}</details>`;
+}
 function groupsHTML(c, pick) {
-  const { xs, loose } = issueGroups(c), shown = pick ? xs.filter(g => String(g.i.id) === pick) : xs;
+  const all = issueGroups(c), loose = all.loose;
+  // R-373 follow-up (B-14, A-14): issues with no live bill leave the groups for one closed fold after them, a line each.
+  const xs = [...all.xs.filter(g => g.live.length), ...all.xs.filter(g => !g.live.length)];
+  const shown = pick ? xs.filter(g => String(g.i.id) === pick) : xs, live = shown.filter(g => g.live.length), quiet = shown.filter(g => !g.live.length);
   const looseSec = !pick && loose.length ? `<section class="i6-sec co6-grp" aria-labelledby="co6-g-none"><h2 class="co6-gh" id="co6-g-none"><span class="co6-gname">Not on an issue yet</span></h2>${folded(`${c.id}|g|none`, loose.map(b => billLineRow(b, { button: noOwner(b) ? takeBtn(b) : '' })))}</section>` : '';
   if (!xs.length && !loose.length) return '';
-  return `${stripHTML(xs, pick)}${shown.map(g => groupHTML2(c, g)).join('')}${looseSec}`;
+  return `${stripHTML(xs, pick)}${live.map(g => groupHTML2(c, g)).join('')}${looseSec}${quietHTML(c, quiet, !!pick)}`;
 }
 
 function pageHTML(c) {
