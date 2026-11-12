@@ -395,7 +395,14 @@ body.staff6 .ot-wacts { display: flex; flex-wrap: wrap; gap: var(--s8); }
 /* The share row: Copy link · Copy message · Copy post, then the email door. */
 body.staff6 .ot-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s8); }
 body.staff6 .ot-cpl { display: none; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
-body.staff6 .ot-door { display: contents; }
+body.staff6 .ot-door { display: inline-flex; align-items: center; gap: var(--s8); flex-wrap: wrap; }
+/* R-370: the copy buttons and the email door are two groups, the email one set apart with its own line. */
+body.staff6 .ot-acts { align-items: flex-start; gap: var(--s12) var(--s32); }
+body.staff6 .ot-grp { display: flex; flex-direction: column; gap: var(--s8); min-width: 0; }
+body.staff6 .ot-emg { max-width: 34ch; padding-left: var(--s24); border-left: 1px solid var(--v6-hair); }
+body.staff6 .ot-gt, body.staff6 .ot-gh { margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh16); color: var(--v6-muted); }
+body.staff6 .ot-row { display: flex; flex-wrap: wrap; gap: var(--s8); }
+body.staff6 .ot-paused { font-size: var(--v6-t16); color: var(--v6-muted); }
 body.staff6 .ot-more { margin: var(--s12) 0 0; }
 /* The foot: what to do on the left, the followers on the right; wrapped, the followers sit under it at the left
    (space-between puts a lone item at the start). */
@@ -431,7 +438,7 @@ body.staff6 .ot-empty .empty { margin: 0; padding: var(--s32) var(--s24); border
 /* A phone: "Copy  Link  Message  Post" in one row of compact buttons (the word "Copy" said once, each button's name still
    whole for a screen reader), the email door on its own line under them. */
 @media (max-width: 599px) {
-  body.staff6 .ot-cpl { display: inline; margin-right: var(--s4); }
+  body.staff6 .ot-emg { padding-left: 0; border-left: 0; border-top: 1px solid var(--v6-hair); padding-top: var(--s12); max-width: none; flex: 1 1 100%; }
   body.staff6 .ot-cp .ot-cw, body.staff6 .ot-cp .ic { display: none; }
   body.staff6 .ot-cp > span { text-transform: capitalize; }
   body.staff6 .ot-acts .ot-cp { padding: 0 var(--s12); }

@@ -238,7 +238,11 @@ function shareHTML(x) {
   const cb = (k, word, ic) => btn(`<span class="ot-cw">Copy </span>${word}`, { kind: 'secondary', sm: true, icon: ic, cls: 'ot-cp', attrs: { 'data-askcopy': k, 'data-bill': b.id, 'aria-label': `Copy ${word} for ${nm}` } });
   // Nobody follows it yet: no email door at all (the line under the card says why), never "ask Kevin to email nobody".
   const door = followers(b) ? emailDoor({ bill: b }, { sm: true, say: `could you email ${pubNum(b)}’s followers about the ${deadline} testimony deadline? The ask is on Outreach.` }) : '';
-  return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><span class="ot-cpl" aria-hidden="true">Copy</span>${cb('link', 'link', 'link')}${cb('message', 'message', 'copy')}${cb('post', 'post', 'message-square')}${door ? `<span class="ot-door">${door}</span>` : ''}</div>`;
+  // R-370 second walk: nobody could tell which of the five reach real people. Three buttons you send yourself, apart from the
+  // one that emails followers (with what it does, and "(paused)" while email is off: paused(), the existing email setting).
+  const off = paused() ? ' <span class="ot-paused">(paused)</span>' : '';
+  const em = door ? `<div class="ot-grp ot-emg" role="group" aria-label="Email followers"><span class="ot-door">${door}${off}</span><p class="ot-gh">Emails people who follow this bill and said yes; someone who approves emails checks it first.</p></div>` : '';
+  return `<div class="ot-acts" role="group" aria-label="Share ${esc(nm)}"><div class="ot-grp ot-cpg" role="group" aria-label="Copy to share yourself"><p class="ot-gt">Copy to share yourself</p><div class="ot-row">${cb('link', 'link', 'link')}${cb('message', 'message', 'copy')}${cb('post', 'post', 'message-square')}</div></div>${em}</div>`;
 }
 function cardHTML(x, { hl = false, lead = false } = {}) {
   const b = x.b, id = cardId(b), h = x.h, a = liveAsk(b), d = askDue(x), open = boxOpen(b);

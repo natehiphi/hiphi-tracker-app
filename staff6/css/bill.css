@@ -676,3 +676,8 @@ body.staff6 .bw-page .v6-track .cur { font-weight: 500; }
   .tk-short .tk-step .tk-byf { display: inline; }
 }
 }
+/* R-370: someone else's step leads with their name, the way the viewer's own leads with "Your step". */
+.bw-theirs { color: var(--v6-ink); }
+/* R-370: "Where it is" caption: the next stops, then the deadline, two short lines. */
+.tk-cap .tk-vbnext, .tk-cap .tk-vbmust { display: block; margin: 0; }
+.tk-cap .tk-vbmust { color: var(--v6-muted); }
