@@ -29,7 +29,7 @@ import review from './review.js';
 // The frame counts what the Inbox lists (messagesCount: messages to you, never the deadline reminders that live on each
 // step, V26), so the sidebar's number, More's and the phone's bell match the page they open (A-14, B-7).
 import inbox, { messagesCount } from './inbox.js';
-import bill from './bill.js';
+import bill, { billPlace } from './bill.js';
 import bills from './bills.js';
 import asks from './asks.js';
 import legislators from './legislators.js';
@@ -179,7 +179,8 @@ const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', 
   // A legislator is looked up, not part of an issue: it lights Search (the phone bar's fourth item; the laptop's header box), whatever page you came from.
   legislator: 'search' };
 const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
-const placeOf = route => { if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
+const placeOf = route => { if (VB && route?.name === 'bill') return billPlace(route);   // R-371 S3: a bill lights where it was opened from
+  if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
   : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
 // The phone bar lights More for every place that is not one of its five.
 const barOf = k => BAR.includes(k) ? k : k ? 'more' : '';

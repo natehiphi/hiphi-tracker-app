@@ -321,3 +321,5 @@ body.staff6 .tp-lr-grp:not(:first-child) { border-top: 1px solid var(--v6-hair, 
 body.staff6 .tp-late > .btn { margin-top: 4px; }
 body.staff6 .tp-lr-num { white-space: nowrap; }
 @media (max-width: 599px) { body.staff6 .tp-lr { min-height: 44px; padding: 4px 12px; } }
+/* R-371 S1: a late-strip row's issue, its own link under the row (the row is a button, so the link sits beside it, not inside) */
+body.staff6 .tp-lr-iss { display: block; padding: 0 12px 8px; margin-top: -2px; }

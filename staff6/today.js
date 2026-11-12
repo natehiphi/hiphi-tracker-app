@@ -457,7 +457,8 @@ const withBill = (job, b) => !b ? job : VB ? `${job.replace(/\?$/, '')} ${/^Writ
 // R-370 (second walk): the bracket names the BILL by steps.js nameWords, the helper every other screen names it with (the
 // issue's name first made HB 2116 "Funding for community nonprofits" here and "State grants for nonprofits" on Testimony);
 // a bill with no name of its own falls back to its issue's.
-const vbParen = b => { const nm = nameWords(b), i = issuesOfBill(b.id)[0], n = nm && nm !== numWords(b) ? nm : i ? i.name : ''; return n ? ` (${n})` : ''; };
+// R-371 S1: a name that is only the issue's own is not repeated in brackets: the row's "for <issue>" line carries it, as a link.
+const vbParen = b => { const nm = nameWords(b), i = issuesOfBill(b.id)[0], n = nm && nm !== numWords(b) ? nm : i ? i.name : ''; return n && !(i && vbPlain(n) === vbPlain(i.name)) ? ` (${n})` : ''; };
 const vbNum = (b, num, name = numWords(b)) => VB && b && name.includes(numWords(b)) ? '' : num;
 // { name, num, line (HTML), tone, icon, bold } for one of the viewer's own rows.
 function rowWords(it, v = S.me, soon = false) {
