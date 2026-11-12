@@ -685,8 +685,6 @@ body.staff6 .lg6-ctw > span { white-space: nowrap; }
 /* All, by island: a small muted "Representatives" across the grid's whole row after the island's senators, so their row's
    gap never reads as a missing card. */
 body.staff6 .lg6-glabel { grid-column: 1 / -1; margin: 4px 0 -4px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-muted); }
-/* The jump chips' short names are a phone's (see below). */
-body.staff6 .lg6-js { display: none; }
 body.staff6 .lg6-cline { margin-top: 2px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
 /* The jump chips (one per group: an island, a letter, a committee): quiet wash pills that scroll to the group's heading;
    they wrap on a laptop and slide sideways on a phone, the edge fading where more wait (as the page tabs, A-12 on v6). */
@@ -707,7 +705,7 @@ body.staff6 .lg6-lead { margin: 0; }
 body.staff6 .lg6-card { position: relative; }
 body.staff6 .lg6-badge { position: absolute; top: 8px; left: 12px; font: 500 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-muted); }
 body.staff6 .lg6-cell[id] { scroll-margin-top: 40px; }
-body.staff6 .lg6-cline.strong { font-weight: 700; color: var(--v6-ink); }
+body.staff6 .lg6-cline.strong { font-weight: 400; color: var(--v6-ink); }   /* R-373 (A-4 on v6): bold is for headings and the filled button; ink colour still marks the chair's line */
 @media (hover: hover) and (pointer: fine) {
   body.staff6 .lg6-card:hover { box-shadow: var(--v6-sh2); }
   body.staff6 .lg6-card:hover .lg6-cname { text-decoration: underline; text-underline-offset: 4px; }
@@ -743,9 +741,6 @@ body.staff6 .lg6-cline.strong { font-weight: 700; color: var(--v6-ink); }
   body.staff6 .lg6-etools .iconbtn.lg6-sorti { flex: none; width: 44px; height: 44px; border-radius: var(--v6-pill); background: var(--v6-action-wash); color: var(--v6-action); }
   body.staff6 .lg6-etools .iconbtn.lg6-sorti:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
   body.staff6 .lg6-chcap:not(:has(> *)) { display: none; }
-  /* The jump chips say the island alone ("Hawaiʻi 12"), tighter, so all four fit a 358px column without sliding. */
-  body.staff6 .lg6-jl { display: none; }
-  body.staff6 .lg6-js { display: inline; }
   body.staff6 .lg6-jrow { gap: 6px; }
   body.staff6 .lg6-jchip { padding: 0 12px; gap: 4px; }
   body.staff6 .lg6-rph.lg6-cph, body.staff6 .lg6-rph.lg6-cph .lg-ph { width: 80px; height: 80px; }

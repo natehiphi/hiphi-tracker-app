@@ -439,7 +439,7 @@ function pickerPage() {
   const rows = teammates().filter(a => a.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name))
     .map(a => { const n = today(a); return itemRow({ key: a.id, name: a.full_name, num: '', line: esc(n ? `${plural(n, 'thing')} to do today` : 'Nothing to do today'), href: `#/team?who=${encodeURIComponent(a.id)}`, cls: 'v6-face-row', lead: faceLead(a) }); }).join('');
   return `<div class="tm6-root"><header class="t6-head"><h1 class="v6-ptitle sv-h1" id="tm6-h1" tabindex="-1">A teammate’s list</h1></header>
-    <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Their messages are only theirs, so these counts leave them out. Team, with what is slipping, is for admins and second approvers.</span></p>
+    <p class="tm6-note">${icon('info')}<span>Read anyone’s Today while you cover for them. Their messages are not shown.</span></p>
     <div class="v6-list" role="list">${rows}${itemRow({ key: 'none', name: 'No owner', num: '', line: esc(`${plural(noOwnerBills().length, 'bill')} with a position and no owner`), href: '#/team?who=none', cls: 'v6-face-row', lead: faceLead([]) })}</div></div>`;
 }
 
