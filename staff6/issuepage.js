@@ -36,8 +36,8 @@ import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead, standOf } from './issuestand.js';
 import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
-import { issueIcon, icCls } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
-import { STATES } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
+import { issueIcon, icCls, nextOf } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
+import { STATES, stateMark, issueKey } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
 import { itemRow, billRow, billStep, nw, dayWords, numWords, nameWords, committeeName, firstWords, rowButtonOK, rowButton, shownStatus, othersWords, billInIssue, hearingCard, goingRowHTML, timeWords } from './steps.js';
 import { askWriteHref, askCardHref, onBill } from './asks.js';
@@ -1039,14 +1039,18 @@ function iaButton(s, b) {
 const iaMate = (x, all) => { const p = iaPairs(all).find(q => q.includes(x)); return p && p.find(y => y !== x); };
 function iaRow(i, x, all, { inPair = false } = {}) {
   const b = x.b, tw = !inPair ? iaMate(x, all) : null, num = numWords(b), nm = nameWords(b, 60);
-  const title = `<a class="ia-title" href="${esc(billRoute(b))}"><b>${esc(num)}</b>${nm && nm !== num ? `<span>${esc(nm)}</span>` : ''}</a>`;
+  const same = nm && nm.trim().toLowerCase() === String(i.name || '').trim().toLowerCase();   // on its own issue's page the issue's name is not said again (R-373 review, A-18)
+  const title = `<a class="ia-title" href="${esc(billRoute(b))}"><b>${esc(num)}</b>${nm && nm !== num && !same ? `<span>${esc(nm)}</span>` : ''}</a>`;
   const withTw = tw ? `<p class="ia-with">Companion: <a href="${esc(billRoute(tw.b))}">${esc(numWords(tw.b))}</a>${tw.alive ? '' : ', stopped'}</p>` : '';
   if (!x.alive) return `<div class="ia-row is-stop" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}"><div class="ia-main">${title}${withTw}<p class="ia-stand">${icon('circle-minus')}<span>${nw(esc(stoppedWords(b)))}</span></p></div></div>`;
   const s = !x.law && b.tracked !== false ? billStep(b, { viewer: S.me }) : null, h = hearingAhead(b), who = ownerOf(b);
-  const stands = x.law ? 'Signed into law' : stageInWords(b) || nowWords(b, x.st);
+  // The hearing is said once (R-373 review, A-14): the stage line carries it with the committee, and takes the time and room
+  // the "Hearing" row used to hold, so nothing is lost.
+  let stands = x.law ? 'Signed into law' : stageInWords(b) || nowWords(b, x.st);
+  if (h && /^Hearing /.test(stands)) stands = stands.replace(/^Hearing [^·]+/, `Hearing ${hearingWhen(h)} `).replace(/ +·/, ' ·');
   const test = s && s.kind !== 'none' ? s.line : '';
   const facts = [
-    h ? ['Hearing', hearingWhen(h)] : null,
+    h && !/^Hearing /.test(stands) ? ['Hearing', hearingWhen(h)] : null,
     test ? [TESTI_KINDS.has(s.kind) || s.kind === 'filed' ? 'Testimony' : 'Next', test] : isPos(b) && !x.law ? ['Testimony', 'none due yet'] : null,
     ['Owner', who ? (who.id === S.me?.id ? 'You' : vbFirst(who.id)) : 'No owner yet'],
   ].filter(Boolean);
@@ -1074,9 +1078,12 @@ function iaBills(i, xs, now, earlier) {
 }
 // The issue line above the rows: its lead, its stance, and one health word.
 function iaLine(i, hc) {
-  const vst = hc.k === 'none' ? null : issueStatusB({ ...standOf(i), own: i.owner_id === S.me?.id });
+  // A-18 on v6: the health is the mark every list uses (verbs.js stateMark, model.js issueHealth through issueKey), and its one
+  // sentence is the card's own (issuegrid.js nextOf), so "At risk" says why on the page that opens on the bills (R-373 review).
+  const x = standOf(i), nx = hc.k === 'none' ? null : nextOf(x);
   const lead = i.owner_id && advocate(i.owner_id) ? `Lead: ${i.owner_id === S.me?.id ? 'You' : esc(vbFirst(i.owner_id))}` : `Lead: no one yet${S.me && !i.archived_at ? ` ${btn('Take it', { kind: 'text', sm: true, attrs: { 'data-ip': 'take', 'aria-label': `Take ${i.name}: you become its lead` } })}` : ''}`;
-  return `<p class="ia-line" data-ia="line"><span>${lead}</span><span>Stance: ${stanceWords(i)}</span><span class="ia-hl"${vst ? ` data-state="issue:${vst.key}"` : ''}>${vst ? `${icon(vst.ic)}<b>${esc(vst.word)}</b>` : '<b>No bills yet</b>'}</span></p>`;
+  return `<p class="ia-health" data-ia="health">${stateMark('issue', issueKey({ i }), { size: 18 })}${nx ? `<span class="ia-why">${nw(esc(nx.text))}</span>` : ''}</p>
+    <p class="ia-line" data-ia="line"><span>${lead}</span><span>Stance: ${stanceWords(i)}</span></p>`;
 }
 function iaPublic(i, xs, now) {
   const pub = xs.filter(x => x.alive && thisSession(x.b) && x.b.is_public && isPos(x.b));
@@ -1122,11 +1129,12 @@ function iaRender(route, i) {
         ${foldSec('testimony', 'ia-th', 'Testimony', { sum: `${plural(vbOpenTestimony(test).length, 'bill')} to do`, body: testBody })}
         ${foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' })}${foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' })}</div>`;
   }
-  const hs = history.state, cameFrom = hs?.d > 0 && hs.from ? (hs.from === 'Issues' ? 'My issues' : hs.from === 'Hearings' ? 'Calendar' : hs.from) : '';
-  const from = billFrom(route), bk = from ? { href: billRoute(from), label: `Back to ${numWords(from)}` } : backTo(route);
-  const back = `<a class="co6-back vb-back" href="${esc(bk.href)}" data-back>${icon('chevron-left')}<span>${esc(cameFrom || bk.label.replace(/^Back to /i, ''))}</span></a>`;
+  // One way back (R-373 review): the breadcrumb, and it starts where the person came from (R-371), not always at My issues.
+  const hs = history.state, cameFrom = hs?.d > 0 && hs.from ? ({ Hearings: 'Calendar', Issues: 'My issues' }[hs.from] || hs.from) : '';
+  const ROOT = { 'My issues': '#/issues', 'All issues': '#/issues/all', Today: '#/', Calendar: '#/hearings', Search: '#/search', Testimony: '#/testimony' };
+  const bk = backTo(route), root = billFrom(route) ? ['My issues', '#/issues'] : ROOT[cameFrom] ? [cameFrom, ROOT[cameFrom]] : [bk.label, bk.href];
   const head = vbHeadHTML(i, '').replace(/<p class="is6-desc">.*?<\/p>/s, '');   // the goal sits on About; the head keeps the name
-  return `<div class="le-page is6-page ip6-page vb-issue ia-issue" data-vbtab="${tab}">${back}${pathLine([['My issues', '#/issues'], [i.name]])}${head}${iaLine(i, hc)}${tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(IA_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
+  return `<div class="le-page is6-page ip6-page vb-issue ia-issue" data-vbtab="${tab}">${pathLine([root, [i.name]])}${head}${iaLine(i, hc)}${tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(IA_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
 }
 
 function vbRender(route, i) {

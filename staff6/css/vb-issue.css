@@ -51,6 +51,10 @@ html.vb .vb-cards { display: grid; gap: 12px; }
 }
 
 /* R-371 mockup A: the issue opens on its bills, one complete row each (issuepage.js iaRender). */
+/* The issue's health under its name: the shared mark and its one sentence, the same words as its card on All issues (R-373 review). */
+html.vb .ia-health { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin: 6px 0 0; font-size: var(--v6-t16, 16px); line-height: var(--v6-lh16, 24px); color: var(--v6-ink); }
+html.vb .ia-health .v6-sm { font-weight: 700; }
+html.vb .ia-health .ia-why { min-width: 0; color: var(--v6-body, var(--v6-ink)); overflow-wrap: anywhere; }
 html.vb .ia-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 20px; margin: 4px 0 0; font-size: var(--v6-t16, 16px); line-height: var(--v6-lh16, 24px); color: var(--v6-body, var(--v6-ink)); }
 html.vb .ia-line .is6-stw { display: inline-flex; gap: 6px; align-items: center; vertical-align: bottom; }
 html.vb .ia-line .ia-hl { display: inline-flex; align-items: center; gap: 6px; color: var(--v6-ink); }
