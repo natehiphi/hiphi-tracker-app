@@ -140,7 +140,14 @@ function lateStrip(m, picked) {
   const youN = list.filter(x => x.it.s.you).length, split = youN > 0 && youN < list.length;
   const all = !!(S.tpAll ??= {}).late, shown = (all ? list : list.slice(0, LATE_ROWS)).map(x => x.it);
   const grp = xs => { const slot = xs.some(faced); return xs.map(it => rowOf(it, picked, it.tab, slot)).join(''); };
-  const rows = split ? gh('For you', 'tp-g-late-you', youN) + grp(shown.filter(it => it.s.you)) + (shown.some(it => !it.s.you) ? gh('The team’s', 'tp-g-late-team', list.length - youN) + grp(shown.filter(it => !it.s.you)) : '') : grp(shown);
+  // R-396: the person's own late rows; the team's are one line until they ask (a picked one stays in sight).
+  const teamL = list.filter(x => !mineOf(x.it));
+  if (teamL.length && !all && !teamL.some(x => x.it.key === String(picked))) {
+    const mine = list.filter(x => mineOf(x.it)).map(x => x.it);
+    return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today ${mine.length ? `<span class="tp-ghn">${mine.length}</span>` : ''}</h2>
+    <div class="v6-ld-list tp-late-list" role="list" aria-label="Late or due today">${grp(mine)}${foldLine('late', teamL.length)}</div></section>`;
+  }
+  const rows = split ?gh('For you', 'tp-g-late-you', youN) + grp(shown.filter(it => it.s.you)) + (shown.some(it => !it.s.you) ? gh('The team’s', 'tp-g-late-team', list.length - youN) + grp(shown.filter(it => !it.s.you)) : '') : grp(shown);
   return `<section class="tp-late" aria-labelledby="tp-late-h"><h2 class="tp-late-h" id="tp-late-h">Late or due today <span class="tp-ghn">${list.length}</span></h2>
     <div class="v6-ld-list tp-late-list" role="list" aria-label="Late or due today">${rows}</div>${list.length > shown.length ? btn(`Show all ${list.length}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': 'late' } }) : ''}</section>`;
 }
@@ -216,18 +223,31 @@ const yoursToo = it => !it.own && !!S.me && ((S.assignments?.[it.b.id] || []).in
 // ("To write 2") is the first group's and the team's rows are counted where they start, not left unaccounted for.
 const gh = (text, id, n) => `<div class="tp-gh" role="listitem"><h2 class="tp-ghh" id="${esc(id)}">${esc(text)}${n ? ` <span class="tp-ghn">${n}</span>` : ''}</h2></div>`;
 const moreBtn = (view, n) => `<div class="tp-more" role="listitem">${btn(`Show all ${n}`, { kind: 'text', icon: 'chevron-down', attrs: { 'data-tpall': view } })}</div>`;
+// R-396 (Nate, 13 Nov: "the testimony page shows everybody's bills and not just their own"): every tab shows the person's
+// own steps and their own bills; the team's fold into one line until they ask (the fold Julie's walk gave To write alone).
+// A picked one stays in sight. The words say what the folded rows are, per tab.
+const FOLD_WORD = { write: ['draft to write', 'drafts to write'], approve: ['draft with an approver', 'drafts with an approver'],
+  sent: ['draft sent back', 'drafts sent back'], file: ['draft ready to file', 'drafts ready to file'],
+  filed: ['more filed', 'more filed'], missed: ['more missed', 'more missed'], late: ['', ''] };   // under the heading "Late or due today": "The team has 3"
+const foldLine = (view, n) => { const [one, many] = FOLD_WORD[view] || ['more', 'more'];
+  return `<div class="tp-fold" role="listitem"><button type="button" class="t6-line tp-foldbtn" data-tpall="${esc(view)}">${icon('users')}<span class="t6-lt"><b>The team has ${n}${one ? ` ${n === 1 ? one : many}` : ''}</b> · See them</span>${icon('chevron-down', { cls: 't6-chev' })}</button></div>`; };
+const mineOf = it => it.own || yoursToo(it);
 function listRows(view, items, picked) {
   const all = (S.tpAll ??= {})[view], rows = list => groupRows(list, picked, view);
-  if (view === 'filed') return rows(all ? items : items.slice(0, FILED_LIMIT)) + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
+  const keep = team => all || team.some(it => it.key === String(picked));
+  if (view === 'filed') {
+    const mine = items.filter(mineOf), team = items.filter(it => !mineOf(it));
+    if (!keep(team)) return rows(mine) + (team.length ? foldLine(view, team.length) : '');
+    return rows(all ? items : items.slice(0, FILED_LIMIT)) + (items.length > FILED_LIMIT && !all ? moreBtn(view, items.length) : '');
+  }
   // Missed: the person's own still to answer, the team's still to answer, then the record (answered, or past answering).
   const rec = view === 'missed' ? items.filter(it => !it.asking) : [];
   const own = items.filter(it => it.own), mineB = items.filter(it => !it.own && !rec.includes(it) && yoursToo(it)), team = items.filter(it => !it.own && !rec.includes(it) && !mineB.includes(it)), shown = all ? team : team.slice(0, LIMIT);
-  // Someone with nothing of their own to write sees the team's drafts as one line until they ask (Nate's walk: Julie got
-  // four drafts on other coalitions' bills; spec 0, less on every screen). A picked one stays in sight.
-  const folded = view === 'write' && !own.length && !mineB.length && team.length && !all && !team.some(it => it.key === String(picked));
-  const teamPart = !team.length ? '' : folded ? `<div class="tp-fold" role="listitem"><button type="button" class="t6-line tp-foldbtn" data-tpall="${esc(view)}">${icon('users')}<span class="t6-lt"><b>The team has ${team.length === 1 ? '1 draft' : `${team.length} drafts`} to write</b> · See them</span>${icon('chevron-down', { cls: 't6-chev' })}</button></div>`
-    : gh('The team’s', `tp-g-${view}-team`, team.length) + rows(shown) + (team.length > shown.length ? moreBtn(view, team.length) : '');
-  return `${own.length ? gh('For you', `tp-g-${view}-you`, own.length) + rows(own) : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`, mineB.length) + rows(mineB) : ''}${teamPart}${rec.length ? gh('The record', `tp-g-${view}-rec`) + rows(rec) : ''}`;
+  const recMine = rec.filter(yoursToo), recTeam = rec.filter(it => !yoursToo(it));
+  const folded = !keep([...team, ...recTeam]);
+  const teamPart = !team.length || folded ? '' : gh('The team’s', `tp-g-${view}-team`, team.length) + rows(shown) + (team.length > shown.length ? moreBtn(view, team.length) : '');
+  const recShown = folded ? recMine : rec, foldN = folded ? team.length + recTeam.length : 0;
+  return `${own.length ? gh('For you', `tp-g-${view}-you`, own.length) + rows(own) : ''}${mineB.length ? gh('Your bills', `tp-g-${view}-yours`, mineB.length) + rows(mineB) : ''}${teamPart}${recShown.length ? gh('The record', `tp-g-${view}-rec`) + rows(recShown) : ''}${foldN ? foldLine(view, foldN) : ''}`;
 }
 
 // ---- the open item: the step card, and the filing card for a step that is Ready to file ----
