@@ -73,7 +73,7 @@ function hits(l, q) {
 function hitsHTML(l, q) {
   if (q.trim().length < 2) return '';
   const rows = hits(l, q);
-  if (!rows.length) return `<p class="le-none">No public bill matches “${esc(q.trim())}”. Only public bills can go on a list; make a bill public on its Public tab first.</p>`;
+  if (!rows.length) return `<p class="le-none">No public bill matches “${esc(q.trim())}”. Only public bills can go on a list; make a bill public first (What the public sees, at the foot of the bill).</p>`;
   // Options of the search box's listbox: the box keeps the focus, arrow keys move the highlight (aria-activedescendant).
   return `<div class="rows le-hits" role="listbox" id="le-hitlist" aria-label="Public bills that match">${rows.map((b, i) => `<div class="row le-hit" role="option" id="le-hit-${i}" aria-selected="false" data-add="${esc(b.id)}"><span class="le-plus">${icon('plus')}</span><span class="body"><span class="title"><b>${esc(nameWords(b, 1e4))}</b> <span class="bn-num">${esc(numWords(b))}</span></span></span></div>`).join('')}</div>`;
 }

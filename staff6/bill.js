@@ -102,6 +102,9 @@ addEventListener('beforeunload', e => {
 // The internal keys stay v5's (route.tab 'overview' | 'activity' | 'public', as app.js parses them); the words and the
 // addresses are v6's: Next step (#/bill/X), Team talk (#/bill/X/talk), Public (#/bill/X/public).
 const TABS = [['overview', 'Next step'], ['activity', 'Team talk'], ['public', 'Public']];
+// R-393 (Nate 13 Nov): Public is not in the tab row; it opens from the page's foot ("What the public sees ›") and the ⋯ menu. Its
+// address, key 3 and every link to it (Today's "Write the public ask") still work.
+const ROW = TABS.filter(([k]) => k !== 'public');
 // Old links (the current app's tab names, Slack's #bill=…&tab=chat, v2's Pathway and Testimony tabs) land where the
 // content lives now. The team note is on Team talk, so "notes" goes there.
 const TAB_ALIAS = { chat: 'activity', timeline: 'activity', notes: 'activity', talk: 'activity', details: 'overview', team: 'overview', pathway: 'overview', committees: 'overview', testimony: 'overview', next: 'overview', about: 'overview' };
@@ -200,7 +203,7 @@ function switchTab(tab) {
     try { S.go(billHref(b, tab), { replace: true, keepScroll: true }); } finally { switching = false; }
     if (window.scrollY > y) window.scrollTo({ top: y, behavior: calm() ? 'auto' : 'smooth' });
   }
-  document.querySelector(`.bw-tabs [data-tab="${tab}"]`)?.focus({ preventScroll: true });
+  (tab === 'public' ? document.getElementById('v6-pubh') : document.querySelector(`.bw-tabs [data-tab="${tab}"]`))?.focus({ preventScroll: true });
 }
 // Back and Forward restore the reader's place (the frame does it); only a page that was just opened, by a link or a
 // reload, opens a door an old link asked for. Registered before the frame's own listener, because app.js imports this.
@@ -343,6 +346,7 @@ function pageMenu(b) {
     { label: b.nickname ? 'Edit the nickname' : 'Give it a nickname', icon: 'pencil', sub: 'The short name the team and the public page use', run: () => afterBack(() => openNick(b)) },
     own ? { label: muted ? 'Unmute' : noPush ? 'Not pushing this bill' : 'Mute', icon: muted ? 'bell' : 'bell-off', sub: muted ? 'Put it back on Today and in your alerts' : 'Off Today and no alerts until it gets a hearing',
       disabled: !muted && !!h, reason: refuse, run: () => afterBack(() => toggleMute(b)) } : null,
+    { label: 'What the public sees', icon: 'globe', sub: 'The bill on the public page: its summary and its ask', run: () => afterBack(() => switchTab('public')) },
     { label: 'Copy link', icon: 'link', sub: 'Opens this bill for anyone on the team', run: () => afterBack(() => copyLink(b)) },
   ] });
 }
@@ -586,12 +590,12 @@ export function stageInWords(b) {
   if (st.phase === 'governor') return 'On the Governor’s desk';
   return '';
 }
-// ---- the tabs (F128): Next step · Team talk · Public, keys 1 to 3, an unread count on Team talk ----
+// ---- the tabs (F128): Next step · Team talk (Public opens from the foot, R-393), keys 1 to 3, an unread count on Team talk ----
 // From Team talk or Public, a dot on Next step says the step there is yours (B-7: v5's Next up card showed on every tab;
 // someone who came from an @mention to reply could leave without seeing that filing is theirs).
 function tabsNav(b, tab, s) {
   const n = unreadCount(b), keys = keysOn(), mine = tab !== 'overview' && !!s?.you;
-  return `<nav class="v6-tabs bw-tabs" aria-label="${esc(sayWords(b))}: pages">${TABS.map(([k, l], i) =>
+  return `<nav class="v6-tabs bw-tabs" aria-label="${esc(sayWords(b))}: pages">${ROW.map(([k, l], i) =>
     `<a href="${billHref(b, k)}" data-tab="${k}"${k === tab ? ' aria-current="page"' : ''}${keys ? ` aria-keyshortcuts="${i + 1}" title="${l} (${i + 1})"` : ''}><span>${l}</span>${k === 'overview' && mine ? '<span class="bw-tdot" aria-hidden="true"></span><span class="sr">, your step</span>' : ''}${k === 'activity' && n ? `<span class="v6-tab-n">${n}<span class="sr"> new</span></span>` : ''}</a>`).join('')}</nav>`;
 }
 
@@ -1124,6 +1128,11 @@ function yourStepLine(b, s) {
   if (!s?.you || !s.line) return '';
   return `<p class="bw-yourstep"><a class="bw-ysl" href="${billHref(b)}" data-tab="overview" aria-label="Your step: ${esc(s.line)}. Open Next step">${icon('circle-dot')}<span><b>Your step:</b> ${nw(esc(s.line))}</span>${icon('chevron-right', { cls: 'bw-yschev' })}</a></p>`;
 }
+// R-393: the way to Public, at the foot of Next step and Team talk, and the way back at the top of Public.
+function pubDoor(b) {
+  return `<p class="v6-pubdoor"><a href="${billHref(b, 'public')}" data-tab="public"${keysOn() ? ' aria-keyshortcuts="3" title="What the public sees (3)"' : ''}>${icon('globe')}<span><b>What the public sees</b> · this bill on the public page: its summary and its ask</span>${icon('chevron-right', { cls: 'v6-pdchev' })}</a></p>`;
+}
+const pubBack = b => `<p class="v6-pubback"><a href="${billHref(b)}" data-tab="overview">${icon('chevron-left')}<span>Back to Next step</span></a></p><h2 class="v6-pubh" id="v6-pubh" tabindex="-1">What the public sees</h2>`;
 function panel(b, tab) {
   if (tab === 'activity') { loadTimeline(b); return noteSection(b) + renderActivity(b); }
   if (tab === 'public') return renderPublic(b);
@@ -1171,8 +1180,8 @@ export default {
       <div class="bw-main">
       ${VB ? vbPath(b) : ''}${headHTML(b, route)}${VB ? vbPart(b, s, tab) : ''}
       ${VB ? vbTracker(b, trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })) : trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
-      ${tabsNav(b, tab, s)}
-      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${next ? '' : yourStepLine(b, s)}${panel(b, tab)}</div>
+      ${tab === 'public' ? '' : tabsNav(b, tab, s)}
+      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${tab === 'public' ? pubBack(b) : ''}${next ? '' : yourStepLine(b, s)}${panel(b, tab)}${tab === 'public' ? '' : pubDoor(b)}</div>
       </div>
       ${sideHTML(b, s)}
     </div>`;
