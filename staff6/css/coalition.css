@@ -195,20 +195,8 @@ body.staff6 .ig6-foot .co6-help[aria-pressed="true"] { background: var(--v6-wash
 
 /* ---- R-373 (B-1, B-14, A-24, A-13): the coalition page is its issues ---- */
 body.staff6 .co6-short { font: 500 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; letter-spacing: 0; color: var(--v6-muted); white-space: nowrap; }
-/* the filter strip: a chip per issue, its mark colour along the foot (the mockup's .lg); the pick is aria-pressed */
-body.staff6 .co6-lgs { display: flex; flex-wrap: wrap; gap: var(--s8); margin-top: var(--s24); }
-body.staff6 .co6-lg { display: inline-flex; align-items: center; gap: var(--s8); min-height: 44px; padding: 5px 12px 5px 6px; border-radius: 12px; border: 1px solid var(--v6-hair); background: var(--v6-card);
-  font: 600 var(--v6-t16)/var(--v6-lh16) Lato, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; text-align: left; max-width: 100%; }
-body.staff6 .co6-lg.co6-lge { box-shadow: inset 0 -3px 0 var(--mi-mark); }
-body.staff6 .co6-lg:hover { background: var(--v6-action-wash); }
-body.staff6 .co6-lg:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
-body.staff6 .co6-lg[aria-pressed="true"] { border-color: var(--v6-ink); background: var(--v6-wash); box-shadow: inset 0 0 0 1px var(--v6-ink); }
-body.staff6 .co6-lg[aria-pressed="true"].co6-lge { box-shadow: inset 0 0 0 1px var(--v6-ink), inset 0 -4px 0 var(--mi-mark); }
-body.staff6 .co6-lgn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-body.staff6 .co6-lgc { font-weight: 400; color: var(--v6-muted); }
 /* a group per issue: tile, name (a link to the issue), and its health in words with its mark */
 body.staff6 .co6-grp { margin-top: var(--s32); }
-body.staff6 .co6-lgs + .co6-grp { margin-top: var(--s24); }
 body.staff6 .co6-gh { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s4) var(--s12); margin: 0 0 var(--s8); font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .co6-gh a { color: var(--v6-ink); text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
 body.staff6 .co6-gh a:hover { text-decoration: underline; }

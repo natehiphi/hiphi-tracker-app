@@ -25,10 +25,15 @@ with L.browser() as B:
   R.check('This week has one Filter button, and no "See as calendar" link on the date line (R-356 round 3)', bool(fb) and fb.is_visible() and 'Filter' in fb.inner_text() and not pg.page.query_selector('a.hw-view'))
   def show_as(v):
     pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pview]'); pg.page.click(f'[data-pview="{v}"]'); pg.ready()
-  R.check('one switch on the page: Mine | Team only, no List | Calendar pill (A-12 on v6)', pg.page.evaluate("document.querySelectorAll('.hw-bar .sv-seg').length") == 1 and not pg.page.query_selector('[data-seg="hview"]'))
+  # R-375: whose week it is moved into Filter, so This week's bar has no switch at all
+  R.check('no switch on This week: whose is in Filter, no List | Calendar pill (A-12 on v6, R-375)', pg.page.evaluate("document.querySelectorAll('.hw-bar .sv-seg').length") == 0 and not pg.page.query_selector('[data-seg="hview"]'))
   R.check('List is the view for someone who never picked', not pg.page.query_selector('.hc-cal'))
-  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pv="all"]')
-  R.check('the Filter sheet holds the issues, All issues first, and the two ways to see the week (R-352, R-356 round 3)', pg.page.evaluate("document.querySelector('[data-pv=\"all\"]').getAttribute('aria-checked')") == 'true' and bool(pg.page.query_selector('[data-pview="cal"]')) and bool(pg.page.query_selector('[data-pview="list"]')))
+  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pscope]')
+  # R-375 (Nate 12 Nov: "One long list of just bills is not easy to navigate"): broad choices, no list of every issue
+  R.check('the Filter sheet holds Whose, one coalition, Show, Chamber, Needs us and the two ways to see the week, and no issue list (R-375)',
+    pg.page.evaluate("document.querySelector('[data-pscope=\"mine\"]')?.getAttribute('aria-checked')") == 'true' and pg.page.evaluate("document.querySelectorAll('.hw-fchip[data-pscope^=\"c:\"]').length") >= 2
+    and pg.page.evaluate("document.querySelectorAll('[data-pkind]').length") == 2 and pg.page.evaluate("document.querySelectorAll('[data-pch]').length") == 3 and bool(pg.page.query_selector('[data-pact]'))
+    and not pg.page.query_selector('[data-pv]') and bool(pg.page.query_selector('[data-pview="cal"]')) and bool(pg.page.query_selector('[data-pview="list"]')))
   pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
   # ---- picking Calendar: five day columns ----
   show_as('cal')
@@ -54,15 +59,31 @@ with L.browser() as B:
   R.check('nothing runs off the side at 1440', overflow(pg) <= 0, overflow(pg))
   # ---- the colour of time (A-5 on v6, R-352): due today plain, never amber; red only for an overdue step ----
   R.check('due today is not amber in the calendar', pg.page.evaluate("[...document.querySelectorAll('.hc-st.today')].every(e => !/149, 90, 0/.test(getComputedStyle(e).color))"))   # late's amber, #955A00
-  # ---- one issue's hearings: the picker narrows the week and says so in the address ----
-  nh = pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length")
-  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pv]:not([data-pv="all"])')
-  pick = pg.page.query_selector('[data-pv]:not([data-pv="all"])'); name = ' '.join(pick.inner_text().split()); pick.click(); pg.ready()
-  R.check('picking an issue puts it in the address', 'issue=' in pg.hash() and 'view=cal' in pg.hash(), pg.hash())
-  R.check('the page says the issue picked, beside Filter', name in pg.text('.hw-bar .hw-filt'), (name, pg.text('.hw-bar .hw-filt')))
-  R.check('one issue shows no more hearings than all of them', pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length") <= nh)
-  pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pv="all"]'); pg.page.click('[data-pv="all"]'); pg.ready()
-  R.check('All issues again clears it', 'issue=' not in pg.hash() and pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length") == nh, pg.hash())
+  # ---- R-375: the broad filters narrow the week, say so beside Filter, live in the address, and Clear undoes them ----
+  def nh(): return pg.page.evaluate("document.querySelectorAll('.hc-cal .hc-h').length")
+  def pick(sel):
+    pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector(sel); pg.page.click(sel); pg.ready()
+  all_h = nh()
+  R.check('the calendar\'s Show holds testimony due too', (pg.page.click('[data-hwfilter]'), pg.page.wait_for_selector('[data-pkind]'), pg.page.evaluate("document.querySelectorAll('[data-pkind]').length"))[2] == 3); pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)
+  pick('.hw-fchip[data-pscope^="c:"]')
+  R.check('one coalition: in the address, named beside Filter and on the tab', 'coal=' in pg.hash() and 'view=cal' in pg.hash() and pg.text('.hw-bar .hw-fon') != '' and 'hearings' in pg.text('.hw-page nav.sv-secnav a[aria-current=page]').lower() and 'Your' not in pg.text('.hw-page nav.sv-secnav a[aria-current=page]'), (pg.hash(), pg.text('.hw-bar .hw-filt')))
+  pg.page.click('[data-hwclear]'); pg.ready()
+  R.check('Clear undoes it', 'coal=' not in pg.hash() and nh() == all_h, pg.hash())
+  pick('[data-pch="S"]')
+  R.check('Senate: only sittings of a Senate committee', 'ch=S' in pg.hash() and nh() <= all_h and pg.page.evaluate("[...document.querySelectorAll('.hc-cal .hc-h')].every(e => /Senate/.test(e.innerText))"), pg.hash())
+  R.check('the page says Senate beside Filter, and the button counts 1', 'Senate' in pg.text('.hw-bar .hw-fon') and pg.text('.hw-bar .sv-fn') == '1')
+  pg.page.click('[data-hwclear]'); pg.ready()
+  pick('[data-pkind="h"]')
+  R.check('Show › Hearings off: no hearing on the calendar, testimony due stays', nh() == 0 and bool(pg.page.query_selector('.hc-due')) and 'hide=h' in pg.hash(), pg.hash())
+  pick('[data-pkind="h"]')
+  R.check('Hearings back on', nh() == all_h and 'hide=' not in pg.hash(), pg.hash())
+  pick('[data-pact]')
+  R.check('Only what still needs us: no more hearings than all, in the address', 'act=1' in pg.hash() and nh() <= all_h, pg.hash())
+  pg.page.click('[data-hwclear]'); pg.ready()
+  iid = pg.page.evaluate("(document.querySelector('.hc-cal a.hc-iss')?.getAttribute('href') || '').split('/issue/')[1] || ''")
+  pg.page.goto(pg.url(CAL + '&issue=' + iid)); pg.page.wait_for_timeout(500); pg.ready()
+  R.check('an old ?issue= link still narrows the week, and says so beside Filter', bool(iid) and nh() <= all_h and pg.text('.hw-bar .hw-fon') != '', iid)
+  pg.page.goto(pg.url(CAL)); pg.page.wait_for_timeout(500); pg.ready()
   # ---- remembered after a reload, with no view in the address ----
   pg.page.goto(pg.url('/hearings/week')); pg.page.wait_for_timeout(500); pg.ready()
   R.check('the pick is remembered after a reload', bool(pg.page.query_selector('.hc-cal')))
@@ -84,8 +105,8 @@ with L.browser() as B:
 
   # ---- old calendar addresses' words (Today's who=, day=), as app.js sends them here ----
   pg = B.page('NT', 390, 844); pg.open(CAL + '&who=team&day=2026-03-19')
-  # under 768px the scope is the Filter sheet's first choice and the button says it (R-356 round 3)
-  R.check('who=team opens the team\'s week, and the Filter button says Team', 'Team' in pg.text('[data-hwfilter]'), pg.text('[data-hwfilter]'))
+  # the scope is the Filter sheet's first choice at every width (R-375), and the tab says whose week it is
+  R.check('who=team opens the team\'s week, and the tab says so', 'team' in pg.text('.hw-page nav.sv-secnav a[aria-current=page]').lower(), pg.text('.hw-page nav.sv-secnav a[aria-current=page]'))
   pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pscope]')
   R.check('the Filter sheet has Whose hearings first, Team picked', pg.page.get_attribute('[data-pscope="team"]', 'aria-checked') == 'true')
   pg.page.keyboard.press('Escape'); pg.page.wait_for_timeout(300)

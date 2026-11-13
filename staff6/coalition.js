@@ -359,22 +359,16 @@ function shareHTML(c) {
 }
 
 // ---- R-373 (B-1, B-14 on v6): the page is the coalition's issues ----
-// One chip per issue (its tile, name and live-bill count) filters the page to that issue's group; tapping it again shows all. The
-// pick is kept for this visit (B-6). Then one group per issue, at risk first (issuestand.js byUrgency, the order My issues
+// One group per issue (R-375, Nate 12 Nov: the strip of issue pills over the groups was "cumbersome and not helpful", so it
+// went; the groups themselves are the list, and the issues with nothing moving wait in one fold). One group per issue, at risk first (issuestand.js byUrgency, the order My issues
 // uses), each with its live bills as rows of the shared shape and its stopped bills folded at the end. A live bill that is on
 // no issue yet is in a last group, so no bill of the coalition drops out of the page.
-const pickOf = c => (S.coPick ??= {})[c.id] || '';
 function issueGroups(c) {
   const mine = new Set(billsOf(c).map(b => b.id)), inC = b => mine.has(b.id) && isPos(b);
   const xs = issuesOf(c).map(i => ({ ...standOf(i), own: i.owner_id === S.me?.id })).sort(byUrgency)
     .map(x => ({ x, i: x.i, live: x.going.filter(inC).sort(byPri), gone: x.gone.filter(inC).sort(byPri) }));
   const placed = new Set(xs.flatMap(g => [...g.live, ...g.gone].map(b => b.id)));
   return { xs, loose: liveOf(c).filter(b => !placed.has(b.id)).sort(byPri) };
-}
-const chipHTML = (g, on) => `<button type="button" class="co6-lg${icEdge(g.i) ? ' co6-lge' : ''}${icCls(g.i)}" data-colg="${esc(g.i.id)}" aria-pressed="${on}">${issueTile(g.i, 'xs')}<span class="co6-lgn">${esc(g.i.name)}</span><span class="co6-lgc">${g.live.length}<span class="sr"> live ${g.live.length === 1 ? 'bill' : 'bills'}</span></span></button>`;
-function stripHTML(gs, pick) {
-  if (gs.length < 2) return '';
-  return `<div class="co6-lgs" role="group" aria-label="Show one issue of this coalition">${gs.map(g => chipHTML(g, String(g.i.id) === pick)).join('')}</div>`;
 }
 function groupBillRow(b, i, take) {
   const where = stageInWords(b);
@@ -393,14 +387,14 @@ function quietHTML(c, list, open) {
     cls: `i6-row${icEdge(g.i)}`, lead: issueLead(g.i) });
   return `<details class="ip6-fold co6-quiet" data-costop="${esc(key)}"${open || S.coStop?.has(key) ? ' open' : ''}><summary>${icon('chevron-down', { cls: 'i6-chev' })}<span>Not moving: ${plural(list.length, 'issue')}</span></summary>${box(list.map(line).join(''))}</details>`;
 }
-function groupsHTML(c, pick) {
+function groupsHTML(c) {
   const all = issueGroups(c), loose = all.loose;
   // R-373 follow-up (B-14, A-14): issues with no live bill leave the groups for one closed fold after them, a line each.
   const xs = [...all.xs.filter(g => g.live.length), ...all.xs.filter(g => !g.live.length)];
-  const shown = pick ? xs.filter(g => String(g.i.id) === pick) : xs, live = shown.filter(g => g.live.length), quiet = shown.filter(g => !g.live.length);
-  const looseSec = !pick && loose.length ? `<section class="i6-sec co6-grp" aria-labelledby="co6-g-none"><h2 class="co6-gh" id="co6-g-none"><span class="co6-gname">Not on an issue yet</span></h2>${folded(`${c.id}|g|none`, loose.map(b => billLineRow(b, { button: noOwner(b) ? takeBtn(b) : '' })))}</section>` : '';
+  const live = xs.filter(g => g.live.length), quiet = xs.filter(g => !g.live.length);
+  const looseSec = loose.length ? `<section class="i6-sec co6-grp" aria-labelledby="co6-g-none"><h2 class="co6-gh" id="co6-g-none"><span class="co6-gname">Not on an issue yet</span></h2>${folded(`${c.id}|g|none`, loose.map(b => billLineRow(b, { button: noOwner(b) ? takeBtn(b) : '' })))}</section>` : '';
   if (!xs.length && !loose.length) return '';
-  return `${stripHTML(xs, pick)}${live.map(g => groupHTML2(c, g)).join('')}${looseSec}${quietHTML(c, quiet, !!pick)}`;
+  return `${live.map(g => groupHTML2(c, g)).join('')}${looseSec}${quietHTML(c, quiet, false)}`;
 }
 
 function pageHTML(c) {
@@ -411,8 +405,8 @@ function pageHTML(c) {
   const lead = standLeadHTML(bills, { clear });
   // The hearings stay a short section above the groups; the bills that need a hearing, and those nobody owns, are rows in
   // their issue's group now (with Take it), so the page says each bill once.
-  const pick = pickOf(c), hear = hearingsSec(bills, { key: c.id, from: c.id });
-  const groups = SESSION_OVER ? '' : groupsHTML(c, pick);
+  const hear = hearingsSec(bills, { key: c.id, from: c.id });
+  const groups = SESSION_OVER ? '' : groupsHTML(c);
   // The partner update is the weekly job of the coalition's own people: one tonal button under the lead (one door,
   // Outreach › Partner update, B-13). Anyone else gets the I help switch in that place, the page's one useful act for them.
   const mine = mayUpdate(c);
@@ -472,8 +466,6 @@ export default {
     root.querySelectorAll('[data-cotake]').forEach(el => el.onclick = () => takeTodo(el.dataset.cotake));
     wireWeek(root, () => redrawKeep());
     root.querySelectorAll('[data-costop]').forEach(d => d.addEventListener('toggle', () => { const t = (S.coStop ??= new Set()); if (d.open) t.add(d.dataset.costop); else t.delete(d.dataset.costop); }));
-    // The filter strip: one issue, or all again (B-6: kept for this visit).
-    root.querySelectorAll('[data-colg]').forEach(el => el.onclick = () => { const k = (S.coPick ??= {}); const id = el.dataset.colg; if (k[c.id] === id) delete k[c.id]; else k[c.id] = id; redrawKeep(`[data-colg="${CSS.escape(id)}"]`); });
     root.querySelector('.co6-iss')?.addEventListener('toggle', e => { const s = (S.coIss ??= new Set()); if (e.currentTarget.open) s.add(c.id); else s.delete(c.id); });
   },
 };

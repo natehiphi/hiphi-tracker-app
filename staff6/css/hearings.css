@@ -31,10 +31,13 @@ body.staff6 .hw-fh:first-child { margin-top: 0; }
      next, so the first hearing starts within the budget (the two on row 2 overlap their columns on purpose, they never meet) */
   body.staff6 .hw-page.v-week .hw-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0 12px; align-items: center; }
   body.staff6 .hw-page.v-week .hw-picks, body.staff6 .hw-page.v-week .hw-bar .hw-nav { display: contents; }
-  body.staff6 .hw-page.v-week .hw-filt { grid-area: 1 / 1; }
   body.staff6 .hw-page.v-week .hw-range { grid-area: 1 / 2; }
   body.staff6 .hw-page.v-week .hw-wbtns { grid-area: 1 / 3; justify-self: end; }
-  body.staff6 .hw-page.v-week .hw-scope-more { grid-area: 2 / 1 / 3 / 3; margin: 0; font-size: var(--v6-t14); line-height: var(--v6-lh14, 20px); color: var(--v6-muted); }
+  /* R-375: what the Filter has on, and Clear, get a row of their own under the others, only while something is on (beside
+     "Show Mon to Fri" a long pick would run into it) */
+  body.staff6 .hw-page.v-week .hw-filt { display: contents; }
+  body.staff6 .hw-page.v-week .hw-filt > .sv-filter { grid-area: 1 / 1; }
+  body.staff6 .hw-page.v-week .hw-fsay { grid-area: 3 / 1 / 4 / 4; min-width: 0; }
   body.staff6 .hw-page.v-week .hw-picks > .btn { grid-area: 2 / 2 / 3 / 4; justify-self: end; }
 }
 body.staff6 .hw-cap-n { color: var(--v6-action); }
@@ -392,3 +395,13 @@ body.staff6 a.hw-cap-n, body.staff6 .hc-cap a { text-decoration: none; }
 /* R-352 (G): the title sits as close to its tabs as on Testimony, Bills and Legislators (12px; it was 32px: the title's own
    24px margin added to the grid's gap; a phone already matched) */
 body.staff6 .hw-page > h1.v6-ptitle { margin-bottom: 4px; }
+
+/* R-375: the Filter menu's "Or one coalition" row: short names that wrap, the pick pressed (A-12: a choice looks like one) */
+body.staff6 .hw-fchips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+body.staff6 .hw-fchip { min-height: 40px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--v6-hair); background: var(--v6-card); color: var(--v6-ink);
+  font: 600 var(--v6-t14)/var(--v6-lh14, 20px) var(--font); cursor: pointer; }
+body.staff6 .hw-fchip:hover { background: var(--v6-action-wash); }
+body.staff6 .hw-fchip:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+body.staff6 .hw-fchip[aria-pressed="true"] { border-color: var(--v6-ink); background: var(--v6-wash); box-shadow: inset 0 0 0 1px var(--v6-ink); }
+body.staff6 .hw-filt .btn.text { min-height: 44px; }
+body.staff6 .hw-fsay { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }

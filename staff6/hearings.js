@@ -61,32 +61,66 @@ function scopeOf(route) {
 // Under 768px, This week's Mine | Team switch is the Filter sheet's first choice (R-356 round 3: three controls above the first card).
 const phoneNow = () => { try { return matchMedia('(max-width: 767.98px)').matches; } catch { return false; } };
 const switcher = scope => scopes().length > 1 ? segmented('hscope', scopes(), scope, 'Whose hearings') : '';
-// B-13 on v6, P-4, C-15: with no switch the page says in words whose week this is, and, quietly, that the team has more (no
-// link: Team is not theirs to open). Only on This week's list, for the week in view; the count is the team's sittings that
-// week which are not already in this person's list.
-function scopeWords(route, scope) {
-  const off = weekOff(route), mon = addDays(mondayOf(Date.now()), off * 7), keep = x => !x.mon || monOn();
-  const mine = new Set(weekSittings(scope, mon).filter(keep).map(x => sitKey(x.h)));
-  const rest = weekSittings('team', mon).filter(keep).filter(x => !mine.has(sitKey(x.h))).length;
-  // R-373 (A-1, A-14): whose week it is now rides on the tab ("Your hearings", weekTab), and the dates say which week, so "this
-  // week" is said by neither; the line keeps only what the team has beyond it.
-  const when = off === 0 ? '' : off === 1 ? ' next week' : off === -1 ? ' last week' : ' that week';
-  return rest ? `<p class="hw-scope-more">The team has ${rest} more${when}</p>` : '';
-}
 // The first tab says whose hearings these are when no switch does (one choice of scope): "Your hearings", "Your coalitions’
 // hearings"; else "This week".
-const weekTab = (view, scope) => view === 'week' && scopes().length <= 1 ? (scope === 'coal' ? 'Your coalitions’ hearings' : 'Your hearings') : 'This week';
+// R-375: whose week it is is the Filter's first choice now, so the tab always says it ("CTFH hearings" for one coalition).
+const weekTab = (view, scope) => view !== 'week' ? 'This week' : FLT.coal ? `${coalName(FLT.coal)} hearings` : scope === 'team' ? 'The team’s hearings' : scope === 'coal' ? 'Your coalitions’ hearings' : 'Your hearings';
 
 // ---- one issue's hearings (R-352: the job All issues' calendar did, now here) ----
 // The address holds the pick (?issue=<id>), nothing else does: a filter kept out of sight would hide hearings from someone
 // who forgot it was on, so a link or Back opens the same week and a fresh visit opens on All issues. The picker is the
 // app's plain picker chip ("All issues ▾", A-12: it opens a list of choices, so it looks like one), never a second switch.
 let ISS = '';   // the issue this draw is filtered to ('' is every issue); set by render, cleared for the other screens' calls
+// ---- R-375 (Nate 12 Nov: "One long list of just bills is not easy to navigate. There are other more broad filters that could
+// be helpful"): the Filter menu holds broad choices instead of every issue by name. Whose (Mine, a coalition, the team), what
+// shows (hearings, testimony due, the Capitol's deadlines), the chamber, and only what still needs us. Each lives in the
+// address, as the issue pick did, so a link or Back opens the same week and a fresh visit opens with nothing hidden. An
+// old ?issue= link still works; the menu no longer offers it (one coalition covers it; Search finds one issue).
+const FLT0 = () => ({ coal: '', hide: new Set(), ch: '', act: false });
+let FLT = FLT0();
+const KINDS = [['h', 'Hearings'], ['due', 'Testimony due'], ['cap', 'Capitol deadlines']];
+const coalById = id => (S.campaigns || []).find(c => String(c.id) === String(id));
+const coalName = id => { const c = coalById(id); return c ? c.name : ''; };
+function fltOf(route) {
+  const q = route?.q || {}, f = FLT0();
+  if (q.coal && coalById(q.coal)) f.coal = String(q.coal);
+  for (const k of String(q.hide || '').split(',')) if (KINDS.some(x => x[0] === k)) f.hide.add(k);
+  if (q.ch === 'H' || q.ch === 'S') f.ch = q.ch;
+  f.act = q.act === '1';
+  return f;
+}
+// The House, the Senate or both for a sitting: its committees' chambers (a joint sitting is both), else the notice's words.
+function chambersOf(h) {
+  const out = new Set(codesOf(h?.committee).map(c => S.committees?.[c]?.chamber).filter(x => x === 'H' || x === 'S'));
+  if (!out.size) { const d = String(h?.description || ''); if (/\bSenate\b/i.test(d)) out.add('S'); if (/\bHouse\b/i.test(d)) out.add('H'); }
+  return out;
+}
+// "Needs us": one of our bills at the sitting still has testimony to file, or no one on the team is going yet.
+function needsUs(rows, ok) {
+  const live = rows.filter(r => r.status !== 'cancelled');
+  const ours = live.map(r => ({ r, b: billById(r.bill_id) })).filter(y => isPosB(y.b) && ok(y.b));
+  if (!ours.length) return false;
+  const anyGoing = live.some(r => (S.attend?.[r.id] || []).length > 0);
+  return !anyGoing || ours.some(y => { const st = stepOfB(y.r, y.b).st; return st && st.key !== 'filed'; });
+}
+// How many choices are on (Whose is counted only when it is a coalition: everyone has a whose).
+const fltN = () => (FLT.coal ? 1 : 0) + FLT.hide.size + (FLT.ch ? 1 : 0) + (FLT.act ? 1 : 0);
+// What is on, in a few words beside the button, so nothing is hidden by a pick someone forgot.
+function fltWords() {
+  const w = [];
+  if (FLT.coal) w.push(coalName(FLT.coal));
+  if (FLT.ch) w.push(FLT.ch === 'H' ? 'House' : 'Senate');
+  if (FLT.hide.size) w.push(`Hiding ${KINDS.filter(k => FLT.hide.has(k[0])).map(k => k[1].replace(/^(Hearings|Testimony)/, m => m.toLowerCase())).join(', ')}`);
+  if (FLT.act) w.push('Only what needs us');
+  return w.join(' · ');
+}
 const issBills = id => new Set((S.billIssues || []).filter(x => String(x.issue_id) === id).map(x => x.bill_id));
 const issueOf = route => { const id = route?.q?.issue || ''; return id && (S.issues || []).some(i => String(i.id) === id) ? id : ''; };
 // The scope's bills, narrowed to the issue when one is picked.
 function okFor(scope) {
-  const ok = scopeOk(scope); if (!ISS) return ok;
+  // One coalition: every tracked bill of it, whoever owns it (its page shows them all to everyone).
+  const ok = FLT.coal ? b => b.tracked !== false && (S.billCampaigns?.[b.id] || []).map(String).includes(FLT.coal) : scopeOk(scope);
+  if (!ISS) return ok;
   const ids = issBills(ISS); return b => ok(b) && ids.has(b.id);
 }
 // The issues that hold at least one of the scope's bills, by name (an issue with none of them would only show an empty week).
@@ -96,32 +130,54 @@ function issueOpts(scope) {
   return (S.issues || []).filter(i => ids.has(i.id) || String(i.id) === ISS).sort((x, y) => String(x.name).localeCompare(String(y.name)));
 }
 // "No hearings on your bills on Tobacco this week": the empty words name the picked issue, so an empty week says why.
-const issWords = w => { const i = ISS && (S.issues || []).find(x => String(x.id) === ISS); return i ? `${w} on ${i.name}` : w; };
+const issWords = w => { const i = ISS && (S.issues || []).find(x => String(x.id) === ISS); if (i) return `${w} on ${i.name}`;
+  return FLT.coal ? `${coalName(FLT.coal)} bills` : w; };
 // R-356 round 3 (Nate 31 Oct, A-1, A-12): the issue menu and "See as calendar" are one Filter button, so the line over the first
 // hearing holds the scope switch (for people who have it), Filter and the week's arrows, nothing more. The same Filter sheet
 // holds both choices; a pick applies at once and closes it, as a picker does. An issue picked is named beside the button (the
 // address holds it, and a pick kept out of sight would hide hearings), and the empty words name it too.
 function filterBar(route, scope) {
-  const on = (S.issues || []).find(i => String(i.id) === ISS);
-  // On a phone the scope lives in the sheet, so the button says it when it is not Mine ("Filter · Team"): nothing hidden
-  const sc = phoneNow() && scopes().length > 1 && scope !== 'mine' ? (scopes().find(x => x[0] === scope) || [])[1] : '';
-  const fb = filterBtn(on ? 1 : 0, { 'data-hwfilter': '1', 'aria-label': `Filter${sc ? `, ${sc}` : ''}${on ? `, on: ${on.name}` : ''}` }).replace('<span>Filter</span>', `<span>Filter${sc ? ` · ${esc(sc)}` : ''}</span>`);
-  return `<span class="hw-filt">${fb}${on ? `<span class="hw-fon">${esc(on.name)}</span>` : ''}</span>`;
+  void scope;
+  const n = fltN() + (ISS ? 1 : 0), iss = (S.issues || []).find(i => String(i.id) === ISS), words = [iss ? iss.name : '', fltWords()].filter(Boolean).join(' · ');
+  const fb = filterBtn(n, { 'data-hwfilter': '1', 'aria-label': `Filter${words ? `, on: ${words}` : ''}` });
+  const clear = n ? btn('Clear', { kind: 'text', sm: true, attrs: { 'data-hwclear': '1', 'aria-label': 'Clear the filters' } }) : '';
+  // what is on and Clear sit together: beside Filter on a laptop, on the line under it on a phone (hearings.css)
+  return `<span class="hw-filt">${fb}${n ? `<span class="hw-fsay">${words ? `<span class="hw-fon">${esc(words)}</span>` : ''}${clear}</span>` : ''}</span>`;
 }
+// The menu: Whose (one pick), Show (each on or off), Chamber (one pick), Only what needs us (on or off), and, outside Version B
+// (which has its own link beside Filter), the list or the calendar. A pick applies at once and closes the menu, as a picker
+// does; what is on is said beside the button, with Clear.
 function filterSheet(route) {
-  const scope = scopeOf(route), mode = modeOf(route), opts = issueOpts(scope);
-  const group = (title, kind, list, value) => `<h3 class="hw-fh">${esc(title)}</h3><div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${list.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" ${kind}="${esc(v)}"><span class="body"><span class="title">${esc(l)}</span></span>${String(v) === String(value) ? icon('check', { cls: 'on' }) : ''}</button>`).join('')}</div>`;
-  const who = phoneNow() && scopes().length > 1;
-  openSheet({ title: 'Filter this week', pop: true,
-    body: `${who ? group('Whose hearings', 'data-pscope', scopes(), scope) : ''}${opts.length || ISS ? group('Show hearings on', 'data-pv', [['all', 'All issues'], ...opts.map(i => [String(i.id), i.name])], ISS || 'all') : ''}${group('Show the week as', 'data-pview', [['list', 'A list'], ['cal', VB ? 'Monday to Friday' : 'A calendar']], mode)}`,
+  const scope = scopeOf(route), mode = modeOf(route);
+  const tick = on => on ? icon('check', { cls: 'on' }) : '';
+  const radio = (title, attr, list, value, sub = {}) => `<h3 class="hw-fh">${esc(title)}</h3><div class="sv-pickl" role="radiogroup" aria-label="${esc(title)}">${list.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(value)}" ${attr}="${esc(v)}"><span class="body"><span class="title">${esc(l)}</span>${sub[v] ? `<span class="sub">${esc(sub[v])}</span>` : ''}</span>${tick(String(v) === String(value))}</button>`).join('')}</div>`;
+  const checks = (title, attr, list, isOn) => `<h3 class="hw-fh">${esc(title)}</h3><div class="sv-pickl" role="group" aria-label="${esc(title)}">${list.map(([v, l, sub]) => `<button type="button" role="checkbox" aria-checked="${isOn(v)}" ${attr}="${esc(v)}"><span class="body"><span class="title">${esc(l)}</span>${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>${tick(isOn(v))}</button>`).join('')}</div>`;
+  // Whose: the person's own scopes as a pick, then one coalition as a row of short names that wraps (ten coalitions in three
+  // short lines, not ten more rows: the long list was what Nate found hard), its full name said to a screen reader.
+  const coals = [...(S.campaigns || [])].sort((x, y) => (x.sort_order ?? 99) - (y.sort_order ?? 99) || String(x.name).localeCompare(String(y.name)));
+  const whoVal = FLT.coal ? '' : scope;
+  const coalRow = `<h3 class="hw-fh">Or one coalition</h3><div class="hw-fchips" role="group" aria-label="One coalition">${coals.map(c => `<button type="button" class="hw-fchip" aria-pressed="${String(c.id) === FLT.coal}" data-pscope="c:${esc(c.id)}"${c.public_name && c.public_name !== c.name ? ` title="${esc(c.public_name)}" aria-label="${esc(`${c.name}, ${c.public_name}`)}"` : ''}>${esc(c.name)}</button>`).join('')}</div>`;
+  const kinds = mode === 'cal' ? KINDS : KINDS.filter(k => k[0] !== 'due');   // the list says testimony on each hearing's card
+  const body = () => radio('Whose hearings', 'data-pscope', scopes(), whoVal) + coalRow
+    + checks('Show', 'data-pkind', kinds, k => !FLT.hide.has(k))
+    + radio('Chamber', 'data-pch', [['', 'House and Senate'], ['H', 'House'], ['S', 'Senate']], FLT.ch)
+    + checks('Needs us', 'data-pact', [['1', 'Only what still needs us', 'Testimony not filed yet, or no one going yet']], () => FLT.act)
+    + (VB ? '' : radio('Show the week as', 'data-pview', [['list', 'A list'], ['cal', 'A calendar']], mode));
+  // Each pick changes the address (so Back and a shared link keep it) and redraws the page under the open menu.
+  const go = o => { S.hwRefocus = '[data-hwfilter]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, o)}`, { replace: true, keepScroll: true }); };
+  openSheet({ title: 'Filter this week', pop: true, body: body(),
     wire: d => {
-      d.querySelectorAll('[data-pscope]').forEach(el => el.onclick = async () => { const v = el.dataset.pscope; await closeSheet({ silent: true }); await remember(v);
-        S.hwRefocus = '[data-hwfilter]'; S.go(`#/hearings/week?${viewQuery(route, { scope: v })}`, { replace: true, keepScroll: true }); });
-      d.querySelectorAll('[data-pv]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true });
-        S.hwRefocus = '[data-hwfilter]'; S.hcDay = null; S.go(`#/hearings/week?${viewQuery(route, { issue: el.dataset.pv === 'all' ? '' : el.dataset.pv })}`, { replace: true, keepScroll: true }); });
+      d.querySelectorAll('[data-pscope]').forEach(el => el.onclick = async () => { const v = el.dataset.pscope;
+        await closeSheet({ silent: true });
+        if (v.startsWith('c:')) return go({ coal: v.slice(2) === FLT.coal ? '' : v.slice(2) });
+        await remember(v); go({ scope: v, coal: '' }); });
+      d.querySelectorAll('[data-pkind]').forEach(el => el.onclick = async () => { const h = new Set(FLT.hide), k = el.dataset.pkind; if (h.has(k)) h.delete(k); else h.add(k);
+        await closeSheet({ silent: true }); go({ hide: [...h].join(',') }); });
+      d.querySelectorAll('[data-pch]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true }); go({ ch: el.dataset.pch }); });
+      d.querySelectorAll('[data-pact]').forEach(el => el.onclick = async () => { await closeSheet({ silent: true }); go({ act: FLT.act ? '' : '1' }); });
       d.querySelectorAll('[data-pview]').forEach(el => el.onclick = async () => { const v = el.dataset.pview; await closeSheet({ silent: true });
-        if (v !== mode) await (VB ? rememberVB(v) : rememberView(v));
-        S.hwRefocus = '[data-hwfilter]'; S.go(`#/hearings/week?${viewQuery(route, { view: v })}`, { replace: true, keepScroll: true }); });
+        if (v !== mode) await rememberView(v);
+        go({ view: v }); });
     } });
 }
 
@@ -142,8 +198,11 @@ function weekSittings(scope, mon) {
     const live = rows.filter(r => r.status !== 'cancelled'), going = goingTo(rows);
     const bills = (live.length ? live : rows).map(r => billById(r.bill_id)).filter(b => b && b.tracked !== false);
     const mine = bills.filter(ok);
-    // (one issue picked: only sittings that hear its bills, even one the person is going to)
-    if (!mine.length && (!going || ISS)) continue;
+    // (one issue or coalition picked: only sittings that hear its bills, even one the person is going to)
+    if (!mine.length && (!going || ISS || FLT.coal)) continue;
+    // R-375: the chamber, and only what still needs us
+    if (FLT.ch && !chambersOf(rows[0]).has(FLT.ch)) continue;
+    if (FLT.act && !needsUs(rows, ok)) continue;
     // A cancelled sitting is shown only to someone still down for it and only while it has no new date (W53 asks them
     // on the new one instead).
     if (!live.length) { if (!going || rows.some(r => (S.hearings || []).some(n => n.status !== 'cancelled' && oldSitting(n)?.id === r.id))) continue; }
@@ -184,6 +243,7 @@ const slot = x => `<div class="hw-slot">${movedAskHTML(x.h, btn)}${weekCard(x.h)
 // ones that apply to this view's bills (a deadline that names its own bills, like the budget's, only for those).
 function capDays(scope, mon) {
   const sun = addDays(mon, 6), list = (S.bills || []).filter(okFor(scope)), out = new Map();
+  if (FLT.hide.has('cap')) return out;   // R-375: Show › Capitol deadlines off
   for (const d of deadlineCalendar()) if (d.date >= mon && d.date <= sun && gateApplies(d, list)) { if (!out.has(d.date)) out.set(d.date, []); out.get(d.date).push(d); }
   return out;
 }
@@ -277,7 +337,7 @@ function weekNav(route, mode = '') {
 const footNav = () => '';
 function weekHTML(route, scope, sum) {
   const now = Date.now(), off = weekOff(route), mon = addDays(mondayOf(now), off * 7), today = hst(now);
-  const all = weekSittings(scope, mon), monN = all.filter(x => x.mon).length, shown = all.filter(x => !x.mon || monOn()), caps = capDays(scope, mon);
+  const all = FLT.hide.has('h') ? [] : weekSittings(scope, mon), monN = all.filter(x => x.mon).length, shown = all.filter(x => !x.mon || monOn()), caps = capDays(scope, mon);
   // Sittings on bills only monitored, while hidden, are one quiet line under their own day naming the bill and the time
   // ("+1 hearing on a bill you monitor: SB 3142, 2:00 PM"), never a line after the last day, where it read as that day's.
   const monHid = monOn() ? [] : all.filter(x => x.mon), monDay = d => monHid.filter(x => x.day === d);
@@ -345,7 +405,8 @@ const vbViewLink = mode => !VB ? '' : mode === 'cal'
   : btn('Show Mon to Fri', { kind: 'text', sm: true, icon: 'calendar-days', attrs: { 'data-hwview': 'cal', 'aria-label': 'Show the week Monday to Friday' } });
 // This week's address with the page's own picks (whose, which week, the issue, the view), changed by `o`.
 function viewQuery(route, o = {}) {
-  const q = { scope: route?.q?.scope || route?.q?.who || '', w: weekOff(route) ? String(weekOff(route)) : '', issue: ISS, view: route?.q?.view || '', ...o };
+  const q = { scope: route?.q?.scope || route?.q?.who || '', w: weekOff(route) ? String(weekOff(route)) : '', issue: ISS, view: route?.q?.view || '',
+    coal: FLT.coal, hide: [...FLT.hide].join(','), ch: FLT.ch, act: FLT.act ? '1' : '', ...o };
   return new URLSearchParams(Object.entries(q).filter(([, x]) => x && x !== '0')).toString();
 }
 const isPosB = b => !!b && b.tracked !== false && !isMon(b);
@@ -367,7 +428,7 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
   const all = weekSittings(scope, mon), shown = all.filter(x => !x.mon || monOn());
   for (const x of shown) {
     const live = x.rows.filter(r => r.status !== 'cancelled'), bills = live.map(r => ({ r, b: billById(r.bill_id) })).filter(y => isPosB(y.b) || (monOn() && y.b && y.b.tracked !== false));
-    put(x.t, { k: 'h', x, bills, cancelled: !live.length });
+    if (!FLT.hide.has('h')) put(x.t, { k: 'h', x, bills, cancelled: !live.length });
   }
   // Testimony due in this week, for this week's sittings and next week's (a Monday hearing's testimony is often due the
   // Friday or Sunday before: v5's R-025). Only the bills in this view's scope, and only while not filed.
@@ -380,7 +441,7 @@ function calWeek(scope, mon, { tasks = 'mine', steps = null } = {}) {
     // that step (Today hands its steps in), never again as "testimony due" beside it.
     const bills = rows.map(r => ({ r, b: billById(r.bill_id) })).filter(y => isPosB(y.b) && ok(y.b) && !ownStep(steps, y.b, k))
       .map(y => ({ ...y, ...stepOfB(y.r, y.b) })).filter(y => y.st && y.st.key !== 'filed');
-    if (bills.length) put(due, { k: 'due', h: x.h, bills, late: due <= now });
+    if (bills.length && !FLT.hide.has('due')) put(due, { k: 'due', h: x.h, bills, late: due <= now });
   }
   // The person's own dated to-dos and follow-ups, as Today has them (the same rows, the same links).
   let mine = []; try { mine = todayItems('mine').tasks || []; } catch (e) { console.error(e); }
@@ -577,7 +638,7 @@ function calHTML(route, scope, sum, { ask = true, tag = false, tasks = 'mine', s
 // (weekGlance) stays gone: Today's Coming up ends with "See the week on Hearings".
 export const calWeekBar = route => weekNav(route);
 export function weekCalHTML(route, { scope = 'team' } = {}) {
-  seedMoved(); freshScope(); ISS = '';   // Hearings' issue pick is its own
+  seedMoved(); freshScope(); ISS = ''; FLT = FLT0();   // Hearings' issue pick is its own
   return calHTML(route, scope, null, { ask: false });
 }
 export function wireWeekCal(root, { href, redraw = () => hooks.render() }) {
@@ -674,7 +735,7 @@ function wireWeek(page) {
 // R-356 decision 2: the team's week left Hearings' Team switch for Team's "The team's hearings" tab (team.js). This week only
 // (other weeks are on Hearings); the same cards as This week draws at team scope, with the same buttons.
 export function teamHearingsHTML() {
-  seedMoved(); freshScope(); ISS = '';
+  seedMoved(); freshScope(); ISS = ''; FLT = FLT0();
   const sum = SESSION_OVER ? null : askSummary({ scope: 'team' });
   return `<div class="hw-page v-week">${weekHTML({ q: {} }, 'team', sum)}</div>`;
 }
@@ -693,7 +754,7 @@ export default {
     if (!S.me) return `<h1 class="v6-ptitle sv-h1">Hearings</h1><p class="hw-none">${icon('info')}<span>You are signed in, but the tracker does not know who you are yet. Ask your admin to add you.</span></p>`;
     seedMoved();   // the practice copy's moved sittings have someone down for the old date (W53), as Today's
     freshScope();   // who has a step on which bill is worked out again for this draw (push.js scopeOk)
-    ISS = issueOf(route);
+    ISS = issueOf(route); FLT = fltOf(route);
     const cm = cmteOfRoute(route); if (cm) return cmteHTML(cm);
     const scope = scopeOf(route), view = viewOf(route, scope), sum = SESSION_OVER ? null : askSummary({ scope }), mode = modeOf(route);
     // An old Today link to one day of its week (#/?view=cal&day=2026-03-18, sent here by app.js) opens on that day, once.
@@ -701,7 +762,7 @@ export default {
     return `<div class="hw-page v-${view}${view === 'week' && mode === 'cal' ? ' m-cal' : ''}">
             <h1 class="v6-ptitle sv-h1">${VB ? 'Calendar' : 'Hearings'}</h1>
       ${tabs(view, sum, weekTab(view, scope))}
-      <div class="hw-bar"><div class="hw-picks">${view === 'week' && phoneNow() && scopes().length > 1 ? '' : switcher(scope) || (view === 'week' ? scopeWords(route, scope) : '')}${view === 'week' ? filterBar(route, scope) + vbViewLink(mode) : ''}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
+      <div class="hw-bar"><div class="hw-picks">${view === 'week' ? filterBar(route, scope) + vbViewLink(mode) : switcher(scope)}</div>${view === 'week' ? weekNav(route, mode) : ''}</div>
       ${view === 'ask' ? askHTML(scope, route.view !== 'ask') : mode === 'cal' ? calHTML(route, scope, sum) : weekHTML(route, scope, sum)}
     </div>`;
   },
@@ -722,6 +783,8 @@ export default {
     });
     // Filter: the issue and the list-or-calendar choice, in one sheet (see filterSheet); both live in the address
     page.querySelector('[data-hwfilter]')?.addEventListener('click', () => filterSheet(route));
+    page.querySelector('[data-hwclear]')?.addEventListener('click', () => { S.hwRefocus = '[data-hwfilter]'; S.hcDay = null;
+      S.go(`#/hearings/week?${viewQuery(route, { issue: '', coal: '', hide: '', ch: '', act: '' })}`, { replace: true, keepScroll: true }); });
     page.querySelector('[data-hwview]')?.addEventListener('click', async e => { const v = e.currentTarget.dataset.hwview;
       await rememberVB(v); S.hwRefocus = '[data-hwview]'; S.hcDay = null;
       S.go(`#/hearings/week?${viewQuery(route, { view: v })}`, { replace: true, keepScroll: true }); });
