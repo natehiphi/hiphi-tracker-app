@@ -10,7 +10,7 @@
 // search box (arrow keys, Enter, Esc); removing is in each row's menu, which opens by its button; both have Undo.
 // v6 (R-336): under Outreach (Lists is its fifth tab); each bill is a name, its number small, and one line (its public
 // note, else its plain summary), with no version codes (D15); Email followers follows the one email rule (V20).
-import { S, DB, hooks, esc, advocate } from './data.js';
+import { S, DB, hooks, esc, advocate, heldFor } from './data.js';
 import { billSay, PUBLIC_APP, billById, plain, blurb } from './model.js';
 import { icon, btn, iconBtn, switchRow, empty, toast, openSheet, closeSheet, menuSheet, confirmSheet } from './ui.js';
 import { listById, listRows, listIcon, plural, afterClose, openListForm, updatedLine, isSide } from './lists.js';
@@ -110,7 +110,8 @@ function render(route) {
       </div>
       ${iconBtn('ellipsis', `More for ${l.title}`, { 'data-le': 'more', 'aria-haspopup': 'dialog' }, 'le-hmore')}
     </header>`;
-  const publish = `${switchRow('le-pub', 'Publish', l.is_published, l.is_published ? 'Live. Anyone with the link can find and follow it.' : 'Draft. Only the team can see it.', { 'aria-describedby': 'le-puberr' })}
+  // R-376: a teammate's Publish waits for an admin; the switch stays off and says so.
+  const publish = `${switchRow('le-pub', 'Publish', l.is_published, l.is_published ? 'Live. Anyone with the link can find and follow it.' : heldFor('list', l.id)?.fields?.is_published ? 'Waiting for an admin to approve' : 'Draft. Only the team can see it.', { 'aria-describedby': 'le-puberr' })}
       <div id="le-puberr" role="alert"></div>`;
   const bills = `<section class="le-sec" aria-labelledby="le-bh">
       <div class="le-sechead"><h2 id="le-bh">Bills</h2><span class="meta">${rows.length ? `${plural(rows.length, 'bill')}${two && rows.length > 1 ? ' · in the order the public sees; drag a handle to reorder' : ''}` : ''}</span></div>
@@ -269,7 +270,8 @@ function wire(route, root) {
     if (on && !listRows(l).length) { sw.checked = false; err.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}<span>Add a bill before publishing.</span></p>`; return; }
     err.innerHTML = '';
     try {
-      await DB.updateList(l.id, { is_published: on }); hooks.render();
+      const held = await DB.updateList(l.id, { is_published: on }); hooks.render();
+      if (held?.includes('is_published')) { toast('Sent to an admin. The list goes live once they approve.', { ok: true }); return; }   // R-376: the switch stays off until then
       toast(on ? 'Published. The link works now.' : 'Unpublished. The link stops working.', { ok: on, undo: async () => { await DB.updateList(l.id, { is_published: !on }); hooks.render(); } });
     } catch (e) { sw.checked = !on; toast(e, { err: true }); }
   };

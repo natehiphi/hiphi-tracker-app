@@ -28,7 +28,7 @@
 // v5's Today moved, whole, to today5.js: every export other screens import from './today.js' is re-exported below
 // (review.js, bills.js, inbox.js, asks.js, legislators.js, profile.js and app.js still use them), and v5's This week still
 // draws for the Hearings stub until HEARINGS replaces it (render() hands a route with place 'hearings' to v5).
-import { S, DB, DEMO, VB, TRIAL, IC, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks } from './data.js';
+import { S, DB, DEMO, VB, TRIAL, IC, SESSION_OVER, DEADLINE_ROWS, esc, advocate, isMine, hooks, waitingChanges } from './data.js';
 import v5, { todayItems, slipNow, startDay } from './today5.js';
 import { draftHearing, diedish, stopOf, wantsHearing, whenAt, deadlineAt, capitolAt, billRoute, billById, liveAsk, blurb, filerOf, gateNeed, gateGloss } from './model.js';
 import { icon, btn, toast, pickerSheet, confirmSheet, docBtn, keysOn, andWords, vbFinish } from './ui.js';
@@ -892,6 +892,8 @@ function doorLines(w, v = S.me, { coal = true, lead = '', leadShown = !!lead } =
   // second door to Team here; an issue's owner, who has no Team, keeps the line to My issues.
   const no = isLead(v) && leadShown ? [] : noOwnerBills(v);
   if (no.length) out.push(lineA(isLead(v) ? '#/team?who=none' : '#/issues', 'user-round', `<b>${plural(no.length, 'bill')} with no owner</b>`));
+  // R-376: what teammates changed on the public page waits for an admin's yes (their own changes never wait).
+  if (v.is_admin && v.id === S.me?.id) { const n = waitingChanges().length; if (n) out.push(lineA('#/approvals', 'globe', `<b>${plural(n, 'public change')} ${n === 1 ? 'waits' : 'wait'} for you</b> · Approve or send back`)); }
   if (admitsPartners(v)) {
     // R-346: partner words to approve are this line's, not rows in the list (the moderate mock), so it counts them too.
     const pl = partnersLine(v); if (pl) out.push(pl);

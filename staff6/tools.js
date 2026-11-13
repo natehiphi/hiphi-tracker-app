@@ -5,7 +5,7 @@
 // finds each one too. Tools a person's role cannot use are left out, and one quiet line at the foot names them (D8). A tool
 // that only repeats a tab or a control on its own place (Sort new bills, Muted, Saved views, Bulk change and Export on Bills;
 // the library on Testimony) is not a row here: the place already shows it.
-import { S, DEMO, VB, TRIAL, esc } from './data.js';
+import { S, DEMO, VB, TRIAL, esc, waitingChanges, myPublicChanges } from './data.js';
 import { icon, menuSheet, avatar } from './ui.js';
 import { placeRow, placeList, leadKeys, isLead, seesTeam, syncWords, syncNote, syncStale, youName } from './more.js';
 import { messagesCount } from './inbox.js';   // the Inbox page's own count, so the row's number matches it (A-14)
@@ -96,13 +96,17 @@ export default {
     const places = [VB ? placeRow('testimony', { cls: 'v6-phone-only' }) : null, placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
     const sec = (h, rows, id) => !rows.length ? '' : `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
+    // R-376: a teammate's own changes to the public page, only while there are any from the last 30 days.
+    const myPc = !admin && myPublicChanges().length ? placeRow('tools', { label: 'My public changes', href: '#/approvals', ic: 'globe', line: 'What you changed on the public page, and whether an admin approved it' }) : null;
     return `<div class="v6-more v6-tools">
       <h1 class="v6-ptitle sv-h1">More</h1>
       ${stale ? syncNote('v6-more-syncn') : ''}
       <section class="v6-more-sec" aria-labelledby="tl-places"><h2 class="v6-more-h" id="tl-places">Places</h2>${placeList(places)}</section>
-      ${groups().map(([h, rows], i) => sec(h, rows.map(asRow), i)).join('')}
+      ${groups().map(([h, rows], i) => sec(h, [...rows.map(asRow), ...(h === 'Rally' && myPc ? [myPc] : [])], i)).join('')}
       ${sec('Someone else’s list', [rowBtn('data-tlwho aria-haspopup="dialog"', 'scan-eye', 'See a teammate’s list', 'Their Today, to read, when you cover for them')], 'who')}
       ${leads.length ? sec(leadHead(leads), [...leads.map(k => placeRow(k)),
+        // R-376: what teammates changed on the public page, waiting for an admin's yes
+        admin ? placeRow('tools', { label: 'Public changes', href: '#/approvals', ic: 'globe', line: waitingChanges().length ? `${waitingChanges().length} waiting for you to approve` : 'Changes to what the public sees, waiting for you' }) : null,
         // F165: the admins' Prep board, a view on All issues (issues.js, prep.js)
         admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null], 'lead') : ''}
       ${sec('Other versions', versions(admin), 'ver')}

@@ -22,7 +22,7 @@ export { rallierOf, onBill };
 import { emailDoor, paused, dailyWord, HELD_HEAD } from './composer.js';
 import { weekLanding } from './firstvisit.js';
 import { ACTS } from './verbs.js';   // R-344: one icon per action (Write the public ask: the megaphone, the job's own picture)
-import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown, confirmPublish, goesLive } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with the Public tab
+import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown, confirmPublish, goesLive, needsOk, SENT_WORDS, waitingNote } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with the Public tab
 import { markNewStep } from './help.js';   // Getting started's rallier steps tick from here (Write a public ask, Copy this week's newsletter)
 
 const HR = 36e5, DAY = 864e5;
@@ -230,8 +230,8 @@ function writeBox(x, d, lead) {
     <p class="ot-ex">Shows on the ${TRIAL ? 'practice copy' : 'public page'} through ${esc(dayWord(hearingDay(x.h) + 'T12:00:00-10:00'))}, the hearing day.</p>
     <p class="ot-ex" id="${id}-x">For example: “Send testimony by ${esc(fmtDT(x.due))}. Two sentences in your own words are enough.”</p>
     <div id="${id}-e" role="alert"></div>
-    <div class="ot-wacts">${btn(changing ? 'Update the public ask' : 'Publish the public ask', { kind: lead ? 'primary' : 'secondary', icon: 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div>
-    <p class="ot-ex ot-golive">${icon('globe')}<span>${goesLive()}. You can take it down any time.</span></p></div>`;
+    <div class="ot-wacts">${btn(needsOk(b) ? 'Send the ask for approval' : changing ? 'Update the public ask' : 'Publish the public ask', { kind: lead ? 'primary' : 'secondary', icon: needsOk(b) ? undefined : 'check', attrs: { 'data-asksave': b.id } })}${btn('Cancel', { kind: 'text', attrs: { 'data-askcancel': b.id } })}</div>
+    <p class="ot-ex ot-golive">${icon('globe')}<span>${needsOk(b) ? 'An admin approves it before the public sees it. The public keeps the earlier version until then.' : goesLive() + '. You can take it down any time.'}</span></p></div>`;
 }
 // Copy link · Copy message (a text or DM) · Copy for social (the post), then the email door; each named by its use (R-370 third walk).
 function shareHTML(x) {
@@ -269,6 +269,7 @@ function cardHTML(x, { hl = false, lead = false } = {}) {
   return `<section class="ot-card${hl ? ' hl' : ''}" id="${id}" aria-labelledby="${id}-h" tabindex="-1">
     <div class="ot-ctop"><h2 class="ot-name" id="${id}-h"><a href="${esc(billRoute(b, 'public'))}">${esc(nameWords(b, 1e4))}</a></h2><span class="ot-num">${esc(numWords(b))}</span></div>
     <p class="ot-when">${icon('clock')}<span>${closes} · ${esc(ASK_SAYS[b.position] || 'HIPHI has a position')} · ${esc(committeeName(h.committee))}</span></p>
+    ${waitingNote(b, { cls: 'ot-ex ot-pcnote' })}
     ${body}
     <div class="ot-foot">${left}<p class="ot-landl">${icon('users')}<span>${esc(landLine(b))}</span></p></div>
   </section>`;
@@ -425,12 +426,14 @@ async function saveAsk(root, billId, el) {
   const x = weekAskItems().find(i => i.b.id === billId), until = x ? hst(new Date(x.h.scheduled_at).getTime()) : null;
   if (!until) return say('This bill has no hearing this week, so the ask would not show. Write it on the bill’s Public tab.');
   // R-370 third walk: one tap used to put it on the public page; now it asks first (and asks differently for a live ask).
-  if (!await confirmPublish(b, text, until, !!liveAsk(b))) return;
+  const sendUp = needsOk(b);   // R-376: a teammate's ask waits for an admin, so there is nothing to confirm going live
+  if (!sendUp && !await confirmPublish(b, text, until, !!liveAsk(b))) return;
   el.setAttribute('aria-busy', 'true'); el.disabled = true;
   try {
     const res = await DB.saveBillFields(b.id, { public_action: text, public_action_until: until }, BASE.get(b.id) || { public_action: b.public_action || null, public_action_until: b.public_action_until || null });
     S.otOpen = null; if (S.otDraft) delete S.otDraft[b.id]; BASE.delete(b.id); markNewStep({ publicask: 1 }); redraw(`#${cardId(b)}`);
     if (res.conflicts.length) { toast('A teammate saved a different public ask a moment ago. It shows on the card now; change it if you need to.', { err: true }); return; }
+    if (res.held?.length) { toast(SENT_WORDS, { ok: true }); return; }
     toast(`Published. The public ask shows on the public page through ${fmtDT(until + 'T12:00:00-10:00').replace(/,.*$/, '')}.`, { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); redraw(`#${cardId(b)}`); toast('The public ask is back as it was.'); } });
   } catch (e) { el.removeAttribute('aria-busy'); el.disabled = false; toast(e, { err: true }); }
 }

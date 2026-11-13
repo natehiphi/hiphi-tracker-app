@@ -123,7 +123,8 @@ export function pickStance(i, { after = () => hooks.render(), bill = null } = {}
     onPick: async v => {
       const was = i.stance || null, now = v || null; if (was === now) return;
       try {
-        await DB.updateIssue(i.id, { stance: now }); after();
+        const held = await DB.updateIssue(i.id, { stance: now }); after();
+        if (held?.length) { toast('Sent to an admin. The public keeps the earlier stance until they approve.', { ok: true }); return; }   // R-376
         toast(now ? `HIPHI’s stance on ${i.name}: ${stanceOf(i)[1]}.` : `HIPHI’s stance on ${i.name}: not set.`, { undo: async () => { await DB.updateIssue(i.id, { stance: was }); after(); toast('Put back as it was'); } });
       } catch (e) { toast(e, { err: true }); after(); }
     } });
@@ -175,9 +176,11 @@ export function openIssueForm(i = null, { bill = null } = {}) {
             // A changed name, description or outlook counts as the owner's check of it (the prep, 091).
             const out = d.querySelector('#is-out')?.value.trim().replace(/\s+/g, ' ') || null, at = new Date().toISOString(), outPatch = out !== (i.outlook || null) ? { outlook: out, outlook_edited_at: at, outlook_checked_at: at } : {};
             const wordPatch = nm !== i.name || (description || null) !== (i.description || null) ? { wording_checked_at: at } : {};
-            await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, stance, ...outPatch, ...wordPatch });
+            const held = await DB.updateIssue(i.id, { name: nm, description: description || null, category, recommended, stance, ...outPatch, ...wordPatch });
             await DB.setIssueAlso(i.id, extra);
-            closeSheet({ silent: true }); hooks.render(); toast('Saved. The public page shows the new wording.', { ok: true });
+            closeSheet({ silent: true }); hooks.render();
+            // R-376: a teammate's change to a published issue waits for an admin; the public keeps the earlier words until then.
+            toast(held?.length ? 'Sent to an admin for approval. The public keeps the earlier version until then.' : 'Saved. The public page shows the new wording.', { ok: true });
           } else {
             const goal = d.querySelector('#is-goal').value.trim(), pts = d.querySelector('#is-pts').value.split('\n').map(x => x.trim().replace(/^[-•*]\s*/, '')).filter(Boolean);
             const ptBad = pts.length > 5 ? 'Five points at most.' : pts.some(x => x.length > 200) ? 'Keep each point under 200 characters.' : '';
