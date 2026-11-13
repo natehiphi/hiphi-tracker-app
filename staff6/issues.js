@@ -261,7 +261,8 @@ const index = {
   narrow: route => fvView(route) === 'links',
   render(route) {
     if (prepView(route)) return renderPrep(route);
-    if (fvView(route)) return renderFirstVisit(route);
+    // R-376 (Nate, 12 Nov): First visit numbers and Make a link are admins' tools; an old link says so instead of opening them.
+    if (fvView(route)) return S.me?.is_admin ? renderFirstVisit(route) : `<div class="le-page i6-page">${empty({ title: `${fvTitle(route)} is for admins`, text: 'Ask Nate if you need a number or a link.', action: btn('All issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>`;
     wantPeople();
     const v = V();
     // New issue on the title's row (a phone: an icon button at the end of the filter line, where the title is the top bar's).
@@ -291,7 +292,7 @@ const index = {
   },
   wire(route, root) {
     if (prepView(route)) return wirePrep(route, root);
-    if (fvView(route)) return wireFirstVisit(route, root);
+    if (fvView(route)) return S.me?.is_admin ? wireFirstVisit(route, root) : undefined;
     const v = V();
     root.querySelectorAll('[data-is="new"]').forEach(el => el.onclick = () => openIssueForm());
     if (root.querySelector('.is6-cal')) { wireWeekCal(root, { href: w => `#/issues/all?view=cal${w ? `&w=${w}` : ''}` }); return; }
