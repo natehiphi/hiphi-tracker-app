@@ -304,7 +304,11 @@ FIRSTS = [('NT', 'coalitions', r'^Coalitions · ', None),
           ('NT', 'turn on email', r'^Email on or paused, and its sender · ', None),
           ('NT', 'email followers', r'\bOutreach\b', None),                       # the asks' Email followers (spec 6 Outreach)
           ('NT', 'reassign', r'\bowner\b|^Hand an? bill|^Give\b', r'^Hand over someone')]   # the change-owner action, not People's hand-over
-NOT_OFFERED = [('KV', 'turn on email', r'^Email on or paused')]                  # Session setup is for admins (spec 3.1)
+NOT_OFFERED = [('KV', 'turn on email', r'^Email on or paused'),                  # Session setup is for admins (spec 3.1)
+               # R-376 (Nate, 12 Nov): Make a link or QR code, First visit numbers and What moved are admins' tools
+               ('KV', 'QR code', r'^(Make a link|Make a QR)'), ('KV', 'arrivals', r'^First visit'), ('KV', 'what moved', r'^What moved')]
+# R-376: what a teammate who is not an admin must not see on More
+NOT_ON_MORE = [r'Make a link|QR code', 'First visit numbers', 'What moved', r'Staff v5']
 SUGGESTED = r"""() => [...document.querySelectorAll('[role=listbox] [role=option], [role=option]')].filter(e => e.getClientRects().length)
   .map(e => { const t = (e.innerText || '').split('\n').map(x => x.trim()).filter(Boolean); return (t[0] || '') + ' · ' + t.slice(1).join(' '); })
   .filter(x => !/^(Look for|See all results)/.test(x)).slice(0, 12)"""
@@ -610,11 +614,17 @@ def main():
             R.check(f'More tools: "{t}" opens in 2 clicks', not broken and len(pg.errors) == errs, pg.hash())
             pg.page.keyboard.press('Escape'); pg.nav(here[1:])
         pg.close()
+        # R-376: Kevin, not an admin, does not see the admins' four; the foot line names them
+        pg = b.page('KV', 1440, 900); pg.open('/'); pg.nav('/more'); pg.ready()
+        for t in NOT_ON_MORE:
+          R.check(f'More for a non-admin: no "{t}"', L.find(pg.page, rx(r'^\s*(' + t + ')'), roles=('link', 'button')) is None)
+        R.check('More for a non-admin: the foot names the admins\' tools', bool(re.search(r'Admins also have .*What moved', pg.text('main') or '')))
+        pg.close()
 
     # ---- the search box finds places and actions (V32): always a second way, never the only one ----
     if not only or 'search' in only:
       print(f'\n{L.APP}: search finds places')
-      pg = b.page('KV', 1440, 900); pg.open('/'); hits = {}
+      pg = b.page('NT', 1440, 900); pg.open('/'); hits = {}   # an admin since R-376: two of the searches find admins' tools
       for q, want in SEARCHES:
         box = pg.page.locator('header input[type=search], [role=search] input, #hq').first
         if not box.count(): R.check(f'search "{q}"', False, 'no search box'); continue

@@ -25,6 +25,8 @@ const rowBtn = (attrs, ic, name, line) => `<button type="button" class="v6-more-
 // teammate's list the eye that reads it; the people icons are left to Team (users) and People (user-round).
 function groups() {
   const admin = !!S.me?.is_admin, trialHides = TRIAL && !admin;
+  // R-376 (Nate, 12 Nov): Make a link or QR code, First visit numbers, What moved and Staff v5 are admins' tools; nobody
+  // else sees their rows, and footLine names them so nobody wonders whether they exist.
   return [
     ['Getting hearings', [
       // A-14, A-12: Legislators’ profiles was a second row to Legislators › Everyone, which Places above already opens.
@@ -37,8 +39,8 @@ function groups() {
     ]],
     ['Rally', [
       ['Lists', '#/outreach/lists', 'list', 'Shared lists of bills for the public page'],
-      ['Make a link or QR code', '#/issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code'],
-      ['First visit numbers', '#/issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'],
+      admin ? ['Make a link or QR code', '#/issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code'] : null,
+      admin ? ['First visit numbers', '#/issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'] : null,
       // F177: an admin's Import CSV and Export sit at the foot of Supporters: one row says both, and ?io=1 opens Supporters at
       // that foot (A-14: one row per place; it used to be two rows to the same top of the page, the second a scroll away).
       admin ? ['Supporters’ groups, import and export', '#/outreach/supporters?io=1', 'heart-handshake', 'Saved groups to email; a spreadsheet in or out at the foot']
@@ -51,15 +53,15 @@ function groups() {
       // R-370: in a trial, only an admin sees Practice copy and What moved (the trial is the practice, and what moved is v5's story).
       trialHides ? null : DEMO ? rowBtn('data-you aria-haspopup="menu"', 'play', 'Practice copy', 'You’re in it now. Practice as a teammate or start it over')
         : ['Practice copy', `staff6.html?demo=1${VB ? '&vb=1' : ''}`, 'play', 'Last March, to practice on; nothing reaches the team', true],
-      trialHides ? null : ['What moved', '#/help/moved', 'route', 'Where each v5 place and button is now'],
+      admin ? ['What moved', '#/help/moved', 'route', 'Where each v5 place and button is now'] : null,
       ['Keyboard shortcuts', '#/help/keys', 'keyboard', 'Every key, and how to turn them off'],
     ]],
   ].map(([h, rows]) => [h, rows.filter(Boolean)]);
 }
-// One place about versions, last on the page (A-14): F190's way back to v5 for everyone while v6 settles in (it goes 3 weeks
-// after the switch), and for admins the two older apps to compare with.
+// One place about versions, last on the page (A-14), admins only since R-376 (Nate, 12 Nov): Staff v5 and
+// the two older apps to compare with.
 const versions = admin => [
-  TRIAL && !admin ? null : ['Staff v5, the older app', `staff5.html${location.search}#/`, 'undo-2', 'The app from before Staff v6, opened at Today'],
+  admin ? ['Staff v5, the older app', `staff5.html${location.search}#/`, 'undo-2', 'The app from before Staff v6, opened at Today'] : null,
   admin ? ['Compare with Staff v2', `staff.html${location.search}#/`, 'columns-3', 'The team’s app today, at Today'] : null,
   admin ? ['The old app', `classic.html${DEMO ? '?demo=1' : ''}`, 'external-link', 'The old staff app, to look at only'] : null,
 ].filter(Boolean).map(row);
@@ -68,7 +70,7 @@ function footLine() {
   const a = S.me; if (!a) return '';
   const out = [];
   if (!a.is_admin) {
-    const miss = [seesTeam(a) ? null : 'Team', 'People', admitsPartners(a) ? null : 'Partners', 'Session setup'].filter(Boolean);
+    const miss = [seesTeam(a) ? null : 'Team', 'People', admitsPartners(a) ? null : 'Partners', 'Session setup', 'Make a link or QR code', 'First visit numbers', 'What moved', 'Staff v5'].filter(Boolean);
     out.push(`Admins also have ${miss.length > 1 ? `${miss.slice(0, -1).join(', ')} and ${miss[miss.length - 1]}` : miss[0]}. Ask Nate.`);
   }
   const bills = [canSort() ? null : 'Sort new bills', showMutedTab() ? null : 'Muted'].filter(Boolean);

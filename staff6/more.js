@@ -17,7 +17,7 @@ export const PLACES = {
   legislators: ['#/legislators', 'landmark', 'Legislators', 'Legislators', 'Everyone at the Capitol, by island'],
   issues: ['#/issues', 'tag', 'Issues', 'Issues', 'Your issues, every issue, and every bill we track'],
   inbox: ['#/inbox', 'inbox', 'Inbox', 'Inbox', 'Messages and updates for you'],
-  help: ['#/help', 'circle-help', 'Help', 'Help', 'Guides, Capitol words and what moved'],
+  help: ['#/help', 'circle-help', 'Help', 'Help', 'Guides and Capitol words'],
   team: ['#/team', 'users', 'Team', 'Team', 'What is slipping, and who is on what'],
   people: ['#/people', 'user-round', 'People', 'People', 'Everyone’s records; hand over and turn off'],
   partners: ['#/partners', 'handshake', 'Partners', 'Partners', 'Groups that write on the public tracker'],

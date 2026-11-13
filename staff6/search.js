@@ -97,14 +97,14 @@ const PLACES0 = () => [
   { title: 'My issues', href: '#/issues', icon: 'tag', sub: 'The issues you own or help on', key: KEY.myissues, also: 'my issues issues prep 2027 ready' },
   { title: 'Coalitions', href: '#/issues/coalitions', icon: 'users', sub: 'Issues › Coalitions', also: 'my issues coalition help on' },
   { title: 'All issues', href: '#/issues/all', icon: 'tag', sub: 'Issues › All issues', also: 'my issues issues catalogue categories' },
-  { title: 'First visit numbers', href: '#/issues/all?view=first-visit', icon: 'chart-column', sub: 'How newcomers find and use the public page', also: 'responding response arrivals arrived newcomers how it is landing public numbers visits' },
-  { title: 'Make a link or QR code', href: '#/issues/all?view=links', icon: 'qr-code', sub: 'A link for a partner or an event', also: 'qr code poster print link partner link first visit' },
+  ...(me().is_admin ? [{ title: 'First visit numbers', href: '#/issues/all?view=first-visit', icon: 'chart-column', sub: 'How newcomers find and use the public page', also: 'responding response arrivals arrived newcomers how it is landing public numbers visits' }] : []),   // R-376: admins only
+  ...(me().is_admin ? [{ title: 'Make a link or QR code', href: '#/issues/all?view=links', icon: 'qr-code', sub: 'A link for a partner or an event', also: 'qr code poster print link partner link first visit' }] : []),   // R-376: admins only
   { title: 'Inbox', href: '#/inbox', icon: 'inbox', sub: 'Messages and updates', key: KEY.inbox, also: 'messages mentions replies unread notes' },
   { title: 'What changed', href: '#/inbox?view=updates', icon: 'inbox', sub: 'Inbox › Updates', also: 'updates digest news capitol actions since yesterday' },
   { title: 'Help', href: '#/help', icon: 'circle-help', sub: 'Guides and Capitol words', key: KEY.help, also: 'guides how to questions' },
   { title: 'More tools', href: '#/tools', icon: 'list', sub: 'Every other tool, by job', also: 'tools rare export saved views bulk' },
   { title: 'My settings', href: '#/me', icon: 'settings', sub: 'How the tracker reaches you', also: 'settings preferences account alerts pings notifications slack dm email quiet mute' },
-  { title: 'What moved', href: '#/help/moved', icon: 'route', sub: 'Help › where each v5 place is now', also: 'v5 moved old where is changed new app' },
+  ...(me().is_admin ? [{ title: 'What moved', href: '#/help/moved', icon: 'route', sub: 'Help › where each v5 place is now', also: 'v5 moved old where is changed new app' }] : []),   // R-376: admins only
   { title: 'Keyboard shortcuts', href: '#/help/keys', icon: 'keyboard', sub: 'Help › every key', key: KEY.keys, also: 'keys keyboard shortcuts hotkeys' },
   ...(isLead() ? [{ title: 'Team', href: '#/team', icon: 'users', sub: 'What is slipping, and who is on what', also: 'slipping team load everyone' }] : []),
   ...(me().is_admin ? [{ title: 'People', href: '#/people', icon: 'user-round', sub: 'Everyone’s records; hand over and turn off', also: 'team staff roles sign-in link links turn off hand over leaving away admin approver second approver partner approver add a person' },
@@ -138,7 +138,7 @@ const ACTIONS0 = () => [
   { title: 'Late testimony, still accepted', href: '#/testimony?view=file', icon: 'clock', sub: 'Testimony › Ready to file: the Capitol takes it until the hearing starts', also: 'late testimony overdue missed deadline after the deadline still accepted file late' },
   { title: 'Email supporters', href: '#/outreach/emails', icon: 'mail-plus', sub: 'Outreach › Emails › New email', also: 'email supporters email blast new email action alert' },
   { title: 'Save a group of supporters', href: '#/outreach/supporters', icon: 'users-round', sub: 'Outreach › Supporters › Filter, then Save as a group', also: 'segment group save filter supporters' },
-  { title: 'Make a QR code', href: '#/issues/all?view=links', icon: 'qr-code', sub: 'More tools › Make a link or QR code', also: 'qr code poster print link partner link', job: () => ownsBills() || me().is_admin },
+  ...(me().is_admin ? [{ title: 'Make a QR code', href: '#/issues/all?view=links', icon: 'qr-code', sub: 'More tools › Make a link or QR code', also: 'qr code poster print link partner link', job: () => ownsBills() || me().is_admin }] : []),   // R-376: admins only
   { title: 'Sort new bills', href: '#/issues/bills/new', icon: 'sparkles', sub: 'Issues › Bills › Sort new bills', also: 'sort triage new bills track pass' },
   { title: 'Change many bills at once', href: '#/issues/bills?select=1', icon: 'list-checks', sub: 'Issues › Bills › Select', also: 'bulk change select many set owner set position follow' },
   { title: 'Export bills as a spreadsheet', href: '#/issues/bills?export=1', icon: 'download', sub: 'Issues › Bills › Export CSV', also: 'export csv spreadsheet download excel' },
