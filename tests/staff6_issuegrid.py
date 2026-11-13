@@ -118,7 +118,7 @@ with L.browser() as B:
     bad = [c['stat'] for c in cs if not re.fullmatch(STAND, c['stat'])]
     R.check(f'{w}: how it stands, in one word on every card', not bad, bad[:4])
     R.check(f'{w}: the stands vary (on track, stopped, won, at risk)', len({c['state'] for c in cs}) >= 3, sorted({c['state'] for c in cs}))
-    NEXT = r'(.+: (?:Follow up|Asked by|Ask the chairs?).+|.+ needs? a hearing by \w{3} \d+/\d+|.+ testimony: .+|.+: (?:Writing|Not started|With an approver|Second look|Second review|Ready to file).+|.+ hearing \w+.*|.+ past .+|Next deadline: .+|Bills must .+|No hearing set.*|.+ (?:reached|cleared) .+|.+ (was|were) settled|Through its committees)'
+    NEXT = r'(.+: (?:Follow up|Asked by|Ask the chairs?).+|.+ needs? a hearing by \w{3} \d+/\d+|.+ testimony: .+|.+: (?:Writing|Not started|With an approver|Second look|Second review|Ready to file).+|.+ hearing \w+.*|.+ past .+|Next deadline: .+|Bills must .+|No hearing set.*|.+ (?:reached|cleared) .+|.+ (was|were) settled|Through its committees|Only (?:a )?\d{4} carryovers?: .+)'   # R-388: an issue left with only a carryover
     bad = [c['next'] for c in cs if c['next'] and not re.fullmatch(NEXT, c['next'])]
     R.check(f'{w}: the next step and its date in one line', not bad, bad[:4])
     R.check(f'{w}: every issue that can still move says its next step', all(c['next'] for c in cs if c['state'] in ('issue:ontrack', 'issue:risk')), [c['name'] for c in cs if c['state'] in ('issue:ontrack', 'issue:risk') and not c['next']][:3])

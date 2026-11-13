@@ -23,7 +23,7 @@
 // nickname) a button that opens its picker with Undo (no Edit mode), added Priority and Nickname, and Copy for Google Sheets. Keys on a laptop (F96): j/k walk the rows, Space or o opens
 // the bill beside the list, Enter opens its page, x selects, Esc closes, "/" puts the cursor in the filter box (app.js).
 import { S, DB, DEMO, VB, esc, fmtDate, effStage, isOwner, myIssuesOf, daysAgo, STAGES, STAGE_LABEL, hooks, seesTeam as seesTeamV6 } from './data.js';
-import { factsOf, stopOf, whyDead, billNum, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
+import { carryWords, carryIdle, factsOf, stopOf, whyDead, billNum, gateNeed, billSay, deadlineName, billRoute, billRef, whenAt, lateLine } from './model.js';
 import { HELD_RE, stoppedAt } from '../stops.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, pickerSheet, openSheet, closeSheet, switchRow, avatar, ownerOf, keysOn, keysUsed, POS_WORD, posIcons, whoseSeg, showAllBtn, filterBtn } from './ui.js';
 import { bl, save, setCompact, shownBills, baseBills, freshFacts, isOn, toggle, clearAll, changed, activeFilters, openFilters, placePop, wideNow, hoverNow, typingIn,
@@ -167,7 +167,9 @@ function stoppedLine(b) {
 }
 const rowStep = b => { const s = stepOf(b); if (!s) return s;
   const line = factsOf(b).stand === 'dead' && s.kind === 'none' ? stoppedLine(b) : lineFor(s);
-  return line === s.line ? s : { ...s, line }; };
+  // R-388: a carryover says so first on its row ("2025 carryover, not moving · ..."), Nate's words for the bill page.
+  const cw = carryWords(b), full = cw ? `${cw}${carryIdle(b) ? ', not moving' : ''}${line ? ` · ${line}` : ''}` : line;
+  return full === s.line ? s : { ...s, line: full }; };
 
 // ---- the page ----
 // R-365 B (Nate 10 Nov): everyone gets "Team's bills" beside their own, so any bill is reachable by browsing, not only

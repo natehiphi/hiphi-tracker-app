@@ -37,7 +37,8 @@ def shot(pg, name):
 CASES = [
   ('both chambers', BOTH, r'^On track: bills that started in each chamber are still alive\.$'),
   ('one chamber', ONE, r'^At risk: all 4 alive bills started in the House\. If they stop in the Senate, the issue ends this year\.$'),
-  ('past both chambers', PAST, r'^On track: HB 244 is in conference\.$'),
+  # R-388: HB 244 is a 2025 carryover in conference that has not moved in 2026, so it no longer carries the issue.
+  ('past both chambers', PAST, r'^At risk: only one bill is still alive, and it started in the House\. If it stops in the Senate, the issue ends this year\.$'),
   ('every bill stopped', STOPPED, r'^Nothing moving: every bill on this issue stopped this session\.$'),
 ]
 with L.browser() as B:
@@ -61,7 +62,7 @@ with L.browser() as B:
       heads = pg.page.evaluate("[...document.querySelectorAll('.ip6-colh')].map(e => e.firstChild.textContent.trim())")
       R.check(f'{where}: the columns are "Started in the House" and "Started in the Senate"', heads == ['Started in the House', 'Started in the Senate'], heads)
       origin = pg.page.evaluate("[...document.querySelectorAll('.ip6-col')].map(c => [c.dataset.ipCol, [...c.querySelectorAll('.ip6-brow')].map(r => r.innerText.match(/\\b(HB|SB|HCR|SCR|HR|SR) \\d+/)?.[1] || '')])")
-      R.check(f'{where}: each bill sits in the chamber it started in', all(all((n.startswith('H') if side == 'H' else n.startswith('S')) for n in ns) for side, ns in origin), origin)
+      R.check(f'{where}: each bill sits in the chamber it started in', all(all((n.startswith('H') if side == 'H' else n.startswith('S')) for n in ns if n) for side, ns in origin), origin)
       hl = pg.page.evaluate("(() => { const e = document.querySelector('.ip6-hs > span'); return e ? Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e.parentElement).lineHeight)) : 0; })()")
       lim = 2 if w >= 768 else 5   # the verdict says what is at stake, and no Next (R-352: said once, below)
       R.check(f'{where}: the health check is at most {lim} lines', 1 <= hl <= lim, hl)

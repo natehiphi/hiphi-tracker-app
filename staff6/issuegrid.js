@@ -21,12 +21,12 @@
 // first (issuestand.js byUrgency: at risk, then the nearest hearing or deadline).
 // The find box is R-272's (issuestand.js searcher: words in any order, bill numbers with or without the space).
 import { S, SESSION_OVER, IC, esc } from './data.js';
-import { whenAt } from './model.js';
+import { whenAt, carryWords } from './model.js';
 import { icon, iconBtn, btn, pickerSheet } from './ui.js';
 import { ICONS } from '../icons.js';
 import { plural } from './lists.js';
 import { standOf, markOf, hearPart, deadlineGroups, searcher, numNb, byUrgency } from './issuestand.js';
-import { nw, shownStatus, billInIssue } from './steps.js';
+import { nw, numWords, shownStatus, billInIssue } from './steps.js';
 import { issueKey, stateMark } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as a shape and its word (Decision 4)
 
 // ---- the tints and the icons ----
@@ -159,12 +159,16 @@ function hearNext(x) {
 }
 // The card's next step and its date, one line, or none when there is none (stopped, no bills). At risk and a dying bill lead
 // (Nate, R-272: "see what issues are at risk of dying"), then the hearing, then the next deadline.
+// "Only a 2025 carryover: HB 244" (R-388). Short (a phone card is one line): the card's word already says Nothing moving.
+export const idleLine = bs => `Only ${bs.length === 1 ? `a ${carryWords(bs[0])}` : `${carryWords(bs[0])}s`}: ${bs.slice(0, 2).map(b => numWords(b)).join(', ')}${bs.length > 2 ? ` +${bs.length - 2}` : ''}`;
 export function nextOf(x) {
   const m = markOf(x);
   if (['risk', 'dying'].includes(x.state) && m) return { text: m.text.replace(/^(?:At risk|Safe, but a bill on it is dying)[:,] /, '') };   // R-371: only the label goes; "HB 756: Follow up..." keeps its bill
   const hn = hearNext(x); if (hn) return hn;
   switch (x.state) {
-    case 'none': case 'stopped': return null;
+    // R-388: nearly dead, not dead: say which carryover is left, so no one reads Nothing moving as nothing at all.
+    case 'stopped': return x.idle?.length ? { text: idleLine(x.idle) } : null;
+    case 'none': return null;
     case 'off': return m?.text ? { text: m.text } : null;
     case 'oppose': case 'safe': return m?.text ? { text: cap(afterLabel(m.text)) } : null;
     case 'ahead': return m?.text ? { text: m.text } : null;

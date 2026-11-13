@@ -25,7 +25,7 @@
 // no draft codes (D15). Nothing on a row is amber or red: "At risk" is a word and an icon (D3: amber is only late testimony
 // still accepted, red only a step of yours overdue); a late step of the viewer's own keeps its colour (steps.js shownStatus).
 import { S, SESSION_YEAR, SESSION_OVER, esc } from './data.js';
-import { issueHealth, stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
+import { issueHealth, carryIdle, stopOf, riskOf, diedish, hearingAhead, plain, whenAt, gateNeed, testStep, stepKey, sittingDraft, lateLine, plainGate, gateHead } from './model.js';
 import { icon, iconBtn, sectionNav } from './ui.js';
 import { statusLine, billInIssue, chairStepWords } from './steps.js';
 import { ICONS } from '../icons.js';
@@ -54,11 +54,12 @@ const hearWhen = x => x ? x.ts?.at || x.h.scheduled_at : undefined;
 
 export function standOf(i) {
   const bills = billsOf(i).filter(b => thisSession(b) && b.tracked !== false).sort(byNum);
-  const going = bills.filter(b => !diedish(b)), gone = bills.filter(diedish);
+  // R-388: a carryover not moving this year is neither going nor gone: it is idle, and the issue does not count it.
+  const going = bills.filter(b => !diedish(b) && !carryIdle(b)), gone = bills.filter(diedish), idle = bills.filter(carryIdle);
   // R-316 W23: the hearing that leads is the one whose testimony is due first (model.js testStep, Bills' Next column's rule),
   // so an issue's line says when its testimony is due, not the hearing day; filed and stepless bills come after.
   const hears = going.map(b => { const h = hearingAhead(b), ts = h && testStep(b, h); return h && { b, h, ts, k: stepKey(ts, h) }; }).filter(Boolean).sort((x, y) => x.k.localeCompare(y.k));
-  const hear = hears[0] || null, out = { i, bills, going, gone, hear, state: 'none', when: null };
+  const hear = hears[0] || null, out = { i, bills, going, gone, idle, hear, state: 'none', when: null };
   if (!bills.length) return out;
   // Between sessions every bill has stopped; saying so on each line says nothing (A-14), so the lines carry no mark.
   if (SESSION_OVER) return { ...out, state: 'off' };

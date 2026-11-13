@@ -26,7 +26,7 @@
 // related issues, merge, archive, the first-visit switch. issues.js re-exports issuePage, so app.js is unchanged.
 import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, IA, seesTeam, followsIssue, helpsIssue, heldFor } from './data.js';
 import { openPreview } from './preview.js';   // R-380
-import { liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
+import { carryIdle, carryWords, introYear, liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB, pathLine, vbFinish } from './ui.js';
 import { sl } from './ui.js';   // R-365 B plain words
 import { plural, afterClose, billName, iconName } from './lists.js';
@@ -115,6 +115,8 @@ const originOf = b => b.chamber === 'S' || b.chamber === 'H' ? b.chamber : Strin
 function placeOfBill(b) {
   const st = stopOf(b), stage = effStage(b), side = originOf(b);
   if (stage === 'enacted' || st.phase === 'law') return { b, st, side, alive: true, law: true };
+  // R-388: a carryover not moving this year is kept apart: not alive for the issue, not stopped either.
+  if (carryIdle(b)) return { b, st, side, alive: false, idle: true };
   if (!diedish(b)) return { b, st, side, alive: true };
   return { b, st, side, alive: false, vetoed: stage === 'vetoed' };
 }
@@ -168,14 +170,14 @@ const BILL_KIND = { HB: 'House bill', SB: 'Senate bill', HCR: 'House concurrent 
 const billKind = b => BILL_KIND[String(b.bill_number || '').replace(/[\s\d]/g, '')] || 'Bill';
 function billCard(x) {
   const b = x.b, own = VB && VBI ? ownerOf(b) : null;
-  const line = (x.law ? 'Signed into law' : x.alive ? nowWords(b, x.st) : stoppedWords(b)) + (VB && VBI && x.alive && seesTeam() ? ` · ${own ? (own.id === S.me?.id ? 'You own it' : `${vbFirst(own.id)} owns it`) : 'No owner yet'}` : '');
+  const line = (x.law ? 'Signed into law' : x.alive ? nowWords(b, x.st) : x.idle ? `Carried over, not moving · a ${carryWords(b)}` : stoppedWords(b)) + (VB && VBI && x.alive && seesTeam() ? ` · ${own ? (own.id === S.me?.id ? 'You own it' : `${vbFirst(own.id)} owns it`) : 'No owner yet'}` : '');
   const nm = VB && VBI ? billInIssue(b, VBI) : '';
   const top = VB && VBI ? `<span class="v6-row-name ip6-num">${esc(numWords(b))} · ${esc(billKind(b))}</span>${nm !== numWords(b) ? ` <span class="v6-row-num ip6-twin">${esc(nm)}</span>` : ''}`
     : x.twin ? `<span class="v6-row-name ip6-num">${esc(numWords(b))}</span> <span class="v6-row-num ip6-twin">${esc(nameWords(b))}</span>`
     : `<span class="v6-row-name">${esc(nameWords(b))}</span> <span class="v6-row-num">${esc(numWords(b))}</span>`;
   return `<div class="v6-row ip6-brow${x.alive ? '' : ' is-stop'}" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}">
     <a class="v6-row-main" href="${esc(billRoute(b))}"><span class="v6-row-top">${top}</span>
-      ${x.alive ? barHTML(b) : ''}<span class="v6-row-line">${x.alive ? '' : icon('circle-minus')}<span><span class="sr">${esc(stepOfWords(b))}</span>${nw(esc(line))}</span></span></a></div>`;
+      ${x.alive ? barHTML(b) : ''}<span class="v6-row-line">${x.alive ? '' : icon(x.idle ? 'history' : 'circle-minus')}<span><span class="sr">${esc(stepOfWords(b))}</span>${nw(esc(line))}</span></span></a></div>`;
 }
 const STOP_SHOWN = 2;   // stopped bills past this many fold under one line (what is done may fold: rule 3)
 // A column with none alive folds all its stopped bills when the other column still has one alive (R-352: the alive bill is
@@ -263,6 +265,8 @@ function health(xs, earlier) {
   let k, text;
   if (!now.length) { k = 'none'; text = earlier.length ? `No ${SESSION_YEAR} bills yet: put this session’s bills on it to follow them here.` : 'No bills yet: put a bill on this issue to follow it here.'; }
   else if (law.length) { k = 'won'; text = `${listAnd(law.map(x => numWords(x.b)))} became law.`; }
+  else if (!alive.length && now.some(x => x.idle)) { k = 'stopped'; const idle = now.filter(x => x.idle);
+    text = `only ${idle.length === 1 ? `a ${carryWords(idle[0].b)} is` : `${carryWords(idle[0].b)}s are`} left, not moving: ${listAnd(idle.map(x => numWords(x.b)))}. ${idle.length === 1 ? 'It needs' : 'One needs'} a hearing this year, or the issue needs a new bill.`; }
   else if (!alive.length) { k = 'stopped'; text = now.length === 1 ? 'its only bill stopped this session.' : 'every bill on this issue stopped this session.'; }
   else if (H.length && Sn.length) { k = 'ontrack'; text = 'bills that started in each chamber are still alive.'; }
   else if (past.length) { k = 'ontrack'; const x = past[0]; text = `${numWords(x.b)} is ${x.st.phase === 'conference' ? 'in conference' : x.st.phase === 'governor' ? 'on the Governor’s desk' : 'with the voters'}.`; }
@@ -1043,7 +1047,8 @@ function iaRow(i, x, all, { inPair = false } = {}) {
   const b = x.b, tw = !inPair ? iaMate(x, all) : null, num = numWords(b), nm = nameWords(b, 60);
   const same = nm && nm.trim().toLowerCase() === String(i.name || '').trim().toLowerCase();   // on its own issue's page the issue's name is not said again (R-373 review, A-18)
   const title = `<a class="ia-title" href="${esc(billRoute(b))}"><b>${esc(num)}</b>${nm && nm !== num && !same ? `<span>${esc(nm)}</span>` : ''}</a>`;
-  const withTw = tw ? `<p class="ia-with">Companion: <a href="${esc(billRoute(tw.b))}">${esc(numWords(tw.b))}</a>${tw.alive ? '' : ', stopped'}</p>` : '';
+  const withTw = tw ? `<p class="ia-with">Companion: <a href="${esc(billRoute(tw.b))}">${esc(numWords(tw.b))}</a>${tw.alive ? '' : tw.idle ? ', carried over, not moving' : ', stopped'}</p>` : '';
+  if (x.idle) return `<div class="ia-row is-stop" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}"><div class="ia-main">${title}${withTw}<p class="ia-stand">${icon('history')}<span>${nw(esc(`Carried over, not moving${stageInWords(b) ? ` · left off ${stageInWords(b).replace(/^./, c => c.toLowerCase())}` : ''}`))}</span></p></div></div>`;
   if (!x.alive) return `<div class="ia-row is-stop" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}"><div class="ia-main">${title}${withTw}<p class="ia-stand">${icon('circle-minus')}<span>${nw(esc(stoppedWords(b)))}</span></p></div></div>`;
   const s = !x.law && b.tracked !== false ? billStep(b, { viewer: S.me }) : null, h = hearingAhead(b), who = ownerOf(b);
   // The hearing is said once (R-373 review, A-14): the stage line carries it with the committee, and takes the time and room
@@ -1070,11 +1075,12 @@ function iaGroupHTML(i, g, all) {
 }
 function iaBills(i, xs, now, earlier) {
   const edit = !!P().edit[i.id] || !(now.length + earlier.length);
-  const cur = xs.filter(x => thisSession(x.b)), alive = cur.filter(x => x.alive), gone = cur.filter(x => !x.alive);
+  const cur = xs.filter(x => thisSession(x.b)), alive = cur.filter(x => x.alive), idle = cur.filter(x => x.idle), gone = cur.filter(x => !x.alive && !x.idle);
   const editBtn = now.length + earlier.length ? btn(edit ? 'Done' : 'Edit bills', { kind: 'text', sm: true, icon: edit ? 'check' : 'pencil', attrs: { 'data-is': 'editbills', 'aria-expanded': String(edit) } }) : '';
   const list = gs => `<div class="ia-list" role="list">${gs.map(g => iaGroupHTML(i, g, cur)).join('')}</div>`;
   return `<section class="vb-sec ia-bills" aria-labelledby="ia-bh"><div class="i6-hrow"><h2 class="ip6-h" id="ia-bh">${alive.length ? `Bills <span class="ip6-coln">${alive.length} alive</span>` : 'Bills'}</h2>${editBtn}</div>
-    ${alive.length ? list(iaGroups(alive, cur)) : cur.length ? '<p class="ip6-quiet">No bill on this issue is still alive.</p>' : '<p class="ip6-quiet">No bill is on this issue yet. Use Edit bills to put one on it.</p>'}
+    ${alive.length ? list(iaGroups(alive, cur)) : idle.length ? `<p class="ip6-quiet">No ${SESSION_YEAR} bill on this issue is moving.</p>` : cur.length ? '<p class="ip6-quiet">No bill on this issue is still alive.</p>' : '<p class="ip6-quiet">No bill is on this issue yet. Use Edit bills to put one on it.</p>'}
+    ${idle.length ? `<h2 class="ip6-h ia-stoph" id="ia-ch">Carried over from ${introYear(idle[0].b)} <span class="ip6-coln">${idle.length}</span></h2><p class="ip6-quiet">Not moving this year, so the issue does not count ${idle.length === 1 ? 'it' : 'them'} as alive. A hearing, vote or new draft this year brings ${idle.length === 1 ? 'it' : 'one'} back.</p>${list(iaGroups(idle, cur))}` : ''}
     ${gone.length ? `<h2 class="ip6-h ia-stoph" id="ia-sh">Stopped <span class="ip6-coln">${gone.length}</span></h2>${list(iaGroups(gone, cur))}` : ''}
     ${edit ? editHTML(i, now, earlier) : ''}</section>`;
 }

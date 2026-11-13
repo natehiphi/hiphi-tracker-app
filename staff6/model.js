@@ -18,7 +18,7 @@ export let FACTS = new Map();
 export function factsOf(b) {
   let f = FACTS.get(b.id); if (f) return f;
   const now = Date.now(), dead = diedish(b), st = dead ? null : stopOf(b);
-  f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', posx: b.position || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b),
+  f = { pri: b.priority || 0, pos: POS_GROUP[b.position] || 'monitor', posx: b.position || 'monitor', camps: S.billCampaigns[b.id] || [], triple: isTriple(b), carry: isCarry(b),
     lsts: (S.listBills || []).filter(x => x.bill_id === b.id).map(x => x.list_id),
     stand: dead ? 'dead' : st.column || (['governor', 'enacted', 'ballot'].includes(effStage(b)) ? 'done' : 'c'),
     risk: !!st && !SESSION_OVER && wantsHearing(b) && st.column === 'a' && !!st.deadline && !st.deadline.missed && st.deadline.days <= RISK_DAYS,
@@ -33,7 +33,7 @@ export const facets = () => [
   { key: 'camps', label: 'Coalition', opts: S.campaigns.map(c => [c.id, c.name]), has: (f, v) => f.camps.includes(v) },
   { key: 'lsts', label: 'List', opts: (S.lists || []).map(l => [l.id, l.title]), has: (f, v) => f.lsts.includes(v) },
 ];
-export const FLAGS = [['riskF', 'At risk', 'no hearing yet and the deadline is a week away or less', f => f.risk], ['hearF', 'Hearing this week', 'a hearing in the next 7 days', f => f.hear], ['tripleF', 'Triple-referred', 'three committees in one chamber', f => f.triple],
+export const FLAGS = [['riskF', 'At risk', 'no hearing yet and the deadline is a week away or less', f => f.risk], ['hearF', 'Hearing this week', 'a hearing in the next 7 days', f => f.hear], ['tripleF', 'Triple-referred', 'three committees in one chamber', f => f.triple], ['carryF', 'Carried over', 'introduced last year and carried over (R-388)', f => f.carry],
   // Named for what stays, not what goes. Off by default: dead bills already sort to the bottom, so nothing vanishes unasked.
   ['aliveF', 'Still alive', 'leave out bills that died, were vetoed or missed a deadline', f => f.stand !== 'dead']];
 export function passes(b, skip) {
@@ -297,8 +297,8 @@ const THROUGH_PHASES = new Set(['governor', 'law', 'ballot']);
 export function issueHealth(i) {
   const sess = b => !b.session_year || +b.session_year === +SESSION_YEAR;
   const bills = (S.billIssues || []).filter(x => x.issue_id === i.id).map(x => (S.bills || []).find(b => b.id === x.bill_id)).filter(b => b && sess(b) && b.tracked !== false);
-  const against = i.stance === 'oppose', going = bills.filter(b => !diedish(b)), law = bills.some(b => effStage(b) === 'enacted');
-  const out = key => ({ key, word: HEALTH[key], bills, going });
+  const against = i.stance === 'oppose', going = bills.filter(b => !diedish(b) && !carryIdle(b)), idle = bills.filter(carryIdle), law = bills.some(b => effStage(b) === 'enacted');
+  const out = key => ({ key, word: HEALTH[key], bills, going, idle });   // idle: carryovers not moving (R-388)
   if (!bills.length) return out('none');
   if (law) return out(against ? 'stopped' : 'won');
   if (!going.length) return out(against ? 'won' : 'stopped');
@@ -336,6 +336,42 @@ export const diedish = b => { const st = effStage(b);
   if (S.hearings.some(h => h.bill_id === b.id && new Date(h.scheduled_at) > new Date())) return false;
   if (HELD_RE.test(b.last_action || '')) return true;
   return SESSION_OVER && !['enacted','governor','ballot'].includes(st); };
+// R-388 (Nate 13 Nov): a carryover is a bill introduced in the Legislature's first year (2025, 2027) that carried over into
+// its second (2026, 2028) with the same number. The data files it under the second year, so it looked like a new bill and
+// an issue whose only "live" bill was a 2025 bill in conference read On track. Nate: assume it will not be revived (nearly
+// dead, not fully dead) until it moves in the new year: a hearing, a vote, a new draft.
+// Which year it started in: Hawaiʻi's Legislature starts in odd years; in the second year Senate numbers start at SB 2001,
+// and House numbers carry on from where the first year stopped (2026: HB 1504 was the first new one, from the
+// Capitol data on 13 Nov). A 2028 cut-off goes here once that session's numbers start, or the intro_year column replaces it.
+const HB_FIRST_NEW = { 2026: 1504 };
+const CARRY_RE = /^Carried over to (?:the )?\d{4}/i;
+export function introYear(b) {
+  if (!b) return null;
+  const y = +(b.session_year || SESSION_YEAR);
+  if (b.intro_year) return +b.intro_year;
+  if (y % 2) return y;                                     // the first year of a Legislature: nothing carries in
+  if (CARRY_RE.test(b.last_action || '')) return y - 1;
+  const m = /^(HB|SB)\s*(\d+)$/i.exec(String(b.bill_number || '').trim());
+  if (!m) return y;                                        // resolutions and messages never carry over
+  const n = +m[2];
+  if (m[1].toUpperCase() === 'SB') return n < 2000 ? y - 1 : y;
+  return HB_FIRST_NEW[y] && n < HB_FIRST_NEW[y] ? y - 1 : y;
+}
+export const isCarry = b => !!b && introYear(b) < +(b.session_year || SESSION_YEAR);
+// "2025 carryover", the words Nate chose for the bill page; '' for a bill of this year.
+export const carryWords = b => isCarry(b) ? `${introYear(b)} carryover` : '';
+// It moved in the new year: a hearing set or held from 1 January, or a later action that is a vote, a report or a new
+// draft. Being carried over, or re-referred in January, is not movement.
+const MOVE_RE = /pass|report|reading|conference|agree|disagree|enrol|transmit|veto|signed|act \d|\b[HSC]D ?\d/i;
+export function carryMoved(b) {
+  if (!isCarry(b)) return true;
+  const jan = `${+(b.session_year || SESSION_YEAR)}-01-01`;
+  if ((S.hearings || []).some(h => h.bill_id === b.id && h.status !== 'cancelled' && String(h.scheduled_at || '') >= jan)) return true;
+  const la = b.last_action || '';
+  return String(b.last_action_date || '') >= jan && !CARRY_RE.test(la) && !/referred/i.test(la) && MOVE_RE.test(la);
+}
+// Carried over and not moving this year: alive on paper, but no issue's health counts it as alive.
+export const carryIdle = b => isCarry(b) && !carryMoved(b) && !diedish(b) && effStage(b) !== 'enacted';
 export const tierOf = b => {
   const p = b.position;
   if ((p === 'support' || p === 'oppose') && b.priority === 1) return 0;   // strongly

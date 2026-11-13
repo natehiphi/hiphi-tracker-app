@@ -4,7 +4,7 @@
 // three of them on the bill itself (see "what a filter means" below); this file adds the two groups the current app
 // handled elsewhere (owner, which was the teammate scope, and committee) so every count in the sheet comes from one
 // function, passAll().
-import { S, DB, DEMO, esc, advocate, effStage, STAGES, isMine, isOwner, isMuted, hooks } from './data.js';
+import { S, DB, DEMO, SESSION_YEAR, esc, advocate, effStage, STAGES, isMine, isOwner, isMuted, hooks } from './data.js';
 import { factsOf, facets, FLAGS, FACTS, diedish, codesOf, plain, STAGE_GLOSS, sponsorName, stopOf } from './model.js';   // FLAGS: passFacets
 import { icon, btn, field, inlineErr, toast, openSheet, closeSheet, iconBtn, POS_ICON, POS_WORD, WHOSE } from './ui.js';
 import { committeeName } from './steps.js';   // v6: a committee by its name, its code beside it (V05)
@@ -76,18 +76,18 @@ export function bl() {
 }
 // The starting state, and the shape a saved view stores: every filter, and nothing about how the table is drawn
 // (columns and row height are how this person likes to read, not what they are looking at).
-export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, stageF: '', owners: [], cmtes: [], issues: [], spons: [], due: '' };
+export const BLANK = { scope: 'me', pris: [], poss: [], stands: [], camps: [], lsts: [], hearF: false, riskF: false, tripleF: false, carryF: false, stageF: '', owners: [], cmtes: [], issues: [], spons: [], due: '' };
 export function viewState() {
   const v = bl();
   return { scope: v.scope, pris: [...S.pris], poss: [...S.poss], stands: [...S.stands], camps: [...S.camps], lsts: [...S.lsts],
-    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes], issues: [...v.issues], spons: [...v.spons], due: v.due || '' };
+    hearF: S.hearF, riskF: S.riskF, tripleF: S.tripleF, carryF: S.carryF, stageF: S.stageF, owners: [...v.owners], cmtes: [...v.cmtes], issues: [...v.issues], spons: [...v.spons], due: v.due || '' };
 }
 // Ids are checked against what exists today, so a deleted coalition or teammate never leaves a filter nobody can see
 // (a saved view made in January is read the same way in April).
 function applyFilters(f) {
   const v = bl();
   S.pris = new Set(); S.poss = new Set(); S.stands = new Set(); S.camps = new Set(); S.lsts = new Set();
-  S.hearF = false; S.riskF = false; S.tripleF = false; S.aliveF = false; S.stageF = '';   // "Still alive" is the folded Did not advance group now
+  S.hearF = false; S.riskF = false; S.tripleF = false; S.carryF = false; S.aliveF = false; S.stageF = '';   // "Still alive" is the folded Did not advance group now
   v.owners = new Set(); v.cmtes = new Set(); v.issues = new Set(); v.spons = new Set(); v.due = '';
   if (!f) return;
   const ok = (arr, pool) => (arr || []).filter(x => pool.includes(x));
@@ -97,7 +97,7 @@ function applyFilters(f) {
   S.stands = new Set(ok(f.stands, ['a', 'b', 'c', 'done', 'dead']));
   S.camps = new Set(ok(f.camps, S.campaigns.map(c => c.id)));
   S.lsts = new Set(ok(f.lsts, (S.lists || []).map(l => l.id)));
-  S.hearF = !!f.hearF; S.riskF = !!f.riskF; S.tripleF = !!f.tripleF;
+  S.hearF = !!f.hearF; S.riskF = !!f.riskF; S.tripleF = !!f.tripleF; S.carryF = !!f.carryF;
   S.stageF = STAGES.some(([k]) => k === f.stageF) ? f.stageF : '';
   v.owners = new Set(ok(f.owners, ['none', ...S.advocates.map(a => a.id)]));
   v.cmtes = new Set(f.cmtes || []);
@@ -235,7 +235,7 @@ export const QUICK = [['riskF', 'At risk', f => f.risk], ['hearF', 'Hearing this
 // "No hearing yet" is at risk and the rest together: Bills' two groups are "At risk: no hearing yet" and "No hearing yet",
 // and the deadline line says "with no hearing yet" (one word per fact, A-14; v6 had three names for it).
 const STAND_WORD = { a: 'No hearing yet', b: 'Hearing scheduled', c: 'Through its committees', done: 'At the governor or law', dead: 'Stopped' };
-const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees' };
+const FLAG_WORD = { riskF: 'At risk', hearF: 'Hearing this week', tripleF: 'Three or more committees', carryF: 'Carried over' };
 // The filters kept on the Bills screen's own state (the rest live on S, where model.js's facets read them).
 const MINE = new Set(['owners', 'cmtes', 'issues', 'spons']);
 export const isOn = spec => { const i = spec.indexOf(':'), k = i < 0 ? spec : spec.slice(0, i), raw = i < 0 ? '' : spec.slice(i + 1);
@@ -367,7 +367,7 @@ export function activeFilters() {
   for (const p of S.poss) out.push([`poss:${p}`, posWord(p)]);
   for (const s of S.stands) out.push([`stands:${s}`, STAND_WORD[s] || s]);
   if (S.stageF) out.push([`stageF:${S.stageF}`, stageWords(S.stageF)]);
-  for (const k of ['hearF', 'riskF', 'tripleF']) if (S[k]) out.push([k, FLAG_WORD[k]]);
+  for (const k of ['hearF', 'riskF', 'tripleF', 'carryF']) if (S[k]) out.push([k, FLAG_WORD[k]]);
   for (const c of S.camps) out.push([`camps:${c}`, S.campaigns.find(x => x.id === c)?.name || 'Coalition']);
   for (const l of S.lsts) out.push([`lsts:${l}`, (S.lists || []).find(x => x.id === l)?.title || 'List']);
   for (const c of v.cmtes) out.push([`cmtes:${c}`, committeeName(c) || c]);
@@ -447,9 +447,12 @@ function sheetBody() {
   const seen = new Set(); for (const b of base) for (const c of cmtesOf(b)) seen.add(c); for (const c of v.cmtes) seen.add(c);
   const cmRows = pickRows('cmtes', [...seen].map(c => [c, cnt(base, 'cmtes', (x, b) => cmtesOf(b).includes(c))]), v.cmtes, c => cmteWords(c) || c, 'committees');
   const trip = shown('tripleF', cnt(base, 'tripleF', x => x.triple)) ? `<div class="chips bl-trip">${opt('tripleF', 'Three or more committees', cnt(base, 'tripleF', x => x.triple), { title: 'Sent to three committees in one chamber: it must clear its first by the triple filing deadline' })}</div>` : '';
-  const moreOn = ['hearF', 'riskF', 'tripleF'].filter(k => S[k] && !PRESETS.some(([p]) => p === k)).length + (S.stageF ? 1 : 0) + S.lsts.size + v.issues.size + v.spons.size + v.cmtes.size;
+  // R-388: bills introduced last year that carried over (only in a Legislature's second year; no options at zero, V32).
+  const carry = shown('carryF', cnt(base, 'carryF', x => x.carry)) ? `<div class="chips bl-trip">${opt('carryF', `Carried over from ${SESSION_YEAR - 1}`, cnt(base, 'carryF', x => x.carry), { title: 'Introduced last year and carried over with the same number. Unless it moves this year, no issue counts it as alive.' })}</div>` : '';
+  const moreOn = ['hearF', 'riskF', 'tripleF', 'carryF'].filter(k => S[k] && !PRESETS.some(([p]) => p === k)).length + (S.stageF ? 1 : 0) + S.lsts.size + v.issues.size + v.spons.size + v.cmtes.size;
   const open = v.fopen.has('more') || moreOn > 0;
   const more = [group('Hearing', hear, 'hear'), stages ? group('Exact stage', stages, 'stage') : '', lists ? group('List on the public page', lists, 'list') : '',
+    carry ? `<section class="bl-fg" aria-labelledby="bl-fg-yr"><h3 id="bl-fg-yr">Year</h3>${carry}</section>` : '',
     issRows ? `<section class="bl-fg" aria-labelledby="bl-fg-iss"><h3 id="bl-fg-iss">Issue</h3>${issRows}</section>` : '',
     trip || cmRows ? `<section class="bl-fg" aria-labelledby="bl-fg-cm"><h3 id="bl-fg-cm">Committee</h3>${trip}${cmRows}</section>` : '',
     spRows ? `<section class="bl-fg" aria-labelledby="bl-fg-sp"><h3 id="bl-fg-sp">Sponsor</h3>${spRows}</section>` : ''].join('');

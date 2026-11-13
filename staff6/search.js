@@ -24,7 +24,8 @@ import { isLead } from './more.js';
 import { admitsPartners } from './partnerq.js';
 import { issueIcon } from './issuegrid.js';
 import { billStatusWords } from './coalition.js';   // R-370: a bill's standing in My issues' own words
-import { stageInWords } from './bill.js';   // R-370 third walk: the same "where it is" words as the bill page
+import { stageInWords } from './bill.js';
+import { carryWords, carryIdle } from './model.js';   // R-370 third walk: the same "where it is" words as the bill page
 import { glanceRow, twinsAmong } from './bills.js';   // as Bills' rows: the twin (no job tile: R-352, A-18, each result group is one kind under its own heading)
 import { slimBarHTML } from './tracker.js';   // R-352 FIX-3 (Nate 28 Oct, "keep the bill progress bar there"): each bill result's slim bar, Now and Law
 // The slim bar under a bill result's line, inside its link (as live's glanceRow drew it): where the bill is, at a glance.
@@ -264,7 +265,9 @@ const ownTitle = (b, n = 1e4) => blurb(b, n) || nameWords(b, n);
 // helper the rest of the app uses), then the stage in a few words ("Waiting for a hearing · Senate Commerce"), not the
 // last to-do ("Asked by Kevin Tue 3/10").
 const numTitle = (b, n = 80) => { const t = nameWords(b, n), nm = numWords(b); return !t || t === nm ? nm : `${nm} · ${t}`; };
-const stageLineB = b => stageInWords(b) || stageWords(b) || STAGE_LABEL[effStage(b)] || '';
+// R-388: a carryover says so first, as Bills' rows do.
+const stageLineB = b => { const w = stageInWords(b) || stageWords(b) || STAGE_LABEL[effStage(b)] || '', cw = carryWords(b);
+  return cw ? `${cw}${carryIdle(b) ? ', not moving' : ''}${w ? ` · ${w}` : ''}` : w; };
 const billInLine = b => { const n = issueNamesOf(b); return `${numWords(b)} · bill${n.length ? ' in ' + n[0] + (n.length > 1 ? ` +${n.length - 1}` : '') : ''}`; };
 const issueBillCount = i => (S.billIssues || []).filter(x => x.issue_id === i.id).length;
 // R-371: an issue's health word, from model.js issueHealth, the same one My issues, All issues and Coalitions say.

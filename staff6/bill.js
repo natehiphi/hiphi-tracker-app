@@ -27,7 +27,7 @@ import { renderCommittees, wireCommittees } from './pathway.js';
 import { renderActivity, wireActivity, loadTimeline, shortAction, noteByText } from './activity.js';
 import { renderPublic, wirePublic, wireDraftsFocus } from './public.js';
 import { renderEarlier, wireTestimony, earlierCount, onNextUp } from './testimony.js';
-import { billRoute, billByNum, MEMO_SAYS, plain, companionsOf, wantsHearing, chairAskMail, chairAskOf, ASK_LOG, liveAsk } from './model.js';
+import { carryWords, carryIdle, introYear, billRoute, billByNum, MEMO_SAYS, plain, companionsOf, wantsHearing, chairAskMail, chairAskOf, ASK_LOG, liveAsk } from './model.js';
 import { askConflict } from './conflict.js';
 import { untrackedHTML, wireUntracked, untrackedOf } from './untracked.js';
 import { issuesOfBill, issueLinkHref } from './issues.js';
@@ -477,6 +477,8 @@ const vbIssue = b => issuesOfBill(b.id)[0] || null;
 export function ownState(b) {
   if (diedish(b)) { const w = deadWords(b); return { key: 'stopped', word: 'Stopped', ic: 'circle-minus', html: /^missed the sine die/i.test(w) ? 'the session ended before it passed' : w ? w[0].toLowerCase() + w.slice(1) : '' }; }
   const st = stopOf(b), ph = st.phase, cm = st.committee ? esc(committeeName(st.committee) || st.committee) : '';
+  // R-388: a carryover that has not moved this year is not alive for its issue; the card and the companion line say so.
+  if (carryIdle(b)) return { key: 'stopped', word: 'Carried over, not moving', ic: 'history', html: esc(`a ${carryWords(b)}${ph === 'conference' ? ', left off in conference' : cm ? `, left off in ${committeeName(st.committee) || st.committee}` : ''}`) };
   if (ph === 'law') return { key: 'track', word: 'Became law', ic: 'circle-check', html: '' };
   if (ph === 'governor' || ph === 'ballot') return { key: 'track', word: 'Passed the Legislature', ic: 'circle-check', html: '' };
   if (ph === 'committee') {
@@ -494,14 +496,14 @@ function twinLine(b) {
   const found = companionBillsOf(b), nums = found.length ? found.map(t => t.bill_number) : companionsOf(b); if (!nums.length) return '';
   return (nums.length > 1 ? 'Companions: ' : 'Companion: ') + nums.map(n => { const t = found.find(x => x.bill_number === n) || billByNum(n, b.session_year);
     if (!t) return esc(spaced(n));
-    const o = ownState(t), tail = o.key === 'stopped' ? 'stopped' : o.word === 'Needs a hearing' ? 'needs a hearing' : o.word === 'Hearing set' ? `hearing ${o.html}` : o.word === 'Alive' ? 'alive' : o.word.toLowerCase();
+    const o = ownState(t), tail = o.word === 'Carried over, not moving' ? 'carried over, not moving' : o.key === 'stopped' ? 'stopped' : o.word === 'Needs a hearing' ? 'needs a hearing' : o.word === 'Hearing set' ? `hearing ${o.html}` : o.word === 'Alive' ? 'alive' : o.word.toLowerCase();
     return `<a href="${esc(billRoute(t))}">${esc(numWords(t))}</a> (${tail})`; }).join(', ');
 }
 function vbTitle(b) {
   const i = vbIssue(b), tw = twinLine(b), nm = billName(b), num = numWords(b);
   // R-370: the bill's own short title (its plain summary) under the number, so a bill that shares its issue's name still says what it is.
   const short = blurb(b, 1e4);
-  return `<div class="vb-btitle"><p class="vb-kind">Bill</p><h1 class="bw-h1 vb-bh1" id="bw-h1" tabindex="-1">${esc(num)}</h1>
+  return `<div class="vb-btitle"><p class="vb-kind">Bill${carryWords(b) ? ` (${esc(carryWords(b))})${carryIdle(b) ? ' · not moving this year' : ''}` : ''}</p><h1 class="bw-h1 vb-bh1" id="bw-h1" tabindex="-1">${esc(num)}</h1>
     ${nm && nm !== num && nm !== i?.name && nm !== short ? `<p class="vb-bname">${esc(nm)}</p>` : ''}
     ${short ? `<p class="vb-bshort">${esc(short)}</p>` : ''}
     ${i || tw ? `<p class="vb-in">${i ? `in <a href="#/issue/${encodeURIComponent(i.id)}?from=${esc(billRef(b))}">${esc(i.name)}</a>` : ''}${i && tw ? ' · ' : ''}${tw}</p>` : ''}</div>`;
@@ -535,7 +537,15 @@ function vbTracker(b, html) {
   // the whole path stays behind "Show the whole path" (and the bar). The screen-reader sentence says the same, short.
   try { const L = vbNextWords(trackerModel(b)); if (L) html = html.replace(/<div class="tk-cap">[\s\S]*?<\/div>/, `<div class="tk-cap"><p class="tk-vbnext"><b>${esc(L.next)}</b></p>${L.must ? `<p class="tk-vbmust">${esc(L.must)}</p>` : ''}</div>`)
     .replace(/(<h2 class="sr" id="tk-h">Where it is<\/h2>)<p class="sr">[\s\S]*?<\/p>/, `$1<p class="sr">${esc(L.next)}.${L.must ? ' ' + esc(L.must) + '.' : ''} The whole path is under Show the whole path.</p>`); } catch { /* keep the tracker's own caption */ }
-  return html.replace('See every stop', 'Show the whole path').replace('Hide the stops', 'Hide the path');
+  html = html.replace('See every stop', 'Show the whole path').replace('Hide the stops', 'Hide the path');
+  // R-388 (fresh-eyes review): a carryover not moving this year must not read as a live bill near the finish. The caption says
+  // where it left off and what would bring it back, and the bar loses its colour (inline: bill.css is another build's file now).
+  if (carryIdle(b)) { const st = stopOf(b), at = st.phase === 'conference' ? 'in conference' : st.phase === 'floor' ? 'waiting for a floor vote' : st.committee ? `in ${committeeName(st.committee) || st.committee}` : '';
+    const say = `Left off ${at ? at + ' ' : ''}in ${introYear(b)}`, why = 'Not moving this year. A hearing, vote or new draft would bring it back.';
+    html = html.replace(/(<h2 class="sr" id="tk-h">Where it is<\/h2>)<p class="sr">[\s\S]*?<\/p>/, `$1<p class="sr">${esc(say)}. ${why}</p>`);
+    html = html.replace(/<div class="tk-cap"([^>]*)>[\s\S]*?<\/div>/, `<div class="tk-cap"$1><p class="tk-vbnext"><b>${esc(say)}</b></p><p class="tk-vbmust">${why}</p></div>`);
+    html = `<div data-carry-idle style="filter: grayscale(1)">${html}</div>`; }
+  return html;
 }
 // "Next: Senate Commerce and Health hearing · then Ways and Means" and "Must pass its last Senate committee by Mon 3/30 (second lateral)".
 // null unless the bill is live with a place on the path.
