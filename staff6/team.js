@@ -285,9 +285,9 @@ const nobodyRow = (x, { button = noOwnBtn(x.b) } = {}) => billRow(x.b, { viewer:
 const campName = id => (S.campaigns || []).find(c => c.id === id)?.name || '';
 function helpsWords(a) {
   const c = a?.prefs?.coalitions;
-  if (c === 'all') return 'helps every coalition';
+  if (c === 'all') return 'follows every coalition';
   const names = (Array.isArray(c) ? c : []).map(campName).filter(Boolean);
-  return names.length ? `helps ${names.length > 2 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(' and ')}` : '';
+  return names.length ? `follows ${names.length > 2 ? `${names.slice(0, 2).join(', ')} and ${names.length - 2} more` : names.join(' and ')}` : '';
 }
 function loads() {
   return teammates().map(a => { const w = work(a), onToday = new Set(w.own.filter(i => i.kind === 'rally' || (i.kind === 'todo' && i.share)).map(i => i.b?.id));

@@ -118,8 +118,8 @@ export function coalRow(c, { button = '' } = {}) {
 }
 // The I help switch: a toggle button (aria-pressed), the one control a row may carry (D16), on every coalition its owner is
 // not (the owner has its work on Today already). Its name stays "I help" either way (WCAG 2.5.3); pressed, it shows a check.
-export const helpBtn = (c, on = supports(c)) => btn('I help', { kind: 'secondary', sm: true, icon: on ? 'check' : 'user-plus', cls: 'co6-help',
-  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': `I help on ${c.name}`, title: 'Adds you as a helper: its bills show on your Today' } });
+export const helpBtn = (c, on = supports(c)) => btn(on ? 'Following' : 'Follow', { kind: 'secondary', sm: true, icon: on ? 'check' : 'bell', cls: 'co6-help',
+  attrs: { 'data-misup': c.id, 'aria-pressed': String(on), 'aria-label': on ? `Following ${c.name}. Press to stop following` : `Follow ${c.name}: its bills show on your Today`, title: on ? 'Press to stop following' : 'Its bills show on your Today' } });
 // This visit's switches: a coalition switched here stays in the section it was in until the next visit, showing its new
 // state, so the row under the pointer never changes (the critic: pressing I help moved the row up and slid the next one's
 // I help under the pointer). A visit is this history entry; a redraw keeps it, arriving again starts afresh.
@@ -147,7 +147,7 @@ export function wireHelpBtns(root) {
 export function helpLineHTML() {
   if (!S.me || pref() === 'all') return '';
   const l = (S.campaigns || []).filter(c => supports(c) && !ownsCoal(c)).sort(byOrder); if (!l.length) return '';
-  if (l.length > 2) return `<p class="i6-line">${icon('users')}<span>You help on ${l.length} coalitions</span><a class="i6-inline" href="#/issues/coalitions">See them</a></p>`;
+  if (l.length > 2) return `<p class="i6-line">${icon('users')}<span>You follow ${l.length} coalitions</span><a class="i6-inline" href="#/issues/coalitions">See them</a></p>`;
   // A monitored bill's hearing is said, not hidden behind "no hearings this week" (Julie: HIAPA's SB 3142 was heard Wed 3/18).
   const one = c => { const n = weekOf(c).length, mon = n ? [] : monitorWeek(c);
     const w = n ? hearWords(n) : mon.length ? `no hearings on bills we support or oppose · ${mon.length} on ${mon.length === 1 ? 'a bill' : 'bills'} we monitor, ${dayWords(mon[0])}` : hearWords(0);
@@ -185,7 +185,7 @@ export function coalCardsHTML({ yoursTitle = '' } = {}) {
 function indexHTML() {
   const v = pref(), list = (S.campaigns || []).slice().sort(byOrder), head = tabsHead('coalitions');
   if (!list.length) return `<div class="le-page co6-index">${head}<div class="le-empty">${empty({ title: 'No coalitions yet', text: 'An admin adds them in Session setup.', action: S.me?.is_admin ? btn('Open Session setup', { href: '#/setup/coalitions' }) : '' })}</div></div>`;
-  return `<div class="le-page co6-index">${head}${coalCardsHTML({ yoursTitle: v === 'all' ? 'You help on every coalition' : '' })}</div>`;
+  return `<div class="le-page co6-index">${head}${coalCardsHTML({ yoursTitle: v === 'all' ? 'You follow every coalition' : '' })}</div>`;
 }
 
 // ============================================================================================ one coalition
@@ -331,8 +331,8 @@ function supportHTML(c, { slot = false } = {}) {
   const v = pref(), on = supports(c);
   // R-277 fix 21 (W-8): "I support CTFH" read as a position on tobacco. The switch says what it is (you help on it) and
   // what it does (its work shows on your Today); "Monitor" stays a position only.
-  const help = `Its hearings and deadlines show on your Today, never in its count.${v === 'all' ? ' You help on every coalition.' : ''}`;
-  return `<section class="co6-card co6-sup${slot ? ' co6-slot' : ''}" aria-label="Your help">${switchRow('co-sup', `I help on ${esc(c.name)}`, on, esc(help))}</section>`;
+  const help = `Its hearings and deadlines show on your Today, never in its count.${v === 'all' ? ' You follow every coalition.' : ''}`;
+  return `<section class="co6-card co6-sup${slot ? ' co6-slot' : ''}" aria-label="Following">${switchRow('co-sup', `I follow ${esc(c.name)}`, on, esc(help))}</section>`;
 }
 
 // Share with partners (F160): the two things to copy (A-20: two actions on the card), with the link itself and a preview
@@ -425,7 +425,7 @@ export async function setSupport(c, on, focusSel = '#co-sup') {
   const next = on ? (before === 'all' ? 'all' : [...new Set([...list, c.id])]) : (before === 'all' ? ids.filter(id => id !== c.id) : list.filter(id => id !== c.id));
   try { await DB.patchPrefs({ coalitions: next }); } catch (e) { redrawKeep(focusSel); toast(e, { err: true }); return; }
   redrawKeep(focusSel);
-  toast(on ? `You help on ${c.name}. Its work shows on your Today.` : before === 'all' ? `You no longer help on ${c.name}. You still help on the other ${ids.length - 1}.` : `You no longer help on ${c.name}.`,
+  toast(on ? `You follow ${c.name}. Its work shows on your Today.` : before === 'all' ? `You no longer follow ${c.name}. You still follow the other ${ids.length - 1}.` : `You no longer follow ${c.name}.`,
     { ok: on, undo: async () => { await DB.patchPrefs({ coalitions: before }); redrawKeep(focusSel); } });
 }
 async function takeBill(b) {

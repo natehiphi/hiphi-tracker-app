@@ -207,7 +207,7 @@ export function indexLinks({ mineOnly = false } = {}) {
 export function prepMenu({ mine: withMine = true } = {}) {
   const own = mine(), help = helping(), ok = live().filter(i => !isDraft(i)), n = ok.filter(i => stateOf(i) === 'approved').length;
   return [
-    withMine && (own.length || help.length) ? { label: 'Your issues for 2027', icon: 'clipboard-list', sub: own.length ? `${own.filter(isDone).length} of ${own.length} ready · due ${dueText()}` : `The ones you help on · due ${dueText()}`, run: () => S.go(prepListHref()) } : null,
+    withMine && (own.length || help.length) ? { label: 'Your issues for 2027', icon: 'clipboard-list', sub: own.length ? `${own.filter(isDone).length} of ${own.length} ready · due ${dueText()}` : `The ones you follow · due ${dueText()}`, run: () => S.go(prepListHref()) } : null,
     isAdmin() ? { label: 'Prep board', icon: 'clipboard-check', sub: `${n} of ${ok.length} approved`, run: () => S.go(BOARD_HREF) } : null,
   ].filter(Boolean);
 }
@@ -322,15 +322,15 @@ export function changeOwner(i, { after = () => hooks.render() } = {}) {
 }
 function addHelper(i) {
   const skip = [i.owner_id, ...helpersOf(i).map(a => a.id)];
-  pickerSheet({ title: 'Add a helper', help: 'A helper sees this issue in their own list and can fill in any step. Only the owner marks it ready.',
+  pickerSheet({ title: 'Add someone to follow it', help: 'Anyone following it sees this issue in their own list and can fill in any step. Only the owner marks it ready.',
     options: staffList(skip).map(a => [a.id, a.full_name, '', a.auth_user_id === null ? 'Cannot sign in yet' : '']),
-    onPick: async id => { try { await DB.addIssueHelper(i.id, id); hooks.render(); toast(`${first(advocate(id))} is helping. They get a Slack message.`, { ok: true, undo: async () => { await DB.removeIssueHelper(i.id, id); hooks.render(); } }); } catch (e) { toast(e, { err: true }); } } });
+    onPick: async id => { try { await DB.addIssueHelper(i.id, id); hooks.render(); toast(`${first(advocate(id))} follows it now. They get a Slack message.`, { ok: true, undo: async () => { await DB.removeIssueHelper(i.id, id); hooks.render(); } }); } catch (e) { toast(e, { err: true }); } } });
 }
 function helperMenu(i, a) {
   const self = a.id === S.me?.id;
   menuSheet({ title: esc(first(a)), items: [
-    { label: self ? 'Stop helping' : 'Remove as helper', icon: 'x', danger: true, disabled: !(self || mayManage(i)), reason: 'Only the owner or an admin can.',
-      run: async () => { try { await DB.removeIssueHelper(i.id, a.id); hooks.render(); toast(self ? 'You are no longer helping.' : `${first(a)} is no longer helping.`, { undo: async () => { await DB.addIssueHelper(i.id, a.id); hooks.render(); } }); } catch (e) { toast(e, { err: true }); } } },
+    { label: self ? 'Stop following' : 'Remove', icon: 'x', danger: true, disabled: !(self || mayManage(i)), reason: 'Only the owner or an admin can.',
+      run: async () => { try { await DB.removeIssueHelper(i.id, a.id); hooks.render(); toast(self ? 'You no longer follow it.' : `${first(a)} no longer follows it.`, { undo: async () => { await DB.addIssueHelper(i.id, a.id); hooks.render(); } }); } catch (e) { toast(e, { err: true }); } } },
   ] });
 }
 
@@ -343,8 +343,8 @@ function peopleHTML(i) {
     <p class="pr6-who"><span class="pr6-wl">Owner</span>${o ? `${avatar(o, 24)}<span>${esc(o.id === S.me?.id ? 'You' : ownerName(o))}</span>` : '<span>Nobody yet</span>'}
       ${mayManage(i) ? btn(o ? 'Change' : 'Choose', { kind: 'text', sm: true, attrs: { 'data-pr': 'owner', 'aria-label': o ? 'Change the owner' : 'Choose the owner', 'aria-haspopup': 'dialog' } })
         : !o && S.me ? btn('Take it', { kind: 'text', sm: true, attrs: { 'data-pr': 'take', 'aria-label': `Take ${i.name}: you become its owner` } }) : ''}</p>
-    <p class="pr6-who"><span class="pr6-wl">Helpers</span>${hs.map(a => `<button type="button" class="pr6-helper" data-prh="${esc(a.id)}" aria-haspopup="dialog" aria-label="${esc(`${a.id === S.me?.id ? 'You' : first(a)}: helper. Stop helping or remove`)}">${avatar(a, 24)}<span>${esc(a.id === S.me?.id ? 'You' : first(a))}</span></button>`).join('') || (mayManage(i) ? '' : '<span>None</span>')}
-      ${mayManage(i) ? btn('Add', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pr': 'helper', 'aria-label': 'Add a helper', 'aria-haspopup': 'dialog' } }) : ''}</p>
+    <p class="pr6-who"><span class="pr6-wl">Following</span>${hs.map(a => `<button type="button" class="pr6-helper" data-prh="${esc(a.id)}" aria-haspopup="dialog" aria-label="${esc(`${a.id === S.me?.id ? 'You' : first(a)}: following. Stop following or remove`)}">${avatar(a, 24)}<span>${esc(a.id === S.me?.id ? 'You' : first(a))}</span></button>`).join('') || (mayManage(i) ? '' : '<span>None</span>')}
+      ${mayManage(i) ? btn('Add', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-pr': 'helper', 'aria-label': 'Add someone to follow it', 'aria-haspopup': 'dialog' } }) : ''}</p>
   </div>`;
 }
 // What is typed in a box and not saved yet (a sixth point, a point too long) survives a redraw (B-6, C-9).
@@ -662,7 +662,7 @@ function mineRender({ asMyIssues = false } = {}) {
   const next = left[0] || helpLeft[0] || null;
   // One sentence of where you are, said once (A-14), in words that never alarm after the date (spec 6).
   const lede = own.length ? (left.length ? `${ready} of ${own.length} ready. ${pastDue() ? `Still to finish: ${left.length} (they were due ${dueText()})` : `Due ${dueText()}`}.` : `All ${own.length} ready or approved.`)
-    : help.length ? `You help on ${plural(help.length, 'issue')}. Each owner marks theirs ready.` : 'Getting the issues ready for 2027.';
+    : help.length ? `You follow ${plural(help.length, 'issue')}. Each owner marks theirs ready.` : 'Getting the issues ready for 2027.';
   const head = headHTML(asMyIssues ? 'mine' : 'all');
   const ok = live().filter(i => !isDraft(i)), nApp = ok.filter(i => stateOf(i) === 'approved').length;
   return `<div class="le-page i6-page pr6-page">
@@ -672,11 +672,10 @@ function mineRender({ asMyIssues = false } = {}) {
       ${next ? `<p class="pr6-next">${btn(`${STEPS.some(x => x.done(next)) ? 'Continue' : left.length === own.length && !ready && own.length ? 'Start' : 'Next'}: ${esc(next.name)}`, { iconEnd: 'arrow-right', href: issueHref(next, 'prep') })}</p>` : ''}
       ${isAdmin() ? lineHTML('clipboard-check', esc(`Team: ${nApp} of ${ok.length} approved.`), `<a class="i6-inline" href="${BOARD_HREF}">Open the Prep board</a>`) : ''}
     </section>
-    ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or help on show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>` : ''}
+    ${!own.length && !help.length && !drafts.length ? `<div class="le-empty">${empty({ title: 'No issues are yours yet', text: `${esc(Cap(adminWord()))} give${adminWord() === 'you' ? '' : 's'} out the issues. Any you own or follow show here.`, action: btn('See all issues', { kind: 'secondary', href: '#/issues/all' }) })}</div>` : ''}
     ${own.length ? `<section class="i6-sec" aria-labelledby="pr-mine"><h2 class="i6-h" id="pr-mine">Yours</h2>${left.length ? box(left.map(i => prepRow(i)).join('')) : ''}${doneFold('own-done', own.filter(isDone), i => prepRow(i))}</section>` : ''}
-    ${help.length ? `<section class="i6-sec" aria-labelledby="pr-help"><h2 class="i6-h" id="pr-help">Helping</h2>${box(help.map(i => prepRow(i, { helper: true })).join(''))}</section>` : ''}
     ${drafts.length ? `<section class="i6-sec" aria-labelledby="pr-dr"><h2 class="i6-h" id="pr-dr">Not public yet</h2>${box(drafts.map(i => prepRow(i)).join(''))}</section>` : ''}
-    ${(fol => fol.length ? `<section class="i6-sec" aria-labelledby="pr-fol"><h2 class="i6-h" id="pr-fol">Following</h2>${box(fol.map(i => prepRow(i)).join(''))}</section>` : '')(following())}
+    ${(fol => help.length + fol.length ? `<section class="i6-sec" aria-labelledby="pr-fol"><h2 class="i6-h" id="pr-fol">Following</h2>${box([...help.map(i => prepRow(i, { helper: true })), ...fol.map(i => prepRow(i))].join(''))}</section>` : '')(following())}
     ${listsLine()}
   </div>`;
 }

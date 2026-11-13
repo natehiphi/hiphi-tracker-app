@@ -677,7 +677,7 @@ function miniOf(it, v = S.me) {
       const label = pt.back.length ? 'Open what came back' : left ? 'Open the next one' : 'See the list';
       // A prep date that has passed is "Still to finish", never red (spec 6, My issues; V30).
       const when = prepDue() < Date.now() ? 'still to finish' : `due ${dayWords(prepDue())}`;
-      return { name: pt.own ? 'Your issues for 2027' : `Helping ${andWords(pt.owners.map(a => first(a.id)))}`, num: '', line: `${pt.ready} of ${plural(pt.total, 'issue')} ready · ${when}`, href, pick: false,
+      return { name: pt.own ? 'Your issues for 2027' : `Following ${andWords(pt.owners.map(a => first(a.id)))}’s issues`, num: '', line: `${pt.ready} of ${plural(pt.total, 'issue')} ready · ${when}`, href, pick: false,
         what: pt.own ? 'Get your issues ready for 2027' : `${helpWords(pt)} ready`, sub: `${pt.ready} of ${plural(pt.total, 'issue')} ready.${pt.back.length ? ` ${first(pt.back[0].prep_by)} sent back ${pt.back[0].name}.` : pt.next ? ` Next: ${pt.next.name}.` : ''}`,
         buttons: k => [btn(label, { kind: k, icon: 'arrow-right', href }), btn('See the list', { kind: 'text', href: list })] };
     }
@@ -1257,8 +1257,8 @@ function clearCard(v, w, ro, n = '') {
     : nh && !onPage ? btn('Open the hearing', { icon: 'gavel', href: `#/hearing/${encodeURIComponent(nh.id)}?from=today` }) : w.coal.size ? ''
     : ['conference', 'governor'].includes(seasonOf()) ? btn('Open your bills', { icon: 'file-text', href: '#/issues/bills' }) : SESSION_OVER || seasonOf() === 'prep' || seasonOf() === 'between' ? '' : btn('Open Hearings', { icon: 'calendar-days', href: '#/hearings' });
   if (VB && !ro && !lost) return vbClearCard(v, w, nh, onPage, n);
-  return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you help on' : 'Nothing needs you today.'}</h2>
-    ${lost ? '<p>Its hearings and testimony show here once you switch on I help on it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
+  return `<section class="t6-clear" aria-labelledby="t6-clear-h${n}"><h2 class="t6-clh" id="t6-clear-h${n}">${ro ? `Nothing is waiting on ${esc(first(v.id))}.` : lost ? 'Pick the coalition you follow' : 'Nothing needs you today.'}</h2>
+    ${lost ? '<p>Its hearings and testimony show here once you follow it.</p>' : text ? `<p>${nw(esc(text))}</p>` : ''}${go ? `<p class="t6-clgo">${go}</p>` : ''}</section>`;
 }
 // R-365 B: with no step of their own, Today says so plainly and what comes next and when (the next hearing, the next
 // deadline, or the season), never a bare "nothing".

@@ -120,7 +120,7 @@ function planOf(a) {
     const sug = hl || fallback(a), k = sug?.id || 'none'; (byIss.get(k) || byIss.set(k, { sug, hl: !!hl, items: [] }).get(k)).items.push(i); }
   for (const [k, g] of byIss) { const one = g.items.length === 1;
     parts.push({ key: 'i:' + k, kind: 'issues', name: one ? g.items[0].name : plural(g.items.length, 'issue'), num: one ? 'issue' : '', items: g.items, sug: g.sug,
-      why: g.hl ? `helps on ${one ? 'it' : 'them'}` : `no helper on ${one ? 'it' : 'them'}`, to: chosen('i:' + k, g.sug) }); }
+      why: g.hl ? `follows ${one ? 'it' : 'them'}` : `nobody else follows ${one ? 'it' : 'them'}`, to: chosen('i:' + k, g.sug) }); }
   // To-dos: one on a bill they hand over goes with the bill; one on someone else's bill goes to that bill's owner.
   for (const t of h.todos) { const b = S.bills.find(x => x.id === t.bill_id), own = advocate((S.assignments[t.bill_id] || []).find(id => id !== a.id && live(advocate(id))));
     const withBill = parts.find(p => p.kind === 'bills' && p.items.some(x => x.id === t.bill_id));
@@ -245,7 +245,7 @@ function leavingPage(a, route) {
     return itemRow({ key: 'd:' + d.id, name: `Testimony on ${nameWords(b)}`, num: numWords(b), line: esc(`${cap(coverWho(o))} file${o && isMe(o) ? '' : 's'} it once approved · it follows the bill`), href: billRoute(b) }); }).join('');
   const going = h.going.map(x => itemRow({ key: 'h:' + x.id, name: `${x.committee} hearing`, num: whenAt(x.scheduled_at), line: esc(`${first}’s “I’m going” comes off`) })).join('');
   const rows = parts.map(p => partRow(p, a, !!done)).join('') + (done ? '' : drafts + going);
-  const also = [h.helpsCoal.length ? `${first} helps on ${andList(h.helpsCoal.map(c => c.name))}` : '', h.helpsIssues.length ? `helps on ${plural(h.helpsIssues.length, 'issue')}` : ''].filter(Boolean);
+  const also = [h.helpsCoal.length ? `${first} follows ${andList(h.helpsCoal.map(c => c.name))}` : '', h.helpsIssues.length ? `follows ${plural(h.helpsIssues.length, 'issue')}` : ''].filter(Boolean);
   const quiet = done ? '' : [also.length ? `${cap(andList(also))}: that ends when ${first} is turned off.` : '', h.dead ? `${plural(h.dead, 'bill')} that died ${h.dead === 1 ? 'stays' : 'stay'} in ${first}’s name.` : ''].filter(Boolean).join(' ');
   const billParts = parts.filter(p => p.kind === 'bills');
   // v5's "See their live bills" (R-316 W28): Bills, filtered to them, to give the bills out one by one with bulk change.

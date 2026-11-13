@@ -94,8 +94,8 @@ const PLACES0 = () => [
   { title: 'Sort new bills', href: '#/issues/bills/new', icon: 'sparkles', sub: 'Issues › Bills › track or pass each new bill', also: 'triage new bills track pass introduced' },
   { title: 'Muted bills', href: '#/issues/bills/muted', icon: 'bell-off', sub: 'Issues › Bills › Muted', also: 'muted unmute set aside' },
   { title: 'Legislators', href: '#/legislators', icon: 'landmark', sub: 'Everyone at the Capitol', key: KEY.legislators, also: 'members chairs senators representatives directory' },
-  { title: 'My issues', href: '#/issues', icon: 'tag', sub: 'The issues you own or help on', key: KEY.myissues, also: 'my issues issues prep 2027 ready' },
-  { title: 'Coalitions', href: '#/issues/coalitions', icon: 'users', sub: 'Issues › Coalitions', also: 'my issues coalition help on' },
+  { title: 'My issues', href: '#/issues', icon: 'tag', sub: 'The issues you own or follow', key: KEY.myissues, also: 'my issues issues prep 2027 ready' },
+  { title: 'Coalitions', href: '#/issues/coalitions', icon: 'users', sub: 'Issues › Coalitions', also: 'my issues coalition follow help on' },
   { title: 'All issues', href: '#/issues/all', icon: 'tag', sub: 'Issues › All issues', also: 'my issues issues catalogue categories' },
   ...(me().is_admin ? [{ title: 'First visit numbers', href: '#/issues/all?view=first-visit', icon: 'chart-column', sub: 'How newcomers find and use the public page', also: 'responding response arrivals arrived newcomers how it is landing public numbers visits' }] : []),   // R-376: admins only
   ...(me().is_admin ? [{ title: 'Make a link or QR code', href: '#/issues/all?view=links', icon: 'qr-code', sub: 'A link for a partner or an event', also: 'qr code poster print link partner link first visit' }] : []),   // R-376: admins only

@@ -243,7 +243,7 @@ function emptyState(q, nf) {
   if (nf) return empty({ title: 'No bills match these filters', text: 'Take one off, or clear them all.', action: btn('Clear all filters', { kind: 'secondary', attrs: { 'data-fclearall': '1' } }) });
   if (v.scope === 'me') return empty({ title: 'You have no bills yet', text: 'Your bills are the ones you own or follow, and those on your issues. Follow a bill from its page.',
     action: scopeOpts().some(([k]) => k === 'coal') ? btn('Show my coalitions’ bills', { kind: 'secondary', attrs: { 'data-scopecoal': '1' } }) : seesTeam() ? btn('Show the team’s bills', { kind: 'secondary', attrs: { 'data-scopeall': '1' } }) : '' });
-  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you help on show here. Press I help on a coalition in Issues › Coalitions.', action: btn('See the coalitions', { kind: 'secondary', href: '#/issues/coalitions' }) });
+  if (v.scope === 'coal') return empty({ title: 'No bills in your coalitions yet', text: 'Bills tracked under the coalitions you follow show here. Press Follow on a coalition in Issues › Coalitions.', action: btn('See the coalitions', { kind: 'secondary', href: '#/issues/coalitions' }) });
   return empty({ title: 'No bills are tracked yet', text: 'Sort the new bills to start.', action: btn('Sort new bills', { kind: 'secondary', href: '#/issues/bills/new' }) });
 }
 function parts() {

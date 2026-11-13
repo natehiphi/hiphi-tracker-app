@@ -163,7 +163,7 @@ function whereNow(st) {
 }
 const lineSpan = (p, cls = 'mi-ln') => p ? `<span class="${cls}${p.tone ? ' t-' + p.tone : ''}${p.quiet ? ' q' : ''}"${p.title ? ` title="${esc(p.title)}"` : ''}>${p.ic && ICONS[p.ic] ? icon(p.ic) : ''}<span>${p.html || nw(esc(p.text))}</span></span>` : '';
 // R-368: "You follow" for an issue followed from its page.
-const tagsOf = j => [j.own ? '' : j.x.follow ? 'You follow' : 'You help', !j.needs && j.next?.you ? 'Your step' : ''].filter(Boolean);
+const tagsOf = j => [j.own ? '' : 'You follow', !j.needs && j.next?.you ? 'Your step' : ''].filter(Boolean);
 // No "Needs you" chip (R-352, A-14): it stood on 25 of Nate's 26 cards, so it told nothing; the section an issue stands in
 // and its step line say it. The small grey tags stay ("You help", "Your step").
 const tagHTML = j => tagsOf(j).map(t => `<span class="mi-tag">${esc(t)}</span>`).join('');
@@ -565,7 +565,7 @@ const GROUPS_B = [['you', 'Needs you'], ['others', 'Others are on it'], ['wait',
 // `act`: the card's one tonal button, given to at most one card on the page (cardsHTML); no card carries a filled one (A-3).
 function cardB(j, nx, st, act = '') {
   const { i, x } = j, S1 = STATUS_B[st], href = `#/issue/${encodeURIComponent(i.id)}?from=mine`;
-  const tag = x.via ? `Through ${x.via}` : x.own ? '' : x.follow ? 'You follow' : 'You help';
+  const tag = x.via ? `Through ${x.via}` : x.own ? '' : 'You follow';
   return `<article class="vbc vbc-${st}${nx.you ? ' you' : ''}${icEdge(i)}" role="listitem" data-v6row="${esc(i.id)}">
     <div class="vbc-top"><a class="vbc-name" href="${href}" data-mirow="${esc(i.id)}">${topicIc(i)}<span>${esc(i.name)}</span></a><span class="vbc-chip">${icon(S1.ic)}<span>${esc(S1.word)}</span></span></div>
     ${tag ? `<p class="vbc-tag">${esc(tag)}</p>` : ''}

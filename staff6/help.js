@@ -82,7 +82,7 @@ const TOPICS = [
       ['Testimony', 'Every draft by where it stands: <b>To write</b>, <b>To approve</b>, <b>Sent back</b>, <b>Ready to file</b> and <b>Filed</b>. Approvers open Review from To approve, one draft at a time.'],
       ['Outreach', (VB ? 'Open it from <b>More</b>. ' : '') + 'Rallying the public and partners: <b>This week’s asks</b> (each bill’s ask, its deadline and the words to copy). Leads also have <b>Partner update</b>, <b>Emails</b> to supporters, <b>Supporters</b> and <b>Lists</b> as tabs; everyone finds Lists and Supporters’ groups on More.'],
       ['Legislators', 'Open it from <b>More</b>. A photo for everyone at the Capitol, by island, with a House | Senate filter; find anyone by name, town, district or committee. Asking chairs for a hearing is on ' + PL.H + ', under Bills That Need Hearings. A legislator’s page starts with Email, Call and Log a talk.'],
-      [PL.I, 'The place for issues and their bills. <b>My issues</b> are the ones you own or help on, four ways: <b>Deadlines</b> (each under the deadline it must beat next), <b>Status</b>, <b>Topics</b> and <b>Spreadsheet</b>; between sessions, your issues for 2027. <b>Coalitions</b> lists each coalition, with its I help on switch; <b>All issues</b> is every issue, by topic. <b>Bills</b>: every tracked bill by stage, or as a spreadsheet, with <b>Sort new bills</b> (in the opening weeks) and <b>Muted</b> as its sub-tabs; filter it, or select several to change at once. A bill’s page has three tabs: <b>Next step</b> (What’s next for you), <b>Team talk</b> (messages, notes and talks with legislators) and <b>Public</b>.'],
+      [PL.I, 'The place for issues and their bills. <b>My issues</b> are the ones you own or follow, four ways: <b>Deadlines</b> (each under the deadline it must beat next), <b>Status</b>, <b>Topics</b> and <b>Spreadsheet</b>; between sessions, your issues for 2027. <b>Coalitions</b> lists each coalition, with its I help on switch; <b>All issues</b> is every issue, by topic. <b>Bills</b>: every tracked bill by stage, or as a spreadsheet, with <b>Sort new bills</b> (in the opening weeks) and <b>Muted</b> as its sub-tabs; filter it, or select several to change at once. A bill’s page has three tabs: <b>Next step</b> (What’s next for you), <b>Team talk</b> (messages, notes and talks with legislators) and <b>Public</b>.'],
       ['Inbox', 'The envelope beside the search box. <b>Messages</b>: what teammates wrote to you or about your bills, and the tracker’s notes to you. <b>Updates</b>: what changed on your bills since yesterday, since your last visit or in the last 7 days. The number beside Inbox counts the unread messages.'],
       ['More', 'One page for the places that are not in the sidebar (' + (VB ? 'Outreach, the Issues calendar, Legislators, Inbox, Help' : 'the Issues calendar, Legislators, Inbox, Help') + '), then the tools used now and then, grouped by job: the session calendar, how to file, lists, ' + (S.me?.is_admin ? 'a link or QR code, first visit numbers, ' : '') + 'supporters’ groups, and the guides for learning. Sorting and muting bills, saved views, bulk change and export are on ' + PL.I + ' › Bills.'],
       ['You', 'At the foot of the sidebar (on a phone, the last rows of <b>More</b>): <b>My settings</b> and Sign out.'],
@@ -129,7 +129,7 @@ const TOPICS = [
       ['Following', 'Puts a bill on your bills and its messages in your Inbox. It never gives you a step. Anyone can follow anything: the Follow button on the bill’s page, or on an issue’s page to follow the issue and all its bills (it shows in ' + PL.I + ' as You follow).'],
       ['Muting', 'Takes a bill off your lists until its next hearing is posted; for a bill waiting for a hearing it reads Not pushing this bill. Issues › Bills, then <b>Muted</b>, brings it back.'],
       ['Changing owners and positions', 'Anyone can change a bill’s owner or position: on its page (Give to… beside the owner), in a cell of the Bills spreadsheet, or for many at once (Select on Bills, then Change…). Every change can be undone from the message that follows it. The priority follows the position: Strong support makes a bill the team’s top tier.'],
-      ['Coalitions I help on', 'For helping with a coalition’s bills without owning them. Switch on I help on, on the coalition’s page (Issues, then <b>Coalitions</b>). Its bills then show under My coalitions on Issues › Bills, its testimony to write under Testimony, and its chair asks on Hearings. What each coalition’s short name means: <a href="#/help/coalitions">Coalitions</a>.']] },
+      ['Coalitions I follow', 'For working on a coalition’s bills without owning them. Switch on I follow, on the coalition’s page (Issues, then <b>Coalitions</b>). Its bills then show under My coalitions on Issues › Bills, its testimony to write under Testimony, and its chair asks on Hearings. What each coalition’s short name means: <a href="#/help/coalitions">Coalitions</a>.']] },
   { id: 'auto', title: 'What happens on its own', also: 'sync automatic email drafts video', icon: 'rotate-ccw', sub: () => 'Syncing, drafts, video and email',
     items: () => { const burst = (S.syncCfg || {}).burst_until, hourly = burst && burst >= new Date().toISOString().slice(0, 10);
       return [['Bills', `Synced from the Legislature ${hourly ? `4 more times a day until ${esc(mdDay(burst))} (8 in all), then 4 times a day` : '4 times a day'}. Stage, committee, last action and versions are never typed by hand.`],
@@ -152,7 +152,7 @@ const TOPICS = [
       ['4. Talking points', 'Three to five plain sentences people tap into a letter sent in their own name, so each must be true and stand on its own: no numbers you cannot point to. For example (the shape, not real points): <i>“Keiki should be able to walk to school safely.”</i> · <i>“Sidewalks and crosswalks near schools make walking and biking safer.”</i> · <i>“This bill pays for them where schools need them most.”</i>'],
       ['5. Top issue for 2027?', 'Yes puts it forward. Once an admin confirms it, people visiting the tracker for the first time find it already ticked when they pick its category. Nothing on the public page says it was picked.'],
       ['6. Keep, merge or retire', 'Keep it as it is; Merge its bills and followers into another issue; or Retire it, so the public stops seeing it and its followers stop getting its bills. Nothing changes until an admin approves.'],
-      ['Mark ready', 'With all six done, Mark ready sends it to an admin (Mark ready and open the next takes you straight to your next one). The admin approves it or sends it back with a note, which you see on Today and on the issue; fix that step and mark it ready again. Helpers can fill in any step; only the owner marks it ready.']] },
+      ['Mark ready', 'With all six done, Mark ready sends it to an admin (Mark ready and open the next takes you straight to your next one). The admin approves it or sends it back with a note, which you see on Today and on the issue; fix that step and mark it ready again. Teammates following it can fill in any step; only the owner marks it ready.']] },
   { id: 'public', title: 'The public page and lists', also: 'public tracker lists share links embed', icon: 'globe', sub: () => 'What visitors see, and how to share it',
     items: () => [['What shows', 'Only bills set to show on the public page, with the plain summary and the ask from the bill’s Public tab. Visitors follow issues (or a bill, or a list) and get a five-minute way to testify.'],
       ['Lists', 'A list is a set of public bills (Outreach, then <b>Lists</b>). Following a list follows every bill on it, including ones added later.'],
@@ -203,7 +203,7 @@ const TOPICS = [
 // ---- Coalitions (V29, X25: "Help can't say what HEAL is"): each short name, what it stands for, who owns it ----
 function coalitionItems() {
   const cs = (S.campaigns || []).slice().sort((a, b) => (a.sort_order ?? 99) - (b.sort_order ?? 99) || a.name.localeCompare(b.name));
-  return [['What a coalition is', 'A group of organizations HIPHI works with on one cause. Each tracked bill belongs to one or more coalitions; each coalition has an owner on the team, a Slack channel and its own page (My issues, then <b>Coalitions</b>), where you can switch on I help on.'],
+  return [['What a coalition is', 'A group of organizations HIPHI works with on one cause. Each tracked bill belongs to one or more coalitions; each coalition has an owner on the team, a Slack channel and its own page (My issues, then <b>Coalitions</b>), where you can switch on I follow.'],
     // The full name, unless the description already starts with it ("Community health workers: ...").
     ...cs.map(c => [c.name, [c.public_name && c.public_name !== c.name && !plain(c.description || '').startsWith(plain(c.public_name)) ? esc(c.public_name) + '.' : '', c.description ? esc(String(c.description).replace(/\s+/g, ' ')) : '', c.owner_id && first(c.owner_id) ? `Owner: ${esc(first(c.owner_id))}.` : '',
       c.slack_channel ? `Slack: ${esc(String(c.slack_channel).replace(/^#?/, '#'))}.` : '', `<a href="#/coalition/${encodeURIComponent(c.id)}">Its page</a>`].filter(Boolean).join(' ')])];
@@ -266,8 +266,8 @@ const MOVED_ALL = () => [
     ['Also worth doing (suggestions)', `${go('Hearings', '#/hearings')}, at the foot of This week. Never counted, as before.`],
     ['The Mine and Team switch, and the person picker', `${go('More', '#/more')}, then See a teammate’s list, to read anyone’s list. The <b>Mine | My coalitions | Team</b> switch on Hearings, Bills, Legislators and Outreach shows Team only for leads and for people an admin gave “Sees Team”.`],
     ['Slipping', `${go('Team', '#/team')}, first on the page. Today keeps one line, “7 slipping · Open Team”.`, isLeadish],
-    ['Your coalition’s week (for helpers): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go(ASK_TAB, '#/hearings/ask?scope=coal')} for your coalitions.`],
-    ['A coalition’s late or due cards (for helpers)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
+    ['Your coalition’s week (if you follow one): I’ll ask, Message Lauren', `One line on Today, “Lauren has 5 hearing asks this week · Offer to help”. It opens ${go(ASK_TAB, '#/hearings/ask?scope=coal')} for your coalitions.`],
+    ['A coalition’s late or due cards (if you follow one)', `Your own rows on Today, and ${go('Testimony', '#/testimony?view=write')} under To write.`],
     ['Messages from teammates, and the tracker’s notes', `${go('Inbox', '#/inbox')}, under Messages. A question to you that is not answered yet stays a row on Today.`],
     ['Write the public ask', `${go('Outreach', '#/outreach')}, under This week’s asks: the bill’s card has the box, and <b>Write the public ask</b> shows only for the person who writes it. It is still a row on Today two days before it is due.`],
     ['A bill with no owner on your issue: Take it', `${go('Issues', '#/issues')}: one line, “2 bills on your issue have no owner · Take one”. The bill’s header says “Nobody owns this bill yet · Take it”.`],
@@ -397,7 +397,7 @@ function newSteps() {
   const steps = [{ k: 'settings', done: !!o.settings, title: 'Choose how the tracker reaches you', sub: 'My settings: Slack, email, or only in the app, then save', href: '#/me' }];
   // Someone who owns no bill, follows none and helps on no coalition starts by picking their coalition (R-316 W7, FR-3).
   // An approver reviews every coalition's testimony, so the coalition pick is not their first step.
-  if (ownsNone && !co && !(me.can_approve || me.is_reviewer || me.is_admin) && !S.bills.some(b => S.follows?.has(b.id))) steps.push({ k: 'coal', done: false, title: 'Pick the coalition you help on', sub: PL.I + ', then Coalitions: switch on I help on', href: '#/issues/coalitions' });
+  if (ownsNone && !co && !(me.can_approve || me.is_reviewer || me.is_admin) && !S.bills.some(b => S.follows?.has(b.id))) steps.push({ k: 'coal', done: false, title: 'Pick the coalition you follow', sub: PL.I + ', then Coalitions: switch on I follow', href: '#/issues/coalitions' });
   if (SESSION_OVER) {
     // November: your 2027 issues first (the season's job), your bills, and (live only) a practice day in last March's copy.
     const t = prepTaskOf(me.id), hasIssue = (S.issues || []).some(i => i.owner_id === me.id) || !!t;
@@ -575,7 +575,7 @@ export const SYN = [
   ['inbox', 'messages', 'message'],
   ['deadline', 'due', 'late', 'overdue'],
   ['owner', 'own', 'owning', 'assign'],
-  ['coalition', 'coalitions', 'help on', 'support'],
+  ['coalition', 'coalitions', 'follow', 'help on', 'support'],
   ['drive', 'google drive', 'folder'],
   ['calendar', 'event'],
   ['undo', 'unmark', 'mistake'],

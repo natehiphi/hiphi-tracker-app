@@ -291,7 +291,7 @@ function whoHTML(i, xs, steps, { vb = false } = {}) {
   for (const s of steps) for (const id of s.who) add(id, 'steps', s);
   const nobody = steps.filter(s => s.nobody).length;
   const name = id => id === S.me?.id ? 'You' : advocate(id).full_name;
-  const lineOf = p => [p.own ? 'Owns the issue' : p.help ? 'Helps on it' : '',
+  const lineOf = p => [p.own ? 'Owns the issue' : p.help ? 'Follows it' : '',
     !vb && p.bills.length ? `owns ${p.bills.length > 2 ? `${p.bills.length} of its bills` : listAnd(p.bills.map(numWords))}` : '',
     p.steps.length === 1 ? `${VERB[p.steps[0].verb] || 'has a step on'} ${numWords(p.steps[0].b)}` : p.steps.length ? `${p.steps.length} steps now` : ''].filter(Boolean).join(' · ');
   const rows = [...ppl.entries()].sort((a, b) => (b[1].own - a[1].own) || (b[1].steps.length - a[1].steps.length) || name(a[0]).localeCompare(name(b[0])))
