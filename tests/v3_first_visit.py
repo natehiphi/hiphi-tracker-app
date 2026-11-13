@@ -4,7 +4,7 @@
 #   four pages ("k of 4"), Skip always there -> Home. No profile or phone ask (it waits for the first action), no address, no welcome page.
 #   checks: no issue starts ticked; Next with nothing ticked says so and stays; no phone or number box on any step; the strip names
 #   "Your issues" and "Your voice" only; door -> Home in 12 taps or fewer; the last Next lands on #/ (Home, not the visit) with the
-#   first visit marked done and the returner's Home (no "Choose your issues" door); "Leave, go to Home" on the topics lands on the door;
+#   first visit marked done and the returner's Home (no "Choose your issues" door); the topics have no "Leave, go to Home" (R-377);
 #   #/start/0 is the door; nothing counted for the try-both tests (no 'lock' or 'seen' in hiphi_ab, nothing sent to log_ab).
 #   Until pub/v3/home.js lands the door is skipped (the test opens #/start/1 and counts its tap) and Home's own shape is not read.
 # usage: python3 tests/v3_first_visit.py [BASE]   (BASE defaults to http://localhost:8832); SHOTS=<dir> saves phone and laptop pictures of each step
@@ -115,18 +115,13 @@ with sync_playwright() as p:
   br = p.chromium.launch()
   walk(br, PHONE, 'phone')
   walk(br, LAPTOP, 'laptop')
-  # "Leave, go to Home" on the topics lands on the door; #/start/0 is the door too
+  # #/start/0 is the door; the topics have no "Leave, go to Home" since R-377 (Nate 12 Nov 2026)
   sent, errs = [], []
   ctx, pg = newpage(br, PHONE, sent, errs)
   pg.goto(URL + '&restart#/start/0'); settle(pg, 2500)
   r = look(pg); ok(not r['hash'].startswith('#/start') and not r['st'], f'#/start/0 is the door, not the old welcome ({r["hash"]})')
   pg.goto(URL + '#/start/1'); pg.wait_for_selector('.st-topics', timeout=30000); settle(pg, 600)
-  pg.locator('.st-bar [data-stleave]').click(); settle(pg, 2000)
-  r = look(pg); w = pg.evaluate(WIZ)
-  ok(r['hash'] == '#/' and not r['st'] and not w.get('done'), f'"Leave, go to Home" on the topics lands on #/ (the door), the visit not marked done ({r["hash"]})')
-  if pg.evaluate("() => document.body.dataset.screen === 'home' && !!document.querySelector('main h1')"):
-    ok(door_there(pg), 'after Leave, Home is the front door (its "Choose your issues")')
-  else: print('NOTE Home\'s front door is not drawn yet; its shape after Leave is not read')
+  ok(pg.locator('[data-stleave]').count() == 0 and pg.locator('.st-bar .btn').count() == 1, 'the topics: no "Leave, go to Home", the bar is Next alone (R-377)')
   ab = pg.evaluate(AB)
   ok('lock' not in ab and 'seen' not in ab and not sent, f'Leave: nothing counted for the try-both tests ({ab[:80]!r})')
   ctx.close()

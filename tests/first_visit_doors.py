@@ -1,21 +1,14 @@
 # The first visit's doors (R-212 #46, the power users' walk: anyone who is not a newcomer needed about 5 taps to reach Home).
 #   python3 -m http.server 8832   (in this folder, once)
 #   python3 tests/first_visit_doors.py [base] [out]   base defaults to http://localhost:8832
-# In the practice copy, today's version (an automated browser gets each test's first version):
-#   - the welcome's "Just look around" opens Find's topics in one tap (R-357 Light fixes g, Nate's yes 30 Oct 2026: it used to land on a
-#     Home whose main button sent them back into the visit), a reload stays on Find, Back returns to the welcome, the first visit is
-#     left undone so the Home tab resumes it, and the welcome still has one primary (A-3, C-2);
-#   - "Leave, go to Home" on every step after the welcome (topics, issues, alerts, the story, Coming up; the short version's
-#     page; a shared bill's "Follow this issue?") reaches Home in one tap, keeps what was followed before it and follows
-#     nothing more, and a reload stays on Home; not on the finale, nor over the "Mahalo!" cover, nor in a plan;
-#   - "Skip this part" is the bar's word on each step and still goes on to the next screen; on the topics, which have no Back,
-#     Leave stands in Skip's place in the bar instead of a row of its own (the critic: the row pushed the cards 36px down);
-#   - at 320, 375 and 1280 wide both new controls are in view, not clipped, at least 44px tall, and Leave shares its row
-#     with Back without wrapping or touching it;
-#   - the private counts get 'leave' for the step it was pressed on (and 'skip' for Skip): read from the sandbox's own
-#     printout (?debug), never sent. Every write to the database is refused and must not even be tried (a link that names a
-#     version carries &abrest, so the testers' path log stays off too).
-#   - Back from Home after leaving returns to the step that was left (B-4, B-5); after "Just look around" (from Find), to the welcome.
+# In the practice copy, today's version. Since R-377 (Nate 12 Nov 2026, reversing R-212 #46) the visit has no way out
+# but through it:
+#   - the welcome has one door, Let's begin: no "Just look around" (at 320, 375 and 1280 wide, and between sessions);
+#   - no "Leave, go to Home" on any step (topics, issues, alerts, the story, Coming up; the short version's page; a shared
+#     bill's "Follow this issue?"); the topics' bar is Next alone, and Next with nothing picked asks for a pick;
+#   - "Skip this part" is still the bar's word on each later step and goes on inside the visit, to the finale on Home;
+#   - a plan (practice only) keeps its own screens and its Skip;
+#   - every write to the database is refused and must not even be tried; no page errors.
 import json, os, re, sys
 from playwright.sync_api import sync_playwright
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832').rstrip('/')
@@ -62,7 +55,7 @@ def to_issues(p):
 def to_alerts(p):
     p.click('.st-bar [data-stnext]'); p.wait_for_selector('#st-aform', timeout=20000); p.wait_for_timeout(400)
 def to_story(p):
-    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson [data-stleave]', timeout=20000); p.wait_for_timeout(600)
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson', timeout=20000); p.wait_for_timeout(600)
 def to_soon(p):
     p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=20000); p.wait_for_timeout(400)
 def home(p):
@@ -89,77 +82,38 @@ def last_leave(p):
 with sync_playwright() as pw:
     br = pw.chromium.launch()
 
-    # ---- 1. the welcome's "Just look around", at three widths ----
-    for w in (320, 375, 1280):
-        c, p = ctx(br, w); begin(p)
-        b = box(p, '.st-hellobar [data-stleave]'); bn = box(p, '.st-hellobar [data-stnext]')
-        ok(b and b['text'] == 'Just look around' and seen(b, w) and not b['primary'], f'{w}: the welcome offers "Just look around", in view, not clipped, {b and round(b["h"])}px tall, not a primary {b and (round(b["x"]), round(b["y"]))}')
-        ok(bn and b and b['y'] >= bn['b'] - 1 and p.locator('.actionbar .btn.primary').count() == 1, f'{w}: it sits under Let’s begin, which stays the one primary (A-3, C-2)')
-        p.screenshot(path=os.path.join(OUT, f'{w}_welcome.png'))
-        p.click('.st-hellobar [data-stleave]')
-        p.wait_for_function("document.body.dataset.screen === 'find'", timeout=8000); p.wait_for_timeout(600)
-        ok(H(p) == '#/find' and screen(p) == 'find', f'{w}: one tap opens Find\'s topics ({H(p)}, {screen(p)})')
-        ev = last_leave(p)
-        ok(len(ev) == 1 and ev[0].get('step') == 'arrive' and ev[0].get('path') == 'in', f'{w}: counted as leave on the welcome, arrive ({ev})')
-        ok(not wiz(p).get('skipped') and not wiz(p).get('done'), f'{w}: the first visit stays undone, so it can be resumed ({wiz(p)})')
-        ok(p.locator('.rc-row, .st-tile').count() >= 3, f'{w}: there are topics to look at ({p.locator(".rc-row").count()} rows)')
-        if w == 375:
-            p.screenshot(path=os.path.join(OUT, f'{w}_find_after_look.png'))
-        p.reload(); p.wait_for_timeout(2500)
-        ok(H(p) == '#/find' and screen(p) == 'find', f'{w}: a reload stays on Find, the welcome does not open again ({H(p)})')
-        if w == 375:
-            p.go_back(); p.wait_for_timeout(1800)
-            ok(H(p) == '#/start/0' and p.locator('.st-hellobar [data-stleave]').count() == 1, f'Back from Find after "Just look around" returns to the welcome, both doors there (B-4) ({H(p)})')
-            p.go_forward(); p.wait_for_timeout(1500)
-            p.click('nav.tabs a[href="#/"]'); p.wait_for_timeout(2000)
-            ok(screen(p) == 'start', f'the Home tab takes the first visit up again, not a Home that sends them back into it ({H(p)}, {screen(p)})')
+    # ---- 1. the welcome: Let's begin is its one door (R-377), at three widths, and between sessions ----
+    for w, q in ((320, ''), (375, ''), (1280, ''), (375, '&season=off')):
+        c, p = ctx(br, w); begin(p, q)
+        bn = box(p, '.st-hellobar [data-stnext]')
+        ok(seen(bn, w) and bn['primary'], f'{w}{q}: Let’s begin is in view, {bn and round(bn["h"])}px tall, the primary')
+        ok(p.locator('.st-hellobar .btn').count() == 1 and p.locator('[data-stleave]').count() == 0 and 'Just look around' not in p.inner_text('body'),
+           f'{w}{q}: no "Just look around" and no other way out on the welcome ({p.locator(".st-hellobar .btn").count()} buttons)')
+        if q == '': p.screenshot(path=os.path.join(OUT, f'{w}_welcome.png'))
         c.close()
-    # between sessions too
-    c, p = ctx(br, 375); begin(p, '&season=off'); p.click('.st-hellobar [data-stleave]')
-    p.wait_for_function("document.body.dataset.screen === 'find'", timeout=8000); p.wait_for_timeout(600)
-    ok(H(p) == '#/find' and screen(p) == 'find', f'between sessions too: Find\'s topics ({H(p)}, {screen(p)})')
-    p.screenshot(path=os.path.join(OUT, '375_find_after_look_off.png'), full_page=True)
-    c.close()
 
-    # ---- 2. "Leave, go to Home" from each step, and "Skip this part" beside it ----
+    # ---- 2. no "Leave, go to Home" on any step; Skip this part still goes on inside the visit ----
     WALK = [('topics', [to_topics]), ('issues', [to_topics, to_issues]), ('alerts', [to_topics, to_issues, to_alerts]),
             ('bill', [to_topics, to_issues, to_alerts, to_story]), ('soon', [to_topics, to_issues, to_alerts, to_story, to_soon])]
     for name, path in WALK:
         c, p = ctx(br, 375); begin(p)
         for f in path: f(p)
-        step = H(p)
-        b = box(p, '[data-stleave]'); sk = p.locator('.st-bar [data-stskip], .st-bar [data-stnext].secondary')
-        ok(b and b['text'] == 'Leave, go to Home' and seen(b, 375) and not b['primary'], f'{name}: "Leave, go to Home" is there ({step}), in view, {b and round(b["h"])}px tall, a quiet text button')
-        if name == 'topics':   # no Back here: Leave takes Skip's quiet place in the bar, no row of its own above the cards (A-1)
-            ok(p.locator('.st-bar [data-stleave]').count() == 1 and p.locator('.st-steps [data-stleave], .st-chapters [data-stleave]').count() == 0 and sk.count() == 0,
-               'topics: Leave is in the bar beside Next, in Skip\'s place; no Skip and no row above the cards')
-        else:
-            ok(p.locator('.st-chapters [data-stleave]').count() == 0 and p.locator('.st-steps [data-stleave]').count() == 1, f'{name}: in the row under the strip, not in the strip (A-12)')
-        if name not in ('soon', 'topics'):   # Coming up has no Skip in today's version: its bar is Next
-            ok(sk.count() == 1 and sk.first.inner_text().strip() == 'Skip this part', f'{name}: the bar says "Skip this part" ({sk.first.inner_text().strip() if sk.count() else None})')
-        before, fv0 = follows(p), len(fv(p))
-        if name == 'bill': p.screenshot(path=os.path.join(OUT, '375_story.png'))
-        p.click('[data-stleave]')
-        ok(home(p), f'{name}: one tap reaches Home ({H(p)})')
-        ev = [e for e in fv(p)[fv0:] if e.get('event') == 'leave']
-        ok(len(ev) == 1 and ev[0].get('step') == name, f'{name}: counted as leave on {name} ({ev})')
-        ok(follows(p) == before and (name in ('topics', 'issues') or before >= 1), f'{name}: what was followed stays ({before} before, {follows(p)} after); nothing ticked is followed by leaving')
-        ok(wiz(p).get('skipped') is True, f'{name}: the first visit is marked left')
-        if name == 'alerts':
-            p.screenshot(path=os.path.join(OUT, '375_home_after_leave.png'))
-            # Back after leaving (B-4, B-5): the step that was left (Home is a new page in history), with Leave on it again.
-            p.go_back(); p.wait_for_timeout(1800)
-            ok(H(p) == '#/start/3' and p.locator('#st-aform').count() == 1 and p.locator('[data-stleave]').count() == 1, f'Back from Home after leaving the alerts returns to the alerts, with Leave there too ({H(p)})')
-            p.click('[data-stleave]'); ok(home(p), 'and Leave from there is Home again')
-        p.reload(); p.wait_for_timeout(2500)
-        ok(H(p) in ('#/', '') and screen(p) == 'home' and follows(p) == before, f'{name}: a reload stays on Home, follows kept ({H(p)})')
+        ok(p.locator('[data-stleave]').count() == 0 and 'Leave, go to Home' not in p.inner_text('body'), f'{name}: no "Leave, go to Home" ({H(p)})')
+        sk = p.locator('.st-bar [data-stskip]')
+        if name == 'topics':
+            ok(sk.count() == 0 and p.locator('.st-bar .btn').count() == 1, 'topics: the bar is Next alone')
+        elif name != 'soon':   # Coming up has no Skip in today's version: its bar is Next
+            ok(sk.count() == 1 and sk.first.inner_text().strip() == 'Skip this part', f'{name}: the bar says "Skip this part"')
+        if name in ('topics', 'bill'): p.screenshot(path=os.path.join(OUT, f'375_{name}.png'))
         c.close()
 
-    # "Skip this part" still goes on to the next screen; Next with nothing picked on the topics names the way out it has
+    # Next with nothing picked on the topics stays and asks for a pick
     c, p = ctx(br, 375); begin(p); to_topics(p)
     p.click('.st-bar [data-stnext]'); p.wait_for_timeout(500)
-    ok('Leave, go to Home' in p.locator('#st-alert').inner_text(), f'topics, Next with nothing picked: the message names "Leave, go to Home" ({p.locator("#st-alert").inner_text()!r})')
+    msg = p.locator('#st-alert').inner_text()
+    ok('Pick at least one issue to go on.' in msg and p.locator('.st-tile').count() >= 3, f'topics, Next with nothing picked: stays and asks for a pick ({msg!r})')
     c.close()
+    # Skip this part goes on, through to the finale, which ends on Home
     c, p = ctx(br, 375); begin(p); to_topics(p); to_issues(p); to_alerts(p); fv0 = len(fv(p)); to_story(p)
     ok(h1(p) == 'A bill’s story' and any(e.get('step') == 'alerts' and e.get('event') == 'skip' for e in fv(p)[fv0:]), 'alerts: Skip this part goes on to the story')
     fv0 = len(fv(p)); to_soon(p)
@@ -167,7 +121,6 @@ with sync_playwright() as pw:
     p.click('.st-bar [data-stnext]'); p.wait_for_selector('.st-done', timeout=20000); p.wait_for_timeout(500)
     ok(p.locator('[data-stleave]').count() == 0, 'the finale has no Leave: it ends on Home')
     c.close()
-
     # the issues screen: Skip this part follows nothing and goes on
     c, p = ctx(br, 375); begin(p); to_topics(p); to_issues(p)
     p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-lesson', timeout=20000)
@@ -176,50 +129,20 @@ with sync_playwright() as pw:
 
     # ---- 3. the short version's page, and a shared bill's "Follow this issue?" ----
     c, p = ctx(br, 375); begin(p, '&fv=short&abrest=today'); to_topics(p); to_issues(p); to_alerts(p)
-    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-voicepage [data-stleave]', timeout=20000); p.wait_for_timeout(400)
-    ok(p.locator('.st-bar [data-stskip]').inner_text().strip() == 'Skip this part' and seen(box(p, '[data-stleave]'), 375), 'the short version\'s page: Leave at the top, Skip this part in the bar')
-    before, fv0 = follows(p), len(fv(p)); p.click('[data-stleave]')
-    ev = [e for e in fv(p)[fv0:] if e.get('event') == 'leave']
-    ok(home(p) and follows(p) == before and len(ev) == 1 and ev[0].get('step') == 'voice', f'the short version\'s page: one tap to Home, counted on voice ({ev})')
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-voicepage', timeout=20000); p.wait_for_timeout(400)
+    ok(p.locator('[data-stleave]').count() == 0 and p.locator('.st-bar [data-stskip]').inner_text().strip() == 'Skip this part', 'the short version\'s page: no Leave, Skip this part in the bar')
     c.close()
     c, p = ctx(br, 375); p.goto(f'{BASE}/track.html?demo=1&restart&debug#/'); p.wait_for_timeout(1500)
     p.evaluate("localStorage.setItem('hiphi_wiz', JSON.stringify({step:1, via:'HB2121', issues:[]}))"); p.goto(f'{BASE}/track.html?demo=1&debug#/start/1'); p.reload()
     p.wait_for_selector('.st-followask', timeout=30000); p.wait_for_timeout(600)
-    b = box(p, '[data-stleave]')
-    ok(seen(b, 375) and p.locator('.st-bar [data-stskip]').inner_text().strip() == 'Not now', f'a shared bill\'s "Follow this issue?": Leave at the top, and its own "Not now" kept ({b and round(b["h"])}px)')
-    fv0 = len(fv(p)); p.click('[data-stleave]')
-    ev = [e for e in fv(p)[fv0:] if e.get('event') == 'leave']
-    ok(home(p) and len(ev) == 1 and ev[0].get('step') == 'followask' and ev[0].get('path') == 'link', f'"Follow this issue?": one tap to Home, counted on followask, path link ({ev})')
+    ok(p.locator('[data-stleave]').count() == 0 and p.locator('.st-bar [data-stskip]').inner_text().strip() == 'Not now', 'a shared bill\'s "Follow this issue?": no Leave, its own "Not now" kept')
     c.close()
 
-    # ---- 4. not over the "Mahalo!" cover, and never in a plan ----
-    c, p = ctx(br, 375, reduce=False); begin(p); to_topics(p); to_issues(p); to_alerts(p)
-    p.click('.st-bar [data-stskip]'); p.wait_for_selector('#st-cover', timeout=5000); p.wait_for_timeout(400)
-    cov = p.evaluate("(() => { const l = document.querySelector('[data-stleave]'), cv = document.getElementById('st-cover'); if (!l || !cv) return null; const r = l.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!hit && cv.contains(hit); })()")
-    ok(cov is True, f'under the "Mahalo!" cover Leave cannot be reached; the cover takes the tap ({cov})')
-    p.wait_for_function("!document.getElementById('st-cover')", timeout=8000); p.wait_for_timeout(1500)
-    # the story is moving (no Reduce Motion): Leave stops it on the way out, with no error
-    p.click('.st-bar [data-stnext]'); p.wait_for_timeout(300); p.click('[data-stleave]')
-    ok(home(p), 'Leave from a story that is moving: Home, and the story stopped')
-    c.close()
+    # ---- 4. a plan (practice only) keeps its own screens and its Skip ----
     c, p = ctx(br, 375); p.goto(f'{BASE}/track.html?demo=1&restart&debug&ab=onb.p5&abrest=today'); p.wait_for_selector('.st-tile', timeout=40000); p.wait_for_timeout(600)
     sk = p.locator('.st-bar [data-stskip]')
-    ok(p.locator('[data-stleave]').count() == 0 and sk.count() == 1 and sk.inner_text().strip() == 'Skip', 'a plan (practice only) keeps its own screens: no Leave, and its Skip says Skip')
+    ok(p.locator('[data-stleave]').count() == 0 and sk.count() == 1 and sk.inner_text().strip() == 'Skip', 'a plan keeps its own screens: no Leave, and its Skip says Skip')
     c.close()
-
-    # ---- 5. the top row and the bar at 320, 375 and 1280 ----
-    for w in (320, 375, 1280):
-        c, p = ctx(br, w); begin(p); to_topics(p)
-        b = box(p, '[data-stleave]')
-        nx = box(p, '.st-bar [data-stnext]')
-        ok(seen(b, w) and b['lines'] == 1 and nx and (b['r'] <= nx['x'] or b['x'] >= nx['r']), f'{w} topics: Leave in the bar, in view, on one line, beside Next, {b and round(b["h"])}px ({b and (round(b["x"]), round(b["r"]))})')
-        if w in (320, 1280): p.screenshot(path=os.path.join(OUT, f'{w}_topics.png'))
-        to_issues(p); to_alerts(p); to_story(p)
-        b, bk, sk, nx = box(p, '[data-stleave]'), box(p, '.st-back'), box(p, '.st-bar [data-stskip]'), box(p, '.st-bar [data-stnext]')
-        ok(seen(b, w) and b['lines'] == 1 and bk and abs(bk['y'] - b['y']) <= 2 and bk['r'] <= b['x'], f'{w} story: Back and Leave share one row, apart, Leave on one line (Back {bk and round(bk["r"])} | Leave {b and round(b["x"])})')
-        ok(seen(sk, w) and sk['text'] == 'Skip this part' and sk['lines'] == 1 and nx and (sk['r'] <= nx['x'] or sk['x'] >= nx['r']), f'{w} story: "Skip this part" in view, on one line, {sk and round(sk["h"])}px, beside Next and not under it')
-        p.screenshot(path=os.path.join(OUT, f'{w}_story.png'))
-        c.close()
 
     br.close()
 
