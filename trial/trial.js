@@ -245,7 +245,8 @@ function tickChallenge(box) {
 // ---- part 2: the alerts the trial made, each rated useful / not useful / wrong (Nate 10/24) ----
 // Every alert the trial made is here, including the ones its sender held back or that went to someone outside the trial.
 const KIND = {
-  draft_created: 'Testimony draft ready', draft_thread: 'Draft posted to the team', hearing_alert: 'Hearing alert',
+  draft_created: 'Testimony draft ready', draft_thread: 'Draft posted to the team', hearing_alert: 'Hearing alert', hearing_rescheduled: 'Hearing moved', hearing_cancelled: 'Hearing cancelled',
+  draft_followed: 'Draft ready on a bill you follow',
   daily_list: 'Daily hearing list', reminder_morning: 'Testimony reminder, morning', reminder_before: 'Testimony reminder, before it is due',
   reminder_after: 'Testimony reminder, after the hearing', slot_alert: 'Last hearing slot', deadline_reminder: 'Deadline reminder',
 };

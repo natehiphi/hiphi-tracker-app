@@ -1065,7 +1065,7 @@ function groupAlerts() {
       s.teamEmail === null ? '' : swRow('ss-teamemail', 'Email to the team', !!s.teamEmail, s.teamEmail ? 'On: someone Slack cannot find gets their messages by email' : 'Off: their messages go to the next person Slack can reach'),
     ]))
     + ssSec('slack', 'Hearing alerts in Slack', ssList('Slack', [
-      openRow('where', 'Where hearing alerts post', esc(`${cfg.main_channel ? `${cfg.main_channel} ` : 'No main channel yet · alerts '}${posWords(cfg.positions || [])} · ${withCh} of ${plural(S.campaigns.length, 'coalition')} also post to their own channel`)),
+      openRow('where', 'Where hearing alerts post', esc(`DMs to each bill’s people · ${posWords(cfg.positions || [])} · ${cfg.main_channel ? `daily list in ${cfg.main_channel}` : 'no main channel yet'} · ${withCh} of ${plural(S.campaigns.length, 'coalition')} also post to their own channel`)),
       // One row for the daily list (the critic: its time was said in two rows): whether it posts, when and where, in one sheet.
       openRow('daily', 'Daily list of hearings', esc(d.enabled !== false ? `On: posts at ${hhmm(d.time || '07:00')} in ${dChan} · ${d.days_ahead || 7} days ahead${d.post_when_empty ? ' · even with none coming' : ''}` : 'Off')),
       swRow('ss-wfdm', 'Testimony steps as Slack messages', cfg.workflow_dm !== false, cfg.workflow_dm !== false ? 'On: each step reaches its person in Slack' : 'Off: they go by email instead'),
@@ -1196,7 +1196,7 @@ const SHEETS = {
         return { text: 'Saved.', undo: () => DB.saveEmailSettings(before) }; } }); },
   where() { const c = S.slackCfg || {}, pos = new Set(c.positions || []);
     formSheet('where', { title: 'Where hearing alerts post',
-      body: `${txt('st-main', 'Main Slack channel', c.main_channel || '', { ph: '#hearing-alerts-2027', help: 'Every hearing alert posts here. Each bill also posts to its coalition’s channel, set on the coalition under Before each session.' })}
+      body: `${txt('st-main', 'Main Slack channel', c.main_channel || '', { ph: '#hearing-alerts-2027', help: 'The daily list of hearings posts here. Each hearing alert goes as a DM to the bill’s leaders and followers (the admins when nobody is on the bill), and to its coalition’s channel, set on the coalition under Before each session.' })}
         <fieldset class="ss-fs"><legend>Post alerts for bills we</legend><div class="ss-checks2">${POS_OPTS.map(([v, l]) => `<label class="ss-check2"><input type="checkbox" id="ss-pos-${v}" value="${v}"${pos.has(v) ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div></fieldset>`,
       save: async f => { const positions = POS_OPTS.map(([v]) => v).filter(v => f.querySelector('#ss-pos-' + v)?.checked);
         await DB.saveSlackSettings({ ...c, main_channel: val(f, 'st-main') || '#hearing-alerts-2027', positions }, []);
