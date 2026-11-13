@@ -234,8 +234,9 @@ JOURNEYS = [
     [Step('Filter'), Step(r'^\s*O.?ahu'), Step(r'^\s*Show \d+ people'), Step('More actions'), Step('Save as segment'), Step(r'^\s*Save segment', fill='Oʻahu supporters (test)')], r'Saved',
     start='/outreach/supporters', needs=('#/outreach/supporters',)),
   # R-358: the row's button lands IN the open box (?write=1), so the ask is three moves: the button, the words, Save. R-370 third walk: Save now confirms, so the budget is 3 clicks (the extra tap is the point).
-  J('public-ask', 'Write the public ask (Saya), from Today', 'SY', 3,
-    [Step('Write the public ask', in_view=True), Type({'[data-askbox]': 'Send testimony by Wed 3/18, 9:30 AM. Two sentences in your own words are enough.'}), Step('Publish the public ask'), Step(rx(r'^\s*Publish\s*$'), note='the confirm (R-370 third walk)')], TOAST(r'Published'),
+  # R-376: Saya is not an admin, so her ask is sent for approval (nothing goes live, so no publish confirm).
+  J('public-ask', 'Write the public ask (Saya), from Today', 'SY', 2,
+    [Step('Write the public ask', in_view=True), Type({'[data-askbox]': 'Send testimony by Wed 3/18, 9:30 AM. Two sentences in your own words are enough.'}), Step('Send the ask for approval')], TOAST(r'Sent to an admin'),
     None, needs=('staff6/asks.js',), v5=3, v5_note="v5: Today's Write it, the Public tab's box, Save public page"),
   # R-358 (Nate 31 Oct: "Kevin and Saya should definitely be able to do any outreach"): anyone on the bill, from Outreach, one click to the open box.
   J('outreach-ask-kevin', 'Open the box to write a public ask (Kevin, on CTFH bills), from Outreach', 'KV', 1,
@@ -244,7 +245,8 @@ JOURNEYS = [
   J('outreach-ask-saya', 'Open the box to write a public ask (Saya), from Outreach', 'SY', 1,
     [Step('Write the public ask', in_view=True)], lambda pg: bool(pg.page.query_selector('main [data-askbox]')),
     None, start='/outreach', needs=('staff6/asks.js',), v5=1, v5_note='not in v5'),
-  J('qr-link', 'Make a partner QR link (Saya)', 'SY', 2,
+  # R-376 (Nate 12 Nov): Make a link is an admin's tool, so Nate makes it.
+  J('qr-link', 'Make a partner QR link (Nate)', 'NT', 2,
     [Step(r'^\s*More\s*$', roles=('link', 'button')), Step(r'^\s*Make a link')], QR_SHOWN,
     [Step('Issues$', roles=('link',)), Step('All issues'), Step(rx(r'^More')), Step(r'^\s*First visit'), Step(r'^\s*Make a link')], QR_SHOWN,
     needs=('staff6/tools.js',)),

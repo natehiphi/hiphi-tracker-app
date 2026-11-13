@@ -3,6 +3,7 @@
 // Everything bill-level is in core.js, which re-exports this module, so screens keep importing from core.js; only the
 // modules on the first load import from here. Nothing here may import core.js, stops.js or rank.js (tools/check_split.mjs).
 import { ICONS, icon } from '../icons.js';
+import { previewClient, previewDemo } from './preview.js';   // R-380: inert unless the address says preview=1 and staff left a note
 export { ICONS, icon };
 import { t, tn, lang, isEn, trText, setDbTranslations, onLang, setLang, initLang, offered } from './i18n.js';
 export { t, tn, lang, isEn, trText, setLang, initLang, offered, onLang };   // the tracker in other languages (R-166 step 3)
@@ -179,7 +180,7 @@ export const libFailed = () => libFails > 0;
 // them here, together, when the library is wanted (10/5: on a slow line the full catalog came 5 s after the topics).
 const preloadLib = () => { for (const href of window.__hiphiLib || []) { if (document.querySelector(`link[rel="modulepreload"][href="${href}"]`)) continue;
   const l = document.createElement('link'); l.rel = 'modulepreload'; l.href = href; l.crossOrigin = 'anonymous'; document.head.appendChild(l); } };
-const makeClient = () => clientP ??= (preloadLib(), import(libFails ? `${SUPABASE_JS}?r=${libFails}` : SUPABASE_JS)).then(({ createClient }) => (S.supa = createClient(SUPABASE_URL, SUPABASE_KEY, AUTH)))
+const makeClient = () => clientP ??= (preloadLib(), import(libFails ? `${SUPABASE_JS}?r=${libFails}` : SUPABASE_JS)).then(({ createClient }) => (S.supa = previewClient(createClient(SUPABASE_URL, SUPABASE_KEY, AUTH))))
   .catch(e => { clientP = null; libFails++; throw e; });
 // A request that never answers ends in "We couldn’t load" (ui.js loadFail), never in a skeleton that never goes away
 // (R-212 #49, DESIGN B-8). The request itself is left to finish; its answer is simply no longer waited for.
@@ -190,7 +191,7 @@ export function timed(p, ms = 12000) {
 // as "nothing there" ("not found", "0 bills", "not following any issues": R-212 #49).
 export const must = r => { if (r && r.error) throw r.error; return r; };
 export async function init() {
-  if (DEMO) { await (await import('./demo.js')).demoLoad(); return; }   // the sandbox's data, loaded only with ?demo=1 (R-122)
+  if (DEMO) { await (await import('./demo.js')).demoLoad(); previewDemo(D); return; }   // the sandbox's data, loaded only with ?demo=1 (R-122)
   await makeClient();
   const { data } = await S.supa.auth.getSession(); S.session = data.session;
   // A sign-in by text code (pub/phone.js, R-155) happens mid-flow and loads the account itself (S.quietAuth), so the page
