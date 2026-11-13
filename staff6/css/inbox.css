@@ -364,3 +364,54 @@ body.staff6 .hp-page .hp-where svg { grid-row: 1 / 3; grid-column: 2; width: 18p
   body.staff6 .hp-page .hp-where svg { grid-row: 1; grid-column: 3; } }
 /* How do I… (R-378): the step-by-step line, then the task list, apart */
 body.staff6 .hp-page .hp-p + .hp-card { margin-top: 16px; }
+/* R-378 (Nate 12 Nov 2026, "It could be interactive too"): the bill's path. I'm the… is a quiet segmented choice that marks a
+   role's steps (the others go quiet, never hidden or unreadable); a step's title is the button that opens its how-to, with a
+   soft fade and a smooth height (A-10: 200-300 ms, off under Reduce Motion). */
+body.staff6 .hp-page .hp-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 16px 0 0; }
+body.staff6 .hp-page .hp-rolel { font-weight: 700; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-seg { display: grid; grid-template-columns: repeat(4, auto); gap: 2px; padding: 3px; border-radius: var(--v6-r12); background: var(--v6-wash); border: 1px solid var(--v6-hair); }
+body.staff6 .hp-page .hp-role { min-height: 44px; min-width: 44px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--v6-body); font: inherit; font-weight: 700; cursor: pointer;
+  transition: background-color 150ms ease-out, color 150ms ease-out, box-shadow 150ms ease-out; }
+body.staff6 .hp-page .hp-role[aria-pressed="true"] { background: var(--v6-card); color: var(--v6-action); box-shadow: inset 0 0 0 2px var(--v6-action), var(--v6-sh1); }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hp-page .hp-role:not([aria-pressed="true"]):hover { color: var(--v6-ink); background: var(--v6-card); } }
+body.staff6 .hp-page .hp-role:focus-visible, body.staff6 .hp-page .hp-fbtn:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; }
+@media (max-width: 479px) { body.staff6 .hp-page .hp-seg { width: 100%; grid-template-columns: 1fr 1fr; gap: 4px; }
+  body.staff6 .hp-page .hp-role { background: var(--v6-card); } }
+body.staff6 .hp-page .hp-rolenote { margin: 8px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+/* a place link that wraps keeps its arrow on the first line (the critic, 320px) */
+body.staff6 .hp-page .hp-go, body.staff6 .hp-page .hp-fqa .hp-go { align-items: flex-start; padding-block: 10px; box-sizing: border-box; }
+body.staff6 .hp-page .hp-go svg { margin-top: 3px; }
+body.staff6 .hp-page .hp-fbox, body.staff6 .hp-page .hp-fqbox, body.staff6 .hp-page .hp-fn { transition: background-color 200ms ease-out, box-shadow 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out; }
+body.staff6 .hp-page .hp-yours { display: none; width: fit-content; padding: 2px 10px; border-radius: 999px; background: var(--v6-action); color: #fff; font-size: var(--v6-t14); line-height: var(--v6-lh14); font-weight: 700; }
+body.staff6 .hp-page .hp-flow[data-role] > li.hp-mine .hp-yours { display: block; }
+body.staff6 .hp-page .hp-flow[data-role] > li.hp-mine .hp-fbox { box-shadow: 0 0 0 2px var(--v6-action), var(--v6-sh1); }
+body.staff6 .hp-page .hp-flow[data-role] > li.hp-mine .hp-fqbox { border-color: var(--v6-action); }
+/* the quiet steps: flat, on the wash, the number grey; the words in the muted ink, which still reads (AA) */
+body.staff6 .hp-page .hp-flow[data-role] > li:not(.hp-mine) .hp-fbox { background: var(--v6-wash); box-shadow: none; }
+body.staff6 .hp-page .hp-flow[data-role] > li:not(.hp-mine) .hp-fn { background: var(--v6-hair); color: var(--v6-muted); }
+body.staff6 .hp-page .hp-flow[data-role] > li:not(.hp-mine) :is(.hp-fs, .hp-fqa, .hp-fbtn, .hp-ft, .hp-fqt) { color: var(--v6-muted); }
+body.staff6 .hp-page .hp-flow[data-role] > li:not(.hp-mine) :is(.hp-fbtn, .hp-ft) svg { color: var(--v6-muted); }
+/* a step's title, the button that opens its how-to */
+body.staff6 .hp-page .hp-fbtn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin: -6px 0 -4px; padding: 0; border: 0; border-radius: 6px; background: none;
+  text-align: left; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); cursor: pointer; }
+body.staff6 .hp-page .hp-fbtn svg { flex: none; width: 20px; height: 20px; color: var(--v6-action); }
+body.staff6 .hp-page .hp-fbtn .hp-fchev { margin-left: auto; color: var(--v6-muted); transition: transform 220ms ease-out; }
+body.staff6 .hp-page .hp-fbtn[aria-expanded="true"] .hp-fchev { transform: rotate(180deg); }
+@media (hover: hover) and (pointer: fine) { body.staff6 .hp-page .hp-fbtn:hover > span { text-decoration: underline; text-underline-offset: 3px; } }
+body.staff6 .hp-page .hp-fside .hp-fbtn { font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .hp-page .hp-fmore { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden;
+  transition: grid-template-rows 240ms ease-out, opacity 180ms ease-out, visibility 0s linear 240ms; }
+body.staff6 .hp-page .hp-open .hp-fmore { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows 240ms ease-out, opacity 200ms ease-out 40ms, visibility 0s; }
+body.staff6 .hp-page .hp-fmin { min-height: 0; overflow: hidden; }
+body.staff6 .hp-page .hp-fdl { display: grid; gap: 2px; margin: 8px 0 0; padding: 12px 14px; border-radius: var(--v6-r12); background: var(--v6-wash); font-size: var(--v6-t16); line-height: var(--v6-lh16); }
+body.staff6 .hp-page .hp-fdl + .hp-fdl { margin-top: 6px; }
+body.staff6 .hp-page .hp-fdl dt { font-weight: 700; color: var(--v6-ink); }
+body.staff6 .hp-page .hp-fdl dd { margin: 0 0 8px; color: var(--v6-body); }
+body.staff6 .hp-page .hp-fdl dd:last-child { margin-bottom: 0; }
+body.staff6 .hp-page .hp-fmore a { color: var(--v6-action); text-decoration: underline; text-underline-offset: 3px; }
+body.staff6 .hp-page .hp-fall { margin: 6px 0 0; font-size: var(--v6-t14); line-height: var(--v6-lh14); color: var(--v6-muted); }
+body.staff6 .hp-page .hp-fall a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+body.staff6 .hp-page .hp-steps2 { margin-top: 24px; }
+@media (prefers-reduced-motion: reduce) {
+  body.staff6 .hp-page :is(.hp-role, .hp-fbox, .hp-fqbox, .hp-fn, .hp-fmore, .hp-open .hp-fmore, .hp-fchev) { transition: none; }
+}
