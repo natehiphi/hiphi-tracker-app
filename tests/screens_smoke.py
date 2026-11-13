@@ -6,6 +6,7 @@
 # The live half reads production as the public does; the privacy signal is set so no visit is counted.
 import json, os, sys, time
 from playwright.sync_api import sync_playwright
+import busy
 
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/').rstrip('/') + '/'
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +44,7 @@ def check(c, m):
     global ok, fail
     print('PASS' if c else 'FAIL', m); ok += bool(c); fail += (not c)
 
+busy.wait_if_busy()   # wait while the Mac is overloaded (R-384)
 with sync_playwright() as p:
     b = p.chromium.launch()
     for mode, page in [('sandbox', 'track.html?demo=1&seed=1'), ('live', 'track.html')]:

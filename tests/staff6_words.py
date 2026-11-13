@@ -29,6 +29,7 @@ import json, os, re, sys, time
 from concurrent.futures import ProcessPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import staff6_lib as L
+import busy
 from staff6_budget import ROUTES
 
 # ---- 3: the wordings of each testimony state; the first is v6's one wording (spec 5 testimonyState) ----
@@ -309,8 +310,8 @@ def help_names(b):
   pg.close(); return named
 
 def main():
-  argv = sys.argv[1:]; workers = int(argv[argv.index('--workers') + 1]) if '--workers' in argv else max(1, min(6, (os.cpu_count() or 4) - 2))
-  R = L.Results(); t0 = time.time()
+  argv = sys.argv[1:]; workers = int(argv[argv.index('--workers') + 1]) if '--workers' in argv else busy.workers()   # R-384
+  busy.wait_if_busy(); R = L.Results(); t0 = time.time()
   jobs = []
   for who in L.PEOPLE:
     keys = [k for k, r6, r5, gate, front in ROUTES if not (gate and who not in gate) and k != 'more']

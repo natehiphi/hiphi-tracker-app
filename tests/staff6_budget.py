@@ -52,6 +52,7 @@ import json, os, re, sys, time
 from concurrent.futures import ProcessPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import staff6_lib as L
+import busy
 
 H1562 = '/bill/HB1562'
 # key, v6 address, v5 address (None: v5 had no such place), who sees it (None: everyone), front page of a place (also
@@ -306,7 +307,7 @@ def args_of(argv):
   if val('--sizes'): a['sizes'] = [tuple(int(x) for x in s.split('x')) for s in val('--sizes').split(',')]
   if val('--clocks'): a['clocks'] = val('--clocks').split(',')
   if val('--routes'): a['routes'] = val('--routes').split(',')
-  a['workers'] = int(val('--workers') or max(1, min(6, (os.cpu_count() or 4) - 2)))
+  a['workers'] = int(val('--workers') or busy.workers())   # 2 at once on the laptop, more on CI (R-384)
   a['json'] = val('--json'); return a
 
 def fmt(v):
@@ -316,7 +317,7 @@ def fmt(v):
   return str(v)
 
 def main():
-  a = args_of(sys.argv[1:]); jobs = plan(a); rows = []; failed = []; t0 = time.time()
+  a = args_of(sys.argv[1:]); jobs = plan(a); rows = []; failed = []; busy.wait_if_busy(); t0 = time.time()
   print(f'{L.APP}: {len(jobs)} tabs, {sum(len(j[4]) for j in jobs)} screens, {a["workers"]} at once ({"served from " + L.ROOT if L.ROOT else L.HOST})', flush=True)
   with ProcessPoolExecutor(max_workers=a['workers'], initializer=_init) as ex:
     for i, (out, secs) in enumerate(ex.map(run_job, jobs), 1):

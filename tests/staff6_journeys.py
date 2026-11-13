@@ -22,6 +22,7 @@
 import os, re, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import staff6_lib as L
+import busy
 
 V5 = L.V5
 rx = lambda s: re.compile(s, re.I)
@@ -552,6 +553,7 @@ def landing(b, R, only):
       pg.close()
 
 def main():
+  busy.wait_if_busy()   # wait while the Mac is overloaded (R-384)
   argv = sys.argv[1:]; only = set(argv[argv.index('--only') + 1].split(',')) if '--only' in argv else None
   R = L.Results(); base = L.load_baseline().get('journeys', {}); got = {}; t0 = time.time()
   with L.browser() as b:

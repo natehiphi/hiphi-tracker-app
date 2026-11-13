@@ -2,6 +2,7 @@
 import json, sys, os, re
 from playwright.sync_api import sync_playwright
 import checks
+import busy
 # The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
 TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
@@ -50,6 +51,7 @@ def std(p, name, desktop=False, axe=False):
     if axe: ok(not r.get('axe'), f'{name}: axe {str(r.get("axe"))[:160]}')
     return r
 
+busy.wait_if_busy()   # wait while the Mac is overloaded (R-384)
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     # ---- 1. the first visit on a phone (R-023, rebuilt 9/21; R-039 and R-053, 9/26; R-062, 9/29): topics -> issues (the Mahalo
