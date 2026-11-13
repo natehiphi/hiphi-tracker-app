@@ -2,7 +2,7 @@
 // commit ac1acb7: filters and facets, deadlines and risk, drafts and their steps, legislators and stances, the weekly
 // memo, people search and CSV, inbox rows, alert helpers), with `export` added and the two UI calls in loadTriage
 // routed through hooks. v2's own logic (Today, review queue) lives in the screen modules that use it.
-import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
+import { $, DB, DEADLINES, DEADLINE_ROWS, DEMO, TRIAL, S, SESSION_OVER, SESSION_YEAR, STAGE_LABEL, SUPABASE_KEY, SUPABASE_URL, advocate, billStop, effStage, esc, fmtDT, fmtDate, hearingStream, hooks, isMine } from './data.js';
 import { changedSince, VB } from './data.js';   // R-316 W24: staleFromLine
 import { CHAMBER_NAME, HELD_RE, isResolution, stoppedAt } from '../stops.js';
 // R-316 W2: one rule on every staff screen. HIPHI never asks a chair to hear a bill it opposes (the public page already
@@ -357,7 +357,9 @@ export function introYear(b) {
   if (m[1].toUpperCase() === 'SB') return n < 2000 ? y - 1 : y;
   return HB_FIRST_NEW[y] && n < HB_FIRST_NEW[y] ? y - 1 : y;
 }
-export const isCarry = b => !!b && introYear(b) < +(b.session_year || SESSION_YEAR);
+// Practice copy and trials first (Nate's R-388 answer: live staff on his yes); ?carry=1 shows it live. Flip to true on his yes.
+const CARRY_ON = DEMO || !!TRIAL || /[?&]carry=1\b/.test(location.search);
+export const isCarry = b => CARRY_ON && !!b && introYear(b) < +(b.session_year || SESSION_YEAR);
 // "2025 carryover", the words Nate chose for the bill page; '' for a bill of this year.
 export const carryWords = b => isCarry(b) ? `${introYear(b)} carryover` : '';
 // It moved in the new year: a hearing set or held from 1 January, or a later action that is a vote, a report or a new
