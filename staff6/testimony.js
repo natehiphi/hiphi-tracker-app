@@ -144,7 +144,7 @@ function body(b) {
       <p class="small muted">${m.inIssue.length ? `${plural(m.inIssue.length, 'draft', 'drafts')} on ${plural(new Set(m.inIssue.map(d => String(d.bill_id))).size, 'bill', 'bills')}.`
         : m.sameCount ? `No testimony on the other ${plural(m.sameCount, 'bill', 'bills')} in this issue yet.` : 'This is the only bill in its issue so far.'}</p>
       ${m.inIssue.length ? `<div class="tm-rows">${byBill(m.inIssue, m.start, m.issues.length === 1 ? m.issues[0].name : '')}</div>` : ''}</section>`;
-  } else if (!m.issues.length) h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one on the Public tab</a>.</p></section>`;
+  } else if (!m.issues.length) h += `<section class="tm-part"><p class="small muted">This bill has no issue yet, so testimony on similar bills can't be found. <a href="${billRoute(b, 'public')}">Give it one under What the public sees</a>.</p></section>`;
   // No count in the label (v3: numbers only where they ask for action).
   h += `<section class="tm-part" role="search" aria-labelledby="tm-q-h"><h3 id="tm-q-h"><label for="tm-q">Search all testimony in the tracker</label></h3>
     <div class="tm-search">${icon('search')}<input id="tm-q" type="search" autocomplete="off" placeholder="A bill, committee, issue or person" value="${esc(S.tmQuery || '')}"></div>

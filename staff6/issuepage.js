@@ -993,6 +993,10 @@ function vbHeadHTML(i, outlook) {
 // content is still on one of them. Gated by IA (data.js): live staff keep the page above until Nate says yes.
 // =====================================================================================================================
 const IA_TABS = [['bills', 'Bills'], ['public', 'Public'], ['prep', '2027 prep'], ['about', 'About']];
+// R-393 (Nate 13 Nov): Public is not in the tab row; it opens from the foot of the other tabs ("What the public sees ›"),
+// and its address (#/issue/X/public) still works.
+const IA_ROW = IA_TABS.filter(([k]) => k !== 'public');
+let pubFocus = false;
 const IA_OLD = { overview: '', hearings: 'about', testimony: 'about', outreach: 'public' };   // old addresses still open something
 const iaTabOf = prepDue => { const k = /^#\/issue\/[^/?]+\/([a-z]+)/.exec(location.hash)?.[1];
   if (IA_TABS.some(t => t[0] === k)) return k; return IA_OLD[k] || (prepDue ? 'prep' : 'bills'); };   // November, with prep due, opens on the prep
@@ -1115,7 +1119,7 @@ function iaRender(route, i) {
   const keep = route.q?.from ? `?from=${encodeURIComponent(route.q.from)}` : '';
   const pubN = xs.filter(x => x.alive && thisSession(x.b) && x.b.is_public && isPos(x.b)).length;
   const counts = { bills: xs.filter(x => x.alive && thisSession(x.b)).length, public: pubN || null, prep: prepDue ? '•' : null };
-  const tabs = `<nav class="v6-tabs vb-tabs" aria-label="Parts of ${esc(i.name)}">${IA_TABS.map(([k, label]) => `<a href="#/issue/${id}/${k}${keep}"${k === tab ? ' aria-current="page"' : ''} data-vbtab="${k}">${label}${counts[k] != null ? ` <span class="v6-tab-n">${counts[k]}${counts[k] === '•' ? '<span class="sr"> due</span>' : ''}</span>` : ''}</a>`).join('')}</nav>`;
+  const tabs = `<nav class="v6-tabs vb-tabs" aria-label="Parts of ${esc(i.name)}">${IA_ROW.map(([k, label]) => `<a href="#/issue/${id}/${k}${keep}"${k === tab ? ' aria-current="page"' : ''} data-vbtab="${k}">${label}${counts[k] != null ? ` <span class="v6-tab-n">${counts[k]}${counts[k] === '•' ? '<span class="sr"> due</span>' : ''}</span>` : ''}</a>`).join('')}</nav>`;
   let body = '';
   if (tab === 'bills') body = iaBills(i, xs, now, earlier);
   else if (tab === 'public') body = iaPublic(i, xs, now);
@@ -1137,12 +1141,16 @@ function iaRender(route, i) {
         ${foldSec('testimony', 'ia-th', 'Testimony', { sum: `${plural(vbOpenTestimony(test).length, 'bill')} to do`, body: testBody })}
         ${foldSec('timeline', 'ip-th', 'Timeline', tlHTML(i, now.concat(earlier)), { late: 'tlsum' })}${foldSec('lastyear', 'ip-yh', 'Last year’s result', lastYearHTML(i, now, earlier), { late: 'lastyearsum' })}</div>`;
   }
+  const door = tab === 'public'
+    ? `<p class="v6-pubback"><a href="#/issue/${id}/bills${keep}" data-vbtab="bills">${icon('chevron-left')}<span>Back to Bills</span></a></p><h2 class="v6-pubh" id="v6-pubh" tabindex="-1">What the public sees</h2>`
+    : `<p class="v6-pubdoor"><a href="#/issue/${id}/public${keep}" data-vbtab="public">${icon('globe')}<span><b>What the public sees</b> · this issue’s bills on the public page, their asks and who follows them</span>${icon('chevron-right', { cls: 'v6-pdchev' })}</a></p>`;
+  body = tab === 'public' ? door + body : body + door;
   // One way back (R-373 review): the breadcrumb, and it starts where the person came from (R-371), not always at My issues.
   const hs = history.state, cameFrom = hs?.d > 0 && hs.from ? ({ Hearings: 'Calendar', Issues: 'My issues' }[hs.from] || hs.from) : '';
   const ROOT = { 'My issues': '#/issues', 'All issues': '#/issues/all', Today: '#/', Calendar: '#/hearings', Search: '#/search', Testimony: '#/testimony' };
   const bk = backTo(route), root = billFrom(route) ? ['My issues', '#/issues'] : ROOT[cameFrom] ? [cameFrom, ROOT[cameFrom]] : [bk.label, bk.href];
   const head = vbHeadHTML(i, '').replace(/<p class="is6-desc">.*?<\/p>/s, '');   // the goal sits on About; the head keeps the name
-  return `<div class="le-page is6-page ip6-page vb-issue ia-issue" data-vbtab="${tab}">${pathLine([root, [i.name]])}${head}${iaLine(i, hc)}${tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(IA_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
+  return `<div class="le-page is6-page ip6-page vb-issue ia-issue" data-vbtab="${tab}">${pathLine([root, [i.name]])}${head}${iaLine(i, hc)}${tab === 'public' ? '' : tabs}<div class="vb-panel" id="vb-panel" role="region" aria-label="${esc(IA_TABS.find(t => t[0] === tab)[1])}">${body}</div></div>`;
 }
 
 function vbRender(route, i) {
@@ -1211,9 +1219,11 @@ export const issuePage = {
     // B: the issue's tabs are one page (R-365 critic 2): moving between them swaps the history entry, so Back stays where the
     // issue was opened from and never names the issue itself.
     if (VB) {
+      // R-393: there is no Public tab to hold the focus, so a move to or from the public view focuses its heading or Bills.
+      if (pubFocus) { pubFocus = false; root.querySelector(route.tab === 'public' || /\/public(\?|$)/.test(location.hash) ? '#v6-pubh' : '.vb-tabs [aria-current]')?.focus({ preventScroll: true }); }
       root.querySelectorAll('a[data-vbtab]').forEach(a => a.addEventListener('click', e => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0) return;
-        e.preventDefault(); S.go(a.getAttribute('href'), { replace: true }); }));
+        e.preventDefault(); pubFocus = !!a.closest('.v6-pubdoor, .v6-pubback'); S.go(a.getAttribute('href'), { replace: true }); }));
       // A to-do that is the viewer's next step: done in place, then Today says Done and Next (steps.js vbFinish).
       root.querySelector('[data-vbdone]')?.addEventListener('click', async e => {
         const el = e.currentTarget, tid = el.dataset.vbdone, bid = el.dataset.vbdoneb, t = (S.todos?.[bid] || []).find(x => String(x.id) === String(tid)); if (!t) return;

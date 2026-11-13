@@ -1366,7 +1366,7 @@ function wirePage(route, root) {
     catch (e) { toast(e, { err: true }); b.removeAttribute('aria-busy'); } });
   const g = main.querySelector('[data-gaps]');
   if (g) g.onclick = () => { const r = readyRows().find(x => x.key === 'public_copy');
-    openSheet({ title: 'Bills missing public copy', size: 'full', body: `<p class="ss-p">Open each one and fill in its Public tab.</p><div class="rows">${r.gaps.map(b => row({ title: b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b>${esc(billNum(b))}</b>`, sub: [!(b.public_summary || '').trim() ? 'No summary' : '', !(b.public_action || '').trim() ? 'No ask' : ''].filter(Boolean).join(' · '), href: billRoute(b, 'public') })).join('')}</div>`,
+    openSheet({ title: 'Bills missing public copy', size: 'full', body: `<p class="ss-p">Open each one and fill in What the public sees, at the foot of the page.</p><div class="rows">${r.gaps.map(b => row({ title: b.nickname ? `<b class="bn-nick">${esc(b.nickname)}</b> <span class="bn-num">${esc(billNum(b))}</span>` : `<b>${esc(billNum(b))}</b>`, sub: [!(b.public_summary || '').trim() ? 'No summary' : '', !(b.public_action || '').trim() ? 'No ask' : ''].filter(Boolean).join(' · '), href: billRoute(b, 'public') })).join('')}</div>`,
       wire: d => d.querySelectorAll('a[href^="#/"]').forEach(a => a.onclick = e => { e.preventDefault(); goAfterSheet(a.getAttribute('href')); }) }); };
   main.querySelectorAll('[data-ssopen]').forEach(b => b.onclick = () => { const k = b.dataset.ssopen; if (k.startsWith('coal:')) coalSheet(k.slice(5)); else SHEETS[k]?.(); });
   main.querySelectorAll('[data-ssauto]').forEach(el => el.onchange = async () => {

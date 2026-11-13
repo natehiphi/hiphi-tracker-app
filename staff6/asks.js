@@ -424,7 +424,7 @@ async function saveAsk(root, billId, el) {
   const say = m => { err.innerHTML = `<p class="inlinemsg">${icon('circle-alert')}<span>${esc(m)}</span></p>`; ta.setAttribute('aria-invalid', 'true'); ta.focus(); };
   if (text.length < 10) return say('Write the public ask first: what to do, and by when.');
   const x = weekAskItems().find(i => i.b.id === billId), until = x ? hst(new Date(x.h.scheduled_at).getTime()) : null;
-  if (!until) return say('This bill has no hearing this week, so the ask would not show. Write it on the bill’s Public tab.');
+  if (!until) return say('This bill has no hearing this week, so the ask would not show. Write it on the bill’s page, under What the public sees.');
   // R-370 third walk: one tap used to put it on the public page; now it asks first (and asks differently for a live ask).
   const sendUp = needsOk(b);   // R-376: a teammate's ask waits for an admin, so there is nothing to confirm going live
   if (!sendUp && !await confirmPublish(b, text, until, !!liveAsk(b))) return;
