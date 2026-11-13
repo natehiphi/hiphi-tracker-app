@@ -26,6 +26,7 @@ import { prepTaskOf, issueHref } from './prep.js';
 import { isRallier } from './asks.js';
 export { HOW_TO };
 
+const STEP_GUIDES = '<a href="#/help/path">A bill’s path</a> · <a href="#/help/hearing">Getting a bill a hearing</a> · <a href="#/help/talk">Logging a talk with a legislator</a> · <a href="#/help/file">How to file at the Capitol</a> · <a href="#/help/changes">When the Capitol changes the plan</a> · <a href="#/help/versions">House and Senate versions</a> · <a href="#/help/moments">What to do at each moment</a> · <a href="#/help/calendar">Session calendar</a>.';
 const DESK = () => { try { return matchMedia('(min-width: 1100px)').matches; } catch { return false; } };
 const HOVER = () => { try { return matchMedia('(hover: hover) and (pointer: fine)').matches; } catch { return false; } };
 const names = pred => S.advocates.filter(a => pred(a) && a.is_active !== false).map(a => a.full_name);
@@ -88,20 +89,11 @@ const TOPICS = [
       ['Search', 'The box at the top (on a phone, the search button) finds bills by number or words, legislators, teammates, supporters, conversations, places and things to do. Cmd or Ctrl and K puts the cursor in it from any page.'],
       ['On a phone', VB ? 'The bar at the bottom: Today, My issues, Calendar, Search and <b>More</b>, which lists every other place (Testimony first) with a line on what it is for. Help and the Inbox are at the top.' : 'The bar at the bottom: Today, Hearings, Testimony, Issues and <b>More</b>, which lists every other place with a line on what it is for. Search, Help and the Inbox are at the top.']] },
   // R-316 W29 (L-3): the everyday tasks staff asked Help about, one line each, pointing at the button.
-  { id: 'howto', title: 'How do I…', also: 'how to tasks everyday', icon: 'circle-help', sub: () => 'Everyday tasks, one line each',
-    items: () => [['Step by step', 'For the bigger jobs: <a href="#/help/hearing">Getting a bill a hearing</a> · <a href="#/help/talk">Logging a talk with a legislator</a> · <a href="#/help/file">How to file at the Capitol</a> · <a href="#/help/changes">When the Capitol changes the plan</a> · <a href="#/help/versions">House and Senate versions</a> · <a href="#/help/moments">What to do at each moment</a> · <a href="#/help/calendar">Session calendar</a>.'],
-      ['Approve or send back testimony', 'Testimony, then <b>To approve</b>: open it, read it in its Doc, then press <b>Approve</b>, or <b>Send back</b> with a note. Review shows one draft at a time and goes on to the next.'],
-      ['File testimony', 'Testimony, then <a href="#/testimony?view=file">Ready to file</a>: the filing card has the PDF, the Capitol page for the hearing and the form’s answers to copy, then <b>Mark filed</b>. Steps: <a href="#/help/file">How to file at the Capitol</a>.'],
-      ['Revise testimony that was sent back', 'Testimony, then <b>Sent back</b>: the note, the Doc, and <b>Resubmit</b> once it is fixed.'],
-      ['Log a call or meeting with a legislator', 'Open the legislator’s page (Legislators, or a name on a bill’s Committees) and press <b>Log a talk</b>. A bill’s Team talk can log one too. Steps: <a href="#/help/talk">Logging a talk with a legislator</a>.'],
-      ['Say I’m going to a hearing', 'Press <b>I’m going</b> on the hearing’s card: on Hearings, the hearing’s page or the bill’s page. It can be undone for 10 seconds.'],
-      ['Ask the chair for a hearing', PL.H + ', then <b>' + ASK_TAB + '</b>: each chair with the bills waiting for them. <b>Email the chair</b> shows on the chairs whose ask is due this week; for the others it is under <b>More for this ask</b>. The email is written for you and opens in your own mail; send it, then answer <b>Did you send it?</b> so the team sees who asked. Steps: <a href="#/help/hearing">Getting a bill a hearing</a>.'],
-      ['Hand a bill or a to-do to someone', 'Give to… beside a bill’s owner (on its page) or on a to-do hands it to a teammate, who gets a Slack message. A chair ask: Give this ask to… on ' + ASK_TAB + '. Someone leaving or away: an admin hands over all they hold, from People.'],
-      ['Send this week’s ask', PL.O + ', <b>This week’s asks</b>: each bill’s ask and its deadline, with Copy link, Copy message, Copy for social and Email followers.'],
-      ['Follow an issue I don’t lead', PL.I + ', then <b>All issues</b>: open the issue and press <b>Follow</b>. It and its bills join ' + PL.I + ', Today and your alerts, without making you a helper. Press <b>Following</b> to stop. A bill alone: Follow on its page.'],
-      ['See what I owe today', 'Today: your next step first, then what to do today. The number beside Today in the sidebar counts it.'],
-      ['Cover for a teammate', 'More, then See a teammate’s list: their Today, to read. Leads (and anyone with “Sees Team”) also have Team.'],
-      ['Find anything', 'Type in the search box at the top, or press Cmd or Ctrl and K. It finds bills, people, places and things to do.']] },
+  // R-378 (Nate 12 Nov 2026, "Yes, merge them"): How do I… and the bill path's Where do I go to… were two task lists in two
+  // wordings. Now one list (whereRows): a task, its place, tapped to go there. How do I… draws it under the step-by-step
+  // guides; search finds each row once, through the bill path's items(), so this guide's items() keep only Step by step.
+  { id: 'howto', title: 'How do I…', also: 'how to tasks everyday where go', icon: 'circle-help', sub: () => 'Everyday tasks: tap one to go there',
+    items: () => [['Step by step', STEP_GUIDES]], html: () => `<p class="hp-p">For the bigger jobs, step by step: ${STEP_GUIDES}</p>${whereList()}` },
   // R-316 W37: short guides in the app's own words, each linked from the screen where its job happens.
   { id: 'hearing', gate: HOW_TO, title: 'Getting a bill a hearing', also: 'ask the chair hearing request schedule notice push', icon: 'megaphone', sub: () => 'When to ask, whom, how, and how to record it',
     items: () => [['1. When', 'As soon as the bill is referred, and before its notice-by date. A committee must post a hearing 48 hours ahead (72 for a bill’s first Senate committee), so the chair has to say yes before then. <b>' + ASK_TAB + '</b> lists each bill still waiting with the day its notice must post by, soonest first; the bill’s page says it too.'],
@@ -479,18 +471,22 @@ const whereRows = () => [
     ['Write or fix testimony', '#/testimony?view=write', 'Testimony › To write'],
     ['Approve testimony', '#/testimony?view=approve', 'Testimony › To approve'],
     ['File testimony', '#/testimony?view=file', 'Testimony › Ready to file'],
+    ['Revise testimony that was sent back', '#/testimony?view=sent', 'Testimony › Sent back, then Resubmit'],
+    ['Say I’m going to a hearing', '#/hearings/week', `${PL.H} › This week, then I’m going`],
+    ['Hand a bill or a to-do to someone', '#/issues/bills', `${PL.I} › Bills, the bill, then Give to…`],
     ['Publish a public ask', '#/outreach', PL.O],
+    ['Send this week’s asks', '#/outreach', `${PL.O} › This week’s asks`],
+    ['Cover for a teammate', '#/more', 'More › See a teammate’s list'],
     ['Log a call or meeting with a legislator', '#/legislators', 'More › Legislators, then Log a talk'],
     ['Follow an issue', '#/issues/all', `${PL.I} › All issues, then Follow`],
     ['Change how alerts reach me', '#/me', 'My settings'],
     ['Look up a Capitol word', '#/help/words', 'Help › Capitol words'],
 ];
+const whereList = () => `<div class="hp-card"><ul class="hp-where" role="list">${whereRows().map(([a, h, p]) => `<li><a href="${h}"><span class="hp-wa">${a}</span><span class="hp-wp">${p}</span>${icon('chevron-right')}</a></li>`).join('')}</ul></div>`;
 function pathPage(flow) {
-  const WHERE = whereRows();
   return `<p class="hp-p">Top to bottom, with who does each step. Tap a place to go there, or <a href="#hp-wherego" data-hpjump>jump to Where do I go to…</a></p>
     <ol class="hp-flow" role="list" aria-label="A bill’s path">${flow.join('')}</ol>
-    <section class="hp-sec" aria-labelledby="hp-wherego"><h3 class="hp-h3" id="hp-wherego">Where do I go to…</h3>
-    <div class="hp-card"><ul class="hp-where" role="list">${WHERE.map(([a, h, p]) => `<li><a href="${h}"><span class="hp-wa">${a}</span><span class="hp-wp">${p}</span>${icon('chevron-right')}</a></li>`).join('')}</ul></div></section>`;
+    <section class="hp-sec" aria-labelledby="hp-wherego"><h3 class="hp-h3" id="hp-wherego">Where do I go to…</h3>${whereList()}</section>`;
 }
 
 // No progress bar (C-7: no homework bars): the ticks, and how many are done.
