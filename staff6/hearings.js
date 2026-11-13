@@ -549,12 +549,13 @@ const toneOf = bills => ['overdue', 'late', 'today'].find(t => (bills || []).som
 const TONE_W = { overdue: 'overdue', late: 'late', today: 'due today' };
 // R-390 (Nate 13 Nov: "the specific bill/issue that has a hearing needs to be shown"): a block names its bills, name first
 // and the number after (R-352: the number first read as a code), up to three, then "+2 more"; "4 bills" alone sent people
-// into every panel to learn which. The panel still has each bill's status and link.
+// into every panel to learn which. The panel still has each bill's status and link. Nate, same day: "The bold should be the
+// bill, the unbold should be the committee": a hearing with bills says its committee in plain words, the bills in bold.
 const BLOCK_BILLS = 3;
 const blockBills = bills => { const l = (bills || []).map(y => y.b).filter(Boolean); if (!l.length) return '';
   const more = l.length > BLOCK_BILLS ? l.length - (BLOCK_BILLS - 1) : 0, shown = more ? l.slice(0, BLOCK_BILLS - 1) : l;
   return shown.map(b => { const nm = nameWords(b, 40), no = numWords(b);
-    return `<span class="hb-s"><b>${esc(nm)}</b>${nm !== no ? ` · ${esc(no).replace(/ /g, '\u00a0')}` : ''}</span>`; }).join('') + (more ? `<span class="hb-s">${esc(`+${more} more`)}</span>` : ''); };
+    return `<span class="hb-b"><b>${esc(nm)}</b>${nm !== no ? ` · ${esc(no).replace(/ /g, '\u00a0')}` : ''}</span>`; }).join('') + (more ? `<span class="hb-s">${esc(`+${more} more`)}</span>` : ''); };
 const blockBillsSaid = bills => (bills || []).map(y => y.b).filter(Boolean).map(b => sayWords(b)).join(', ');
 function calBlock(e) {
   const i = CALB.push(e) - 1, t = timeWords(e.t);
@@ -562,7 +563,7 @@ function calBlock(e) {
     const h = e.x.h, cn = committeeName(h.committee) || h.committee, n = e.bills.length, going = goingTo(e.x.rows);
     const sub = e.cancelled ? 'Cancelled' : n ? '' : (h.room ? roomName(h.room) : '');
     return `<li><button type="button" class="hb-e hb-h${e.cancelled ? ' off' : ''}" data-hce="${i}" aria-label="${esc(`${t}, hearing: ${cn}${sub ? `, ${sub}` : ''}, ${blockBillsSaid(e.bills)}${going ? ', you’re going' : ''}. Show details`)}">
-      <span class="hb-t">${esc(`Hearing · ${t}`)}${going ? `<span class="hb-go">${icon('user-check')}</span>` : ''}</span><span class="hb-n">${esc(cn)}</span>${sub ? `<span class="hb-s">${esc(sub)}</span>` : ''}${blockBills(e.bills)}</button></li>`;
+      <span class="hb-t">${esc(`Hearing · ${t}`)}${going ? `<span class="hb-go">${icon('user-check')}</span>` : ''}</span><span class="${n ? 'hb-cm' : 'hb-n'}">${esc(cn)}</span>${sub ? `<span class="hb-s">${esc(sub)}</span>` : ''}${blockBills(e.bills)}</button></li>`;
   }
   const tone = toneOf(e.bills), n = e.bills.length;
   return `<li><button type="button" class="hb-e hb-due${tone ? ' ' + tone : ''}" data-hce="${i}" aria-label="${esc(`${t}, testimony due${tone ? `, ${TONE_W[tone]}` : ''}, ${blockBillsSaid(e.bills)}. Show details`)}">

@@ -32,6 +32,11 @@ html.vb body.staff6 .hb-t svg { width: 14px; height: 14px; flex: none; }
 html.vb body.staff6 .hb-go { display: inline-flex; margin-left: 2px; }
 html.vb body.staff6 .hb-n { font-size: var(--v6-t16); line-height: 21px; font-weight: 600; overflow-wrap: anywhere; }
 html.vb body.staff6 .hb-s { font-size: var(--v6-t14); line-height: 20px; color: var(--v6-muted); }
+/* R-390: a hearing's bills are its bold lines (name bold, number plain), the committee plain above them (Nate 13 Nov) */
+html.vb body.staff6 .hb-cm { font-size: var(--v6-t14); line-height: 20px; font-weight: 400; color: var(--v6-body); overflow-wrap: anywhere; }
+html.vb body.staff6 .hb-b { font-size: var(--v6-t14); line-height: 20px; font-weight: 400; color: var(--v6-body); overflow-wrap: anywhere; }
+html.vb body.staff6 .hb-b b { font-weight: 700; color: var(--v6-ink); }
+html.vb body.staff6 .hb-h.off .hb-cm { text-decoration: line-through; text-decoration-thickness: 1px; }
 /* a hearing: the soft teal block */
 html.vb body.staff6 .hb-h { background: var(--v6-action-wash); box-shadow: inset 3px 0 0 var(--v6-action); }
 html.vb body.staff6 .hb-h.off { background: var(--v6-wash); box-shadow: inset 3px 0 0 var(--v6-hair); }
