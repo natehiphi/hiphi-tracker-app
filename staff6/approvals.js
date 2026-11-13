@@ -6,6 +6,7 @@
 import { S, DB, hooks, esc, advocate, fmtDate, waitingChanges, myPublicChanges } from './data.js';
 import { billRoute, whenAt } from './model.js';
 import { icon, btn, toast, empty, openSheet, closeSheet } from './ui.js';
+import { openPreview } from './preview.js';   // R-380: see a waiting change on the real public page before deciding
 
 // What each held column is called on screen, per kind of thing.
 const LABELS = {
@@ -42,7 +43,7 @@ function card(pc) {
     <h3 class="pc-name">${t.href ? `<a href="${esc(t.href)}">${esc(t.name)}</a>` : esc(t.name)}</h3>
     <p class="pc-by">${esc(who(pc.proposed_by))} · ${esc(whenAt(pc.proposed_at))}</p></div>
     ${diff(pc)}
-    <div class="pc-acts">${btn('Approve', { kind: 'primary', icon: 'check', attrs: { 'data-pcyes': pc.id } })}${btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-pcno': pc.id, 'aria-haspopup': 'dialog' } })}</div></li>`;
+    <div class="pc-acts">${btn('Preview', { kind: 'text', icon: 'eye', attrs: { 'data-pcprev': pc.id } })}${btn('Approve', { kind: 'primary', icon: 'check', attrs: { 'data-pcyes': pc.id } })}${btn('Send back', { kind: 'secondary', icon: 'undo-2', attrs: { 'data-pcno': pc.id, 'aria-haspopup': 'dialog' } })}</div></li>`;
 }
 const STATUS = { waiting: 'Waiting for an admin', approved: 'Approved', withdrawn: 'Taken back' };
 const statusLine = pc => pc.status === 'sent_back' ? `Sent back${pc.decided_by ? ' by ' + who(pc.decided_by) : ''}${pc.note ? ': ' + pc.note : ''}` : STATUS[pc.status] || pc.status;
@@ -79,6 +80,7 @@ export default {
       catch (e) { el.disabled = false; toast(e, { err: true }); }
       redo();
     });
+    root.querySelectorAll('[data-pcprev]').forEach(el => el.onclick = () => { const pc = by(el.dataset.pcprev); if (pc) openPreview({ kind: pc.kind, id: pc.target_id, fields: pc.fields || {} }); });
     root.querySelectorAll('[data-pcno]').forEach(el => el.onclick = () => {
       const pc = by(el.dataset.pcno); if (!pc) return;
       openSheet({ title: 'Send back', size: 'auto',

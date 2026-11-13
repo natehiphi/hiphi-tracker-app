@@ -24,7 +24,8 @@
 //
 // Moved here from issues.js (R-336 walk 3): pageRender and its helpers, the bill search to put a bill on the issue,
 // related issues, merge, archive, the first-visit switch. issues.js re-exports issuePage, so app.js is unchanged.
-import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, IA, seesTeam, followsIssue, helpsIssue } from './data.js';
+import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, IA, seesTeam, followsIssue, helpsIssue, heldFor } from './data.js';
+import { openPreview } from './preview.js';   // R-380
 import { liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB, pathLine, vbFinish } from './ui.js';
 import { sl } from './ui.js';   // R-365 B plain words
@@ -1231,6 +1232,10 @@ export const issuePage = {
       ...(mayPublic(i) && !i.archived_at && !isDraft(i) ? [{ label: inFirstVisit(i) ? 'Leave out of the first visit' : 'Show in the first visit', icon: inFirstVisit(i) ? 'eye-off' : 'eye',
         sub: inFirstVisit(i) ? 'Newcomers can follow it on their first visit now. People can still find it either way.' : 'Left out of a newcomer’s first visit now. People can still find and follow it.',
         run: async () => { await afterClose(); setFirstVisit(i, !inFirstVisit(i)); } }] : []),
+      // R-380: the public page with the issue's words as they stand, plus this person's own waiting change (the public keeps the earlier words until an admin says yes).
+      { label: 'Preview', icon: 'eye', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', sub: 'See it as the public will, before anything changes',
+        run: () => { const w = heldFor('issue', i.id), mineW = w && w.proposed_by === S.me?.id ? w.fields : {};
+          openPreview({ kind: 'issue', id: i.id, fields: { name: i.name, description: i.description, outlook: i.outlook, stance: i.stance, first_visit: i.first_visit, ...mineW } }); } },
       { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
     ] }));

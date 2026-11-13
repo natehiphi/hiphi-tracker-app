@@ -18,6 +18,7 @@ import { nameWords, numWords, whereWords } from './steps.js';
 import { emailDoor, mayEmail } from './composer.js';
 import * as SP from './supporters.js';
 import { billRoute } from './model.js';
+import { openPreview } from './preview.js';   // R-380: a draft list has no public page, so this draws it from the note
 
 const publicLink = l => `${PUBLIC_APP()}#list=${l.slug}`;
 function embedCode(l) {
@@ -137,7 +138,7 @@ function render(route) {
             ${l.is_published ? emailDoor({ list: l }, { sm: true }) : '<p class="meta le-snote">It can be emailed once it is published.</p>'}
           </section>
           <section class="card le-sc" aria-labelledby="le-h-share"><h2 id="le-h-share">Share</h2>
-            ${sbtn('Copy link', 'copylink', 'link')}${sbtn('Copy embed code', 'copyembed', 'copy')}${sbtn('Open the public page', 'openpub', 'external-link', { disabled: !l.is_published })}
+            ${sbtn('Copy link', 'copylink', 'link')}${sbtn('Copy embed code', 'copyembed', 'copy')}${sbtn('Preview', 'preview', 'eye')}${sbtn('Open the public page', 'openpub', 'external-link', { disabled: !l.is_published })}
             ${l.is_published ? '' : '<p class="meta le-snote">The link works once the list is published.</p>'}
           </section>
           <section class="card le-sc" aria-labelledby="le-h-det"><div class="le-sch"><h2 id="le-h-det">Details</h2>${btn('Edit', { kind: 'text', sm: true, icon: 'pencil', attrs: { 'data-le': 'edit', 'aria-haspopup': 'dialog' } })}</div>
@@ -200,6 +201,7 @@ function shareMenu(l) {
   menuSheet({ title: 'Share', items: [
     { label: 'Copy link', icon: 'link', sub: l.is_published ? 'Anyone with the link can open the list' : 'It works once the list is published', run: () => copyText(publicLink(l), l.is_published ? 'Link copied.' : 'Link copied. It works once the list is published.', 'link') },
     { label: 'Copy embed code', icon: 'copy', sub: 'Puts this list on another web page', run: () => copyText(embedCode(l), 'Embed code copied.', 'embed code') },
+    { label: 'Preview', icon: 'eye', sub: 'See it as the public will, before anything changes', run: () => openPreview({ kind: 'list', id: l.id }) },
     { label: 'Open the public page', icon: 'external-link', disabled: !l.is_published, reason: 'Publish the list first. The public page shows only live lists.', run: () => { window.open(publicLink(l), '_blank', 'noopener'); } },
     { label: 'Email followers', icon: 'mail', disabled: !l.is_published || !mayEmail({ list: l }), reason: !l.is_published ? 'Publish the list first. Only a live list has followers.' : 'Only its curator or an admin emails a list’s followers.', sub: plural(f, 'follower'),
       run: async () => { await afterClose(); S.go('#/email/new?list=' + encodeURIComponent(l.id)); } },
@@ -283,6 +285,7 @@ function wire(route, root) {
   act('copylink', () => copyText(publicLink(l), l.is_published ? 'Link copied.' : 'Link copied. It works once the list is published.', 'link'));
   act('copyembed', () => copyText(embedCode(l), 'Embed code copied.', 'embed code'));
   act('openpub', () => window.open(publicLink(l), '_blank', 'noopener'));
+  act('preview', () => openPreview({ kind: 'list', id: l.id }));
   act('mailfol', () => S.go('#/email/new?list=' + encodeURIComponent(l.id)));
   act('edit', () => openListForm(l));
   page.querySelectorAll('[data-bmore]').forEach(el => el.onclick = () => billMenu(l, el.dataset.bmore));

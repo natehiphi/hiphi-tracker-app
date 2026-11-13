@@ -36,6 +36,7 @@ import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDo
 // OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
 import { askCardHref, askWriteHref, askWhose, writesAsk, onBill } from './asks.js';
 import { emailDoor } from './composer.js';
+import { openPreview } from './preview.js';   // R-380: the form's words on the real public page, saved or not
 
 const FIELDS = ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'];
 const BOOL = new Set(['is_public']);
@@ -278,7 +279,7 @@ export function renderPublic(b) {
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div></fieldset>
       <div id="bw-perr" role="alert"></div>
       <div class="bw-acts bw-pubsave">${card ? btn(saveWord(b), { kind: 'primary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit' } })
-        : `${btn(pubWord(b), { kind: 'primary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit', 'data-pubgo': '1', ...(publishing(b, ask) ? {} : { disabled: true }) } })}${btn(saveWord(b), { kind: 'secondary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit', 'data-pubsave2': '1' } })}`}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${sendsUp(b) ? 'An admin approves it before the public sees it' : goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
+        : `${btn(pubWord(b), { kind: 'primary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit', 'data-pubgo': '1', ...(publishing(b, ask) ? {} : { disabled: true }) } })}${btn(saveWord(b), { kind: 'secondary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit', 'data-pubsave2': '1' } })}`}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${sendsUp(b) ? 'An admin approves it before the public sees it' : goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${btn('Preview', { kind: 'text', icon: 'eye', attrs: { 'data-prevgo': '1' } })}${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
       <p class="bw-prevh" id="bw-prev-h">How the public page shows it</p>
@@ -335,6 +336,9 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     v.splice(i, 1, ...keep); ptDraw(v, i + keep.length - 1); ptChanged(); });
   ptAdd.onclick = () => { const v = ptRaw(); if (v.length >= MAX_PTS) return; ptDraw([...v, ''], v.length); };
   const errBox = form.querySelector('#bw-perr');
+  // R-380: Preview at every width, with what the form holds now (unsaved included), on the real public page in a new tab.
+  form.querySelector('[data-prevgo]')?.addEventListener('click', () => openPreview({ kind: 'bill', id: b.id, fields: { is_public: f.is_public.checked, nickname: f.nickname.value.trim().replace(/\s+/g, ' '),
+    public_summary: f.public_summary.value.trim(), public_action: f.public_action.value.trim(), public_action_until: f.public_action_until.value || null, talking_points: pointsIn(ptVal()) } }));
   const note = () => { const d = {}; for (const k of FIELDS) { const v = k === 'talking_points' ? ptVal() : BOOL.has(k) ? f[k].checked : f[k].value; if (v !== saved(b, k)) d[k] = v; }
     if (Object.keys(d).length) { if (!bases.has(key)) bases.set(key, rawOf(b)); drafts.set(key, d); } else { drafts.delete(key); bases.delete(key); }
     const s = form.querySelector('.bw-pubsave'), hint = s.querySelector('.muted');
