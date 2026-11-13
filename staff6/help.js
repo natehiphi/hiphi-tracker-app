@@ -54,7 +54,8 @@ const TOPICS = [
   { id: 'new', title: 'Getting started', also: 'new here start first day', icon: 'compass', sub: () => { const st = newSteps(), n = st.filter(s => s.done).length; return `${n} of ${st.length} done`; }, html: () => newHTML() },
   // R-378 (Nate 12 Nov 2026): one picture of a bill's path through the team, each step naming who and where in the app,
   // then 'Where do I go to…', an action to its place. Second in the list so a newcomer meets it right after Getting started.
-  { id: 'path', title: 'A bill’s path, and where to go', also: 'flowchart flow chart map path steps process workflow overview where go place find', icon: 'map', sub: () => 'The steps from a new bill to filed testimony, and where each one happens', html: () => pathHTML() },
+  { id: 'path', title: 'A bill’s path, and where to go', also: 'flowchart flow chart map path steps process workflow overview where go place find', icon: 'map', sub: () => 'The steps from a new bill to filed testimony, and where each one happens', html: () => pathHTML(),
+    items: () => whereRows().map(([a, h, p]) => [a, `<a href="${h}">${p}</a>`]) },   // Help search finds each Where row (the critic)
   { id: 'moved', gate: () => !!S.me?.is_admin, title: 'What moved', also: 'v5 moved where is old app changed new places', icon: 'route', sub: () => 'The changes everyone meets first, then each v5 place', html: route => movedHTML(route) },
   { id: 'words', title: 'Capitol words', icon: 'book-open', sub: () => `Lateral, decking, sine die and ${allWords().length - 3} more`, items: () => allWords().map(([t, d]) => [t, esc(d)]) },
   { id: 'coalitions', title: 'Coalitions', also: 'coalition short names groups', icon: 'users', sub: () => `What ${(S.campaigns || []).slice(0, 2).map(c => c.name).join(', ') || 'each short name'} and the rest stand for`, items: () => coalitionItems() },
@@ -433,6 +434,8 @@ const lookAt = hash => { const h = String(hash || ''), x = h.startsWith('#') ? h
   if (hit && S.me && !frGet()[hit[1]]) frSet({ [hit[1]]: 1 }); };
 if (typeof window !== 'undefined') {
   addEventListener('v6:route', e => lookAt(e?.detail?.hash ?? location.hash));
+  // The bill's path's 'jump to Where do I go to…' (R-378) scrolls within the guide; its #hp-wherego must not reach the router.
+  document.addEventListener('click', e => { const j = e.target?.closest?.('[data-hpjump]'); if (!j) return; e.preventDefault(); e.stopPropagation(); const t = document.getElementById('hp-wherego'); t?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); t?.setAttribute('tabindex', '-1'); t?.focus({ preventScroll: true }); }, true);
   // The practice step opens another tab, so no route is drawn here: its link ticks it, wherever it is (Help or Today).
   document.addEventListener('click', e => { const a = e.target?.closest?.('a[href]'); if (a && !DEMO && S.me && a.getAttribute('href') === practiceHref() && !frGet().practice) frSet({ practice: 1 }); }, true);
 }
@@ -446,23 +449,27 @@ const flowGo = (href, words) => `<a class="hp-go" href="${href}">${icon('arrow-r
 const fbox = (n, ic, title, say, who, where) => `<li class="hp-fstep"><div class="hp-fbox"><span class="hp-fn" aria-hidden="true">${n}</span>
   <div class="hp-fx"><p class="hp-ft">${icon(ic)}<span><span class="sr">Step ${n}: </span>${title}</span></p><p class="hp-fs">${say}</p>
   <p class="hp-fwho"><b>Who:</b> ${who}</p>${where}</div></div></li>`;
+// A side box, off the numbered line: what happens alongside the steps (the critic: on the line it read as coming after filing).
+const fside = (ic, title, say, who, where) => `<li class="hp-fq hp-fside"><div class="hp-fqbox"><p class="hp-fqt">${icon(ic)}<span>${title}</span></p><p class="hp-fs">${say}</p><p class="hp-fwho"><b>Who:</b> ${who}</p>${where}</div></li>`;
 const fask = (q, yes, no) => `<li class="hp-fq"><div class="hp-fqbox"><p class="hp-fqt">${icon('circle-help')}<span>${q}</span></p>
   <ul class="hp-fqa" role="list"><li><b>Yes:</b> ${yes}</li><li><b>No:</b> ${no}</li></ul></div></li>`;
 function pathHTML() {
   const appr = orList(names(a => a.is_admin || a.can_approve).map(n => n.split(' ')[0])) || 'an approver';
   const flow = [
-    fbox(1, 'sparkles', 'A new bill comes in', 'The tracker brings in new bills from the Capitol every day. Someone sorts each one: track it under an issue, or pass.', 'issue leads', flowGo('#/issues/bills/new', `${PL.I} › Bills › Sort new bills`)),
-    fbox(2, 'user-check', 'Someone takes it on', 'The bill gets one owner and HIPHI’s position. Anyone can press Take it on a bill with no owner, or Give to… to hand it on.', 'the owner', flowGo('#/issues/bills', `${PL.I} › Bills, then the bill’s page`)),
-    fbox(3, 'megaphone', 'Ask the chair for a hearing', 'Before the notice-by date on the bill. One email asks the chair about all of their bills; then answer Did you send it?', 'the owner, or a teammate who offers', flowGo('#/hearings/ask', `${PL.H} › ${ASK_TAB}`)),
-    fbox(4, 'calendar-days', 'The hearing is posted', 'The bill shows the hearing and its testimony deadline. Press I’m going if you will be there.', 'anyone going', flowGo('#/hearings/week', `${PL.H} › This week`)),
-    fbox(5, 'file-text', 'Write the testimony', 'A draft is made for the owner in a Google Doc. Write it, then press Send for approval.', 'the writer (usually the owner)', flowGo('#/testimony?view=write', 'Testimony › To write')),
-    fbox(6, 'clipboard-check', 'Approve it', 'Read it in its Doc, then Approve, or Send back with a note.', esc(appr), flowGo('#/testimony?view=approve', 'Testimony › To approve')),
-    fask('Was it sent back?', `the writer fixes it, presses Resubmit, and it goes back to step 6. ${flowGo('#/testimony?view=sent', 'Testimony › Sent back')}`, 'go on to step 7.'),
-    fbox(7, 'landmark', 'File it at the Capitol', 'The filing card has the PDF, the Capitol’s page for the hearing and the form’s answers. File it there, then press Mark filed.', 'the writer', flowGo('#/testimony?view=file', 'Testimony › Ready to file')),
-    fbox(8, 'users', 'Rally the public (alongside 5 to 7)', 'Publish the public ask so supporters write in before the deadline, and copy it for the newsletter or social.', 'the owner or Outreach', flowGo('#/outreach', PL.O)),
+    fbox(1, 'sparkles', 'A new bill comes in', 'The tracker brings in new bills from the Capitol every day. Someone sorts each one: <b>Track</b> it under an issue, or leave it.', 'issue leads', flowGo('#/issues/bills/new', `${PL.I} › Bills › Sort new bills`)),
+    fbox(2, 'user-check', 'Someone takes it on', 'The bill gets one owner and HIPHI’s position. On a bill with no owner, anyone can press <b>Take it</b>; <b>Give to…</b> hands it on.', 'the owner', flowGo('#/issues/bills', `${PL.I} › Bills, then the bill’s page`)),
+    fbox(3, 'megaphone', 'Ask the chair for a hearing', 'Before the notice-by date on the bill. <b>Email the chair</b> asks about all of their bills at once; then answer <b>Did you send it?</b>', 'the owner, or a teammate who offers', flowGo('#/hearings/ask', `${PL.H} › ${ASK_TAB}`)),
+    fbox(4, 'calendar-days', 'The hearing is posted', 'The bill shows the hearing and its testimony deadline. If you will be there, press <b>I’m going</b>.', 'anyone going', flowGo('#/hearings/week', `${PL.H} › This week`)),
+    fside('users', 'Meanwhile: rally the public', 'Once the hearing is posted, publish the public ask so supporters write in before the deadline, and copy it for the newsletter or social.', 'the owner or Outreach', flowGo('#/outreach', PL.O)),
+    fbox(5, 'file-text', 'Write the testimony', 'A draft is made for the owner in a Google Doc. Write it, then press <b>Send for approval</b>.', 'the writer (usually the owner)', flowGo('#/testimony?view=write', 'Testimony › To write')),
+    fbox(6, 'clipboard-check', 'Approve it', 'Read it in its Doc, then press <b>Approve</b>, or <b>Send back</b> with a note.', esc(appr), flowGo('#/testimony?view=approve', 'Testimony › To approve')),
+    fask('Was it sent back?', `the writer fixes it, presses <b>Resubmit</b>, and it goes back to step 6. ${flowGo('#/testimony?view=sent', 'Testimony › Sent back')}`, 'go on to step 7.'),
+    fbox(7, 'landmark', 'File it at the Capitol', 'The filing card has the PDF, the Capitol’s page for the hearing and the form’s answers. File it there, then press <b>Mark filed</b>.', 'the writer', flowGo('#/testimony?view=file', 'Testimony › Ready to file')),
     fask('After the hearing: did it pass the committee?', 'it goes to its next committee, or the other chamber: back to step 3 for that chair.', `it stops for this year (a 2027 bill can come back in 2028). ${flowGo('#/help/moments', 'What to do at each moment')}`),
   ];
-  const WHERE = [
+  return pathPage(flow);
+}
+const whereRows = () => [
     ['What do I do today?', '#/', 'Today'],
     ['Find a bill, a person or a place', '#/search', 'Search (Cmd or Ctrl and K)'],
     ['See where a bill stands and its next step', '#/issues/bills', `${PL.I} › Bills, then the bill`],
@@ -477,8 +484,10 @@ function pathHTML() {
     ['Follow an issue', '#/issues/all', `${PL.I} › All issues, then Follow`],
     ['Change how alerts reach me', '#/me', 'My settings'],
     ['Look up a Capitol word', '#/help/words', 'Help › Capitol words'],
-  ];
-  return `<p class="hp-p">How a bill moves through the team, top to bottom. Each step says who does it and where in the tracker; tap the place to go there.</p>
+];
+function pathPage(flow) {
+  const WHERE = whereRows();
+  return `<p class="hp-p">Top to bottom, with who does each step. Tap a place to go there, or <a href="#hp-wherego" data-hpjump>jump to Where do I go to…</a></p>
     <ol class="hp-flow" role="list" aria-label="A bill’s path">${flow.join('')}</ol>
     <section class="hp-sec" aria-labelledby="hp-wherego"><h3 class="hp-h3" id="hp-wherego">Where do I go to…</h3>
     <div class="hp-card"><ul class="hp-where" role="list">${WHERE.map(([a, h, p]) => `<li><a href="${h}"><span class="hp-wa">${a}</span><span class="hp-wp">${p}</span>${icon('chevron-right')}</a></li>`).join('')}</ul></div></section>`;

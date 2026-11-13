@@ -326,14 +326,14 @@ body.staff6 .me-page .me-colsum .me-pv { width: 64px; height: 44px; grid-templat
 
 /* ---- A bill's path, and where to go (R-378): a one-column flowchart. Each step a card, joined by a line with an arrowhead
    into the next; the questions where the path forks are dashed (a question, not a step). The number sits on the line. ---- */
-body.staff6 .hp-page .hp-flow { list-style: none; margin: 16px 0 0; padding: 0; max-width: 640px; }
+body.staff6 .hp-page .hp-flow { list-style: none; margin: 16px 0 0; padding: 0; }
 body.staff6 .hp-page .hp-flow > li { position: relative; padding: 0 0 28px 52px; }
 body.staff6 .hp-page .hp-flow > li:last-child { padding-bottom: 0; }
 body.staff6 .hp-page .hp-flow > li:not(:last-child)::before { content: ''; position: absolute; left: 17px; top: 36px; bottom: 4px; width: 2px; background: var(--v6-field); opacity: .55; }
 body.staff6 .hp-page .hp-flow > li:not(:last-child)::after { content: ''; position: absolute; left: 12px; bottom: 2px; border: 6px solid transparent; border-top: 8px solid var(--v6-field); border-bottom: 0; opacity: .8; }
 body.staff6 .hp-page .hp-fn { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
   background: var(--v6-action); color: #fff; font: 700 var(--v6-t16)/1 Poppins, system-ui, sans-serif; }
-body.staff6 .hp-page .hp-fbox { padding: 14px 18px 16px; border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); display: grid; gap: 4px; }
+body.staff6 .hp-page .hp-fbox { padding: 14px 18px 16px; border-radius: var(--v6-r20); background: var(--v6-card); box-shadow: var(--v6-sh1); display: grid; gap: 4px; }
 body.staff6 .hp-page .hp-fx { display: grid; gap: 4px; min-width: 0; }
 body.staff6 .hp-page .hp-ft { display: flex; align-items: center; gap: 8px; font: 600 var(--v6-t18)/var(--v6-lh18) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .hp-page .hp-ft svg { flex: none; width: 20px; height: 20px; color: var(--v6-action); }
@@ -345,7 +345,8 @@ body.staff6 .hp-page .hp-go svg { flex: none; width: 18px; height: 18px; }
 body.staff6 .hp-page .hp-go:hover span { text-decoration: underline; }
 body.staff6 .hp-page .hp-go:focus-visible, body.staff6 .hp-page .hp-where a:focus-visible { outline: 3px solid var(--v6-action); outline-offset: 2px; border-radius: 6px; }
 body.staff6 .hp-page .hp-fq { padding-left: 52px; }
-body.staff6 .hp-page .hp-fqbox { padding: 12px 18px 14px; border-radius: var(--v6-r12); border: 2px dashed var(--v6-field); background: var(--v6-wash); }
+body.staff6 .hp-page .hp-fside .hp-fqbox { border-style: solid; border-color: var(--v6-hair); display: grid; gap: 4px; }
+body.staff6 .hp-page .hp-fqbox { padding: 12px 18px 14px; border-radius: var(--v6-r20); border: 2px dashed var(--v6-field); background: var(--v6-wash); }
 body.staff6 .hp-page .hp-fqt { display: flex; align-items: center; gap: 8px; font: 600 var(--v6-t16)/var(--v6-lh16) Poppins, system-ui, sans-serif; color: var(--v6-ink); }
 body.staff6 .hp-page .hp-fqt svg { flex: none; width: 18px; height: 18px; color: var(--v6-muted); }
 body.staff6 .hp-page .hp-fqa { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: var(--v6-t16); line-height: var(--v6-lh16); color: var(--v6-body); }
