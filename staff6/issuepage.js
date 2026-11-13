@@ -729,7 +729,8 @@ function mergeSheet(i) {
 async function setFirstVisit(i, on) {
   const redraw = () => { const y = scrollY; hooks.render(); document.querySelector('[data-is="more"]')?.focus({ preventScroll: true }); if (Math.abs(scrollY - y) > 1) scrollTo(0, y); };
   try {
-    await DB.updateIssue(i.id, { first_visit: on }); redraw();
+    const held = await DB.updateIssue(i.id, { first_visit: on }); redraw();
+    if (held?.length) { toast('Sent to an admin. It goes back in the first visit once they approve.', { ok: true }); return; }   // R-376: only putting it back is held; leaving it out is instant
     toast(on ? `${i.name} is back in the first visit.` : `Left out of the first visit.${i.recommended ? ' Its pre-tick does nothing while it is left out.' : ''}`,
       { ok: on, undo: async () => { await DB.updateIssue(i.id, { first_visit: !on }); redraw(); } });
   } catch (e) { redraw(); toast(e, { err: true }); }

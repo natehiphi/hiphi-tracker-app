@@ -22,7 +22,7 @@
 // Talking points (084, R-068, 9/28): one box, one point per line. The public testimony walkthrough offers them to people on
 // HIPHI's side, who tap them into a letter sent under their own name. Claude drafted the first 248; a save here marks them
 // as the team's (talking_points_edited_at), so a later draft run never overwrites them.
-import { S, DB, DEMO, esc, VB } from './data.js';
+import { S, DB, DEMO, esc, VB, heldFor } from './data.js';
 import { FACTS, pubStateText, pubStateCls, hiToday, PUBLIC_APP, publicWords, publicResponse, shareKit, hearingAhead, askReach, timeFirst, liveAsk } from './model.js';
 import { icon, btn, iconBtn, toast, switchRow, openSheet, closeSheet, SHARE_KIT, ASK_CARD } from './ui.js';
 import { rerender, drafts, dayOf, plainTitle, underTabs } from './bill.js';
@@ -32,7 +32,7 @@ import { issuesOfBill, openIssuePicker, whyNot, issueLinkHref } from './issues.j
 // still opens this bill after 20 Jan 2027, when numbers start again.
 const pubRoute = b => `#/bill/${b.session_year ? b.session_year + '/' : ''}${String(b.bill_number).replace(/\s/g, '')}`;
 import { askConflict } from './conflict.js';
-import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown, confirmPublish, goesLive } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with Outreach's box
+import { hearingLine, noteHTML, paintNote, hearingDay, dayWord, liveLine, takeDown, confirmPublish, goesLive, needsOk, SENT_WORDS, waitingNote } from './askhelp.js';   // R-370: the hearing line, the date check and Take down, shared with Outreach's box
 // OUTREACH (V20, X23): a bill with a card on This week's asks links to it in place of its own kit; the one email rule.
 import { askCardHref, askWriteHref, askWhose, writesAsk, onBill } from './asks.js';
 import { emailDoor } from './composer.js';
@@ -64,8 +64,11 @@ const rawOf = b => ({ nickname: b.nickname || null, public_summary: b.public_sum
 // A hint, not a block: some asks are meant to end early. Hawaiʻi dates, as everywhere else in the app.
 // R-370 third walk: one name ("public ask"), and the button says what it will do. Publishing = an ask that is new or changed.
 const SAVE_WORD = 'Save changes';
+// R-376: for a teammate who is not an admin, a live bill's words wait for an admin, so the buttons say that.
+const sendsUp = b => needsOk(b, !!valOf(b, 'is_public'));
+const saveWord = b => sendsUp(b) ? 'Send for approval' : SAVE_WORD;
 const publishing = (b, ask) => !!String(ask || '').trim() && String(ask).trim() !== String(b.public_action || '').trim();
-const pubWord = b => liveAsk(b) ? 'Update the public ask' : 'Publish the public ask';
+const pubWord = b => sendsUp(b) ? 'Send the ask for approval' : liveAsk(b) ? 'Update the public ask' : 'Publish the public ask';
 const untilWarn = (b, ask, until) => {
   if (!String(ask || '').trim()) return '';
   if (!until) return 'Required: pick the last day the ask should show.';
@@ -75,8 +78,12 @@ const untilWarn = (b, ask, until) => {
 };
 const LABEL = { nickname: 'Nickname', public_summary: 'Public summary', public_action: 'Public ask', public_action_until: 'Show the public ask through', is_public: 'On the public page', recommended: 'Recommended', talking_points: 'Talking points' };
 const asText = v => Array.isArray(v) ? v.join('\n') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
-const valOf = (b, k) => { const d = draftOf(b); return k in d ? d[k] : saved(b, k); };
-const dirty = b => FIELDS.some(k => valOf(b, k) !== saved(b, k));
+// What the writer sent and an admin has not decided yet fills the form (R-376), so they see what they sent; an admin's form never
+// does (saving it would approve it unseen), and everyone else sees what the public sees.
+const sentOf = (b, k) => { const pc = S.me?.is_admin ? null : heldFor('bill', b.id); if (!pc || pc.proposed_by !== S.me?.id || !(k in pc.fields)) return undefined;
+  const v = pc.fields[k]; return BOOL.has(k) ? !!v : k === 'talking_points' ? (v || []).join('\n') : (v ?? ''); };
+const valOf = (b, k) => { const d = draftOf(b); if (k in d) return d[k]; const w = sentOf(b, k); return w !== undefined ? w : saved(b, k); };
+const dirty = b => FIELDS.some(k => valOf(b, k) !== (sentOf(b, k) ?? saved(b, k)));
 // A character count shows once the words near the limit (three quarters of it): before that it is a number that asks
 // nothing of anyone (v3, R-264 rule 4).
 const countText = (n, max = 280) => n >= max * .75 ? `${n} of ${max} characters` : '';
@@ -245,6 +252,7 @@ export function renderPublic(b) {
   return `${spread}<section class="bw-sec bw-pub bw-pblk" aria-labelledby="bw-pub-h">
     <h2 class="bw-h2" id="bw-pub-h">On the public page</h2>
     <p class="bw-pubnow${warn ? ' warn' : ''}">${icon(live ? 'globe' : warn ? 'triangle-alert' : 'eye-off')}<span><b>Now:</b> ${esc(pubStateText(b))}${pubLink}</span></p>
+    ${waitingNote(b)}
     <div class="bw-pubcols">
     <form class="bw-pubform" data-pubform novalidate>
       ${switchRow('bw-ispub', 'Show on the public page', valOf(b, 'is_public'))}
@@ -269,8 +277,8 @@ export function renderPublic(b) {
         <div class="bw-ptfoot">${btn('Add a point', { kind: 'text', sm: true, icon: 'plus', attrs: { 'data-ptadd': '1', ...(pointsIn(valOf(b, 'talking_points')).length >= MAX_PTS ? { hidden: '' } : {}) } })}
         <span class="help bw-count" id="bw-ptp-n" aria-live="polite">${pointsCount(valOf(b, 'talking_points'))}</span></div></fieldset>
       <div id="bw-perr" role="alert"></div>
-      <div class="bw-acts bw-pubsave">${card ? btn(SAVE_WORD, { kind: 'primary', icon: 'check', attrs: { type: 'submit' } })
-        : `${btn(pubWord(b), { kind: 'primary', icon: 'check', attrs: { type: 'submit', 'data-pubgo': '1', ...(publishing(b, ask) ? {} : { disabled: true }) } })}${btn(SAVE_WORD, { kind: 'secondary', icon: 'check', attrs: { type: 'submit', 'data-pubsave2': '1' } })}`}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
+      <div class="bw-acts bw-pubsave">${card ? btn(saveWord(b), { kind: 'primary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit' } })
+        : `${btn(pubWord(b), { kind: 'primary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit', 'data-pubgo': '1', ...(publishing(b, ask) ? {} : { disabled: true }) } })}${btn(saveWord(b), { kind: 'secondary', icon: sendsUp(b) ? undefined : 'check', attrs: { type: 'submit', 'data-pubsave2': '1' } })}`}<span class="small ask-golive" data-golive${publishing(b, ask) ? '' : ' hidden'}>${sendsUp(b) ? 'An admin approves it before the public sees it' : goesLive().replace(/<\/?span[^>]*>/g, '')}</span>${dirty(b) ? '<span class="small muted">Not saved yet</span>' : ''}</div>
     </form>
     <div class="bw-prev" role="group" aria-labelledby="bw-prev-h">
       <p class="bw-prevh" id="bw-prev-h">How the public page shows it</p>
@@ -370,7 +378,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     // R-370 third walk: publishing (or changing a live ask) goes on the public page at once, so it asks first.
     // R-370 fourth walk: "Save changes" saves the other fields and leaves a typed ask for the Publish button, so nothing goes live without its confirm.
     const holdAsk = !!e.submitter?.hasAttribute('data-pubsave2') && publishing(b, action);
-    if (!holdAsk && publishing(b, action) && f.is_public.checked !== false && !await confirmPublish(b, action, until, !!liveAsk(b))) return;
+    if (!holdAsk && !needsOk(b, f.is_public.checked) && publishing(b, action) && f.is_public.checked !== false && !await confirmPublish(b, action, until, !!liveAsk(b))) return;
     const sub = form.querySelector('[type="submit"]'); sub.setAttribute('aria-busy', 'true');
     // Only what changed is written, compared with what the form held when editing began, and a teammate's newer save of the
     // same field is shown to the person before anything is written (R-152 B; DB.saveBillFields).
@@ -381,6 +389,7 @@ export function wirePublic(pnl, b, { focusAsk = false } = {}) {
     const finish = res => {
       drafts.delete(key); bases.delete(key); FACTS.clear(); if (holdAsk) { const d = { public_action: action }; if (until !== saved(b, 'public_action_until')) d.public_action_until = until; drafts.set(key, d); } rerender('.bw-pubsave .btn');
       if (!res.changed.length) { toast('Nothing to save: this already matches what is saved.'); return; }
+      if (res.held?.length) { toast(SENT_WORDS, { ok: true }); return; }   // R-376: nothing went live, and Undo would only undo what the public never saw
       toast(res.changed.includes('public_action') && action ? `Published. The public ask is live through ${dayWord(until)}. Take it down from the card.` : 'Saved.', { ok: true, undo: async () => { await DB.updateBill(b.id, res.prev); drafts.delete(key); bases.delete(key); FACTS.clear(); rerender('.bw-pubsave .btn'); toast('Put back as it was.'); } });
     };
     try {

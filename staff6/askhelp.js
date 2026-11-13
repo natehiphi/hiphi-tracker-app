@@ -3,9 +3,10 @@
 // hearing, an "until" date was asked for only after Save, and nothing on the card said the ask was live. So: the hearing and
 // the testimony deadline are said above the box, a gentle check names a day that is neither, and a live ask says so and can
 // be taken down.
-import { esc, fmtDate, fmtDT, DB, TRIAL } from './data.js';
+import { S, esc, fmtDate, fmtDT, DB, TRIAL, heldFor, advocate } from './data.js';
 import { hstDayOf, liveAsk, FACTS } from './model.js';
 import { icon, toast, confirmSheet } from './ui.js';
+import { fieldLabel } from './approvals.js';
 
 const DAY = 864e5;
 // When the public's written testimony closes: the hearing's deadline, else a day before it (as Today and Outreach count it).
@@ -55,6 +56,24 @@ export function confirmPublish(b, words, until, updating) {
   return updating
     ? confirmSheet({ title: 'Update the live public ask?', text: `${quoted}${esc(num)}’s public ask is live now. This changes it on ${where} now${thru}. You can take it down any time.`, ok: 'Update' })
     : confirmSheet({ title: `Publish this public ask for ${esc(num)}?`, text: `${quoted}It goes on ${where} now${until ? `, through ${dayWord(until)}` : ''}. You can take it down any time.`, ok: 'Publish' });
+}
+// ---- waiting for an admin (R-376, Nate 12 Nov) ----
+// A teammate who is not an admin cannot change what the public sees on a live bill: the words wait for an admin, and the public
+// keeps the earlier version (backend 197). So for them nothing "goes live" and there is no publish confirm; the button says
+// what it does. `goingPublic`: this save also turns the bill on for the public page.
+export const needsOk = (b, goingPublic = false) => !S.me?.is_admin && b?.tracked !== false && !!(b?.is_public || goingPublic);
+export const SENT_WORDS = 'Sent to an admin for approval. The public keeps the earlier version until then.';
+// The quiet line on a bill while its words wait, or after an admin sent them back (the writer sees both; an admin sees who sent what).
+export function waitingNote(b, { cls = 'bw-pcnote' } = {}) {
+  const pc = heldFor('bill', b.id);
+  if (pc) {
+    const keys = Object.keys(pc.fields).map(k => fieldLabel('bill', k)).join(', '), sent = fmtDate(pc.proposed_at, { month: 'short', day: 'numeric' });
+    const mine = pc.proposed_by === S.me?.id, by = advocate(pc.proposed_by)?.full_name || 'A teammate';
+    return `<p class="${cls}">${icon('clock')}<span><b>${S.me?.is_admin ? 'Waiting for you' : 'Waiting for an admin'}:</b> ${esc(keys)} (${mine ? '' : esc(by) + ', '}sent ${esc(sent)}). <a href="#/approvals">${S.me?.is_admin ? 'Review it' : 'See it'}</a></span></p>`;
+  }
+  const back = (S.publicChanges || []).filter(x => x.kind === 'bill' && x.target_id === b.id && x.status === 'sent_back' && x.proposed_by === S.me?.id && Date.now() - new Date(x.decided_at || x.proposed_at) < 14 * DAY)
+    .sort((x, y) => String(y.decided_at).localeCompare(String(x.decided_at)))[0];
+  return back ? `<p class="${cls}">${icon('undo-2')}<span><b>Sent back by ${esc(advocate(back.decided_by)?.full_name || 'an admin')}:</b> ${esc(back.note || 'no note')}. <a href="#/approvals">See it</a></span></p>` : '';
 }
 // Said beside the button, not below the date field.
 export const goesLive = () => `<span class="ask-golive">Goes live on the ${TRIAL ? 'practice copy' : 'public page'} now</span>`;

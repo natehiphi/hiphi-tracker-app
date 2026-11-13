@@ -16,7 +16,7 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, VB, TRIAL, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver } from './data.js';
+import { S, DB, DEMO, VB, TRIAL, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver, seedPublicChanges } from './data.js';
 import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn, placeToast, leavePageToasts } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { PALETTES, DEFAULT_PALETTE } from './palettes.js';   // My settings, Colors (Nate 10/25)
@@ -49,6 +49,7 @@ import testimonyplace from './testimonyplace.js';
 import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
+import approvals from './approvals.js';   // R-376: public changes waiting for an admin
 import { PLACES, MAIN as MAIN_V6, BAR as BAR_V6, MAIN_B, BAR_B, vbSwitchHref, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
@@ -87,7 +88,7 @@ const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.de
 // address still opens the same thing (V36): an old one is redirected (replaced, never pushed) to its v6 address, keeping its
 // query (#/outreach/issues?view=links opens #/issues/all?view=links). tests/staff6_links.py proves it.
 const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups,
-  hearings, testimony: testimonyplace, team, people, tools, more: tools };   // More and More tools are one page (R-356), drawn by tools.js
+  hearings, testimony: testimonyplace, team, people, tools, approvals, more: tools };   // More and More tools are one page (R-356), drawn by tools.js
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -154,6 +155,7 @@ export function parseRoute(h = location.hash) {
     case 'setup': return seg[1] === 'people' || seg[1] === 'team' ? { name: 'people', id: '', q, redirect: '#/people' } : { name: 'setup', section: seg[1] || '', q };
     case 'help': return { name: 'help', topic: seg[1] || '', q };
     case 'tools': return { name: 'tools', q };
+    case 'approvals': return { name: 'approvals', q };   // R-376
     case 'more': return { name: 'more', q };
     case 'dev': return { name: 'devui', q };
     case 'partners': return seg[1] === 'request' ? { name: 'pgroups', id: '', req: seg[2] || '', q } : { name: 'pgroups', id: seg[1] || '', req: '', q };   // R-328 B
@@ -165,7 +167,7 @@ export function parseRoute(h = location.hash) {
 const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', testimony: 'testimony', review: 'testimony', outreach: 'outreach', asks: 'outreach', partners: 'outreach', memo: 'outreach',
   emails: 'outreach', composer: 'outreach', supporters: 'outreach', person: 'outreach', lists: 'outreach', list: 'outreach', bills: 'issues', triage: 'issues', bill: 'issues',
   legislators: 'legislators', legislator: 'legislators', myissues: 'issues', issues: 'issues', issue: 'issues', coalition: 'issues', inbox: 'inbox', help: 'help',
-  team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'more', devui: 'more', more: 'more', me: 'you', search: '' };
+  team: 'team', people: 'people', pgroups: 'partners', setup: 'setup', tools: 'more', approvals: 'more', devui: 'more', more: 'more', me: 'you', search: '' };
 // A stub showing a v5 view keeps its own place lit (route.place, hearings.js and team.js). Team is a lead tool: anyone else
 // reaches #/team?who= ("See a teammate's list") from More, so More is lit for them (B-13, A-12).
 // Two place keys died in round 2 (Bills is inside Issues; 'myissues' became 'issues'); a screen that still names one
@@ -336,7 +338,7 @@ export function refreshCounts() {
 // The header. A phone: Back (deeper than a place) or the mark, the page's title, Search, Help and the Inbox bell with a dot. A laptop
 // or tablet (768px and wider): the search box, which Cmd/Ctrl-K or "/" focuses (V32), then Help and the Inbox; the sidebar holds the places.
 // Pages one level under More whose screens name no parent: a phone still shows Back to where they came from.
-const UNDER = { me: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/more', label: 'More' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More as a place, and draws no Back
+const UNDER = { me: { href: '#/more', label: 'More' }, approvals: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/more', label: 'More' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More as a place, and draws no Back
 // The place a Back address belongs to, by name ("Today", "My issues", "Calendar"); a bare address names its page.
 const BACK_NAMES = [[/^#\/?$/, 'Today'], [/^#\/(issues|issue|bill|bills)/, 'My issues'], [/^#\/hearing/, 'Calendar'], [/^#\/(review|testimony)/, 'Today'], [/^#\/outreach/, 'My issues'], [/^#\/search/, 'Search'], [/^#\/more|^#\/tools/, 'More']];
 const backName = href => (BACK_NAMES.find(([re]) => re.test(href || '')) || [0, 'Today'])[1];
@@ -839,6 +841,7 @@ function sandboxExtras() {
         const live = S.issues.filter(i => i.owner_id && !i.archived_at).sort((x, y) => x.name.localeCompare(y.name)), theirs = live.filter(i => owners.has(i.owner_id));
         S.issueHelpers = (theirs.length ? theirs : live).slice(0, 2).map(i => ({ issue_id: i.id, advocate_id: a.id, added_by: i.owner_id, added_at: '2026-10-01T00:00:00Z' }));
       } } }
+  seedPublicChanges();   // R-376: two sample waiting public changes, by a teammate other than whoever is practising
   // One hearing this week with no testimony draft, so the card people will meet in January ("No testimony draft yet ... Make the
   // draft now") can be practised: the sandbox gave every hearing its draft (R-152 D). The last such hearing in the next week.
   if (!S.noDraftSeeded && !SESSION_OVER) {

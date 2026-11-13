@@ -182,6 +182,72 @@ function rollupOf(people) {
 // step with it, Undo included, without a reload.
 export const priorityOf = pos => !pos ? null : pos === 'strongly_support' ? 1 : 2;
 const withPriority = p => 'position' in p ? { ...p, priority: priorityOf(p.position) } : p;
+// ---- Public changes (R-376, Nate 12 Nov): what the public sees changes only with an admin's yes ----
+// Backend 197: when a teammate who is not an admin saves a public column of something the public sees, the database keeps the
+// old value on the row and files the new one in public_changes (one waiting row per thing). Live, the screens just save and
+// read the answer back (afterHold); the practice copy has no trigger, so holdNow() imitates it with the same columns and the
+// same take-down rules, and the sandbox behaves like production.
+export const HELD_COLS = {
+  bill: ['is_public', 'nickname', 'public_summary', 'public_action', 'public_action_until', 'talking_points'],
+  issue: ['name', 'description', 'category', 'recommended', 'outlook', 'stance', 'first_visit', 'icon'],
+  list: ['is_published', 'title', 'description', 'icon', 'slug'],
+};
+const pcNorm = v => v == null ? null : typeof v === 'string' ? (v.trim() || null) : v;
+const pcSame = (a, b) => JSON.stringify(pcNorm(a)) === JSON.stringify(pcNorm(b));
+const isLiveBill = b => !!b && b.tracked !== false && !!b.is_public;
+// Which keys of `patch` the database would keep waiting for an admin (demo only; the live trigger decides for itself).
+function holdKeys(kind, row, patch) {
+  if (S.me?.is_admin || !row) return [];
+  const next = { ...row, ...patch };
+  let live;
+  if (kind === 'bill') {
+    live = isLiveBill(row) || isLiveBill(next);
+    if (isLiveBill(row) && !isLiveBill(next)) return [];   // taking it off the public page is instant
+  } else if (kind === 'issue') live = !!row.published_at && !row.archived_at;
+  else {
+    live = (!!row.is_published && !row.archived_at) || !!next.is_published;
+    if (row.is_published && !next.is_published) return [];   // unpublishing is instant
+  }
+  if (!live) return [];
+  return HELD_COLS[kind].filter(k => k in patch && !pcSame(patch[k], row[k]) && !(
+    (kind === 'bill' && (k === 'public_action' || k === 'public_action_until') && !pcNorm(next.public_action)) ||   // clearing the ask (and its date) is a take-down
+    (kind === 'issue' && k === 'first_visit' && next.first_visit === false)));
+}
+// File (or add to) the waiting change for a thing in the practice copy.
+function fileHold(kind, row, held, patch) {
+  const list = S.publicChanges ||= [];
+  let pc = list.find(x => x.kind === kind && x.target_id === row.id && x.status === 'waiting');
+  const was = Object.fromEntries(held.map(k => [k, row[k] ?? null])), now = Object.fromEntries(held.map(k => [k, patch[k] ?? null]));
+  if (pc) Object.assign(pc, { fields: { ...pc.fields, ...now }, before: { ...was, ...pc.before }, proposed_by: S.me.id, proposed_at: new Date().toISOString() });
+  else list.unshift({ id: 'pc-' + Date.now() + '-' + list.length, kind, target_id: row.id, fields: now, before: was, proposed_by: S.me.id, proposed_at: new Date().toISOString(), status: 'waiting', decided_by: null, decided_at: null, note: null });
+}
+// The waiting change for a thing, or null; and the recent ones of the signed-in person (their own, from the last 30 days).
+export const heldFor = (kind, id) => (S.publicChanges || []).find(x => x.kind === kind && x.target_id === id && x.status === 'waiting') || null;
+export const waitingChanges = () => (S.publicChanges || []).filter(x => x.status === 'waiting').sort((a, b) => String(b.proposed_at).localeCompare(String(a.proposed_at)));
+export const myPublicChanges = () => (S.publicChanges || []).filter(x => x.proposed_by === S.me?.id && Date.now() - new Date(x.proposed_at) < 30 * 864e5).sort((a, b) => String(b.proposed_at).localeCompare(String(a.proposed_at)));
+// After a live save by a non-admin: ask what the database kept waiting, put the screen's copy of the row back to what the
+// public still sees for those keys, and return them (empty when nothing was held). Admins' saves never wait.
+async function afterHold(kind, row, patch, before) {
+  if (S.me?.is_admin || !row || !HELD_COLS[kind].some(k => k in patch)) return [];
+  await DB.publicChanges().catch(() => {});
+  const pc = heldFor(kind, row.id); if (!pc) return [];
+  const held = Object.keys(patch).filter(k => k in pc.fields && pcSame(pc.fields[k], patch[k]));
+  for (const k of held) row[k] = before[k] ?? null;
+  if (kind === 'bill' && held.includes('talking_points')) row.talking_points_edited_at = before.talking_points_edited_at ?? null;
+  return held;
+}
+// Practice only (R-376): two sample waiting changes, so an admin sees the page filled and a teammate sees what the wait looks like.
+// Written by a teammate other than the one practising (Kevin, else Lauren). Called once from app.js sandboxExtras.
+export function seedPublicChanges() {
+  if (!DEMO || S.pcSeeded) return; S.pcSeeded = true;
+  const by = ['KV', 'LR'].map(i => S.advocates.find(a => a.initials === i)).find(a => a && a.id !== S.me?.id) || S.advocates.find(a => a.id !== S.me?.id);
+  if (!by) return;
+  const ago = h => new Date(Date.now() - h * 36e5).toISOString(), list = (S.publicChanges ||= []);
+  const b = S.bills.find(x => isLiveBill(x) && x.nickname && x.public_summary);
+  if (b) list.push({ id: 'pc-seed-1', kind: 'bill', target_id: b.id, fields: { public_summary: String(b.public_summary).replace(/\.\s*$/, '') + '. Ask your legislators to take a stand.' }, before: { public_summary: b.public_summary }, proposed_by: by.id, proposed_at: ago(5), status: 'waiting', decided_by: null, decided_at: null, note: null });
+  const l = S.lists.find(x => !x.is_published && !x.archived_at);
+  if (l) list.push({ id: 'pc-seed-2', kind: 'list', target_id: l.id, fields: { is_published: true }, before: { is_published: false }, proposed_by: by.id, proposed_at: ago(27), status: 'waiting', decided_by: null, decided_at: null, note: null });
+}
 export const DB = {
   async init() {
     if (DEMO) { await demoInit(); return; }
@@ -261,6 +327,8 @@ export const DB = {
       if (!me || me.is_active === false || !(me.is_admin || me.approves_partners)) return;
       return this.partnerQueue().then(q => { S.pq = q; });
     }).catch(e => { console.warn('partner_queue:', e?.message || e); S.pq = null; S.pqErr = true; }).finally(() => { S.pqLoading = false; });
+    // R-376: the waiting public changes and this person's own, read beside the rest (a missing table reads as none).
+    const pcP = Promise.resolve().then(() => this.publicChanges(myId)).catch(() => null);
     const [adv, bills, asg, camps, bc, hear, pulse, feed, todos, drafts, comms, scfg, ccfg, ecfg, sycfg, dls, slots, fol, att, outc, msgs, reads, inb, scal, pls, plb, plf, legs, cms, cps, sts, als, segs, fups, mut, pac, wc] = await Promise.all([
       advP,
       allRows(o => S.supa.from('bills').select('*', o).eq('tracked', true).order('bill_number').order('id')),
@@ -336,6 +404,7 @@ export const DB = {
     S.pubCounts = {};
     (wc?.data || []).forEach(r => { (S.pubCounts[r.bill_id] ??= {}).followers = Number(r.n) || 0; });
     (pac?.data || []).forEach(r => { Object.assign(S.pubCounts[r.bill_id] ??= {}, { emails: Number(r.emails) || 0, testimonies: Number(r.testimonies) || 0, attending: Number(r.attending) || 0, shares: Number(r.shares) || 0, people: Number(r.people) || 0 }); });
+    await pcP;
     for (const r of [adv, bills, asg, camps, bc, hear, pulse, feed])
       if (r.error) throw r.error;
     S.advocates = adv.data; S.bills = bills.data; S.campaigns = camps.data; hooks.afterLoad();
@@ -397,6 +466,7 @@ export const DB = {
       bill_id: billId, advocate_id: S.me.id, type, title, details: details || null });
     if (error) throw error;
   },
+  // Returns the keys the database kept waiting for an admin (R-376), empty for an admin or an unheld save.
   async updateBill(billId, patch) {
     patch = withPriority(patch);
     // Optimistic: patch local state first so the UI feels instant, but keep
@@ -405,10 +475,16 @@ export const DB = {
     // database never accepted.
     const b = S.bills.find(x => x.id === billId);
     const before = {};
+    if (DEMO) {
+      const held = holdKeys('bill', b, patch), rest = Object.fromEntries(Object.entries(patch).filter(([k]) => !held.includes(k) && !(k === 'talking_points_edited_at' && held.includes('talking_points'))));
+      if (b) Object.assign(b, rest);
+      if (held.length) fileHold('bill', b, held, patch);
+      return held;
+    }
     if (b) { for (const k of Object.keys(patch)) before[k] = b[k]; Object.assign(b, patch); }
-    if (DEMO) return;
     const { error } = await S.supa.from('bills').update(patch).eq('id', billId);
     if (error) { if (b) Object.assign(b, before); throw error; }
+    return afterHold('bill', b, patch, before);
   },
   // Saving a bill's team fields without erasing a teammate (R-152 B). The Public tab used to send all its fields, changed or
   // not, from the copy loaded at sign-in, and the team note was one whole text, so Lauren's save at 11:00 could undo the
@@ -430,8 +506,8 @@ export const DB = {
       if (b) for (const c of conflicts) b[c.key] = c.theirs;
       return { changed, conflicts, prev };
     }
-    await this.updateBill(billId, out);
-    return { changed, conflicts: [], prev };
+    const held = await this.updateBill(billId, out);
+    return { changed, conflicts: [], prev, held: held || [] };
   },
   // One bill's current values for some columns, read now. The sandbox has no other writer, so a test can plant one in
   // S.demoTheirs[billId] to stand in for a teammate's save.
@@ -1013,12 +1089,18 @@ export const DB = {
     return issue;
   },
   async updateIssue(id, patch) {
-    const i = S.issues.find(x => x.id === id); if (!i) return;
+    const i = S.issues.find(x => x.id === id); if (!i) return [];
     const before = { ...i };
+    if (DEMO) {
+      const held = holdKeys('issue', i, patch);
+      Object.assign(i, Object.fromEntries(Object.entries(patch).filter(([k]) => !held.includes(k))), { updated_at: new Date().toISOString() });
+      if (held.length) fileHold('issue', i, held, patch);
+      return held;
+    }
     Object.assign(i, patch, { updated_at: new Date().toISOString() });
-    if (DEMO) return;
     const { error } = await S.supa.from('issues').update(patch).eq('id', id);
     if (error) { Object.assign(i, before); throw error; }
+    return afterHold('issue', i, patch, before);
   },
   // The categories an issue also sits in, besides its own (the DUI limit: alcohol policy, and getting around safely).
   async setIssueAlso(id, cats) {
@@ -1675,9 +1757,44 @@ export const DB = {
     const { data, error } = await S.supa.from('public_lists').insert(row).select('*').single(); if (error) throw error; S.lists.push(data); return data;
   },
   async updateList(id, patch) {
-    const l = S.lists.find(x => x.id === id); if (!l) return; Object.assign(l, patch, { updated_at: new Date().toISOString() });
-    if (DEMO) return;
-    const { error } = await S.supa.from('public_lists').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id); if (error) throw error;
+    const l = S.lists.find(x => x.id === id); if (!l) return [];
+    const before = { ...l };
+    if (DEMO) {
+      const held = holdKeys('list', l, patch);
+      Object.assign(l, Object.fromEntries(Object.entries(patch).filter(([k]) => !held.includes(k))), { updated_at: new Date().toISOString() });
+      if (held.length) fileHold('list', l, held, patch);
+      return held;
+    }
+    Object.assign(l, patch, { updated_at: new Date().toISOString() });
+    const { error } = await S.supa.from('public_lists').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { Object.assign(l, before); throw error; }
+    return afterHold('list', l, patch, before);
+  },
+  // ---- public changes (R-376) ----
+  // Waiting changes (everyone's) plus the signed-in person's own from the last 30 days, into S.publicChanges. Until backend 197
+  // is applied the table is missing: that reads as none, never as a failed load.
+  async publicChanges(myId) {
+    if (DEMO) return S.publicChanges || [];
+    const me = myId || S.me?.id, since = new Date(Date.now() - 30 * 864e5).toISOString();
+    const { data, error } = await S.supa.from('public_changes').select('*').or(me ? `status.eq.waiting,and(proposed_by.eq.${me},proposed_at.gte.${since})` : 'status.eq.waiting').order('proposed_at', { ascending: false }).limit(200);
+    if (error) { console.warn('public_changes:', error.message); S.publicChanges ||= []; return S.publicChanges; }
+    S.publicChanges = data || []; return S.publicChanges;
+  },
+  // An admin's yes or no. Yes puts the words on the screen's copy of the thing too (the database wrote them as the admin).
+  async decidePublicChange(id, approve, note = '') {
+    const pc = (S.publicChanges || []).find(x => x.id === id); if (!pc) return;
+    if (!DEMO) { const { error } = await S.supa.rpc('decide_public_change', { p_id: id, p_approve: !!approve, p_note: note || null }); if (error) throw error; }
+    if (approve) {
+      const row = (pc.kind === 'bill' ? S.bills : pc.kind === 'issue' ? S.issues : S.lists).find(x => x.id === pc.target_id);
+      if (row) { Object.assign(row, pc.fields); if (pc.kind === 'bill' && 'talking_points' in pc.fields) row.talking_points_edited_at = new Date().toISOString(); }
+    }
+    Object.assign(pc, { status: approve ? 'approved' : 'sent_back', decided_by: S.me?.id, decided_at: new Date().toISOString(), note: (note || '').trim() || null });
+    if (!DEMO) await this.publicChanges().catch(() => {});
+  },
+  async withdrawPublicChange(id) {
+    const pc = (S.publicChanges || []).find(x => x.id === id); if (!pc) return;
+    if (!DEMO) { const { error } = await S.supa.rpc('withdraw_public_change', { p_id: id }); if (error) throw error; }
+    Object.assign(pc, { status: 'withdrawn', decided_by: S.me?.id, decided_at: new Date().toISOString() });
   },
   async archiveList(id) { await this.updateList(id, { archived_at: new Date().toISOString(), is_published: false }); S.lists = S.lists.filter(l => l.id !== id); },
   async addListBills(listId, billIds) {

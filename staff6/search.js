@@ -99,6 +99,8 @@ const PLACES0 = () => [
   { title: 'All issues', href: '#/issues/all', icon: 'tag', sub: 'Issues › All issues', also: 'my issues issues catalogue categories' },
   ...(me().is_admin ? [{ title: 'First visit numbers', href: '#/issues/all?view=first-visit', icon: 'chart-column', sub: 'How newcomers find and use the public page', also: 'responding response arrivals arrived newcomers how it is landing public numbers visits' }] : []),   // R-376: admins only
   ...(me().is_admin ? [{ title: 'Make a link or QR code', href: '#/issues/all?view=links', icon: 'qr-code', sub: 'A link for a partner or an event', also: 'qr code poster print link partner link first visit' }] : []),   // R-376: admins only
+  ...(me().is_admin ? [{ title: 'Public changes', href: '#/approvals', icon: 'globe', sub: 'Changes to what the public sees, waiting for you', also: 'approve approvals public page waiting send back teammate summary nickname list live' }] : []),   // R-376
+  { title: 'My public changes', href: '#/approvals', icon: 'globe', sub: 'What you changed on the public page, and where it stands', also: 'sent for approval waiting admin approved sent back public page changes' },   // R-376
   { title: 'Inbox', href: '#/inbox', icon: 'inbox', sub: 'Messages and updates', key: KEY.inbox, also: 'messages mentions replies unread notes' },
   { title: 'What changed', href: '#/inbox?view=updates', icon: 'inbox', sub: 'Inbox › Updates', also: 'updates digest news capitol actions since yesterday' },
   { title: 'Help', href: '#/help', icon: 'circle-help', sub: 'Guides and Capitol words', key: KEY.help, also: 'guides how to questions' },
