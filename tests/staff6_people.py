@@ -179,7 +179,11 @@ def main():
       for who, want in (('KV', 0), ('SY', 0), ('PH', 0), ('JMM', 0), ('KR', 1)):
         n = 0
         for path in ('/hearings/week', '/issues/bills', '/hearings/ask', '/outreach'):
-          pg = b.page(who); pg.open(path); n += pg.page.evaluate(OPT); pg.close()
+          pg = b.page(who); pg.open(path)
+          # R-375: This week's whose is in its Filter menu
+          if path == '/hearings/week': pg.page.click('[data-hwfilter]'); pg.page.wait_for_selector('[data-pscope]'); n += pg.page.evaluate("document.querySelectorAll('[data-pscope=\"team\"]').length")
+          else: n += pg.page.evaluate(OPT)
+          pg.close()
         check(f'{L.NAMES[who]}: {"no Team option" if not want else "a Team option"} on Hearings, Bills, Bills That Need Hearings and Outreach', n == 4 * want, f'{n} of 4')
       pg = b.page('KR'); pg.open('/team')
       check('Kris: Team opens with its tabs (Sees Team)', bool(pg.page.query_selector('nav.sv-secnav[aria-label="Team"]')), main_text(pg)[:60]); pg.close()
