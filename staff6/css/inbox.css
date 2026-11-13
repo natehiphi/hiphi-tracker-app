@@ -362,3 +362,5 @@ body.staff6 .hp-page .hp-where svg { grid-row: 1 / 3; grid-column: 2; width: 18p
 @media (min-width: 600px) { body.staff6 .hp-page .hp-where a { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
   body.staff6 .hp-page .hp-where .hp-wp { grid-row: 1; grid-column: 2; }
   body.staff6 .hp-page .hp-where svg { grid-row: 1; grid-column: 3; } }
+/* How do I… (R-378): the step-by-step line, then the task list, apart */
+body.staff6 .hp-page .hp-p + .hp-card { margin-top: 16px; }
