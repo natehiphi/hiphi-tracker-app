@@ -1848,6 +1848,21 @@ export const DB = {
     const { error } = await S.supa.from('app_settings').upsert({ key: 'calendar', value: cfg, updated_at: new Date().toISOString() });
     if (error) throw error;
   },
+  // Send me a test, to one place (R-387, migration 199): 'queued', or 'held' when email to the team is paused.
+  async alertTest(place) {
+    if (DEMO) return 'queued';
+    const { data, error } = await S.supa.rpc('alert_test', { p_place: place });
+    // A trial copy made before migration 199 has no alert_test: the Slack test goes the old way; email says so.
+    if (error && /alert_test/.test(error.message || '') && /find|exist/i.test(error.message || '')) {
+      if (place === 'slack') { await this.slackTest(); return 'queued'; }
+      throw new Error('This trial copy was made before email tests existed. Start a new trial to try it.');
+    }
+    if (error) throw error;
+    const tok = S.session?.access_token;
+    if (tok) await fetch(`${SUPABASE_URL}/functions/v1/notify-send`, { method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, apikey: SUPABASE_KEY } }).catch(() => {});
+    return data;
+  },
   async slackTest() {
     if (DEMO) return;
     const { error } = await S.supa.rpc('slack_test');

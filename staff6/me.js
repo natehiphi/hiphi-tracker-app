@@ -1,11 +1,11 @@
 // Staff v6 (R-336, spec 3.1 "You", 6 "Partners, My settings", V26; F188, F189, F25): My settings (#/me), from You at the
 // foot of the sidebar (on a phone, More, then You). One page that saves as you change it, with no Save button:
-//   1. How the tracker reaches you: Slack DM, Email or Only in the app, and Send me a test DM.
-//   2. Where each alert goes: said truthfully, person by person, from the same settings the database reads (V26: "My
-//      settings says so"): testimony steps and messages follow your choice; deadline alerts go only by Slack DM and only to
-//      a bill's owner (queue_deadline_reminders); stand-ins for an approver always come; new hearings post in channels.
-//   3. Fine-tune what you are told, and when: each kind on or off, and the alert times (one closed fold: details wait until
-//      asked for).
+//   1. Where your alerts go (R-387, Nate 13 Nov 2026: "people work differently"): one row per kind of alert this person can
+//      get, each with a Slack DM tick and an Email tick: one, both or neither ("truly none", stand-ins included). Saved to
+//      advocates.prefs.route; migration 199's notifications_route trigger applies it to every alert as it is queued. A row
+//      never ticked shows what the old single choice (slack_dm, workflow, reminders) sends, so nothing changes until they
+//      tick. Send me a test, one button per place in use. New hearings post in channels, as before (channels per person: later).
+//   2. Deadline alert times (one closed fold, only while deadline alerts go somewhere).
 //   4. Colors (Nate 10/25): the app's palette, this person's own; HIPHI Family unless they pick another. One closed fold,
 //      each choice drawn in its own colours; it changes the moment it is picked and saves to advocates.prefs.palette.
 //   5. Sign out.
@@ -13,7 +13,7 @@
 // DB.slackTest. "Only in the app" is every kind switched off, which the database reads as "send nothing". Email is described
 // as working (CLAUDE.md rule 14: it is on before the public uses the tracker).
 import { S, DB, DEMO, esc, hooks } from './data.js';
-import { WORKFLOW_KINDS, hearingAhead, diedish } from './model.js';
+import { hearingAhead, diedish } from './model.js';
 import { icon, btn, switchRow, field, toast } from './ui.js';
 import { markNewStep } from './help.js';
 import { PALETTES, FAMILIES, DEFAULT_PALETTE } from './palettes.js';
@@ -21,56 +21,62 @@ import { myPalette, applyPalette } from './app.js';
 // Settings the database reads besides the seven kinds, each on unless switched off: a to-do given to you (065), "put you down
 // for the hearing" (065), an issue made yours (091), a draft moved to you (088). "Only in the app" turns these off too.
 const MORE_KINDS = ['todo', 'hearing', 'issue', 'draft_moved'];
-// Plain labels for what each kind is about (WORKFLOW_KINDS keys, the same order).
-const WF_LABEL = { chat: ['Messages on bills I own, follow or wrote on', ''], draft_created: ['A new testimony draft for one of my bills', ''],
-  review_requested: ['Testimony waiting for my approval', 'Admins and approvers give the first approval'], second_review_requested: ['A first testimony that needs my second look', 'Second approvers give it'],
-  approved: ['My testimony was approved', ''], changes_requested: ['My testimony was sent back with a note', ''], filed: ['Someone filed testimony on my bill', ''] };
-// Each kind in a few words, for Where each alert goes ("a new draft, waiting for your approval and sent back").
-const STEP_WORD = { draft_created: 'a new draft', review_requested: 'waiting for your approval', second_review_requested: 'a second look', approved: 'approved', changes_requested: 'sent back', filed: 'filed' };
+// The rows of Where your alerts go: the key migration 199's alert_route_key gives a queued message, the words, who gets
+// that kind (a row is shown only to them; hidden rows keep their value), and what leaving both ticks off means for them (a
+// calm line under the row, only for the kinds that someone is waiting on).
+const isApprover = me => me.is_admin || me.can_approve;
+const ROWS = [
+  { k: 'review_requested', t: 'Testimony waiting for my approval', s: 'You give the first approval', who: isApprover, none: 'Drafts waiting for you will sit on Today until you open the tracker.' },
+  { k: 'second_review_requested', t: 'A testimony that needs my second look', s: '', who: me => me.is_reviewer, none: 'Second looks will sit on Today until you open the tracker.' },
+  { k: 'draft_created', t: 'A new testimony draft for my bill', s: '', who: me => ownsBills(me) },
+  { k: 'approved', t: 'My testimony was approved', s: 'Time to file it' },
+  { k: 'changes_requested', t: 'My testimony was sent back with a note', s: '' },
+  { k: 'filed', t: 'Someone filed testimony on my bill', s: '', who: me => me.is_admin },
+  { k: 'deadlines', t: 'Testimony deadline alerts', s: 'Bills you own, until the testimony is filed', who: me => ownsBills(me), none: me => liveOwned(me) ? `Deadline alerts for your ${liveOwned(me)} bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead won’t reach you outside the app.` : '' },
+  { k: 'chat', t: 'Messages on bills I own, follow or wrote on', s: '' },
+  { k: 'given', t: 'Something given to me', s: 'A to-do, a hearing, an issue or a draft' },
+  { k: 'standin', t: 'Standing in for a teammate', s: 'When the person a step is for can’t be reached, it is passed to you', none: 'Steps passed to you will sit on Today until you open the tracker.' },
+  { k: 'admin', t: 'Admin notices', s: 'Last hearing slots, supporter emails to approve', who: isApprover },
+];
+const PLACES = [['slack', 'Slack DM'], ['email', 'Email']];
+// The same work, kind by kind, in the old settings (before R-387): what the database sends a person who never ticked a row.
+const WF_KEYS = ['review_requested', 'second_review_requested', 'draft_created', 'approved', 'changes_requested', 'filed', 'chat'];
 const REM = [['morning', 'The morning testimony is due'], ['before', 'Shortly before it is due'], ['after', 'After the deadline, if it is not filed']];
 const hhmm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(t || ''); if (!m) return t || ''; const h = +m[1]; return `${h % 12 || 12}:${m[2]} ${h < 12 ? 'AM' : 'PM'}`; };
-const andList = xs => xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
 
-// The switches that can fire for this person: first approvals reach admins and approvers, the second look only second
-// approvers; someone who owns no bills gets no draft for one; "filed" goes to admins only (154). Hidden ones keep their value.
 const ownsBills = me => (S.bills || []).some(b => (S.assignments[b.id] || []).includes(me.id));
-const kindsFor = me => WORKFLOW_KINDS.map(([k]) => k).filter(k => (k !== 'review_requested' || me.is_admin || me.can_approve) && (k !== 'second_review_requested' || me.is_reviewer)
-  && (k !== 'draft_created' || ownsBills(me)) && (k !== 'filed' || me.is_admin));
-// Bills this person owns that are still live with a hearing ahead: whose deadline alerts "Only in the app" silences.
+// Bills this person owns that are still live with a hearing ahead: whose deadline alerts leaving both ticks off silences.
 const liveOwned = me => (S.bills || []).filter(b => (S.assignments[b.id] || []).includes(me.id) && !diedish(b) && hearingAhead(b)).length;
-function current() {
-  const me = S.me || {}, prefs = me.prefs || {}, rem = prefs.reminders || {}, wf = prefs.workflow || {}, dflt = (S.slackCfg || {}).reminder_defaults || {};
+function reminders(me) {
+  const rem = (me.prefs || {}).reminders || {}, dflt = (S.slackCfg || {}).reminder_defaults || {};
   const v = (x, d) => x == null ? d : x;
-  const r = { morning_on: v(rem.morning_on, dflt.morning_on !== false), morning: v(rem.morning, dflt.morning || '08:35'), before_on: v(rem.before_on, dflt.before_on !== false),
+  return { morning_on: v(rem.morning_on, dflt.morning_on !== false), morning: v(rem.morning, dflt.morning || '08:35'), before_on: v(rem.before_on, dflt.before_on !== false),
     hours_before: v(rem.hours_before, dflt.hours_before || 1), after_on: v(rem.after_on, dflt.after_on !== false), after: v(rem.after, dflt.after || '16:00') };
-  const w = Object.fromEntries(WORKFLOW_KINDS.map(([k]) => [k, wf[k] !== false]));
-  const more = Object.fromEntries(MORE_KINDS.map(k => [k, wf[k] !== false]));
-  const quiet = !r.morning_on && !r.before_on && !r.after_on && Object.values(w).every(x => !x);
-  return { me, prefs, r, w, more, mode: quiet ? 'app' : me.slack_dm !== false ? 'slack' : 'email' };
 }
-
-// ---- where each alert goes, in words, from the settings as they are now (V26) ----
-function routes() {
-  const { me, r, w, more, mode } = current(), toEmail = (S.slackCfg || {}).workflow_dm === false;
-  const way = mode === 'app' ? '' : mode === 'email' || toEmail ? `Email, to ${me.email || 'your address'}` : 'Slack DM';
-  const on = ks => ks.some(k => w[k]);
-  const steps = kindsFor(me).filter(k => k !== 'chat');
-  const say = (yes, extra = '') => mode === 'app' || !yes ? 'Off: only in the app' : `${way}${extra}`;
-  const remOn = REM.filter(([k]) => r[k + '_on']).map(([k]) => ({ morning: `the morning it is due (${hhmm(r.morning)})`, before: `${r.hours_before} hour${Number(r.hours_before) === 1 ? '' : 's'} before`, after: `after the deadline (${hhmm(r.after)})` }[k]));
-  const deadline = !ownsBills(me) ? 'To each bill’s owner, not to you: you own no bills'
-    : mode !== 'slack' || toEmail ? 'Off: deadline alerts come only by Slack DM'
-      : remOn.length ? `Slack DM: ${andList(remOn)}` : 'Off: only in the app';
-  const approver = me.is_admin || me.can_approve || me.is_reviewer;
-  const ch = esc((S.slackCfg || {}).main_channel || '#hearing-alerts');
-  return [
-    ['file-text', 'Your testimony steps', say(on(steps), steps.length ? `: ${andList(steps.filter(k => w[k]).map(k => STEP_WORD[k]))}` : '')],
-    ['message-square', 'Messages on your bills', say(w.chat)],
-    ['clock', 'Testimony deadline alerts', deadline],
-    ['hand-helping', 'Something given to you', say(Object.values(more).some(Boolean), ': a to-do, a hearing, an issue or a draft')],
-    ...(approver ? [['user-check', 'Standing in for an approver', mode === 'app' ? `Always comes, ${me.slack_dm !== false ? 'by Slack DM' : 'by email'}, even with Only in the app` : `Always comes, ${way.startsWith('Email') ? 'by email' : 'by Slack DM'}`]] : []),
-    ['newspaper', 'New hearings', `Posted in ${ch} and your coalition’s channel, not to you alone`],
-    ['inbox', 'Messages and the tracker’s notes', 'Kept in your Inbox, whatever you pick here'],
-  ];
+function oldPlaces(me, k) {
+  const wf = (me.prefs || {}).workflow || {}, r = reminders(me), one = [me.slack_dm !== false ? 'slack' : 'email'];
+  const remOn = r.morning_on || r.before_on || r.after_on;
+  const quiet = !remOn && WF_KEYS.every(x => wf[x] === false);   // the old "Only in the app"
+  if (k === 'standin' || k === 'admin') return one;               // these always came
+  if (quiet) return [];
+  if (k === 'deadlines') return me.slack_dm !== false && remOn ? ['slack'] : [];   // deadline alerts came only by Slack DM
+  if (k === 'given') return MORE_KINDS.every(x => wf[x] === false) ? [] : one;
+  return wf[k] === false ? [] : one;
+}
+const places = (me, k) => { const r = ((me.prefs || {}).route || {})[k]; return Array.isArray(r) ? r.filter(x => x === 'slack' || x === 'email') : oldPlaces(me, k); };
+// Every row's places, shown or not, so a save never loses a hidden row's choice.
+const allRoutes = me => Object.fromEntries(ROWS.map(({ k }) => [k, places(me, k)]));
+// What the queue functions read besides the route, kept in step with it: a kind with no place is switched off (so it is not
+// even queued), deadline alerts with a place have at least one time on, and slack_dm stays on when Slack or deadline alerts
+// are wanted (queue_deadline_reminders queues only for slack_dm; the route then moves each alert where it was ticked).
+function prefsFor(me, route) {
+  const prefs = me.prefs || {}, wf = { ...(prefs.workflow || {}) };
+  WF_KEYS.forEach(k => { wf[k] = route[k].length > 0; });
+  MORE_KINDS.forEach(k => { wf[k] = route.given.length > 0; });
+  const rem = reminders(me);
+  if (route.deadlines.length && !(rem.morning_on || rem.before_on || rem.after_on)) Object.assign(rem, { morning_on: true, before_on: true, after_on: true });
+  const slack_dm = Object.values(route).some(a => a.includes('slack')) || route.deadlines.length > 0;
+  return { slack_dm, prefs: { ...prefs, route, workflow: wf, reminders: rem } };
 }
 
 // ---- Colors: a small drawing of the app in each palette (page, a card with a name and a line, the button, a done check) ----
@@ -95,40 +101,50 @@ export default {
   tab: 'you', narrow: true,   // a form: a reading column on a wide screen
   title: () => 'My settings',
   render() {
-    const { me, r, w, mode } = current(), helper = !ownsBills(me), toEmail = (S.slackCfg || {}).workflow_dm === false;
-    const slackState = DEMO ? 'Practice copy: nothing is sent' : me.slack_user_id ? 'Your Slack account is linked' : 'Linked by your email the first time the tracker messages you';
-    const opt = (val, title, sub) => `<label class="me-opt"><input type="radio" name="me-reach" value="${val}" ${mode === val ? 'checked' : ''}><span class="me-dot" aria-hidden="true"></span><span class="me-optx"><span class="me-optt">${title}</span><span class="me-opts">${sub}</span></span></label>`;
+    const me = S.me || {}, r = reminders(me), toEmail = (S.slackCfg || {}).workflow_dm === false;
+    const rows = ROWS.filter(x => !x.who || x.who(me));
+    const reach = DEMO ? `Practice copy: nothing is actually sent. Email would go to ${me.email || 'your address'}.`
+      : `Slack: ${me.slack_user_id ? 'your account is linked' : 'linked by your email the first time the tracker messages you'}. Email goes to ${me.email || 'your address'}.`;
+    const cell = (row, [pl, name], on) => `<label class="me-tick"><input type="checkbox" data-route="${row.k}" data-place="${pl}" ${on ? 'checked' : ''} aria-label="${esc(row.t)}: ${name}"><span class="me-box" aria-hidden="true">${icon('check')}</span><span class="me-tcap" aria-hidden="true">${pl === 'slack' ? 'Slack' : 'Email'}</span></label>`;
+    const line = row => {
+      const now = places(me, row.k), none = !now.length && row.none ? (typeof row.none === 'function' ? row.none(me) : row.none) : '';
+      return `<div class="me-rrow" role="row"><span class="me-rlab" role="rowheader"><span class="me-rn">${esc(row.t)}</span>${row.s ? `<span class="me-rt">${esc(row.s)}</span>` : ''}${none ? `<span class="me-rnone">${icon('info')}<span>${esc(none)}</span></span>` : ''}</span>
+        ${PLACES.map(p => `<span class="me-rcell" role="cell">${cell(row, p, now.includes(p[0]))}</span>`).join('')}</div>`;
+    };
+    // Every alert: one tick per column that sets every row shown (critic: switching all to email was 20 taps).
+    const allOn = pl => rows.every(x => places(me, x.k).includes(pl));
+    const every = `<div class="me-rrow me-rall" role="row"><span class="me-rlab" role="rowheader"><span class="me-rn"><b>Every alert</b></span><span class="me-rt">Tick or clear a whole column</span></span>
+        ${PLACES.map(([pl, name]) => `<span class="me-rcell" role="cell"><label class="me-tick"><input type="checkbox" data-all="${pl}" ${allOn(pl) ? 'checked' : ''} aria-label="Every alert: ${name}"><span class="me-box" aria-hidden="true">${icon('check')}</span><span class="me-tcap" aria-hidden="true">${pl === 'slack' ? 'Slack' : 'Email'}</span></label></span>`).join('')}</div>`;
+    const used = new Set(rows.flatMap(x => places(me, x.k)));
+    const tests = PLACES.filter(([pl]) => used.has(pl)).map(([pl, name]) => btn(pl === 'slack' ? 'Send me a test DM' : 'Send me a test email', { kind: 'secondary', icon: 'send', attrs: { 'data-test': pl } })).join('');
     const remTimes = { morning: `At ${hhmm(r.morning)}`, before: `${r.hours_before} hour${Number(r.hours_before) === 1 ? '' : 's'} before`, after: `At ${hhmm(r.after)}` };
-    // Everything a person changes now and then sits behind one fold, closed until they open it (B-12).
-    const fine = mode === 'app' ? '' : `<details class="me-fine"${S.meFine ? ' open' : ''}><summary><span>Fine-tune what you are told, and when</span>${icon('chevron-down', { cls: 'me-fchev' })}</summary><div class="me-finein">
-        ${helper ? '' : mode === 'slack' ? `<h3 class="me-h3">Testimony deadlines</h3><p class="me-note">Only for bills you own, until the testimony is marked filed.</p>
+    // Deadline alert times sit behind one fold, closed until opened (B-12), and only while deadline alerts go somewhere.
+    const fine = !ownsBills(me) || !places(me, 'deadlines').length ? '' : `<details class="me-fine"${S.meFine ? ' open' : ''}><summary><span>When deadline alerts arrive</span>${icon('chevron-down', { cls: 'me-fchev' })}</summary><div class="me-finein">
         <div class="me-card">${REM.map(([k, l]) => switchRow('me-rem-' + k, l, r[k + '_on'], remTimes[k], { 'data-rem': k })).join('')}</div>
         ${r.morning_on || r.before_on || r.after_on ? `<h3 class="me-h3">Alert times</h3>
         <div class="me-card me-times">${r.morning_on ? field('me-mont', 'Morning alert', `<input id="me-mont" type="time" value="${esc(r.morning)}" data-remv="morning">`) : ''}
           ${r.before_on ? field('me-befh', 'Hours before', `<input id="me-befh" type="number" min="0.5" max="48" step="0.5" inputmode="decimal" value="${esc(r.hours_before)}" data-remv="hours_before">`) : ''}
-          ${r.after_on ? field('me-aftt', 'After the deadline', `<input id="me-aftt" type="time" value="${esc(r.after)}" data-remv="after">`) : ''}</div>` : ''}`
-        : `<p class="me-note">${icon('info')}<span>Deadline alerts come only by Slack DM. Pick Slack DM to get them.</span></p>`}
-        <h3 class="me-h3">Testimony and messages</h3>
-        <div class="me-card">${kindsFor(me).map(k => switchRow('me-wf-' + k, WF_LABEL[k][0], w[k], WF_LABEL[k][1], { 'data-wf': k })).join('')}</div>
+          ${r.after_on ? field('me-aftt', 'After the deadline', `<input id="me-aftt" type="time" value="${esc(r.after)}" data-remv="after">`) : ''}</div>` : ''}
       </div></details>`;
-    const rt = routes();
+    const ch = esc((S.slackCfg || {}).main_channel || '#hearing-alerts');
     return `<div class="me-page">
       <h1 class="v6-ptitle sv-h1">My settings</h1>
-      <section class="me-sec" aria-labelledby="me-reach">
-        <h2 class="me-h2" id="me-reach">How the tracker reaches you</h2>
-        <p class="me-lede">Today lists every step that is yours, whatever you pick here.</p>
-        <fieldset class="me-fs"><legend class="sr">Alerts come by</legend>
-          <div class="me-opts-card">
-            ${opt('slack', 'Slack DM', esc(slackState) + (toEmail ? '. An admin has sent testimony steps to email for everyone.' : ''))}
-            ${opt('email', 'Email', `To ${esc(me.email || 'your address')}. Testimony steps and messages; deadline alerts come only by Slack.`)}
-            ${opt('app', 'Only in the app', `No alerts, except when ${me.is_admin || me.can_approve || me.is_reviewer ? 'you stand in for an approver or ' : ''}a step is passed to you.${mode === 'app' && liveOwned(me) ? ` <b>Deadline alerts for your ${liveOwned(me)} bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead won’t reach anyone.</b> Pick Slack DM to get them.` : ''}`)}
-          </div></fieldset>
-        ${mode === 'slack' ? `<div class="me-acts">${btn('Send me a test DM', { kind: 'secondary', icon: 'send', attrs: { 'data-test': '1' } })}</div>` : ''}
-      </section>
       <section class="me-sec" aria-labelledby="me-where">
-        <h2 class="me-h2" id="me-where">Where each alert goes</h2>
-        <ul class="me-routes" role="list">${rt.map(([ic, name, to]) => `<li class="me-route">${icon(ic)}<span class="me-rtx"><span class="me-rn">${esc(name)}</span><span class="me-rt">${esc(to)}</span></span></li>`).join('')}</ul>
+        <h2 class="me-h2" id="me-where">Where your alerts go</h2>
+        <p class="me-lede">Tick Slack DM, Email, both or neither for each kind. Whatever you pick, Today lists every step that is yours.</p>
+        ${toEmail ? `<p class="me-note">${icon('info')}<span>An admin sends testimony steps and messages by email for everyone, so those come by email if either box is ticked.</span></p>` : ''}
+        <div class="me-rtable" role="table" aria-label="Where your alerts go">
+          <div class="me-rrow me-rhead" role="row"><span class="me-rlab" role="columnheader"><span class="sr">Alert</span></span>${PLACES.map(([, n]) => `<span class="me-rcell" role="columnheader">${n}</span>`).join('')}</div>
+          ${every}
+          ${rows.map(line).join('')}
+        </div>
+        <p class="me-note me-reach">${icon('info')}<span>${esc(reach)}</span></p>
+        ${tests ? `<div class="me-acts">${tests}</div>` : ''}
         ${fine}
+        <ul class="me-routes" role="list">
+          <li class="me-route">${icon('newspaper')}<span class="me-rtx"><span class="me-rn">New hearings</span><span class="me-rt">Posted in ${ch} and your coalition’s channel, not to you alone</span></span></li>
+          <li class="me-route">${icon('inbox')}<span class="me-rtx"><span class="me-rn">Messages and the tracker’s notes</span><span class="me-rt">Kept in your Inbox, whatever you pick here</span></span></li>
+        </ul>
       </section>
       ${colors()}
       <section class="me-sec" aria-labelledby="me-acc">
@@ -138,39 +154,39 @@ export default {
     </div>`;
   },
   wire(route, root) {
-    // Read every visible control plus the hidden values, and save the whole prefs object (as v5 did).
-    const collect = () => {
-      const { me, prefs, r, w } = current();
-      const rem = { ...r }; root.querySelectorAll('[data-rem]').forEach(i => { rem[i.dataset.rem + '_on'] = i.checked; });
-      root.querySelectorAll('[data-remv]').forEach(i => { const k = i.dataset.remv; rem[k] = k === 'hours_before' ? (Number(i.value) || 1) : (i.value || r[k]); });
-      const wf = { ...(prefs.workflow || {}), ...w }; root.querySelectorAll('[data-wf]').forEach(i => { wf[i.dataset.wf] = i.checked; });
-      return { me, prefs, rem, wf };
-    };
     const save = async (slack_dm, prefs, msg = 'Saved.') => {
       const before = { slack_dm: S.me.slack_dm, prefs: S.me.prefs };
       // Getting started's settings step ticks when a setting is saved, not from opening this page (kept in their settings,
       // so it follows them to the phone, R-316 W7).
       try { await DB.saveMyPrefs({ slack_dm, prefs }); toast(msg, { ok: true }); markNewStep({ settings: 1 }); }
       catch (e) { Object.assign(S.me, before); toast(e, { err: true }); }
-      const y = window.scrollY, id = document.activeElement?.id; hooks.render(); window.scrollTo(0, y); if (id) document.getElementById(id)?.focus({ preventScroll: true });
+      const y = window.scrollY, id = document.activeElement?.id, rk = document.activeElement?.dataset?.route, pk = document.activeElement?.dataset?.place;
+      hooks.render(); window.scrollTo(0, y);
+      const ak = document.activeElement?.dataset?.all;
+      const back = id ? document.getElementById(id) : rk ? document.querySelector(`[data-route="${rk}"][data-place="${pk}"]`) : ak ? document.querySelector(`[data-all="${ak}"]`) : null;
+      back?.focus({ preventScroll: true });
     };
-    root.querySelectorAll('input[name="me-reach"]').forEach(i => i.onchange = () => {
-      const { me, prefs, rem, wf } = collect(), was = current().mode, to = i.value;
-      if (to === 'app') {
-        // Keep the choices for this visit, so switching back restores them instead of turning everything on.
-        S.st2NudgeBackup = { rem: { ...rem }, wf: { ...wf } };
-        const off = { ...rem, morning_on: false, before_on: false, after_on: false };
-        return save(me.slack_dm, { ...prefs, reminders: off, workflow: Object.fromEntries([...Object.keys(wf), ...MORE_KINDS].map(k => [k, false])) }, `Saved. Only ${me.is_admin || me.can_approve || me.is_reviewer ? 'approval stand-ins and ' : ''}steps passed to you will reach you.`);
-      }
-      let r2 = rem, w2 = wf;
-      if (was === 'app') { const b = S.st2NudgeBackup; r2 = b ? b.rem : { ...rem, morning_on: true, before_on: true, after_on: true }; w2 = b ? b.wf : Object.fromEntries([...Object.keys(wf), ...MORE_KINDS].map(k => [k, true])); }
-      if (was === 'app') w2 = { ...Object.fromEntries(MORE_KINDS.map(k => [k, true])), ...w2 };   // the four "Only in the app" turned off come back on
-      save(to === 'slack', { ...prefs, reminders: r2, workflow: w2 }, to === 'slack' ? 'Saved. Alerts come by Slack DM.' : 'Saved. Alerts come by email.');
+    // A tick saves every row at once (R-387), in words that say where that kind now goes.
+    root.querySelectorAll('[data-route]').forEach(i => i.onchange = () => {
+      const me = S.me, route = allRoutes(me), k = i.dataset.route, pl = i.dataset.place;
+      route[k] = PLACES.map(([p]) => p).filter(p => p === pl ? i.checked : route[k].includes(p));
+      const { slack_dm, prefs } = prefsFor(me, route), row = ROWS.find(x => x.k === k);
+      const to = route[k].length === 2 ? 'Slack DM and email' : route[k][0] === 'slack' ? 'Slack DM' : route[k][0] === 'email' ? 'email' : null;
+      save(slack_dm, prefs, to ? `Saved. ${row.t}: by ${to}.` : `Saved. ${row.t}: only in the app.`);
     });
-    root.querySelectorAll('[data-rem], [data-wf], [data-remv]').forEach(i => i.onchange = () => {
-      const { me, prefs, rem, wf } = collect();
+    root.querySelectorAll('[data-all]').forEach(i => i.onchange = () => {
+      const me = S.me, route = allRoutes(me), pl = i.dataset.all, name = pl === 'slack' ? 'Slack DM' : 'email';
+      ROWS.filter(x => !x.who || x.who(me)).forEach(({ k }) => {
+        route[k] = PLACES.map(([p]) => p).filter(p => p === pl ? i.checked : route[k].includes(p)); });
+      const { slack_dm, prefs } = prefsFor(me, route);
+      save(slack_dm, prefs, i.checked ? `Saved. Every alert by ${name}.` : `Saved. No alerts by ${name}.`);
+    });
+    root.querySelectorAll('[data-rem], [data-remv]').forEach(i => i.onchange = () => {
+      const me = S.me, rem = reminders(me);
       if (i.dataset.remv === 'hours_before' && !(Number(i.value) >= 0.5 && Number(i.value) <= 48)) { toast('Use a number of hours from 0.5 to 48.', { err: true }); return; }
-      save(me.slack_dm !== false, { ...prefs, reminders: rem, workflow: wf });
+      root.querySelectorAll('[data-rem]').forEach(x => { rem[x.dataset.rem + '_on'] = x.checked; });
+      root.querySelectorAll('[data-remv]').forEach(x => { const k = x.dataset.remv; rem[k] = k === 'hours_before' ? (Number(x.value) || 1) : (x.value || rem[k]); });
+      save(me.slack_dm !== false, { ...(me.prefs || {}), reminders: rem });
     });
     root.querySelector('.me-fine:not(.me-colors)')?.addEventListener('toggle', e => { S.meFine = e.currentTarget.open; });
     root.querySelector('.me-colors')?.addEventListener('toggle', e => { S.meColors = e.currentTarget.open; });
@@ -191,10 +207,15 @@ export default {
       }, now ? 0 : 800);
     };    root.querySelectorAll('input[name="me-col"]').forEach(i => i.onchange = () => pickColors(i.value));
     const cd = root.querySelector('[data-coldef]'); if (cd) cd.onclick = () => pickColors(DEFAULT_PALETTE);
-    const t = root.querySelector('[data-test]');
-    if (t) t.onclick = async () => { t.setAttribute('aria-busy', 'true');
-      try { await DB.slackTest(); toast(DEMO ? 'Practice copy: a test DM would be on its way.' : 'Test DM on its way. Check Slack.', { ok: true }); } catch (e) { toast(e, { err: true }); }
-      finally { t.removeAttribute('aria-busy'); } };
+    root.querySelectorAll('[data-test]').forEach(t => t.onclick = async () => { t.setAttribute('aria-busy', 'true');
+      const pl = t.dataset.test;
+      try {
+        const r = await DB.alertTest(pl);
+        toast(DEMO ? `Practice copy: a test ${pl === 'slack' ? 'DM' : 'email'} would be on its way.`
+          : r === 'held' ? 'Email to the team is paused in Settings, so the test is held. An admin can turn it on.'
+          : pl === 'slack' ? 'Test DM on its way. Check Slack.' : `Test email on its way to ${S.me.email || 'your address'}.`, { ok: true });
+      } catch (e) { toast(e, { err: true }); }
+      finally { t.removeAttribute('aria-busy'); } });
     const so = root.querySelector('[data-signout]');
     if (so) so.onclick = () => DB.logout();
   },
