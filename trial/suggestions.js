@@ -20,7 +20,8 @@ export const DECISIONS = [['build', 'Build it'], ['not_now', 'Not now'], ['plann
 const STATUS = { new: 'New', ...Object.fromEntries(DECISIONS) };
 const RATING = { useful: 'Useful', not_useful: 'Not useful', wrong: 'Wrong' };
 const KIND = {
-  draft_created: 'Testimony draft ready', draft_thread: 'Draft posted to the team', hearing_alert: 'Hearing alert',
+  draft_created: 'Testimony draft ready', draft_thread: 'Draft posted to the team', hearing_alert: 'Hearing alert', hearing_rescheduled: 'Hearing moved', hearing_cancelled: 'Hearing cancelled',
+  draft_followed: 'Draft ready on a bill you follow',
   daily_list: 'Daily hearing list', reminder_morning: 'Testimony reminder, morning', reminder_before: 'Testimony reminder, before it is due',
   reminder_after: 'Testimony reminder, after the hearing', slot_alert: 'Last hearing slot', deadline_reminder: 'Deadline reminder',
 };
