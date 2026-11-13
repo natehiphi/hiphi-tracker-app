@@ -25,19 +25,19 @@ const MORE_KINDS = ['todo', 'hearing', 'issue', 'draft_moved'];
 // that kind (a row is shown only to them; hidden rows keep their value), and what leaving both ticks off means for them (a
 // calm line under the row, only for the kinds that someone is waiting on).
 const isApprover = me => me.is_admin || me.can_approve;
+// Nate 13 Nov: the testimony steps are one row, "Testimony updates"; its ticks set all six kinds together (the database
+// still keeps them apart, so a later split needs no migration).
+const TESTIMONY = ['review_requested', 'second_review_requested', 'draft_created', 'approved', 'changes_requested', 'filed'];
 const ROWS = [
-  { k: 'review_requested', t: 'Testimony waiting for my approval', s: 'You give the first approval', who: isApprover, none: 'Drafts waiting for you will sit on Today until you open the tracker.' },
-  { k: 'second_review_requested', t: 'A testimony that needs my second look', s: '', who: me => me.is_reviewer, none: 'Second looks will sit on Today until you open the tracker.' },
-  { k: 'draft_created', t: 'A new testimony draft for my bill', s: '', who: me => ownsBills(me) },
-  { k: 'approved', t: 'My testimony was approved', s: 'Time to file it' },
-  { k: 'changes_requested', t: 'My testimony was sent back with a note', s: '' },
-  { k: 'filed', t: 'Someone filed testimony on my bill', s: '', who: me => me.is_admin },
+  { k: 'testimony', keys: TESTIMONY, t: 'Testimony updates', s: me => `New drafts, ${isApprover(me) || me.is_reviewer ? 'drafts waiting for your approval, ' : ''}approvals, notes sent back${me.is_admin ? ' and filings' : ''}`,
+    none: me => isApprover(me) || me.is_reviewer ? 'Drafts waiting for your approval will sit on Today until you open the tracker.' : '' },
   { k: 'deadlines', t: 'Testimony deadline alerts', s: 'Bills you own, until the testimony is filed', who: me => ownsBills(me), none: me => liveOwned(me) ? `Deadline alerts for your ${liveOwned(me)} bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead won’t reach you outside the app.` : '' },
   { k: 'chat', t: 'Messages on bills I own, follow or wrote on', s: '' },
   { k: 'given', t: 'Something given to me', s: 'A to-do, a hearing, an issue or a draft' },
   { k: 'standin', t: 'Standing in for a teammate', s: 'When the person a step is for can’t be reached, it is passed to you', none: 'Steps passed to you will sit on Today until you open the tracker.' },
   { k: 'admin', t: 'Admin notices', s: 'Last hearing slots, supporter emails to approve', who: isApprover },
 ];
+const keysOf = row => row.keys || [row.k];
 const PLACES = [['slack', 'Slack DM'], ['email', 'Email']];
 // The same work, kind by kind, in the old settings (before R-387): what the database sends a person who never ticked a row.
 const WF_KEYS = ['review_requested', 'second_review_requested', 'draft_created', 'approved', 'changes_requested', 'filed', 'chat'];
@@ -65,7 +65,8 @@ function oldPlaces(me, k) {
 }
 const places = (me, k) => { const r = ((me.prefs || {}).route || {})[k]; return Array.isArray(r) ? r.filter(x => x === 'slack' || x === 'email') : oldPlaces(me, k); };
 // Every row's places, shown or not, so a save never loses a hidden row's choice.
-const allRoutes = me => Object.fromEntries(ROWS.map(({ k }) => [k, places(me, k)]));
+const allRoutes = me => Object.fromEntries(ROWS.flatMap(keysOf).map(k => [k, places(me, k)]));
+const rowPlaces = (me, row) => PLACES.map(([p]) => p).filter(p => keysOf(row).every(k => places(me, k).includes(p)));
 // What the queue functions read besides the route, kept in step with it: a kind with no place is switched off (so it is not
 // even queued), deadline alerts with a place have at least one time on, and slack_dm stays on when Slack or deadline alerts
 // are wanted (queue_deadline_reminders queues only for slack_dm; the route then moves each alert where it was ticked).
@@ -107,15 +108,15 @@ export default {
       : `Slack: ${me.slack_user_id ? 'your account is linked' : 'linked by your email the first time the tracker messages you'}. Email goes to ${me.email || 'your address'}.`;
     const cell = (row, [pl, name], on) => `<label class="me-tick"><input type="checkbox" data-route="${row.k}" data-place="${pl}" ${on ? 'checked' : ''} aria-label="${esc(row.t)}: ${name}"><span class="me-box" aria-hidden="true">${icon('check')}</span><span class="me-tcap" aria-hidden="true">${pl === 'slack' ? 'Slack' : 'Email'}</span></label>`;
     const line = row => {
-      const now = places(me, row.k), none = !now.length && row.none ? (typeof row.none === 'function' ? row.none(me) : row.none) : '';
-      return `<div class="me-rrow" role="row"><span class="me-rlab" role="rowheader"><span class="me-rn">${esc(row.t)}</span>${row.s ? `<span class="me-rt">${esc(row.s)}</span>` : ''}${none ? `<span class="me-rnone">${icon('info')}<span>${esc(none)}</span></span>` : ''}</span>
+      const now = rowPlaces(me, row), none = !now.length && row.none ? (typeof row.none === 'function' ? row.none(me) : row.none) : '';
+      return `<div class="me-rrow" role="row"><span class="me-rlab" role="rowheader"><span class="me-rn">${esc(row.t)}</span>${row.s ? `<span class="me-rt">${esc(typeof row.s === 'function' ? row.s(me) : row.s)}</span>` : ''}${none ? `<span class="me-rnone">${icon('info')}<span>${esc(none)}</span></span>` : ''}</span>
         ${PLACES.map(p => `<span class="me-rcell" role="cell">${cell(row, p, now.includes(p[0]))}</span>`).join('')}</div>`;
     };
     // Every alert: one tick per column that sets every row shown (critic: switching all to email was 20 taps).
-    const allOn = pl => rows.every(x => places(me, x.k).includes(pl));
+    const allOn = pl => rows.every(x => rowPlaces(me, x).includes(pl));
     const every = `<div class="me-rrow me-rall" role="row"><span class="me-rlab" role="rowheader"><span class="me-rn"><b>Every alert</b></span><span class="me-rt">Tick or clear a whole column</span></span>
         ${PLACES.map(([pl, name]) => `<span class="me-rcell" role="cell"><label class="me-tick"><input type="checkbox" data-all="${pl}" ${allOn(pl) ? 'checked' : ''} aria-label="Every alert: ${name}"><span class="me-box" aria-hidden="true">${icon('check')}</span><span class="me-tcap" aria-hidden="true">${pl === 'slack' ? 'Slack' : 'Email'}</span></label></span>`).join('')}</div>`;
-    const used = new Set(rows.flatMap(x => places(me, x.k)));
+    const used = new Set(rows.flatMap(x => rowPlaces(me, x)));
     const tests = PLACES.filter(([pl]) => used.has(pl)).map(([pl, name]) => btn(pl === 'slack' ? 'Send me a test DM' : 'Send me a test email', { kind: 'secondary', icon: 'send', attrs: { 'data-test': pl } })).join('');
     const remTimes = { morning: `At ${hhmm(r.morning)}`, before: `${r.hours_before} hour${Number(r.hours_before) === 1 ? '' : 's'} before`, after: `At ${hhmm(r.after)}` };
     // Deadline alert times sit behind one fold, closed until opened (B-12), and only while deadline alerts go somewhere.
@@ -169,14 +170,16 @@ export default {
     // A tick saves every row at once (R-387), in words that say where that kind now goes.
     root.querySelectorAll('[data-route]').forEach(i => i.onchange = () => {
       const me = S.me, route = allRoutes(me), k = i.dataset.route, pl = i.dataset.place;
-      route[k] = PLACES.map(([p]) => p).filter(p => p === pl ? i.checked : route[k].includes(p));
-      const { slack_dm, prefs } = prefsFor(me, route), row = ROWS.find(x => x.k === k);
-      const to = route[k].length === 2 ? 'Slack DM and email' : route[k][0] === 'slack' ? 'Slack DM' : route[k][0] === 'email' ? 'email' : null;
+      const row = ROWS.find(x => x.k === k), was = rowPlaces(me, row);
+      const want = PLACES.map(([p]) => p).filter(p => p === pl ? i.checked : was.includes(p));
+      keysOf(row).forEach(x => { route[x] = want; });
+      const { slack_dm, prefs } = prefsFor(me, route);
+      const to = want.length === 2 ? 'Slack DM and email' : want[0] === 'slack' ? 'Slack DM' : want[0] === 'email' ? 'email' : null;
       save(slack_dm, prefs, to ? `Saved. ${row.t}: by ${to}.` : `Saved. ${row.t}: only in the app.`);
     });
     root.querySelectorAll('[data-all]').forEach(i => i.onchange = () => {
       const me = S.me, route = allRoutes(me), pl = i.dataset.all, name = pl === 'slack' ? 'Slack DM' : 'email';
-      ROWS.filter(x => !x.who || x.who(me)).forEach(({ k }) => {
+      ROWS.filter(x => !x.who || x.who(me)).flatMap(keysOf).forEach(k => {
         route[k] = PLACES.map(([p]) => p).filter(p => p === pl ? i.checked : route[k].includes(p)); });
       const { slack_dm, prefs } = prefsFor(me, route);
       save(slack_dm, prefs, i.checked ? `Saved. Every alert by ${name}.` : `Saved. No alerts by ${name}.`);
