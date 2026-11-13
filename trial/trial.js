@@ -10,6 +10,8 @@
 // Nate's words for the design (10/24-25): four stops a day, 9 AM, noon, 3 PM and 6 PM; skip a day; any staff member
 // starts one and adds teammates by name; at a week's end the trial shows which held-back bills were found and missed.
 
+import { challengesHTML, readTicks, saveTicks, countOf } from './challenges.js';   // R-391: the training's challenge list
+
 const PRACTICE_URL = 'https://pjbezfxxplirpbdgjrpe.supabase.co';
 const PRACTICE_KEY = 'sb_publishable_MlsU3w_8VxIPR0zJ5tuY2w_yuFiIKbw';   // the practice project's publishable key
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm';   // the version Staff v6 pins
@@ -176,7 +178,7 @@ export function bandHTML(s, { busy = '', moved = null, alerts = 0 } = {}) {
   else act = `<button type="button" class="btn primary sm" data-tr="next">${esc(nextLabel(s))}</button>${s.next_day && sameDay(s.clock, s.next) ? `<button type="button" class="btn secondary sm" data-tr="skip">Skip to ${esc(fmt(s.next_day, { weekday: 'short' }))}</button>` : ''}`;
   const as = s.acting ? `<span class="tr-as"><b>Acting as ${esc(s.acting.name)}</b> <button type="button" class="btn secondary sm" data-tr="asme">Back to me</button></span>` : '';
   return `<span class="tr-where"><b class="tr-tag">Trial run</b> <b class="tr-when">${esc(when)}</b><span class="tr-hint"> · ${esc(w?.name || '')}</span>${who}</span>
-    ${as}<span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="alerts" aria-haspopup="dialog">Alerts${alerts ? ` <span class="tr-new">${alerts} new</span>` : ''}</button><button type="button" class="btn secondary sm" data-tr="suggest" aria-haspopup="dialog">Suggest</button><button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
+    ${as}<span class="tr-acts">${act}<button type="button" class="btn secondary sm" data-tr="challenges" aria-haspopup="dialog">Challenges</button><button type="button" class="btn secondary sm" data-tr="alerts" aria-haspopup="dialog">Alerts${alerts ? ` <span class="tr-new">${alerts} new</span>` : ''}</button><button type="button" class="btn secondary sm" data-tr="suggest" aria-haspopup="dialog">Suggest</button><button type="button" class="btn secondary sm" data-tr="menu" aria-haspopup="dialog">${others ? `People (${others + 1})` : 'People'}</button></span>`;
 }
 function drawBand(o) { const b = document.getElementById('trialband'); if (b) b.innerHTML = bandHTML({ ...st, acting }, { ...o, alerts: alertsNew }); }
 
@@ -224,8 +226,20 @@ async function onBand(e) {
   else if (k === 'report') report();
   else if (k === 'menu') menu();
   else if (k === 'alerts') alerts();
+  else if (k === 'challenges') challenges();
   else if (k === 'suggest') suggestBox();
   else if (k === 'asme') { setActing(null); location.reload(); }
+}
+
+// ---- R-391: the training's challenges, ticked per person (the one acted as, when an admin acts as a teammate) ----
+const chWho = () => acting ? { key: 'as-' + acting.id, name: acting.name } : { key: 'me-' + (me?.email || ''), name: me?.name };
+function challenges() { const w = chWho(); dialog(challengesHTML(w.name, readTicks(st.trial_id, w.key)), { wide: true }); }
+function tickChallenge(box) {
+  const w = chWho(), t = readTicks(st.trial_id, w.key);
+  if (box.checked) t[box.dataset.trch] = 1; else delete t[box.dataset.trch];
+  saveTicks(st.trial_id, w.key, t);
+  box.closest('li')?.classList.toggle('done', box.checked);
+  const [n, of] = countOf(w.name, t), c = dlg.querySelector('#tr-chcount'); if (c) c.textContent = `${n} of ${of} done · ticks are kept in this browser`;
 }
 
 // ---- part 2: the alerts the trial made, each rated useful / not useful / wrong (Nate 10/24) ----
@@ -426,6 +440,7 @@ function dialog(html, { locked = false, wide = false } = {}) {
   if (!dlg) {
     dlg = document.createElement('dialog'); dlg.className = 'tr-dlg'; document.body.appendChild(dlg);
     dlg.addEventListener('click', onDialog);
+    dlg.addEventListener('change', e => { if (e.target.matches('[data-trch]')) tickChallenge(e.target); });
     dlg.addEventListener('submit', e => { if (e.target.matches('[data-tr-why]')) { e.preventDefault(); saveWhy(e.target); } });
   }
   dlg.dataset.locked = locked ? '1' : '';

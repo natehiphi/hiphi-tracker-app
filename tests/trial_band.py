@@ -292,6 +292,19 @@ with sync_playwright() as pw:
     ok(any(fn == 'my_alerts' and a.get('p_as') == KEV['id'] for fn, a in f.posts), f'{tag}: the alerts asked for are Kevin’s')
     shot(pg, f'actas-band-{tag}.png')
     pg.click('.tr-dlg [data-tr="close"]')
+    # R-391: Challenges, for the person acted as: Kevin's own rows first; a tick is kept and counted when reopened.
+    pg.click('#trialband [data-tr="challenges"]'); pg.wait_for_selector('.tr-chlist', timeout=8000)
+    txt = pg.inner_text('.tr-dlg')
+    ok('Challenges for Kevin' in txt and 'counties and tobacco sales' in txt and 'Seizure of untaxed tobacco products' in txt and 'Higher liquor taxes' in txt,
+       f'{tag}: Challenges are Kevin’s, with his bills to find, his bill to take back and his issue to follow')
+    ok(not any(w in txt.lower() for w in ('owner', 'writer')), f'{tag}: Challenges say Leader, never owner or writer')
+    ok(not pg.is_visible('.tr-chans p'), f'{tag}: the answers stay hidden until Show me')
+    n_all = pg.eval_on_selector_all('[data-trch]', 'e => e.length')
+    pg.click('label[for="trc-t1"]'); pg.wait_for_timeout(200)
+    shot(pg, f'challenges-{tag}.png')
+    pg.click('.tr-dlg [data-tr="close"]'); pg.click('#trialband [data-tr="challenges"]'); pg.wait_for_selector('.tr-chlist', timeout=8000)
+    ok(pg.is_checked('#trc-t1') and f'1 of {n_all} done' in pg.inner_text('#tr-chcount'), f'{tag}: a tick is kept and counted ({n_all} challenges)')
+    pg.click('.tr-dlg [data-tr="close"]')
     n = len(f.heads)
     pg.click('#trialband [data-tr="asme"]'); pg.wait_for_selector('#trialband [data-tr="menu"]', timeout=20000); pg.wait_for_timeout(2500)
     later = [x for x in f.heads[n:] if x[1] == 'trial_2']
