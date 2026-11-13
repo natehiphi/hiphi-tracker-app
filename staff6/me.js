@@ -33,7 +33,7 @@ const ROWS = [
     none: me => isApprover(me) || me.is_reviewer ? 'Drafts waiting for your approval will sit on Today until you open the tracker.' : '' },
   { k: 'deadlines', t: 'Testimony deadline alerts', s: 'Bills you own, until the testimony is filed', who: me => ownsBills(me), none: me => liveOwned(me) ? `Deadline alerts for your ${liveOwned(me)} bill${liveOwned(me) === 1 ? '' : 's'} with a hearing ahead won’t reach you outside the app.` : '' },
   // R-395 (Nate 13 Nov): hearing alerts come to the people on the bill instead of the whole team channel (migration 200).
-  { k: 'hearings', t: 'Hearings on my bills', s: 'New, moved or cancelled hearings and new drafts, on bills you lead or follow and bills in issues you lead, help with or follow' },
+  { k: 'hearings', t: 'Hearings on my bills', s: 'New, moved or cancelled hearings and new drafts on bills you lead or follow, or in your issues' },
   { k: 'chat', t: 'Messages on bills I own, follow or wrote on', s: '' },
   { k: 'given', t: 'Something given to me', s: 'A to-do, a hearing, an issue or a draft' },
   { k: 'standin', t: 'Standing in for a teammate', s: 'When the person a step is for can’t be reached, it is passed to you', none: 'Steps passed to you will sit on Today until you open the tracker.' },
