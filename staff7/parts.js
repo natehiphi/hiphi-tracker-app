@@ -39,7 +39,7 @@ export function dueStrip(s, { hearing = '' } = {}) {
   else if (a?.kind === 'now') { strong = `${LABEL[s.kind] || 'Do it'} now`; cap = `The Capitol’s deadline is ${dayTime(s.due)}, in ${left(s.due)}.`; }
   else if (s.at != null) { strong = `${word} ${dayTime(s.at)}`; inw = `in ${left(s.at)}`; if (s.due != null && s.kind !== 'ask' && Math.abs(s.due - s.at) > 6e4) cap = `The Capitol’s deadline is ${dayTime(s.due)}.`; }
   const soon = s.kind !== 'missed' && (s.late || (s.at != null && soonSoon(s.at)) || a?.kind === 'now' || a?.kind === 'overdue');   // a missed hearing is past, never amber
-  return `<div class="strip${soon ? '' : ' calm'}">${ic('clock')}<strong>${esc(strong)}</strong>${inw ? `<span>${esc(inw)}</span>` : ''}${cap ? `<span class="hl">${esc(cap)}</span>` : ''}${hearing ? `<span class="hl">${esc(hearing)}</span>` : ''}</div>`;
+  return `<div class="strip${soon ? '' : ' calm'}">${ic('clock')}${strong ? `<strong>${esc(strong)}</strong>` : ''}${inw ? `<span>${esc(inw)}</span>` : ''}${cap ? `<span class="hl">${esc(cap)}</span>` : ''}${hearing ? `<span class="hl">${esc(hearing)}</span>` : ''}</div>`;
 }
 
 // File row: one document, its name, where it started, and a quiet button at the right (the part of the sample's PDF row).
@@ -61,9 +61,13 @@ let toastTimer = 0, undoFn = null;
 export function toast(msg, { undo = null, ms = 6000 } = {}) {
   const el = document.getElementById('toast'); if (!el) return;
   undoFn = undo; el.querySelector('#toastMsg').textContent = msg;
+  // above the docked footer, from its measured height (a wrapped footnote makes it taller)
+  const f = document.querySelector('.sfoot'), r = f && getComputedStyle(f).position === 'sticky' ? f.getBoundingClientRect() : null;
+  if (r && r.height && r.top < innerHeight && r.bottom > 0) el.style.setProperty('--toast-b', `${Math.ceil(innerHeight - r.top) + 8}px`); else el.style.removeProperty('--toast-b');
   el.querySelector('#toastUndo').hidden = !undo;
   el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
 }
+export const clearToast = () => { clearTimeout(toastTimer); undoFn = null; document.getElementById('toast')?.classList.remove('on'); };
 export function wireToast() {
   document.getElementById('toastUndo')?.addEventListener('click', () => { const f = undoFn; undoFn = null; document.getElementById('toast').classList.remove('on'); f && f(); });
 }

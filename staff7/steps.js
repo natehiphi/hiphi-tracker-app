@@ -1,6 +1,6 @@
 // Staff7 steps: the testimony and hearing steps a person has, taken from the current app's own list (staff6/today.js work(me).own) so the two can never disagree. No DOM is drawn here.
 import { S, advocate, SESSION_YEAR, POSITIONS } from '../staff6/data.js';
-import { cmteName, roomName, lateLine } from '../staff6/model.js';
+import { cmteName, roomName, lateLine, approverWords } from '../staff6/model.js';
 import { work, t6Fresh } from '../staff6/today.js';
 import { fullName, numWords } from '../staff6/steps.js';
 import { myIssueIds } from '../staff6/data.js';
@@ -12,7 +12,7 @@ const HOUR = 36e5, DAY = 864e5;
 export function dayTime(t) {
   const d = new Date(t), clock = d.toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
   const day = d.toLocaleDateString('en-US', { ...HST, weekday: 'short' });
-  if (Math.abs(d.getTime() - Date.now()) > 6 * DAY) return `${day}, ${d.toLocaleDateString('en-US', { ...HST, month: 'short', day: 'numeric' })} ${clock}`;
+  if (Math.abs(d.getTime() - Date.now()) > 6 * DAY) return `${day}, ${d.toLocaleDateString('en-US', { ...HST, month: 'short', day: 'numeric' })}, ${clock}`;
   return `${day} ${clock}`;
 }
 // model.js spanOf rounds hours to the NEAREST hour; the design says rounded down (a day early is safe, R-022), so this is its own.
@@ -43,12 +43,11 @@ export function issueOf(b) {
   return i ? { id: i.id, name: i.name, icon: i.icon || (S.categories || []).find(c => c.key === i.category)?.icon || 'circle', cat } : { id: null, name: 'Testimony', icon: 'file-text', cat: 'other' };
 }
 
-// ---- who approves a letter this person sends ----
-const rank = a => a.can_approve ? 0 : a.is_admin ? 1 : 2;   // the standing approvers first, a second approver standing in last
-export function approversOf(d, h, me) {
-  const list = (S.advocates || []).filter(a => a.is_active !== false && a.id !== me?.id && (a.is_admin || a.can_approve || a.is_reviewer)).sort((x, y) => rank(x) - rank(y));
-  const main = list.filter(a => rank(a) < 2);
-  return (main.length ? main : list).slice(0, 2);
+// ---- who approves a letter this person sends: the current app's own words (model.js approverWords: an admin sender is "you", a stand-in who can approve right now is named) ----
+// { main: "you or Kris", stand: "Jess can stand in from Wed 3:00 PM" | "" }
+export function approverLine(d, h, me) {
+  const w = approverWords(d, h, me?.id), i = w.indexOf('; ');
+  return i < 0 ? { main: w, stand: '' } : { main: w.slice(0, i), stand: w.slice(i + 2) };
 }
 export const orNames = as => as.length ? as.map(first).join(' or ') : 'An admin';
 
@@ -70,14 +69,15 @@ export function stepsFor(me) {
   for (const it of own) {
     const kind = KIND[it.kind]; if (!kind || !it.s || !it.b) continue;
     const b = it.b, s = it.s, h = it.h || null, num = String(b.bill_number).replace(/\s/g, '');
-    const id = kind === 'ask' ? `ask-${num}-${b.session_year || SESSION_YEAR}` : `t-${num}-${h?.id}`;
+    let id = kind === 'ask' ? `ask-${num}-${b.session_year || SESSION_YEAR}` : `t-${num}-${h?.id}`;
+    if (out.has(id) && kind !== 'ask' && it.d?.id) id += `-${it.d.id}`;   // two open drafts on one hearing both show
     if (out.has(id)) continue;
     let forWhom = '';
     if (kind === 'ask' && s.ask?.key === 'giving') { const o = (S.assignments?.[b.id] || []).map(advocate).find(a => a && a.id !== me.id); forWhom = o ? first(o) : ''; }
     const at = it.at ?? null, sentBack = it.d?.review_note || '';
     out.set(id, { id, kind, raw: it.kind, bill: b, hearing: h, draft: it.d || null, at, due: s.due ?? null, until: s.until ?? null, act: s.act || null, tone: it.tone || 'neutral', late: s.act?.kind === 'late',
       issue: issueOf(b), name: billName(b), no: billNo(b), forWhom, sentBack, ask: kind === 'ask' ? s.ask : null,   // the chair ask's own record (who, which committee, the deadline) for its page
-      verb: kind === 'ask' ? (forWhom ? `Ask the chairs for ${forWhom}` : VERB.ask) : VERB[kind] });
+      verb: kind === 'ask' ? (s.ask?.decide ? 'Ask for a vote' : VERB.ask) : VERB[kind] });
   }
   const ord = s => s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;
   return [...out.values()].sort((x, y) => ord(x) - ord(y) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true }));
@@ -96,6 +96,7 @@ export function cmteWords(codes) {
 // The hearing in words: "Hearing Thu 2:00 PM · House Health · Room 329".
 export function hearingLine(h) {
   if (!h) return '';
+  if (h.status === 'cancelled') return 'Hearing cancelled, no new date yet.';   // the current app's words (staff6/steps.js); never a coming day and time
   return ['Hearing ' + dayTime(h.scheduled_at), cmteWords(h.committee), roomName(h.room)].filter(Boolean).join(' · ');
 }
 export { lateLine };

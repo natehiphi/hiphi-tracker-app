@@ -1,7 +1,7 @@
 // The write step's page: Write testimony, and Resubmit when the letter was sent back. The letter stays in its Google Doc; this page makes it, opens it and sends it.
 import { S, DB, DEMO } from '../staff6/data.js';
 import { band, dueStrip, note, btn, esc, fileRow, toast } from './parts.js';
-import { hearingLine, approversOf, orNames, cmteWords, posWords } from './steps.js';
+import { hearingLine, approverLine, cmteWords, posWords } from './steps.js';
 import { ic } from './icons7.js';
 
 // HIPHI's position is shown in the letter's heading as a fact, never as a control: a bill's position shows on the public site,
@@ -35,14 +35,15 @@ export function bindLetter(s, ctx) {
 }
 
 export function writeSheet(s, ctx) {
-  const rs = s.kind === 'resubmit', apr = approversOf(s.draft, s.hearing, ctx.me), ready = !!s.draft, asked = !ready && ctx.asked.has(s.hearing.id);
+  const rs = s.kind === 'resubmit', apr = approverLine(s.draft, s.hearing, ctx.me), docOK = String(s.draft?.doc_url || '').startsWith(DOCS), ready = !!s.draft, asked = !ready && ctx.asked.has(s.hearing.id);
   let h = '<div class="pn">' + band(s.issue, rs ? 'Resubmit testimony' : 'Write testimony', s.name, s.no);
   h += '<div class="pbody">' + dueStrip(s, { hearing: hearingLine(s.hearing) });
   if (rs) h += note('Sent back', s.sentBack, { flag: true, mark: `<span class="flagmark">${ic('undo-2')}</span>` });
   h += `<div class="stgrid"><div class="stmain">${letterBlock(s, ctx, { hint: 'It opens in Google Docs. Come back here to send it.' })}</div></div>`;
   if (!ready && !asked) h += `<div class="sfoot">${btn('Make the letter', { kind: 'filled', id: 'makeBtn' })}<span class="fnote">Makes a Google Doc from HIPHI’s template. You write it there.</span></div>`;
   else if (!ready) h += `<div class="sfoot">${btn('Send for approval', { kind: 'filled', id: 'sendBtn', disabled: true })}<span class="fnote">The letter is being made.</span></div>`;
-  else h += `<div class="sfoot">${btn(rs ? 'Resubmit' : 'Send for approval', { kind: 'filled', id: 'sendBtn' })}<span class="fnote">Write it in the Doc, then send it. ${esc(orNames(apr))} approves before it is filed.</span></div>`;
+  else if (!docOK) h += `<div class="sfoot">${btn(rs ? 'Resubmit' : 'Send for approval', { kind: 'filled', id: 'sendBtn', disabled: true })}<span class="fnote">The letter’s link is missing, so it cannot be sent yet.</span></div>`;
+  else h += `<div class="sfoot">${btn(rs ? 'Resubmit' : 'Send for approval', { kind: 'filled', id: 'sendBtn' })}<span class="fnote">Write it in the Doc, then send it. ${esc(apr.main.charAt(0).toUpperCase() + apr.main.slice(1))} ${/\byou\b/i.test(apr.main) ? 'approve' : 'approves'} before it is filed.</span></div>`;
   return h + '<p class="errt" id="sendErr" role="alert" hidden></p></div></div>';
 }
 
@@ -72,6 +73,7 @@ export function bindWrite(s, ctx) {
 export async function sendStep(s) {
   const b = s.bill, d = (S.drafts[b.id] || []).find(x => x.hearing_id === s.hearing.id && x.status !== 'cancelled') || s.draft;
   if (!d) throw new Error('Make the letter first.');
+  if (!String(d.doc_url || '').startsWith(DOCS)) throw new Error('The letter’s link is missing, so it cannot be sent.');
   const noteWas = d.review_note || null;
   await DB.transition(b.id, d.id, 'submit');
   return { billId: b.id, draftId: d.id, noteWas };

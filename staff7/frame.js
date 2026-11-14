@@ -1,7 +1,7 @@
 // Staff7's frame: boots the practice data, routes between Home, a step and its done moment, and draws the doors, the left list and the right sheet.
 import { S, DB, DEMO, hooks, savePractice } from '../staff6/data.js';
 import { stepsFor, homeRows, BUILT, hearingLine, left } from './steps.js';
-import { stepRow, dueStrip, band, plainBand, btn, esc, toast, wireToast, toastHTML } from './parts.js';
+import { stepRow, dueStrip, band, plainBand, btn, esc, toast, clearToast, wireToast, toastHTML } from './parts.js';
 import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
 import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
 import { fileSheet, bindFile, fileStep, undoFile } from './do_file.js';
@@ -17,48 +17,56 @@ const WILL = { issues: 'Your issues and your teammates’, with every bill on ea
 
 // Session memory: the typed send-back note, what is finished and what is in flight live here and nowhere else. The data layer also keeps
 // the practice copy's writes in sessionStorage (hiphi5_practice, shared with the current app's practice copy in this tab): staff7 does not fight it.
-const ctx = { me: null, notes: {}, stage: {}, mail: {}, finished: {}, busy: new Set(), asked: new Set(), pollT: 0,   // stage: which footer a file or ask step is on (1 or 2); mail: the email as the person has changed it
+const mk = () => Object.create(null);   // keyed by step id: a name like __proto__ or toString must be an ordinary key
+const SK = 'hiphi7_pages';
+const saved = (() => { try { return JSON.parse(sessionStorage.getItem(SK)) || {}; } catch { return {}; } })();
+const keep = () => { try { sessionStorage.setItem(SK, JSON.stringify({ stage: ctx.stage, mail: ctx.mail })); } catch { /* the page still works without it */ } };
+const ctx = { me: null, notes: mk(), stage: Object.assign(mk(), saved.stage), mail: Object.assign(mk(), saved.mail), finished: mk(),
+  setStage(id, n) { ctx.stage[id] = n; keep(); },
+  setMail(id, m) { ctx.mail[id] = m; keep(); }, busy: new Set(), asked: new Set(), pollT: 0,   // stage: which footer a file or ask step is on (1 or 2); mail: the email as the person has changed it
   rerender: focus => render({ focus }),
   poll(fn) { clearInterval(ctx.pollT); ctx.pollT = setInterval(() => fn().catch(() => {}), 30000); },
-  open() { return stepsFor(ctx.me).filter(s => !hides(ctx.finished[s.id])); },
-  async guard(id, fn) { if (ctx.finished[id] || ctx.busy.has(id)) return; ctx.busy.add(id); try { await fn(); } finally { ctx.busy.delete(id); } },
+  open() { return stepsFor(ctx.me).filter(s => !hides(ctx.finished[s.id], s)); },
+  // a mark that no longer hides its step is stale: it goes, and the step can be done again
+  async guard(s, fn) { const m = ctx.finished[s.id]; if (hides(m, s) || ctx.busy.has(s.id)) return; if (m) delete ctx.finished[s.id]; ctx.busy.add(s.id); try { await fn(); } finally { ctx.busy.delete(s.id); } },
   finish(s, kind, extra) {
     delete ctx.notes[s.id];
     const d = freshDraft({ billId: s.bill.id, draftId: extra.undo?.draftId || s.draft?.id });
     ctx.finished[s.id] = { step: s, at: Date.now(), kind, billId: s.bill.id, draftId: d?.id, status: d?.status, ...extra }; location.hash = '#/done/' + encodeURIComponent(s.id);
   },
-  send: s => ctx.guard(s.id, async () => { ctx.finish(s, 'sent', { undo: await sendStep(s) }); }),
-  approve: s => ctx.guard(s.id, async () => { ctx.finish(s, 'approved', { undo: await approveStep(s) }); }),
+  send: s => ctx.guard(s, async () => { ctx.finish(s, 'sent', { undo: await sendStep(s) }); }),
+  approve: s => ctx.guard(s, async () => { ctx.finish(s, 'approved', { undo: await approveStep(s) }); }),
   // Filing, asking and the missed answers have no timed Undo; their done page keeps a text link that puts the step back (undo below)
-  fileIt: s => ctx.guard(s.id, async () => { ctx.finish(s, 'filed', { undo: await fileStep(s) }); }),
-  askIt: s => ctx.guard(s.id, async () => { ctx.finish(s, 'asked', { undo: await askStep(s) }); }),
-  lateFiled: s => ctx.guard(s.id, async () => { ctx.finish(s, 'recorded', { answer: 'yes', undo: await fileStep(s) }); }),
-  notFiledIt: s => ctx.guard(s.id, async () => { ctx.finish(s, 'recorded', { answer: 'no', undo: await notFiledStep(s) }); }),
+  fileIt: s => ctx.guard(s, async () => { ctx.finish(s, 'filed', { undo: await fileStep(s) }); }),
+  askIt: s => ctx.guard(s, async () => { ctx.finish(s, 'asked', { undo: await askStep(s) }); }),
+  lateFiled: s => ctx.guard(s, async () => { ctx.finish(s, 'recorded', { answer: 'yes', undo: await fileStep(s) }); }),
+  notFiledIt: s => ctx.guard(s, async () => { ctx.finish(s, 'recorded', { answer: 'no', undo: await notFiledStep(s) }); }),
   // a send back waits out the 10 seconds (as Staff v6 does), so Undo cancels it before anything is sent; a hidden tab or a closing page sends it at once
   sendBack(s, text) {
-    if (ctx.finished[s.id] || ctx.busy.has(s.id)) return;
+    const m = ctx.finished[s.id]; if (hides(m, s) || ctx.busy.has(s.id)) return; if (m) delete ctx.finished[s.id];
     const id = s.id; ctx.finish(s, 'back', { note: text, status: s.draft?.status, timer: 0 });
     const f = ctx.finished[id]; f.status = s.draft?.status; f.timer = setTimeout(() => sendHeld(id), UNDO_MS + 300);
   },
   async undo(id) {
     const f = ctx.finished[id]; if (!f) return;
     try {
-      if (f.kind === 'back') { if (f.sent) throw new Error('It was already sent back.'); clearTimeout(f.timer); f.timer = 0; ctx.notes[id] = f.note; }
+      if (f.kind === 'back') { if (f.sent || f.sending) throw new Error('It was already sent back.'); clearTimeout(f.timer); f.timer = 0; ctx.notes[id] = f.note; }   // sending counts as sent
       else if (f.kind === 'sent') await undoSend(f.undo);
       else if (f.kind === 'filed' || f.kind === 'recorded') await undoFile(f.undo);   // a No is never undone: done.js offers no link for it
       else if (f.kind === 'asked') await undoAsk(f.undo);
       else await undoApprove(f.undo);
     } catch (e) { f.noUndo = true; toast((e && e.message) || 'It could not be undone.'); render({ focus: 'main h1' }); return; }
-    delete ctx.finished[id]; ctx.stage[id] = 1; location.hash = '#/do/' + encodeURIComponent(id);
-    toast(f.kind === 'filed' ? 'Put back. It is not filed.' : f.kind === 'recorded' ? 'Put back. It is not recorded.' : f.kind === 'asked' ? 'Put back. The ask is not recorded.' : 'Undone. Nothing was sent.', { ms: 5000 }); } };
+    delete ctx.finished[id]; ctx.setStage(id, 1); location.hash = '#/do/' + encodeURIComponent(id);
+    const words = f.kind === 'filed' || f.kind === 'recorded' ? 'Put back. The timeline still shows it was marked filed.' : f.kind === 'asked' ? 'Put back. The ask is not recorded.' : 'Undone. Nothing was sent.';
+    addEventListener('hashchange', () => toast(words, { ms: 5000 }), { once: true }); } };   // after the page is drawn, which clears the old toast
 const freshDraft = f => (S.drafts[f.billId] || []).find(d => d.id === f.draftId);
-const hides = f => !!f && (f.status == null || freshDraft(f)?.status === f.status);   // a finished step stays hidden only while its draft is in the state that finished it
+const hides = (f, s) => !!f && f.step.kind === s.kind && (f.status == null || freshDraft(f)?.status === f.status);   // a finished step stays hidden only while its draft is in the state that finished it
 const held = () => Object.values(ctx.finished).some(f => f.kind === 'back' && f.timer);
 
 // A held send back is sent now; if it fails, the finished mark goes, the note comes back and the step is drawn again with the reason.
 async function sendHeld(id) {
   const f = ctx.finished[id]; if (!f || f.kind !== 'back' || f.sent) return;
-  clearTimeout(f.timer); f.timer = 0;
+  clearTimeout(f.timer); f.timer = 0; f.sending = true;   // from here Undo can no longer cancel it
   try { await sendBackNow(f.step, f.note); f.sent = true; }
   catch (e) { delete ctx.finished[id]; ctx.notes[id] = f.note; toast((e && e.message) || 'The send back did not go. Your note is kept.');
     if (location.hash.startsWith('#/done/')) location.hash = '#/do/' + encodeURIComponent(id); else render({}); }
@@ -70,7 +78,6 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 let people = [];
 function boot() {
-  if (!DEMO) throw new Error('staff7 is practice-only');   // the gate in app.js says so first; this is the second lock
   people = S.advocates.filter(a => a.is_active !== false);
   const as = new URLSearchParams(location.search).get('as');
   if (as) {
@@ -125,6 +132,7 @@ const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(
 let lastRoute = '', first = true;
 function render(opts = {}) {
   stopDone(); clearInterval(ctx.pollT);
+  const keepScroll = opts.tick ? [...document.querySelectorAll('.wl, .paper')].map(e => [e, e.scrollTop]) : [], tpOpen = opts.tick && !!document.getElementById('tpList') && !document.getElementById('tpList').hidden;
   const had = document.activeElement && document.activeElement.id;
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
   const rt = parse(), rows = homeRows(ctx.open()), phone = PHONE.matches;
@@ -146,23 +154,34 @@ function render(opts = {}) {
   $('app').innerHTML = `<div class="${cls}">${one ? '' : `<div class="wl">${listCol(rows, phone && onHome ? '' : openId, phone && onHome)}</div>`}<div class="wp"><a class="back backhome" href="#/">${ic('chevron-left')}Back to Home</a><div class="paper enter" role="region" aria-label="${one ? esc(DOORS.find(d => d[0] === rt.door)[1]) : 'Step'}">${sheet}</div></div></div>`;
   if (phone) document.body.classList.remove('isws');
   bindFn && bindFn();
+  if (opts.tick) {   // a tick changes only the numbers: no entry animation, same scroll, talking points as they were
+    document.querySelectorAll('#app .enter').forEach(e => e.classList.remove('enter'));
+    const tl = document.getElementById('tpList'), tb = document.getElementById('tpBtn'); if (tpOpen && tl) { tl.hidden = false; tb?.setAttribute('aria-expanded', 'true'); }
+    keepScroll.forEach(([e, y]) => { const n = e.classList.contains('wl') ? document.querySelector('.wl') : document.querySelector('.paper'); if (n) n.scrollTop = y; });
+  }
+  if (location.hash !== lastRoute) clearToast();   // a toast belongs to the page it was said on
   const key = location.hash, vis = sel => [...document.querySelectorAll(sel)].find(e => e.getBoundingClientRect().width > 0);
   const target = (opts.focus && vis(opts.focus)) || (opts.tick && had && document.getElementById(had));
   if (target) target.focus({ preventScroll: true });
   else if (!first && (key !== lastRoute || !document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); if (key !== lastRoute) window.scrollTo(0, 0); }
+  if (!opts.tick && (!document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); }   // focus never drops to the page body
   first = false; lastRoute = key; document.documentElement.dataset.ready = '1';
 }
 
 // The times tick: drawn again each minute and on coming back to the tab, only when nothing is being typed, held or sent.
 function tick() {
-  const a = document.activeElement, typing = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
-  if (document.visibilityState !== 'visible' || typing || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(#\/?|#\/do\/.*)$/.test(location.hash)) return;
+  const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
+  const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden);
+  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/do\/.*)$/.test(location.hash)) return;
   render({ tick: true });
 }
+window.__staff7Tick = tick;   // the tests call the minute's redraw directly
 
 hooks.toast = m => toast(m);
 async function start() {
+  if (!DEMO) throw new Error('staff7 is practice-only');   // the second lock, before anything is loaded
   await DB.init(); await DB.loadAll();
+  await DB.chairAsks().catch(() => {});   // as the current app's afterLoad: a teammate's recorded ask is known (the practice copy answers with none)
   boot();
   $('toast-slot').innerHTML = toastHTML; wireToast();
   window.addEventListener('hashchange', () => render()); PHONE.addEventListener('change', () => render());
