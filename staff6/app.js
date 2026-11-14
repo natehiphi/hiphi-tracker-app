@@ -24,7 +24,7 @@ import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, billRoute, FACTS, draftFor, diedish } from './model.js';
 import today, { todayItems } from './today.js';
-import home from './home.js';   // R-397 version C: Home draws at #/ instead of Today (only with ?vc=1)
+import home, { homeCount } from './home.js';   // R-397 version C: Home draws at #/ instead of Today (only with ?vc=1)
 import { wantQueue } from './partnerq.js';   // Today's count needs the partners' words from the first frame
 import review from './review.js';
 // The frame counts what the Inbox lists (messagesCount: messages to you, never the deadline reminders that live on each
@@ -310,13 +310,13 @@ for (const q of ['(min-width: 768px)', '(min-width: 900px)', '(min-width: 1100px
 
 // ---- the frame (spec 3.1, 3.2) ----
 // Today's count is "needs you today" only (today.js badge); when something is overdue it says so in words (D3).
-export function badge() { try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
+export function badge() { if (VC) { try { return { n: homeCount(), late: false }; } catch { return { n: 0, late: false }; } } try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
 function lateCount(bd) {
   if (!bd.late) return 0;
   if (Number.isFinite(bd.lateN)) return bd.lateN;   // today.js may hand it over itself
   try { return todayItems('mine').late || 1; } catch { return 1; }
 }
-const countWords = (bd, lateN) => `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} of them overdue` : ''}`;
+const countWords = (bd, lateN) => VC ? `${bd.n} step${bd.n === 1 ? '' : 's'} for you` : `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} of them overdue` : ''}`;
 // Today's count, the same on the sidebar, the rail and the phone's tab (D3, A-14, spec 3.1): ONE number, "needs you today",
 // on a neutral sand badge, always. No red and no icon on it: away from Today nothing visible said what the red meant (A-5:
 // red only with its word). Its name still says how many are overdue, and Today's own "1 overdue" line carries the red word.

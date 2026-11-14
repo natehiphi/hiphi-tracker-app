@@ -57,6 +57,8 @@ function stepItems() {
     return [...g.today, ...g.soon].filter(it => KEEP.has(it.kind) && it.b).sort(t6ByTime);
   } catch (e) { console.error(e); return []; }
 }
+// The menu's count in version C is this list's own count, so the badge and "Your steps N" always agree (app.js badge).
+export const homeCount = () => stepItems().length;
 // Every kept step of the viewer's, whatever its date: the issue cards say "You: ..." by it.
 const allMine = () => { const m = new Map(); try { for (const it of work(S.me).own) if (KEEP.has(it.kind) && it.b && !m.has(it.b.id)) m.set(it.b.id, it); } catch (e) { console.error(e); } return m; };
 function stepRow(it) {
@@ -140,7 +142,7 @@ const RK = { due: -1, risk: 0, hearing: 1, track: 2, done: 3 };
 function card(x, mine) {
   const i = x.i, st = issueStatusB(x), tag = x.own ? '' : 'You follow';
   const bills = (x.going || []).map(b => { const m = moveOf(b, mine);
-    return `<li class="hm-bill${m.you ? ' you' : ''}"><span class="hm-bn">${esc(numWords(b))}</span><span class="hm-where">${esc(billPhrase(b))}</span><span class="hm-move">${esc(m.text)}</span></li>`; }).join('');
+    return `<li class="hm-bill${m.you ? ' you' : ''}"><span class="hm-bn">${esc(numWords(b))}</span><span class="hm-where">${esc(billPhrase(b).replace(/^alive in /, 'in '))}</span><span class="hm-move">${esc(m.text)}</span></li>`; }).join('');
   const gone = (x.gone || []).length ? `<p class="hm-stopped">${esc(`${plural(x.gone.length, 'bill')} stopped: ${x.gone.map(numWords).join(', ')}`)}</p>` : '';
   return `<article class="hm-card hm-s-${st.key}${icEdge(i)}" role="listitem">
     <div class="hm-ctop"><a class="hm-cname" href="#/issue/${encodeURIComponent(i.id)}?from=mine"><span class="hm-cic${icCls(i)}" aria-hidden="true">${icon(issueIcon(i))}</span><span>${esc(i.name)}</span></a><span class="hm-chip">${icon(st.ic)}<span>${esc(st.word)}</span></span></div>
