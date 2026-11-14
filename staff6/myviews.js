@@ -574,6 +574,7 @@ function cardB(j, nx, st, act = '') {
     ${act ? `<div class="vbc-act">${act}</div>` : ''}
   </article>`;
 }
+export { billPhrase };   // R-397 version C: Home says where each bill is in these words
 const SHOW_B = 10;
 export function cardsHTML(js) {
   if (!js.length) return `<p class="i6-quiet">No issues match.</p>`;

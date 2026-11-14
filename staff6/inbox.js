@@ -418,6 +418,8 @@ if (typeof document !== 'undefined') document.addEventListener('keydown', e => {
   }
 });
 
+// R-397 version C: Home's What changed reads the same notes (approved, sent back) in the same words.
+export { noteOf as ibNoteOf, sentNote as ibSentNote, actorOf as ibActorOf, firstPart as ibFirstPart, sandboxInbox as ibSandbox };
 export default {
   tab: 'inbox',
   title: () => 'Inbox',

@@ -1573,4 +1573,6 @@ export default {
 // Team draws from the same model, so each of its draws starts from fresh work too (a memo kept from the draw before the
 // partners' queue arrived counted Nate's bar without his partner words: the critic's 9).
 export const t6Fresh = () => { MEMO.clear(); };
+// R-397 version C: Home draws the viewer's own testimony and chair-ask steps with Today's own words, buttons and Done banner.
+export { jobOf as t6JobOf, rowWords as t6Words, byTime as t6ByTime, vbBanner as t6Banner, JOB_NAME as T6JOB, newNotice as t6NewNotice };
 export { rowOf as t6Row, groupsOf as t6Groups, nextCard as t6Next, roCard as t6RoCard, sittingsToday as t6Sittings, seasonOf as t6Season, REG as T6REG };
