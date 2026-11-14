@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Staff app, look A: Paper</title>
+<title>Staff app, look A3: Paper workspace</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="only light">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
   --f14:14px;--f16:16px;--f18:18px;--f22:22px;--f28:28px;
   --bg:#F3EFE6;--ink:#1C1915;--muted:#5C554B;--rule:#E3DED3;--edge:#8A8277;
   --act:#00698E;--act-p:#005674;--on-act:#FFFFFF;--surface:#FFFFFF;--tint:#EAE5D8;--ring:#00698E;
-  --late:#B3261E;--back:#8A3B12;--done:#2E7650;--plum:#2E1533;
+  --amber:#7A4A00;--wash-amber:#FBEFD9;--late:#B3261E;--done:#2E7650;--plum:#2E1533;
   --head:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif;
   --body:'Lato',system-ui,-apple-system,'Segoe UI',sans-serif;
   --sh1:0 1px 2px rgba(60,45,20,.06);
@@ -47,16 +47,15 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 /* ---------- buttons ---------- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);min-height:44px;padding:0 var(--s5);border-radius:8px;border:1px solid transparent;font:600 var(--f16)/1 var(--head);cursor:pointer;text-decoration:none;text-align:center;background:none}
 .btn.filled{background:var(--act);color:var(--on-act)}
-.btn.filled:hover{background:var(--act-p)}
-.btn.filled:active{background:var(--act-p)}
+.btn.filled:hover,.btn.filled:active{background:var(--act-p)}
 .btn.quiet{border-color:var(--edge);color:var(--ink);background:transparent}
 .btn.quiet:hover{background:var(--tint)}
 .btn.text{color:var(--act);padding:0 var(--s2);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px;font-family:var(--body);font-weight:700}
-:root[data-mode="public"] .btn.text{color:var(--act)}
 .btn.text:hover{color:var(--act-p);text-decoration-thickness:2px}
 :root[data-mode="public"] .btn.text:hover{color:#fff}
 .btn.is-loading{pointer-events:none;background:var(--act-p);color:var(--on-act)}
 .btn:disabled{background:var(--tint);color:var(--muted);cursor:not-allowed}
+.btn.big{min-height:48px;padding:0 var(--s6)}
 
 /* ---------- rail (phone: bottom bar) ---------- */
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom)}
@@ -65,79 +64,64 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .bi{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s1);min-height:64px;padding:var(--s2);background:none;border:0;text-decoration:none;color:var(--muted);font:500 var(--f14)/1.2 var(--head);cursor:pointer;width:100%}
 .bi[aria-current="page"],.bi.open{color:var(--ink);font-weight:700}
 .rpill{display:flex;align-items:center;justify-content:center;width:48px;height:32px;border-radius:16px}
-.bi[aria-current="page"] .rpill,.bi.open .rpill{background:#fff;box-shadow:var(--sh1)}
+.bi[aria-current="page"] .rpill,.bi.open .rpill{background:#fff}
 .bar.off{display:none}
-.person{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:#fff;box-shadow:var(--sh1);font:600 var(--f14)/1 var(--head);color:var(--ink);flex:none}
-.person.sm{width:32px;height:32px;background:var(--tint);box-shadow:none}
+.person{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:#fff;font:600 var(--f14)/1 var(--head);color:var(--ink);flex:none}
+.person.sm{width:32px;height:32px;background:var(--tint)}
 
 /* ---------- phone page frame ---------- */
 .page{max-width:680px;margin:0 auto;padding:var(--s5) var(--s4) calc(var(--s8) + var(--s7) + env(safe-area-inset-bottom))}
 .page.bare{padding-bottom:var(--s8)}
 .page.wide{max-width:960px}
+.page .paper{margin-top:var(--s6)}
 .back{display:inline-flex;align-items:center;gap:var(--s2);min-height:44px;color:var(--act);text-decoration:none;font-weight:700;margin:0 0 var(--s2) calc(var(--s2) * -1);padding:0 var(--s2)}
 .back:hover{text-decoration:underline;text-underline-offset:4px}
-.paper{background:#fff;border-radius:16px;box-shadow:var(--sheet);container-type:inline-size}
-.pn{padding:var(--s5) var(--s4)}
+.paper{background:#fff;border-radius:16px;box-shadow:var(--sheet);container-type:inline-size;overflow:hidden}
 
-/* ---------- list column ---------- */
-.ghead{margin-bottom:var(--s2)}
-.greet{font:600 var(--f22)/1.25 var(--head);letter-spacing:-.02em}
-.gdate{font-size:var(--f14);color:var(--muted);margin-top:var(--s1)}
-.lh{font:600 var(--f16)/1.3 var(--head);margin:var(--s5) 0 var(--s3);display:flex;align-items:center}
-.cnt{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 var(--s2);border-radius:12px;background:var(--act);color:#fff;font:700 var(--f14)/1 var(--head);margin-left:var(--s2)}
-.cnt.grey{background:none;color:var(--muted);font-weight:600;padding:0;min-width:0}
-.scards,.irows{list-style:none;margin:0;padding:0}
-.scards{display:grid;gap:var(--s2)}
-.scard{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:var(--s3);align-items:center;min-height:64px;padding:var(--s3) var(--s4);background:#fff;border-radius:12px;box-shadow:var(--sh1);text-decoration:none;color:inherit}
-.scard:hover{box-shadow:0 1px 2px rgba(60,45,20,.08),0 4px 12px rgba(60,45,20,.1)}
-.scard.sel{box-shadow:0 0 0 2px var(--act)}
-.tile{width:40px;height:40px;border-radius:50%;background:#E3F0F5;color:var(--act);display:flex;align-items:center;justify-content:center}
-.tile.back{background:#F8E7DC;color:var(--back)}
-.scard .rt{display:block;font:600 var(--f16)/1.3 var(--head)}
-.scard .l2{display:block;font-size:var(--f14);color:var(--muted);margin-top:var(--s1);line-height:1.4}
-.scard .l2 b{color:var(--ink);font-weight:400}
-.scard .l2 .no2{white-space:nowrap}
-.sbk{color:var(--back);font-weight:700;display:inline-flex;gap:var(--s1);align-items:center;margin-left:var(--s2);white-space:nowrap}
-.sbk svg{width:14px;height:14px}
-.tp{display:inline-flex;align-items:center;gap:var(--s1);padding:var(--s1) var(--s2);border-radius:999px;background:#EFEAE0;color:var(--ink);font:600 var(--f14)/1.3 var(--head);white-space:nowrap}
-.tp.soon{background:#FBEFD9;color:#7A4A00}
-.tp svg{width:14px;height:14px}
-.calmcard{display:flex;align-items:center;gap:var(--s4);background:#fff;border-radius:12px;padding:var(--s4);box-shadow:var(--sh1);font:600 var(--f16)/1.3 var(--head)}
-.calmcard svg{width:56px;height:28px;color:var(--muted);flex:none}
-.dline{display:flex;align-items:flex-start;gap:var(--s3);margin:var(--s5) calc(var(--s2) * -1) 0;padding:var(--s3) var(--s2);border-radius:12px;color:var(--muted);font-size:var(--f14);line-height:1.5;text-decoration:none;min-height:44px}
-.dline svg{width:20px;height:20px;margin-top:0}
-.dline:hover{background:rgba(255,255,255,.55);color:var(--ink)}
-.dline.sel{background:#fff;box-shadow:var(--sh1);color:var(--ink)}
-.dline b{color:var(--ink);font-weight:700}
-.irows{display:grid;gap:var(--s1)}
-.irow{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:var(--s3);align-items:center;min-height:48px;padding:var(--s2);margin:0 calc(var(--s2) * -1);border-radius:12px;text-decoration:none;color:inherit}
-.irow:hover{background:rgba(255,255,255,.55)}
-.irow.sel{background:#fff;box-shadow:var(--sh1)}
-.imark{width:28px;height:28px;border-radius:8px;background:var(--ic);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
-.imark svg{width:16px;height:16px;stroke-width:1.9}
-.imark.sm{width:24px;height:24px;border-radius:8px}
-.imark.sm svg{width:14px;height:14px}
-.imark.big{width:44px;height:44px;border-radius:12px}
-.imark.big svg{width:24px;height:24px}
-.iname{display:block;font-weight:700;font-size:var(--f16);line-height:1.3}
-.inote{display:block;font-size:var(--f14);color:var(--muted);margin-top:var(--s1);line-height:1.4}
-.inote .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--act);margin-right:var(--s2)}
-.icount{color:var(--muted);font-size:var(--f16)}
-.listfoot{margin-top:var(--s5)}
-.listfoot .btn.text{margin-left:calc(var(--s2) * -1)}
+/* ---------- the left column: type and space only ---------- */
+.gdate{font-size:var(--f14);color:var(--muted);margin:0}
+.greet{font:600 var(--f22)/1.25 var(--head);letter-spacing:-.02em;margin-top:var(--s1)}
+.gstate{font-size:var(--f16);line-height:1.5;margin-top:var(--s3);max-width:40ch}
+.grisk{display:inline-flex;align-items:center;gap:var(--s2);margin-top:var(--s1);color:var(--amber);font-weight:700;text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.grisk:hover{text-decoration-thickness:2px}
+.grisk svg{width:16px;height:16px}
+.lh{font:600 var(--f16)/1.3 var(--head);margin:40px 0 var(--s3)}
+.srows3{list-style:none;margin:0;padding:0}
+.sr3{position:relative;display:flex;align-items:center;gap:var(--s2);min-height:56px;padding:0 var(--s2) 0 var(--s3);margin:0 calc(var(--s3) * -1);border-radius:12px;text-decoration:none;color:var(--ink)}
+.sr3 svg.ic{color:var(--muted)}
+.sr3 .sv{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr3 .sv b{font-weight:700}
+.sr3:hover .sv b{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.sr3.sel{background:#fff}
+.sr3.sel::before{content:"";position:absolute;left:0;top:var(--s3);bottom:var(--s3);width:3px;border-radius:2px;background:var(--act)}
+.stm{flex:none;display:inline-flex;align-items:center;gap:var(--s1);font-size:var(--f14);color:var(--muted)}
+.stm svg.ic{width:16px;height:16px;color:inherit}
+.stm.soon{color:var(--amber);font-weight:700}
+.stm.risk{color:var(--muted)}
+.stm.risk svg.ic{color:var(--amber)}
+.sr3.more{color:var(--muted);font-size:var(--f14);min-height:44px}
+.clinks{margin-top:var(--s5)}
+.cl{display:flex;align-items:flex-start;gap:var(--s2);min-height:44px;padding:var(--s2) 0;color:var(--muted);font-size:var(--f14);line-height:1.5;text-decoration:none}
+.cl span{flex:1}
+.cl svg.ic{width:16px;height:16px;margin-top:var(--s1)}
+.cl:hover,.cl.sel{color:var(--ink)}
+.cl:hover span{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.cl.sel{font-weight:700}
+.calmnote{color:var(--muted);margin-top:var(--s5)}
 
 /* ---------- sheet pieces ---------- */
 .crumb{display:inline-flex;align-items:center;gap:var(--s2);min-height:32px;color:var(--muted);font-size:var(--f14);font-weight:700;text-decoration:none;margin-bottom:var(--s2)}
-a.crumb{min-height:44px;margin-left:calc(var(--s2) * -1);padding-left:var(--s2);padding-right:var(--s2);border-radius:8px}
+a.crumb{min-height:32px;border-radius:8px}
 a.crumb:hover{color:var(--act)}
 .crumb .bk{font-size:var(--f22);line-height:1}
-.sub{font-size:var(--f18);color:var(--ink);margin-top:var(--s1)}
 .no{white-space:nowrap;color:var(--muted);font-size:var(--f14);margin-left:var(--s2);font-family:var(--body);font-weight:400;letter-spacing:0}
-.strip{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s1) var(--s3);background:#FBEFD9;color:#7A4A00;border-radius:12px;padding:var(--s4) var(--s5);margin:var(--s5) 0 var(--s6)}
+.strip{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s1) var(--s3);background:var(--wash-amber);color:var(--amber);border-radius:12px;padding:var(--s4) var(--s5);margin:0 0 var(--s6)}
 .strip.calm{background:#F6F3EC;color:var(--ink)}
-.strip svg{width:22px;height:22px}
+.strip svg.ic{width:22px;height:22px}
 .strip strong{font:600 var(--f18)/1.3 var(--head)}
-.strip .ctx{margin-left:auto;font-size:var(--f14);color:var(--muted)}
+.strip .ctx{margin-left:auto;font-size:var(--f16);color:var(--muted)}
+.strip .stx{flex:1 1 320px;font-size:var(--f16)}
+.strip .btn{margin-left:auto;background:rgba(255,255,255,.6);border-color:var(--amber);color:var(--amber)}
 .lab{display:block;font-weight:700;margin-bottom:var(--s2)}
 .chips{display:flex;flex-wrap:wrap;gap:var(--s2);margin-bottom:var(--s5)}
 .chip{display:inline-flex;align-items:center;gap:var(--s2);min-height:44px;padding:0 var(--s4);border-radius:999px;border:1px solid var(--edge);background:transparent;cursor:pointer;font:500 var(--f16)/1 var(--head)}
@@ -146,14 +130,14 @@ a.crumb:hover{color:var(--act)}
 .chip .ic{display:none;width:16px;height:16px}
 .chip[aria-checked="true"] .ic{display:block}
 .field{width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--edge);border-radius:8px;padding:var(--s3) var(--s4);font:400 var(--f16)/1.6 var(--body);min-height:44px}
-.field.err{border:2px solid var(--late)}
 .letter{display:block;width:100%;color:var(--ink);border:1px solid var(--rule);background:#FCFAF6;border-radius:12px;padding:var(--s5);font:400 var(--f16)/1.65 var(--body);min-height:240px;resize:none;overflow:hidden}
 .letter:focus-visible{outline-offset:0;border-radius:12px}
+.letter.ro{white-space:pre-wrap}
 .lethead{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);margin-bottom:var(--s2)}
 .lethead .lab{margin:0}
 .qnote{font-size:var(--f14);color:var(--muted)}
 .qlink{position:relative;display:inline}
-.qlink button{background:none;border:0;padding:0;margin:0;color:var(--act);font:700 var(--f14)/1.5 var(--body);text-decoration:underline;text-underline-offset:4px;cursor:pointer;min-height:0}
+.qlink button{background:none;border:0;padding:0;margin:0;color:var(--act);font:700 var(--f14)/1.5 var(--body);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
 .pop{position:absolute;left:0;top:calc(100% + var(--s2));z-index:5;width:320px;background:#fff;border-radius:12px;box-shadow:0 1px 2px rgba(60,45,20,.08),0 12px 32px rgba(60,45,20,.18);padding:var(--s4) var(--s5);font-size:var(--f14);color:var(--ink)}
 .pop[hidden]{display:none}
 .pop b{display:block;margin-bottom:var(--s2);font-family:var(--head)}
@@ -167,95 +151,232 @@ a.crumb:hover{color:var(--act)}
 .sfoot .fnote{color:var(--muted)}
 .stside{display:none}
 .stside h3{font:600 var(--f14)/1.3 var(--head);margin:0 0 var(--s1);color:var(--ink)}
-.stside p{font-size:var(--f14);color:var(--muted);margin-bottom:var(--s5)}
+.stside p{font-size:var(--f16);color:var(--muted);margin-bottom:var(--s5)}
 .chair{margin:0 0 var(--s4)}
 .chair b{font-weight:700}
+.toaddr{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s3);margin:0 0 var(--s2)}
+.toaddr b{font-weight:700}
 .pubrow{display:flex;align-items:center;gap:var(--s3);min-height:44px;padding:var(--s2) var(--s3);margin:var(--s4) calc(var(--s3) * -1) 0;border-radius:12px;text-decoration:none;color:var(--muted)}
 .pubrow:hover{background:#F6F3EC;color:var(--ink)}
-.pubrow .pm{width:24px;height:24px;border-radius:8px;background:var(--plum);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
-.pubrow .pm svg{width:14px;height:14px}
+.pm{width:24px;height:24px;border-radius:8px;background:var(--plum);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.pm svg{width:14px;height:14px}
 .pubrow .ptag{font-size:var(--f14);color:var(--muted);margin-left:auto;white-space:nowrap}
 .pubrow .pt{color:var(--ink);font-weight:700}
+.actrow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s4)}
+.actrow .alt{display:flex;flex-direction:column;gap:var(--s1)}
+.actrow .ptag{font-size:var(--f14);color:var(--muted)}
+
+/* header band */
+.pn{min-height:100%;display:flex;flex-direction:column}
+.pn{--px:var(--s4)}
+.pbody{flex:1;display:flex;flex-direction:column;padding:var(--s5) var(--px) 0}
+.hband{display:flex;align-items:center;gap:var(--s4);background:var(--wash,#F7F4EC);padding:var(--s5) var(--px);min-height:132px}
+.hband.neutral{--wash:#F7F4EC}
+.hband .ht{min-width:0}
+.hband h1{font-size:var(--f28)}
+.hband .bsub{font-size:var(--f18);margin-top:var(--s1);color:var(--ink)}
+.hband .crumb{margin-bottom:0;min-height:24px}
+.hband .hn{color:var(--muted);font:400 var(--f16)/1 var(--body);letter-spacing:0;margin-left:var(--s3)}
+.imark{width:28px;height:28px;border-radius:8px;background:var(--ic);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.imark svg{width:16px;height:16px;stroke-width:1.9}
+.imark.sm{width:24px;height:24px}
+.imark.sm svg{width:14px;height:14px}
+.imark.big{width:40px;height:40px;border-radius:12px}
+.imark.big svg{width:22px;height:22px}
+.lead{font-size:var(--f16);color:var(--ink);margin:0 0 var(--s5)}
+.h18{font:600 var(--f18)/1.3 var(--head);margin:0 0 var(--s3)}
 
 /* done */
-.done{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:360px;max-width:480px;margin:0 auto;padding:var(--s6) 0}
+.done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:360px;max-width:480px;margin:0 auto;padding:var(--s6) 0}
 .dtile{width:64px;height:64px;border-radius:20px;background:#E6EFEA;color:var(--done);display:flex;align-items:center;justify-content:center;margin-bottom:var(--s5)}
 .dtile svg{width:32px;height:32px;stroke-width:2}
-.done .sub{color:var(--muted);margin-top:var(--s3);text-wrap:balance}
-.done .undo{margin-top:var(--s1);min-height:44px;display:flex;align-items:center}
-.done .actions{margin-top:var(--s5)}
+.done .sub{font-size:var(--f18);color:var(--muted);margin-top:var(--s3);text-wrap:balance}
+.done .left{color:var(--muted);margin-top:var(--s3)}
+.done .undo{margin-top:var(--s2);min-height:44px;display:flex;align-items:center;gap:var(--s1);color:var(--muted)}
+.done .actions{margin-top:var(--s4)}
 
 /* issue + bill rows */
-.ihead{display:flex;align-items:center;gap:var(--s4)}
-.ihead p{color:var(--muted);margin-top:var(--s1)}
-.brows{list-style:none;padding:0;display:grid;gap:var(--s1);margin:var(--s5) 0 0}
-.brow{display:grid;grid-template-columns:104px minmax(0,1fr) auto;grid-template-areas:"n n p" "t s s";gap:var(--s2) var(--s4);align-items:center;padding:var(--s4);margin:0 calc(var(--s4) * -1);border-radius:12px;text-decoration:none;color:inherit}
+.brows{list-style:none;padding:0;display:grid;gap:var(--s1);margin:0}
+.brow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p" "t t" "s s";gap:var(--s2) var(--s4);align-items:start;padding:var(--s4);margin:0 calc(var(--s4) * -1);border-radius:12px;text-decoration:none;color:inherit}
 .brow:hover{background:#F7F4EC}
 .brow .bn2{grid-area:n;font-weight:700;line-height:1.4}
 .brow .trk{grid-area:t}
 .brow .bst{grid-area:s;line-height:1.4}
 .brow .bst.dead{color:var(--muted)}
-.brow .pc{grid-area:p;justify-self:end}
+.brow .pc{grid-area:p;justify-self:end;align-self:center}
 .bno{white-space:nowrap;font-weight:400;color:var(--muted);font-size:var(--f14);margin-left:var(--s2)}
-.mark{display:inline-flex;align-items:center;gap:var(--s1);font-size:var(--f14);font-weight:700;margin-left:var(--s3);color:var(--ink)}
+.mark{display:inline-flex;align-items:center;gap:var(--s1);font-size:var(--f14);font-weight:700;margin-left:var(--s3)}
 .mark i{width:8px;height:8px;border-radius:50%;background:var(--act)}
-.trk{display:block;width:104px;height:12px}
+.trk{display:block;width:240px;max-width:100%;height:42px}
+.trk .tl{font:400 14px 'Lato',sans-serif;fill:#5C554B}
 .ypill{display:inline-block;background:#E3F0F5;color:#005674;font:600 var(--f14)/1.3 var(--head);padding:var(--s1) var(--s3);border-radius:999px;white-space:nowrap}
+.ypill.wait{background:#EFEAE0;color:var(--ink)}
+.already{color:var(--muted)}
+.dl2{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p";align-items:center}
+.dl2 .bn2{display:flex;align-items:center;gap:var(--s3);text-decoration:none;font-weight:700}
+.dh{margin:var(--s6) 0 var(--s2)}
 
 /* bill sheet */
-.h1row{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--s1) var(--s3)}
-.h1row .hn{color:var(--muted);font:400 var(--f16)/1 var(--body);letter-spacing:0}
-.where{margin-top:var(--s5);background:#F8F5EE;border-radius:16px;padding:var(--s5);display:flex;flex-wrap:wrap;gap:var(--s4) var(--s5);align-items:center;justify-content:space-between}
+.where{background:#F8F5EE;border-radius:16px;padding:var(--s5);display:flex;flex-wrap:wrap;gap:var(--s4) var(--s5);align-items:center;justify-content:space-between}
 .where dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s3) var(--s5);flex:1 1 320px}
 .where dt{font-size:var(--f14);color:var(--muted);padding-top:var(--s1)}
 .where dd{margin:0}
 .where .next{font-weight:700}
+.where p+p{margin-top:var(--s2)}
 .bpath{list-style:none;margin:var(--s6) 0 0;padding:0;display:flex;--ic:var(--act)}
-.bpath li{flex:1;position:relative;padding-top:var(--s7);text-align:center;color:var(--muted);font:600 var(--f14)/1.3 var(--head);padding-inline:var(--s1)}
+.bpath li{flex:1;position:relative;padding:var(--s7) var(--s1) 0;text-align:center;color:var(--muted);font:600 var(--f14)/1.3 var(--head)}
 .bpath li::before{content:"";position:absolute;top:11px;left:-50%;width:100%;height:2px;background:var(--rule)}
 .bpath li:first-child::before{display:none}
 .bpath li.reached,.bpath li.now{color:var(--ink)}
 .bpath li.reached::before,.bpath li.now::before{background:var(--ic)}
 .bpath .stop{position:absolute;top:0;left:50%;width:24px;height:24px;margin-left:-12px;display:flex;align-items:center;justify-content:center;z-index:1}
 .bpath .stop::after{content:"";display:block;border-radius:50%}
-.bpath .reached .stop::after{width:16px;height:16px;background:var(--ic)}
-.bpath .next .stop::after{width:16px;height:16px;background:#fff;border:2px solid var(--edge)}
-.bpath .now .stop::after{width:24px;height:24px;background:#fff;border:4px solid var(--ic)}
+.bpath .reached .stop::after{width:12px;height:12px;background:var(--ic)}
+.bpath .next .stop::after{width:12px;height:12px;background:#fff;border:2px solid var(--edge)}
+.bpath .now .stop::after{width:20px;height:20px;background:var(--ic)}
 .bpath .nowtag{display:block;color:var(--ic);font-weight:700;margin-top:var(--s1)}
+.bpath .dt{display:block;color:var(--muted);font:400 var(--f14)/1.3 var(--body);margin-top:var(--s1)}
+.bpath.grey{--ic:#8A8277;max-width:360px}
+.bpath.grey .nowtag{color:var(--muted)}
+.bpath.grey .now .stop::before{content:"";position:absolute;left:24px;top:4px;width:2px;height:16px;background:var(--edge);border-radius:1px}
 .bsplit{display:grid;gap:var(--s6);margin-top:var(--s7)}
 .sec h2{font-size:var(--f18);margin-bottom:var(--s2);letter-spacing:0}
 .sec+.sec{margin-top:var(--s5)}
 .sec p+p{margin-top:var(--s2)}
-.sec .lk{color:var(--act);font-weight:700}
+.sec .lk,.lk{color:var(--act);font-weight:700}
 .hist{list-style:none;margin:0;padding:0}
 .hist li{display:grid;grid-template-columns:56px 1fr;gap:var(--s3);padding:var(--s1) 0}
 .hist time{font-size:var(--f14);color:var(--muted);padding-top:var(--s1)}
 .names{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--s1) var(--s5)}
 .bfoot{margin-top:var(--s6);padding-bottom:var(--s5)}
+.notef{margin-top:var(--s6);max-width:640px;padding-bottom:var(--s6)}
+.listfoot{margin-top:var(--s5)}
 
-/* wide sheets */
-.pn.wide h1+.lede{color:var(--muted);font-size:var(--f18);margin-top:var(--s1)}
-.pn.wide{padding:var(--s5) var(--s4)}
-.week{list-style:none;margin:var(--s5) 0 0;padding:0;display:grid;gap:var(--s3)}
-.day{background:#FBF9F4;border-radius:16px;padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);min-height:120px}
-.day.today{background:#EAF3F6}
-.dnm{font-size:var(--f14);color:var(--muted);font-weight:700;display:block}
-.dnum{font:600 var(--f28)/1.2 var(--head);letter-spacing:-.02em}
-.tdy{font-size:var(--f14);font-weight:700;color:var(--act);margin-left:var(--s2)}
-.hcard{display:block;background:#fff;border-radius:12px;padding:var(--s3) var(--s4);box-shadow:var(--sh1);text-decoration:none;color:inherit}
-.hcard:hover{box-shadow:0 1px 2px rgba(60,45,20,.08),0 4px 12px rgba(60,45,20,.1)}
-.hcard .tm{display:block;font-weight:700;font-size:var(--f14);color:var(--act)}
-.hcard .rt{display:block;font:600 var(--f16)/1.3 var(--head);margin-top:var(--s1)}
-.hcard .rd{display:block;font-size:var(--f14);color:var(--muted);margin-top:var(--s1);line-height:1.4}
-.none{color:var(--muted);font-size:var(--f14)}
-.exgroups{display:grid;gap:var(--s6);margin-top:var(--s6)}
-.exgroup h2{font-size:var(--f18);margin-bottom:var(--s2);letter-spacing:0}
-.exgroup+.exgroup{margin-top:var(--s6)}
-.exgroup ul{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
+/* Your week */
+.wk{padding-bottom:var(--s6)}
+.sunwrap{display:flex;align-items:center;gap:var(--s5)}
+.sunwrap svg{width:128px;height:64px;color:#8A6A12;flex:none}
+.agday{display:grid;grid-template-columns:72px minmax(0,1fr);gap:0 var(--s4);padding:var(--s3) 0}
+.agdn{font:600 var(--f16)/1.3 var(--head);padding-top:var(--s3)}
+.agdn span{color:var(--muted);font-weight:500;margin-left:var(--s1)}
+.ags{list-style:none;margin:0;padding:0}
+.ag{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:var(--s3);align-items:center;min-height:44px}
+.agt{font-size:var(--f14);color:var(--muted)}
+.agx{display:flex;align-items:center;gap:var(--s3);text-decoration:none;min-width:0;padding:var(--s2) 0}
+.agx:hover span.tx{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.agdot{width:10px;height:10px;border-radius:50%;background:var(--ic);flex:none}
+.ag.risk .agx{color:var(--amber)}
+.ag.risk .agx b{font-weight:700}
+.ag.risk svg.ic{width:16px;height:16px}
+.ag.done .agx{color:var(--muted)}
+.ag.done svg.ic{width:16px;height:16px;color:var(--done)}
+.agx .x{color:var(--muted)}
+.igrid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4) var(--s3)}
+.it{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s2);padding:var(--s3);margin:calc(var(--s3) * -1);height:calc(100% + var(--s5));border-radius:12px;text-decoration:none;color:inherit}
+.it:hover{background:#F7F4EC}
+.itn{font:600 var(--f16)/1.3 var(--head)}
+.ith{font-size:var(--f14);color:var(--muted);margin-top:calc(var(--s1) * -1)}
+.ith.risk{color:var(--amber);font-weight:700}
+.it.dead .imark{background:#A8A296}
+.it.dead .itn{color:var(--muted);font-weight:500}
+@container (max-width:640px){.igrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* steps, issues, news lists */
+.xl{list-style:none;margin:0;padding:0}
 .xrow{display:block;padding:var(--s3);margin:0 calc(var(--s3) * -1);border-radius:12px;text-decoration:none;color:inherit}
 .xrow:hover{background:#F7F4EC}
 .xrow .rt{display:block;font:600 var(--f16)/1.3 var(--head)}
-.xrow .rd{display:block;font-size:var(--f14);color:var(--muted);margin-top:var(--s1);line-height:1.4}
+.xrow .rd{display:block;font-size:var(--f16);color:var(--muted);margin-top:var(--s1);line-height:1.4}
+.xrow.row2{display:flex;align-items:center;gap:var(--s3);min-height:56px}
+.xrow.row2 .g{flex:1;min-width:0}
+.xrow.row2 .tm{flex:none;color:var(--muted);font-size:var(--f14);text-align:right}
+.xrow.row2 .tm.soon{color:var(--amber);font-weight:700}
+.xrow.row2>svg.ic{color:var(--muted)}
+.xrow.row2 .w{color:var(--amber);font-weight:700;display:inline-flex;align-items:center;gap:var(--s1)}
+.xrow.row2 .w svg.ic{width:16px;height:16px}
+.sec3{margin-top:var(--s6)}
+.sec3 h2{font:600 var(--f18)/1.3 var(--head);margin:0 0 var(--s2);letter-spacing:0}
+.irowl{display:grid;grid-template-columns:28px minmax(0,1fr) 240px;gap:var(--s4);align-items:center;padding:var(--s3) var(--s3);margin:0 calc(var(--s3) * -1);border-radius:12px;text-decoration:none;color:inherit}
+.irowl:hover{background:#F7F4EC}
+.irowl .rt{display:block;font:600 var(--f16)/1.3 var(--head)}
+.irowl .rd{display:block;font-size:var(--f14);color:var(--muted);margin-top:var(--s1)}
+.irowl .rd.risk{color:var(--amber);font-weight:700}
+.irowl.dead .imark{background:#A8A296}
+.irowl.dead .rt{color:var(--muted);font-weight:500}
+.irowl .trk{width:240px}
+.newsi{padding:var(--s4) 0}
+.newsi+.newsi{margin-top:var(--s2)}
+.newsi .dt{font-size:var(--f14);color:var(--muted)}
+.newsi h2{font-size:var(--f18);letter-spacing:0;margin:var(--s1) 0 var(--s1)}
+.newsi p.risk{color:var(--amber);font-weight:700}
+.newsi .go{margin-top:var(--s2)}
+.sumrow{display:flex;align-items:center;gap:var(--s3)}
+
+/* session */
+.srows{list-style:none;margin:var(--s6) 0 0;padding:0;display:grid;gap:var(--s5)}
+.sh{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
+.sh .h18{margin:0}
+.sdt{color:var(--muted)}
+.stag{font-size:var(--f14);color:var(--muted);font-weight:700}
+.srow p{margin-top:var(--s1)}
+.srow.past .h18,.srow.past p{color:var(--muted)}
+.srow.next{background:#F8F5EE;border-radius:16px;padding:var(--s4) var(--s5);margin:0 calc(var(--s5) * -1)}
+.tp{display:inline-flex;align-items:center;gap:var(--s1);padding:var(--s1) var(--s2);border-radius:999px;background:#EFEAE0;color:var(--ink);font:600 var(--f14)/1.3 var(--head);white-space:nowrap}
+.tp.soon{background:var(--wash-amber);color:var(--amber)}
+.empty{color:var(--muted);padding:var(--s4) 0}
+
+/* approve + file */
+.who2{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s4);color:var(--muted)}
+.who2 b{color:var(--ink)}
+.copyrow{display:flex;align-items:center;gap:var(--s4);min-height:56px;padding:var(--s2) 0}
+.copyrow+.copyrow{border-top:1px solid var(--rule)}
+.copyrow .cq{flex:1;min-width:0}
+.copyrow .cq span{display:block;font-size:var(--f14);color:var(--muted)}
+.pdfrow{display:flex;align-items:center;gap:var(--s3);min-height:56px;padding:var(--s2) var(--s4);background:#F8F5EE;border-radius:12px;margin-bottom:var(--s6)}
+.pdfrow .g{flex:1}
+.pdfrow .g span{display:block;font-size:var(--f14);color:var(--muted)}
+.didfile{margin-top:var(--s5)}
+.sbnote{margin-bottom:var(--s5)}
+.sbnote textarea{min-height:96px}
+
+/* alert pictures */
+.msgs{display:grid;gap:var(--s6);max-width:640px}
+.pic{border:1px solid var(--rule);border-radius:12px;padding:var(--s5);background:#FCFAF6}
+.pic .cap{font-size:var(--f14);color:var(--muted);font-weight:700;margin-bottom:var(--s3)}
+.smsg{display:flex;gap:var(--s3);align-items:flex-start}
+.sav{width:36px;height:36px;border-radius:8px;background:var(--act);color:#fff;display:flex;align-items:center;justify-content:center;font:700 var(--f16)/1 var(--head);flex:none}
+.smn b{font-weight:700}
+.smn span{color:var(--muted);font-size:var(--f14);margin-left:var(--s2)}
+.smsg p,.emsg p{margin-top:var(--s1)}
+.pbtn{display:inline-flex;align-items:center;min-height:44px;margin-top:var(--s3);padding:0 var(--s4);border:1px solid var(--act);border-radius:8px;color:var(--act);font-weight:700;text-decoration:none;background:#fff}
+.pbtn:hover{background:#EAF3F6}
+.emeta{font-size:var(--f14);color:var(--muted);line-height:1.6;margin-bottom:var(--s3);padding-bottom:var(--s3);border-bottom:1px solid var(--rule)}
+.emeta b{color:var(--ink)}
+
+/* wide sheets */
+.wide .lede{color:var(--muted);font-size:var(--f18)}
+.cbar{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3) var(--s5);margin-bottom:var(--s5)}
+.cbar .chips{margin:0}
+.week{list-style:none;margin:0;padding:0;display:grid;gap:var(--s5)}
+.day{border-top:2px solid var(--rule);padding-top:var(--s3);display:flex;flex-direction:column;gap:var(--s3);min-height:120px}
+.day.today{border-top-color:var(--act)}
+.dnm{font-size:var(--f14);color:var(--muted);font-weight:700;display:block}
+.dnum{font:600 var(--f28)/1.2 var(--head);letter-spacing:-.02em}
+.tdy{font-size:var(--f14);font-weight:700;color:var(--act);margin-left:var(--s2)}
+.hcard{display:block;padding:var(--s2);margin:0 calc(var(--s2) * -1);border-radius:12px;text-decoration:none;color:inherit}
+.hcard:hover{background:#F7F4EC}
+.hcard .tm{display:block;font-weight:700;font-size:var(--f14);color:var(--act)}
+.hcard .rt{display:block;font:600 var(--f16)/1.3 var(--head);margin-top:var(--s1)}
+.hcard .rd{display:block;font-size:var(--f14);color:var(--muted);margin-top:var(--s1);line-height:1.4}
+.hcard .rd.due{color:var(--ink);font-weight:700}
+.none{color:var(--muted);font-size:var(--f14)}
+.dsoon{font:700 var(--f14)/1.3 var(--head);color:var(--muted);margin:var(--s2) 0 0}
+.flat{display:inline-block;margin-left:var(--s2);padding:var(--s1) var(--s2);border-radius:999px;background:var(--wash-amber);color:var(--amber);font:600 var(--f14)/1.3 var(--head)}
+.sessline{margin-top:var(--s6);color:var(--muted);font-size:var(--f14);padding-bottom:var(--s5)}
+.exgroups{display:grid;gap:var(--s6)}
+.exgroup h2{font-size:var(--f18);margin-bottom:var(--s2);letter-spacing:0}
+.exgroup+.exgroup{margin-top:var(--s6)}
+.exgroup ul{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
 .pubgroup{background:var(--plum);color:#FFF4E6;border-radius:16px;padding:var(--s5)}
 .pubgroup h2{color:#FFF4E6}
 .pubgroup .xrow .rt{color:#FFF4E6}
@@ -264,10 +385,10 @@ a.crumb:hover{color:var(--act)}
 .pubgroup .tag{display:inline-flex;align-items:center;gap:var(--s2);color:#F6C9D4;font-weight:700;font-size:var(--f14);margin-bottom:var(--s2)}
 .pubgroup .tag svg{width:16px;height:16px}
 .pubgroup :focus-visible{outline-color:#F6C9D4}
-.filter{max-width:420px;margin:var(--s5) 0 var(--s4)}
+.filter{max-width:420px;margin:0 0 var(--s4)}
 .btwrap{overflow-x:auto}
 .tbl{width:100%;border-collapse:separate;border-spacing:0 var(--s1);min-width:760px}
-.tbl th{font-size:var(--f14);color:var(--muted);font-weight:700;text-align:left;padding:0 var(--s3) var(--s2)}
+.tbl th{font-size:var(--f14);color:var(--muted);font-weight:700;text-align:left;padding:0 var(--s3)}
 .tbl td{padding:var(--s3);vertical-align:middle;line-height:1.4}
 .tbl tbody tr:nth-child(odd) td{background:#FAF8F2}
 .tbl td:first-child{border-radius:12px 0 0 12px}
@@ -277,10 +398,12 @@ a.crumb:hover{color:var(--act)}
 .tbl .num{color:var(--muted);white-space:nowrap}
 .tbl .iss{display:inline-flex;align-items:center;gap:var(--s2);white-space:nowrap}
 .tbl .pos.w{color:var(--muted)}
-.empty{color:var(--muted);padding:var(--s4) 0}
+.sortb{background:none;border:0;padding:0;margin:0;font:700 var(--f14)/1.4 var(--body);color:var(--muted);cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:var(--s1)}
+.sortb:hover{color:var(--ink)}
+.arr{font-size:var(--f14)}
 
-/* ---------- public mode (unchanged) ---------- */
-.page.pubpg{padding-top:var(--s5)}
+/* ---------- public mode ---------- */
+.page.pubpg{padding-top:var(--s5);padding-bottom:var(--s5)}
 .pband{position:sticky;top:0;z-index:30;background:#F6C9D4;color:#2E1533;padding:var(--s3) var(--s4);display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);align-items:center;justify-content:space-between}
 .pband strong{font:700 var(--f16)/1.3 var(--head)}
 .pband .btn.quiet{border-color:#2E1533;color:#2E1533;min-height:44px}
@@ -300,23 +423,22 @@ a.crumb:hover{color:var(--act)}
 .preview .pk{font:600 var(--f14)/1.4 var(--head);color:#5C554B}
 .preview .pt{font:600 var(--f22)/1.25 var(--head);letter-spacing:-.02em;margin:var(--s2) 0 var(--s3);color:#1C1915}
 .preview .pw{font-size:var(--f16);color:#1C1915}
-.preview .pa{display:block;margin-top:var(--s5);background:#00698E;color:#fff;border-radius:8px;padding:var(--s3) var(--s4);font:600 var(--f16)/1.3 var(--head);text-align:center}
+.preview .pa{display:block;margin-top:var(--s5);background:#00698E;color:#fff;border-radius:8px;padding:var(--s3) var(--s4);font:600 var(--f16)/1.3 var(--head);text-align:center;opacity:.45;pointer-events:none;user-select:none}
 .preview .pf{margin-top:var(--s3);font-size:var(--f14);color:#5C554B;text-align:center}
 .preview.offcard .pt{color:#5C554B}
 .psend{margin-top:var(--s5)}
-.psend p{color:var(--muted);margin-bottom:var(--s4)}
 .plabel{color:var(--muted);font-size:var(--f14);margin-top:var(--s3)}
 select.field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23FFF4E6' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:var(--s7)}
 
 /* ---------- search overlay ---------- */
 .scrim{position:fixed;inset:0;background:rgba(28,25,21,.4);z-index:50;display:none;align-items:flex-start;justify-content:center;padding:var(--s4)}
 .scrim.on{display:flex}
-.sheet{background:#fff;width:100%;max-width:560px;border-radius:16px;padding:var(--s5);box-shadow:0 12px 40px rgba(28,25,21,.22);margin-top:var(--s7);max-height:calc(100vh - 96px);overflow:auto}
+.sheet{background:#fff;width:100%;max-width:600px;border-radius:16px;padding:var(--s5);box-shadow:0 12px 40px rgba(28,25,21,.22);margin-top:var(--s7);max-height:calc(100vh - 96px);overflow:auto}
 .sheet .top2{display:flex;gap:var(--s3);align-items:center}
 .sheet .top2 .field{flex:1}
 .sheet .kicker{margin:var(--s4) 0 var(--s2)}
 .sheet ul{list-style:none;margin:0;padding:0;display:grid;gap:var(--s1)}
-.sheet .xrow{margin:0 calc(var(--s3) * -1)}
+.ires{display:flex;align-items:center;gap:var(--s3)}
 
 /* ---------- toast ---------- */
 .toast{position:fixed;left:var(--s4);right:var(--s4);bottom:var(--s4);z-index:60;display:none;justify-content:center;pointer-events:none}
@@ -327,14 +449,18 @@ select.field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xml
 .toast .btn.text{color:inherit;font-weight:700;flex:none}
 body.hasbar .toast{bottom:calc(var(--s8) + var(--s4))}
 
-@media (max-width:359px){.page{padding-left:var(--s4);padding-right:var(--s4)}}
-
 /* ---------- laptop ---------- */
 @media (min-width:600px){
-  .week{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .week{grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--s4)}
+  .brow{grid-template-columns:240px minmax(0,1fr) auto;grid-template-areas:"n n p" "t s s";align-items:center}
+  .brow .pc{align-self:start}
+}
+@media (max-width:599px){
+  .irowl{grid-template-columns:28px minmax(0,1fr)}
+  .irowl .trk{grid-column:2}
 }
 @media (min-width:900px){
-  :root{--rail:76px;--list:440px}
+  :root{--rail:76px;--list:clamp(380px,36vw,480px)}
   .bar{top:0;bottom:0;left:0;right:auto;width:var(--rail);border:0;background:transparent;display:flex;flex-direction:column;align-items:center;padding:var(--s5) 0}
   .bar ul{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s6)}
   .bar .brand{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:var(--act);color:#fff;font:700 var(--f18)/1 var(--head);text-decoration:none}
@@ -346,38 +472,29 @@ body.hasbar .toast{bottom:calc(var(--s8) + var(--s4))}
   html.isws,body.isws{overflow:hidden;height:100vh}
   .ws{display:grid;grid-template-columns:var(--list) minmax(0,1fr);grid-template-rows:minmax(0,100vh);height:100vh;overflow:hidden;position:relative}
   .ws.one{grid-template-columns:minmax(0,1fr)}
-  .wl{position:relative;overflow-y:auto;padding:var(--s5) var(--s4) var(--s5) var(--s2)}
-  .wl .ghead{margin-top:var(--s1)}
+  .wl{position:relative;overflow-y:auto;padding:var(--s6) var(--s4) var(--s5) var(--s4)}
   .wp{height:100vh;padding:var(--s5) var(--s5) var(--s5) var(--s2);min-width:0}
   .ws.one .wp{padding-left:var(--s2)}
   .paper{height:100%;overflow-y:auto;position:relative}
-  .pn{min-height:100%;padding:var(--s7) var(--s7) 0}
-  .pn.wide{padding:var(--s7);min-height:100%}
+  .pn{--px:var(--s6)}
+  .pbody{padding:var(--s6) var(--px) 0}
   .pn.stepn{display:flex;flex-direction:column}
   .stgrid{flex:1;display:grid;grid-template-columns:minmax(0,640px);gap:var(--s7)}
   .stmain{display:flex;flex-direction:column;min-width:0}
-  .sfoot{position:sticky;bottom:0;background:#fff;margin:var(--s4) calc(var(--s7) * -1) 0;padding:var(--s4) var(--s7);border-top:1px solid var(--rule)}
+  .sfoot{position:sticky;bottom:0;background:#fff;margin:var(--s4) calc(var(--px) * -1) 0;padding:var(--s4) var(--px);border-top:1px solid var(--rule)}
   .sfoot.plain{position:static;margin:var(--s5) 0 0;padding:0;border:0}
   .pn.stepn .pubrow{margin-bottom:var(--s5)}
-  .done{min-height:calc(100vh - 48px - 96px)}
-  .brows{margin-top:var(--s6)}
-  .bpath li{font-size:var(--f16)}
-  .bpath li{padding-top:var(--s7)}
-  .bfoot{padding-bottom:var(--s7)}
+  .bfoot{padding-bottom:var(--s6)}
   .page.pubpg{max-width:1160px}
   .pband{padding-left:var(--s7);padding-right:var(--s7)}
   .pgrid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s8);align-items:start}
   body.hasbar .toast{bottom:var(--s4);left:calc(var(--rail) + var(--s4))}
-  /* calendar fills the sheet */
-  .pn.cal{display:flex;flex-direction:column}
-  .pn.cal .week{flex:1;margin-top:var(--s6)}
-  .day{min-height:0}
+  .done{min-height:calc(100vh - 48px - 96px)}
 }
 @media (min-width:1100px){
   .exgroups{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s7);align-items:start}
-  .exgroup+.exgroup{margin-top:var(--s6)}
-  .exgroups .col+.col{margin:0}
 }
+@container (max-width:760px){.pn{--px:var(--s5)}.agday{grid-template-columns:60px minmax(0,1fr);gap:0 var(--s3)}.ag{grid-template-columns:68px minmax(0,1fr) auto;gap:var(--s2)}.ag .btn{padding:0 var(--s4)}}
 @container (min-width:820px){
   .bsplit{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s7)}
 }
@@ -388,159 +505,6 @@ body.hasbar .toast{bottom:calc(var(--s8) + var(--s4))}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
-
-/* ===== v2.1 ===== */
-.paper{overflow:hidden}
-.pn{padding:0;min-height:100%;display:flex;flex-direction:column}
-.pn.wide{padding:0}
-.pbody{flex:1;display:flex;flex-direction:column;padding:var(--s5) var(--s4) 0}
-.hband{display:flex;align-items:center;gap:var(--s4);background:var(--wash,#F7F4EC);padding:var(--s5) var(--s4);min-height:132px}
-.hband.neutral{--wash:#F7F4EC}
-.hband .ht{min-width:0}
-.hband h1{font-size:var(--f28)}
-.hband .bsub{font-size:var(--f18);margin-top:var(--s1);color:var(--ink)}
-.hband .crumb{margin-bottom:0;min-height:24px}
-.hband a.crumb{min-height:32px;margin-left:0;padding:0}
-.hband .hn{color:var(--muted);font:400 var(--f16)/1 var(--body);letter-spacing:0;margin-left:var(--s3)}
-.hband .no{font-size:var(--f14)}
-.imark.big{width:40px;height:40px;border-radius:12px}
-.imark.big svg{width:22px;height:22px}
-.pbody>.strip:first-child{margin-top:0}
-.pn>.done{flex:1}
-.lead{font-size:var(--f16);color:var(--ink);margin:0 0 var(--s5)}
-.h18{font:600 var(--f18)/1.3 var(--head);margin:0 0 var(--s3)}
-.where{margin-top:0}
-.strip .ctx{font-size:var(--f16)}
-.xrow .rd,.none{font-size:var(--f16)}
-.stside p{font-size:var(--f16)}
-.empty{font-size:var(--f16)}
-/* list */
-.ghead{margin-bottom:var(--s1)}
-.gdate{font-size:var(--f14);color:var(--muted);margin:0 0 var(--s1)}
-.greet{font:600 var(--f28)/1.2 var(--head);letter-spacing:-.02em}
-.gsum{font-size:var(--f18);color:var(--ink);margin-top:var(--s2);line-height:1.4}
-.scard.hero{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:start;gap:var(--s3);min-height:124px;border-left:4px solid var(--ic);padding:var(--s4)}
-.scard.hero .tile{margin-top:var(--s1)}
-.scard.hero .rt{font-size:var(--f18)}
-.scard.hero .l2{font-size:var(--f16);margin-top:var(--s1)}
-.scard.hero .l2 .no2{font-size:var(--f14)}
-.scard.hero.sel{box-shadow:0 0 0 2px var(--act)}
-.due{display:flex;align-items:center;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s3)}
-.due strong{font:600 var(--f18)/1.3 var(--head)}
-.dline{margin-top:var(--s4)}
-.irows{gap:var(--s1)}
-.irow{min-height:44px;padding:var(--s1) var(--s2)}
-.iside{display:flex;align-items:center;gap:var(--s3)}
-.idot{width:8px;height:8px;border-radius:50%;background:var(--act);display:inline-block}
-.lh{margin:var(--s5) 0 var(--s3)}
-/* issue rows */
-.brow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p" "t t" "s s";align-items:start}
-.brow .bst{font-size:var(--f16)}
-.trk{width:220px;height:36px;max-width:100%}
-.trk .tl{font:400 14px 'Lato',sans-serif;fill:#5C554B}
-.brow .pc{align-self:center}
-.ypill.wait{background:#EFEAE0;color:var(--ink)}
-.already{color:var(--muted);font-size:var(--f16)}
-.dl2{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p";align-items:center}
-.dl2 .bn2{display:flex;align-items:center;gap:var(--s3);text-decoration:none;font-weight:700}
-/* calendar */
-.dsoon{font:700 var(--f14)/1.3 var(--head);color:var(--muted);margin:var(--s2) 0 0}
-.flat{display:inline-block;margin-left:var(--s2);padding:var(--s1) var(--s2);border-radius:999px;background:#FBEFD9;color:#7A4A00;font:600 var(--f14)/1.3 var(--head)}
-.hcard .rd.due{color:var(--ink);font-weight:700;margin-top:var(--s2)}
-.pbody>.brows:first-child{margin-top:0}
-/* table sort */
-.sortb{background:none;border:0;padding:0;margin:0;font:700 var(--f14)/1.4 var(--body);color:var(--muted);cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:var(--s1)}
-.sortb:hover{color:var(--ink)}
-.arr{font-size:var(--f14)}
-.tbl th{padding-bottom:0}
-/* search groups */
-.ires{display:flex;align-items:center;gap:var(--s3)}
-.sub2{margin:0 0 var(--s2) var(--s7)!important}
-.sub2 .rt{font-weight:600}
-@media (min-width:600px){
-  .brow{grid-template-columns:220px minmax(0,1fr) auto;grid-template-areas:"n n p" "t s s";align-items:center}
-  .brow .pc{align-self:start}
-}
-@media (min-width:900px){
-  .pbody{padding:var(--s6) var(--s6) 0}
-  .hband{padding:var(--s5) var(--s6)}
-  .pn{padding:0}
-  .pn.wide{padding:0}
-  .sfoot{margin:var(--s4) calc(var(--s6) * -1) 0;padding:var(--s4) var(--s6)}
-  .sfoot.plain{margin:var(--s5) 0 0;padding:0}
-  .pn.cal .week{flex:none;margin-top:0}
-  .done{min-height:calc(100vh - 48px - 96px)}
-  .bfoot{padding-bottom:var(--s6)}
-  .brow{margin:0 calc(var(--s4) * -1)}
-}
-
-/* ===== v2.2 cues ===== */
-.riskline{display:inline-flex;align-items:center;gap:var(--s1);color:#7A4A00;font-weight:700;vertical-align:bottom}
-.riskline svg,.l3 svg,.inote svg,.strip>svg.ic{width:16px;height:16px}
-.l3{display:flex;align-items:center;gap:var(--s1);color:#7A4A00;font-size:var(--f14);font-weight:700;margin-top:var(--s1)}
-.inote.risk{display:flex;align-items:center;gap:var(--s1);color:#7A4A00;font-weight:700}
-.irow.dead .imark{background:#A8A296}
-.irow.dead .iname{color:var(--muted);font-weight:400}
-.lh{margin:var(--s4) 0 var(--s2)}
-.ghead{margin-top:0}
-.scard.hero{min-height:108px}
-.fyks{list-style:none;margin:0;padding:0;display:grid;gap:var(--s2)}
-.fyk{position:relative;display:grid;grid-template-columns:20px minmax(0,1fr) auto;column-gap:var(--s2);align-items:center;background:#fff;border-radius:12px;box-shadow:var(--sh1);padding:var(--s2) var(--s2) var(--s3) var(--s3)}
-.fyk:hover{box-shadow:0 1px 2px rgba(60,45,20,.08),0 4px 12px rgba(60,45,20,.1)}
-.fi{color:#8A8277;display:flex}
-.fi svg{width:20px;height:20px}
-.ftl{font-size:var(--f14);color:var(--ink);text-decoration:none;line-height:1.4}
-.ftl::after{content:"";position:absolute;inset:0;border-radius:12px}
-.ftl:focus-visible{outline:none}
-.fyk:focus-within{outline:3px solid var(--ring);outline-offset:2px}
-.got{position:relative;z-index:2;min-height:44px;font-size:var(--f14)}
-.fs{grid-column:2 / 4;font-size:var(--f14);color:var(--muted);line-height:1.4;margin-top:calc(var(--s2) * -1);padding-right:var(--s3)}
-.sess{display:block;margin:var(--s4) calc(var(--s2) * -1) 0;padding:var(--s2) var(--s2) var(--s3);border-radius:12px;text-decoration:none;color:inherit}
-.sess:hover{background:rgba(255,255,255,.55)}
-.sess.sel{background:#fff;box-shadow:var(--sh1)}
-.stl{position:relative;display:block;height:64px}
-.sline{position:absolute;left:8px;right:8px;top:30px;height:2px;background:#D9D2C3;border-radius:2px}
-.sdone{position:absolute;left:8px;top:30px;height:2px;background:#8A8277}
-.sd{position:absolute;top:25px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#F3EFE6;border:2px solid #8A8277}
-.sess.sel .sd{background:#fff}
-.sd.p{background:#8A8277!important}
-.sd.n{background:var(--ink)!important;border-color:var(--ink);width:16px;height:16px;margin-left:-8px;top:23px}
-.here{position:absolute;top:0;transform:translateX(-50%);font:700 var(--f14)/18px var(--body);color:var(--act);white-space:nowrap}
-.here::after{content:"";position:absolute;left:50%;top:100%;margin-left:-4px;border:4px solid transparent;border-top-color:var(--act)}
-.sl{position:absolute;top:42px;font-size:var(--f14);color:var(--muted);white-space:nowrap;line-height:20px}
-.sl.n{color:var(--ink);font-weight:700;transform:translateX(-50%)}
-.ssum{display:block;font-size:var(--f14);color:var(--ink);line-height:1.4}
-.irow.sel,.irow:hover{background:#fff}
-.strip .stx{flex:1 1 320px;font-size:var(--f16)}
-.strip .btn{margin-left:auto;background:rgba(255,255,255,.6);border-color:#7A4A00;color:#7A4A00}
-.strip>svg.ic{width:22px;height:22px}
-.dh{margin:var(--s6) 0 var(--s2)}
-.srows{list-style:none;margin:0;padding:0;display:grid;gap:var(--s5)}
-.sh{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap}
-.sh .h18{margin:0}
-.sdt{color:var(--muted)}
-.stag{font-size:var(--f14);color:var(--muted);font-weight:700}
-.srow p{margin-top:var(--s1)}
-.srow.past .h18,.srow.past p{color:var(--muted)}
-.srow.next{background:#F8F5EE;border-radius:16px;padding:var(--s4) var(--s5);margin:0 calc(var(--s5) * -1)}
-.actrow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s4)}
-.actrow .alt{display:flex;flex-direction:column;gap:var(--s1)}
-.actrow .ptag{font-size:var(--f14);color:var(--muted)}
-.actrow .pm{width:24px;height:24px;border-radius:8px;background:var(--plum);color:#fff;display:flex;align-items:center;justify-content:center}
-.actrow .pm svg{width:14px;height:14px}
-.bpath.grey{--ic:#8A8277}
-.bpath.grey .nowtag{color:var(--muted)}
-.notef{margin-top:var(--s6);max-width:640px;padding-bottom:var(--s6)}
-.where p+p{margin-top:var(--s2)}
-.scard.hero{min-height:100px;padding:var(--s3) var(--s4)}
-.due{margin-top:var(--s2)}
-.scards{gap:var(--s1)}
-.fyks{gap:var(--s1)}
-.fyk{padding:var(--s1) var(--s2) var(--s2) var(--s3)}
-.fs{margin-top:calc(var(--s3) * -1)}
-.sess{margin-top:var(--s3)}
-.stl{height:60px}
-.lh{margin:var(--s3) 0 var(--s2)}
 </style>
 </head>
 <body>
@@ -584,12 +548,14 @@ var P={
  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
  left:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
+ chev:'<path d="m9 6 6 6-6 6"/>',
  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
  pencil:'<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>',
  ret:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
  mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ doc:'<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/>',
  cig:'<path d="M3 15h13v4H3z"/><path d="M19 15v4M22 15v4"/><path d="M17 11c0-2 2-2 2-4"/>',
  meals:'<path d="M8 3v7a2 2 0 0 0 4 0V3M10 10v11"/><path d="M17 3c-2 2-2 6 0 8v10"/>',
  cup:'<path d="M6 4h12l-1.5 16h-9z"/><path d="M7 9h10"/>',
@@ -598,98 +564,157 @@ var P={
  drop:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
  tooth:'<path d="M8 4c-3 0-4 3-3 6 1 4 1 10 3 10 1.5 0 1-5 4-5s2.5 5 4 5c2 0 2-6 3-10 1-3 0-6-3-6-2 0-2 1-4 1s-2-1-4-1z"/>',
  warn:'<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
- stop:'<path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/><path d="M8 12h8"/>',
  house:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>'
 };
 function ic(n,c){return '<svg class="ic '+(c||'')+'" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+P[n]+'</svg>';}
 document.querySelectorAll('[data-ic]').forEach(function(e){e.outerHTML=ic(e.getAttribute('data-ic'));});
 
-/* ---------- data ---------- */
-var ISS=[
- {id:'tobacco',n:'Tobacco and e-cigarettes',c:'#00698E',ic:'cig',k:5},
- {id:'meals',n:'School meals',c:'#2E7650',ic:'meals',k:3},
- {id:'sugar',n:'Sugary drinks',c:'#B4541A',ic:'cup',k:2},
- {id:'routes',n:'Safe routes to school',c:'#2F5FA8',ic:'route',k:4,news:'1 new'},
- {id:'leave',n:'Paid family leave',c:'#7A2E6E',ic:'heart',k:3},
- {id:'water',n:'Clean water',c:'#1F7B8C',ic:'drop',k:6},
- {id:'oral',n:'Oral health',c:'#8A6A12',ic:'tooth',k:4},
- {id:'housing',n:'Housing and health',c:'#4A5A66',ic:'house',k:4}
-];
-var BL={
- tobacco:[
-  {id:'HB1563',n:'HB 1563',name:'Flavored tobacco sales',st:1,at:'House Health',s:'Hearing Thu 2:00 PM',isNew:1},
-  {id:'SB2988',n:'SB 2988',name:'Flavored tobacco sales (companion)',st:0,at:'Introduced',s:'Needs a hearing by Fri, Mar 20'},
-  {id:'HB2121',n:'HB 2121',name:'E-cigarette tax',st:2,at:'Senate',s:'Crossed to the Senate · waiting on the Senate'},
-  {id:'HB1710',n:'HB 1710',name:'Smoke-free parks',st:1,at:'House Finance',s:'Passed House Health · next House Finance'},
-  {id:'SB1422',n:'SB 1422',name:'Tobacco retail licenses',dead:1,st:1,stop:'Senate Health and Human Services'}],
- meals:[
-  {id:'SB3011',n:'SB 3011',name:'School meals',st:1,at:'Senate Education',s:'Hearing Fri 1:30 PM'},
-  {id:'HB1204',n:'HB 1204',name:'Free school breakfast',st:2,at:'House',s:'Crossed to the House · waiting on the House'},
-  {id:'SB1980',n:'SB 1980',name:'Local food for schools',dead:1,st:1,stop:'Senate Education'}],
- sugar:[
-  {id:'SB2204',n:'SB 2204',name:'Sugary drink fee',st:0,at:'Introduced',s:'Needs a hearing by Fri, Mar 20'},
-  {id:'SB2310',n:'SB 2310',name:'Sugary drink labels',dead:1,st:1,stop:'House Health'}],
- routes:[
-  {id:'HB890',n:'HB 890',name:'Safe routes to school',st:1,at:'House Transportation',s:'Hearing Wed 10:00 AM'},
-  {id:'HB1402',n:'HB 1402',name:'Crosswalk lighting',st:0,at:'Introduced',s:'Waiting for a hearing',isNew:1},
-  {id:'SB1744',n:'SB 1744',name:'Bike lanes near schools',st:1,at:'Senate Transportation',s:'Passed Senate Transportation'}],
- leave:[
-  {id:'SB1190',n:'SB 1190',name:'Paid family leave',dead:1,st:1,stop:'Senate Labor'},
-  {id:'HB1850',n:'HB 1850',name:'Leave for new parents',dead:1,st:1,stop:'House Labor'},
-  {id:'HB1301',n:'HB 1301',name:'Leave for caregivers',dead:1,st:0,stop:'House Labor'}],
- water:[
-  {id:'HB1120',n:'HB 1120',name:'Lead testing in schools',st:2,at:'Senate',s:'Crossed to the Senate'},
-  {id:'SB1260',n:'SB 1260',name:'Fluoride study',st:1,at:'Senate Health',s:'Waiting for a hearing'},
-  {id:'HB1305',n:'HB 1305',name:'Drinking fountains',st:0,at:'Introduced',s:'Introduced'}],
- oral:[
-  {id:'SB1530',n:'SB 1530',name:'Dental care for keiki',st:1,at:'Senate Health',s:'Passed Senate Health'},
-  {id:'HB1666',n:'HB 1666',name:'Dental therapists',st:2,at:'Senate',s:'Crossed to the Senate'}],
- housing:[
-  {id:'HB1999',n:'HB 1999',name:'Housing and health study',st:1,at:'House Housing',s:'Waiting for a hearing'},
-  {id:'SB1888',n:'SB 1888',name:'Healthy rental homes',st:0,at:'Introduced',s:'Introduced'}]
+/* ---------- one state object: every fact on every screen comes from here ---------- */
+var S={
+ user:'Kevin',
+ dateLine:'Tuesday, March 17',
+ iss:[
+  {id:'tobacco',n:'Tobacco and e-cigarettes',c:'#00698E',ic:'cig',lead:'Kevin',kw:'vape vapes vaping nicotine'},
+  {id:'meals',n:'School meals',c:'#2E7650',ic:'meals',lead:'Kevin',kw:'lunch breakfast'},
+  {id:'sugar',n:'Sugary drinks',c:'#B4541A',ic:'cup',lead:'Kevin',kw:'soda sweetened beverage'},
+  {id:'routes',n:'Safe routes to school',c:'#2F5FA8',ic:'route',lead:'Mele',kw:'walking biking crosswalk'},
+  {id:'leave',n:'Paid family leave',c:'#7A2E6E',ic:'heart',lead:'Kris',kw:''},
+  {id:'water',n:'Clean water',c:'#1F7B8C',ic:'drop',lead:'Mele',kw:'lead fluoride'},
+  {id:'oral',n:'Oral health',c:'#8A6A12',ic:'tooth',lead:'Kris',kw:'dental teeth'},
+  {id:'housing',n:'Housing and health',c:'#4A5A66',ic:'house',lead:'Mele',kw:'rental'}
+ ],
+ bl:{
+  tobacco:[
+   {id:'HB1563',n:'HB 1563',name:'Flavored tobacco sales',st:1,at:'House Health',s:'Hearing Thu 2:00 PM',isNew:1,pos:'Support',kw:'flavor ban flavors menthol mint candy vape vapes vaping takayama nakamura dela cruz kahale'},
+   {id:'SB2988',n:'SB 2988',name:'Flavored tobacco sales (companion)',st:0,at:'Introduced',s:'Needs a hearing by Fri, Mar 20',pos:'Support',kw:'flavor ban menthol vape vapes san buenaventura'},
+   {id:'HB2121',n:'HB 2121',name:'E-cigarette tax',st:2,at:'Senate',s:'Crossed to the Senate · waiting on the Senate',pos:'Support',kw:'vape vapes vaping tax'},
+   {id:'HB1710',n:'HB 1710',name:'Smoke-free parks',st:1,at:'House Finance',s:'Passed House Health · next House Finance',pos:'Watching',kw:'parks smoking'},
+   {id:'SB1422',n:'SB 1422',name:'Tobacco retail licenses',dead:1,st:1,stop:'Senate Health and Human Services',pos:'Oppose',lead:'Kris',kw:'retail license permit vape'}],
+  meals:[
+   {id:'SB3011',n:'SB 3011',name:'School meals',st:1,at:'Senate Education',s:'Hearing Fri 1:30 PM',pos:'Support',kw:'free lunch breakfast'},
+   {id:'HB1204',n:'HB 1204',name:'Free school breakfast',st:2,at:'House',s:'Crossed to the House · waiting on the House',pos:'Support'},
+   {id:'SB1980',n:'SB 1980',name:'Local food for schools',dead:1,st:1,stop:'Senate Education',pos:'Watching'}],
+  sugar:[
+   {id:'SB2204',n:'SB 2204',name:'Sugary drink fee',st:0,at:'Introduced',s:'Needs a hearing by Fri, Mar 20',pos:'Support',kw:'soda tax san buenaventura'},
+   {id:'SB2310',n:'SB 2310',name:'Sugary drink labels',dead:1,st:1,stop:'House Health',pos:'Support'}],
+  routes:[
+   {id:'HB890',n:'HB 890',name:'Safe routes to school',st:1,at:'House Transportation',s:'Hearing Wed 10:00 AM',pos:'Comments'},
+   {id:'HB1402',n:'HB 1402',name:'Crosswalk lighting',st:0,at:'Introduced',s:'Waiting for a hearing',isNew:1,pos:'Watching'},
+   {id:'SB1744',n:'SB 1744',name:'Bike lanes near schools',st:1,at:'Senate Transportation',s:'Passed Senate Transportation',pos:'Support'}],
+  leave:[
+   {id:'SB1190',n:'SB 1190',name:'Paid family leave',dead:1,st:1,stop:'Senate Labor',pos:'Support'},
+   {id:'HB1850',n:'HB 1850',name:'Leave for new parents',dead:1,st:1,stop:'House Labor',pos:'Support'},
+   {id:'HB1301',n:'HB 1301',name:'Leave for caregivers',dead:1,st:0,stop:'House Labor',pos:'Support'}],
+  water:[
+   {id:'HB1120',n:'HB 1120',name:'Lead testing in schools',st:2,at:'Senate',s:'Crossed to the Senate · hearing Fri 2:00 PM',pos:'Support'},
+   {id:'SB1260',n:'SB 1260',name:'Fluoride study',st:1,at:'Senate Health',s:'Waiting for a hearing',pos:'Comments'},
+   {id:'HB1305',n:'HB 1305',name:'Drinking fountains',st:0,at:'Introduced',s:'Introduced',pos:'Watching'}],
+  oral:[
+   {id:'SB1530',n:'SB 1530',name:'Dental care for keiki',st:1,at:'Senate Health',s:'Passed Senate Health',pos:'Support'},
+   {id:'HB1666',n:'HB 1666',name:'Dental therapists',st:2,at:'Senate',s:'Crossed to the Senate',pos:'Support'}],
+  housing:[
+   {id:'HB1999',n:'HB 1999',name:'Housing and health study',st:1,at:'House Housing',s:'Waiting for a hearing',pos:'Comments'},
+   {id:'SB1888',n:'SB 1888',name:'Healthy rental homes',st:0,at:'Introduced',s:'Introduced',pos:'Support'}]
+ },
+ stages:['Introduced','First committees','Crossed over','Second chamber','Governor'],
+ /* steps, soonest first. wk = due this week. */
+ steps:[
+  {id:'write',kind:'write',t:'Write testimony',ic:'pencil',bid:'HB1563',tp:'22 hours',soon:1,due:'Due Wed 2:00 PM',when:'tomorrow at 2:00 PM',wk:1,ctx:'Hearing Thu 2:00 PM · House Health · room 329',done:'Sent to Kris.',wait:'Kris'},
+  {id:'resubmit',kind:'write',back:1,t:'Resubmit testimony',ic:'ret',bid:'SB3011',tp:'2 days',due:'Due Thu 9:00 AM',when:'Thursday at 9:00 AM',wk:1,ctx:'Hearing Fri 1:30 PM · Senate Education',done:'Sent to Kris.',wait:'Kris'},
+  {id:'approve',kind:'approve',t:'Approve testimony',ic:'check',bid:'HB1120',tp:'2 days',due:'Due Thu 12:00 PM',when:'Thursday at 12:00 PM',wk:1,from:'Mele',ctx:'Hearing Fri 2:00 PM · Senate Health',wait:'Mele'},
+  {id:'ask',kind:'ask',t:'Ask for a hearing',ic:'mail',bid:'SB2204',tp:'3 days',due:'Due Fri, Mar 20',dl:'Fri, Mar 20',wk:1,risk:1,rk:'This is the last bill alive for Sugary drinks this year.',chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'},
+  {id:'later',kind:'ask',t:'Ask for a hearing',ic:'mail',bid:'SB1260',tp:'10 days',due:'Due Fri, Mar 27',dl:'Fri, Mar 27',wk:0,chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'},
+  {id:'ask2',kind:'ask',hide:1,t:'Ask for a hearing',ic:'mail',bid:'SB2988',tp:'3 days',due:'Due Fri, Mar 20',dl:'Fri, Mar 20',wk:1,chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'}
+ ],
+ /* what stopped (newest first); only bills Kevin leads or follows */
+ news:[
+  {when:'Mon, Mar 16',kind:'issue',iss:'leave',title:'Paid family leave has no bills left this year',body:'All 3 bills stopped: Paid family leave in Senate Labor, Leave for new parents and Leave for caregivers in House Labor.'},
+  {when:'Fri, Mar 13',kind:'bill',bid:'SB1422',title:'Tobacco retail licenses did not advance',body:'It stopped in Senate Health and Human Services. 4 of 5 tobacco bills are still alive.'},
+  {when:'Fri, Mar 13',kind:'bill',bid:'SB2310',title:'Sugary drink labels did not advance',body:'It stopped in House Health. 1 of 2 sugary drinks bills is still alive.',risk:1}
+ ],
+ week:[
+  {d:'Wed',n:18,tm:'2:00 PM',w:'Testimony due',nm:'Flavored tobacco sales',iss:'tobacco',step:'write'},
+  {d:'Thu',n:19,tm:'9:00 AM',w:'Testimony due again',nm:'School meals',iss:'meals',step:'resubmit'},
+  {d:'Thu',tm:'12:00 PM',w:'Approval due',nm:'Lead testing in schools',iss:'water',step:'approve'},
+  {d:'Thu',tm:'2:00 PM',w:'Hearing',nm:'Flavored tobacco sales',x:'House Health, room 329',iss:'tobacco',to:'#/bill/HB1563'},
+  {d:'Fri',n:20,tm:'1:30 PM',w:'Hearing',nm:'School meals',x:'Senate Education, room 229',iss:'meals',to:'#/bill/SB3011'},
+  {d:'Fri',tm:'2:00 PM',w:'Hearing',nm:'Lead testing in schools',x:'Senate Health, room 229',iss:'water',to:'#/bill/HB1120'},
+  {d:'Fri',tm:'',w:'Committee deadline',nm:'Sugary drink fee still needs a hearing',iss:'sugar',step:'ask',risk:1}
+ ],
+ dates:[['Opening','Wed, Jan 21',0,'Session opens. Bills can now be introduced and heard.'],
+  ['First decking','Fri, Mar 6',1,'A bill in its first chamber must be ready for its last committee by this day.'],
+  ['First lateral','Fri, Mar 20',2,'A bill must clear its first committees by this day, or it stops for the year. This is the committee deadline.'],
+  ['Crossover','Thu, Apr 9',3,'A bill must pass its first chamber by this day to move to the other.'],
+  ['Second lateral','Fri, Apr 17',4,'A bill must clear its committees in the second chamber by this day.'],
+  ['Conference','Mon, Apr 27',5,'The two chambers settle differences between versions by this day.'],
+  ['End of session','Thu, May 7',6,'The session ends. A bill not passed by now stops for the year.']],
+ nowDate:2,
+ hearings:[
+  {wk:0,d:2,tm:'10:00 AM',name:'Safe routes to school',no:'HB 890',where:'House Transportation · room 309',id:'HB890',mine:0},
+  {wk:0,d:3,tm:'9:30 AM',name:'Housing and health study',no:'HB 1999',where:'House Housing · room 312',id:'HB1999',mine:0},
+  {wk:0,d:3,tm:'2:00 PM',name:'Flavored tobacco sales',no:'HB 1563',where:'House Health · room 329',id:'HB1563',mine:1,due:'Testimony due Wed 2:00 PM'},
+  {wk:0,d:4,tm:'1:30 PM',name:'School meals',no:'SB 3011',where:'Senate Education · room 229',id:'SB3011',mine:1,due:'Testimony due Thu 9:00 AM'},
+  {wk:0,d:4,tm:'2:00 PM',name:'Lead testing in schools',no:'HB 1120',where:'Senate Health · room 229',id:'HB1120',mine:1,due:'Approval due Thu 12:00 PM'},
+  {wk:1,d:1,tm:'1:00 PM',name:'Healthy rental homes',no:'SB 1888',where:'Senate Housing · room 225',id:'SB1888',mine:1},
+  {wk:1,d:2,tm:'9:00 AM',name:'Crosswalk lighting',no:'HB 1402',where:'House Transportation · room 309',id:'HB1402',mine:0},
+  {wk:1,d:3,tm:'10:30 AM',name:'Dental therapists',no:'HB 1666',where:'Senate Health · room 229',id:'HB1666',mine:0}
+ ],
+ weeks:[{label:'Mar 16 to 20',days:[['Mon','16'],['Tue','17','today'],['Wed','18'],['Thu','19'],['Fri','20','flat']]},
+        {label:'Mar 23 to 27',days:[['Mon','23'],['Tue','24'],['Wed','25'],['Thu','26'],['Fri','27']]}],
+ keys:{
+  flavor:'flavor ban menthol vape'
+ }
 };
-var STAGES=['Introduced','First committees','Crossed over','Second chamber','Governor'];
+var ISS=S.iss,BL=S.bl,STAGES=S.stages;
+ISS.forEach(function(i){i.k=BL[i.id].length;});
 function iss(id){return ISS.filter(function(x){return x.id===id})[0]||ISS[0];}
-function findBill(id){for(var k in BL){var l=BL[k];for(var i=0;i<l.length;i++)if(l[i].id===id){var b=l[i];b.iss=k;return b;}}return null;}
+BL&&Object.keys(BL).forEach(function(k){BL[k].forEach(function(b){b.iss=k;b.lead=b.lead||iss(k).lead;});});
+function findBill(id){for(var k in BL){var l=BL[k];for(var i=0;i<l.length;i++)if(l[i].id===id)return l[i];}return null;}
+function allBills(){var o=[];Object.keys(BL).forEach(function(k){BL[k].forEach(function(b){o.push(b);});});return o;}
+function posWords(b){return {Support:'HIPHI supports',Oppose:'HIPHI opposes',Comments:'HIPHI has comments',Watching:'HIPHI is watching'}[b.pos||'Watching'];}
+S.steps.forEach(function(s){var b=findBill(s.bid);s.name=b.name;s.no=b.n;s.iss=b.iss;});
+function stepById(id){return S.steps.filter(function(s){return s.id===id})[0];}
 var LETTER="Dear Chair Takayama and Members of the House Committee on Health:\n\nThe Hawaiʻi Public Health Institute supports HB 1563. Flavors such as menthol, mint and candy make tobacco products and e-cigarettes easier to try and harder to quit, and they are designed to appeal to young people.\n\nToo many Hawaiʻi students already use e-cigarettes, and flavors are the reason most of them say they started. Ending the sale of flavored products takes away that hook, and it is simple for stores to follow and for the state to enforce.\n\nWe respectfully ask the committee to pass HB 1563. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
 var LETTER2="Dear Chair and Members of the Committee on Education:\n\nThe Hawaiʻi Public Health Institute supports SB 3011. Students learn better when they are not hungry, and a school meal is the most reliable meal many keiki eat.\n\nThe bill puts healthy meals within reach of every student without paperwork or stigma, and it saves families time and money. Schools that already serve free meals to all students report calmer lunchrooms and fewer trips to the nurse.\n\nWe respectfully ask the committee to pass SB 3011. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
-var EMAIL="Dear Chair San Buenaventura,\n\nI am writing for the Hawaiʻi Public Health Institute about SB 2204, the sugary drink fee. The bill has not yet been scheduled for a hearing in your committee, and the first lateral deadline is Friday, March 20.\n\nWe respectfully ask that you schedule SB 2204 for a hearing so the public can speak to it. Mahalo for your time.\n\nKevin\nHawaiʻi Public Health Institute";
-var STEPS=[
- {id:'write',t:'Write testimony',ic:'pencil',name:'Flavored tobacco sales',no:'HB 1563',tp:'22 hours',soon:1,due:'Due Wed 2:00 PM',iss:'tobacco'},
- {id:'resubmit',t:'Resubmit testimony',ic:'ret',back:1,name:'School meals',no:'SB 3011',tp:'2 days',due:'Due Thu 9:00 AM',iss:'meals'},
- {id:'ask',t:'Ask for a hearing',ic:'mail',name:'Sugary drink fee',no:'SB 2204',tp:'3 days',due:'Due Fri, Mar 20',warn:1,rk:'Last bill alive for Sugary drinks',iss:'sugar'}
-];
-var undoTimer=null,tick=null,toastTimer=null,lastStep='write',FIN={},calmMode=false;
-var LAP=window.matchMedia('(min-width:900px)');
-function stepById(id){return STEPS.filter(function(s){return s.id===id})[0];}
-function remaining(){return calmMode?[]:STEPS.filter(function(s){return !FIN[s.id];});}
+var LETTER3="Dear Chair and Members of the Committee on Health:\n\nThe Hawaiʻi Public Health Institute supports HB 1120. Lead in school drinking water cannot be seen, tasted or smelled, and children are the most at risk from it.\n\nThe bill asks every public school to test its water on a schedule and to share the results with families. Testing is inexpensive, and it lets schools fix a problem before a child is harmed.\n\nWe respectfully ask the committee to pass HB 1120. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
 
-/* ---------- one state: steps, sent things, calm day ---------- */
-var STEP_OF={HB1563:'write',SB3011:'resubmit',SB2204:'ask'};
+/* ---------- running state ---------- */
+var tick=null,toastTimer=null,lastStep='write',FIN={},calmMode=false,NEWSREAD=false,OUT='',CAL={mine:true,wk:0};
+var LAP=window.matchMedia('(min-width:900px)');
+function remaining(){return calmMode?[]:S.steps.filter(function(s){return !s.hide&&!FIN[s.id];});}
+function weekLeft(){return remaining().filter(function(s){return s.wk;});}
+function riskOn(){return !calmMode&&!FIN.ask;}
 function openStep(id){return !calmMode&&!FIN[id];}
+var STEP_OF={};S.steps.forEach(function(s){STEP_OF[s.bid]=s.id;});
 function billOpen(b){var s=STEP_OF[b.id];return !!s&&openStep(s);}
 function needs(k){return BL[k].filter(billOpen).length;}
 function billMove(b){
-  var s=STEP_OF[b.id];if(!s||calmMode)return null;
-  if(!FIN[s])return ['your move',''];
-  return [s==='ask'?'Chair’s move':'Kris’s move','wait'];
+  var id=STEP_OF[b.id],s=id&&stepById(id);if(!s||calmMode)return null;
+  if(!FIN[id])return ['your move',''];
+  return [s.wait==='the chair'?'Chair’s move':s.wait+'’s move','wait'];
 }
 function hearingsNeeded(){return calmMode?0:(FIN.ask?0:1)+(FIN.ask2?0:1);}
-var ALL=[
- ['HB1563','Flavored tobacco sales','HB 1563','tobacco','Support','Kevin','Hearing Thu'],
- ['SB2988','Flavored tobacco sales (companion)','SB 2988','tobacco','Support','Kevin','Waiting for a hearing'],
- ['HB2121','E-cigarette tax','HB 2121','tobacco','Support','Kevin','Crossed to the Senate'],
- ['HB1710','Smoke-free parks','HB 1710','tobacco','Watching','Kevin','Passed House Health'],
- ['SB3011','School meals','SB 3011','meals','Support','Kevin','Hearing Fri'],
- ['SB2204','Sugary drink fee','SB 2204','sugar','Support','Kevin','Waiting for a hearing'],
- ['HB890','Safe routes to school','HB 890','routes','Comments','Mele','Hearing Wed'],
- ['SB1422','Tobacco retail licenses','SB 1422','tobacco','Oppose','Kris','Did not advance']
-];
-function leadLine(id){
-  var r=ALL.filter(function(x){return x[0]===id})[0];if(!r)return '';
-  var p={Support:'HIPHI supports',Oppose:'HIPHI opposes',Comments:'HIPHI has comments',Watching:'HIPHI is watching'}[r[4]];
-  return '<p class="lead">'+p+' · '+r[5]+' leads</p>';
+function alive(k){return BL[k].filter(function(b){return !b.dead;}).length;}
+function leadLine(id){var b=findBill(id);return b?'<p class="lead">'+posWords(b)+' · '+b.lead+' leads</p>':'';}
+
+/* ---------- drawing: passed = small dot, now = large dot, to come = ring, stopped = grey dot with a bar ---------- */
+function track(b,c,wid){
+  var st=b.st||0,dead=!!b.dead,xs=[12,66,120,174,228],col=dead?'#8A8277':c,y=10;
+  var lab=dead?'Stopped here':(b.at||STAGES[st]);
+  var h='<svg class="trk" viewBox="0 0 240 42" width="240" height="42" role="img" aria-label="'+(dead?'Did not advance, stopped at stop '+(st+1):'Stop '+(st+1)+' of 5: '+lab)+'">';
+  h+='<line x1="12" y1="'+y+'" x2="'+(dead?xs[st]:228)+'" y2="'+y+'" stroke="#E3DED3" stroke-width="2" stroke-linecap="round"/>';
+  if(st>0)h+='<line x1="12" y1="'+y+'" x2="'+xs[st]+'" y2="'+y+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>';
+  xs.forEach(function(x,i){
+    if(i<st)h+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="'+col+'"/>';
+    else if(i===st)h+='<circle cx="'+x+'" cy="'+y+'" r="7" fill="'+col+'"/>';
+    else if(!dead)h+='<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="#fff" stroke="#8A8277" stroke-width="1.5"/>';
+  });
+  if(dead)h+='<line x1="'+(xs[st]+12)+'" y1="'+(y-7)+'" x2="'+(xs[st]+12)+'" y2="'+(y+7)+'" stroke="#8A8277" stroke-width="2" stroke-linecap="round"/>';
+  var w=lab.length*7.2,tx=Math.min(Math.max(xs[st],w/2),240-w/2);
+  h+='<text x="'+tx+'" y="34" text-anchor="middle" class="tl">'+lab+'</text></svg>';
+  return h;
 }
+function furthest(id){var l=BL[id],a=l.filter(function(b){return !b.dead;}),use=a.length?a:l;return use.slice().sort(function(x,y){return (y.st||0)-(x.st||0);})[0];}
 
 /* ---------- markup parts ---------- */
 function imark(i,size){return '<span class="imark'+(size?' '+size:'')+'" style="--ic:'+i.c+'" aria-hidden="true">'+ic(i.ic)+'</span>';}
@@ -700,101 +725,93 @@ function hband(I,o){
 function nband(title,sub){
   return '<div class="hband neutral"><div class="ht"><h1>'+title+'</h1>'+(sub?'<p class="bsub">'+sub+'</p>':'')+'</div></div>';
 }
-function track(b,c){
-  var st=b.st||0,dead=!!b.dead,xs=[8,59,110,161,212],col=dead?'#8A8277':c;
-  var h='<svg class="trk" viewBox="0 0 220 36" width="220" height="36" role="img" aria-label="'+(dead?'Did not advance, stopped at stop '+(st+1):'Stop '+(st+1)+' of 5: '+(b.at||STAGES[st]))+'"><line x1="8" y1="8" x2="212" y2="8" stroke="#E3DED3" stroke-width="2" stroke-linecap="round"/>';
-  if(st>0)h+='<line x1="8" y1="8" x2="'+xs[st]+'" y2="8" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>';
-  xs.forEach(function(x,i){
-    if(i>st)h+='<circle cx="'+x+'" cy="8" r="5" fill="#fff" stroke="#8A8277" stroke-width="1.5"/>';
-    else h+='<circle cx="'+x+'" cy="8" r="'+(i===st?7:5)+'" fill="'+col+'"/>';
-  });
-  if(!dead){var a=st===0?'start':(st===4?'end':'middle'),tx=st===0?0:(st===4?220:xs[st]);
-    h+='<text x="'+tx+'" y="31" text-anchor="'+a+'" class="tl">'+(b.at||STAGES[st])+'</text>';}
-  return h+'</svg>';
-}
-function riskOn(){return !calmMode&&!FIN.ask;}
-function alive(k){return BL[k].filter(function(b){return !b.dead;}).length;}
-var GOT={};
-var FYK=[
- {id:'SB1422',t:'Tobacco retail licenses did not advance',s:'4 of 5 tobacco bills are still alive'},
- {id:'SB2310',t:'Sugary drink labels did not advance',s:'1 of 2 sugary drinks bills is still alive, and it is at risk'}
-];
-function fykList(calm){return calm?[]:FYK.filter(function(f){return !GOT[f.id];}).slice(0,3);}
-function stepCard(s,on,hero){
-  var I=iss(s.iss);
-  var warn=s.warn&&riskOn();
-  var pill='<span class="tp'+((s.soon||warn)?' soon':'')+'"><span class="sr">Time left: </span>'+(s.soon?ic('clock'):'')+s.tp+'</span>';
-  var l2='<span class="l2"><b>'+s.name+'</b> <span class="no2">· '+s.no+'</span>'+(s.back?'<span class="sbk">'+ic('ret')+'Sent back</span>':'')+'</span>'
-    +(warn?'<span class="l3">'+ic('warn')+s.rk+'</span>':'');
-  if(hero)return '<li><a class="scard hero'+(on?' sel':'')+'"'+(on?' aria-current="true"':'')+' style="--ic:'+I.c+'" href="#/do/'+s.id+'"><span class="tile'+(s.back?' back':'')+'">'+ic(s.ic)+'</span>'
-    +'<span class="hb"><span class="rt">'+s.t+'</span>'+l2+'<span class="due"><strong>'+s.due+'</strong>'+pill+'</span></span></a></li>';
-  return '<li><a class="scard'+(on?' sel':'')+'"'+(on?' aria-current="true"':'')+' href="#/do/'+s.id+'"><span class="tile'+(s.back?' back':'')+'">'+ic(s.ic)+'</span>'
-   +'<span><span class="rt">'+s.t+'</span>'+l2+'</span>'+pill+'</a></li>';
-}
-function issueRow(i,on,has){
-  var k=alive(i.id),dead=k===0,risk=i.id==='sugar'&&riskOn(),note='';
-  if(dead)note='<span class="inote">None alive this year</span>';
-  else if(risk)note='<span class="inote risk">'+ic('warn')+'At risk · 3 days left</span>';
-  else if(i.news)note='<span class="inote">'+i.news+'</span>';
-  return '<li><a class="irow'+(dead?' dead':'')+(on?' sel':'')+'"'+(on?' aria-current="true"':'')+' style="--ic:'+i.c+'" href="#/issue/'+i.id+'">'+imark(i)
-   +'<span><span class="iname">'+i.n+'</span>'+note+'</span><span class="iside">'+(has?'<span class="idot" role="img" aria-label="needs you"></span>':'')+'<span class="icount">'+i.k+'<span class="sr"> bills</span></span></span></a></li>';
-}
-function summary(rem){
-  var n=rem.length;if(!n)return 'Nothing needs you today.';
-  var risk=rem.some(function(s){return s.warn;})&&riskOn();
-  return (n===1?'1 thing needs you.':n+' things need you.')+(risk?' <span class="riskline">'+ic('warn')+'1 issue is at risk.</span>':(rem[0].soon?' The first is due in '+rem[0].tp+'.':''));
-}
-var SDATES=[['Opening','Wed, Jan 21',0,'Session opens. Bills can now be introduced and heard.'],
- ['First decking','Fri, Mar 6',44,'A bill in its first chamber must be ready for its last committee by this day.'],
- ['First lateral','Fri, Mar 20',58,'A bill must clear its first committees by this day, or it stops for the year.'],
- ['Crossover','Thu, Apr 9',78,'A bill must pass its first chamber by this day to move to the other.'],
- ['Second lateral','Fri, Apr 17',86,'A bill must clear its committees in the second chamber by this day.'],
- ['Conference','Mon, Apr 27',96,'The two chambers settle differences between versions by this day.'],
- ['End of session','Thu, May 7',106,'The session ends. A bill not passed by now stops for the year.']];
-function sessionGuide(o){
-  var n=hearingsNeeded(),today=55;
-  function L(d){return 'calc(8px + (100% - 16px) * '+(d/106)+')';}
-  var h='<a class="sess'+(o.sess?' sel':'')+'"'+(o.sess?' aria-current="true"':'')+' href="#/session"><span class="stl"><span class="sline"></span><span class="sdone" style="width:calc((100% - 16px) * '+(today/106)+')"></span>';
-  SDATES.forEach(function(d){h+='<span class="sd'+(d[2]<=today?' p':(d[2]===58?' n':''))+'" style="left:'+L(d[2])+'"></span>';});
-  h+='<span class="here" style="left:'+L(today)+'">You are here</span>';
-  h+='<span class="sl" style="left:0">Opening</span><span class="sl n" style="left:'+L(58)+'">First lateral · in 3 days</span><span class="sl" style="right:0">End of session</span></span>';
-  h+='<span class="ssum">'+(n?(n===1?'1 of your bills still needs':'2 of your bills still need')+' a hearing by First lateral':'All your bills are on track for First lateral')+'</span></a>';
-  return h;
-}
-function ListInner(o){
-  var rem=o.rem,n=rem.length,t=o.phone?'h1':'h2',shown=rem.slice(0,4),fy=fykList(o.calm);
-  var h='<header class="ghead"><p class="gdate">Tuesday, March 17</p><'+t+' class="greet">Good morning, Kevin</'+t+'><p class="gsum">'+summary(rem)+'</p></header>';
-  h+='<section aria-labelledby="hn"><h3 class="lh" id="hn">Needs you</h3>';
-  if(!n)h+='<div class="calmcard"><svg viewBox="0 0 96 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 40h88"/><path d="M26 40a22 22 0 0 1 44 0"/><path d="M48 6v6M20 16l4 4M76 16l-4 4"/></svg><span>Nothing needs you today.</span></div>';
-  else{
-    h+='<ul class="scards">'+shown.map(function(s,i){return stepCard(s,o.step===s.id,i===0);}).join('')+'</ul>';
-    if(n>4)h+='<a class="dline" href="#/session"><span>'+(n-4)+' more this week</span></a>';
-  }
-  h+='</section>';
-  if(fy.length){
-    h+='<section aria-labelledby="hf"><h3 class="lh" id="hf">For you to know</h3><ul class="fyks">'+fy.map(function(f){
-      return '<li class="fyk"><span class="fi">'+ic('stop')+'</span><a class="ftl" href="#/bill/'+f.id+'">'+f.t+'</a><button class="btn text got" type="button" data-got="'+f.id+'">Got it</button><span class="fs">'+f.s+'</span></li>';}).join('')+'</ul></section>';
-  }
-  h+=sessionGuide(o);
-  h+='<section aria-labelledby="hi"><h3 class="lh" id="hi">Your issues<span class="cnt grey">'+ISS.length+'</span></h3><ul class="irows">'
-    +ISS.map(function(i){return issueRow(i,o.issue===i.id,rem.some(function(s){return s.iss===i.id;}));}).join('')+'</ul></section>';
-  h+='<div class="listfoot">'+(o.calm?'<a class="btn text" href="#/">Back to a busy day</a>':'<a class="btn text" href="#/calm">See a calm day</a>')+'</div>';
-  return h;
-}
-
-/* ---------- sheet contents ---------- */
 function pubRow(label,tag,href){
   return '<a class="pubrow" href="'+href+'"><span class="pm" aria-hidden="true">'+ic('globe')+'</span><span class="pt">'+label+'</span><span class="ptag">'+tag+'</span></a>';
 }
+function backCrumb(I){return '<a class="crumb" href="#/issue/'+I.id+'"><span class="bk" aria-hidden="true">‹</span>'+I.n+'</a>';}
+
+/* ---------- the left column: type and space only ---------- */
+function stateLine(){
+  var w=weekLeft(),n=w.length;
+  if(!n)return '<p class="gstate">You’re clear until Wed.</p>';
+  var h='<p class="gstate">You’re on top of it: '+n+(n===1?' step':' steps')+' this week, '+(n===1?'due ':'the first due ')+w[0].when+'.';
+  if(riskOn()&&w.some(function(s){return s.risk;}))h+='<br><a class="grisk" href="#/do/ask">'+ic('warn')+'Sugary drinks is at risk.</a>';
+  return h+'</p>';
+}
+function stepRow(s,on){
+  var tm='<span class="stm">'+s.tp+'</span>';
+  if(s.soon)tm='<span class="stm soon">'+ic('clock')+s.tp+'</span>';
+  else if(s.risk&&riskOn())tm='<span class="stm risk">'+ic('warn')+s.tp+'</span>';
+  return '<li><a class="sr3'+(on?' sel':'')+'"'+(on?' aria-current="true"':'')+' href="#/do/'+s.id+'">'+ic(s.ic)+'<span class="sv"><b>'+s.t+'</b> · '+s.name+'</span>'+tm+'</a></li>';
+}
+function ListInner(o){
+  var rem=remaining(),t=o.phone?'h1':'h2',shown=rem.slice(0,5);
+  var h='<header><p class="gdate">'+S.dateLine+'</p><'+t+' class="greet">Good morning, '+S.user+'</'+t+'>'+stateLine()+'</header>';
+  if(rem.length){
+    h+='<section aria-labelledby="hs"><h3 class="lh" id="hs">Your steps</h3><ul class="srows3">'+shown.map(function(s){return stepRow(s,o.step===s.id);}).join('');
+    if(rem.length>5)h+='<li><a class="sr3 more" href="#/steps"><span class="sv">'+(rem.length-5)+' more</span>'+ic('chev')+'</a></li>';
+    h+='</ul></section>';
+  }
+  var n=hearingsNeeded(),dead=calmMode?0:(NEWSREAD?0:1);
+  h+='<nav class="clinks" aria-label="Also">';
+  if(n)h+='<a class="cl'+(o.link==='sess'?' sel':'')+'" href="#/session"><span>Committee deadline Fri, Mar 20 · '+n+(n===1?' bill needs':' bills need')+' a hearing</span>'+ic('chev')+'</a>';
+  if(dead)h+='<a class="cl'+(o.link==='news'?' sel':'')+'" href="#/news"><span>Paid family leave has no bills left this year · 2 other bills did not advance</span>'+ic('chev')+'</a>';
+  h+='<a class="cl'+(o.link==='issues'?' sel':'')+'" href="#/issues"><span>Your issues: '+ISS.length+'</span>'+ic('chev')+'</a></nav>';
+  return h;
+}
+
+/* ---------- Home's sheet: Your week ---------- */
+var SUN='<svg viewBox="0 0 96 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 40h88"/><path d="M26 40a22 22 0 0 1 44 0"/><path d="M48 6v6M20 16l4 4M76 16l-4 4"/></svg>';
+function health(i){
+  var al=alive(i.id),risk=i.id==='sugar'&&riskOn();
+  if(!al)return {rank:3,w:'none left',t:'None alive this year',dead:1};
+  if(risk)return {rank:0,w:'at risk',t:'At risk',risk:1};
+  return {rank:needs(i.id)||i.id==='tobacco'||i.id==='meals'||i.id==='routes'?1:2,w:'',t:''};
+}
+function WeekInner(){
+  var clear=calmMode||!weekLeft().length;
+  var h=clear?'<div class="hband neutral"><div class="sunwrap">'+SUN+'<div class="ht"><h1>Your week</h1><p class="bsub">Mar 16 to 20</p></div></div></div>':nband('Your week','Mar 16 to 20');
+  h+='<div class="pbody wk">';
+  var first=true,days={},order=[];
+  S.week.forEach(function(a){if(calmMode&&a.step)return;var k=a.d;if(!days[k]){days[k]=[];order.push(k);}days[k].push(a);});
+  h+='<div>';
+  order.forEach(function(k){
+    var items=days[k],num={Wed:18,Thu:19,Fri:20}[k];
+    h+='<section class="agday"><h2 class="agdn" style="font-size:16px;letter-spacing:0">'+k+'<span>'+num+'</span></h2><ul class="ags">';
+    items.forEach(function(a){
+      var I=iss(a.iss),fin=a.step&&(FIN[a.step]||calmMode&&false),risk=a.risk&&riskOn()&&!fin;
+      var cls='ag'+(risk?' risk':'')+(fin?' done':''),w=a.w,to=a.to||(a.step?'#/do/'+a.step:'#/');
+      var lead=risk?ic('warn'):(fin?ic('check'):'<span class="agdot" style="--ic:'+I.c+'" aria-hidden="true"></span>');
+      if(fin)w={write:'Testimony sent',resubmit:'Testimony sent',approve:'Approved',ask:'Hearing asked for'}[a.step];
+      if(a.risk&&!risk&&!fin)w='Committee deadline';
+      var nm=(a.risk&&!risk&&!fin)?'Sugary drink fee is on track':a.nm;
+      var btn='';
+      if(a.step&&!fin&&first&&!calmMode){first=false;var st=stepById(a.step);btn='<a class="btn quiet" href="#/do/'+a.step+'">'+st.t+'</a>';}
+      h+='<li class="'+cls+'"><span class="agt">'+(a.tm||'All day')+'</span><a class="agx" href="'+to+'">'+lead+'<span class="tx"><b>'+w+'</b> · '+nm+(a.x?'<span class="x"> · '+a.x+'</span>':'')+'</span></a>'+(btn||'<span></span>')+'</li>';
+    });
+    h+='</ul></section>';
+  });
+  h+='</div>';
+  h+='<h2 class="h18" style="margin-top:32px" id="wi">Your issues</h2><ul class="igrid" aria-labelledby="wi">';
+  ISS.forEach(function(i){
+    var hl=health(i);
+    h+='<li><a class="it'+(hl.dead?' dead':'')+'" href="#/issue/'+i.id+'">'+imark(i)+'<span class="itn">'+i.n.replace('e-cig','e\u2011cig')+(hl.risk?'<span class="sr">, at risk</span>'+ic('warn').replace('class="ic ','style="width:16px;height:16px;vertical-align:-2px;margin-left:8px;color:#7A4A00" class="ic '):'')+'</span>'+(hl.dead?'<span class="ith">none left</span>':'')+'</a></li>';
+  });
+  return h+'</ul></div>';
+}
+
+/* ---------- step sheets ---------- */
 function StepInner(id){
   if(id==='hearing')id='ask';
-  if(id==='ask'||id==='ask2')return AskInner(id);
-  var rs=id==='resubmit',I=iss(rs?'meals':'tobacco');
-  lastStep=id;
-  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:rs?'Resubmit testimony':'Write testimony',sub:rs?'School meals<span class="no">SB 3011</span>':'Flavored tobacco sales<span class="no">HB 1563</span>'});
+  if(id==='file')return FileInner();
+  var s=stepById(id)||stepById('write');
+  lastStep=s.id;
+  if(s.kind==='ask')return AskInner(s);
+  if(s.kind==='approve')return ApproveInner(s);
+  var rs=!!s.back,I=iss(s.iss);
+  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:s.t,sub:s.name+'<span class="no">'+s.no+'</span>'});
   h+='<div class="pbody">';
-  h+=rs?'<div class="strip calm">'+ic('clock')+'<strong>Due Thu 9:00 AM</strong><span>in 2 days</span><span class="ctx">Hearing Fri 1:30 PM · Senate Education</span></div>'
-       :'<div class="strip">'+ic('clock')+'<strong>Due Wed 2:00 PM</strong><span>in 22 hours</span><span class="ctx">Hearing Thu 2:00 PM · House Health · room 329</span></div>';
+  h+='<div class="strip'+(s.soon?'':' calm')+'">'+ic('clock')+'<strong>'+s.due+'</strong><span>in '+s.tp+'</span><span class="ctx">'+s.ctx+'</span></div>';
   if(rs)h+='<div class="note flag"><span class="person sm" aria-hidden="true">KR</span><div><div class="who">Kris sent it back</div><div>“Tighten the second paragraph.”</div></div></div>';
   h+='<div class="stgrid"><div class="stmain"><span class="lab" id="posl">Position</span><div class="chips" role="radiogroup" aria-labelledby="posl">'
    +['Support','Oppose','Comments'].map(function(p,i){return '<button class="chip" type="button" role="radio" aria-checked="'+(i===0)+'">'+ic('check')+p+'</button>';}).join('')+'</div>';
@@ -806,71 +823,170 @@ function StepInner(id){
   h+='<div class="sfoot"><button class="btn filled" type="button" id="sendBtn">'+(rs?'Resubmit':'Send for approval')+'</button><span class="fnote">Kris approves before it is filed.</span></div></div>';
   return h;
 }
-function AskInner(v){
-  var c=v==='ask2';lastStep=c?'ask2':'ask';
-  var risk=!c&&riskOn();
-  var I=iss(c?'tobacco':'sugar'),name=c?'Flavored tobacco sales (companion)':'Sugary drink fee',no=c?'SB 2988':'SB 2204';
-  var email="Dear Chair San Buenaventura,\n\nI am writing for the Hawaiʻi Public Health Institute about "+no+(c?", the companion to the flavored tobacco bill":", the sugary drink fee")+". The bill has not yet been scheduled for a hearing in your committee, and the first lateral deadline is Friday, March 20.\n\nWe respectfully ask that you schedule "+no+" for a hearing so the public can speak to it. Mahalo for your time.\n\nKevin\nHawaiʻi Public Health Institute";
-  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:'Ask for a hearing',sub:name+'<span class="no">'+no+'</span>'});
-  h+='<div class="pbody">'+(risk?'<div class="strip">'+ic('warn')+'<strong>Needs a hearing by Fri, Mar 20, or it stops for the year</strong><span>in 3 days</span></div><p class="lead" style="margin-top:-8px">This is the last bill alive for Sugary drinks this year.</p>'
-    :'<div class="strip calm">'+ic('clock')+'<strong>Needs a hearing by Fri, Mar 20</strong><span>in 3 days</span></div>');
-  h+='<div class="stgrid"><div class="stmain"><p class="chair"><span class="muted">The chair:</span> <b>Sen. San Buenaventura</b>, Senate Health and Human Services</p>'
-   +'<label class="lab" for="letter">Your email</label><textarea class="letter" id="letter" spellcheck="true">'+email+'</textarea>';
-  if(risk)h+='<div class="sfoot plain actrow"><button class="btn filled" type="button" id="sendBtn">Email the chair</button><div class="alt"><a class="btn quiet" href="#/public/HB1563"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Ask partners and the public</a><span class="ptag">Opens public mode</span></div></div>';
-  else h+='<div class="sfoot plain"><button class="btn filled" type="button" id="sendBtn">Email the chair</button></div>'+pubRow('Ask partners and the public to contact the chair','Opens public mode','#/public/HB1563');
+function AskInner(s){
+  var risk=!!s.risk&&riskOn(),I=iss(s.iss),name=s.name,no=s.no;
+  var email="Dear Chair San Buenaventura,\n\nI am writing for the Hawaiʻi Public Health Institute about "+no+", "+(s.id==='ask2'?'the companion to the flavored tobacco bill':name.charAt(0).toLowerCase()+name.slice(1))+". The bill has not yet been scheduled for a hearing in your committee, and the committee deadline is "+s.dl+".\n\nWe respectfully ask that you schedule "+no+" for a hearing so the public can speak to it. Mahalo for your time.\n\nKevin\nHawaiʻi Public Health Institute";
+  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:s.t,sub:name+'<span class="no">'+no+'</span>'});
+  var days=s.id==='later'?'in 10 days':'in 3 days';
+  h+='<div class="pbody">'+(risk?'<div class="strip">'+ic('warn')+'<strong>Needs a hearing by '+s.dl+', or it stops for the year</strong><span>'+days+'</span></div><p class="lead" style="margin-top:-16px">'+s.rk+'</p>'
+    :'<div class="strip calm">'+ic('clock')+'<strong>Needs a hearing by '+s.dl+'</strong><span>'+days+'</span></div>');
+  h+='<div class="stgrid"><div class="stmain"><p class="chair"><span class="muted">The chair:</span> <b>'+s.chair+'</b>, '+s.cmte+'</p>'
+   +'<p class="toaddr"><span class="muted">To</span> <b>'+s.to+'</b></p>'
+   +'<label class="sr" for="letter">Your email</label><textarea class="letter" id="letter" spellcheck="true">'+email+'</textarea>';
+  h+='<div class="sfoot plain actrow"><button class="btn filled" type="button" id="sendBtn">Email the chair</button><div class="alt"><a class="btn quiet" href="#/public/'+s.bid+'"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Ask partners and the public</a><span class="ptag">Opens public mode for '+no+'</span></div></div>';
   return h+'</div></div></div>';
+}
+function ApproveInner(s){
+  var I=iss(s.iss);
+  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:s.t,sub:s.name+'<span class="no">'+s.no+'</span>'});
+  h+='<div class="pbody"><div class="strip calm">'+ic('clock')+'<strong>'+s.due+'</strong><span>in '+s.tp+'</span><span class="ctx">'+s.ctx+'</span></div>';
+  h+='<div class="stgrid"><div class="stmain"><p class="who2"><span class="person sm" aria-hidden="true">ML</span><span><b>Mele</b> wrote this on Mon, Mar 16 and is waiting for you.</span></p>'
+   +'<div class="lethead"><span class="lab" id="rl">The letter</span><span class="qnote">Support · read only</span></div>'
+   +'<div class="letter ro" role="document" aria-labelledby="rl">'+LETTER3+'</div>'
+   +'<div class="sbnote" id="sbBox" hidden><label class="lab" for="sbNote">Your note to Mele</label><textarea class="field" id="sbNote" placeholder="What should change?">Please add the number of schools that have not tested yet.</textarea></div>'
+   +'</div></div>';
+  h+='<div class="sfoot" id="apFoot"><button class="btn filled" type="button" id="apBtn">Approve</button><button class="btn quiet" type="button" id="sbBtn">Send back</button><span class="fnote">Mele files it after you approve.</span></div></div>';
+  return h;
+}
+function FileInner(){
+  lastStep='file';
+  var I=iss('tobacco');
+  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:'File testimony',sub:'Flavored tobacco sales<span class="no">HB 1563</span>'});
+  h+='<div class="pbody"><div class="strip"><span style="display:contents">'+ic('clock')+'</span><strong>File it by Wed 2:00 PM</strong><span>in 22 hours</span><span class="ctx">Approved by Kris</span></div>';
+  h+='<div class="stgrid"><div class="stmain"><div class="pdfrow">'+ic('doc')+'<div class="g"><b>HB1563-testimony.pdf</b><span>The approved letter · 1 page</span></div><button class="btn text" type="button" data-toast="Downloaded. In the real app the PDF saves to your computer.">Download</button></div>'
+   +'<h2 class="h18">The Capitol’s form asks three things</h2>'
+   +[['Position','Support'],['Testifying as','Hawaiʻi Public Health Institute, organization'],['How you will testify','Written testimony only']].map(function(r){
+      return '<div class="copyrow"><div class="cq"><span>'+r[0]+'</span><b>'+r[1]+'</b></div><button class="btn text" type="button" data-toast="Copied: '+r[1]+'">Copy</button></div>';}).join('')
+   +'<div class="didfile" id="didFile" hidden><h2 class="h18">Did you file it?</h2></div>'
+   +'</div></div>';
+  h+='<div class="sfoot" id="flFoot"><button class="btn filled" type="button" id="subBtn">Submit on the Capitol site</button><span class="fnote">It opens the Capitol’s page. Come back here when you are done.</span></div></div>';
+  return h;
 }
 function StepBind(){
   var cs=document.querySelectorAll('.chip');
   cs.forEach(function(c){c.addEventListener('click',function(){cs.forEach(function(x){x.setAttribute('aria-checked',x===c)});});});
   var ta=document.getElementById('letter');
-  if(ta){var fit=function(){ta.style.height='auto';ta.style.height=Math.max(240,ta.scrollHeight+2)+'px';};fit();ta.addEventListener('input',fit);
+  if(ta&&ta.tagName==='TEXTAREA'){var fit=function(){ta.style.height='auto';ta.style.height=Math.max(240,ta.scrollHeight+2)+'px';};fit();ta.addEventListener('input',fit);
     if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);window.addEventListener('resize',fit);}
   var tb=document.getElementById('tpBtn'),tpop=document.getElementById('tpPop');
   if(tb){
     tb.addEventListener('click',function(e){e.stopPropagation();var o=tpop.hidden;tpop.hidden=!o;tb.setAttribute('aria-expanded',o);});
     tpop.addEventListener('click',function(e){e.stopPropagation();});
     document.addEventListener('click',function(){tpop.hidden=true;tb.setAttribute('aria-expanded','false');});
-    tpop.addEventListener('keydown',function(e){if(e.key==='Escape'){tpop.hidden=true;tb.focus();}});
     tb.addEventListener('keydown',function(e){if(e.key==='Escape'){tpop.hidden=true;tb.setAttribute('aria-expanded','false');}});
   }
   var b=document.getElementById('sendBtn');
-  if(b)b.addEventListener('click',function(){b.classList.add('is-loading');b.textContent='Sending';setTimeout(function(){location.hash='#/done';},180);});
+  if(b)b.addEventListener('click',function(){b.classList.add('is-loading');b.textContent='Sending';OUT='';setTimeout(function(){location.hash='#/done';},180);});
+  document.querySelectorAll('[data-toast]').forEach(function(e){e.addEventListener('click',function(){toast(e.getAttribute('data-toast'),null,4000);});});
+  var ap=document.getElementById('apBtn'),sb=document.getElementById('sbBtn');
+  if(ap){
+    ap.addEventListener('click',function(){OUT='approved';ap.classList.add('is-loading');ap.textContent='Approving';setTimeout(function(){location.hash='#/done';},180);});
+    sb.addEventListener('click',function(){
+      document.getElementById('sbBox').hidden=false;
+      var f=document.getElementById('apFoot');
+      f.innerHTML='<button class="btn filled" type="button" id="sbGo">Send back with this note</button><button class="btn quiet" type="button" id="sbCancel">Cancel</button>';
+      document.getElementById('sbNote').focus();
+      document.getElementById('sbGo').addEventListener('click',function(){OUT='back';location.hash='#/done';});
+      document.getElementById('sbCancel').addEventListener('click',function(){route();});
+    });
+  }
+  var sub=document.getElementById('subBtn');
+  if(sub)sub.addEventListener('click',function(){
+    toast('In the real app this opens the Capitol site in a new tab.',null,5000);
+    sub.className='btn quiet';
+    var d=document.getElementById('didFile');d.hidden=false;
+    document.getElementById('flFoot').innerHTML='<button class="btn filled" type="button" id="yesBtn">Yes, filed</button><button class="btn quiet" type="button" id="subBtn2">Submit on the Capitol site</button>';
+    document.getElementById('yesBtn').addEventListener('click',function(){OUT='';location.hash='#/done';});
+  });
 }
 function DoneInner(){
-  var ask=lastStep==='ask'||lastStep==='ask2';
-  var nm=lastStep==='ask2'?'Flavored tobacco sales (companion)':(stepById(lastStep)||STEPS[0]).name;
-  var nx=remaining()[0];
-  return '<div class="done"><div class="dtile">'+ic('check')+'</div><h1>'+(ask?'Sent to the chair.':'Sent to Kris.')+'</h1>'
-   +'<p class="sub">Nothing else needs you on '+nm+' until '+(ask?'the chair answers':'Kris answers')+'.</p>'
-   +'<p class="undo" id="undoLine"><button class="btn text" type="button" id="undoBtn">Undo</button></p>'
-   +'<div class="actions">'+(nx?'<a class="btn filled" href="#/do/'+nx.id+'">Next step: '+nx.t+'</a>':'<a class="btn quiet" href="#/">Back to Home</a>')+'</div></div>';
+  var s=stepById(lastStep),ask=s&&s.kind==='ask',nm=lastStep==='file'?'Flavored tobacco sales':(s?s.name:'');
+  var title,sub;
+  if(lastStep==='file'){title='Filed.';sub='Nothing else needs you on '+nm+'.';}
+  else if(s.kind==='approve'){
+    if(OUT==='back'){title='Sent back to Mele.';sub='Nothing else needs you on '+nm+' until Mele answers.';}
+    else{title='Approved.';sub='Mele can file it.';}
+  }
+  else if(ask){title='Sent to the chair.';sub='Nothing else needs you on '+nm+' until the chair answers.';}
+  else{title='Sent to Kris.';sub='Nothing else needs you on '+nm+' until Kris answers.';}
+  var nx=remaining()[0],n=weekLeft().length;
+  var h='<div class="done"><div class="dtile">'+ic('check')+'</div><h1>'+title+'</h1><p class="sub">'+sub+'</p>';
+  h+='<p class="left">'+(n?n+(n===1?' step':' steps')+' left this week':'You’re clear until Wed.')+'</p>';
+  if(!ask)h+='<p class="undo" id="undoLine"><button class="btn text" type="button" id="undoBtn">Undo</button> for 10 seconds</p>';
+  if(s&&s.kind==='approve'&&OUT!=='back')h+='<p><a class="btn text" href="#/do/file">See the filing step</a></p>';
+  h+='<div class="actions">'+(nx?'<a class="btn filled" href="#/do/'+nx.id+'">Next step: '+nx.t+'</a>':'<a class="btn quiet" href="#/">Back to Home</a>')+'</div></div>';
+  return h;
 }
 function DoneBind(){
-  var line=document.getElementById('undoLine');
-  tick=setTimeout(function(){if(line)line.style.visibility='hidden';},10000);
-  document.getElementById('undoBtn').addEventListener('click',function(){delete FIN[lastStep];location.hash='#/do/'+lastStep;});
+  var line=document.getElementById('undoLine'),ub=document.getElementById('undoBtn');
+  function undo(){delete FIN[lastStep];location.hash='#/do/'+lastStep;}
+  if(line){tick=setTimeout(function(){line.style.visibility='hidden';},10000);ub.addEventListener('click',undo);}
+  else toast('Sent. Undo for 10 seconds',undo,10000);
 }
-function SessionInner(calm){
+
+/* ---------- the session ---------- */
+function SessionInner(){
   var n=hearingsNeeded();
-  var h=nband('The session','The dates that decide what can happen to a bill this year.')+'<div class="pbody"><ul class="srows">';
-  SDATES.forEach(function(d){
-    var past=d[2]<=55,next=d[2]===58;
-    h+='<li class="srow'+(past?' past':'')+(next?' next':'')+'"><div class="sh"><h2 class="h18">'+d[0]+'</h2><span class="sdt">'+d[1]+'</span>'+(past?'<span class="stag">Passed</span>':(next?'<span class="tp soon">in 3 days</span>':''))+'</div><p>'+d[3]+'</p>';
+  var h=nband('The session','The dates that decide what can happen to a bill this year.')+'<div class="pbody">';
+  h+='<ol class="bpath" aria-label="The session’s dates">'+S.dates.map(function(d,i){
+    var cl=i<S.nowDate?'reached':(i===S.nowDate?'now':'next');
+    return '<li class="'+cl+'"><span class="stop"></span>'+d[0]+'<span class="dt">'+d[1].replace(/^\w+, /,'')+'</span>'+(i===S.nowDate?'<span class="nowtag">in 3 days</span>':'')+'</li>';}).join('')+'</ol>';
+  h+='<ul class="srows">';
+  S.dates.forEach(function(d,i){
+    var past=i<S.nowDate,next=i===S.nowDate;
+    h+='<li class="srow'+(past?' past':'')+(next?' next':'')+'"><div class="sh"><h2 class="h18">'+d[0]+'</h2><span class="sdt">'+d[1]+'</span>'+(past?'<span class="stag">Passed</span>':'')+'</div><p>'+d[3]+'</p>';
     if(next){
       if(!n)h+='<p class="empty">All your bills are on track.</p>';
       else{
         h+='<ul class="brows" style="margin-top:8px">';
-        [['SB2204','Sugary drink fee','SB 2204','sugar'],['SB2988','Flavored tobacco sales (companion)','SB 2988','tobacco']].forEach(function(b){
-          var I=iss(b[3]),act;
-          if(b[0]==='SB2204')act='<span class="already">'+(FIN.ask?'Asked':'Already in Needs you')+'</span>';
+        [['SB2204','ask'],['SB2988','ask2']].forEach(function(r){
+          var b=findBill(r[0]),I=iss(b.iss),act;
+          if(r[1]==='ask')act='<span class="already">'+(FIN.ask?'Asked':'Already in Your steps')+'</span>';
           else act=FIN.ask2?'<span class="already">Asked</span>':'<a class="btn quiet" href="#/do/ask2">Ask for a hearing</a>';
-          h+='<li><div class="brow dl2"><a class="bn2" href="#/bill/'+b[0]+'">'+imark(I,'sm')+'<span>'+b[1]+'<span class="bno">'+b[2]+'</span></span></a><span class="pc">'+act+'</span></div></li>';
+          h+='<li><div class="brow dl2"><a class="bn2" href="#/bill/'+b.id+'">'+imark(I,'sm')+'<span>'+b.name+'<span class="bno">'+b.n+'</span></span></a><span class="pc">'+act+'</span></div></li>';
         });
         h+='</ul>';
       }
     }
     h+='</li>';
+  });
+  return h+'</ul></div>';
+}
+
+/* ---------- steps, news, issues ---------- */
+function StepsInner(){
+  var rem=remaining(),sent=S.steps.filter(function(s){return !s.hide&&FIN[s.id];});
+  var h=nband('Your steps','Everything waiting on you, soonest first.')+'<div class="pbody">';
+  if(!rem.length)h+='<p class="lead">Nothing is waiting on you.</p>';
+  else h+='<ul class="xl">'+rem.map(function(s){
+    var soon=s.soon?' soon':'';
+    return '<li><a class="xrow row2" href="#/do/'+s.id+'">'+ic(s.ic)+'<span class="g"><span class="rt">'+s.t+' · <span style="font-weight:400">'+s.name+'</span></span><span class="rd">'+s.due+(s.risk&&riskOn()?' · <span class="w">'+ic('warn')+'at risk</span>':'')+(s.back?' · Kris sent it back':'')+'</span></span><span class="tm'+soon+'">'+(s.soon?ic('clock').replace('class="ic ','style="width:16px;height:16px;vertical-align:-3px;margin-right:4px" class="ic '):'')+s.tp+'</span></a></li>';}).join('')+'</ul>';
+  if(sent.length)h+='<div class="sec3"><h2>Waiting on others</h2><ul class="xl">'+sent.map(function(s){
+    return '<li><a class="xrow row2" href="#/bill/'+s.bid+'">'+ic('check')+'<span class="g"><span class="rt">'+s.name+'</span><span class="rd">'+(s.wait==='the chair'?'Chair’s move':s.wait+'’s move')+'</span></span></a></li>';}).join('')+'</ul></div>';
+  return h+'</div>';
+}
+function NewsInner(){
+  var h=nband('What stopped','Bills and issues you lead or follow that stopped for the year, newest first.')+'<div class="pbody">';
+  S.news.forEach(function(n){
+    var go='',I;
+    h+='<article class="newsi"><p class="dt">'+n.when+'</p><h2><a href="'+(n.kind==='issue'?'#/issue/'+n.iss:'#/bill/'+n.bid)+'" style="text-decoration:none">'+n.title+'</a></h2><p>'+n.body+'</p>';
+    if(n.risk&&riskOn())h+='<p class="risk">'+ic('warn').replace('class="ic ','style="width:16px;height:16px;vertical-align:-3px;margin-right:4px" class="ic ')+'The one that is left is at risk.</p>';
+    if(n.kind==='issue')h+='<div class="go"><a class="btn quiet" href="#/public/SB1190"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Tell partners and the public</a></div>';
+    h+='</article>';
+  });
+  return h+'<p class="muted" style="margin:24px 0 32px;font-size:14px">Each line leaves Home a week after it happens, or when you open this page.</p></div>';
+}
+function IssuesInner(){
+  var rows=ISS.map(function(i){
+    var hl=health(i),al=alive(i.id),b=furthest(i.id),nd=needs(i.id),txt;
+    if(hl.dead)txt='None alive this year';
+    else if(hl.risk)txt='At risk · Sugary drink fee needs a hearing by Fri, Mar 20';
+    else txt=al+' of '+i.k+' bills alive'+(nd?' · '+nd+(nd===1?' needs you':' need you'):'');
+    return {i:i,hl:hl,b:b,txt:txt};
+  }).sort(function(a,b){return a.hl.rank-b.hl.rank;});
+  var h=nband('Your issues','Every issue you hold, where its furthest bill is.')+'<div class="pbody"><ul class="xl">';
+  rows.forEach(function(r){
+    h+='<li><a class="irowl'+(r.hl.dead?' dead':'')+'" href="#/issue/'+r.i.id+'">'+imark(r.i)+'<span><span class="rt">'+r.i.n+'</span><span class="rd'+(r.hl.risk?' risk':'')+'">'+(r.hl.risk?ic('warn').replace('class="ic ','style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" class="ic '):'')+r.txt+'</span></span>'+track(r.b,r.i.c)+'</a></li>';
   });
   return h+'</ul></div>';
 }
@@ -882,39 +998,34 @@ function billRow(b,I){
 }
 function IssueInner(id){
   var I=iss(id),l=BL[I.id],nd=needs(I.id),al=alive(I.id),risk=I.id==='sugar'&&riskOn();
-  var sub=I.k+' bills · '+(al?al+' alive'+(risk?', at risk':'')+' · '+(nd?nd+' needs you':'nothing needs you'):'none alive this year');
+  var sub=I.k+' bills · '+(al?al+' alive'+(risk?', at risk':'')+' · '+(nd?nd+(nd===1?' needs you':' need you'):'nothing needs you'):'none alive this year');
   var h=hband(I,{title:I.n,sub:sub});
   h+='<div class="pbody">';
-  if(risk)h+='<div class="strip">'+ic('warn')+'<span class="stx">Sugary drink fee needs a hearing by Fri, Mar 20, or nothing is left alive for this issue this year.</span><a class="btn quiet" href="#/do/ask">Ask for a hearing</a></div>';
+  if(risk)h+='<div class="strip">'+ic('warn')+'<span class="stx">Sugary drink fee needs a hearing by Fri, Mar 20, or nothing is left alive for this issue this year.</span><a class="btn" href="#/do/ask">Ask for a hearing</a></div>';
   if(!al)h+='<p class="lead">Nothing more can happen on this issue this year.</p>';
   var live=l.filter(function(b){return !b.dead;}),dead=l.filter(function(b){return b.dead;});
   if(live.length)h+='<ul class="brows" style="--ic:'+I.c+'">'+live.map(function(b){return billRow(b,I);}).join('')+'</ul>';
-  if(dead.length)h+='<h2 class="h18 dh">Did not advance</h2><ul class="brows" style="margin-top:0">'+dead.map(function(b){return billRow(b,I);}).join('')+'</ul>';
-  if(l.length<I.k)h+='<p class="qnote" style="margin-top:24px">This sample shows '+l.length+' of the '+I.k+' bills.</p>';
-  if(!al)h+='<div class="bfoot">'+pubRow('Tell partners and the public','Opens public mode','#/public/HB1563')+'</div>';
+  if(dead.length)h+='<h2 class="h18 dh">Did not advance</h2><ul class="brows">'+dead.map(function(b){return billRow(b,I);}).join('')+'</ul>';
+  if(!al)h+='<div class="bfoot">'+pubRow('Tell partners and the public','Opens public mode','#/public/'+dead[0].id)+'</div>';
   return h+'</div>';
 }
-function backCrumb(I){return '<a class="crumb" href="#/issue/'+I.id+'"><span class="bk" aria-hidden="true">‹</span>'+I.n+'</a>';}
 function DeadBill(b){
   var I=iss(b.iss),al=BL[b.iss].filter(function(x){return !x.dead;});
-  var labs=['Introduced',b.stop,'Crossover','Second chamber','Governor'];
   var h=hband(I,{small:backCrumb(I),title:b.name+'<span class="hn">'+b.n+'</span>'});
   h+='<div class="pbody">'+leadLine(b.id)+'<h2 class="h18">Did not advance</h2><div class="where"><dl><dt>Stopped in</dt><dd class="next">'+b.stop+': it had no hearing by First decking (Fri, Mar 6).</dd>'
     +'<dt>Still alive</dt><dd>'+(al.length?al.map(function(x){return '<a class="lk" href="#/bill/'+x.id+'">'+x.name+'</a>';}).join(', '):'Nothing else is alive for this issue this year.')+'</dd></dl></div>';
-  h+='<ol class="bpath grey" aria-label="Where the bill stopped">';
-  labs.forEach(function(t,i){h+='<li class="'+(i===0?'reached':(i===1?'now':'next'))+'"><span class="stop"></span>'+t+(i===1?'<span class="nowtag">Stopped here</span>':'')+'</li>';});
-  h+='</ol><div class="notef"><label class="lab" for="nfy">A note for next year (optional)</label><input class="field" id="nfy" type="text" autocomplete="off"></div></div>';
+  h+='<ol class="bpath grey" aria-label="Where the bill stopped"><li class="reached"><span class="stop"></span>Introduced</li><li class="now"><span class="stop"></span>'+b.stop+'<span class="nowtag">Stopped here</span></li></ol>';
+  h+='<div class="notef"><label class="lab" for="nfy">A note for next year (optional)</label><input class="field" id="nfy" type="text" autocomplete="off"></div></div>';
   return h;
 }
 function stubBill(b){
   var I=iss(b.iss),mv=billMove(b);
   return hband(I,{small:backCrumb(I),title:b.name+'<span class="hn">'+b.n+'</span>'})
-   +'<div class="pbody">'+leadLine(b.id)+'<div class="where"><dl><dt>Now</dt><dd class="next">'+b.s+'</dd></dl>'+(mv?'<span class="ypill'+(mv[1]?' '+mv[1]:'')+'">'+mv[0]+'</span>':'')+'</div>'
-   +'<p class="muted" style="margin-top:24px">In this sample only Flavored tobacco sales is filled in.</p><div class="listfoot"><a class="btn text" href="#/bill/HB1563">Open Flavored tobacco sales</a></div></div>';
+   +'<div class="pbody">'+leadLine(b.id)+'<h2 class="h18">Where it stands</h2><div class="where"><dl><dt>Now</dt><dd class="next">'+b.s+'</dd></dl>'+(mv?'<span class="ypill'+(mv[1]?' '+mv[1]:'')+'">'+mv[0]+'</span>':'')+'</div>'
+   +'<div class="listfoot"><a class="btn text" href="#/bill/HB1563">Open Flavored tobacco sales</a></div></div>';
 }
 function BillInner(id){
-  var b=findBill(id);
-  if(!b)b=findBill('HB1563');
+  var b=findBill(id)||findBill('HB1563');
   if(b.dead)return DeadBill(b);
   if(b.id!=='HB1563')return stubBill(b);
   var I=iss('tobacco'),mv=billMove(b);
@@ -944,26 +1055,40 @@ function BillInner(id){
   return h;
 }
 
+/* ---------- alerts: how it reaches you ---------- */
+function AlertInner(){
+  var h=nband('How it reaches you','The same message comes by Slack and by email. Its button opens the step.')+'<div class="pbody"><div class="msgs">';
+  h+='<div class="pic"><p class="cap">In Slack</p><div class="smsg"><span class="sav" aria-hidden="true">H</span><div><div class="smn"><b>HIPHI Tracker</b><span>9:04 AM</span></div><p>Flavored tobacco sales has a hearing Thu 2:00 PM. Testimony is due Wed 2:00 PM.</p><a class="pbtn" href="#/do/write">Write testimony</a></div></div></div>';
+  h+='<div class="pic"><p class="cap">By email</p><div class="emeta"><b>From</b> HIPHI Tracker · <b>To</b> Kevin<br><b>Subject</b> Flavored tobacco sales has a hearing Thu 2:00 PM</div><div class="emsg"><p>Hi Kevin,</p><p>Flavored tobacco sales has a hearing Thu 2:00 PM. Testimony is due Wed 2:00 PM.</p><a class="pbtn" href="#/do/write">Write testimony</a></div></div>';
+  h+='</div><p class="muted" style="margin-top:32px;max-width:640px">After Kris approves it, the next message says: “Approved. File it by Wed 2:00 PM.” <a class="btn text" href="#/do/file">See the filing step</a></p><div style="height:32px"></div></div>';
+  return h;
+}
+
 /* ---------- wide sheets ---------- */
-var SORT={k:0,dir:1,q:''};
+var SORT={k:0,dir:1};
 var COLS=[['Name',1],['Number',-1],['Issue',3],['Position',4],['Lead',5],['Where it stands',-1]];
+function ALL(){return allBills().map(function(b){return [b.id,b.name,b.n,b.iss,b.pos||'Watching',b.lead,b.dead?'Did not advance':(b.s||b.at)];});}
 function BillsInner(){
   var h=nband('All bills','Every bill, HIPHI’s position and who leads it: the team’s list.');
   h+='<div class="pbody"><label class="sr" for="bf">Filter by topic, name or number</label><div class="filter"><input class="field" id="bf" type="search" placeholder="Filter by topic, name or number" autocomplete="off"></div>';
   h+='<div class="btwrap"><table class="tbl"><thead><tr id="bth"></tr></thead><tbody id="bt"></tbody></table></div><p class="empty" id="bnone" hidden>No bill matches. Try a topic, a name or a number.</p></div>';
   return h;
 }
+function matches(b,w){
+  var I=iss(b.iss),t=(b.name+' '+b.n+' '+I.n+' '+I.kw+' '+(b.kw||'')+' '+(b.at||b.stop||'')+' '+b.lead).toLowerCase().replace(/e-cigarettes?/g,'e-cigarette vape');
+  return w.every(function(x){return t.indexOf(x)>-1;});
+}
 function BillsBind(){
   var f=document.getElementById('bf'),body=document.getElementById('bt'),head=document.getElementById('bth'),none=document.getElementById('bnone');
   function draw(){
-    head.innerHTML=COLS.map(function(c,i){
+    head.innerHTML=COLS.map(function(c){
       if(c[1]<0)return '<th scope="col">'+c[0]+'</th>';
       var on=SORT.k===c[1];
       return '<th scope="col" aria-sort="'+(on?(SORT.dir>0?'ascending':'descending'):'none')+'"><button class="sortb" type="button" data-k="'+c[1]+'">'+c[0]+(on?'<span class="arr" aria-hidden="true">'+(SORT.dir>0?'▲':'▼')+'</span>':'')+'</button></th>';
     }).join('');
     head.querySelectorAll('.sortb').forEach(function(b){b.addEventListener('click',function(){var k=+b.getAttribute('data-k');if(SORT.k===k)SORT.dir=-SORT.dir;else{SORT.k=k;SORT.dir=1;}draw();});});
     var q=f.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    var rows=ALL.filter(function(r){var t=(r.join(' ')+' '+iss(r[3]).n).toLowerCase();return q.every(function(w){return t.indexOf(w)>-1;});});
+    var rows=allBills().filter(function(b){return matches(b,q);}).map(function(b){return [b.id,b.name,b.n,b.iss,b.pos||'Watching',b.lead,b.dead?'Did not advance':(b.s||b.at)];});
     if(SORT.k>0)rows.sort(function(a,b){var x=SORT.k===3?iss(a[3]).n:a[SORT.k===1?1:SORT.k],y=SORT.k===3?iss(b[3]).n:b[SORT.k===1?1:SORT.k];return SORT.dir*String(x).localeCompare(String(y));});
     body.innerHTML=rows.map(function(r){var I=iss(r[3]);
       return '<tr><td><a class="nm" href="#/bill/'+r[0]+'">'+r[1]+'</a></td><td class="num">'+r[2]+'</td><td><span class="iss">'+imark(I,'sm')+I.n+'</span></td><td class="pos'+(r[4]==='Watching'?' w':'')+'">'+r[4]+'</td><td>'+r[5]+'</td><td>'+r[6]+'</td></tr>';}).join('');
@@ -977,9 +1102,9 @@ function xg(title,items){
 }
 function ExploreInner(){
   var h=nband('Explore','Everything in the tracker. Looking never changes anything.')+'<div class="pbody"><div class="exgroups">';
-  h+='<div class="col">'+xg('Bills and issues',[['All bills','Every bill, HIPHI’s position and who leads it: the team’s list','#/bills'],['New bills to sort','Bills nobody has picked up yet'],['Issues','Bills grouped by what they are about']])
-    +xg('You',[['Your alerts','What we message you about'],['Help','Short answers, in plain words']])+'</div>';
-  h+='<div class="col">'+xg('Hearings and testimony',[['Calendar','When hearings are','#/calendar'],['Hearings to ask for','Bills that still need a hearing','#/deadline'],['Testimony library','Every letter we have sent, to start from']])
+  h+='<div class="col">'+xg('Bills and issues',[['All bills','Every bill, HIPHI’s position and who leads it: the team’s list','#/bills'],['New bills to sort','Bills nobody has picked up yet'],['Issues','Every issue you hold, with where its furthest bill is','#/issues']])
+    +xg('You',[['Your steps','Everything waiting on you, soonest first','#/steps'],['Your alerts','What we message you about, and how it looks','#/alert'],['Help','Short answers, in plain words']])+'</div>';
+  h+='<div class="col">'+xg('Hearings and testimony',[['Calendar','When hearings are','#/calendar'],['The session','The dates that decide what can happen to a bill','#/session'],['Testimony library','Every letter we have sent, to start from']])
     +xg('People',[['Team','Who is on the team and what they hold'],['Legislators','Who sits where, and who chairs'],['Committees','Members, rooms and meeting days']])+'</div>';
   h+='<div class="col"><section class="exgroup pubgroup"><div class="tag">'+ic('globe')+'Opens public mode</div><h2>The public site</h2><ul>'
     +[['What the public sees','The words on each public bill page','#/public/HB1563'],['Asks','The one thing we ask the public to do','#/public/HB1563'],['Lists','Groups of bills shown together'],['Supporters','People who joined the public site'],['Partners','Organizations working with us']].map(function(i){
@@ -987,46 +1112,57 @@ function ExploreInner(){
   return h+'</div></div>';
 }
 function CalendarInner(){
-  var days=[['Mon','16',[]],['Tue','17',[],1],
-    ['Wed','18',[['10:00 AM','Safe routes to school','HB 890','House Transportation · room 309','HB890','Testimony due Wed 8:00 AM']]],
-    ['Thu','19',[['2:00 PM','Flavored tobacco sales','HB 1563','House Health · room 329','HB1563','Testimony due Wed 2:00 PM']]],
-    ['Fri','20',[['1:30 PM','School meals','SB 3011','Senate Education · room 229','SB3011','Testimony due Thu 9:00 AM']],0,1]];
-  var soon=[['Wed 8:00 AM','Safe routes to school','HB 890','HB890'],['Wed 2:00 PM','Flavored tobacco sales','HB 1563','HB1563']];
-  var h=nband('Calendar','Hearings this week, Mar 16 to 20.')+'<div class="pbody"><ol class="week">';
-  days.forEach(function(d){
-    h+='<li class="day'+(d[3]?' today':'')+'"><div><span class="dnm">'+d[0]+'</span><span class="dnum">'+d[1]+'</span>'+(d[3]?'<span class="tdy">Today</span>':'')+(d[4]?'<span class="flat">First lateral</span>':'')+'</div>';
-    if(!d[2].length&&!d[3])h+='<p class="none">No hearings</p>';
-    d[2].forEach(function(x){h+='<a class="hcard" href="#/bill/'+x[4]+'"><span class="tm">'+x[0]+'</span><span class="rt">'+x[1]+'<span class="no">'+x[2]+'</span></span><span class="rd">'+x[3]+'</span><span class="rd due">'+x[5]+'</span></a>';});
-    if(d[3]){
-      h+='<p class="none">No hearings today</p><h3 class="dsoon">Due soon</h3>';
-      soon.forEach(function(x){h+='<a class="hcard" href="#/bill/'+x[3]+'"><span class="tm">'+x[0]+'</span><span class="rt">'+x[1]+'<span class="no">'+x[2]+'</span></span></a>';});
-    }
+  var W=S.weeks[CAL.wk],hs=S.hearings.filter(function(x){return x.wk===CAL.wk&&(!CAL.mine||x.mine);});
+  var h=nband('Calendar','Hearings '+(CAL.mine?'you follow':'at the Capitol')+', '+W.label+'.')+'<div class="pbody"><div class="cbar"><div class="chips" role="radiogroup" aria-label="Whose hearings">'
+   +[['Mine',true],['Everyone',false]].map(function(o){return '<button class="chip" type="button" role="radio" data-mine="'+o[1]+'" aria-checked="'+(CAL.mine===o[1])+'">'+ic('check')+o[0]+'</button>';}).join('')
+   +'</div><button class="btn text" type="button" id="wkBtn">'+(CAL.wk?'‹ This week':'Next week ›')+'</button></div><ol class="week">';
+  W.days.forEach(function(d,i){
+    var today=d[2]==='today',list=hs.filter(function(x){return x.d===i;});
+    h+='<li class="day'+(today?' today':'')+'"><div><span class="dnm">'+d[0]+'</span><span class="dnum">'+d[1]+'</span>'+(today?'<span class="tdy">Today</span>':'')+(d[2]==='flat'?'<span class="flat">First lateral</span>':'')+'</div>';
+    if(!list.length)h+='<p class="none">No hearings</p>';
+    list.forEach(function(x){h+='<a class="hcard" href="#/bill/'+x.id+'"><span class="tm">'+x.tm+'</span><span class="rt">'+x.name+'<span class="no">'+x.no+'</span></span><span class="rd">'+x.where+'</span>'+(x.mine&&x.due&&CAL.wk===0?'<span class="rd due">'+x.due+'</span>':'')+'</a>';});
     h+='</li>';
   });
-  return h+'</ol></div>';
+  return h+'</ol><p class="sessline">Session dates: <a class="lk" href="#/session">First lateral Fri, Mar 20</a> · Crossover Thu, Apr 9 · Second lateral Fri, Apr 17 · End of session Thu, May 7</p></div>';
+}
+function CalendarBind(){
+  document.querySelectorAll('[data-mine]').forEach(function(b){b.addEventListener('click',function(){CAL.mine=b.getAttribute('data-mine')==='true';route();});});
+  document.getElementById('wkBtn').addEventListener('click',function(){CAL.wk=CAL.wk?0:1;route();});
+}
+function SamplesInner(){
+  var L=[['Home, Your week','#/'],['A calm day','#/calm'],['How an alert reaches you','#/alert'],['Write testimony','#/do/write'],['Approve testimony','#/do/approve'],['File testimony','#/do/file'],['Ask for a hearing','#/do/ask'],['Your steps','#/steps'],['What stopped','#/news'],['Your issues','#/issues'],['The session','#/session'],['A stopped bill','#/bill/SB1422'],['Public mode','#/public/HB1563']];
+  return nband('Sample pages','For people judging the sample. Not part of the app.')+'<div class="pbody"><ul class="xl">'+L.map(function(l){return '<li><a class="xrow" href="'+l[1]+'"><span class="rt">'+l[0]+'</span></a></li>';}).join('')+'</ul></div>';
 }
 
-/* ---------- public mode (unchanged) ---------- */
-function Public(){
-  var h='<div class="pband" role="region" aria-label="Public mode"><strong>You are changing the public site</strong><a class="btn quiet" href="#/bill/HB1563">Leave public mode</a></div>';
-  h+='<div class="page wide pubpg bare enter"><p class="kicker" style="margin:0 0 4px">HB 1563</p><h1 style="margin-bottom:32px">Change the public page</h1><div class="pgrid"><form id="pform" onsubmit="return false">';
+/* ---------- public mode ---------- */
+var PUBD={
+ HB1563:{what:'This bill would end the sale of flavored tobacco products in Hawaiʻi, including flavored e-cigarettes that are made to appeal to young people.',ask:'Tell House Health you support HB 1563',thru:'Thu, Mar 19',opts:['Wed, Mar 18','Thu, Mar 19','Fri, Mar 20']},
+ SB2204:{what:'This bill would put a fee on sugary drinks sold in Hawaiʻi and use the money for children’s health programs.',ask:'Tell the Senate you want SB 2204 heard',thru:'Fri, Mar 20',opts:['Thu, Mar 19','Fri, Mar 20','Mon, Mar 23']}
+};
+var pubId='HB1563';
+function pubData(id){var b=findBill(id)||findBill('HB1563');return PUBD[id]||{what:'This bill is about '+b.name.toLowerCase()+'.',ask:'Tell your legislators you care about '+b.n,thru:'Fri, Mar 20',opts:['Thu, Mar 19','Fri, Mar 20','Mon, Mar 23']};}
+function Public(id){
+  pubId=findBill(id)?id:'HB1563';
+  var b=findBill(pubId),D=pubData(pubId);
+  var h='<div class="pband" role="region" aria-label="Public mode"><strong>You are changing the public site</strong><a class="btn quiet" href="#/bill/'+pubId+'">Leave public mode</a></div>';
+  h+='<div class="page wide pubpg bare enter"><p class="kicker" style="margin:0 0 4px">'+b.n+'</p><h1 style="margin-bottom:32px">Change the public page</h1><div class="pgrid"><form id="pform" onsubmit="return false">';
   h+='<div class="fld"><div class="switch"><span class="lab" id="onl" style="margin:0">Show on the public site</span><span style="display:flex;align-items:center"><span class="swstate" id="swst">On</span><button type="button" class="sw" role="switch" aria-checked="true" aria-labelledby="onl" id="pon"></button></span></div><p class="kicker" style="margin-top:4px">Nothing changes for the public until Nate approves.</p></div>';
-  h+='<div class="fld"><label class="lab" for="pname">Short name</label><input class="field" id="pname" value="Flavored tobacco sales"></div>';
-  h+='<div class="fld"><label class="lab" for="pwhat">What it does, in plain words</label><textarea class="field" id="pwhat" rows="4">This bill would end the sale of flavored tobacco products in Hawaiʻi, including flavored e-cigarettes that are made to appeal to young people.</textarea></div>';
-  h+='<div class="fld"><label class="lab" for="pask">The ask</label><input class="field" id="pask" value="Tell House Health you support HB 1563"></div>';
-  h+='<div class="fld"><label class="lab" for="pthru">Shows through</label><select class="field" id="pthru"><option>Wed, Mar 18</option><option selected>Thu, Mar 19</option><option>Fri, Mar 20</option></select></div>';
-  h+='<div class="psend"><button class="btn filled" type="button" id="psend">Send to Nate to publish</button></div></form>';
-  h+='<section aria-labelledby="pv"><h2 id="pv">What the public will see</h2><div class="preview" id="pcard"></div><p class="plabel">This is a preview. It updates as you type.</p></section></div></div>';
+  h+='<div class="fld"><label class="lab" for="pname">Short name</label><input class="field" id="pname" value="'+b.name+'"></div>';
+  h+='<div class="fld"><label class="lab" for="pwhat">What it does, in plain words</label><textarea class="field" id="pwhat" rows="4">'+D.what+'</textarea></div>';
+  h+='<div class="fld"><label class="lab" for="pask">The ask</label><input class="field" id="pask" value="'+D.ask+'"></div>';
+  h+='<div class="fld"><label class="lab" for="pthru">Shows through</label><select class="field" id="pthru">'+D.opts.map(function(o){return '<option'+(o===D.thru?' selected':'')+'>'+o+'</option>';}).join('')+'</select></div>';
+  h+='<div class="psend"><button class="btn filled big" type="button" id="psend">Send to Nate to publish</button></div></form>';
+  h+='<section aria-labelledby="pv"><h2 id="pv">What the public will see</h2><div class="preview" id="pcard" aria-hidden="false"></div><p class="plabel">A picture of the public page. It updates as you type, and its button does nothing here.</p></section></div></div>';
   return h;
 }
 function PublicBind(){
-  var on=true,$=function(i){return document.getElementById(i)};
+  var on=true,b=findBill(pubId),$=function(i){return document.getElementById(i)};
   function draw(){
     var c=$('pcard');
-    if(!on){c.className='preview offcard';c.innerHTML='<p class="pk">HB 1563</p><p class="pt">Not shown on the public site</p><p class="pw">People visiting the public site will not see this bill.</p>';return;}
+    if(!on){c.className='preview offcard';c.innerHTML='<p class="pk">'+b.n+'</p><p class="pt">Not shown on the public site</p><p class="pw">People visiting the public site will not see this bill.</p>';return;}
     c.className='preview';
-    c.innerHTML='<p class="pk"></p><p class="pt"></p><p class="pw"></p><span class="pa"></span><p class="pf"></p>';
-    c.querySelector('.pk').textContent='HB 1563 · Hearing Thu, Mar 19';
+    c.innerHTML='<p class="pk"></p><p class="pt"></p><p class="pw"></p><span class="pa" aria-hidden="true"></span><p class="pf"></p>';
+    c.querySelector('.pk').textContent=b.n+' · Hearing '+$('pthru').value;
     c.querySelector('.pt').textContent=$('pname').value||'Add a short name';
     c.querySelector('.pw').textContent=$('pwhat').value;
     c.querySelector('.pa').textContent=$('pask').value||'Add an ask';
@@ -1048,21 +1184,23 @@ function toast(msg,undo,ms){
   toastTimer=setTimeout(function(){t.classList.remove('on');},ms||10000);
 }
 
-/* ---------- search ---------- */
+/* ---------- search: understands how staff talk ---------- */
 var scrim=document.getElementById('scrim'),sField=document.getElementById('sField'),sBtn=document.getElementById('searchBtn'),lastFocus=null;
 function drawRes(q){
   var w=q.toLowerCase().split(/\s+/).filter(Boolean),h='',n=0;
+  if(!w.length){
+    ISS.slice(0,4).forEach(function(I){h+='<li><a class="xrow ires" href="#/issue/'+I.id+'">'+imark(I,'sm')+'<span><span class="rt">'+I.n+'</span><span class="rd">Issue · '+I.k+' bills</span></span></a></li>';});
+    document.getElementById('sKick').textContent='Suggestions';
+    document.getElementById('sRes').innerHTML=h;return;
+  }
   ISS.forEach(function(I){
-    var bs=BL[I.id].filter(function(b){var t=(b.name+' '+b.n+' '+I.n).toLowerCase();return w.every(function(x){return t.indexOf(x)>-1;});});
-    var im=w.every(function(x){return I.n.toLowerCase().indexOf(x)>-1;});
-    if(w.length&&!bs.length&&!im)return;
-    if(!w.length&&n>=4)return;
-    n++;
-    h+='<li><a class="xrow ires" href="#/issue/'+I.id+'">'+imark(I,'sm')+'<span><span class="rt">'+I.n+'</span><span class="rd">Issue · '+I.k+' bills</span></span></a>';
-    if(w.length&&bs.length)h+='<ul class="sub2">'+bs.map(function(b){return '<li><a class="xrow" href="#/bill/'+b.id+'"><span class="rt">'+b.name+'<span class="no">'+b.n+'</span></span></a></li>';}).join('')+'</ul>';
-    h+='</li>';
+    var t=(I.n+' '+I.kw).toLowerCase();
+    if(w.every(function(x){return t.indexOf(x)>-1;})){n++;h+='<li><a class="xrow ires" href="#/issue/'+I.id+'">'+imark(I,'sm')+'<span><span class="rt">'+I.n+'</span><span class="rd">Issue · '+I.k+' bills</span></span></a></li>';}
   });
-  document.getElementById('sKick').textContent=q?(n?'Found by your words':'Nothing found. Try a topic or a name.'):'Suggestions';
+  allBills().filter(function(b){return matches(b,w);}).slice(0,8).forEach(function(b){
+    n++;h+='<li><a class="xrow ires" href="#/bill/'+b.id+'">'+imark(iss(b.iss),'sm')+'<span><span class="rt">'+b.name+'<span class="no">'+b.n+'</span></span><span class="rd">'+(b.dead?'Did not advance':posWords(b))+' · '+b.lead+' leads</span></span></a></li>';
+  });
+  document.getElementById('sKick').textContent=n?'Found by your words':'Nothing found. Try a topic, a name or a committee.';
   document.getElementById('sRes').innerHTML=h;
 }
 drawRes('');
@@ -1090,27 +1228,28 @@ function route(){
   clearTimeout(tick);clearTimeout(toastTimer);document.getElementById('toast').classList.remove('on');closeSearch();
   var p=(location.hash||'#/').slice(1)||'/',m,lap=LAP.matches;
   if(p==='/calm')calmMode=true;else if(p==='/')calmMode=false;
-  if(p==='/done')FIN[lastStep]=1;
-  var rem=remaining();
+  if(p==='/done'&&lastStep!=='file')FIN[lastStep]=1;
+  if(p==='/news')NEWSREAD=true;
   var v={key:'home',title:'Home',inner:'',bind:null,cls:'',sel:{},list:true,wide:false,chrome:true,back:'',phoneBare:false};
-  if(p==='/'||p==='/calm'){
-    v.home=true;
-    if(rem.length){v.sel.step=rem[0].id;v.inner=StepInner(rem[0].id);v.bind=StepBind;v.cls=' stepn';}
-    else{v.sel.issue=ISS[0].id;v.inner=IssueInner(ISS[0].id);}
-  }
-  else if((m=p.match(/^\/do\/(\w+)$/))){var sid=m[1]==='hearing'?'ask':m[1];v.sel.step=sid;v.inner=StepInner(sid);v.bind=StepBind;v.cls=' stepn';v.back='Back to Home';v.title='Step';v.phoneBare=true;v.chrome=false;}
-  else if(p==='/done'){v.inner=DoneInner();v.bind=DoneBind;v.title='Done';v.phoneBare=true;v.chrome=false;}
-  else if(p==='/deadline'||p==='/session'){v.sel.sess=1;v.inner=SessionInner(calmMode);v.back='Back to Home';v.title='The session';}
-  else if((m=p.match(/^\/issue\/(\w+)$/))){v.sel.issue=iss(m[1]).id;v.inner=IssueInner(v.sel.issue);v.back='Back to Home';v.title='Issue';}
-  else if((m=p.match(/^\/bill\/(\w+)$/))){var b=findBill(m[1]);v.sel.issue=b?b.iss:'tobacco';v.inner=BillInner(m[1]);v.title='Bill';}
+  if(p==='/'||p==='/calm'){v.home=true;v.inner=WeekInner();}
+  else if((m=p.match(/^\/do\/(\w+)$/))){var sid=m[1]==='hearing'?'ask':m[1];v.sel.step=sid;v.inner=StepInner(sid);v.bind=StepBind;v.cls=' stepn';v.back='Back to Home';v.title='Step';v.phoneBare=true;}
+  else if(p==='/done'){v.inner=DoneInner();v.bind=DoneBind;v.title='Done';v.phoneBare=true;}
+  else if(p==='/deadline'||p==='/session'){v.sel.link='sess';v.inner=SessionInner();v.back='Back to Home';v.title='The session';}
+  else if(p==='/steps'){v.inner=StepsInner();v.back='Back to Home';v.title='Your steps';}
+  else if(p==='/news'){v.sel.link='news';v.inner=NewsInner();v.back='Back to Home';v.title='What stopped';}
+  else if(p==='/issues'){v.sel.link='issues';v.inner=IssuesInner();v.back='Back to Home';v.title='Your issues';}
+  else if(p==='/alert'){v.inner=AlertInner();v.back='Back to Home';v.title='How it reaches you';}
+  else if((m=p.match(/^\/issue\/(\w+)$/))){v.inner=IssueInner(m[1]);v.back='Back to Home';v.title='Issue';}
+  else if((m=p.match(/^\/bill\/(\w+)$/))){v.inner=BillInner(m[1]);v.title='Bill';}
   else if(p==='/bills'){v.list=false;v.wide=true;v.inner=BillsInner();v.bind=BillsBind;v.key='explore';v.back='Back to Explore';v.title='All bills';}
   else if(p==='/explore'){v.list=false;v.wide=true;v.inner=ExploreInner();v.key='explore';v.title='Explore';}
-  else if(p==='/calendar'){v.list=false;v.wide=true;v.cls=' cal';v.inner=CalendarInner();v.key='calendar';v.title='Calendar';}
-  else if(p.indexOf('/public/')===0){v.pub=true;v.bind=PublicBind;v.title='Public mode';v.chrome=false;}
+  else if(p==='/samples'){v.list=false;v.wide=true;v.inner=SamplesInner();v.key='explore';v.title='Sample pages';}
+  else if(p==='/calendar'){v.list=false;v.wide=true;v.inner=CalendarInner();v.bind=CalendarBind;v.key='calendar';v.title='Calendar';}
+  else if((m=p.match(/^\/public\/(\w+)$/))){v.pub=true;v.pid=m[1];v.bind=PublicBind;v.title='Public mode';v.chrome=false;}
   else{location.hash='#/';return;}
   var pub=!!v.pub,html='',wsOn=false;
-  var lo={rem:rem,calm:calmMode,step:v.sel.step,issue:v.sel.issue,sess:v.sel.sess};
-  if(pub)html=Public();
+  var lo={step:v.sel.step,link:v.sel.link};
+  if(pub)html=Public(v.pid);
   else if(lap){
     wsOn=true;
     var old=document.getElementById('wl'),st=old?old.scrollTop:0;
@@ -1119,23 +1258,19 @@ function route(){
     app.innerHTML=html;
     var nl=document.getElementById('wl');if(st&&nl)nl.scrollTop=st;
   }
-  else if(v.home){lo.phone=true;lo.step='';lo.issue='';html='<div class="page">'+ListInner(lo)+'</div>';}
+  else if(v.home){lo.phone=true;html='<div class="page">'+ListInner(lo)+'<div class="paper"><div class="pn enter">'+v.inner+'</div></div></div>';}
   else html='<div class="page'+(v.phoneBare?' bare':'')+'">'+(v.back?'<a class="back" href="'+(v.back==='Back to Explore'?'#/explore':'#/')+'">'+ic('left')+v.back+'</a>':'')+'<div class="paper"><div class="pn'+(v.wide?' wide':'')+v.cls+' enter">'+v.inner+'</div></div></div>';
   root.dataset.mode=pub?'public':'staff';
   if(!wsOn)app.innerHTML=html;
-  var chrome=lap?!pub:v.chrome;
+  var chrome=lap?!pub:(!pub&&(v.chrome&&!v.phoneBare));
   document.body.classList.toggle('isws',wsOn);root.classList.toggle('isws',wsOn);
   bar.classList.toggle('off',!chrome);
   document.body.classList.toggle('hasbar',chrome);
   document.querySelectorAll('.bi[data-k]').forEach(function(x){if(x.getAttribute('data-k')===v.key&&x.tagName==='A')x.setAttribute('aria-current','page');else x.removeAttribute('aria-current');});
   var h1=app.querySelector('h1');if(h1)h1.setAttribute('tabindex','-1');
-  document.title=v.title+' · Staff app, look A';
+  document.title=v.title+' · Staff app, look A3';
   window.scrollTo(0,0);
   var pp=document.getElementById('paper');if(pp)pp.scrollTop=0;
-  document.querySelectorAll('[data-go]').forEach(function(e){e.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();location.hash=e.getAttribute('data-go');});});
-  document.querySelectorAll('[data-got]').forEach(function(e){e.addEventListener('click',function(ev){
-    ev.preventDefault();var id=e.getAttribute('data-got');GOT[id]=1;route();
-    toast('Closed. You can still find it in its issue.',function(){delete GOT[id];route();},10000);});});
   if(v.bind)v.bind();
 }
 window.toast=toast;
