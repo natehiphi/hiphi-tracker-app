@@ -95,3 +95,68 @@ html.vc .sv-menugroup { margin: 12px 0 2px; padding: 0 16px; font-size: .75rem; 
 html.vc .vc-picks .bw-f + .bw-f::before { content: none; }
 /* A phone rule for links in the bill panel made Team talk an inline chip on a phone; the row stays a full-width card. */
 html.vc body .vc-talk > a { display: flex !important; width: 100%; box-sizing: border-box; padding: 0 14px !important; }
+
+/* ---- Outreach area (R-397 round 2) ----
+   Nate 13 Nov: "anything that is dealing with public access or outreach needs to be greatly separated from the tracker page. It needs
+   to have a separate look and color and not look integrated." app.js puts html.vc-out on the Outreach screens (asks, emails, the
+   composer, supporters, lists, partner update, partner groups, public changes, a bill's Public tab) and draws its own frame: a rose
+   strip, a plum band with its own tabs and a Back to the tracker button, and no tracker sidebar or phone bar. The colours are a plum
+   and rose family that replaces the tracker's blue-green, by redefining the same --v6-* tokens, so every Outreach screen turns at once.
+   Contrast, least of page / card / wash: ink 14.2, body 9.3, muted 5.6, links and buttons' words (rose) 5.2, pressed rose 6.8, white on
+   rose 6.1, white on plum band 14.5; field edge 3.5; rose on its wash 5.2. late, bad and ok keep the tracker's amber, red and green, which stay
+   distinct from the rose (a pinkish magenta, hue 335, beside red at hue 5; each is also said in words and an icon). */
+html.vc.vc-out body.staff6 {
+  --v6-page: #FBF6F8; --v6-card: #FFFFFF; --v6-wash: #F3E9EF; --v6-hair: #EADDE4;
+  --v6-ink: #2A1530; --v6-body: #4A3453; --v6-muted: #6B5573; --v6-field: #8A7494;
+  --v6-action: #A63A68; --v6-action-press: #8A2F56; --v6-action-wash: #F7E8EF; --v6-action-hover: #F5E3EC;
+  --v6-band: #3A1D47; --v6-hover: #FDFAFB; --v6-wash-hover: #EBDDE5; --v6-shimmer: #F5ECF1; --v6-tab-hover: #F1E4EB;
+  --v6-shadow: 58, 29, 71; --v6-ink-rgb: 42, 21, 48; --v6-page-rgb: 251, 246, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 58, 29, 71;
+  --n300: #D9C6D1; --p100: #EBCFDD; --p200: #D9A1BA; --p300: #C77497; --p400: #B65480; --p500: #A63A68; --p600: #962F5B; --p900: #4A1530;
+  --bad-press: #8C2920;
+  --tabbar: 0px;
+}
+/* the frame: one full-width column (no sidebar), its own header; the page's own tab row is the band's now */
+@media (min-width: 768px) { html.vc-out #app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "band" "page"; } }
+html.vc-out main .sv-secnav { display: none; }
+html.vc-out body.staff6 main { padding-bottom: var(--s32, 32px); }
+
+.vo-top { position: relative; z-index: 40; }
+@media (min-width: 768px) { .vo-top { position: sticky; top: 0; } html.vc-out body.staff6 { --header: 126px; } body.staff6:has(.band) .vo-top { top: 28px; } }
+@media (max-width: 767px) { html.vc-out body.staff6 { --header: 0px; } }
+.vo-strip { margin: 0; padding: 4px var(--v6-gutter); background: #F2C9DA; color: #2A1530; font: 500 var(--v6-t14, 14px)/20px var(--font, Lato, system-ui, sans-serif); letter-spacing: .01em; }
+.vo-hdr { background: var(--v6-band); color: #FFFFFF; padding: 0 var(--v6-gutter); }
+.vo-row, .vo-tabs { max-width: 1120px; margin: 0; }
+.vo-row { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+.vo-brand { display: inline-flex; align-items: center; gap: 10px; flex: none; color: #FFFFFF; text-decoration: none; }
+.vo-brand:focus-visible, .vo-back:focus-visible, .vo-tabs a:focus-visible, .vo-srch:focus-visible { outline: 3px solid #F2C9DA; outline-offset: 2px; }
+.vo-mk { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #A63A68; color: #FFFFFF; }
+.vo-mk svg { width: 20px; height: 20px; }
+.vo-name { font: 600 var(--v6-t18, 18px)/1.2 Poppins, system-ui, sans-serif; letter-spacing: -.01em; white-space: nowrap; }
+.vo-search { position: relative; display: none; align-items: center; flex: 1 1 auto; max-width: 400px; margin-left: 12px; }
+.vo-search svg { position: absolute; left: 12px; width: 18px; height: 18px; color: #6B5573; pointer-events: none; }
+.vo-search input { width: 100%; min-height: 40px; padding: 0 14px 0 38px; border: 0; border-radius: var(--v6-pill, 999px); background: #FFFFFF; color: #2A1530; font: 400 var(--v6-t16, 16px)/24px var(--font, Lato, system-ui, sans-serif); }
+.vo-search input::placeholder { color: #6B5573; opacity: 1; }
+.vo-search input:focus-visible { outline: 3px solid #F2C9DA; outline-offset: 2px; }
+.vo-srch { display: none; }
+.vo-back { display: inline-flex; align-items: center; gap: 8px; flex: none; margin-left: auto; min-height: 44px; padding: 0 16px 0 12px; border-radius: var(--v6-pill, 999px); background: #FFFFFF; color: #3A1D47; text-decoration: none; font: 600 var(--v6-t16, 16px)/24px var(--font, Lato, system-ui, sans-serif); white-space: nowrap; }
+.vo-back svg { width: 18px; height: 18px; }
+.vo-back:hover { background: #F7E8EF; }
+@media (min-width: 768px) { .vo-search { display: flex; } }
+@media (max-width: 479px) { .vo-row { gap: 8px; } .vo-mk { width: 32px; height: 32px; } .vo-name { font-size: 17px; } .vo-back { padding: 0 12px 0 10px; font-size: 15px; gap: 6px; } }
+.vo-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.vo-tabs::-webkit-scrollbar { display: none; }
+.vo-tabs a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; color: #F0DCE7; text-decoration: none; border-bottom: 3px solid transparent; font: 600 var(--v6-t16, 16px)/24px var(--font, Lato, system-ui, sans-serif); white-space: nowrap; }
+.vo-tabs a:hover { background: rgba(255, 255, 255, .1); color: #FFFFFF; }
+.vo-tabs a[aria-current="page"] { color: #FFFFFF; border-bottom-color: #F2C9DA; }
+.vo-n { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: var(--v6-pill, 999px); background: #F2C9DA; color: #2A1530; font: 700 var(--v6-t14, 14px)/22px var(--font, Lato, system-ui, sans-serif); text-align: center; }
+
+/* Outreach's own Needs you (asks.js, today.js t6OutNeedHTML): the rows Home does not show, with Today's own buttons */
+.ot-need { margin: 20px 0 28px; }
+.ot-need-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font: 600 var(--v6-t22, 22px)/1.25 Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+.ot-need-n { display: inline-block; padding: 0 9px; border-radius: var(--v6-pill, 999px); background: var(--v6-action-wash); color: var(--v6-action-press); font: 600 var(--v6-t14, 14px)/22px var(--font, Lato, system-ui, sans-serif); }
+html.vc body.staff6 .ot-need .ot-need-list.v6-list { display: grid; gap: 8px; background: none; box-shadow: none; border-radius: 0; padding: 0; }
+.ot-need .v6-row { background: var(--v6-card); border-radius: var(--v6-r12, 12px); box-shadow: var(--v6-sh1); }
+
+/* More's one door to Outreach: a rose tile, so it reads as a different place from the tracker's rows (More is the tracker's blue-green) */
+html.vc .v6-more-row.vc-door .v6-more-ic { background: #F7E8EF; color: #A63A68; }
+html.vc .v6-more-row.vc-door .v6-more-n { background: #A63A68; color: #FFFFFF; }

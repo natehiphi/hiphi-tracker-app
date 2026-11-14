@@ -1576,3 +1576,24 @@ export const t6Fresh = () => { MEMO.clear(); };
 // R-397 version C: Home draws the viewer's own testimony and chair-ask steps with Today's own words, buttons and Done banner.
 export { jobOf as t6JobOf, rowWords as t6Words, byTime as t6ByTime, vbBanner as t6Banner, JOB_NAME as T6JOB, newNotice as t6NewNotice };
 export { rowOf as t6Row, groupsOf as t6Groups, nextCard as t6Next, roCard as t6RoCard, sittingsToday as t6Sittings, seasonOf as t6Season, REG as T6REG };
+// R-397 version C: Outreach's own "Needs you" (asks.js draws it at the top of This week's asks). These are the rows Home no longer
+// shows: the public ask to write, an email to approve, fix or send, the partners' words, a follow-up with a supporter, "keep the
+// public ask up?". The rows and their buttons are Today's own (miniOf's rowBtn, and the one click listener above), so each button
+// does here exactly what it does on Today; a row keeps its button whatever its day (Today shows buttons only for what is due).
+const OUT_KINDS = new Set(['rally', 'email', 'fix', 'send', 'askup', 'partner', 'followup']);
+export function t6OutNeed(v = S.me) {
+  try { wantQueue(); return work(v).own.filter(it => OUT_KINDS.has(it.kind) || (it.kind === 'todo' && it.share)); } catch (e) { console.error(e); return []; }
+}
+export function t6OutRow(it, v = S.me) {
+  REG.set(it.key, it);
+  const y = rowWords(it, v), r = it.kind === 'partner' ? pqRow(it.p, { short: true }) : miniOf(it, v);
+  // The partners' words have no row button on Today (they open beside the list), so here a Review opens the group's page, where the words are read and approved.
+  const button = it.kind === 'partner' ? btn('Review', { kind: 'secondary', sm: true, href: r.href }) : r.rowBtn ? iconizeButtons(r.rowBtn) : '';
+  return itemRow({ key: it.key, name: y.name, num: y.num, line: y.line, tone: y.tone, icon: y.icon, bold: y.bold, href: (r && r.href) || (it.b ? billRoute(it.b) : '#/'), button, cls: `t6-k-${it.kind}` });
+}
+export const t6OutWire = root => { try { wirePartner(root); } catch (e) { console.error(e); } };
+// The "Needs you" block itself: nothing at all when nothing waits. `.t6-root` is what Today's one click listener looks for.
+export function t6OutNeedHTML(v = S.me) {
+  const items = t6OutNeed(v); if (!items.length) return '';
+  return `<section class="t6-root ot-need" aria-labelledby="ot-need-h"><h2 class="ot-need-h" id="ot-need-h">Needs you <span class="ot-need-n">${items.length}</span></h2><div class="v6-list ot-need-list" role="list">${items.map(it => t6OutRow(it, v)).join('')}</div></section>`;
+}

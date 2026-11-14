@@ -60,10 +60,10 @@ export const youName = (a = S.me) => { const p = String(a?.full_name || '').trim
 
 // One labelled row: icon, name, one plain line; a count when the place has one (the Inbox's unread). `you` is a button that
 // opens the account menu (app.js wires [data-you] on every page; the sidebar's You uses it).
-export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext = false, act = '', cls = '' } = {}) {
+export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext = false, act = '', cls = '', countWord = 'unread' } = {}) {
   const [h, i, name, , l] = PLACES[k] || ['#/', 'circle', k, k, ''];
   const lead = you ? `<span class="v6-more-ic">${avatar(S.me, 40)}</span>` : `<span class="v6-more-ic">${icon(ic || i)}</span>`;
-  const n = count ? `<span class="v6-more-n" aria-label="${count} unread">${count > 99 ? '99+' : count}</span>` : '';
+  const n = count ? `<span class="v6-more-n" aria-label="${count} ${countWord}">${count > 99 ? '99+' : count}</span>` : '';
   const inner = `${lead}<span class="v6-more-tx"><span class="v6-more-nm">${esc(label || (you ? `You · ${youName()}` : name))}</span><span class="v6-more-ln">${esc(line ?? l)}</span></span>${n}${icon(ext ? 'external-link' : 'chevron-right', { cls: 'chev' })}`;
   return you ? `<button type="button" class="v6-more-row" data-you aria-haspopup="menu">${inner}</button>`
     : `<a class="v6-more-row${cls ? ' ' + cls : ''}" href="${esc(href || h)}"${ext ? ' target="_blank" rel="noopener"' : ''}${act ? ` data-act="${esc(act)}"` : ''}>${inner}</a>`;
