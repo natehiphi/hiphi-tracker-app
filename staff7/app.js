@@ -1,9 +1,10 @@
 // Staff7: boots the practice data, routes between Home, a step and its done moment, and draws the frame (doors, left list, right sheet).
 import { S, DB, DEMO, hooks, advocate } from '../staff6/data.js';
-import { stepsFor, homeRows, BUILT, hearingLine, dayTime, left } from './steps.js';
+import { stepsFor, homeRows, hearingLine, dayTime, left } from './steps.js';
 import { stepRow, dueStrip, band, plainBand, btn, esc, toast, wireToast, toastHTML } from './parts.js';
 import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
-import { doneSheet, bindDone, stopDone } from './done.js';
+import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
+import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
 
 const $ = id => document.getElementById(id);
@@ -12,10 +13,19 @@ const DOORS = [['home', 'Home', 'house', '#/'], ['issues', 'Issues', 'layers', '
 const WILL = { issues: 'Your issues and your teammates’, with every bill on each.', calendar: 'The week’s hearings and deadlines, in one place.', search: 'Go straight to a bill, a person, an issue or a place.', explore: 'Every other place in the app, with one line on what each is for.' };
 
 // Session memory: what is typed, and what is finished, live here and nowhere else. The practice copy keeps its data writes in this tab too.
-const ctx = { me: null, letters: {}, finished: {},
-  open() { return stepsFor(ctx.me).filter(s => !ctx.finished[s.id] || ctx.finished[s.id].undone); },
-  async send(s) { const undo = await sendStep(s); ctx.finished[s.id] = { step: s, at: Date.now(), undo }; location.hash = '#/done/' + s.id; },
-  async undo(id) { const f = ctx.finished[id]; if (!f) return; await undoSend(f.undo); delete ctx.finished[id]; location.hash = '#/do/' + id; toast('Undone. Nothing was sent, and your words are back.', { ms: 5000 }); } };
+const ctx = { me: null, notes: {}, finished: {}, rerender: () => render(),
+  open() { return stepsFor(ctx.me).filter(s => !ctx.finished[s.id]); },
+  finish(s, kind, extra) { delete ctx.notes[s.id]; ctx.finished[s.id] = { step: s, at: Date.now(), kind, ...extra }; location.hash = '#/done/' + s.id; },
+  async send(s) { ctx.finish(s, 'sent', { undo: await sendStep(s) }); },
+  async approve(s) { ctx.finish(s, 'approved', { undo: await approveStep(s) }); },
+  // a send back waits out the 10 seconds (as Staff v6 does), so Undo cancels it before anything is sent
+  sendBack(s, text) { ctx.finish(s, 'back', { note: text, timer: setTimeout(() => sendBackNow(s, text).catch(e => console.error(e)), UNDO_MS + 300) }); },
+  async undo(id) {
+    const f = ctx.finished[id]; if (!f) return;
+    if (f.kind === 'sent') await undoSend(f.undo); else if (f.kind === 'approved') await undoApprove(f.undo); else { clearTimeout(f.timer); ctx.notes[id] = f.note; }
+    delete ctx.finished[id]; location.hash = '#/do/' + id; toast('Undone. Nothing was sent.', { ms: 5000 }); } };
+const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(s, ctx), () => bindWrite(s, ctx)]
+  : s.kind === 'approve' || s.kind === 'second' ? [approveSheet(s, ctx), () => bindApprove(s, ctx)] : [unbuiltSheet(s), null];
 
 function boot() {
   const as = new URLSearchParams(location.search).get('as');
@@ -63,7 +73,7 @@ function doorSheet(k) {
   return `<div class="pn">${plainBand(name, WILL[k])}<div class="pbody"><p class="lead"><span class="stmark">${ic('clock')}<span>Not built yet</span></span></p><p class="lead">This place is coming. Your steps are on Home.</p><div class="sfoot plain">${btn('Back to Home', { kind: 'filled', href: '#/' })}</div></div></div>`;
 }
 function unbuiltSheet(s) {
-  return `<div class="pn">${band(s.issue, s.verb, s.name, s.no)}<div class="pbody">${dueStrip(s, hearingLine(s.hearing))}<p class="lead">This step’s page is being built.</p>`
+  return `<div class="pn">${band(s.issue, s.verb, s.name, s.no)}<div class="pbody">${dueStrip(s, { hearing: hearingLine(s.hearing) })}<p class="lead">This step’s page is being built.</p>`
     + `<dl class="facts"><dt>Bill</dt><dd>${esc(s.name)} <span class="no">${esc(s.no)}</span></dd><dt>Due</dt><dd>${esc(dayTime(s.dueAt))}, in ${esc(left(s.dueAt))}</dd>${s.hearing ? `<dt>Hearing</dt><dd>${esc(hearingLine(s.hearing).replace(/^Hearing /, ''))}</dd>` : ''}</dl>`
     + `<div class="sfoot plain">${btn('Back to Home', { kind: 'filled', href: '#/' })}</div></div></div>`;
 }
@@ -77,12 +87,10 @@ function render() {
   let sheet = '', openId = '', bindFn = null, cur = 'home', one = false, bare = false;
   if (rt.r === 'home') {
     const s = rows[0]; openId = s?.id || '';
-    sheet = !s ? calmSheet() : BUILT.has(s.kind) ? writeSheet(s, ctx) : unbuiltSheet(s);
-    if (s && BUILT.has(s.kind)) bindFn = () => bindWrite(s, ctx);
+    if (!s) sheet = calmSheet(); else [sheet, bindFn] = sheetFor(s);
   } else if (rt.r === 'do') {
     const s = ctx.open().find(x => x.id === rt.id); openId = s?.id || '';
-    sheet = !s ? missingSheet() : BUILT.has(s.kind) ? writeSheet(s, ctx) : unbuiltSheet(s);
-    if (s && BUILT.has(s.kind)) bindFn = () => bindWrite(s, ctx);
+    if (!s) sheet = missingSheet(); else [sheet, bindFn] = sheetFor(s);
   } else if (rt.r === 'done') {
     sheet = doneSheet(ctx, rt.id) || missingSheet(); bindFn = () => bindDone(ctx, rt.id);
   } else { cur = rt.door; sheet = doorSheet(rt.door); one = true; }

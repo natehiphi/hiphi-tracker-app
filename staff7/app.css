@@ -208,3 +208,24 @@ body.nobar main { padding-bottom: 0; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 .flagmark { display: inline-flex; color: var(--ink); padding-top: var(--s1); }
+
+/* the letter's file row, position fact, talking points, send-back note */
+.pdfrow { display: flex; align-items: center; gap: var(--s3); min-height: calc(var(--s7) + var(--s2)); padding: var(--s2) var(--s4); background: var(--wash); border-radius: var(--r12); }
+.pdfrow .g { flex: 1; min-width: 0; }
+.pdfrow .g span { display: block; font-size: var(--f14); color: var(--muted); }
+.hint { font-size: var(--f14); color: var(--muted); margin-top: var(--s2); }
+.posfact { margin-bottom: var(--s5); }
+.posfact p { margin: 0; }
+.tpl { margin-top: var(--s2); }
+.tpl .btn.text { padding-left: 0; }
+.tplist { margin: var(--s2) 0 0; padding-left: var(--s5); color: var(--ink); }
+.tplist li + li { margin-top: var(--s1); }
+.strip .hl { flex-basis: 100%; font-size: var(--f16); color: var(--muted); }
+.strip:not(.calm) .hl { color: var(--ink); }
+.field { width: 100%; background: var(--surface); color: var(--ink); border: var(--line) solid var(--edge); border-radius: var(--r8); padding: var(--s3) var(--s4); font: 400 var(--f16)/1.6 var(--body); min-height: var(--hit); }
+.field.err { border-width: var(--line2); border-color: var(--late); }
+.sbnote { margin: var(--s5) 0 0; }
+.sbnote[hidden] { display: none; }
+.errt { display: flex; align-items: center; gap: var(--s2); }
+.errt[hidden] { display: none; }
+[hidden] { display: none !important; }

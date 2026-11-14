@@ -1,6 +1,6 @@
 // Staff7 steps: works out, from the data layer's rows, which steps a person has (no screen is drawn here, no DOM is touched).
 import { S, advocate, myIssueIds } from '../staff6/data.js';
-import { cmteName, roomName, wantsHearing, diedish, riskOf, sittingDraft, isDecision, canFirstApprove, billDeadline } from '../staff6/model.js';
+import { cmteName, roomName, filerOf, wantsHearing, diedish, riskOf, sittingDraft, isDecision, canFirstApprove, billDeadline } from '../staff6/model.js';
 import { testimonyState, whoseStep, fullName, numWords } from '../staff6/steps.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -82,10 +82,19 @@ export function stepsFor(me) {
 // Home's list: which steps it shows. For now, all of them; Home's final rule is settled separately and changes only this.
 export const homeRows = steps => steps;
 
+// A committee in words with its chamber in front ("House Judiciary & Hawaiian Affairs"); a joint hearing joins its committees with "and".
+export function cmteWords(codes) {
+  return String(codes || '').split('/').map(c => c.trim()).filter(Boolean).map(c => {
+    const n = cmteName(c), ch = S.committees?.[c]?.chamber;
+    return /^(House|Senate)\b/.test(n) || !ch ? n : `${ch === 'S' ? 'Senate' : 'House'} ${n}`;
+  }).join(' and ');
+}
+export { filerOf };
+
 // The hearing in words: "Hearing Thu 2:00 PM · House Health · Room 329".
 export function hearingLine(h) {
   if (!h) return '';
-  return ['Hearing ' + dayTime(h.scheduled_at), cmteName(h.committee), roomName(h.room)].filter(Boolean).join(' · ');
+  return ['Hearing ' + dayTime(h.scheduled_at), cmteWords(h.committee), roomName(h.room)].filter(Boolean).join(' · ');
 }
 
 // This week's steps (Monday to Sunday, Hawaiʻi time): one each, open or finished, so "1 of 5 done" is a true count.

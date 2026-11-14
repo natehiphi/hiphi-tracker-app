@@ -21,15 +21,20 @@ export const statusMark = (words, { icon = '', tone = '' } = {}) => `<span class
 export function stepRow(s, open) {
   const t = left(s.dueAt), late = isLate(s.dueAt), tm = soonSoon(s.dueAt)
     ? `<span class="stm soon">${ic('clock')}${esc(late ? t + ' overdue' : t)}</span>` : `<span class="stm">${esc(t)}</span>`;
-  return `<li><a class="sr3${open ? ' sel' : ''}"${open ? ' aria-current="true"' : ''} href="#/do/${esc(s.id)}">${ic(KIND_ICON[s.kind])}<span class="sv"><b>${esc(s.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${esc(s.name)} <span class="no">${esc(s.no)}</span></span>${tm}</a></li>`;
+  return `<li><a class="sr3${open ? ' sel' : ''}"${open ? ' aria-current="true"' : ''} href="#/do/${esc(s.id)}">${ic(KIND_ICON[s.kind])}<span class="sv"><b>${esc(s.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${esc(s.name).replace(/ (\S+)$/, '&nbsp;$1')}&nbsp;<span class="no">${esc(s.no)}</span></span>${tm}</a></li>`;
 }
 const KIND_ICON = { write: 'pencil', resubmit: 'undo-2', approve: 'badge-check', second: 'badge-check', file: 'file-text', ask: 'mail' };
 
 // Due strip: the deadline, the time left, and the hearing it is for. As wide as the letter.
-export function dueStrip(s, context) {
+export function dueStrip(s, { label = 'Due', from = '', hearing = '' } = {}) {
   const soon = soonSoon(s.dueAt), late = isLate(s.dueAt);
-  return `<div class="strip${soon ? '' : ' calm'}">${ic('clock')}<strong>${late ? 'Was due' : 'Due'} ${esc(dayTime(s.dueAt))}</strong><span>${late ? esc(left(s.dueAt)) + ' ago' : 'in ' + esc(left(s.dueAt))}</span>${context ? `<span class="ctx">${esc(context)}</span>` : ''}</div>`;
+  return `<div class="strip${soon ? '' : ' calm'}">${ic('clock')}<strong>${late ? 'Was due' : esc(label)} ${esc(dayTime(s.dueAt))}</strong><span>${late ? esc(left(s.dueAt)) + ' ago' : 'in ' + esc(left(s.dueAt))}</span>${from ? `<span class="ctx">${esc(from)}</span>` : ''}${hearing ? `<span class="hl">${esc(hearing)}</span>` : ''}</div>`;
 }
+
+// File row: one document, its name, where it started, and a quiet button at the right (the part of the sample's PDF row).
+export const fileRow = (name, sub, button) => `<div class="pdfrow">${ic('file-text')}<div class="g"><b>${esc(name)}</b><span>${esc(sub)}</span></div>${button}</div>`;
+// Position as a fact, never a control: a bill's position shows on the public site, and S-8 says no control on a tracker page changes what the public sees.
+export const posFact = words => `<div class="posfact"><span class="lab">Position</span><p>${esc(words)}</p></div>`;
 
 // Sheet band: the issue's colour, its icon, the step's name and the bill's name with its number after it.
 export function band(issue, title, sub, no) {
