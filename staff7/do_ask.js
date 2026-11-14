@@ -15,7 +15,24 @@ export function mailFor(s) {
     ...((a.partial || a.waitOn) && a.m.legId ? { to: { who: a.m.who, email: a.m.email, legId: a.m.legId, n: 1 } } : {}) });
   if (!r) return null;
   const q = r.href.indexOf('?'), p = new URLSearchParams(r.href.slice(q + 1));
-  return { to: r.href.slice('mailto:'.length, q), subject: p.get('subject') || '', body: p.get('body') || '' };
+  return { to: r.href.slice('mailto:'.length, q), ...plainWords(s.bill, p.get('subject') || '', p.get('body') || '') };
+}
+// Nate, 14 Nov ("Yes, short name"): in the new app the email names the bill by its number and short name, never the description
+// cut at 100 characters mid-sentence, and says "the committee deadline", not the Capitol's own word for it (Lateral, Decking).
+// The current app's text (chairAskMail) is left as it is; only these two phrases are swapped here.
+export function plainWords(b, subject, body) {
+  const num = String(b.bill_number || ''), nice = num.replace(/^([A-Za-z]+)\s*(\d+)/, '$1 $2'), name = String(b.nickname || '').trim();
+  const end = body.indexOf('\n\nMahalo,'), para = end < 0 ? body : body.slice(0, end), tail = end < 0 ? '' : body.slice(end);
+  const at = para.indexOf(num);
+  let out = para;
+  if (num && at >= 0) {
+    let after = para.slice(at + num.length);
+    if (after.startsWith(' (')) { const close = after.lastIndexOf(')'); if (close > 0) after = after.slice(close + 1); }
+    const stop = /^[.:]/.test(after);
+    out = para.slice(0, at) + nice + (name ? `, ${name}${stop ? '' : ','}` : '') + after;
+  }
+  out = out.replace(/ before the [^.\n]*? deadline on /, ' before the committee deadline on ');
+  return { subject: num ? subject.split(num).join(nice) : subject, body: out + tail };
 }
 // What the person has typed so far in this visit (kept only once they have typed), else the app's own words as they stand now.
 const draftOf = (s, ctx) => ctx.mail[s.id] || (() => { const m = mailFor(s); return m ? { subject: m.subject, body: m.body } : { subject: '', body: '' }; })();
