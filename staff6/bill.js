@@ -38,7 +38,7 @@ import { STATES } from './verbs.js';
 import { teamFirst, teamName, newOwnerTag } from './model.js';
 import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
-import { actBy, othersWords, stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts, goingRowHTML, dayWords } from './steps.js';
+import { actBy, othersWords, stepCard, billStep, whereWords, numWords, nameWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts, goingRowHTML, dayWords } from './steps.js';
 import { roomName, movedFrom } from './model.js';
 import { aboutBill } from './billpane.js';
 import { trackerHTML, wireTracker, trackerModel } from './tracker.js';
@@ -134,7 +134,7 @@ let prevRoute = null, prevHash = '', carry = null, lastKey = '', fresh = true;
 })();
 // True while rendering a page or tab that was just opened, false on a re-render of the same one.
 export const viewIsNew = () => fresh;
-const LABEL = { today: 'Today', hearings: 'Hearings', hearing: 'Hearing', testimony: 'Testimony', review: 'Review', triage: 'Sort new bills', memo: 'Partner update',
+const LABEL = { today: VC ? 'Home' : 'Today', hearings: 'Hearings', hearing: 'Hearing', testimony: 'Testimony', review: 'Review', triage: 'Sort new bills', memo: 'Partner update',
   partners: 'Partner update', asks: 'Outreach', outreach: 'Outreach', legislators: 'Legislators', search: 'Search', supporters: 'Supporters', lists: 'Lists',
   emails: 'Emails', composer: 'Email', me: 'My settings', setup: 'Session setup', help: 'Help', inbox: 'Inbox', myissues: 'My issues', issues: 'All issues',
   team: 'Team', people: 'People', tools: 'More tools', more: 'More', pgroups: 'Partners' };
@@ -155,14 +155,14 @@ function origin(route) {
   if (prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num && prevRoute.year === route.year)) return { href: prevHash || '#/', label: history.state?.from || labelFor(prevRoute) };
   const nav = S.billNav && !Array.isArray(S.billNav) ? S.billNav : null;
   if (nav && nav.href) return { href: nav.href, label: nav.label || 'Back' };
-  return { href: '#/', label: 'Today' };
+  return { href: '#/', label: VC ? 'Home' : 'Today' };
 }
 
 // R-371 S3: the place a bill was opened from, as the sidebar and the path line name it (app.js placeOf reads it). A bill opened
 // from Calendar reads "Calendar › HB 756" with Calendar lit, matching "Back to Calendar"; from an issue it stays under My issues.
 export function billPlace(route) {
   // Opened cold (a link from Slack, a reload with nothing behind it): no place to follow, so it stays under My issues.
-  if (!carry && !prevRoute && !(S.billNav && !Array.isArray(S.billNav) && S.billNav.href)) return 'issues';
+  if (!carry && !prevRoute && !(S.billNav && !Array.isArray(S.billNav) && S.billNav.href)) return VC ? 'today' : 'issues';
   const h = origin(route)?.href || '';
   if (/^#\/?$/.test(h)) return 'today';
   if (/^#\/hearing/.test(h)) return 'calendar';
@@ -170,7 +170,7 @@ export function billPlace(route) {
   if (/^#\/search/.test(h)) return 'search';
   return 'issues';
 }
-const PATH_HEAD = { search: ['Search', '#/search'], today: ['Today', '#/'], calendar: ['Calendar', '#/hearings'], testimony: ['Testimony', '#/testimony'] };
+const PATH_HEAD = { search: ['Search', '#/search'], today: [VC ? 'Home' : 'Today', '#/'], calendar: ['Calendar', '#/hearings'], testimony: ['Testimony', '#/testimony'] };
 
 // ---- Previous / Next through the list the bill was opened from (S.billNav, set by list screens) ----
 // S.billNav is an ordered list of bill ids (or numbers), or { ids, label, href }. Without it the buttons hide.
@@ -1185,6 +1185,20 @@ function vcPage(b, route, s) {
   </div>`;
 }
 
+// R-397 C (review): a bill's public part in Outreach is only what the public sees (summary, ask, share kit): a heading that names
+// the bill, one plain link to the bill in the tracker. No position, owner, progress bar, hearing or step line (those are the tracker's);
+// the band's "Back to the tracker" is the way back.
+function vcPublicPage(b) {
+  const nm = String(b.nickname || '').trim() || nameWords(b), num = numWords(b);
+  return `<div class="bw-page vb-bill vc-pubpage" data-bw="${esc(b.id)}">
+    <div class="bw-main">
+      <div class="vc-pubhead"><h1 class="vc-pubtitle">${esc(nm)}${nm === num ? '' : ` <span class="vc-pubnum">${esc(num)}</span>`}</h1>
+        <p class="vc-publink"><a href="${esc(billRoute(b))}">Open the bill in the tracker${icon('chevron-right')}</a></p></div>
+      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="public"><h2 class="v6-pubh" id="v6-pubh" tabindex="-1">What the public sees</h2>${renderPublic(b)}</div>
+    </div>
+  </div>`;
+}
+
 // ---- the page ----
 // On Team talk and Public, one quiet line when the bill's step is the viewer's, "Your step: File by Wed 3/18, 7:30 AM ›",
 // that opens Next step (B-7; v5 kept its Next up card beside every tab). A link to the tab, not a second copy of the button.
@@ -1237,6 +1251,7 @@ export default {
     const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), s = pageStep(b), next = tab === 'overview';
     if (VC && next) return vcPage(b, route, s);
+    if (VC && tab === 'public') return vcPublicPage(b);   // C: Outreach shows only the public part, not the tracker's header
     // Where it is, on every tab (R-336): the stage tracker under the name (tracker.js), whose caption took over the header's
     // line. On Next step, when the step card names the committee and its hearing (cardSays), the caption keeps only where it
     // is among the chamber's committees (A-14); the other tabs have no step card, so it names them.

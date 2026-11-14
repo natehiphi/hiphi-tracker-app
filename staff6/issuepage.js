@@ -36,7 +36,7 @@ import { testimonyOf, dueOf, sittingOf } from './hearing.js';
 import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead, standOf } from './issuestand.js';
-import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
+import { issueStatusB, vcStatusPill } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
 import { issueIcon, icCls, nextOf } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { STATES, stateMark, issueKey } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
@@ -1094,6 +1094,11 @@ function iaLine(i, hc) {
   // sentence is the card's own (issuegrid.js nextOf), so "At risk" says why on the page that opens on the bills (R-373 review).
   const x = standOf(i), nx = hc.k === 'none' ? null : nextOf(x);
   const lead = i.owner_id && advocate(i.owner_id) ? `Lead: ${i.owner_id === S.me?.id ? 'You' : esc(vbFirst(i.owner_id))}` : `Lead: no one yet${S.me && !i.archived_at ? ` ${btn('Take it', { kind: 'text', sm: true, attrs: { 'data-ip': 'take', 'aria-label': `Take ${i.name}: you become its lead` } })}` : ''}`;
+  if (VC && hc.k !== 'none') {   // C: the one status an issue has, Home's own function (issueStatusB), so the two never disagree
+    const st = issueStatusB({ ...x, own: i.owner_id === S.me?.id });
+    return `<p class="ia-health vc-health" data-ia="health" data-health="${esc(st.key)}">${vcStatusPill(st)}<span class="ia-why">${nw(esc(st.reason))}</span></p>
+    <p class="ia-line" data-ia="line"><span>${lead}</span><span>Stance: ${stanceWords(i)}</span></p>`;
+  }
   return `<p class="ia-health" data-ia="health">${stateMark('issue', issueKey({ i }), { size: 18 })}${nx ? `<span class="ia-why">${nw(esc(nx.text))}</span>` : ''}</p>
     <p class="ia-line" data-ia="line"><span>${lead}</span><span>Stance: ${stanceWords(i)}</span></p>`;
 }
