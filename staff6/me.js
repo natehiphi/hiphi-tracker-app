@@ -12,7 +12,7 @@
 // Same data and calls as v5: advocates.slack_dm and advocates.prefs ({ reminders, workflow }) through DB.saveMyPrefs, and
 // DB.slackTest. "Only in the app" is every kind switched off, which the database reads as "send nothing". Email is described
 // as working (CLAUDE.md rule 14: it is on before the public uses the tracker).
-import { S, DB, DEMO, esc, hooks } from './data.js';
+import { S, DB, DEMO, esc, hooks, VC } from './data.js';
 import { hearingAhead, diedish } from './model.js';
 import { icon, btn, switchRow, field, toast } from './ui.js';
 import { markNewStep } from './help.js';
@@ -39,6 +39,8 @@ const ROWS = [
   { k: 'standin', t: 'Standing in for a teammate', s: 'When the person a step is for can’t be reached, it is passed to you', none: 'Steps passed to you will sit on Today until you open the tracker.' },
   { k: 'admin', t: 'Admin notices', s: 'Last hearing slots, supporter emails to approve', who: isApprover },
 ];
+// R-397 version C: the three alerts that matter come first, the rest sit under "Other alerts" (same controls, same saving).
+const VC_FIRST = ['testimony', 'deadlines', 'hearings'];
 const keysOf = row => row.keys || [row.k];
 const PLACES = [['slack', 'Slack DM'], ['email', 'Email']];
 // The same work, kind by kind, in the old settings (before R-387): what the database sends a person who never ticked a row.
@@ -139,7 +141,8 @@ export default {
         <div class="me-rtable" role="table" aria-label="Where your alerts go">
           <div class="me-rrow me-rhead" role="row"><span class="me-rlab" role="columnheader"><span class="sr">Alert</span></span>${PLACES.map(([, n]) => `<span class="me-rcell" role="columnheader">${n}</span>`).join('')}</div>
           ${every}
-          ${rows.map(line).join('')}
+          ${VC ? `${rows.filter(x => VC_FIRST.includes(x.k)).map(line).join('')}
+          <details class="me-other"${S.meOther ? ' open' : ''}><summary><span>Other alerts</span>${icon('chevron-down', { cls: 'me-fchev' })}</summary>${rows.filter(x => !VC_FIRST.includes(x.k)).map(line).join('')}</details>` : rows.map(line).join('')}
         </div>
         <p class="me-note me-reach">${icon('info')}<span>${esc(reach)}</span></p>
         ${tests ? `<div class="me-acts">${tests}</div>` : ''}
@@ -193,6 +196,7 @@ export default {
       root.querySelectorAll('[data-remv]').forEach(x => { const k = x.dataset.remv; rem[k] = k === 'hours_before' ? (Number(x.value) || 1) : (x.value || rem[k]); });
       save(me.slack_dm !== false, { ...(me.prefs || {}), reminders: rem });
     });
+    root.querySelector('.me-other')?.addEventListener('toggle', e => { S.meOther = e.currentTarget.open; });
     root.querySelector('.me-fine:not(.me-colors)')?.addEventListener('toggle', e => { S.meFine = e.currentTarget.open; });
     root.querySelector('.me-colors')?.addEventListener('toggle', e => { S.meColors = e.currentTarget.open; });
     // A pick shows at once (no Save) and goes to their settings; if the save is refused it stays in this browser.
