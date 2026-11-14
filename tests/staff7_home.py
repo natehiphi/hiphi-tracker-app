@@ -124,6 +124,8 @@ with sync_playwright() as p:
         # fix 9: the session names its stops in plain words and holds the date "Your bills" counts; the "you are here" mark never touches a stop's dot
         bd = re.search(r'before (\w{3}, \w{3} \d+)', pg.locator('.fact:nth-child(2)').inner_text()).group(1); sd = pg.locator('.sd').inner_text()
         ok(bd in sd and 'Crossover' not in sd.replace('Bills switch chambers', '') and 'decking' not in sd.lower() and 'lateral' not in sd.lower(), f'{tag} JM: the session line holds the date Your bills counts ({bd}) and no Capitol jargon')
+        sl = pg.evaluate("() => [...document.querySelectorAll('.sd li:not(.you) b')].map(b => b.innerText.trim())")
+        ok(len(sl) == 6 and sl[0] == 'Crossed to the other chamber' and sl[-1] == 'Session ends' and pg.locator('.sd li.off').count() >= 0 and not re.search(r'1st|2nd|Early', ' '.join(sl)), f'{tag} JM: the session line uses the one table\'s words, the same six stops for everyone ({sl})')
         gap = pg.evaluate("() => { const h = document.querySelector('.here i').getBoundingClientRect(), ds = [...document.querySelectorAll('.sd li:not(.you) .dot')].map(d => d.getBoundingClientRect()); return Math.min(...ds.map(d => Math.hypot(d.x + d.width / 2 - (h.x + h.width / 2), d.y + d.height / 2 - (h.y + h.height / 2)))); }")
         ok(gap >= 24, f'{tag} JM: "You are here" keeps clear of every stop dot ({gap:.0f}px)')
         # fix 10: a fact shows a hover state

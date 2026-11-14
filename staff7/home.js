@@ -9,13 +9,14 @@ import { ic } from './icons7.js';
 import { esc, btn, band, plainBand, fileRow, stepRow, toast } from './parts.js';
 import { stepsFor, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pastDue, cmteWords, hearingLine, billName, billNo, first, issueOf } from './steps.js';
 import { myIssueStandings, tally, needsHearing, deadlineOf, isAtRisk } from './standing.js';
+import { dateWords, sessionDates, touchMap } from './words.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
 const DAY = 864e5;
 const ymd = t => new Date(t).toLocaleDateString('en-CA', HST);
 const clock = t => new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
 const sameDay = t => ymd(t) === ymd(Date.now());
-const dateWords = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00').toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' });
+export { dateWords };
 // "by 2:00 PM" today, "by Wed 2:00 PM" after
 const byWord = t => sameDay(t) ? clock(t) : dayTime(t);
 // a day for a step that is not today: "Thu", or "Mar 25" when it is more than 6 days off
@@ -31,7 +32,7 @@ const enc = encodeURIComponent;
 export const ui = { later: false, sugg: false, laterOff: '', suggOff: '' };
 
 // ---------------------------------------------------------------------------------- what Home holds
-const withMe = (me, fn) => { const prev = S.me; S.me = me; try { return fn(); } finally { S.me = prev; } };
+export const withMe = (me, fn) => { const prev = S.me; S.me = me; try { return fn(); } finally { S.me = prev; } };
 
 // A hearing today of a bill the person leads or follows (Honolulu's day, not cancelled), one per hearing, in time order.
 export function hearingsToday(me) {
@@ -154,18 +155,10 @@ export function headline(m) {
   return { calm: true, h1: `${hi} Nothing needs you today.`, lead: '', link: null, plain: nx ? `Your next step is ${nx.verb} on ${nx.name}${nx.at != null ? `, ${shortDay(nx.at)}` : ''}.` : '' };
 }
 
-// The session's dates as a line, with "you are here" between the last one that has passed and the next. Words a new hire understands, not the Capitol's own.
-const PLAIN = { first_triple: 'Early committee deadline, 1st chamber', first_lateral: 'Committee deadline, 1st chamber', first_decking: 'Last committee deadline, 1st chamber', first_crossover: 'Bills switch chambers',
-  second_triple: 'Early committee deadline, 2nd chamber', second_lateral: 'Committee deadline, 2nd chamber', second_decking: 'Last committee deadline, 2nd chamber', second_crossover: 'Bills switch back',
-  conference: 'Final deadline', governor: 'Session ends' };
-const STOPS = ['first_crossover', 'second_lateral', 'second_decking', 'conference', 'governor'];
-// `extra` is the date "Your bills" counts ({ key, label, date }): it is always one of the stops, so the two can be matched.
-export function sessionDates(extra) {
-  const rows = STOPS.map(k => { const e = (DEADLINES || {})[k]; const d = e && e[0] && e[0][1]; return d ? { key: k, label: PLAIN[k], date: String(d).slice(0, 10) } : null; }).filter(Boolean);
-  if (extra && extra.date && !rows.some(r => r.date === extra.date)) rows.push({ key: extra.key, label: PLAIN[extra.key] || extra.label, date: String(extra.date).slice(0, 10) });
-  return rows.sort((x, y) => x.date.localeCompare(y.date));
-}
-function sessionHTML(extra) {
+// The session's dates as a line, with "you are here" between the last one that has passed and the next. The words and the stops are words.js's, the same for everyone: a stop that
+// touches none of the bills in `touch` (a Map from touchMap, or none) is greyed, not removed.
+export { sessionDates };
+export function sessionHTML(extra, touch = null) {
   const rows = sessionDates(extra); if (rows.length < 2) return '';
   const today = ymd(Date.now()), n = rows.length, t = Date.now(), at = r => new Date(r.date + 'T12:00:00-10:00').getTime();
   const past = rows.map(r => r.date < today), next = past.findIndex(p => !p), i = next < 0 ? n - 1 : next - 1;   // the last date that has passed (-1 before the first)
@@ -177,7 +170,7 @@ function sessionHTML(extra) {
   const lbl = next < 0 ? 'The session has ended' : `${rows[next].label} is ${dateWords(rows[next].date)}`;
   const you = '<li class="you" aria-hidden="true"><i class="dot"></i><b>You are here</b></li>';
   return `<section class="sess" aria-labelledby="sesh"><h2 class="fl" id="sesh">The session</h2><div class="sdl" style="--n:${n}"><span class="here" style="left:${pct.toFixed(1)}%"><span>You are here</span><i></i></span>`
-    + `<ol class="sd" aria-label="The session’s dates. You are here. ${esc(lbl)}.">${rows.map((r, k) => `${k === (next < 0 ? n : next) ? you : ''}<li class="${past[k] ? 'past' : k === next ? 'next' : ''}"><i class="dot" aria-hidden="true"></i><b>${esc(r.label)}</b><span>${esc(dateWords(r.date))}</span></li>`).join('')}${next < 0 ? you : ''}</ol></div></section>`;
+    + `<ol class="sd" aria-label="The session’s dates. You are here. ${esc(lbl)}.">${rows.map((r, k) => `${k === (next < 0 ? n : next) ? you : ''}<li class="${[past[k] ? 'past' : k === next ? 'next' : '', touch && !(touch.get(r.key) || []).length ? 'off' : ''].filter(Boolean).join(' ')}"><i class="dot" aria-hidden="true"></i><b>${esc(r.label)}</b><span>${esc(dateWords(r.date))}</span>${touch && !(touch.get(r.key) || []).length ? '<span class="sr">No bill here is waiting on it.</span>' : ''}</li>`).join('')}${next < 0 ? you : ''}</ol></div></section>`;
 }
 
 // The overview in two parts (the greeting, then the facts and the session): one page on a laptop, and on a phone the lists come between them.
@@ -201,7 +194,7 @@ export function overviewParts(m) {
   const f3 = parts.length ? fact('#/issues', 'Your issues', parts.join(' '), false, '', ' iss') : fact('#/issues', 'Your issues', 'None followed yet', true, '');
   const sub = hl.link ? `<p class="ovsub">${esc(hl.lead)}<a class="ovlink" href="${hl.link.href}">${esc(hl.link.text)}</a></p>` : hl.plain ? `<p class="ovsub">${esc(hl.plain)}</p>` : '';
   const top = `<div class="ovtop"><p class="ovdate">${esc(day)}</p><div class="ovhd">${hl.calm ? SUN : ''}<div><h1 tabindex="-1">${hl.h1}</h1>${sub}</div></div></div>`;
-  const rest = `<div class="ovrest"><div class="facts">${f1}${f2}${f3}</div>${sessionHTML(soon)}</div>`;
+  const rest = `<div class="ovrest"><div class="facts">${f1}${f2}${f3}</div>${sessionHTML(soon, touchMap(withMe(me, () => (S.bills || []).filter(b => b.tracked !== false && isMine(b)))))}</div>`;
   return { top, rest };
 }
 export function overviewSheet(m) { const { top, rest } = overviewParts(m); return `<div class="pn"><div class="ov">${top}${rest}</div></div>`; }
