@@ -3,7 +3,7 @@
 // #/tools) is drawn by tools.js; it names every place that is not in the sidebar or the bar, so nothing is hidden behind an
 // icon (Nate, 22 Oct: "If people are unable to find things because they are hidden or hard to find, that would be the
 // worst"). The phone's bar has five tabs (Today, Hearings, Testimony, Issues, More).
-import { S, DEMO, DEMO_ASOF, VB, esc, seesTeam } from './data.js';
+import { S, DEMO, DEMO_ASOF, VB, VC, esc, seesTeam } from './data.js';
 import { icon, avatar } from './ui.js';
 import { admitsPartners } from './partnerq.js';
 
@@ -38,9 +38,15 @@ export const MAIN_B = ['today', 'testimony', 'issues', 'calendar'];
 export const BAR_B = ['today', 'issues', 'calendar', 'search', 'more'];
 PLACES.calendar = ['#/hearings', 'calendar-days', 'Calendar', 'Calendar', 'This week’s hearings'];
 PLACES.search = ['#/search', 'search', 'Search', 'Search', 'Issues, bills, hearings and people'];
+// R-397 version C (?vc=1): two places, Home and Calendar (Team, Testimony and My issues are rows on More). Home is the address #/.
+export const MAIN_C = ['today', 'calendar'];
+export const BAR_C = ['today', 'calendar', 'search', 'more'];
+if (VC) PLACES.today = ['#/', 'house', 'Home', 'Home', 'Your steps, what changed and your issues'];
 if (VB) PLACES.issues = ['#/issues', 'tag', 'My issues', 'My issues', 'Your issues, every issue, and every bill we track'];
 // The same page with vb=1 added or removed (the You menu's switch row): hash and every other parameter kept.
 export const vbSwitchHref = on => { const u = new URL(location.href); on ? u.searchParams.delete('vb') : u.searchParams.set('vb', '0'); return u.toString(); };
+// The same page with vc=1 added or removed (version C's switch rows in the You menu).
+export const vcSwitchHref = on => { const u = new URL(location.href); on ? u.searchParams.set('vc', '1') : u.searchParams.delete('vc'); return u.toString(); };
 // Leads (V18): Team for admins and second approvers; People and Session setup for admins; Partners for admins and partner
 // approvers (R-328). Always in the same spot, and absent for everyone else (D8 names them at the foot of More tools).
 export const isLead = (a = S.me) => !!a && a.is_active !== false && (!!a.is_admin || !!a.is_reviewer);
@@ -54,10 +60,10 @@ export const youName = (a = S.me) => { const p = String(a?.full_name || '').trim
 
 // One labelled row: icon, name, one plain line; a count when the place has one (the Inbox's unread). `you` is a button that
 // opens the account menu (app.js wires [data-you] on every page; the sidebar's You uses it).
-export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext = false, act = '', cls = '' } = {}) {
+export function placeRow(k, { line, count = 0, href, label, ic, you = false, ext = false, act = '', cls = '', countWord = 'unread' } = {}) {
   const [h, i, name, , l] = PLACES[k] || ['#/', 'circle', k, k, ''];
   const lead = you ? `<span class="v6-more-ic">${avatar(S.me, 40)}</span>` : `<span class="v6-more-ic">${icon(ic || i)}</span>`;
-  const n = count ? `<span class="v6-more-n" aria-label="${count} unread">${count > 99 ? '99+' : count}</span>` : '';
+  const n = count ? `<span class="v6-more-n" aria-label="${count} ${countWord}">${count > 99 ? '99+' : count}</span>` : '';
   const inner = `${lead}<span class="v6-more-tx"><span class="v6-more-nm">${esc(label || (you ? `You · ${youName()}` : name))}</span><span class="v6-more-ln">${esc(line ?? l)}</span></span>${n}${icon(ext ? 'external-link' : 'chevron-right', { cls: 'chev' })}`;
   return you ? `<button type="button" class="v6-more-row" data-you aria-haspopup="menu">${inner}</button>`
     : `<a class="v6-more-row${cls ? ' ' + cls : ''}" href="${esc(href || h)}"${ext ? ' target="_blank" rel="noopener"' : ''}${act ? ` data-act="${esc(act)}"` : ''}>${inner}</a>`;

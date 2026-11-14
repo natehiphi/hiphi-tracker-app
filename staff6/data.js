@@ -36,7 +36,14 @@ export const IA = VB && new URLSearchParams(location.search).get('ia') !== '0';
 // Nate says yes: live staff keep the topic tints. ?ic=0 shows the old look in the practice copy, to compare.
 // On for everyone in version B since Nate's yes of 12 Nov (R-373); ?ic=0 shows the topic tints instead.
 export const IC = VB && new URLSearchParams(location.search).get('ic') !== '0';
-if (VB) document.documentElement.classList.add('vb');   // version B's styles all sit under html.vb (css/vb*.css)
+if (VB) document.documentElement.classList.add('vb');
+// R-397 version C, "Simple" (Nate 13 Nov 2026, "Yes, build C"): a separate version at its own link, `?vc=1` (live, practice copy
+// and trial runs alike), built on version B. One Home with three parts (your steps, what changed, your issues), Calendar,
+// Search and More; outreach and everything public in its own area with its own look. Without vc=1 nothing changes for anyone.
+// Hash links keep the query, so vc=1 follows every in-app link.
+export const VC = VB && new URLSearchParams(location.search).get('vc') === '1';
+if (VC) document.documentElement.classList.add('vc');   // version C's styles all sit under html.vc (css/vc.css)
+   // version B's styles all sit under html.vb (css/vb*.css)
 // R-316 W43 (C-5): an open page looks for drafts and to-dos a teammate changed, about every 2 minutes (app.js), and a
 // button refused because someone else already acted says who and when. Show me lane: on the practice copy first; Nate's
 // yes flips this to `() => true` (as prep.js SELF_APPROVE). The practice copy has no server, so its poll reads nothing;

@@ -16,14 +16,15 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, VB, TRIAL, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver, seedPublicChanges } from './data.js';
+import { S, DB, DEMO, VB, VC, TRIAL, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, waitingChanges, myPublicChanges, clearPractice, practiceRestarted, undoStartOver, seedPublicChanges } from './data.js';
 import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn, placeToast, leavePageToasts } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { PALETTES, DEFAULT_PALETTE } from './palettes.js';   // My settings, Colors (Nate 10/25)
 import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, billRoute, FACTS, draftFor, diedish } from './model.js';
-import today, { todayItems } from './today.js';
+import today, { todayItems, t6OutNeedHTML, t6OutWire } from './today.js';
+import home, { homeCount } from './home.js';   // R-397 version C: Home draws at #/ instead of Today (only with ?vc=1)
 import { wantQueue } from './partnerq.js';   // Today's count needs the partners' words from the first frame
 import review from './review.js';
 // The frame counts what the Inbox lists (messagesCount: messages to you, never the deadline reminders that live on each
@@ -50,7 +51,7 @@ import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
 import approvals from './approvals.js';   // R-376: public changes waiting for an admin
-import { PLACES, MAIN as MAIN_V6, BAR as BAR_V6, MAIN_B, BAR_B, vbSwitchHref, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
+import { PLACES, MAIN as MAIN_V6, BAR as BAR_V6, MAIN_B, BAR_B, MAIN_C, BAR_C, vbSwitchHref, vcSwitchHref, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -88,7 +89,8 @@ const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.de
 // address still opens the same thing (V36): an old one is redirected (replaced, never pushed) to its v6 address, keeping its
 // query (#/outreach/issues?view=links opens #/issues/all?view=links). tests/staff6_links.py proves it.
 const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups,
-  hearings, testimony: testimonyplace, team, people, tools, approvals, more: tools };   // More and More tools are one page (R-356), drawn by tools.js
+  hearings, testimony: testimonyplace, team, people, tools, approvals, more: tools };
+if (VC) { SCREENS.today = home; S.vcNeeds = () => t6OutNeedHTML(); S.vcNeedsWire = root => t6OutWire(root); S.vcOutreach = () => inOutreach(S.route); }   // R-397: Home is the address #/ in version C   // More and More tools are one page (R-356), drawn by tools.js
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -172,7 +174,7 @@ const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', te
 // reaches #/team?who= ("See a teammate's list") from More, so More is lit for them (B-13, A-12).
 // Two place keys died in round 2 (Bills is inside Issues; 'myissues' became 'issues'); a screen that still names one
 // (hearing.js's Back, S.billFrom) lights Issues.
-const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
+const MAIN = VC ? MAIN_C : VB ? MAIN_B : MAIN_V6, BAR = VC ? BAR_C : VB ? BAR_B : BAR_V6;
 // R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
 const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'testimony', testimony: 'testimony', search: 'search',
   // R-370: in B, Outreach lives under More (the sidebar has no Outreach row), so it lights More, not My issues.
@@ -181,7 +183,8 @@ const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', 
   // A legislator is looked up, not part of an issue: it lights Search (the phone bar's fourth item; the laptop's header box), whatever page you came from.
   legislator: 'search' };
 const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
-const placeOf = route => { if (VB && route?.name === 'bill') return billPlace(route);   // R-371 S3: a bill lights where it was opened from
+const placeOf = route => { const k = placeOf0(route); return VC && k === 'issues' && (route?.name === 'bill' || route?.name === 'issue') ? 'today' : k; };   // R-397 C: a bill or issue page lights Home (More is not where it lives)
+const placeOf0 = route => { if (VB && route?.name === 'bill') return billPlace(route);   // R-371 S3: a bill lights where it was opened from
   if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
   : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
 // The phone bar lights More for every place that is not one of its five.
@@ -226,16 +229,17 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
 S.go = go;
 // R-365 B: what Back calls the page you are leaving: its place's name for a place ("Today", "Calendar", "My issues", "Search"),
 // else the page's own title (an issue's name, "HB 2121", a committee, a person). Never the page you are going to.
-const vbPlaceWord = t => ({ Hearings: 'Calendar', Issues: 'My issues' })[t] || t;   // the old place names, in B's
+const vbPlaceWord = t => ({ Hearings: 'Calendar', Issues: 'My issues', ...(VC ? { Today: 'Home' } : {}) })[t] || t;   // the old place names, in B's
 function vbPageName(route, title) {
   const t = String(title || '').trim();
+  if (inOutreach(route)) return 'Outreach';   // R-397 C: a page opened from Outreach says Back to Outreach
   switch (route?.name) {
-    case 'today': return 'Today';
+    case 'today': return VC ? 'Home' : 'Today';
     case 'hearings': return route.q?.cmte ? t : 'Calendar';
     case 'myissues': return 'My issues';
     case 'issues': return 'All issues';
     case 'search': return 'Search';
-    default: return vbPlaceWord(t) || 'Today';
+    default: return vbPlaceWord(t) || (VC ? 'Home' : 'Today');
   }
 }
 // The same page with another tab: #/issue/ID and #/issue/ID/testimony, #/bill/HB2121 and #/bill/HB2121/talk.
@@ -308,13 +312,13 @@ for (const q of ['(min-width: 768px)', '(min-width: 900px)', '(min-width: 1100px
 
 // ---- the frame (spec 3.1, 3.2) ----
 // Today's count is "needs you today" only (today.js badge); when something is overdue it says so in words (D3).
-export function badge() { try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
+export function badge() { if (VC) { try { return { n: homeCount(), late: false }; } catch { return { n: 0, late: false }; } } try { return (today.badge && today.badge()) || { n: 0, late: false }; } catch { return { n: 0, late: false }; } }
 function lateCount(bd) {
   if (!bd.late) return 0;
   if (Number.isFinite(bd.lateN)) return bd.lateN;   // today.js may hand it over itself
   try { return todayItems('mine').late || 1; } catch { return 1; }
 }
-const countWords = (bd, lateN) => `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} of them overdue` : ''}`;
+const countWords = (bd, lateN) => VC ? `${bd.n} step${bd.n === 1 ? '' : 's'} for you` : `${bd.n} need${bd.n === 1 ? 's' : ''} you today${lateN ? `, ${lateN} of them overdue` : ''}`;
 // Today's count, the same on the sidebar, the rail and the phone's tab (D3, A-14, spec 3.1): ONE number, "needs you today",
 // on a neutral sand badge, always. No red and no icon on it: away from Today nothing visible said what the red meant (A-5:
 // red only with its word). Its name still says how many are overdue, and Today's own "1 overdue" line carries the red word.
@@ -335,13 +339,34 @@ export function refreshCounts() {
     a.insertAdjacentHTML('beforeend', todayBadge(bd, lateN, cls));
   });
 }
+// ---- R-397 version C: Outreach, apart from the tracker (Nate 13 Nov: "anything that is dealing with public access or outreach
+// needs to be greatly separated from the tracker page ... a separate look and color"). Which screens are in it: This week's asks,
+// Partner update, Emails and the composer, Supporters and a supporter, Lists and a list, the partner groups (#/partners), Public
+// changes, and a bill's Public tab. Not Testimony review (#/review): that is tracker work. The look is css/vc.css (html.vc-out).
+const OUT_NAMES = new Set(['asks', 'partners', 'memo', 'emails', 'composer', 'supporters', 'person', 'lists', 'list', 'pgroups', 'approvals']);
+const inOutreach = route => VC && !!route && (OUT_NAMES.has(route.name) || (route.name === 'bill' && route.tab === 'public'));
+const OUT_TAB_OF = { asks: 'asks', emails: 'emails', composer: 'emails', supporters: 'supporters', person: 'supporters', lists: 'lists', list: 'lists', partners: 'partners', memo: 'partners', approvals: 'approvals' };
+function outHeader(route) {
+  const lead = seesTeam() || !!(S.me?.is_admin || S.me?.can_approve || S.me?.approves_partners);   // who reaches Emails and Partner update (render() sends the others to the asks)
+  let waiting = 0; try { waiting = S.me?.is_admin ? waitingChanges().length : 0; } catch { waiting = 0; }
+  let mine = 0; try { mine = S.me?.is_admin ? 0 : myPublicChanges().length; } catch { mine = 0; }
+  const tabs = [['asks', '#/outreach', 'This week’s asks'], lead ? ['emails', '#/outreach/emails', 'Emails'] : null, ['supporters', '#/outreach/supporters', 'Supporters'], ['lists', '#/outreach/lists', 'Lists'],
+    lead ? ['partners', '#/outreach/partners', 'Partner update'] : null, S.me?.is_admin || mine ? ['approvals', '#/approvals', 'Public changes', waiting] : null].filter(Boolean);
+  const now = OUT_TAB_OF[route.name] || '', mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+  return `<div class="vo-top"><p class="vo-strip">Outreach · what the public sees</p>
+    <header class="vo-hdr"><div class="vo-row"><a class="vo-brand" href="#/outreach"><span class="vo-mk" aria-hidden="true">${icon('megaphone')}</span><span class="vo-name">HIPHI Outreach</span></a>
+      <form class="vo-search" role="search" data-hsearch><label class="sr" for="hq">Search issues, bills, hearings and people</label>${icon('search')}<input id="hq" type="search" placeholder="Search bills, people" autocomplete="off" aria-keyshortcuts="${mac ? 'Meta+K' : 'Control+K'} /"></form>
+      <a class="vo-srch" href="#/search" aria-label="Search">${icon('search')}</a>
+      <a class="vo-back" href="#/">${icon('arrow-left')}<span>Back to the tracker</span></a></div>
+    <nav class="vo-tabs" aria-label="Outreach">${tabs.map(([k, href, l, n]) => `<a href="${href}"${now === k ? ' aria-current="page"' : ''}><span>${l}</span>${n ? ` <span class="vo-n">${n}</span>` : ''}</a>`).join('')}</nav></header></div>`;
+}
 // The header. A phone: Back (deeper than a place) or the mark, the page's title, Search, Help and the Inbox bell with a dot. A laptop
 // or tablet (768px and wider): the search box, which Cmd/Ctrl-K or "/" focuses (V32), then Help and the Inbox; the sidebar holds the places.
 // Pages one level under More whose screens name no parent: a phone still shows Back to where they came from.
 const UNDER = { me: { href: '#/more', label: 'More' }, approvals: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/more', label: 'More' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More as a place, and draws no Back
 // The place a Back address belongs to, by name ("Today", "My issues", "Calendar"); a bare address names its page.
-const BACK_NAMES = [[/^#\/?$/, 'Today'], [/^#\/(issues|issue|bill|bills)/, 'My issues'], [/^#\/hearing/, 'Calendar'], [/^#\/(review|testimony)/, 'Today'], [/^#\/outreach/, 'My issues'], [/^#\/search/, 'Search'], [/^#\/more|^#\/tools/, 'More']];
-const backName = href => (BACK_NAMES.find(([re]) => re.test(href || '')) || [0, 'Today'])[1];
+const BACK_NAMES = [[/^#\/?$/, VC ? 'Home' : 'Today'], [/^#\/(issues|issue|bill|bills)/, 'My issues'], [/^#\/hearing/, 'Calendar'], [/^#\/(review|testimony)/, 'Today'], [/^#\/outreach/, 'My issues'], [/^#\/search/, 'Search'], [/^#\/more|^#\/tools/, 'More']];
+const backName = href => (BACK_NAMES.find(([re]) => re.test(href || '')) || [0, VC ? 'Home' : 'Today'])[1];
 function header(route, scr, title) {
   let b = scr.back ? scr.back(route) : UNDER[route.name] || null;
   // Back goes where the person came from when this page was opened inside the app (wireFrame: history.back()), so it says
@@ -502,7 +527,7 @@ export function render() {
   if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = placeOf(S.route); S.billFrom = pt && pt !== 'more' ? pt : null; }
   S.route = route;
   if (VB && route.name !== 'today') S.vbLeft = (S.vbLeft || 0) + 1;   // Today's Done banner ends when another page is drawn
-  const scr = SCREENS[route.name] || today;
+  const scr = SCREENS[route.name] || SCREENS.today;
   let main, bar = '';
   try { main = loadNotice() + scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); reportError('render', e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
   // Every page names itself (spec 3.1): a screen without its own h1 gets the frame's, at the top of the work column.
@@ -529,7 +554,10 @@ export function render() {
   const inSearch = document.activeElement?.id === 'hq' && location.hash === lastKey;
   // A screen with ownTitle keeps its own name as the heading (Supporters, R-343: "Outreach" over the list said nothing about it).
   const shownT = (scr.ownTitle ? '' : placeTitle(main, title)) || title;
-  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${sidebar(route)}<div class="sv-page">${header(route, scr, shownT)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${tabbar(route)}`;
+  // R-397 version C: the Outreach area has its own frame (a plum band with its own tabs; no tracker sidebar or phone bar).
+  const out = inOutreach(route); if (VC) document.documentElement.classList.toggle('vc-out', out);
+  if (out) S.vbBack = null;
+  app.innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${band}${out ? '' : sidebar(route)}<div class="sv-page">${out ? outHeader(route) : header(route, scr, shownT)}<main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main></div>${out ? '' : tabbar(route)}`;
   retitle(app, shownT);
   S.shownTitle = shownT;
   // R-365 B: the page's own Back link says what the header's says, at every width ("Back to Search"); a cold arrival (no page
@@ -544,8 +572,10 @@ export function render() {
   let shown = [...app.querySelectorAll('main h1')].find(h => h.getClientRects().length > 0);   // drawn (a hidden parent hides it too)
   if (!shown && shownT && mainEl && matchMedia('(min-width: 768px)').matches) { mainEl.insertAdjacentHTML('afterbegin', `<h1 class="v6-ptitle">${esc(shownT)}</h1>`); shown = mainEl.firstElementChild; }
   if (ft && !shown) { ft.removeAttribute('aria-hidden'); ft.setAttribute('role', 'heading'); ft.setAttribute('aria-level', '1'); }
+  else if (out && !shown) { const vn = app.querySelector('.vo-name'); vn?.setAttribute('role', 'heading'); vn?.setAttribute('aria-level', '1'); }
+  if (out) { const vt = app.querySelector('.vo-tabs'), cur = vt?.querySelector('[aria-current]'); if (vt && cur) vt.scrollLeft = Math.max(0, cur.offsetLeft - 16); }   // a phone's tabs scroll sideways: open at the lit one
   try { clearTimeout(window.__bootT); } catch { /* ignore */ }
-  document.title = (title ? title + ' · ' : '') + (shownT && shownT !== title ? shownT + ' · ' : '') + 'Bill Tracker staff';
+  document.title = out ? [...new Set([title, shownT, 'Outreach'].filter(Boolean)), 'HIPHI Outreach'].join(' · ') : (title ? title + ' · ' : '') + (shownT && shownT !== title ? shownT + ' · ' : '') + 'Bill Tracker staff';
   try { scr.wire && scr.wire(route, app); } catch (e) { console.error(e); reportError('error', e); }
   wireFrame(app);
   const nav = app.querySelector('.sv-snav'); if (nav && navTop) nav.scrollTop = navTop;
@@ -680,8 +710,11 @@ function accountItems() {
     // B is everyone's from 11 Nov: the way back to v6 is for the practice copy, trial runs and admins only.
     // R-370: in a trial only an admin sees the switch (a trial teammate has no use for another version).
     !(TRIAL ? S.me?.is_admin : DEMO || S.me?.is_admin) ? null
+      : VC ? { label: 'Switch off the simple layout', icon: 'undo-2', sub: 'You are in the simple layout now. This goes back to the trial layout', run: () => { location.href = vcSwitchHref(false); } }
       : VB ? { label: 'Switch off the trial layout', icon: 'undo-2', sub: 'You are in the trial layout now. This goes back to the earlier Staff v6', run: () => { location.href = vbSwitchHref(false); } }
       : { label: 'Switch on the trial layout', icon: 'flask-conical', sub: 'Three places: Today, My issues, Calendar', run: () => { location.href = vbSwitchHref(true); } },
+    // R-397: version C, "the simple layout" (?vc=1), tried from the trial layout by the same people who see B's switch.
+    VB && !VC && (TRIAL ? S.me?.is_admin : DEMO || S.me?.is_admin) ? { label: 'Try the simple layout', icon: 'house', sub: 'Home and Calendar, with only your steps, what changed and your issues', run: () => { location.href = vcSwitchHref(true); } } : null,
     DEMO ? { label: 'Practice as someone else', icon: 'id-card', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the
     // sidebar's foot says it too, as a line, not a row (more.js syncNote, B-7, 12.4).

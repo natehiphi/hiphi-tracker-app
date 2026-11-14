@@ -1,0 +1,181 @@
+/* R-397 version C, "Simple" (?vc=1). Every rule sits under html.vc, so nothing changes without vc=1. */
+
+/* ---- Home (staff6/home.js): Your steps and What changed side by side on a laptop, Your issues full width below ---- */
+html.vc .hm-root { display: block; min-width: 0; color: var(--v6-body); }
+html.vc .hm-root * { min-width: 0; }
+html.vc .hm-banner { margin-bottom: 16px; }
+html.vc .hm-top { display: grid; grid-template-columns: 1fr; gap: 28px; align-items: start; margin-bottom: 32px; }
+@media (min-width: 900px) { html.vc .hm-top { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; } }
+html.vc .hm-sec { margin: 0; }
+html.vc .hm-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font: 600 var(--v6-t22, 22px)/1.25 Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+html.vc .hm-n { display: inline-block; padding: 0 9px; border-radius: var(--v6-pill, 999px); background: var(--v6-wash); color: var(--v6-ink); font: 500 var(--v6-t14, 14px)/22px var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-sub2 { font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); color: var(--v6-muted); }
+html.vc .hm-empty { margin: 0; padding: 18px 16px; border-radius: var(--v6-r12, 12px); background: var(--v6-card); box-shadow: var(--v6-sh1); color: var(--v6-body); font: 400 var(--v6-t16, 16px)/1.5 var(--font, Lato, system-ui, sans-serif); }
+
+/* Your steps: the existing row, one button each */
+html.vc .hm-steps .hm-list { display: grid; gap: 8px; }
+html.vc .hm-steps .v6-row { background: var(--v6-card); border-radius: var(--v6-r12, 12px); box-shadow: var(--v6-sh1); }
+html.vc .hm-iss { color: var(--v6-muted); }
+html.vc .hm-more { margin-top: 10px; }
+html.vc .hm-more > summary, html.vc .hm-idle > summary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 4px; cursor: pointer; color: var(--v6-body); font: 500 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); list-style: none; }
+html.vc .hm-more > summary::-webkit-details-marker, html.vc .hm-idle > summary::-webkit-details-marker { display: none; }
+html.vc .hm-more[open] > summary svg, html.vc .hm-idle[open] > summary svg { transform: rotate(180deg); }
+html.vc .hm-more > .hm-list { margin-top: 6px; }
+
+/* What changed: whole rows are links; a filled dot means new since you last opened Home */
+html.vc .hm-chgs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+html.vc .hm-chg { display: grid; grid-template-columns: 12px minmax(0, 1fr) 20px; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: var(--v6-r12, 12px); background: var(--v6-card); box-shadow: var(--v6-sh1); color: var(--v6-ink); text-decoration: none; }
+html.vc .hm-chg:hover { background: var(--v6-hover, var(--v6-wash)); }
+html.vc .hm-chg:focus-visible { outline: 2px solid var(--v6-action); outline-offset: 2px; }
+html.vc .hm-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--v6-hair); box-sizing: border-box; }
+html.vc .hm-chg.fresh .hm-dot { background: var(--v6-action); border-color: var(--v6-action); }
+html.vc .hm-ctx { display: grid; gap: 2px; }
+html.vc .hm-ctx b { font: 600 var(--v6-t16, 16px)/1.35 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-sub { color: var(--v6-muted); font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); overflow-wrap: anywhere; }
+html.vc .hm-chg .chev { width: 18px; height: 18px; color: var(--v6-muted); }
+html.vc .hm-all { margin: 10px 4px 0; font: 500 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-all a { color: var(--v6-action); text-decoration: none; }
+html.vc .hm-all a:hover { text-decoration: underline; }
+
+/* Your issues: a card each, a line per live bill */
+html.vc .hm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; }
+html.vc .hm-card { display: grid; gap: 8px; padding: 14px 16px; background: var(--v6-card); border-radius: var(--v6-r12, 12px); box-shadow: var(--v6-sh1); }
+html.vc .hm-ctop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+html.vc .hm-cname { display: flex; align-items: flex-start; gap: 8px; font: 500 var(--v6-t18, 18px)/1.35 Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow-wrap: anywhere; }
+html.vc .hm-cname:hover > span:last-child { text-decoration: underline; }
+html.vc .hm-cic { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--v6-wash); }
+html.vc .hm-cic svg { width: 18px; height: 18px; }
+html.vc .hm-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: var(--v6-pill, 999px); font: 500 var(--v6-t14, 14px)/var(--v6-lh14, 20px) var(--font, Lato, system-ui, sans-serif); white-space: nowrap; background: var(--v6-leaf-wash); color: var(--v6-leaf); }
+html.vc .hm-chip svg { width: 16px; height: 16px; }
+html.vc .hm-s-risk .hm-chip { background: var(--v6-wash); color: var(--v6-ink); }
+html.vc .hm-s-due .hm-chip, html.vc .hm-s-hearing .hm-chip { background: var(--v6-action-wash); color: var(--v6-action); }
+html.vc .hm-s-stopped .hm-chip { background: var(--v6-hair); color: var(--v6-muted); }
+html.vc .hm-tag { margin: -4px 0 0; font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); color: var(--v6-muted); }
+html.vc .hm-bills { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+html.vc .hm-bill { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 0; font: 400 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-bn { grid-row: 1 / span 2; font-weight: 700; color: var(--v6-ink); text-decoration: none; white-space: nowrap; }
+html.vc .hm-bn:hover { text-decoration: underline; }
+html.vc .hm-where { color: var(--v6-muted); font-size: var(--v6-t14, 14px); }
+html.vc .hm-move { color: var(--v6-body); }
+html.vc .hm-bill.you .hm-move { color: var(--v6-ink); font-weight: 700; }
+html.vc .hm-stopped { margin: 0; color: var(--v6-muted); font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-idle { margin-top: 14px; }
+html.vc .hm-idlel { list-style: none; margin: 4px 0 0; padding: 0 0 0 4px; display: grid; gap: 4px; font: 400 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-idlel a { color: var(--v6-body); }
+@media (max-width: 599px) { html.vc .hm-card { padding: 12px 14px; } html.vc .hm-ctop { flex-direction: column-reverse; gap: 6px; } html.vc .hm-chip { align-self: flex-start; } html.vc .hm-top { gap: 24px; } }
+/* ---- bill and issue pages (R-397 round 1b) ---- */
+html.vc .bw-page.vc-bill { max-width: 800px; }
+html.vc .vc-status { margin: var(--s12, 12px) 0 var(--s16, 16px); font-size: 1.0625rem; line-height: 1.45; color: var(--v6-ink); }
+html.vc .vc-status .vc-where { font-weight: 600; }
+html.vc .vc-status .vc-sep { color: var(--v6-muted); }
+html.vc .vc-status .vc-move { color: var(--v6-body); }
+html.vc .vc-status .vc-move.is-mine { color: var(--v6-action-press); font-weight: 600; }
+html.vc .vc-status.vc-rowstatus { margin: 4px 0 0; font-size: .9375rem; }
+html.vc .vc-bill .bw-hside { margin: var(--s16, 16px) 0 0; }
+html.vc .vc-talk { margin: var(--s12, 12px) 0 0; }
+html.vc .vc-talk a { display: flex; align-items: center; gap: var(--s8, 8px); min-height: 48px; padding: 0 14px; border-radius: var(--v6-r12); background: var(--v6-card); box-shadow: var(--v6-sh1); color: var(--v6-ink); text-decoration: none; font-weight: 600; }
+html.vc .vc-talk a > .ic:first-child { color: var(--v6-muted); }
+html.vc .vc-talk a .v6-pdchev { margin-left: auto; color: var(--v6-muted); }
+html.vc .vc-talk .v6-tab-n { margin-left: 2px; }
+html.vc .vc-details { margin: var(--s16, 16px) 0 0; background: var(--v6-card); border-radius: var(--v6-r20); box-shadow: var(--v6-sh1); }
+html.vc .vc-details > .bw-doorsum { padding: 0 16px; }
+html.vc .vc-details[open] > .bw-doorsum .bw-chev { transform: rotate(180deg); }
+html.vc .vc-detbody { padding: 0 12px 16px; display: grid; gap: var(--s16, 16px); }
+html.vc .vc-picks { display: flex; flex-wrap: wrap; gap: var(--s8, 8px) var(--s16, 16px); margin: 0; }
+html.vc .vc-side { display: grid; gap: var(--s12, 12px); }
+html.vc .vc-details .bw-doors { margin: 0; }
+html.vc .vc-details .bw-scard { box-shadow: none; background: var(--v6-page); }
+html.vc .me-other { margin-top: 2px; }
+html.vc .me-other > summary { display: flex; align-items: center; gap: var(--s8, 8px); min-height: 48px; padding: 0 0 0 0; cursor: pointer; color: var(--v6-action-press); font-weight: 600; list-style: none; }
+html.vc .me-other > summary::-webkit-details-marker { display: none; }
+html.vc .me-other[open] > summary .me-fchev { transform: rotate(180deg); }
+html.vc .me-other > .me-rrow:first-of-type::before { content: ''; position: absolute; left: 0; right: 16px; top: 0; height: 1px; background: var(--v6-hair); }
+html.vc .sv-menugroup { margin: 12px 0 2px; padding: 0 16px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--v6-muted); }
+@media (max-width: 640px) { html.vc .vc-status { font-size: 1rem; } }
+html.vc .vc-picks .bw-f + .bw-f::before { content: none; }
+/* A phone rule for links in the bill panel made Team talk an inline chip on a phone; the row stays a full-width card. */
+html.vc body .vc-talk > a { display: flex !important; width: 100%; box-sizing: border-box; padding: 0 14px !important; }
+
+/* ---- Outreach area (R-397 round 2) ----
+   Nate 13 Nov: "anything that is dealing with public access or outreach needs to be greatly separated from the tracker page. It needs
+   to have a separate look and color and not look integrated." app.js puts html.vc-out on the Outreach screens (asks, emails, the
+   composer, supporters, lists, partner update, partner groups, public changes, a bill's Public tab) and draws its own frame: a rose
+   strip, a plum band with its own tabs and a Back to the tracker button, and no tracker sidebar or phone bar. The colours are a plum
+   and rose family that replaces the tracker's blue-green, by redefining the same --v6-* tokens, so every Outreach screen turns at once.
+   Contrast, least of page / card / wash: ink 14.2, body 9.3, muted 5.6, links and buttons' words (rose) 5.2, pressed rose 6.8, white on
+   rose 6.1, white on plum band 14.5; field edge 3.5; rose on its wash 5.2. late, bad and ok keep the tracker's amber, red and green, which stay
+   distinct from the rose (a pinkish magenta, hue 335, beside red at hue 5; each is also said in words and an icon). */
+html.vc.vc-out body.staff6 {
+  --v6-page: #FBF6F8; --v6-card: #FFFFFF; --v6-wash: #F3E9EF; --v6-hair: #EADDE4;
+  --v6-ink: #2A1530; --v6-body: #4A3453; --v6-muted: #6B5573; --v6-field: #8A7494;
+  --v6-action: #A63A68; --v6-action-press: #8A2F56; --v6-action-wash: #F7E8EF; --v6-action-hover: #F5E3EC;
+  --v6-band: #3A1D47; --v6-hover: #FDFAFB; --v6-wash-hover: #EBDDE5; --v6-shimmer: #F5ECF1; --v6-tab-hover: #F1E4EB;
+  --v6-shadow: 58, 29, 71; --v6-ink-rgb: 42, 21, 48; --v6-page-rgb: 251, 246, 248; --v6-card-rgb: 255, 255, 255; --v6-band-rgb: 58, 29, 71;
+  --n300: #D9C6D1; --p100: #EBCFDD; --p200: #D9A1BA; --p300: #C77497; --p400: #B65480; --p500: #A63A68; --p600: #962F5B; --p900: #4A1530;
+  --bad-press: #8C2920;
+  --tabbar: 0px;
+}
+/* the frame: one full-width column (no sidebar), its own header; the page's own tab row is the band's now */
+@media (min-width: 768px) { html.vc-out #app { grid-template-columns: minmax(0, 1fr); grid-template-areas: "band" "page"; } }
+html.vc-out main .sv-secnav { display: none; }
+html.vc-out body.staff6 main { padding-bottom: var(--s32, 32px); }
+
+.vo-top { position: relative; z-index: 40; }
+@media (min-width: 768px) { .vo-top { position: sticky; top: 0; } html.vc-out body.staff6 { --header: 126px; } body.staff6:has(.band) .vo-top { top: 28px; } }
+@media (max-width: 767px) { html.vc-out body.staff6 { --header: 0px; } }
+.vo-strip { margin: 0; padding: 4px var(--v6-gutter); background: #F2C9DA; color: #2A1530; font: 500 var(--v6-t14, 14px)/20px var(--font, Lato, system-ui, sans-serif); letter-spacing: .01em; }
+.vo-hdr { background: var(--v6-band); color: #FFFFFF; padding: 0 var(--v6-gutter); }
+.vo-row, .vo-tabs { max-width: 1120px; margin: 0; }
+.vo-row { display: flex; align-items: center; gap: 16px; min-height: 64px; }
+.vo-brand { display: inline-flex; align-items: center; gap: 10px; flex: none; color: #FFFFFF; text-decoration: none; }
+.vo-brand:focus-visible, .vo-back:focus-visible, .vo-tabs a:focus-visible, .vo-srch:focus-visible { outline: 3px solid #F2C9DA; outline-offset: 2px; }
+.vo-mk { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #A63A68; color: #FFFFFF; }
+.vo-mk svg { width: 20px; height: 20px; }
+.vo-name { font: 600 var(--v6-t18, 18px)/1.2 Poppins, system-ui, sans-serif; letter-spacing: -.01em; white-space: nowrap; }
+.vo-search { position: relative; display: none; align-items: center; flex: 1 1 auto; max-width: 400px; margin-left: 12px; }
+.vo-search svg { position: absolute; left: 12px; width: 18px; height: 18px; color: #6B5573; pointer-events: none; }
+.vo-search input { width: 100%; min-height: 40px; padding: 0 14px 0 38px; border: 0; border-radius: var(--v6-pill, 999px); background: #FFFFFF; color: #2A1530; font: 400 var(--v6-t16, 16px)/24px var(--font, Lato, system-ui, sans-serif); }
+.vo-search input::placeholder { color: #6B5573; opacity: 1; }
+.vo-search input:focus-visible { outline: 3px solid #F2C9DA; outline-offset: 2px; }
+.vo-srch { display: none; }
+.vo-back { display: inline-flex; align-items: center; gap: 8px; flex: none; margin-left: auto; min-height: 44px; padding: 0 16px 0 12px; border-radius: var(--v6-pill, 999px); background: #FFFFFF; color: #3A1D47; text-decoration: none; font: 600 var(--v6-t16, 16px)/24px var(--font, Lato, system-ui, sans-serif); white-space: nowrap; }
+.vo-back svg { width: 18px; height: 18px; }
+.vo-back:hover { background: #F7E8EF; }
+@media (min-width: 768px) { .vo-search { display: flex; } }
+@media (max-width: 479px) { .vo-row { gap: 8px; } .vo-mk { width: 32px; height: 32px; } .vo-name { font-size: 17px; } .vo-back { padding: 0 12px 0 10px; font-size: 15px; gap: 6px; } }
+.vo-tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.vo-tabs::-webkit-scrollbar { display: none; }
+.vo-tabs a { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; color: #F0DCE7; text-decoration: none; border-bottom: 3px solid transparent; font: 600 var(--v6-t16, 16px)/24px var(--font, Lato, system-ui, sans-serif); white-space: nowrap; }
+.vo-tabs a:hover { background: rgba(255, 255, 255, .1); color: #FFFFFF; }
+.vo-tabs a[aria-current="page"] { color: #FFFFFF; border-bottom-color: #F2C9DA; }
+.vo-n { display: inline-block; min-width: 22px; padding: 0 6px; border-radius: var(--v6-pill, 999px); background: #F2C9DA; color: #2A1530; font: 700 var(--v6-t14, 14px)/22px var(--font, Lato, system-ui, sans-serif); text-align: center; }
+
+/* Outreach's own Needs you (asks.js, today.js t6OutNeedHTML): the rows Home does not show, with Today's own buttons */
+.ot-need { margin: 20px 0 28px; }
+.ot-need-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font: 600 var(--v6-t22, 22px)/1.25 Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+.ot-need-n { display: inline-block; padding: 0 9px; border-radius: var(--v6-pill, 999px); background: var(--v6-action-wash); color: var(--v6-action-press); font: 600 var(--v6-t14, 14px)/22px var(--font, Lato, system-ui, sans-serif); }
+html.vc body.staff6 .ot-need .ot-need-list.v6-list { display: grid; gap: 8px; background: none; box-shadow: none; border-radius: 0; padding: 0; }
+.ot-need .v6-row { background: var(--v6-card); border-radius: var(--v6-r12, 12px); box-shadow: var(--v6-sh1); }
+
+/* More's one door to Outreach: a rose tile, so it reads as a different place from the tracker's rows (More is the tracker's blue-green) */
+html.vc .v6-more-row.vc-door .v6-more-ic { background: #F7E8EF; color: #A63A68; }
+html.vc .v6-more-row.vc-door .v6-more-n { background: #A63A68; color: #FFFFFF; }
+
+/* R-397 fixes: one status chip (Home's card and the issue page), late amber, the New label and the key for the dots */
+html.vc .hm-chip.hm-t-late, html.vc .hm-chip.hm-t-over { background: var(--v6-late-wash); color: var(--v6-late); }
+html.vc .hm-chip.hm-k-risk { background: var(--v6-wash); color: var(--v6-ink); }
+html.vc .hm-chip.hm-k-due:not(.hm-t-late):not(.hm-t-over), html.vc .hm-chip.hm-k-hearing { background: var(--v6-action-wash); color: var(--v6-action); }
+html.vc .hm-chip.hm-k-stopped { background: var(--v6-hair); color: var(--v6-muted); }
+html.vc .vc-health { align-items: center; }
+html.vc .hm-new { display: inline-block; padding: 0 8px; margin-right: 4px; border-radius: var(--v6-pill, 999px); background: var(--v6-action-wash); color: var(--v6-action); font: 600 var(--v6-t12, 12px)/18px var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-key { display: flex; align-items: center; gap: 8px; margin: -6px 4px 10px; color: var(--v6-muted); font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-key .hm-dot { flex: none; width: 10px; height: 10px; }
+html.vc .hm-dot.on { background: var(--v6-action); border-color: var(--v6-action); }
+html.vc .hm-empty a { color: var(--v6-action); font-weight: 600; }
+html.vc .vc-pubhead { margin: 4px 0 16px; }
+html.vc .vc-pubtitle { margin: 0 0 6px; font: 600 var(--v6-t26, 26px)/1.25 Poppins, system-ui, sans-serif; color: var(--v6-ink); overflow-wrap: anywhere; }
+html.vc .vc-pubnum { font: 500 var(--v6-t18, 18px)/1.3 var(--font, Lato, system-ui, sans-serif); color: var(--v6-muted); white-space: nowrap; }
+html.vc .vc-publink { margin: 0; font: 500 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .vc-publink a { display: inline-flex; align-items: center; gap: 2px; color: var(--v6-action); text-decoration: none; }
+html.vc .vc-publink a:hover { text-decoration: underline; }
+html.vc .vc-publink svg { width: 18px; height: 18px; }

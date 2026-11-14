@@ -16,7 +16,7 @@
 //               members, pathway.js) and Earlier testimony (testimony.js).
 // Team talk is activity.js, Public is public.js. Old links land where the content lives now (TAB_ALIAS, SECTION_OF):
 // #/bill/X/overview and /activity redirect in app.js; /pathway and /testimony open their door.
-import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted, VB } from './data.js';
+import { S, DB, DEMO, APP_URL, STAGES, STAGE_LABEL, hooks, esc, fmtDT, fmtDate, advocate, capitolUrl, isOwner, isMuted, VB, VC } from './data.js';
 import { CHAMBER_NAME } from '../stops.js';
 import { FACTS, stopOf, diedish, whyDead, riskOf, hearingAhead, codesOf, cmteName, blurb, titleCaseTitle, sponsorName, legsOf, legTitle, legById,
   unreadCount, hiToday, gateName, gateNeed, personName, pubStateCls, PUBLIC_APP, draftHearing, billRef, streamOf } from './model.js';
@@ -38,7 +38,7 @@ import { STATES } from './verbs.js';
 import { teamFirst, teamName, newOwnerTag } from './model.js';
 import { logConversation } from './conversation.js';
 import { askTodoOf } from './push.js';
-import { stepCard, billStep, whereWords, numWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts, goingRowHTML, dayWords } from './steps.js';
+import { actBy, othersWords, stepCard, billStep, whereWords, numWords, nameWords, sayWords, committeeName, hearingCard, nw, timeWords, openCounts, goingRowHTML, dayWords } from './steps.js';
 import { roomName, movedFrom } from './model.js';
 import { aboutBill } from './billpane.js';
 import { trackerHTML, wireTracker, trackerModel } from './tracker.js';
@@ -134,7 +134,7 @@ let prevRoute = null, prevHash = '', carry = null, lastKey = '', fresh = true;
 })();
 // True while rendering a page or tab that was just opened, false on a re-render of the same one.
 export const viewIsNew = () => fresh;
-const LABEL = { today: 'Today', hearings: 'Hearings', hearing: 'Hearing', testimony: 'Testimony', review: 'Review', triage: 'Sort new bills', memo: 'Partner update',
+const LABEL = { today: VC ? 'Home' : 'Today', hearings: 'Hearings', hearing: 'Hearing', testimony: 'Testimony', review: 'Review', triage: 'Sort new bills', memo: 'Partner update',
   partners: 'Partner update', asks: 'Outreach', outreach: 'Outreach', legislators: 'Legislators', search: 'Search', supporters: 'Supporters', lists: 'Lists',
   emails: 'Emails', composer: 'Email', me: 'My settings', setup: 'Session setup', help: 'Help', inbox: 'Inbox', myissues: 'My issues', issues: 'All issues',
   team: 'Team', people: 'People', tools: 'More tools', more: 'More', pgroups: 'Partners' };
@@ -155,14 +155,14 @@ function origin(route) {
   if (prevRoute && !(prevRoute.name === 'bill' && prevRoute.num === route.num && prevRoute.year === route.year)) return { href: prevHash || '#/', label: history.state?.from || labelFor(prevRoute) };
   const nav = S.billNav && !Array.isArray(S.billNav) ? S.billNav : null;
   if (nav && nav.href) return { href: nav.href, label: nav.label || 'Back' };
-  return { href: '#/', label: 'Today' };
+  return { href: '#/', label: VC ? 'Home' : 'Today' };
 }
 
 // R-371 S3: the place a bill was opened from, as the sidebar and the path line name it (app.js placeOf reads it). A bill opened
 // from Calendar reads "Calendar › HB 756" with Calendar lit, matching "Back to Calendar"; from an issue it stays under My issues.
 export function billPlace(route) {
   // Opened cold (a link from Slack, a reload with nothing behind it): no place to follow, so it stays under My issues.
-  if (!carry && !prevRoute && !(S.billNav && !Array.isArray(S.billNav) && S.billNav.href)) return 'issues';
+  if (!carry && !prevRoute && !(S.billNav && !Array.isArray(S.billNav) && S.billNav.href)) return VC ? 'today' : 'issues';
   const h = origin(route)?.href || '';
   if (/^#\/?$/.test(h)) return 'today';
   if (/^#\/hearing/.test(h)) return 'calendar';
@@ -170,7 +170,7 @@ export function billPlace(route) {
   if (/^#\/search/.test(h)) return 'search';
   return 'issues';
 }
-const PATH_HEAD = { search: ['Search', '#/search'], today: ['Today', '#/'], calendar: ['Calendar', '#/hearings'], testimony: ['Testimony', '#/testimony'] };
+const PATH_HEAD = { search: ['Search', '#/search'], today: [VC ? 'Home' : 'Today', '#/'], calendar: ['Calendar', '#/hearings'], testimony: ['Testimony', '#/testimony'] };
 
 // ---- Previous / Next through the list the bill was opened from (S.billNav, set by list screens) ----
 // S.billNav is an ordered list of bill ids (or numbers), or { ids, label, href }. Without it the buttons hide.
@@ -346,7 +346,8 @@ function pageMenu(b) {
     { label: b.nickname ? 'Edit the nickname' : 'Give it a nickname', icon: 'pencil', sub: 'The short name the team and the public page use', run: () => afterBack(() => openNick(b)) },
     own ? { label: muted ? 'Unmute' : noPush ? 'Not pushing this bill' : 'Mute', icon: muted ? 'bell' : 'bell-off', sub: muted ? 'Put it back on Today and in your alerts' : 'Off Today and no alerts until it gets a hearing',
       disabled: !muted && !!h, reason: refuse, run: () => afterBack(() => toggleMute(b)) } : null,
-    { label: 'What the public sees', icon: 'globe', sub: 'The bill on the public page: its summary and its ask', run: () => afterBack(() => switchTab('public')) },
+    VC ? { label: 'Open in Outreach', icon: 'globe', sub: 'The public summary and ask for this bill. This is outreach, not the tracker.', run: () => afterBack(() => switchTab('public')) }
+      : { label: 'What the public sees', icon: 'globe', sub: 'The bill on the public page: its summary and its ask', run: () => afterBack(() => switchTab('public')) },
     { label: 'Copy link', icon: 'link', sub: 'Opens this bill for anyone on the team', run: () => afterBack(() => copyLink(b)) },
   ] });
 }
@@ -448,6 +449,8 @@ function headHTML(b, route) {
   // phone the number is left out: the top bar shows it (A-14).
   // B (critic 9): "Our position: Support ▾" and "Owner: You ▾" read as menus, not as labels.
   const own1 = ownerOf(b), ownB = own1 ? (own1.id === S.me?.id ? 'You' : teamFirst(own1) + newOwnerTag(own1)) : ow;
+  const pickBtns = { pos: pick('data-bwpos="1"', `Our position: ${pos}`, `Position: ${pos}. Change it`), owner: pick('data-bwowner="1"', `Owner: ${ownB}`, `${ow}. Give ${numWords(b)} to someone`) };
+  headHTML.picks = pickBtns;   // C: headHTML runs just before vcDetails, which puts these two inside Details
   const facts = [`<span class="bw-f bw-num">${esc(numWords(b))}</span>`,
     `<span class="bw-f">${pick('data-bwpos="1"', VB ? `Our position: ${pos}` : pos, `Position: ${pos}. Change it`)}</span>`,
     `<span class="bw-f">${pick('data-bwowner="1"', VB ? `Owner: ${ownB}` : ow, `${ow}. Give ${numWords(b)} to someone`)}</span>`,
@@ -466,7 +469,7 @@ function headHTML(b, route) {
     <div class="bw-titlerow">${editing ? nickForm(b) : VB ? vbTitle(b) : `<h1 class="bw-h1${b.nickname ? '' : ' bw-long'}" id="bw-h1" tabindex="-1">${esc(billName(b))}</h1>`}</div>
     ${follow ? `<div class="bw-hfollow">${follow}</div>` : ''}
     <div class="bw-hmore">${more}</div>
-    <div class="bw-fline"><p class="bw-facts">${facts}</p></div>
+    ${VC && tab === 'overview' ? '' : `<div class="bw-fline"><p class="bw-facts">${facts}</p></div>`}
   </header>`;
 }
 
@@ -1121,6 +1124,81 @@ function sideHTML(b, s) {
   return `<aside class="bw-side" aria-label="Its hearing, issue and team">${hearingSide(b, s)}${isx.length ? issueSide(isx[0], b) : ''}${whoSide(b)}</aside>`;
 }
 
+
+// ---- R-397 version C ("Simple", ?vc=1): the bill page opens on one status line, the step, the hearing and Team talk;
+// everything else sits under one closed fold, "Details". Only under VC. ----
+// Where the bill is, in a few words: the hearing with its day, time and committee when one is set, else the same words
+// Search uses; a stopped bill says why it stopped. Returns escaped HTML.
+export function vcWhere(b) {
+  const st = stopOf(b);
+  if (diedish(b) || st.phase === 'dead') return deadWords(b);
+  if (st.phase === 'law') return 'Signed into law';
+  if (st.phase === 'vetoed') return 'Vetoed by the Governor';
+  const h = st.phase === 'committee' && st.hearingState === 'scheduled' ? st.hearing : null;
+  if (h?.scheduled_at) {
+    const at = new Date(h.scheduled_at).getTime(), day = d => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+    const word = day(at) === day(Date.now()) ? 'today' : day(at) === day(Date.now() + 864e5) ? 'tomorrow' : dayWords(h.scheduled_at);
+    return `${h.status === 'cancelled' ? 'Hearing cancelled' : `Hearing ${esc(word)} ${nw(esc(timeWords(at)))}`}, ${esc(committeeName(h.committee) || h.committee || '')}`;
+  }
+  return esc(stageInWords(b) || STAGE_LABEL[b.stage || 'introduced'] || '');
+}
+// Whose move it is, in the words the step card and the rows use. { text, mine }; text is plain (the caller escapes).
+export function vcMove(b, s) {
+  if (s?.heardNow) return { text: 'Being heard now', mine: false };
+  if (s?.you && s.line) { const a = s.kind !== 'chair' ? actBy(s) : null, w = !a || !a.words ? s.line : a.kind === 'late' ? `${a.verb} now, still accepted until ${a.time}` : a.words; return { text: `You: ${lowFirst(w)}`, mine: true }; }
+  if (s && s.kind !== 'none') return { text: othersWords(s), mine: false };
+  const st = stopOf(b);
+  if (diedish(b) || ['dead', 'law', 'vetoed'].includes(st.phase)) return { text: '', mine: false };
+  const o = ownerOf(b), who = o && o.id !== S.me?.id ? teamFirst(o) : '';
+  return { text: who ? `Nothing for you; ${who} has it` : o ? 'Nothing for you right now' : 'No owner yet', mine: false };
+}
+function vcStatus(b, s) {
+  const where = vcWhere(b), mv = vcMove(b, s);
+  return `<p class="vc-status"><span class="vc-where">${where}</span>${mv.text ? `<span class="vc-sep" aria-hidden="true"> · </span><span class="vc-move${mv.mine ? ' is-mine' : ''}">${nw(esc(mv.text))}</span>` : ''}</p>`;
+}
+function vcDetails(b, s) {
+  const open = !!S.bwDoor[b.id]?.vcdet, says = cardSays(b, s);
+  let path = ''; try { path = vbTracker(b, trackerHTML(b, { says, cardDeadline: s?.kind === 'chair' && !!says?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })); } catch (e) { console.error(e); }
+  const isx = issuesOfBill(b.id), pk = headHTML.picks;
+  return `<details class="bw-door vc-details" id="bw-details" data-bwdoor="vcdet"${open ? ' open' : ''}>
+    <summary class="bw-doorsum">${icon('list')}<span class="bw-doorl">Details</span>${icon('chevron-down', { cls: 'bw-chev' })}</summary>
+    <div class="bw-doorbody vc-detbody">
+      ${pk ? `<p class="vc-picks"><span class="bw-f">${pk.pos}</span><span class="bw-f">${pk.owner}</span></p>` : ''}
+      ${path}
+      ${doors(b, says)}
+      ${todoSection(b)}${alsoComing(b, s)}
+      <div class="vc-side">${isx.length ? issueSide(isx[0], b) : ''}${whoSide(b)}</div>
+    </div></details>`;
+}
+function vcTalk(b) {
+  const n = unreadCount(b);
+  return `<p class="vc-talk"><a href="${billHref(b, 'activity')}" data-tab="activity">${icon('message-circle')}<span>Team talk</span>${n ? `<span class="v6-tab-n">${n}<span class="sr"> new</span></span>` : ''}${icon('chevron-right', { cls: 'v6-pdchev' })}</a></p>`;
+}
+function vcPage(b, route, s) {
+  return `<div class="bw-page vb-bill vc-bill" data-bw="${esc(b.id)}">
+    <div class="bw-main">
+      ${vbPath(b)}${headHTML(b, route)}${vcStatus(b, s)}
+      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="overview">
+        ${whatsNext(b, s)}${hearingSide(b, s)}${vcTalk(b)}${vcDetails(b, s)}
+      </div>
+    </div>
+  </div>`;
+}
+
+// R-397 C (review): a bill's public part in Outreach is only what the public sees (summary, ask, share kit): a heading that names
+// the bill, one plain link to the bill in the tracker. No position, owner, progress bar, hearing or step line (those are the tracker's);
+// the band's "Back to the tracker" is the way back.
+function vcPublicPage(b) {
+  const nm = String(b.nickname || '').trim() || nameWords(b), num = numWords(b);
+  return `<div class="bw-page vb-bill vc-pubpage" data-bw="${esc(b.id)}">
+    <div class="bw-main">
+      <div class="vc-pubhead"><h1 class="vc-pubtitle">${esc(nm)}${nm === num ? '' : ` <span class="vc-pubnum">${esc(num)}</span>`}</h1>
+        <p class="vc-publink"><a href="${esc(billRoute(b))}">Open the bill in the tracker${icon('chevron-right')}</a></p></div>
+      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="public"><h2 class="v6-pubh" id="v6-pubh" tabindex="-1">What the public sees</h2>${renderPublic(b)}</div>
+    </div>
+  </div>`;
+}
+
 // ---- the page ----
 // On Team talk and Public, one quiet line when the bill's step is the viewer's, "Your step: File by Wed 3/18, 7:30 AM ›",
 // that opens Next step (B-7; v5 kept its Next up card beside every tab). A link to the tab, not a second copy of the button.
@@ -1149,6 +1227,7 @@ let goDoor = null;
 function toDoor(k) {
   const el = document.getElementById({ about: 'bw-about', cmt: 'bw-cmt', earlier: 'bw-earlier' }[k]); if (!el) return;
   el.open = true;
+  const det = el.closest('.vc-details'); if (det) { det.open = true; }   // its toggle event remembers it (wireOverview)
   const y = Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY - underTabs() - 12));
   window.scrollTo({ top: y, behavior: calm() ? 'auto' : 'smooth' });
   el.querySelector('summary')?.focus({ preventScroll: true });
@@ -1171,6 +1250,8 @@ export default {
   render(route) {
     const b = billOf(route); if (!b) return route.num ? untrackedHTML(route, notFound) : notFound(route);
     const tab = tabOf(route), s = pageStep(b), next = tab === 'overview';
+    if (VC && next) return vcPage(b, route, s);
+    if (VC && tab === 'public') return vcPublicPage(b);   // C: Outreach shows only the public part, not the tracker's header
     // Where it is, on every tab (R-336): the stage tracker under the name (tracker.js), whose caption took over the header's
     // line. On Next step, when the step card names the committee and its hearing (cardSays), the caption keeps only where it
     // is among the chamber's committees (A-14); the other tabs have no step card, so it names them.
@@ -1181,7 +1262,7 @@ export default {
       ${VB ? vbPath(b) : ''}${headHTML(b, route)}${VB ? vbPart(b, s, tab) : ''}
       ${VB ? vbTracker(b, trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })) : trackerHTML(b, { says: next ? cardSays(b, s) : null, cardDeadline: next && s?.kind === 'chair' && !!cardSays(b, s)?.deadline, heardNow: sittingNow(b), dead: diedish(b) ? deadWords(b) : '' })}
       ${tab === 'public' ? '' : tabsNav(b, tab, s)}
-      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${tab === 'public' ? pubBack(b) : ''}${next ? '' : yourStepLine(b, s)}${panel(b, tab)}${tab === 'public' ? '' : pubDoor(b)}</div>
+      <div class="bw-panel${fresh ? ' bw-in' : ''}" id="bw-panel" data-panel="${tab}">${tab === 'public' ? pubBack(b) : ''}${next ? '' : yourStepLine(b, s)}${panel(b, tab)}${tab === 'public' || VC ? '' : pubDoor(b)}</div>
       </div>
       ${sideHTML(b, s)}
     </div>`;
@@ -1208,7 +1289,7 @@ export default {
     }
     wireTracker(page, b);
     if (VB) page.querySelector('[data-tkmore]')?.addEventListener('click', e => { const sp = e.currentTarget.querySelector('span'), open = e.currentTarget.getAttribute('aria-expanded') === 'true'; if (sp) sp.textContent = open ? 'Hide the path' : 'Show the whole path'; });
-    page.querySelector('.bw-side [data-coal]')?.addEventListener('click', () => editCoalitions(b));
+    page.querySelector('.bw-side [data-coal], .vc-details [data-coal]')?.addEventListener('click', () => editCoalitions(b));
     // Previous / Next replace this entry, so Back still goes to the list.
     page.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); e.stopImmediatePropagation(); const nb = neighbours(b), to = nb && (a.dataset.nav === 'prev' ? nb.prev : nb.next); if (to) goBill(to); }));
     // Tabs replace the entry too (Back leaves the bill).

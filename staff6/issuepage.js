@@ -24,7 +24,7 @@
 //
 // Moved here from issues.js (R-336 walk 3): pageRender and its helpers, the bill search to put a bill on the issue,
 // related issues, merge, archive, the first-visit switch. issues.js re-exports issuePage, so app.js is unchanged.
-import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, IA, seesTeam, followsIssue, helpsIssue, heldFor } from './data.js';
+import { S, DB, SESSION_YEAR, SESSION_OVER, hooks, esc, advocate, fmtDate, effStage, STAGE_LABEL, VB, VC, IA, seesTeam, followsIssue, helpsIssue, heldFor } from './data.js';
 import { openPreview } from './preview.js';   // R-380
 import { carryIdle, carryWords, introYear, liveAsk, roomName, billById, plain, PUBLIC_APP, billRoute, stopOf, riskOf, diedish, hearingAhead, whenAt, gateNeed, legsOf, stanceOf, legById, OUTCOME_LABEL, ownerFirst, codesOf } from './model.js';
 import { icon, btn, iconBtn, empty, toast, menuSheet, confirmSheet, ownerOf, openSheet, closeSheet, ASK_TAB, pathLine, vbFinish } from './ui.js';
@@ -36,7 +36,7 @@ import { testimonyOf, dueOf, sittingOf } from './hearing.js';
 import { isPos, dueWhen } from './standing.js';
 import { billWords, billLineRow } from './coalition.js';
 import { listBox, rememberRow, issueLead, standOf } from './issuestand.js';
-import { issueStatusB } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
+import { issueStatusB, vcStatusPill } from './myviews.js';   // R-365 B: the one status an issue has, same as its card on My issues
 import { issueIcon, icCls, nextOf } from './issuegrid.js';   // R-339: the issue's own icon, else its topic's
 import { STATES, stateMark, issueKey } from './verbs.js';   // R-344 Rule 2: how an issue is doing, as one shape (Decision 4: shapes only, no tint)
 import { PROFILES, caresSecHTML, caresLegs } from './profile.js';
@@ -46,7 +46,7 @@ import { work as t6Work, t6Groups } from './today.js';   // a cycle (today.js re
 import { surname } from './pathway.js';
 import { trackerModel } from './tracker.js';
 import { vbWhereWords, companionsOf, hearingWhen } from './model.js';
-import { stageInWords } from './bill.js';   // R-371: the same "where it stands" words as the bill page
+import { stageInWords, vcWhere, vcMove } from './bill.js';   // R-371: the same "where it stands" words as the bill page
 import { STANCE_WORD, STANCE_ICON, photo, shortName, legHref, roleWord } from './pathway.js';
 import { issueLinkHref, catByKey, issueById, alsoIn, billsOn, billFrom, whyNot, inFirstVisit, relatedOf, STANCES, againstStance, stanceChip, pickStance, openIssueForm } from './issues.js';
 
@@ -1067,8 +1067,8 @@ function iaRow(i, x, all, { inPair = false } = {}) {
   ].filter(Boolean);
   const go = iaButton(s, b);
   return `<div class="ia-row" role="listitem" data-v6row="${esc(b.id)}" data-bill="${esc(b.id)}"><div class="ia-main">${title}${withTw}
-    <p class="ia-stand">${esc(stands)}</p>
-    <dl class="ia-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${nw(esc(v))}</dd></div>`).join('')}</dl></div>
+    ${VC ? `<p class="vc-status vc-rowstatus"><span class="vc-where">${vcWhere(b)}</span>${vcMove(b, s).text ? `<span class="vc-sep" aria-hidden="true"> · </span><span class="vc-move${vcMove(b, s).mine ? ' is-mine' : ''}">${nw(esc(vcMove(b, s).text))}</span>` : ''}</p>` : `<p class="ia-stand">${esc(stands)}</p>
+    <dl class="ia-facts">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${nw(esc(v))}</dd></div>`).join('')}</dl>`}</div>
     ${go ? `<div class="ia-go">${go}</div>` : ''}</div>`;
 }
 function iaGroupHTML(i, g, all) {
@@ -1094,6 +1094,11 @@ function iaLine(i, hc) {
   // sentence is the card's own (issuegrid.js nextOf), so "At risk" says why on the page that opens on the bills (R-373 review).
   const x = standOf(i), nx = hc.k === 'none' ? null : nextOf(x);
   const lead = i.owner_id && advocate(i.owner_id) ? `Lead: ${i.owner_id === S.me?.id ? 'You' : esc(vbFirst(i.owner_id))}` : `Lead: no one yet${S.me && !i.archived_at ? ` ${btn('Take it', { kind: 'text', sm: true, attrs: { 'data-ip': 'take', 'aria-label': `Take ${i.name}: you become its lead` } })}` : ''}`;
+  if (VC && hc.k !== 'none') {   // C: the one status an issue has, Home's own function (issueStatusB), so the two never disagree
+    const st = issueStatusB({ ...x, own: i.owner_id === S.me?.id });
+    return `<p class="ia-health vc-health" data-ia="health" data-health="${esc(st.key)}">${vcStatusPill(st)}<span class="ia-why">${nw(esc(st.reason))}</span></p>
+    <p class="ia-line" data-ia="line"><span>${lead}</span><span>Stance: ${stanceWords(i)}</span></p>`;
+  }
   return `<p class="ia-health" data-ia="health">${stateMark('issue', issueKey({ i }), { size: 18 })}${nx ? `<span class="ia-why">${nw(esc(nx.text))}</span>` : ''}</p>
     <p class="ia-line" data-ia="line"><span>${lead}</span><span>Stance: ${stanceWords(i)}</span></p>`;
 }
@@ -1144,7 +1149,7 @@ function iaRender(route, i) {
   const door = tab === 'public'
     ? `<p class="v6-pubback"><a href="#/issue/${id}/bills${keep}" data-vbtab="bills">${icon('chevron-left')}<span>Back to Bills</span></a></p><h2 class="v6-pubh" id="v6-pubh" tabindex="-1">What the public sees</h2>`
     : `<p class="v6-pubdoor"><a href="#/issue/${id}/public${keep}" data-vbtab="public">${icon('globe')}<span><b>What the public sees</b> · this issue’s bills on the public page, their asks and who follows them</span>${icon('chevron-right', { cls: 'v6-pdchev' })}</a></p>`;
-  body = tab === 'public' ? door + body : body + door;
+  body = tab === 'public' ? door + body : VC ? body : body + door;   // C: no footer door; the public page opens from the menu, under "Outreach"
   // One way back (R-373 review): the breadcrumb, and it starts where the person came from (R-371), not always at My issues.
   const hs = history.state, cameFrom = hs?.d > 0 && hs.from ? ({ Hearings: 'Calendar', Issues: 'My issues' }[hs.from] || hs.from) : '';
   const ROOT = { 'My issues': '#/issues', 'All issues': '#/issues/all', Today: '#/', Calendar: '#/hearings', Search: '#/search', Testimony: '#/testimony' };
@@ -1249,10 +1254,11 @@ export const issuePage = {
         sub: inFirstVisit(i) ? 'Newcomers can follow it on their first visit now. People can still find it either way.' : 'Left out of a newcomer’s first visit now. People can still find and follow it.',
         run: async () => { await afterClose(); setFirstVisit(i, !inFirstVisit(i)); } }] : []),
       // R-380: the public page with the issue's words as they stand, plus this person's own waiting change (the public keeps the earlier words until an admin says yes).
-      { label: 'Preview', icon: 'eye', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', sub: 'See it as the public will, before anything changes',
+      ...(VC && !i.archived_at && !isDraft(i) ? [{ group: 'Outreach', label: 'Open in Outreach', icon: 'globe', sub: 'What the public sees of this issue. This is outreach, not the tracker.', run: () => { location.hash = `#/issue/${encodeURIComponent(i.id)}/public${route.q?.from ? `?from=${encodeURIComponent(route.q.from)}` : ''}`; } }] : []),
+      { group: VC ? 'Outreach' : undefined, label: VC ? 'Preview the public page' : 'Preview', icon: 'eye', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', sub: 'See it as the public will, before anything changes',
         run: () => { const w = heldFor('issue', i.id), mineW = w && w.proposed_by === S.me?.id ? w.fields : {};
           openPreview({ kind: 'issue', id: i.id, fields: { name: i.name, description: i.description, outlook: i.outlook, stance: i.stance, first_visit: i.first_visit, ...mineW } }); } },
-      { label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
+      { group: VC ? 'Outreach' : undefined, label: 'Open the public page', icon: 'external-link', disabled: !!i.archived_at || isDraft(i), reason: isDraft(i) ? 'An issue that is not public yet has no public page.' : 'An archived issue has no public page.', run: () => { window.open(`${PUBLIC_APP()}#/issue/${i.slug}`, '_blank', 'noopener'); } },
       i.archived_at ? { label: 'Restore', icon: 'rotate-ccw', run: () => archive(i, false) } : { label: 'Archive', icon: 'archive', danger: true, run: async () => { await afterClose(); archive(i, true); } },
     ] }));
     root.querySelector('[data-is="restore"]')?.addEventListener('click', () => archive(i, false));

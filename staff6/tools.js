@@ -5,13 +5,14 @@
 // finds each one too. Tools a person's role cannot use are left out, and one quiet line at the foot names them (D8). A tool
 // that only repeats a tab or a control on its own place (Sort new bills, Muted, Saved views, Bulk change and Export on Bills;
 // the library on Testimony) is not a row here: the place already shows it.
-import { S, DEMO, VB, TRIAL, esc, waitingChanges, myPublicChanges } from './data.js';
+import { S, DEMO, VB, VC, TRIAL, esc, waitingChanges, myPublicChanges } from './data.js';
 import { icon, menuSheet, avatar } from './ui.js';
 import { placeRow, placeList, leadKeys, isLead, seesTeam, syncWords, syncNote, syncStale, youName } from './more.js';
 import { messagesCount } from './inbox.js';   // the Inbox page's own count, so the row's number matches it (A-14)
 import { admitsPartners } from './partnerq.js';
 import { canSort, showMutedTab } from './billshead.js';
 import { BOARD_HREF } from './prep.js';
+import { t6OutNeed } from './today.js';   // R-397 C: the count on the Outreach row
 
 // A row: [name, address, icon, one plain line, ext (a new tab)]. Every row opens where the tool really is: Bills reads
 // ?views=1, ?select=1 and ?export=1 on arrival and takes that step there (bills.js), so these are plain addresses that
@@ -37,7 +38,7 @@ function groups() {
     ['Testimony', [
       ['How to file', '#/help/file', 'clipboard-check', 'Filing at the Capitol, step by step'],
     ]],
-    ['Rally', [
+    ...(VC ? [] : [['Rally', [
       ['Lists', '#/outreach/lists', 'list', 'Shared lists of bills for the public page'],
       admin ? ['Make a link or QR code', '#/issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code'] : null,
       admin ? ['First visit numbers', '#/issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker'] : null,
@@ -45,7 +46,8 @@ function groups() {
       // that foot (A-14: one row per place; it used to be two rows to the same top of the page, the second a scroll away).
       admin ? ['Supporters’ groups, import and export', '#/outreach/supporters?io=1', 'heart-handshake', 'Saved groups to email; a spreadsheet in or out at the foot']
         : ['Supporters’ groups', '#/outreach/supporters', 'heart-handshake', 'Saved groups of supporters, to email'],
-    ]],
+    ]]]),   // R-397 C: Lists, Supporters and My public changes are tabs inside Outreach; the admin links are under Lead tools
+
     ['Learning', [
       ['Getting started', '#/help/new', 'compass', 'The first things to do, for someone new'],
       // The practice copy: from the live app it opens in a new tab; inside it, the row says so and opens You, where the
@@ -79,6 +81,11 @@ function footLine() {
 }
 // C-15: Kris sees Team without being a lead, so the one row Team is not under "Lead tools" (app.js says the same).
 export const leadHead = leads => !isLead() && leads.length === 1 && leads[0] === 'team' ? 'Team' : 'Lead tools';
+// R-397 version C: the one door into Outreach, a rose tile (it is a separate area with its own look), with what waits for the viewer there.
+function outDoor() {
+  let n = 0; try { n = t6OutNeed(S.me).length; } catch { n = 0; }
+  return placeRow('outreach', { cls: 'vc-door', line: 'Asks, emails, supporters, lists and what the public sees', count: n, countWord: 'need you' });
+}
 const teammates = () => (S.advocates || []).filter(x => x.is_active !== false && x.id !== S.me?.id).sort((x, y) => x.full_name.localeCompare(y.full_name));
 
 // You (spec 3.2): the account menu's items as rows (app.js accountItems), so My settings is two labelled taps on a phone.
@@ -93,7 +100,10 @@ export default {
     // Outreach is in the laptop's sidebar, so its row shows on a phone only (staff.css v6-phone-only; Issues is in the phone bar too); Legislators,
     // Inbox and Help are here for everyone, one click from More (Nate, 22 Oct), and search finds each by its name.
     // In version B (R-365) Testimony and Outreach are rows here for everyone, on a laptop too, since the sidebar left them out.
-    const places = [VB ? placeRow('testimony', { cls: 'v6-phone-only' }) : null, placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
+    // R-397 version C: Testimony and My issues left the sidebar and the phone's bar, so they are rows here on every screen (Team
+    // is already in the lead rows below, for the people who see it today, and Outreach shows as in B).
+    const places = [VC ? placeRow('testimony') : null, VC ? placeRow('issues') : null,
+      VB && !VC ? placeRow('testimony', { cls: 'v6-phone-only' }) : null, VC ? outDoor() : placeRow('outreach', VB ? {} : { cls: 'v6-phone-only' }), placeRow('legislators'), placeRow('inbox', { count: unread }), placeRow('help')];
     const sec = (h, rows, id) => !rows.length ? '' : `<section class="v6-more-sec" aria-labelledby="tl-${id}"><h2 class="v6-more-h" id="tl-${id}">${esc(h)}</h2>${placeList(rows)}</section>`;
     const asRow = r => typeof r === 'string' ? r : row(r);
     // R-376: a teammate's own changes to the public page, only while there are any from the last 30 days.
@@ -108,7 +118,10 @@ export default {
         // R-376: what teammates changed on the public page, waiting for an admin's yes
         admin ? placeRow('tools', { label: 'Public changes', href: '#/approvals', ic: 'globe', line: waitingChanges().length ? `${waitingChanges().length} waiting for you to approve` : 'Changes to what the public sees, waiting for you' }) : null,
         // F165: the admins' Prep board, a view on All issues (issues.js, prep.js)
-        admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null], 'lead') : ''}
+        admin ? row(['Prep board', BOARD_HREF, 'clipboard-check', 'Every issue’s 2027 prep, to review and approve']) : null,
+        // R-397 C: the admins' public-page tools moved out of Rally; Outreach's other tabs hold the rest
+        VC && admin ? row(['Make a link or QR code', '#/issues/all?view=links', 'qr-code', 'A link for a partner or an event, with its QR code']) : null,
+        VC && admin ? row(['First visit numbers', '#/issues/all?view=first-visit', 'chart-column', 'How newcomers find and use the public tracker']) : null], 'lead') : ''}
       ${sec('Other versions', versions(admin), 'ver')}
       <section class="v6-more-sec" aria-labelledby="mo-you"><h2 class="v6-more-h mo-you" id="mo-you">${avatar(S.me, 28)}<span>You · ${esc(youName())}</span></h2>${placeList(acct().map((it, i) => `<button type="button" class="v6-more-row" data-acct="${i}"><span class="v6-more-ic">${icon(it.icon)}</span><span class="v6-more-tx"><span class="v6-more-nm">${esc(it.label)}</span>${(stale && it.plainSub) || it.sub ? `<span class="v6-more-ln">${esc((stale && it.plainSub) || it.sub)}</span>` : ''}</span>${it.nav ? icon('chevron-right', { cls: 'chev' }) : ''}</button>`))}</section>
       ${foot ? `<div class="v6-more-foot"><p>${esc(foot)}</p></div>` : ''}

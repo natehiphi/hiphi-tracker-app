@@ -13,7 +13,7 @@
 // v6 draws the cards itself: they used to come from today.js (weekAsksHTML), which TODAY is rebuilding (spec 11).
 // The rallier, with no migration (spec 6 and addendum 6): Saya on CTFH, else the coalition's owner, else the bill's owner.
 // TODAY may import rallierOf() and askDueAt() to put the ask on the rallier's Today two days before it is due.
-import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO, TRIAL, seesTeam } from './data.js';
+import { S, DB, esc, fmtDT, advocate, isMine, hooks, DEMO, TRIAL, seesTeam, VC } from './data.js';
 import { sharePageUrl, liveAsk, billRoute, whenAt, deadlineAt, timeFirst, hstDayOf, publicResponse, billById, spanOf } from './model.js';
 import { icon, btn, empty, toast, sectionNav, whoseSeg } from './ui.js';
 import { pageHead } from './lists.js';
@@ -346,13 +346,15 @@ export default {
     // Team only for people who see it (R-356); with one choice left there is no switch.
     const sw = seesTeam() ? whoseSeg('otwho', myCoals().size ? { coal: 'mine', team: 'all' } : { mine: 'mine', team: 'all' }, all ? 'all' : 'mine', { label: 'Whose asks' }) : '';
     // R-373 (A-14): someone without Sees Team gets no tab row, and sectionNav's one quiet heading would only say the page's own words again
-    const head = pageHead(seesTeam() ? sectionNav('outreach', 'asks') : '', 'Outreach', '', sw);
+    // R-397 version C: Outreach's own "Needs you" (the rows Home no longer shows), set by app.js from today.js
+    const head = pageHead(seesTeam() ? sectionNav('outreach', 'asks') : '', 'Outreach', '', sw) + (VC && S.vcNeeds ? S.vcNeeds() : '');
     if (!items.length) return `<div class="le-page ot-page">${head}${emptyHTML(all, team.length)}${partnersHTML()}</div>`;
     // Decision 6: staff see the asks alone; How it's landing is the leads' (Partner update, Emails, Supporters and Lists too)
     return `<div class="le-page ot-page">${head}${listHTML(items, want)}
       ${partnersHTML()}${seesTeam() ? landingHTML(items) : ''}</div>`;
   },
   wire(route, root) {
+    if (VC) S.vcNeedsWire?.(root);
     root.querySelectorAll('[data-seg="otwho"]').forEach(b => b.onclick = () => setAll(b.dataset.val === 'all'));
     root.querySelector('[data-otall]')?.addEventListener('click', () => setAll(true));
     wireAsks(root, () => showAll(S.route, wanted(S.route)) ? weekAskItems() : weekAskItems({ mine: true }));

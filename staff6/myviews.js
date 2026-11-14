@@ -510,7 +510,7 @@ export function issueStatusB(arg) {
   if (dn) {
     // the most urgent thing, in one line: "SB 3076 testimony was sent back · Testimony due today 2 PM" (R-370: the one deadline pattern)
     const t = stepTime(dn.s, { soon: false }) || 'Testimony due today', n = `${numWords(dn.s.b)} testimony`;
-    return { key, word: dn.word, ic: S1.ic, reason: dn.s.state.sentBack ? `${n} was sent back · ${t}` : `${n} · ${t}` };
+    return { key, word: dn.word, ic: S1.ic, tone: dn.word === 'Past due' ? 'over' : dn.word === 'Late' ? 'late' : 'today', reason: dn.s.state.sentBack ? `${n} was sent back · ${t}` : `${n} · ${t}` };
   }
   if (key === 'hearing' || key === 'risk') {
     const bs = j.ask.length ? j.ask.map(y => y.b) : (x.facing || []);
@@ -518,6 +518,12 @@ export function issueStatusB(arg) {
     else if (key === 'risk' && j.dline?.text) reason = j.dline.text;
   }
   return { key, word: S1.word, ic: S1.ic, reason };
+}
+// Version C (R-397): the one chip an issue has, on Home's card and on the issue page's header (the same function, so the two never
+// disagree). Late and Past due take the late amber tokens and their own icons, never the check mark; a check is only On track.
+export function vcStatusPill(st) {
+  const t = st.tone === 'late' || st.tone === 'over' ? st.tone : '', ic = t === 'over' ? 'triangle-alert' : t === 'late' ? 'circle-alert' : st.ic;
+  return `<span class="hm-chip hm-k-${esc(st.key)}${t ? ` hm-t-${t}` : ''}" data-state="issue:${esc(st.key)}">${icon(ic)}<span>${esc(st.word)}</span></span>`;
 }
 // The verbs of a step, for the viewer ("file testimony for HB 2121") and for a teammate ("Nate files testimony for HB 2121").
 function verbsB(s) {
@@ -574,6 +580,7 @@ function cardB(j, nx, st, act = '') {
     ${act ? `<div class="vbc-act">${act}</div>` : ''}
   </article>`;
 }
+export { billPhrase };   // R-397 version C: Home says where each bill is in these words
 const SHOW_B = 10;
 export function cardsHTML(js) {
   if (!js.length) return `<p class="i6-quiet">No issues match.</p>`;

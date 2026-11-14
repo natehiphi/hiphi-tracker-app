@@ -12,7 +12,7 @@
 // Going: a person is marked on ONE of the sitting's rows, and "going" means marked on any of them, which is how every
 // screen reads it. One row and not ten, because the database sends a Slack message for every row an admin sends a
 // teammate to (migration 064); the row is a bill with a position, so the hearing reaches their calendar invite.
-import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks, VB } from './data.js';
+import { S, DB, esc, fmtDT, advocate, capitolUrl, hooks, VB, VC } from './data.js';
 import { codesOf, draftFor, attendees, billById, billSay, legsOf, stanceOf, OUTCOME_LABEL, hearingAhead, shareKit, billByRef,
   billRoute, whenAt, lateLine, spanOf, isDecision, sittingDraft, earlierFiled, draftHearing, movedFrom, streamOf, publicResponse } from './model.js';
 import { icon, btn, iconBtn, empty, toast, pickerSheet, openSheet, closeSheet, field, showAllBtn, POS_WORD, avatar, timeTone, pathLine } from './ui.js';
@@ -221,7 +221,7 @@ function goingHTML(c) {
 function shareHTML(c) {
   if (c.over || c.cancelled || !c.items.some(x => isPos(x.b) && x.b.is_public && x.h.status !== 'cancelled')) return '';
   // OUTREACH (F132, V20): one link, to this sitting's cards (#/outreach?hearing=<id> picks them out).
-  return `<a class="hr-share" id="hr-kit" href="#/outreach?hearing=${encodeURIComponent(c.h.id)}">${icon('megaphone')}<span class="hr-door-t"><span class="hr-door-l">Share these bills</span><span class="hr-door-s">The ask, its link and a ready message are on This week’s asks</span></span>${icon('chevron-right', { cls: 'v6-chev' })}</a>`;
+  return `<a class="hr-share" id="hr-kit" href="#/outreach?hearing=${encodeURIComponent(c.h.id)}">${icon('megaphone')}<span class="hr-door-t"><span class="hr-door-l">${VC ? 'Open in Outreach' : 'Share these bills'}</span><span class="hr-door-s">The ask, its link and a ready message are on This week’s asks</span></span>${icon('chevron-right', { cls: 'v6-chev' })}</a>`;
 }
 // "Democrat, House district 44": the party and the seat in words, not "D-HD 44" (rule 7.12, C-10: no codes in rows).
 const PARTY = { D: 'Democrat', R: 'Republican', I: 'Independent', G: 'Green', L: 'Libertarian' };

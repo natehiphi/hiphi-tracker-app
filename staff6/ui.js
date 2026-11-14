@@ -309,6 +309,8 @@ export const pathLine = parts => `<nav class="vb-path" aria-label="You are here"
 // Undo (today.js reads S.vbDone once and clears it; a page's own toast would not survive the move, A-16). One helper so
 // every page finishes alike. Call it only under VB, after the save succeeded; undo is what the page's toast would offer.
 export function vbFinish(what, undo = null) {
+  // R-397 version C: a step finished from Outreach's Needs you stays in Outreach (a toast with Undo), never to Home.
+  if (S.vcOutreach?.()) { toast(`${String(what || 'Done').replace(/[.]?$/, '.')}`, { ok: true, undo }); S.go(location.hash, { replace: true, force: true, keepScroll: true }); return; }
   S.vbDone = { what: String(what || 'Done'), undo, at: Date.now() };
   S.go('#/', { force: true });   // the sidebar's own Today address
 }
@@ -528,7 +530,7 @@ export function pickerSheet({ title, options, value, onPick, help = '' }) {
 }
 // A menu of actions (the ⋯ menus). items: [{ label, icon, danger, disabled, reason, run }]
 export function menuSheet({ title = 'More', items }) {
-  return openSheet({ title, pop: true, body: `<div class="sv-menu">${items.filter(Boolean).map((it, i) => `<button type="button" data-mi="${i}" class="${it.danger ? 'danger' : ''}" ${it.disabled ? 'aria-disabled="true"' : ''}>${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.disabled && it.reason ? `<span class="sub">${esc(it.reason)}</span>` : it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
+  return openSheet({ title, pop: true, body: `<div class="sv-menu">${items.filter(Boolean).map((it, i, all) => `${it.group && it.group !== all[i - 1]?.group ? `<p class="sv-menugroup">${esc(it.group)}</p>` : ''}<button type="button" data-mi="${i}" class="${it.danger ? 'danger' : ''}" ${it.disabled ? 'aria-disabled="true"' : ''}>${icon(it.icon || 'chevron-right')}<span class="body"><span class="title">${esc(it.label)}</span>${it.disabled && it.reason ? `<span class="sub">${esc(it.reason)}</span>` : it.sub ? `<span class="sub">${esc(it.sub)}</span>` : ''}</span></button>`).join('')}</div>`,
     wire: d => { const list = items.filter(Boolean); d.querySelectorAll('[data-mi]').forEach(el => el.onclick = async () => { const it = list[+el.dataset.mi]; if (it.disabled) { if (it.reason) toast(it.reason); return; } await closeSheet({ silent: true }); await it.run(); }); } });
 }
 // Confirm in the app (never window.confirm): confirmSheet({ title, text, ok: 'Delete', danger: true }) -> Promise<boolean>
