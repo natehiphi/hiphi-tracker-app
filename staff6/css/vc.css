@@ -93,3 +93,5 @@ html.vc .me-other > .me-rrow:first-of-type::before { content: ''; position: abso
 html.vc .sv-menugroup { margin: 12px 0 2px; padding: 0 16px; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--v6-muted); }
 @media (max-width: 640px) { html.vc .vc-status { font-size: 1rem; } }
 html.vc .vc-picks .bw-f + .bw-f::before { content: none; }
+/* A phone rule for links in the bill panel made Team talk an inline chip on a phone; the row stays a full-width card. */
+html.vc body .vc-talk > a { display: flex !important; width: 100%; box-sizing: border-box; padding: 0 14px !important; }
