@@ -204,3 +204,29 @@ body.nobar main { padding-bottom: 0; }
 body.nobar .toast { bottom: var(--s4); }
 .note .who { display: block; font-weight: 700; font-size: var(--f14); text-align: left; }
 .done .actions .btn { line-height: 1.3; padding-top: var(--s3); padding-bottom: var(--s3); max-width: 100%; }
+
+/* the file, ask and missed pages: the form's answers to copy, the chair, the email, the footer's question */
+.sh { font: 600 var(--f18)/1.3 var(--head); margin: var(--s5) 0 var(--s2); }
+.lead.tight { margin: 0 0 var(--s4); }
+.copyrows { max-width: var(--letter-w); }
+.copyrow { display: flex; align-items: center; gap: var(--s4); min-height: calc(var(--s7) + var(--s2)); padding: var(--s2) 0; }
+.copyrow + .copyrow { border-top: var(--line) solid var(--rule); }
+.copyrow .cq { flex: 1; min-width: 0; }
+.copyrow .cq span { display: block; font-size: var(--f14); color: var(--muted); }
+.copyrow .cq b { font-weight: 700; overflow-wrap: anywhere; }
+.chair { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s2); }
+.chair .g b { display: block; font-weight: 700; }
+.chair .g span { display: block; font-size: var(--f14); color: var(--muted); }
+.mline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s1) var(--s3); margin: 0 0 var(--s3); max-width: var(--letter-w); }
+.mline .ml { flex: none; min-width: var(--s7); color: var(--muted); font-size: var(--f14); }
+.mline b { font-weight: 700; overflow-wrap: anywhere; }
+.mline .field { flex: 1; min-width: 0; }
+.mlab { display: block; margin: var(--s4) 0 var(--s2); }
+.letter { display: block; width: 100%; max-width: var(--letter-w); min-height: calc(var(--s8) * 4); color: var(--ink); border: var(--line) solid var(--rule); background: var(--letter-bg); border-radius: var(--r12); padding: var(--s5); font: 400 var(--f16)/1.65 var(--body); resize: none; overflow: hidden; transition: border-color var(--t-fast) var(--ease); }
+.letter:hover { border-color: var(--edge); }
+.letter:focus-visible { outline-offset: 0; border-radius: var(--r12); }
+.field:hover { border-color: var(--muted); }
+.sfoot .fq { font: 600 var(--f18)/1.3 var(--head); margin: 0 var(--s2) 0 0; }
+.btn.text:disabled { background: none; color: var(--muted); }
+.fslot { display: contents; }
+.chair .person { background: var(--tint); }

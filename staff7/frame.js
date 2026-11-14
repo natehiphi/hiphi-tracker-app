@@ -4,6 +4,9 @@ import { stepsFor, homeRows, BUILT, hearingLine, left } from './steps.js';
 import { stepRow, dueStrip, band, plainBand, btn, esc, toast, wireToast, toastHTML } from './parts.js';
 import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
 import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
+import { fileSheet, bindFile, fileStep, undoFile } from './do_file.js';
+import { askSheet, bindAsk, askStep, undoAsk } from './do_ask.js';
+import { missedSheet, bindMissed, notFiledStep } from './do_missed.js';
 import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
 
@@ -14,7 +17,7 @@ const WILL = { issues: 'Your issues and your teammates’, with every bill on ea
 
 // Session memory: the typed send-back note, what is finished and what is in flight live here and nowhere else. The data layer also keeps
 // the practice copy's writes in sessionStorage (hiphi5_practice, shared with the current app's practice copy in this tab): staff7 does not fight it.
-const ctx = { me: null, notes: {}, finished: {}, busy: new Set(), asked: new Set(), pollT: 0,
+const ctx = { me: null, notes: {}, stage: {}, mail: {}, finished: {}, busy: new Set(), asked: new Set(), pollT: 0,   // stage: which footer a file or ask step is on (1 or 2); mail: the email as the person has changed it
   rerender: focus => render({ focus }),
   poll(fn) { clearInterval(ctx.pollT); ctx.pollT = setInterval(() => fn().catch(() => {}), 30000); },
   open() { return stepsFor(ctx.me).filter(s => !hides(ctx.finished[s.id])); },
@@ -26,6 +29,11 @@ const ctx = { me: null, notes: {}, finished: {}, busy: new Set(), asked: new Set
   },
   send: s => ctx.guard(s.id, async () => { ctx.finish(s, 'sent', { undo: await sendStep(s) }); }),
   approve: s => ctx.guard(s.id, async () => { ctx.finish(s, 'approved', { undo: await approveStep(s) }); }),
+  // Filing, asking and the missed answers have no timed Undo; their done page keeps a text link that puts the step back (undo below)
+  fileIt: s => ctx.guard(s.id, async () => { ctx.finish(s, 'filed', { undo: await fileStep(s) }); }),
+  askIt: s => ctx.guard(s.id, async () => { ctx.finish(s, 'asked', { undo: await askStep(s) }); }),
+  lateFiled: s => ctx.guard(s.id, async () => { ctx.finish(s, 'recorded', { answer: 'yes', undo: await fileStep(s) }); }),
+  notFiledIt: s => ctx.guard(s.id, async () => { ctx.finish(s, 'recorded', { answer: 'no', undo: await notFiledStep(s) }); }),
   // a send back waits out the 10 seconds (as Staff v6 does), so Undo cancels it before anything is sent; a hidden tab or a closing page sends it at once
   sendBack(s, text) {
     if (ctx.finished[s.id] || ctx.busy.has(s.id)) return;
@@ -36,9 +44,13 @@ const ctx = { me: null, notes: {}, finished: {}, busy: new Set(), asked: new Set
     const f = ctx.finished[id]; if (!f) return;
     try {
       if (f.kind === 'back') { if (f.sent) throw new Error('It was already sent back.'); clearTimeout(f.timer); f.timer = 0; ctx.notes[id] = f.note; }
-      else if (f.kind === 'sent') await undoSend(f.undo); else await undoApprove(f.undo);
+      else if (f.kind === 'sent') await undoSend(f.undo);
+      else if (f.kind === 'filed' || f.kind === 'recorded') await undoFile(f.undo);   // a No is never undone: done.js offers no link for it
+      else if (f.kind === 'asked') await undoAsk(f.undo);
+      else await undoApprove(f.undo);
     } catch (e) { f.noUndo = true; toast((e && e.message) || 'It could not be undone.'); render({ focus: 'main h1' }); return; }
-    delete ctx.finished[id]; location.hash = '#/do/' + encodeURIComponent(id); toast('Undone. Nothing was sent.', { ms: 5000 }); } };
+    delete ctx.finished[id]; ctx.stage[id] = 1; location.hash = '#/do/' + encodeURIComponent(id);
+    toast(f.kind === 'filed' ? 'Put back. It is not filed.' : f.kind === 'recorded' ? 'Put back. It is not recorded.' : f.kind === 'asked' ? 'Put back. The ask is not recorded.' : 'Undone. Nothing was sent.', { ms: 5000 }); } };
 const freshDraft = f => (S.drafts[f.billId] || []).find(d => d.id === f.draftId);
 const hides = f => !!f && (f.status == null || freshDraft(f)?.status === f.status);   // a finished step stays hidden only while its draft is in the state that finished it
 const held = () => Object.values(ctx.finished).some(f => f.kind === 'back' && f.timer);
@@ -106,7 +118,8 @@ const unbuiltSheet = s => `<div class="pn">${band(s.issue, s.verb, s.name, s.no)
 const missingSheet = () => `<div class="pn">${plainBand('That step is done or no longer yours.', '')}<div class="pbody"><p class="lead"><a class="btn text" href="#/">Back to Home</a></p></div></div>`;
 const peopleSheet = () => `<div class="pn">${plainBand(`No practice person ${ctx.unknown}.`, 'Pick one of these.')}<div class="pbody"><ul class="people">${people.map(a => `<li><a class="btn quiet" href="?demo=1&as=${encodeURIComponent(a.initials)}">${esc(a.full_name)} · ${esc(a.initials)}</a></li>`).join('')}</ul></div></div>`;
 const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(s, ctx), () => bindWrite(s, ctx)]
-  : s.kind === 'approve' || s.kind === 'second' ? [approveSheet(s, ctx), () => bindApprove(s, ctx)] : [unbuiltSheet(s), null];
+  : s.kind === 'approve' || s.kind === 'second' ? [approveSheet(s, ctx), () => bindApprove(s, ctx)]
+  : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
 
 // ---- draw ----
 let lastRoute = '', first = true;

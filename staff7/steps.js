@@ -54,7 +54,7 @@ export const orNames = as => as.length ? as.map(first).join(' or ') : 'An admin'
 
 export const VERB = { write: 'Write testimony', resubmit: 'Resubmit testimony', approve: 'Approve testimony', second: 'Second look', file: 'File testimony', ask: 'Ask for a hearing', missed: 'Did we file?', stale: 'Check testimony' };
 export const LABEL = { write: 'Send for approval', resubmit: 'Resubmit', approve: 'Approve', second: 'Second look', file: 'File', stale: 'Check it', missed: 'Did we file?' };
-export const BUILT = new Set(['write', 'resubmit', 'approve', 'second']);   // the kinds that have a page of their own in this piece
+export const BUILT = new Set(['write', 'resubmit', 'approve', 'second', 'file', 'ask', 'missed']);   // the kinds that have a page of their own in this piece
 const KIND = { nodraft: 'write', write: 'write', submit: 'write', revise: 'resubmit', approve: 'approve', second: 'second', file: 'file', missed: 'missed', stale: 'stale', chair: 'ask' };
 const ORDER = { overdue: 0, late: 1, dated: 2, missed: 3, undated: 4 };   // the current app's order inside the list
 
@@ -76,7 +76,7 @@ export function stepsFor(me) {
     if (kind === 'ask' && s.ask?.key === 'giving') { const o = (S.assignments?.[b.id] || []).map(advocate).find(a => a && a.id !== me.id); forWhom = o ? first(o) : ''; }
     const at = it.at ?? null, sentBack = it.d?.review_note || '';
     out.set(id, { id, kind, raw: it.kind, bill: b, hearing: h, draft: it.d || null, at, due: s.due ?? null, until: s.until ?? null, act: s.act || null, tone: it.tone || 'neutral', late: s.act?.kind === 'late',
-      issue: issueOf(b), name: billName(b), no: billNo(b), forWhom, sentBack,
+      issue: issueOf(b), name: billName(b), no: billNo(b), forWhom, sentBack, ask: kind === 'ask' ? s.ask : null,   // the chair ask's own record (who, which committee, the deadline) for its page
       verb: kind === 'ask' ? (forWhom ? `Ask the chairs for ${forWhom}` : VERB.ask) : VERB[kind] });
   }
   const ord = s => s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;

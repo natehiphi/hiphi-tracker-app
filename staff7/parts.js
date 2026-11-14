@@ -38,7 +38,7 @@ export function dueStrip(s, { hearing = '' } = {}) {
   else if (a?.kind === 'overdue') { strong = `Was due ${dayTime(s.due)}`; inw = `${left(s.due)} ago`; }
   else if (a?.kind === 'now') { strong = `${LABEL[s.kind] || 'Do it'} now`; cap = `The Capitol’s deadline is ${dayTime(s.due)}, in ${left(s.due)}.`; }
   else if (s.at != null) { strong = `${word} ${dayTime(s.at)}`; inw = `in ${left(s.at)}`; if (s.due != null && s.kind !== 'ask' && Math.abs(s.due - s.at) > 6e4) cap = `The Capitol’s deadline is ${dayTime(s.due)}.`; }
-  const soon = s.late || (s.at != null && soonSoon(s.at)) || a?.kind === 'now' || a?.kind === 'overdue';
+  const soon = s.kind !== 'missed' && (s.late || (s.at != null && soonSoon(s.at)) || a?.kind === 'now' || a?.kind === 'overdue');   // a missed hearing is past, never amber
   return `<div class="strip${soon ? '' : ' calm'}">${ic('clock')}<strong>${esc(strong)}</strong>${inw ? `<span>${esc(inw)}</span>` : ''}${cap ? `<span class="hl">${esc(cap)}</span>` : ''}${hearing ? `<span class="hl">${esc(hearing)}</span>` : ''}</div>`;
 }
 

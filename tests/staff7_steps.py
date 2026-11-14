@@ -170,11 +170,10 @@ with sync_playwright() as p:
         ok(pg.locator('.done .btn.filled').inner_text().startswith('Next step: ') and ' · ' in pg.locator('.done .btn.filled').inner_text(), f'{tag}: E13 the next step names the bill')
         pg.click('#undoBtn'); pg.wait_for_selector('#openDoc'); pg.wait_for_timeout(300)
         ok(wr['href'] in [r['href'] for r in rows(pg)], f'{tag}: Undo puts the step back')
-        # not built: a file step
-        nb = row(pg, 'File testimony'); pg.click(f'.sr3[href="{nb["href"]}"]'); pg.wait_for_timeout(400)
-        vis_back = pg.evaluate("() => [...document.querySelectorAll('.paper a, .paper button')].filter(e => e.getBoundingClientRect().width > 0).length")
-        ok('being built' in pg.locator('.paper').inner_text() and pg.evaluate(FILLED) == 0 and vis_back == 0 and 'Hearing' in pg.locator('.strip').inner_text(), f'{tag}: E11 a step whose page is not built: band, strip, one line, no list of facts, no button')
-        snap(pg, '9_step_not_built', tag)
+        # the file step has a page of its own now: never the "being built" sheet
+        nb = row(pg, 'File testimony'); pg.click(f'.sr3[href="{nb["href"]}"]'); pg.wait_for_selector('#subBtn'); pg.wait_for_timeout(400)
+        ok('being built' not in pg.locator('.paper').inner_text() and pg.evaluate(H1) == 'File testimony' and pg.evaluate(FILLED) == 1, f'{tag}: E11 the file step is a page of its own, not the "being built" sheet')
+        snap(pg, '9_file_page', tag)
         txt = chrome_text(pg)
         ok(not re.search(r'\b(task|tasks|vape|vapes|vaping|dead|review)\b', txt, re.I), f'{tag}: no "task", "vape", "dead" or "review" in the words')
         small = pg.evaluate("() => [...document.querySelectorAll('.btn, .sr3, .bi, .brand')].filter(e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.className)")
@@ -223,8 +222,126 @@ with sync_playwright() as p:
         ok(not errs, f'{tag}: no errors on the router run {errs[:2]}')
         pg.context.close()
 
+
+    # ================= F. file, ask and missed: the three step pages =================
+    OWN = """async (num) => { const d = await import('/staff6/data.js'), t6 = await import('/staff6/today.js'); t6.t6Fresh(); return t6.work(d.S.me).own.filter(i => i.b?.bill_number === num).map(i => i.kind); }"""
+    DRS = """async (num) => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === num); return (d.S.drafts[b.id] || []).map(x => x.status); }"""
+    ASKS = """async (num) => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === num); return { notes: (d.S.demoNotes || []).filter(n => n.bill_id === b.id && n.answer === 'asked').length, todos: (d.S.todos[b.id] || []).filter(t => /^Ask /.test(t.title)).map(t => t.done) }; }"""
+    SMALL = "() => [...document.querySelectorAll('.btn, .sr3, .field, .letter')].filter(e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.className)"
+    INVIEW = "(sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }"
+    NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && document.querySelector('.paper').scrollWidth <= document.querySelector('.paper').clientWidth"
+    def open_step(who, w, h, start, hsh=''):
+        bad = []; pg, errs = open_as(br, who, w, h, hsh, bad)
+        r = row(pg, start); pg.evaluate(f"location.hash = '{r['href']}'"); pg.wait_for_timeout(500)
+        return pg, errs, bad, r['href']
+    for w, h in ((1440, 900), (1280, 800)):
+        tag = f'{w}x{h}'
+        # ---- NT: file ----
+        pg, errs, bad, href = open_step('NT', w, h, 'File testimony'); pg.context.grant_permissions(['clipboard-read', 'clipboard-write'])
+        pages = len(pg.context.pages)
+        st = pg.locator('.strip').inner_text()
+        ok(pg.evaluate(H1) == 'File testimony' and 'being built' not in pg.locator('.paper').inner_text() and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE), f'{tag}: F1 file: its own page, one filled button, no sideways scroll')
+        ok(re.search(r'File by \w{3} [\d:]+ [AP]M', st) and 'Capitol’s deadline is' in st and 'Hearing ' in st and re.search(r'approved it \w{3} [\d:]+ [AP]M\.', pg.locator('.who2').inner_text()), f'{tag}: F1 file: the team\'s time first, the Capitol\'s second, the hearing, and who approved it and when ({pg.locator(".who2").inner_text()})')
+        ok(pg.locator('.pdfrow b').inner_text().startswith('Letter to ') and 'Download it from Google Docs as a PDF to attach.' in pg.inner_text('.hint') and pg.locator('#openDoc').evaluate('e => e.tagName') == 'BUTTON' and pg.locator('#tpBtn').count() == 0, f'{tag}: F1 file: the letter row, its hint, a button in the practice copy')
+        snap(pg, 'F1_file_state1', tag)
+        labels = pg.locator('.copyrow .cq span').all_inner_texts(); vals = pg.locator('.copyrow .cq b').all_inner_texts()
+        ok(labels[:3] == ['Position', 'Organization', 'Signed with'] and labels[-1] == 'How we testify' and pg.locator('.copyrow .btn.text').count() == len(labels) and all(x == 'Copy' for x in pg.locator('.copyrow .btn.text').all_inner_texts()), f'{tag}: F1 file: the Capitol form\'s answers, each with a quiet Copy ({labels})')
+        pg.click('.copyrow:nth-child(2) .btn.text'); pg.wait_for_timeout(300)
+        clip = pg.evaluate('navigator.clipboard.readText()')
+        ok(clip == vals[1] and pg.locator('#toastMsg').inner_text() == 'Copied.', f'{tag}: F1 file: Copy puts the answer on the clipboard and says "Copied." ({clip!r})')
+        ok(pg.locator('#subBtn').inner_text() == 'Submit on the Capitol site' and 'btn filled' in pg.locator('#subBtn').get_attribute('class') and 'It opens the Capitol’s page. Come back here when you are done.' in pg.locator('.sfoot').inner_text() and pg.evaluate(INVIEW, '#subBtn'), f'{tag}: F1 file: footer state 1, the one filled button, in view')
+        pg.click('#subBtn'); pg.wait_for_timeout(400)
+        ok(len(pg.context.pages) == pages and not bad and 'does not open' in pg.locator('#toastMsg').inner_text() and '#/do/' in pg.url, f'{tag}: F2 file: Submit opens no page and no outside request in the practice copy, and says so ({bad[:1]})')
+        ok(pg.locator('#fq').inner_text() == 'Did you file it?' and pg.locator('#yesBtn').inner_text() == 'Yes, filed' and 'filled' in pg.locator('#yesBtn').get_attribute('class') and 'quiet' in pg.locator('#notYet').get_attribute('class') and pg.locator('#notYet').inner_text() == 'Not yet' and pg.evaluate(FILLED) == 1 and pg.evaluate("document.activeElement.id") == 'yesBtn', f'{tag}: F2 file: state 2 asks "Did you file it?", one filled Yes, filed, a quiet Not yet, focus on Yes')
+        snap(pg, 'F2_file_state2', tag)
+        pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(300); pg.evaluate(f"location.hash = '{href}'"); pg.wait_for_timeout(400)
+        ok(pg.locator('#yesBtn').count() == 1 and pg.locator('#subBtn').count() == 0, f'{tag}: F2 file: leaving and coming back keeps state 2')
+        pg.click('#notYet'); pg.wait_for_timeout(250)
+        ok(pg.locator('#subBtn').count() == 1 and pg.locator('#yesBtn').count() == 0 and pg.evaluate("document.activeElement.id") == 'subBtn', f'{tag}: F2 file: Not yet goes back to state 1')
+        pg.click('#subBtn'); pg.wait_for_timeout(250)
+        pg.evaluate("() => { const b = document.getElementById('yesBtn'); b.click(); b.click(); }"); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
+        ok(pg.evaluate(H1) == 'Filed.' and re.match(r'Nothing else needs you on .+\.$', pg.locator('.done .sub').inner_text()) and pg.locator('#undoBtn').inner_text() == 'I have not filed it yet' and 'for 10 seconds' not in pg.locator('.done').inner_text() and pg.locator('.segs').count() == 1 and pg.locator('.done .btn.filled').inner_text().startswith('Next step: '), f'{tag}: F3 file: done says Filed., the sentence, the week bar, the reverse link, the next step')
+        d = pg.evaluate(DRS, 'HB2300'); own = pg.evaluate(OWN, 'HB2300')
+        ok(d == ['filed'] and 'file' not in own and pg.evaluate("[...document.querySelectorAll('.sr3')].every(a => !a.innerText.includes('HB 2300'))"), f'{tag}: F3 file: two clicks filed once; the step left staff6\'s own list and staff7\'s ({d}, {own})')
+        snap(pg, 'F3_file_done', tag)
+        pg.click('#undoBtn'); pg.wait_for_selector('#subBtn'); pg.wait_for_timeout(300)
+        ok(pg.evaluate(DRS, 'HB2300') == ['approved'] and 'file' in pg.evaluate(OWN, 'HB2300') and '#/do/' in pg.url, f'{tag}: F3 file: "I have not filed it yet" puts it back, approved and in the list again')
+        # not an amber strip but a calm one at 25 hours; and the words, targets, errors
+        ok(not pg.evaluate(SMALL) and not re.search(r'\b(task|tasks|vape|vapes|vaping|dead)\b', chrome_text(pg), re.I), f'{tag}: F9 file: every control 44px or more, none of the banned words')
+        ok(not errs and not bad, f'{tag}: file run: no page or console errors, nothing outside {errs[:2]} {bad[:1]}')
+        pg.context.close()
+        # KV and KR: another file step each (KR's is due in under an hour)
+        for who, wk in (('KV', 'HB2121'), ('KR', 'SB3025')):
+            pg, errs, bad, href = open_step(who, w, h, 'File testimony')
+            ok(pg.evaluate(H1) == 'File testimony' and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and pg.evaluate(INVIEW, '#subBtn') and 'Capitol’s deadline is' in pg.locator('.strip').inner_text() + ' Capitol’s deadline is' and not errs, f'{tag}: F1 {who} {wk}: file opens with one filled button in view ({errs[:1]})')
+            if who == 'KR': snap(pg, 'F1b_file_late_KR', tag)
+            pg.context.close()
+        # ---- asks ----
+        for who, start, num in (('NT', 'Ask for a hearing', 'HB1732'), ('KV', 'Ask for a hearing', 'SB2175'), ('JM', 'Ask for a hearing', 'SB11'), ('KR', 'Ask the chairs for Rick', 'HB1991')):
+            pg, errs, bad, href = open_step(who, w, h, start); pages = len(pg.context.pages)
+            st = pg.locator('.strip').inner_text(); handed = who == 'KR'
+            ok(pg.evaluate(H1) == 'Ask for a hearing' and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and pg.evaluate(INVIEW, '#mailBtn') and 'being built' not in pg.locator('.paper').inner_text(), f'{tag}: B1 {who} {num}: ask opens with one filled button in view')
+            ok(re.search(r'Ask by \w{3},? ', st) and re.search(r'It needs a hearing in (House|Senate) .+ by \w{3}, \w{3} \d+, or it stops for the year\.', st), f'{tag}: B1 {who}: the strip says why in words ({st!r})')
+            ok(pg.locator('.chair .g span').inner_text().startswith(('Chair, ', 'Chairs, ')) and pg.locator('.chair .person').count() == 1, f'{tag}: B1 {who}: the chair\'s mark, name and "Chair, <committee>"')
+            ok(('You are asking for Rick.' in pg.locator('.stmain').inner_text()) == handed, f'{tag}: B2 {who}: the handed line shows only for a handed ask')
+            to = pg.locator('.mline b').inner_text(); subj = pg.input_value('#subj'); body = pg.input_value('#letter')
+            ok('@capitol.hawaii.gov' in to and subj.startswith('Request for a hearing on ') and body.startswith('Aloha ') and 'Mahalo' in body and pg.locator('label[for=letter]').count() == 1 and pg.locator('label[for=subj]').count() == 1, f'{tag}: B3 {who}: To, Subject and the words, built from the data and labelled ({to}, {subj!r})')
+            ok(not re.search(r'Ask partners|public', ' '.join(pg.locator('.paper .btn, .paper a').all_inner_texts()), re.I), f'{tag}: B1 {who}: no "Ask partners and the public" control')
+            if who == 'NT':
+                snap(pg, 'B1_ask_top', tag)
+                pg.evaluate("document.querySelector('.paper').scrollTo(0, 99999)"); pg.wait_for_timeout(300); snap(pg, 'B1b_ask_scrolled', tag)
+                pg.evaluate("document.querySelector('.paper').scrollTo(0, 0)")
+            if handed: snap(pg, 'B2_ask_handed', tag)
+            # typed changes survive leaving and coming back
+            pg.fill('#subj', 'My subject ' + tag); pg.fill('#letter', body + '\nA line I added. ' + tag)
+            pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(300); pg.evaluate(f"location.hash = '{href}'"); pg.wait_for_timeout(400)
+            ok(pg.input_value('#subj') == 'My subject ' + tag and pg.input_value('#letter').endswith('A line I added. ' + tag), f'{tag}: B4 {who}: the edited email survives leaving and coming back')
+            ok(pg.evaluate("() => { const t = document.getElementById('letter'); return t.scrollHeight <= t.clientHeight + 2; }"), f'{tag}: B4 {who}: the message grows with its words (no inner scrollbar)')
+            pg.click('#mailBtn'); pg.wait_for_timeout(400)
+            ok(len(pg.context.pages) == pages and not bad and 'does not open' in pg.locator('#toastMsg').inner_text() and '#/do/' in pg.url and 'mailto' not in pg.url, f'{tag}: B5 {who}: Open in my mail app opens nothing in the practice copy and says so')
+            ok(pg.locator('#fq').inner_text() == 'Did you send it?' and pg.locator('#yesBtn').inner_text() == 'Yes, sent' and pg.locator('#notYet').inner_text() == 'Not yet' and pg.evaluate(FILLED) == 1, f'{tag}: B5 {who}: state 2 asks "Did you send it?"')
+            if who == 'NT': snap(pg, 'B3_ask_state2', tag)
+            pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(300); pg.evaluate(f"location.hash = '{href}'"); pg.wait_for_timeout(400)
+            ok(pg.locator('#yesBtn').count() == 1 and pg.input_value('#subj') == 'My subject ' + tag, f'{tag}: B5 {who}: state 2 and the edits survive leaving and returning')
+            pg.click('#notYet'); pg.wait_for_timeout(250); ok(pg.locator('#mailBtn').count() == 1, f'{tag}: B5 {who}: Not yet goes back')
+            pg.click('#mailBtn'); pg.wait_for_timeout(250)
+            before = pg.evaluate(ASKS, num); own0 = pg.evaluate(OWN, num)
+            pg.evaluate("() => { const b = document.getElementById('yesBtn'); b.click(); b.click(); }"); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
+            after = pg.evaluate(ASKS, num); own1 = pg.evaluate(OWN, num)
+            ok(pg.evaluate(H1) == 'Asked.' and re.match(r'Nothing else needs you on .+ until the chairs? answers?\.$', pg.locator('.done .sub').inner_text()) and pg.locator('#undoBtn').inner_text() == 'I have not sent it yet', f'{tag}: B6 {who}: done says Asked. and what is next')
+            ok('chair' in own0 and 'chair' not in own1 and after['notes'] > before['notes'] and after['notes'] - before['notes'] <= 2, f'{tag}: B6 {who}: two clicks recorded the ask once per chair; the step left staff6\'s own list ({before} -> {after}, {own0} -> {own1})')
+            if handed: ok(before['todos'] == [False] and after['todos'] == [True], f'{tag}: B6 {who}: the to-do that handed the ask is closed ({before} -> {after})')
+            if who == 'NT': snap(pg, 'B4_ask_done', tag)
+            pg.click('#undoBtn'); pg.wait_for_selector('#mailBtn'); pg.wait_for_timeout(300)
+            back = pg.evaluate(ASKS, num)
+            ok(back['notes'] == before['notes'] and back['todos'] == before['todos'] and 'chair' in pg.evaluate(OWN, num) and pg.input_value('#subj') == 'My subject ' + tag, f'{tag}: B6 {who}: "I have not sent it yet" puts it back, edits kept ({back})')
+            ok(not pg.evaluate(SMALL) and not errs and not bad, f'{tag}: ask {who}: 44px targets, no page or console errors, nothing outside {errs[:2]} {bad[:1]}')
+            pg.context.close()
+        # ---- missed, by changing a hearing's time in memory (the practice data has none) ----
+        for ans in ('yes', 'no'):
+            pg, errs = open_as(br, 'KV', w, h)
+            pg.evaluate("async () => {" + PRE + "hearingOf('HB2121').scheduled_at = new Date(Date.now() - 36e5).toISOString(); }")
+            pg.evaluate("location.hash = '#/x'"); pg.wait_for_timeout(200); pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(400)
+            r = row(pg, 'Did we file?'); pg.evaluate(f"location.hash = '{r['href']}'"); pg.wait_for_selector('#noBtn'); pg.wait_for_timeout(400)
+            ok(pg.evaluate(H1) == 'Did we file?' and 'The hearing started ' in pg.locator('.strip').inner_text() and pg.locator('.strip.calm').count() == 1 and re.search(r'(House|Senate) .+ · Room', pg.locator('.strip').inner_text()) and pg.locator('.pdfrow b').inner_text().startswith('Letter to '), f'{tag}: M1 missed: band, a calm strip that says when the hearing started, the committee and room, the letter')
+            ok(pg.locator('#yesBtn').inner_text() == 'Yes, filed' and 'filled' in pg.locator('#yesBtn').get_attribute('class') and pg.locator('#noBtn').inner_text() == 'No, it was not filed' and 'quiet' in pg.locator('#noBtn').get_attribute('class') and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and pg.evaluate(INVIEW, '#yesBtn'), f'{tag}: M1 missed: one filled Yes, filed and a quiet No, it was not filed, in view')
+            if ans == 'yes': snap(pg, 'M1_missed', tag)
+            own0 = pg.evaluate(OWN, 'HB2121'); d0 = pg.evaluate(DRS, 'HB2121')
+            pg.click('#yesBtn' if ans == 'yes' else '#noBtn'); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
+            own1 = pg.evaluate(OWN, 'HB2121'); dd = pg.evaluate(DRS, 'HB2121')
+            ok(pg.evaluate(H1) == 'Recorded.' and 'Noted on ' in pg.locator('.done .sub').inner_text() and 'missed' in own0 and 'missed' not in own1, f'{tag}: M2 missed {ans}: done says Recorded. and the step left staff6\'s own list ({own0} -> {own1})')
+            if ans == 'yes':
+                ok(dd.count('filed') == d0.count('filed') + 1 and 'was filed' in pg.locator('.done .sub').inner_text() and pg.locator('#undoBtn').inner_text() == 'Change my answer', f'{tag}: M2 missed yes: marked filed as in the file step, with a way to change the answer')
+                snap(pg, 'M2_missed_done', tag)
+                pg.click('#undoBtn'); pg.wait_for_selector('#yesBtn'); pg.wait_for_timeout(300)
+                ok(pg.evaluate(DRS, 'HB2121') == d0 and 'missed' in pg.evaluate(OWN, 'HB2121'), f'{tag}: M2 missed yes: changing the answer restores the question')
+            else:
+                ok('was not filed' in pg.locator('.done .sub').inner_text() and pg.locator('#undoBtn').count() == 0, f'{tag}: M2 missed no: noted on the bill, and no reverse link (the timeline line cannot be taken off)')
+            ok(not errs, f'{tag}: missed {ans}: no page or console errors {errs[:2]}')
+            pg.context.close()
+
     # ================= the look is tokens in one file =================
-    for f in ('app.css', 'app.js', 'frame.js', 'parts.js', 'steps.js', 'do_write.js', 'do_approve.js', 'done.js', 'icons7.js'):
+    for f in ('app.css', 'app.js', 'frame.js', 'parts.js', 'steps.js', 'do_write.js', 'do_approve.js', 'do_file.js', 'do_ask.js', 'do_missed.js', 'done.js', 'icons7.js'):
         src = open(os.path.join(ROOT, 'staff7', f)).read()
         lit = re.findall(r'(?<![&\w])#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|font-family:\s*(?!var\()\S|font-size:\s*\d|font:[^;]*\b\d+px', src)
         if f == 'app.css': lit += re.findall(r'\b\d+(?:px|rem|em)\b', '\n'.join(l for l in src.split('\n') if not l.lstrip().startswith(('@media', '@container', '/*'))))
