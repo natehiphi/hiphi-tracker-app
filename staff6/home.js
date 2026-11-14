@@ -67,7 +67,15 @@ function stepItems() {
   try { return ownAll(work(S.me)).sort(t6ByTime); } catch (e) { console.error(e); return []; }
 }
 // The menu's count in version C is this list's own count, so the badge and "Your steps N" always agree (app.js badge).
-export const homeCount = () => stepItems().length;
+// Many hearing asks at once (a lead can hold 15 near a lateral deadline) would bury the testimony steps: Home lists the first
+// ASKS_SHOWN chair asks, soonest first, and folds the rest into one row that opens Bills That Need Hearings, so every ask is
+// still one click from Home (Nate's "simple": R-397 review, KR had 18 steps). The count is the rows a person sees.
+const ASKS_SHOWN = 3, isAsk = it => it.kind === 'chair' || it.kind === 'followask';
+function shownSteps(items) {
+  const asks = items.filter(isAsk), rest = asks.slice(ASKS_SHOWN), keep = new Set(asks.slice(0, ASKS_SHOWN));
+  return { list: items.filter(it => !isAsk(it) || keep.has(it)), more: rest };
+}
+export const homeCount = () => { const { list, more } = shownSteps(stepItems()); return list.length + (more.length ? 1 : 0); };
 // Every kept step of the viewer's, whatever its date: the issue cards say "You: ..." by it.
 const allMine = () => { const m = new Map(); try { for (const it of ownAll(work(S.me))) if (!m.has(it.b.id)) m.set(it.b.id, it); } catch (e) { console.error(e); } return m; };
 // The button names what it does (R-397 review): the row's own button where it has one, else a word for the kind of step.
@@ -79,10 +87,16 @@ function stepRow(it, fresh) {
   const button = vbJobButton(it) || btn(BTN[it.kind] || 'Open', { kind: 'secondary', sm: true, href: billRoute(b), attrs: { 'aria-label': `${BTN[it.kind] || 'Open'}: ${sayWords(b)}` } });
   return itemRow({ key: it.key, name: jobName(it), num: numWords(b), line, tone: y.tone, icon: y.icon, bold: y.bold, href: billRoute(b), button, cls: `hm-step t6-k-${it.kind}` });
 }
+function moreAsksRow(more) {
+  const first = more.map(it => it.at).filter(Boolean).sort((a, b) => +new Date(a) - +new Date(b))[0];
+  const line = first ? `The first by ${dayWords(first)}` : 'Bills of yours waiting for a hearing';
+  return itemRow({ key: 'hm-more-asks', name: `Ask for hearings on ${plural(more.length, 'more bill')}`, num: '', line, href: '#/hearings/ask', button: btn('See them', { kind: 'secondary', sm: true, href: '#/hearings/ask' }), cls: 'hm-step hm-more-asks' });
+}
 function stepsHTML(items, freshIds) {
+  const { list, more } = shownSteps(items), n = list.length + (more.length ? 1 : 0);
   const body = !items.length ? `<p class="hm-empty">Nothing for you to do right now.</p>`
-    : `<div class="v6-list hm-list" role="list">${items.map(it => stepRow(it, freshIds.has(it.b.id))).join('')}</div>`;
-  return `<section class="hm-sec hm-steps" aria-labelledby="hm-h-steps"><h2 class="hm-h" id="hm-h-steps">Your steps <span class="hm-n">${items.length}</span></h2>${body}</section>`;
+    : `<div class="v6-list hm-list" role="list">${list.map(it => stepRow(it, freshIds.has(it.b.id))).join('')}${more.length ? moreAsksRow(more) : ''}</div>`;
+  return `<section class="hm-sec hm-steps" aria-labelledby="hm-h-steps"><h2 class="hm-h" id="hm-h-steps">Your steps <span class="hm-n">${n}</span></h2>${body}</section>`;
 }
 
 // ---- 2. What changed ----
