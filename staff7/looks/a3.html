@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Staff app, look A3: Paper workspace</title>
+<title>Staff app, look A3: Paper workspace, version 6</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="only light">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -59,7 +59,7 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 
 /* ---------- rail (phone: bottom bar) ---------- */
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--bg);border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom)}
-.bar ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr)}
+.bar ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,1fr)}
 .bar .brand,.bar .who{display:none}
 .bi{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s1);min-height:64px;padding:var(--s2);background:none;border:0;text-decoration:none;color:var(--muted);font:500 var(--f14)/1.2 var(--head);cursor:pointer;width:100%}
 .bi[aria-current="page"],.bi.open{color:var(--ink);font-weight:700}
@@ -89,6 +89,21 @@ svg.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;st
 .note3 span{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 .note3:hover span{text-decoration-thickness:2px}
 .note3:not(.risk) svg.ic{color:var(--muted)}
+.sunwrap{display:flex;align-items:center;gap:var(--s5)}
+.sunwrap svg{width:176px;height:88px;color:#8A6A12;flex:none}
+.ihd{font:600 var(--f22)/1.25 var(--head);letter-spacing:-.02em}
+.whose{display:flex;flex-wrap:wrap;align-items:center;margin:var(--s1) calc(var(--s1) * -1) 0}
+.whose button{background:none;border:0;cursor:pointer;min-height:44px;padding:0 var(--s1);color:var(--muted);font:400 var(--f16)/1 var(--body)}
+.whose button[aria-pressed="true"]{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-color:var(--act);text-decoration-thickness:2px;text-underline-offset:6px}
+.whose .dotsep{color:var(--muted);padding:0 var(--s1)}
+.sr3.pr3{width:100%;background:none;border:0;cursor:pointer;text-align:left;font:inherit}
+.sr3 .imark{margin-right:calc(var(--s1) * -1)}
+.sr3 .imark svg.ic{color:#fff}
+.ir2{display:block;font-size:var(--f14);color:var(--muted);margin-top:2px}
+.ir2.risk{color:var(--amber)}
+.mnote{margin:0 0 var(--s4)}
+.note3.sel{position:relative;background:#fff;border-radius:12px;padding-left:var(--s3);padding-right:var(--s3);margin:0 calc(var(--s3) * -1)}
+.note3.sel::before{content:"";position:absolute;left:0;top:var(--s3);bottom:var(--s3);width:3px;border-radius:2px;background:var(--act)}
 .later{font-size:var(--f14);color:var(--muted);padding:var(--s3) 0 var(--s1)}
 .lh{font:600 var(--f16)/1.3 var(--head);margin:var(--s5) 0 var(--s2)}
 .srows3{list-style:none;margin:0;padding:0}
@@ -125,7 +140,7 @@ a.crumb:hover{color:var(--act)}
 .strip.calm{background:#F6F3EC;color:var(--ink)}
 .strip svg.ic{width:22px;height:22px}
 .strip strong{font:600 var(--f18)/1.3 var(--head)}
-.strip .ctx{margin-left:auto;font-size:var(--f16);color:var(--muted)}
+.strip .ctx{flex:1 1 100%;margin-left:0;font-size:var(--f16);color:var(--muted)}
 .strip .stx{flex:1 1 320px;font-size:var(--f16)}
 .strip .btn{margin-left:auto;background:rgba(255,255,255,.6);border-color:var(--amber);color:var(--amber)}
 .lab{display:block;font-weight:700;margin-bottom:var(--s2)}
@@ -139,6 +154,7 @@ a.crumb:hover{color:var(--act)}
 .letter{display:block;width:100%;color:var(--ink);border:1px solid var(--rule);background:#FCFAF6;border-radius:12px;padding:var(--s5);font:400 var(--f16)/1.65 var(--body);min-height:240px;resize:none;overflow:hidden}
 .letter:focus-visible{outline-offset:0;border-radius:12px}
 .letter.ro{white-space:pre-wrap}
+.letter[hidden]{display:none}
 .lethead{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s1) var(--s3);margin-bottom:var(--s2)}
 .lethead .lab{margin:0}
 .qnote{font-size:var(--f14);color:var(--muted)}
@@ -349,7 +365,7 @@ a.crumb:hover{color:var(--act)}
 .pic{border:1px solid var(--rule);border-radius:12px;padding:var(--s5);background:#FCFAF6}
 .pic .cap{font-size:var(--f14);color:var(--muted);font-weight:700;margin-bottom:var(--s3)}
 .smsg{display:flex;gap:var(--s3);align-items:flex-start}
-.sav{width:36px;height:36px;border-radius:8px;background:var(--act);color:#fff;display:flex;align-items:center;justify-content:center;font:700 var(--f16)/1 var(--head);flex:none}
+.sav{width:32px;height:32px;border-radius:8px;background:var(--act);color:#fff;display:flex;align-items:center;justify-content:center;font:700 var(--f16)/1 var(--head);flex:none}
 .smn b{font-weight:700}
 .smn span{color:var(--muted);font-size:var(--f14);margin-left:var(--s2)}
 .smsg p,.emsg p{margin-top:var(--s1)}
@@ -412,6 +428,75 @@ a.crumb:hover{color:var(--act)}
 .sortb{background:none;border:0;padding:0;margin:0;font:700 var(--f14)/1.4 var(--body);color:var(--muted);cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:var(--s1)}
 .sortb:hover{color:var(--ink)}
 .arr{font-size:var(--f14)}
+
+/* ---------- version 6 ---------- */
+.nextline{font-size:var(--f16);color:var(--muted);margin-top:var(--s3);max-width:24em}
+.glab{font:700 var(--f14)/1.3 var(--body);color:var(--muted);margin:var(--s5) 0 var(--s1)}
+.srows3.sess{margin-top:var(--s4)}
+.sr3:not(.sel):hover{background:rgba(255,255,255,.6)}
+.todayl{margin-top:var(--s4)}
+.where .next.risk{color:var(--amber)}
+.where .next svg.ic,.brow .bst svg.ic{width:16px;height:16px;vertical-align:-2px}
+.brow .bst.riskt{color:var(--amber)}
+.nextline a{color:var(--muted);text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.nextline a:hover{color:var(--ink);text-decoration-thickness:2px}
+.whose.pick{padding-left:var(--s4)}
+.sr3 .sv b svg.ic{width:16px;height:16px;color:var(--amber);vertical-align:-2px;margin-right:var(--s1)}
+.sr3.dead .sv b{color:var(--muted);font-weight:400}
+.stm.ini{font-weight:700;letter-spacing:.02em}
+.mnote2{margin:var(--s2) 0 0}
+.whose.pick{margin-top:0}
+.mnote2{padding-left:var(--s4)}
+.calmsheet{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s5);padding:var(--s7) var(--s5);min-height:360px}
+.calmsheet .bigsun{width:240px;height:120px;color:#8A6A12}
+.hwrap{max-width:640px;padding-bottom:var(--s5)}
+.going{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4)}
+.gp{display:inline-flex;align-items:center;gap:var(--s2)}
+.hwrap .pdfrow{margin-bottom:var(--s3)}
+.hwrap .letter.ro{margin-bottom:var(--s3);min-height:0}
+.trk .tl.here{fill:#00698E;font-weight:700}
+.coming{list-style:none;margin:var(--s4) 0 0;padding:0;display:grid;gap:var(--s6);max-width:640px}
+.cm p{margin-top:var(--s1)}
+.cm .cmn{margin-top:var(--s2)}
+.touch{list-style:none;margin:var(--s2) 0 0;padding:0}
+.touch li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--s4);align-items:center;min-height:36px}
+.touch a{font-weight:700;text-decoration:none}
+.touch a:hover{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.touch .need{font-size:var(--f14);color:var(--muted);text-align:right}
+.touch .need.risk{color:var(--amber)}
+.touch .need svg.ic{width:16px;height:16px;vertical-align:-3px}
+.alerts{display:grid;gap:var(--s4);max-width:760px}
+.ablock{display:grid;grid-template-columns:minmax(0,1fr) 208px;gap:var(--s5);align-items:start}
+.ablock .pic{padding:var(--s3) var(--s4)}
+.ablock .pic .cap{margin-bottom:var(--s1)}
+.alerts .pbtn{min-height:36px;margin-top:var(--s2)}
+.alerts .smsg p{margin-top:0}
+.plainm{list-style:none;margin:var(--s1) 0 0;padding:0;font-size:var(--f14);color:var(--muted);display:flex;flex-wrap:wrap;gap:0 var(--s5)}
+.plainm li{min-height:32px;display:flex;align-items:center}
+.plainm a.lk{margin-left:var(--s1);text-underline-offset:4px}
+.lands{padding-top:var(--s3)}
+.lands .l0{font-size:var(--f14);color:var(--muted)}
+.lands .pg{display:flex;gap:var(--s2);align-items:flex-start;margin-top:var(--s2)}
+.lands .pg svg.ic{color:var(--act);margin-top:2px}
+.lands .pg b{display:block;line-height:1.35}
+.lands .pg .s{font-size:var(--f14);color:var(--muted)}
+.lands .btn.text{padding-left:0;min-height:44px;margin-top:var(--s1)}
+.alerts .pic.email{padding:var(--s2) var(--s4)}
+.alerts .emeta{margin-bottom:var(--s2);padding-bottom:var(--s2)}
+@container (max-width:560px){.ablock{grid-template-columns:minmax(0,1fr)}.lands{padding-top:0}}
+.alerts{max-width:none;grid-template-columns:minmax(0,1fr)}
+.alerts .acap{font-size:var(--f14);color:var(--ink);font-weight:700;margin:0 0 var(--s2)}
+.alerts .acap.muted{color:var(--muted)}
+.astack{display:grid;gap:var(--s3)}
+.alab{font-size:var(--f14);color:var(--muted);margin:var(--s2) 0 calc(var(--s1) * -1)}
+.alerts .lands .pg{text-decoration:none;color:var(--ink);padding:var(--s1) var(--s2) var(--s1) 0;border-radius:8px}
+.alerts .lands .pg:hover b{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
+.alerts .lands .pg:hover svg.ic{color:var(--act-p)}
+.alerts .pbtn{cursor:pointer}
+@container (min-width:1000px){
+  .alerts{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--s6);align-items:start}
+  .a-k1,.a-k3,.a-em{grid-column:1}.a-k2{grid-column:2;grid-row:1 / span 3}
+}
 
 /* ---------- public mode ---------- */
 .page.pubpg{padding-top:var(--s5);padding-bottom:var(--s5)}
@@ -525,6 +610,7 @@ body.hasbar .toast{bottom:calc(var(--s8) + var(--s4))}
   <a class="brand" href="#/" aria-label="HIPHI home">H</a>
   <ul>
     <li><a class="bi" data-k="home" href="#/"><span class="rpill"><span data-ic="home"></span></span><span>Home</span></a></li>
+    <li><a class="bi" data-k="issues" href="#/issues"><span class="rpill"><span data-ic="layers"></span></span><span>Issues</span></a></li>
     <li><a class="bi" data-k="calendar" href="#/calendar"><span class="rpill"><span data-ic="calendar"></span></span><span>Calendar</span></a></li>
     <li><button class="bi" data-k="search" id="searchBtn" type="button" aria-haspopup="dialog" aria-keyshortcuts="/"><span class="rpill"><span data-ic="search"></span></span><span>Search</span></button></li>
     <li><a class="bi" data-k="explore" href="#/explore"><span class="rpill"><span data-ic="grid"></span></span><span>Explore</span></a></li>
@@ -560,6 +646,7 @@ var P={
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
  left:'<path d="M19 12H5M11 6l-6 6 6 6"/>',
  chev:'<path d="m9 6 6 6-6 6"/>',
+ right:'<path d="M5 12h14M13 6l6 6-6 6"/>',
  check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>',
  globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
  pencil:'<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>',
@@ -575,6 +662,7 @@ var P={
  drop:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
  tooth:'<path d="M8 4c-3 0-4 3-3 6 1 4 1 10 3 10 1.5 0 1-5 4-5s2.5 5 4 5c2 0 2-6 3-10 1-3 0-6-3-6-2 0-2 1-4 1s-2-1-4-1z"/>',
  warn:'<path d="M12 4 2.5 20h19z"/><path d="M12 10v4M12 17h.01"/>',
+ layers:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 12.5 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
  flag:'<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
  stopm:'<circle cx="12" cy="12" r="9"/><path d="M7 12h10"/>',
  house:'<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>'
@@ -598,61 +686,55 @@ var S={
  ],
  bl:{
   tobacco:[
-   {id:'HB1563',n:'HB 1563',name:'Flavored tobacco sales',st:1,at:'House Health',s:'Hearing Thu 2:00 PM',isNew:1,pos:'Support',comp:'SB2988',chair:'Rep. Takayama',by:['Rep. Nakamura','Rep. Dela Cruz','Rep. Kahale'],what:'Ends the sale of flavored tobacco products in Hawaiʻi, including menthol and flavored e-cigarettes. Unflavored products could still be sold.',just:'Hearing set in House Health (Mon, Mar 16)',after:'House Finance, by Fri, Mar 27',hist:[['Mar 4','Sent to House Health with a request for a hearing'],['Feb 3','Referred to House Health, then House Finance'],['Jan 26','Introduced and read the first time'],['Jan 20','Companion SB 2988 introduced in the Senate'],['Jan 12','Session opened']],notes:[['KR','Kris','Last year’s letter had the strongest youth numbers. Reuse them.'],['ML','Mele','Rep. Takayama’s office asked for one page.']],kw:'flavor ban flavors menthol mint candy vape vapes vaping takayama nakamura dela cruz kahale'},
-   {id:'SB2988',n:'SB 2988',name:'Flavored tobacco sales (companion)',st:0,at:'Introduced',s:'Needs a hearing by Fri, Mar 20',comp:'HB1563',what:'The Senate companion to HB 1563: it ends the sale of flavored tobacco products, including flavored e-cigarettes.',pos:'Support',kw:'flavor ban menthol vape vapes san buenaventura'},
-   {id:'HB2121',n:'HB 2121',name:'E-cigarette tax',st:2,at:'Senate',s:'Crossed to the Senate · waiting on the Senate',pos:'Support',kw:'vape vapes vaping tax'},
-   {id:'HB1710',n:'HB 1710',name:'Smoke-free parks',st:1,at:'House Finance',s:'Passed House Health · next House Finance',pos:'Watching',kw:'parks smoking'},
-   {id:'SB1422',n:'SB 1422',name:'Tobacco retail licenses',dead:1,st:1,stop:'Senate Health and Human Services',pos:'Oppose',lead:'Kris',kw:'retail license permit vape'}],
+   {id:'HB1563',n:'HB 1563',name:'Flavored tobacco sales',st:1,at:'House Health',s:'Hearing Thu 2:00 PM',isNew:1,pos:'Support',comp:'SB2988',chair:'Rep. Takayama',by:['Rep. Nakamura','Rep. Dela Cruz','Rep. Kahale'],what:'Ends the sale of flavored tobacco products in Hawaiʻi, including menthol and flavored e-cigarettes. Unflavored products could still be sold.',just:'Hearing set in House Health (Mon, Mar 16)',after:'House Finance, if House Health passes it',hist:[['Mar 4','Sent to House Health with a request for a hearing'],['Feb 3','Referred to House Health, then House Finance'],['Jan 26','Introduced and read the first time'],['Jan 20','Companion SB 2988 introduced in the Senate'],['Jan 12','Session opened']],notes:[['KR','Kris','Last year’s letter had the strongest youth numbers. Reuse them.'],['ML','Mele','Rep. Takayama’s office asked for one page.']],kw:'flavor ban flavors menthol mint candy vape vapes vaping takayama nakamura dela cruz kahale'},
+   {id:'SB2988',n:'SB 2988',name:'Flavored tobacco sales (companion)',st:0,at:'Introduced',s:'Needs a hearing',comp:'HB1563',what:'The Senate companion to HB 1563: it ends the sale of flavored tobacco products, including flavored e-cigarettes.',pos:'Support',kw:'flavor ban menthol vape vapes san buenaventura'},
+   {id:'HB2121',n:'HB 2121',name:'E-cigarette tax',st:2,at:'Senate',s:'Waiting on the Senate',pos:'Support',kw:'vape vapes vaping tax'},
+   {id:'HB1710',n:'HB 1710',name:'Smoke-free parks',st:1,at:'House Finance',s:'Hearing today 5:00 PM',pos:'Support',chair:'Rep. Kitagawa',what:'Ends smoking and e-cigarette use in county and state parks, so children can play in clean air.',just:'Passed House Health (Mon, Mar 9)',after:'The House floor, by Thu, Apr 9',kw:'parks smoking e-cigarette vape'},
+   {id:'SB1422',n:'SB 1422',name:'Tobacco retail licenses',dead:1,st:1,stop:'Senate Health and Human Services',why:'The chair did not schedule a hearing before the Mar 6 deadline.',pos:'Oppose',lead:'Kris',kw:'retail license permit vape'}],
   meals:[
    {id:'SB3011',n:'SB 3011',name:'School meals',st:1,at:'Senate Education',s:'Hearing Fri 1:30 PM',pos:'Support',kw:'free lunch breakfast'},
-   {id:'HB1204',n:'HB 1204',name:'Free school breakfast',st:2,at:'House',s:'Crossed to the House · waiting on the House',pos:'Support'},
-   {id:'SB1980',n:'SB 1980',name:'Local food for schools',dead:1,st:1,stop:'Senate Education',pos:'Watching'}],
+   {id:'HB1204',n:'HB 1204',name:'Free school breakfast',st:2,at:'House',s:'Waiting on the House',pos:'Support'},
+   {id:'SB1980',n:'SB 1980',name:'Local food for schools',dead:1,st:1,stop:'Senate Education',why:'It was heard, then the committee held it.',pos:'Watching'}],
   sugar:[
-   {id:'SB2204',n:'SB 2204',name:'Sugary drink fee',st:0,at:'Introduced',s:'Needs a hearing by Fri, Mar 20',what:'Puts a fee on sugary drinks sold in Hawaiʻi and uses the money for children’s health programs.',pos:'Support',kw:'soda tax san buenaventura'},
-   {id:'SB2310',n:'SB 2310',name:'Sugary drink labels',dead:1,st:1,stop:'House Health',pos:'Support'}],
+   {id:'SB2204',n:'SB 2204',name:'Sugary drink fee',st:0,at:'Introduced',s:'Needs a hearing',what:'Puts a fee on sugary drinks sold in Hawaiʻi and uses the money for children’s health programs.',pos:'Support',kw:'soda tax san buenaventura'},
+   {id:'SB2310',n:'SB 2310',name:'Sugary drink labels',dead:1,st:1,stop:'Senate Health and Human Services',why:'The committee voted against it after a hearing.',pos:'Support'}],
   routes:[
    {id:'HB890',n:'HB 890',name:'Safe routes to school',st:1,at:'House Transportation',s:'Hearing Wed 10:00 AM',pos:'Comments'},
-   {id:'HB1402',n:'HB 1402',name:'Crosswalk lighting',st:0,at:'Introduced',s:'Waiting for a hearing',isNew:1,pos:'Watching'},
-   {id:'SB1744',n:'SB 1744',name:'Bike lanes near schools',st:1,at:'Senate Transportation',s:'Passed Senate Transportation',pos:'Support'}],
+   {id:'HB1402',n:'HB 1402',name:'Crosswalk lighting',st:0,at:'Introduced',s:'Hearing Fri 9:00 AM',isNew:1,pos:'Watching'},
+   {id:'SB1744',n:'SB 1744',name:'Bike lanes near schools',st:1,at:'Senate Transportation',s:'Passed this committee',pos:'Support'}],
   leave:[
-   {id:'SB1190',n:'SB 1190',name:'Paid family leave',dead:1,st:1,stop:'Senate Labor',pos:'Support'},
-   {id:'HB1850',n:'HB 1850',name:'Leave for new parents',dead:1,st:1,stop:'House Labor',pos:'Support'},
-   {id:'HB1301',n:'HB 1301',name:'Leave for caregivers',dead:1,st:0,stop:'House Labor',pos:'Support'}],
+   {id:'SB1190',n:'SB 1190',name:'Paid family leave',dead:1,st:1,stop:'Senate Labor',why:'It was never scheduled for a hearing.',pos:'Support'},
+   {id:'HB1850',n:'HB 1850',name:'Leave for new parents',dead:1,st:1,stop:'House Labor',why:'It was heard but did not get enough votes.',pos:'Support'},
+   {id:'HB1301',n:'HB 1301',name:'Leave for caregivers',dead:1,st:0,stop:'House Labor',why:'It was merged into another bill, so it stops here.',pos:'Support'}],
   water:[
-   {id:'HB1120',n:'HB 1120',name:'Lead testing in schools',st:2,at:'Senate',s:'Crossed to the Senate · hearing Fri 2:00 PM',pos:'Support'},
-   {id:'SB1260',n:'SB 1260',name:'Fluoride study',st:1,at:'Senate Health',s:'Waiting for a hearing',pos:'Comments'},
-   {id:'HB1305',n:'HB 1305',name:'Drinking fountains',st:0,at:'Introduced',s:'Introduced',pos:'Watching'}],
+   {id:'HB1120',n:'HB 1120',name:'Lead testing in schools',st:2,at:'Senate',s:'Hearing Fri 2:00 PM',pos:'Support'},
+   {id:'SB1260',n:'SB 1260',name:'Fluoride study',st:1,at:'Senate Health and Human Services',s:'Passed this committee',pos:'Comments'},
+   {id:'HB1305',n:'HB 1305',name:'Drinking fountains',st:0,at:'Introduced',s:'Hearing Fri 11:00 AM',pos:'Watching'}],
   oral:[
-   {id:'SB1530',n:'SB 1530',name:'Dental care for keiki',st:1,at:'Senate Health',s:'Passed Senate Health',pos:'Support'},
-   {id:'HB1666',n:'HB 1666',name:'Dental therapists',st:2,at:'Senate',s:'Crossed to the Senate',pos:'Support'}],
+   {id:'SB1530',n:'SB 1530',name:'Dental care for keiki',st:1,at:'Senate Health and Human Services',s:'Passed this committee',pos:'Support'},
+   {id:'HB1666',n:'HB 1666',name:'Dental therapists',st:2,at:'Senate',s:'Waiting on the Senate',pos:'Support'}],
   housing:[
-   {id:'HB1999',n:'HB 1999',name:'Housing and health study',st:1,at:'House Housing',s:'Waiting for a hearing',pos:'Comments'},
-   {id:'SB1888',n:'SB 1888',name:'Healthy rental homes',st:0,at:'Introduced',s:'Introduced',pos:'Support'}]
+   {id:'HB1999',n:'HB 1999',name:'Housing and health study',st:1,at:'House Housing',s:'Hearing Thu 9:30 AM',pos:'Comments'},
+   {id:'SB1888',n:'SB 1888',name:'Healthy rental homes',st:0,at:'Introduced',s:'Hearing Wed 1:00 PM',pos:'Support'}]
  },
+ people:{Kevin:['tobacco','meals','sugar','leave','water'],Kris:['tobacco','oral','housing','routes'],Mele:['routes','water','housing'],Lani:[],Nate:[]},
  stages:['Introduced','First committees','Crossed over','Second chamber','Governor'],
  /* steps, soonest first. wk = due this week. */
  steps:[
-  {id:'write',kind:'write',d:2,t:'Write testimony',ic:'pencil',bid:'HB1563',tp:'22 hours',soon:1,due:'Due Wed 2:00 PM',when:'tomorrow at 2:00 PM',wk:1,ctx:'Hearing Thu 2:00 PM · House Health · room 329',done:'Sent to Kris.',wait:'Kris'},
-  {id:'resubmit',kind:'write',d:3,back:1,t:'Resubmit testimony',ic:'ret',bid:'SB3011',tp:'2 days',due:'Due Thu 9:00 AM',when:'Thursday at 9:00 AM',wk:1,ctx:'Hearing Fri 1:30 PM · Senate Education',done:'Sent to Kris.',wait:'Kris'},
-  {id:'approve',kind:'approve',d:3,t:'Approve testimony',ic:'check',bid:'HB1120',tp:'2 days',due:'Due Thu 12:00 PM',when:'Thursday at 12:00 PM',wk:1,from:'Mele',ctx:'Hearing Fri 2:00 PM · Senate Health',wait:'Mele'},
-  {id:'ask',kind:'ask',d:4,t:'Ask for a hearing',ic:'mail',bid:'SB2204',tp:'3 days',due:'Due Fri, Mar 20',dl:'Fri, Mar 20',wk:1,risk:1,rk:'This is the last bill alive for Sugary drinks this year.',chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'},
-  {id:'ask2',kind:'ask',d:4,t:'Ask for a hearing',ic:'mail',bid:'SB2988',tp:'3 days',due:'Due Fri, Mar 20',dl:'Fri, Mar 20',wk:1,chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'},
-  {id:'later',kind:'ask',t:'Ask for a hearing',ic:'mail',bid:'SB1260',tp:'10 days',due:'Due Fri, Mar 27',dl:'Fri, Mar 27',wk:0,chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'}
+  {id:'write',kind:'write',d:2,t:'Write testimony',ic:'pencil',bid:'HB1563',tp:'22 hours',soon:1,due:'Due Wed 2:00 PM',when:'tomorrow at 2:00 PM',wk:1,hrs:22,by:'due by 2:00 PM tomorrow',ctx:'Hearing Thu 2:00 PM · House Health · room 329',done:'Sent to Kris.',wait:'Kris'},
+  {id:'resubmit',kind:'write',d:3,back:1,t:'Resubmit testimony',ic:'ret',bid:'SB3011',tp:'2 days',due:'Due Thu 9:00 AM',when:'Thursday at 9:00 AM',wk:1,hrs:41,by:'due by 9:00 AM Thursday',note:'Tighten the second paragraph.',ctx:'Hearing Fri 1:30 PM · Senate Education',done:'Sent to Kris.',wait:'Kris'},
+  {id:'approve',kind:'approve',d:3,t:'Approve testimony',ic:'check',bid:'HB1120',tp:'2 days',due:'Due Thu 12:00 PM',when:'Thursday at 12:00 PM',wk:1,hrs:44,by:'due by 12:00 PM Thursday',from:'Mele',ctx:'Hearing Fri 2:00 PM · Senate Health and Human Services',wait:'Mele'},
+  {id:'ask',kind:'ask',d:4,t:'Ask for a hearing',ic:'mail',bid:'SB2204',tp:'3 days',due:'Due Fri, Mar 20',dl:'Fri, Mar 20',wk:1,hrs:72,by:'due by Friday',risk:1,rk:'This is the last bill alive for Sugary drinks this year.',chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'},
+  {id:'ask2',kind:'ask',d:4,t:'Ask for a hearing',ic:'mail',bid:'SB2988',tp:'3 days',due:'Due Fri, Mar 20',dl:'Fri, Mar 20',wk:1,hrs:72,by:'due by Friday',chair:'Sen. San Buenaventura',cmte:'Senate Health and Human Services',to:'senbuenaventura@capitol.hawaii.gov',wait:'the chair'}
  ],
- /* what stopped (newest first); only bills Kevin leads or follows */
- news:[
-  {when:'Mon, Mar 16',kind:'issue',iss:'leave',title:'Paid family leave has no bills left this year',body:'All 3 bills stopped: Paid family leave in Senate Labor, Leave for new parents and Leave for caregivers in House Labor.'},
-  {when:'Fri, Mar 13',kind:'bill',bid:'SB1422',title:'Tobacco retail licenses did not advance',body:'It stopped in Senate Health and Human Services. 4 of 5 tobacco bills are still alive.'},
-  {when:'Fri, Mar 13',kind:'bill',bid:'SB2310',title:'Sugary drink labels did not advance',body:'It stopped in House Health. 1 of 2 sugary drinks bills is still alive.',risk:1}
- ],
- dates:[['Opening','Wed, Jan 21',0,'Session opens. Bills can now be introduced and heard.'],
-  ['First decking','Fri, Mar 6',1,'A bill in its first chamber must be ready for its last committee by this day.'],
-  ['First lateral','Fri, Mar 20',2,'A bill must clear its first committees by this day, or it stops for the year. This is the committee deadline.'],
-  ['Crossover','Thu, Apr 9',3,'A bill must pass its first chamber by this day to move to the other.'],
-  ['Second lateral','Fri, Apr 17',4,'A bill must clear its committees in the second chamber by this day.'],
-  ['Conference','Mon, Apr 27',5,'The two chambers settle differences between versions by this day.'],
-  ['End of session','Thu, May 7',6,'The session ends. A bill not passed by now stops for the year.']],
- nowDate:2,
+ dates:[['Opening','Wed, Jan 21',0,'Session opens. Bills can now be introduced and heard.',['Opening','Jan 21']],
+  ['Committee deadline','Fri, Mar 20',1,'A bill must clear its first committees by this day, or it stops for the year.',['Committee','deadline','Mar 20']],
+  ['Crossover','Thu, Apr 9',2,'A bill must pass its first chamber by this day to move to the other.',['Crossover','Apr 9']],
+  ['Second deadline','Fri, Apr 17',3,'A bill must clear its committees in the second chamber by this day.',['Second','deadline','Apr 17']],
+  ['Conference','Mon, Apr 27',4,'The two chambers settle differences between versions by this day.',['Conference','Apr 27']],
+  ['End of session','Thu, May 7',5,'The session ends. A bill not passed by now stops for the year.',['End of','session','May 7']]],
+ nowDate:1,
+ todayIx:1,greet:'Good afternoon',calmNext:'resubmit',
  dues:[
   {id:'HB1563',d:2,tm:'2:00 PM',w:'Testimony due'},
   {id:'SB3011',d:3,tm:'9:00 AM',w:'Testimony due'},
@@ -660,14 +742,17 @@ var S={
  ],
  days:['Mon','Tue','Wed','Thu','Fri'],
  hearings:[
+  /* hearing today: Kevin's letter is already filed (the time is one constant: now is Tue 4:00 PM, since Wed 2:00 PM is 22 hours away) */
+  {wk:0,d:1,tm:'5:00 PM',hrs:1,name:'Smoke-free parks',no:'HB 1710',where:'House Finance · room 308',id:'HB1710',mine:1,filed:'Mon, Mar 16',going:['Kris','Mele']},
   {wk:0,d:2,tm:'10:00 AM',name:'Safe routes to school',no:'HB 890',where:'House Transportation · room 309',id:'HB890',mine:0},
   {wk:0,d:3,tm:'9:30 AM',name:'Housing and health study',no:'HB 1999',where:'House Housing · room 312',id:'HB1999',mine:0},
   {wk:0,d:3,tm:'2:00 PM',name:'Flavored tobacco sales',no:'HB 1563',where:'House Health · room 329',id:'HB1563',mine:1,due:'testimony due Wed 2:00 PM'},
   {wk:0,d:4,tm:'1:30 PM',name:'School meals',no:'SB 3011',where:'Senate Education · room 229',id:'SB3011',mine:1,due:'testimony due Thu 9:00 AM'},
-  {wk:0,d:4,tm:'2:00 PM',name:'Lead testing in schools',no:'HB 1120',where:'Senate Health · room 229',id:'HB1120',mine:1,due:'testimony due Thu 2:00 PM'},
-  {wk:1,d:1,tm:'1:00 PM',name:'Healthy rental homes',no:'SB 1888',where:'Senate Housing · room 225',id:'SB1888',mine:1},
-  {wk:1,d:2,tm:'9:00 AM',name:'Crosswalk lighting',no:'HB 1402',where:'House Transportation · room 309',id:'HB1402',mine:0},
-  {wk:1,d:3,tm:'10:30 AM',name:'Dental therapists',no:'HB 1666',where:'Senate Health · room 229',id:'HB1666',mine:0}
+  {wk:0,d:4,tm:'2:00 PM',name:'Lead testing in schools',no:'HB 1120',where:'Senate Health and Human Services · room 229',id:'HB1120',mine:1,due:'testimony due Thu 2:00 PM'},
+  {wk:0,d:2,tm:'1:00 PM',name:'Healthy rental homes',no:'SB 1888',where:'Senate Housing · room 225',id:'SB1888',mine:0},
+  {wk:0,d:4,tm:'9:00 AM',name:'Crosswalk lighting',no:'HB 1402',where:'House Transportation · room 309',id:'HB1402',mine:0},
+  {wk:0,d:4,tm:'11:00 AM',name:'Drinking fountains',no:'HB 1305',where:'House Health · room 329',id:'HB1305',mine:1},
+  {wk:1,d:3,tm:'10:30 AM',name:'Dental therapists',no:'HB 1666',where:'Senate Health and Human Services · room 229',id:'HB1666',mine:0}
  ],
  weeks:[{label:'Mar 16 to 20',days:[['Mon','16'],['Tue','17','today'],['Wed','18'],['Thu','19'],['Fri','20','flat']]},
         {label:'Mar 23 to 27',days:[['Mon','23'],['Tue','24'],['Wed','25'],['Thu','26'],['Fri','27']]}],
@@ -686,23 +771,58 @@ S.steps.forEach(function(s){var b=findBill(s.bid);s.name=b.name;s.no=b.n;s.iss=b
 function stepById(id){return S.steps.filter(function(s){return s.id===id})[0];}
 var LETTER="Dear Chair Takayama and Members of the House Committee on Health:\n\nThe Hawaiʻi Public Health Institute supports HB 1563. Flavors such as menthol, mint and candy make tobacco products and e-cigarettes easier to try and harder to quit, and they are designed to appeal to young people.\n\nToo many Hawaiʻi students already use e-cigarettes, and flavors are the reason most of them say they started. Ending the sale of flavored products takes away that hook, and it is simple for stores to follow and for the state to enforce.\n\nWe respectfully ask the committee to pass HB 1563. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
 var LETTER2="Dear Chair and Members of the Committee on Education:\n\nThe Hawaiʻi Public Health Institute supports SB 3011. Students learn better when they are not hungry, and a school meal is the most reliable meal many keiki eat.\n\nThe bill puts healthy meals within reach of every student without paperwork or stigma, and it saves families time and money. Schools that already serve free meals to all students report calmer lunchrooms and fewer trips to the nurse.\n\nWe respectfully ask the committee to pass SB 3011. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
+var LETTER4="Dear Chair and Members of the House Committee on Finance:\n\nThe Hawaiʻi Public Health Institute supports HB 1710. Smoke and e-cigarette vapor drift across playgrounds and ball fields, and children breathe it in when they play.\n\nA clear rule for parks is easy for families to understand and simple for park staff to follow. It protects the youngest visitors and keeps parks welcoming for everyone.\n\nWe respectfully ask the committee to pass HB 1710. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
 var LETTER3="Dear Chair and Members of the Committee on Health:\n\nThe Hawaiʻi Public Health Institute supports HB 1120. Lead in school drinking water cannot be seen, tasted or smelled, and children are the most at risk from it.\n\nThe bill asks every public school to test its water on a schedule and to share the results with families. Testing is inexpensive, and it lets schools fix a problem before a child is harmed.\n\nWe respectfully ask the committee to pass HB 1120. Mahalo for the opportunity to testify.\n\nHawaiʻi Public Health Institute";
 
 /* ---------- running state ---------- */
-var OUT_KEEP=false,tick=null,toastTimer=null,lastStep='write',FIN={},calmMode=false,NEWSREAD=false,OUT='',CAL={mine:true,wk:0};
+var CTX='home',IV={mode:'mine',person:null},OUT_KEEP=false,tick=null,toastTimer=null,lastStep='write',FIN={},calmMode=false,OUT='',CAL={mine:true,wk:0};
 var LAP=window.matchMedia('(min-width:900px)');
-function remaining(){return calmMode?[]:S.steps.filter(function(s){return !s.hide&&!FIN[s.id];});}
+function remaining(){return calmMode?[]:S.steps.filter(function(s){return !s.hide&&!FIN[s.id];}).sort(function(a,b){return a.hrs-b.hrs;});}
 function weekLeft(){return remaining().filter(function(s){return s.wk;});}
 function weekAll(){return S.steps.filter(function(s){return s.wk;});}
-function riskOn(){return !calmMode&&!FIN.ask;}
+/* Risk is the BILL's state, never whether he has an open step (reviews, 13 Nov): a bill needs a hearing when it wants one,
+   has none set and faces the committee deadline. At risk from 7 days before the deadline, about to stop from 3 days. */
+function hearingFor(id){return S.hearings.filter(function(x){return x.id===id;}).sort(function(a,b){return a.wk-b.wk||a.d-b.d;})[0];}
+function needsHearing(b){return !b.dead&&(b.st||0)===0&&!hearingFor(b.id);}
+function deadlineIn(){return daysTo(S.dates[S.nowDate][1]);}
+function atRisk(b){return needsHearing(b)&&deadlineIn()<=7;}
+function aboutToStop(b){return needsHearing(b)&&deadlineIn()<=3;}
+function lookOnly(I){return IV.mode==='mate'&&!!IV.person&&I.lead!==S.user;}
 function openStep(id){return !calmMode&&!FIN[id];}
 var STEP_OF={};S.steps.forEach(function(s){STEP_OF[s.bid]=s.id;});
 function billOpen(b){var s=STEP_OF[b.id];return !!s&&openStep(s);}
 function needs(k){return BL[k].filter(billOpen).length;}
 function billMove(b){
+  if(lookOnly(iss(b.iss)))return null;
   var id=STEP_OF[b.id],s=id&&stepById(id);if(!s||calmMode)return null;
   if(!FIN[id])return ['your move',''];
   return [s.wait==='the chair'?'Chair’s move':s.wait+'’s move','wait'];
+}
+/* Home holds four kinds and only these (Nate, 13 Nov): testimony due within 24 hours, a letter waiting on my approval,
+   a hearing today, a bill about to stop. Time order. Only rows that ask something of him and are not done are counted;
+   an ask he has sent stays (the bill is still about to stop) and reads "asked". */
+function urgent(){
+  if(calmMode)return [];
+  var rows=[];
+  S.hearings.filter(function(x){return x.wk===0&&x.d===S.todayIx&&x.mine;}).forEach(function(x){rows.push({type:'hearing',h:x,hrs:x.hrs,key:'hearing:'+x.id});});
+  S.steps.forEach(function(s){
+    var done=!!FIN[s.id],b=findBill(s.bid);
+    if((s.kind==='write'&&s.hrs<=24&&!done)||(s.kind==='approve'&&!done)||(s.kind==='ask'&&aboutToStop(b)))rows.push({type:'step',s:s,hrs:s.hrs,key:'step:'+s.id,done:s.kind==='ask'&&done});
+  });
+  return rows.sort(function(a,b){return a.hrs-b.hrs;});
+}
+function actionRows(){return urgent().filter(function(r){return r.type==='step'&&!r.done;});}
+function laterSteps(){
+  var u=urgent();
+  return remaining().filter(function(s){return !u.some(function(r){return r.type==='step'&&r.s===s;});});
+}
+/* "Next step" walks the urgent actions first, then the later steps by deadline; a hearing is not a step */
+function nextSteps(){return actionRows().map(function(r){return r.s;}).concat(laterSteps());}
+function hearingOf(id){return S.hearings.filter(function(x){return x.id===id&&x.wk===0&&x.d===S.todayIx;})[0];}
+function nextText(s){
+  if(s.kind==='write')return 'testimony for '+s.name+' is due '+s.due.replace('Due ','')+'.';
+  if(s.kind==='approve')return 'your approval of testimony for '+s.name+' is due '+s.due.replace('Due ','')+'.';
+  return 'a hearing for '+s.name+' must be asked for by '+s.dl+'.';
 }
 function hearingsNeeded(){return calmMode?0:(FIN.ask?0:1)+(FIN.ask2?0:1);}
 function myHearings(){return S.hearings.filter(function(x){return x.wk===0&&x.mine;});}
@@ -719,9 +839,12 @@ function lines(l){
   return [w.slice(0,best).join(' '),w.slice(best).join(' ')];
 }
 function pathSvg(o){
-  var n=o.labels.length,w=o.w,pad=o.all?Math.min(56,w/(2*n)):12,xs=[],i,y=10,st=o.st,dead=!!o.dead,col=dead?'#8A8277':o.col;
+  var n=o.labels.length,w=o.w,pad=o.all?Math.min(56,w/(2*n)):12,xs=[],i,top=o.here?18:0,y=10+top,st=o.st,dead=!!o.dead,col=dead?'#8A8277':o.col;
   for(i=0;i<n;i++)xs.push(pad+i*(w-2*pad)/(n-1));
-  var h='<svg class="trk'+(o.all?' wide':'')+'" viewBox="0 0 '+w+' 58" width="'+w+'" height="58" role="img" aria-label="'+o.aria+'">';
+  var show=o.all?xs.map(function(_,i){return i;}).filter(function(i){return !dead||i<=st;}):[st],ml=1;
+  show.forEach(function(i){ml=Math.max(ml,lines(o.labels[i]).length);});
+  var H=58+top+(ml>2?16:0);
+  var h='<svg class="trk'+(o.all?' wide':'')+'" viewBox="0 0 '+w+' '+H+'" width="'+w+'" height="'+H+'" role="img" aria-label="'+o.aria+'">';
   h+='<line x1="'+xs[0]+'" y1="'+y+'" x2="'+(dead?xs[st]:xs[n-1])+'" y2="'+y+'" stroke="#E3DED3" stroke-width="2" stroke-linecap="round"/>';
   if(st>0)h+='<line x1="'+xs[0]+'" y1="'+y+'" x2="'+xs[st]+'" y2="'+y+'" stroke="'+col+'" stroke-width="2" stroke-linecap="round"/>';
   xs.forEach(function(x,i){
@@ -730,10 +853,10 @@ function pathSvg(o){
     else if(!dead)h+='<circle cx="'+x+'" cy="'+y+'" r="4.5" fill="#fff" stroke="#8A8277" stroke-width="1.5"/>';
   });
   if(dead)h+='<line x1="'+(xs[st]+12)+'" y1="'+(y-7)+'" x2="'+(xs[st]+12)+'" y2="'+(y+7)+'" stroke="#8A8277" stroke-width="2" stroke-linecap="round"/>';
-  var show=o.all?xs.map(function(_,i){return i;}).filter(function(i){return !dead||i<=st;}):[st];
+  if(o.here)h+='<text x="'+xs[st]+'" y="10" text-anchor="middle" class="tl here">'+o.here+'</text>';
   show.forEach(function(i){
     var L=lines(o.labels[i]),wd=Math.max.apply(null,L.map(function(t){return t.length;}))*7.2,tx=o.all?xs[i]:Math.min(Math.max(xs[i],wd/2),w-wd/2);
-    h+='<text x="'+tx+'" y="34" text-anchor="middle" class="tl'+(i===st?' now':'')+'">'+L.slice(0,2).map(function(t,k){return '<tspan x="'+tx+'" dy="'+(k?16:0)+'">'+t+'</tspan>';}).join('')+'</text>';
+    h+='<text x="'+tx+'" y="'+(34+top)+'" text-anchor="middle" class="tl'+(i===st?' now':'')+'">'+L.slice(0,3).map(function(t,k){return '<tspan x="'+tx+'" dy="'+(k?16:0)+'">'+t+'</tspan>';}).join('')+'</text>';
   });
   return h+'</svg>';
 }
@@ -756,77 +879,124 @@ function nband(title,sub){
 function pubRow(label,tag,href){
   return '<a class="pubrow" href="'+href+'"><span class="pm" aria-hidden="true">'+ic('globe')+'</span><span class="pt">'+label+'</span><span class="ptag">'+tag+'</span></a>';
 }
-function backCrumb(I){return '<a class="crumb" href="#/issue/'+I.id+'"><span class="bk" aria-hidden="true">‹</span>'+I.n+'</a>';}
+function bh(id,i){return CTX==='issues'?'#/issues/'+i+'/'+id:'#/bill/'+id;}
+function backCrumb(I){return '<a class="crumb" href="'+(CTX==='issues'?'#/issues/':'#/issue/')+I.id+'"><span class="bk" aria-hidden="true">‹</span>'+I.n+'</a>';}
 
 /* ---------- the left column: type and space only ---------- */
-function clearDay(){var h=myHearings();return h.length?dayName(h[0].d):'Friday';}
 function answer(){
-  var rem=remaining(),n=rem.length;
-  if(!n)return '<p class="answer clear">You’re clear until '+clearDay()+'.</p>';
-  return '<p class="answer">You’re on top of it. '+n+(n===1?' step, due ':' steps, the first due ')+rem[0].when+'.</p>';
+  var u=urgent(),act=actionRows(),n=act.length,hr=u.filter(function(r){return r.type==='hearing';})[0];
+  if(n)return '<p class="answer">'+n+(n===1?' thing needs':' things need')+' you. '+(n===1?'It is':'The first is')+' due in '+act[0].s.tp.replace(/^in /,'')+'.</p>';
+  if(calmMode){
+    var ns=stepById(S.calmNext);
+    return '<p class="answer clear">Nothing needs you today.</p>'+(ns?'<p class="nextline">Next: <a href="#/do/'+ns.id+'">'+nextText(ns).replace(/\.$/,'')+'</a>.</p>':'');
+  }
+  return '<p class="answer clear">Nothing else needs you today.'+(hr?' Your hearing is at '+hr.h.tm+'.':'')+'</p>';
 }
-function notices(){
-  var h='';
-  if(riskOn())h+='<a class="note3 risk" href="#/do/ask">'+ic('warn')+'<span>Sugary drinks stops for the year on Friday unless it gets a hearing.</span></a>';
-  if(!NEWSREAD)h+='<a class="note3" href="#/news">'+ic('stopm')+'<span>Paid family leave has nothing left this year.</span></a>';
-  return h?'<div class="notes3">'+h+'</div>':'';
-}
-function stepRow(s,on){
+function stepRow(s,on,done){
   var tm='<span class="stm">'+s.tp+'</span>';
-  if(s.soon)tm='<span class="stm soon">'+ic('clock')+s.tp+'</span>';
-  else if(s.risk&&riskOn())tm='<span class="stm risk">'+ic('warn')+s.tp+'</span>';
-  else if(s.id==='ask2'&&riskOn())tm='<span class="stm risk">'+ic('warn')+s.tp+'</span>';
+  if(done)tm='<span class="stm risk">'+ic('warn')+'asked</span>';
+  else if(s.soon)tm='<span class="stm soon">'+ic('clock')+s.tp+'</span>';
+  else if(s.kind==='ask')tm='<span class="stm risk">'+ic('warn')+s.tp+'</span>';
   return '<li><a class="sr3'+(on?' sel':'')+'"'+(on?' aria-current="true"':'')+' href="#/do/'+s.id+'">'+ic(s.ic)+'<span class="sv"><b>'+s.t+'</b> · '+s.name+'</span>'+tm+'</a></li>';
 }
+function hearingRow(x,on){
+  return '<li><a class="sr3'+(on?' sel':'')+'"'+(on?' aria-current="true"':'')+' href="#/hearing/'+x.id+'">'+ic('calendar')+'<span class="sv"><b>Hearing today</b> · '+x.name+'</span><span class="stm">'+x.tm+'</span></a></li>';
+}
 function ListInner(o){
-  var rem=remaining(),t=o.phone?'h1':'h2',later=false;
-  var h='<header><'+t+' class="gdate">'+S.dateLine+' · Good morning, '+S.user+'</'+t+'>'+answer()+'</header>'+notices();
-  if(rem.length){
-    h+='<section aria-labelledby="hs"><h3 class="lh" id="hs">Your steps</h3><ul class="srows3">';
-    rem.forEach(function(s){
-      if(!s.wk&&!later){later=true;h+='<li class="later" aria-hidden="true">Later</li>';}
-      h+=stepRow(s,o.step===s.id);
-    });
+  var u=urgent(),t=o.phone?'h1':'h2';
+  var h='<header><'+t+' class="gdate">'+S.dateLine+' · '+S.greet+', '+S.user+'</'+t+'>'+answer()+'</header>';
+  if(u.length){
+    h+='<section aria-label="Today"><ul class="srows3 todayl">';
+    u.forEach(function(r){h+=r.type==='hearing'?hearingRow(r.h,o.sel===r.key):stepRow(r.s,o.sel===r.key,r.done);});
     h+='</ul></section>';
   }
-  h+='<nav class="clinks" aria-label="Also"><a class="cl'+(o.link==='issues'?' sel':'')+'" href="#/issues"><span>Your issues</span>'+ic('chev')+'</a>';
-  if(!NEWSREAD)h+='<a class="cl'+(o.link==='news'?' sel':'')+'" href="#/news"><span>2 more bills stopped</span>'+ic('chev')+'</a>';
-  return h+'</nav>';
+  var more=laterSteps().length;
+  if(!calmMode&&more)h+='<nav class="clinks" aria-label="Also"><a class="cl'+(o.link==='steps'?' sel':'')+'" href="#/steps"><span>'+more+(more===1?' more step':' more steps')+' later</span>'+ic('chev')+'</a></nav>';
+  return h;
 }
 /* ---------- Home's sheet: Your week ---------- */
 var SUN='<svg viewBox="0 0 96 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 40h88"/><path d="M26 40a22 22 0 0 1 44 0"/><path d="M48 6v6M20 16l4 4M76 16l-4 4"/></svg>';
-function health(i){
-  var al=alive(i.id),risk=i.id==='sugar'&&riskOn();
-  if(!al)return {rank:3,w:'none left',t:'None alive this year',dead:1};
-  if(risk)return {rank:0,w:'at risk',t:'At risk',risk:1};
-  return {rank:needs(i.id)||i.id==='tobacco'||i.id==='meals'||i.id==='routes'?1:2,w:'',t:''};
-}
-function weekStrip(){
-  var W=S.weeks[0],hs=myHearings(),clear=calmMode;
-  var h='<div class="wband"><ol class="wst" aria-label="Your week, Monday to Friday">';
+function weekStrip(wk){
+  var W=S.weeks[wk],hs=S.hearings.filter(function(x){return x.wk===wk&&x.mine;});
+  var h='<div class="wband"><h1 class="sr">Calendar</h1><ol class="wst" aria-label="Your week, Monday to Friday">';
   W.days.forEach(function(d,i){
     var today=d[2]==='today',m='';
-    if(today&&clear)m+='<svg class="sunm" viewBox="0 0 48 32" fill="none" stroke="#8A6A12" stroke-width="2" stroke-linecap="round" aria-label="Clear day"><path d="M4 28h40"/><path d="M13 28a11 11 0 0 1 22 0"/><path d="M24 5v4M9 11l3 3M39 11l-3 3"/></svg>';
-    if(!calmMode)weekAll().filter(function(s){return s.d===i;}).forEach(function(s){
+    if(wk===0&&!calmMode)weekAll().filter(function(s){return s.d===i;}).forEach(function(s){
       var I=iss(s.iss),dn=!!FIN[s.id];
       m+='<span class="mk step'+(dn?' fin':'')+'" style="--ic:'+I.c+'" role="img" aria-label="'+s.t+', '+s.name+(dn?', done':'')+'">'+(dn?ic('check'):'')+'</span>';
     });
     hs.filter(function(x){return x.d===i;}).forEach(function(x){
       m+='<span class="mk ring" style="--ic:'+iss(findBill(x.id).iss).c+'" role="img" aria-label="Hearing, '+x.name+'"></span>';
     });
-    if(i===4)m+='<span class="mk flag" role="img" aria-label="Committee deadline">'+ic('flag')+'</span>';
+    if(wk===0&&i===4)m+='<span class="mk flag" role="img" aria-label="Committee deadline">'+ic('flag')+'</span>';
     h+='<li class="'+(today?'today':'')+'"><div class="wm">'+m+'</div><div class="wd">'+d[0]+' '+d[1]+(today?'<span class="tdy2">Today</span>':'')+'</div></li>';
   });
   return h+'</ol></div>';
 }
-function WeekInner(){
-  var hs=myHearings(),n=hearingsNeeded(),h=weekStrip();
-  h+='<div class="pbody wk"><h2 class="h18" id="hh">Hearings this week</h2><ul class="xl" aria-labelledby="hh">';
-  hs.forEach(function(x){
-    h+='<li><a class="xrow hr3" href="#/bill/'+x.id+'"><span class="hrt">'+S.days[x.d]+' '+x.tm+'</span><span class="hrn"><b>'+x.name+'</b><span class="x">'+x.where+'</span></span><span class="hrd">'+x.due+'</span></a></li>';
+/* the calm sheet: the left column already says "Nothing needs you today", so the sheet only draws the sun and offers the way to Issues */
+function CalmInner(){
+  return '<div class="calmsheet">'+SUN.replace('<svg ','<svg class="bigsun" ')+'<a class="btn text" href="#/issues">See where your issues stand</a></div>';
+}
+function HearingInner(h){
+  var b=findBill(h.id),I=iss(b.iss),day=S.days[h.d]+', Mar '+(16+h.d);
+  var out=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:'Hearing today',sub:b.name+'<span class="no">'+b.n+'</span>'});
+  out+='<div class="pbody"><div class="hwrap"><div class="where"><dl><dt>When</dt><dd class="next">Today, '+day+', '+h.tm+'</dd><dt>Where</dt><dd>'+h.where.replace(' · ',', ')+'</dd>'
+    +'<dt>From the team</dt><dd class="going">'+h.going.map(function(n){return '<span class="gp"><span class="person sm" aria-hidden="true">'+n.slice(0,1)+(n==='Mele'?'L':'R')+'</span>'+n+'</span>';}).join('')+'</dd></dl></div>';
+  out+='<h2 class="h18 dh">Your testimony is filed.</h2><div class="pdfrow">'+ic('doc')+'<div class="g"><b>'+h.id+'-testimony.pdf</b><span>Filed '+h.filed+' · 1 page</span></div><button class="btn text" type="button" id="hlBtn" aria-expanded="false" aria-controls="hLetter">Open the letter</button></div>'
+    +'<div class="letter ro" id="hLetter" role="document" aria-label="Your filed letter" hidden>'+LETTER4+'</div>';
+  out+='<div class="bfoot"><a class="btn quiet" href="#/bill/'+h.id+'">Open the bill</a></div></div></div>';
+  return out;
+}
+function HearingBind(){
+  var b=document.getElementById('hlBtn'),l=document.getElementById('hLetter');
+  if(b)b.addEventListener('click',function(){var o=l.hidden;l.hidden=!o;b.setAttribute('aria-expanded',o);b.textContent=o?'Close the letter':'Open the letter';});
+}
+/* ---- Issues: awareness lives here and only here ---- */
+function issueIds(){
+  if(IV.mode==='all')return ISS.map(function(i){return i.id;});
+  if(IV.mode==='mate')return IV.person?(S.people[IV.person]||[]):[];
+  return S.people.Kevin;
+}
+function riskBills(i){return BL[i.id].filter(atRisk);}
+function issueState(i){return !alive(i.id)?'stopped':(riskBills(i).length?'risk':'moving');}
+function issueGroups(){
+  var g={risk:[],moving:[],stopped:[]};
+  issueIds().forEach(function(id){var i=iss(id);g[issueState(i)].push(i);});
+  return g;
+}
+function issueList(){var g=issueGroups();return g.risk.concat(g.moving,g.stopped);}
+function initials(n){return {Kevin:'KV',Kris:'KR',Mele:'ML',Lani:'LN',Nate:'NT'}[n]||n.slice(0,2).toUpperCase();}
+function daysTo(label){return Math.round((new Date(label.replace(/^\w+, /,'')+', 2026')-new Date('Mar 17, 2026'))/864e5);}
+function matesWithIssues(){return Object.keys(S.people).filter(function(k){return k!==S.user&&S.people[k].length;});}
+function IssuesCol(o){
+  var mate=IV.mode==='mate',g=issueGroups();
+  var title=mate&&IV.person?IV.person+'’s issues':'Issues';
+  var h='<header><h2 class="ihd">'+title+'</h2><div class="whose" role="group" aria-label="Whose issues">'
+    +[['mine','Mine'],['mate','A teammate'],['all','Everyone']].map(function(x,i){return (i?'<span class="dotsep" aria-hidden="true">·</span>':'')+'<button type="button" data-ivmode="'+x[0]+'" aria-pressed="'+(IV.mode===x[0])+'">'+x[1]+'</button>';}).join('')+'</div>';
+  if(mate)h+='<div class="whose pick" role="group" aria-label="Which teammate">'
+    +matesWithIssues().map(function(k,i){return (i?'<span class="dotsep" aria-hidden="true">·</span>':'')+'<button type="button" data-ivperson="'+k+'" aria-pressed="'+(IV.person===k)+'">'+k+'</button>';}).join('')+'</div>'
+    +'<p class="qnote mnote2">Only '+IV.person+' can change these.</p>';
+  h+='</header>';
+  var d=S.dates[S.nowDate];
+  h+='<ul class="srows3 sess"><li><a class="sr3'+(o.session?' sel':'')+'"'+(o.session?' aria-current="true"':'')+' href="#/issues/session">'+ic('flag')+'<span class="sv"><b>'+d[0]+'</b> '+d[1]+'</span><span class="stm">'+daysTo(d[1])+' days</span></a></li></ul>';
+  var day=d[1].split(',')[0];
+  [['risk','At risk'],['moving','Moving'],['stopped','Stopped this year']].forEach(function(gr){
+    var l=g[gr[0]];if(!l.length)return;
+    h+='<section aria-label="'+gr[1]+'"><h3 class="glab">'+gr[1]+'</h3><ul class="srows3">'+l.map(function(i){
+      var on=o.issue===i.id,rb=gr[0]==='risk'?riskBills(i)[0]:null;
+      var right=IV.mode==='all'?'<span class="person sm" role="img" aria-label="Led by '+i.lead+'">'+initials(i.lead)+'</span>':'';
+      var mk=gr[0]==='stopped'?'<span class="imark sm" style="--ic:#A8A296" aria-hidden="true">'+ic(i.ic)+'</span>':imark(i,'sm');
+      var sub=rb?'<span class="ir2 risk">'+rb.name+' stops '+day+' unless it gets a hearing</span>':(gr[0]==='stopped'?'<span class="ir2">None left this year</span>':'');
+      return '<li><a class="sr3'+(on?' sel':'')+(gr[0]==='stopped'?' dead':'')+'"'+(on?' aria-current="true"':'')+' href="#/issues/'+i.id+'">'+mk+'<span class="sv"><b>'+(rb?ic('warn')+' ':'')+i.n+'</b>'+sub+'</span>'+right+'</a></li>';
+    }).join('')+'</ul></section>';
   });
-  h+='<li><a class="xrow hr3 dl" href="#/session"><span class="hrt">Fri</span><span class="hrn"><b>'+ic('flag').replace('class="ic ','style="width:16px;height:16px;vertical-align:-2px;margin-right:8px;color:#7A4A00" class="ic ')+'Committee deadline</b><span class="x">'+(n?n+' of your bills still need a hearing':'All of your bills have a hearing')+'</span></span><span class="hrd">First lateral</span></a></li>';
-  return h+'</ul></div>';
+  return h;
+}
+function TeamInner(){return nband('Nothing to show','Pick a name on the left to see their issues. Looking never changes anything.');}
+function AskedInner(s){
+  var I=iss(s.iss);
+  var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:'Asked for a hearing',sub:s.name+'<span class="no">'+s.no+'</span>'});
+  return h+'<div class="pbody"><div class="hwrap"><p class="lead">You asked the chair on '+S.dateLine.replace(/^\w+, /,'Tue, ').replace('March','Mar')+'. No hearing is set yet.</p><a class="btn quiet" href="#/public/'+s.bid+'"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Ask partners and the public</a></div></div>';
 }
 /* ---------- step sheets ---------- */
 function StepInner(id){
@@ -834,13 +1004,13 @@ function StepInner(id){
   if(id==='file')return FileInner();
   var s=stepById(id)||stepById('write');
   lastStep=s.id;
-  if(s.kind==='ask')return AskInner(s);
+  if(s.kind==='ask')return FIN[s.id]?AskedInner(s):AskInner(s);
   if(s.kind==='approve')return ApproveInner(s);
   var rs=!!s.back,I=iss(s.iss);
   var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:s.t,sub:s.name+'<span class="no">'+s.no+'</span>'});
   h+='<div class="pbody">';
   h+='<div class="strip'+(s.soon?'':' calm')+'">'+ic('clock')+'<strong>'+s.due+'</strong><span>in '+s.tp+'</span><span class="ctx">'+s.ctx+'</span></div>';
-  if(rs)h+='<div class="note flag"><span class="person sm" aria-hidden="true">KR</span><div><div class="who">Kris sent it back</div><div>“Tighten the second paragraph.”</div></div></div>';
+  if(rs)h+='<div class="note flag"><span class="person sm" aria-hidden="true">KR</span><div><div class="who">Kris sent it back</div><div>“'+s.note+'”</div></div></div>';
   h+='<div class="stgrid"><div class="stmain"><span class="lab" id="posl">Position</span><div class="chips" role="radiogroup" aria-labelledby="posl">'
    +['Support','Oppose','Comments'].map(function(p,i){return '<button class="chip" type="button" role="radio" aria-checked="'+(i===0)+'">'+ic('check')+p+'</button>';}).join('')+'</div>';
   h+='<div class="lethead"><label class="lab" for="letter">Your letter</label>'
@@ -852,17 +1022,17 @@ function StepInner(id){
   return h;
 }
 function AskInner(s){
-  var risk=!!s.risk&&riskOn(),I=iss(s.iss),name=s.name,no=s.no;
+  var risk=atRisk(findBill(s.bid)),I=iss(s.iss),name=s.name,no=s.no;
   var email="Dear Chair San Buenaventura,\n\nI am writing for the Hawaiʻi Public Health Institute about "+no+", "+(s.id==='ask2'?'the companion to the flavored tobacco bill':name.charAt(0).toLowerCase()+name.slice(1))+". The bill has not yet been scheduled for a hearing in your committee, and the committee deadline is "+s.dl+".\n\nWe respectfully ask that you schedule "+no+" for a hearing so the public can speak to it. Mahalo for your time.\n\nKevin\nHawaiʻi Public Health Institute";
   var h=hband(I,{small:'<span class="crumb">'+I.n+'</span>',title:s.t,sub:name+'<span class="no">'+no+'</span>'});
-  var days=s.id==='later'?'in 10 days':'in 3 days';
-  h+='<div class="pbody">'+(risk?'<div class="strip">'+ic('warn')+'<strong>Needs a hearing by '+s.dl+', or it stops for the year</strong><span>'+days+'</span></div><p class="lead" style="margin-top:-16px">'+s.rk+'</p>'
+  var days='in '+s.tp,last=alive(s.iss)===1;
+  h+='<div class="pbody">'+(risk?'<div class="strip">'+ic('warn')+'<strong>Needs a hearing by '+s.dl+', or it stops for the year</strong><span>'+days+'</span></div>'+(last?'<p class="lead" style="margin-top:-16px">This is the last bill alive for '+I.n+' this year.</p>':'')
     :'<div class="strip calm">'+ic('clock')+'<strong>Needs a hearing by '+s.dl+'</strong><span>'+days+'</span></div>');
   h+='<div class="stgrid"><div class="stmain"><p class="chair"><span class="muted">The chair:</span> <b>'+s.chair+'</b>, '+s.cmte+'</p>'
    +'<p class="toaddr"><span class="muted">To</span> <b>'+s.to+'</b></p>'
    +'<label class="lab" for="letter">Your email to the chair</label><textarea class="letter" id="letter" spellcheck="true">'+email+'</textarea>';
-  h+='<div class="sfoot plain actrow" id="askFoot"><button class="btn filled" type="button" id="mailBtn">Open in my mail app</button><div class="alt"><a class="btn quiet" href="#/public/'+s.bid+'"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Ask partners and the public</a><span class="ptag">Opens public mode for '+no+'</span></div></div>';
-  return h+'</div></div></div>';
+  h+='</div></div><div class="sfoot actrow" id="askFoot"><button class="btn filled" type="button" id="mailBtn">Open in my mail app</button><div class="alt"><a class="btn quiet" href="#/public/'+s.bid+'"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Ask partners and the public</a><span class="ptag">Opens the public page for '+no+'</span></div></div>';
+  return h+'</div></div>';
 }
 function ApproveInner(s){
   var I=iss(s.iss);
@@ -910,7 +1080,7 @@ function StepBind(){
   if(mb)mb.addEventListener('click',function(){
     toast('In the real app this opens your mail app with the email written.',null,5000);
     var f=document.getElementById('askFoot');
-    f.insertAdjacentHTML('beforebegin','<div class="didfile" id="didSend"><h2 class="h18">Did you send it?</h2></div>');
+    document.querySelector('.stmain').insertAdjacentHTML('beforeend','<div class="didfile" id="didSend"><h2 class="h18">Did you send it?</h2></div>');
     mb.className='btn quiet';
     f.insertAdjacentHTML('afterbegin','<button class="btn filled" type="button" id="yesSent">Yes, sent</button>');
     f.insertBefore(mb,f.children[1]);
@@ -937,6 +1107,7 @@ function StepBind(){
     sub.className='btn quiet';
     var d=document.getElementById('didFile');d.hidden=false;
     document.getElementById('flFoot').innerHTML='<button class="btn filled" type="button" id="yesBtn">Yes, filed</button><button class="btn quiet" type="button" id="subBtn2">Submit on the Capitol site</button>';
+    document.getElementById('subBtn2').addEventListener('click',function(){toast('In the real app this opens the Capitol site in a new tab.',null,5000);});
     document.getElementById('yesBtn').addEventListener('click',function(){OUT='';location.hash='#/done';});
   });
 }
@@ -950,39 +1121,50 @@ function DoneInner(){
   }
   else if(ask){title='Sent to the chair.';sub='Nothing else needs you on '+nm+' until the chair answers.';}
   else{title='Sent to Kris.';sub='Nothing else needs you on '+nm+' until Kris answers.';}
-  var nx=remaining()[0],all=weekAll(),dn=all.filter(function(x){return FIN[x.id];}).length;
+  var nx=nextSteps()[0],all=weekAll(),dn=all.filter(function(x){return FIN[x.id];}).length;
   var h='<div class="done"><div class="dtile">'+ic('check')+'</div><h1>'+title+'</h1><p class="sub">'+sub+'</p>';
-  h+='<div class="segs" role="img" aria-label="'+dn+' of '+all.length+' done this week">'+all.map(function(x){return '<i class="'+(FIN[x.id]?'on':'')+'"></i>';}).join('')+'</div><p class="left">'+dn+' of '+all.length+' done this week</p>';
-  if(lastStep==='file')h+='<p class="undo"><a class="btn text" href="#/do/file">I have not filed it yet</a></p>';
-  else if(ask)h+='<p class="undo"><a class="btn text" href="#/do/'+lastStep+'">I have not sent it yet</a></p>';
+  h+='<div class="segs" role="img" aria-label="'+dn+' of '+all.length+' done this week">'+all.map(function(x,i){return '<i class="'+(i<dn?'on':'')+'"></i>';}).join('')+'</div><p class="left">'+dn+' of '+all.length+' done this week</p>';
+  if(lastStep==='file')h+='<p class="undo"><a class="btn text" href="#/undo/file">I have not filed it yet</a></p>';
+  else if(ask)h+='<p class="undo"><a class="btn text" href="#/undo/'+lastStep+'">I have not sent it yet</a></p>';
   else h+='<p class="undo" id="undoLine"><button class="btn text" type="button" id="undoBtn">Undo</button> for 10 seconds</p>';
-  if(s&&s.kind==='approve'&&OUT!=='back')h+='<p><a class="btn text" href="#/do/file">See the filing step</a></p>';
   h+='<div class="actions">'+(nx?'<a class="btn filled" href="#/do/'+nx.id+'">Next step: '+nx.t+'</a>':'<a class="btn quiet" href="#/">Back to Home</a>')+'</div></div>';
   return h;
 }
+function BillBind(){document.querySelectorAll('[data-toast]').forEach(function(e){e.addEventListener('click',function(){toast(e.getAttribute('data-toast'),null,4000);});});}
 function DoneBind(){
   var line=document.getElementById('undoLine'),ub=document.getElementById('undoBtn');
   if(line){tick=setTimeout(function(){line.style.visibility='hidden';},10000);ub.addEventListener('click',function(){delete FIN[lastStep];location.hash='#/do/'+lastStep;});}
 }
-/* ---------- the session ---------- */
+/* ---------- the session: now a row in Issues, shown for the person being looked at ---------- */
+function needText(x){
+  if(needsHearing(x))return {t:'Needs a hearing',risk:atRisk(x)};
+  var hr=hearingFor(x.id);
+  if(hr)return {t:'Hearing '+(hr.wk===0&&hr.d===S.todayIx?'today':S.days[hr.d])+' '+hr.tm};
+  return {t:x.s};
+}
+function touched(i){
+  var b=[];issueIds().forEach(function(id){BL[id].forEach(function(x){if(!x.dead)b.push(x);});});
+  var st=function(x){return x.st||0;};
+  if(i===1)return b.filter(function(x){return st(x)<=1&&!/^Passed/.test(x.s||'');});
+  if(i===2)return b.filter(function(x){return st(x)<=1;});
+  if(i===3)return b.filter(function(x){return st(x)===2;});
+  if(i===4)return b.filter(function(x){return st(x)>=3;});
+  return b;
+}
 function SessionInner(){
-  var n=hearingsNeeded();
-  var h=nband('The session','The dates that decide what can happen to a bill this year.')+'<div class="pbody">';
-  h+=pathSvg({w:640,all:true,labels:S.dates.map(function(d){return [d[0],d[1].replace(/^\w+, /,'')];}),st:S.nowDate,col:'#00698E',aria:'The session’s dates, the next is '+S.dates[S.nowDate][0]});
-  h+='<ul class="srows">';
+  var nd=S.nowDate,who=IV.mode==='all'?'everyone’s':(IV.mode==='mate'&&IV.person?IV.person+'’s':'your');
+  var h=nband('The session','What each date means for '+who+' bills.')+'<div class="pbody">';
+  h+=pathSvg({w:640,all:true,here:'Next',labels:S.dates.map(function(d){return d[4];}),st:nd,col:'#00698E',aria:'The session’s dates. The next is '+S.dates[nd][0]+', '+S.dates[nd][1]});
+  h+='<ul class="coming">';
   S.dates.forEach(function(d,i){
-    var past=i<S.nowDate,next=i===S.nowDate;
-    h+='<li class="srow'+(past?' past':'')+(next?' next':'')+'"><div class="sh"><h2 class="h18">'+d[0]+'</h2><span class="sdt">'+d[1]+'</span>'+(past?'<span class="stag">Passed</span>':'')+'</div><p>'+d[3]+'</p>';
-    if(next){
-      if(!n)h+='<p class="empty">All your bills are on track.</p>';
-      else{
-        h+='<ul class="brows" style="margin-top:8px">';
-        [['SB2204','ask'],['SB2988','ask2']].forEach(function(r){
-          var b=findBill(r[0]),I=iss(b.iss),act='<span class="already">'+(FIN[r[1]]?'Asked':'Already in Your steps')+'</span>';
-          h+='<li><div class="brow dl2"><a class="bn2" href="#/bill/'+b.id+'">'+imark(I,'sm')+'<span>'+b.name+'<span class="bno">'+b.n+'</span></span></a><span class="pc">'+act+'</span></div></li>';
-        });
-        h+='</ul>';
-      }
+    if(i<nd)return;
+    var t=touched(i);
+    h+='<li class="cm"><div class="sh"><h2 class="h18">'+d[0]+'</h2><span class="sdt">'+d[1]+'</span></div><p>'+d[3]+'</p>';
+    if(i===1||i===3){
+      if(t.length)h+='<ul class="touch">'+t.map(function(x){var nt=needText(x);return '<li><a href="'+bh(x.id,x.iss)+'">'+x.name+'</a><span class="need'+(nt.risk?' risk':'')+'">'+(nt.risk?ic('warn')+' ':'')+nt.t+'</span></li>';}).join('')+'</ul>';
+      else h+='<p class="none cmn">None of these bills is at this point.</p>';
+    }else{
+      h+='<p class="none cmn">'+(t.length?t.length+(t.length===1?' bill':' bills')+(i===2?' must pass the first chamber by then.':(i===4?' reach this point.':' still alive would stop for the year if not passed.')):'None of these bills is at this point yet.')+'</p>';
     }
     h+='</li>';
   });
@@ -990,100 +1172,88 @@ function SessionInner(){
 }
 /* ---------- steps, news, issues ---------- */
 function StepsInner(){
-  var rem=remaining(),sent=S.steps.filter(function(s){return !s.hide&&FIN[s.id];});
-  var h=nband('Your steps','Everything waiting on you, soonest first.')+'<div class="pbody">';
-  if(!rem.length)h+='<p class="lead">Nothing is waiting on you.</p>';
-  else h+='<ul class="xl">'+rem.map(function(s){
-    var soon=s.soon?' soon':'';
-    return '<li><a class="xrow row2" href="#/do/'+s.id+'">'+ic(s.ic)+'<span class="g"><span class="rt">'+s.t+' · <span style="font-weight:400">'+s.name+'</span></span><span class="rd">'+s.due+(s.risk&&riskOn()?' · <span class="w">'+ic('warn')+'at risk</span>':'')+(s.back?' · Kris sent it back':'')+'</span></span><span class="tm'+soon+'">'+(s.soon?ic('clock').replace('class="ic ','style="width:16px;height:16px;vertical-align:-3px;margin-right:4px" class="ic '):'')+s.tp+'</span></a></li>';}).join('')+'</ul>';
-  if(sent.length)h+='<div class="sec3"><h2>Waiting on others</h2><ul class="xl">'+sent.map(function(s){
-    return '<li><a class="xrow row2" href="#/bill/'+s.bid+'">'+ic('check')+'<span class="g"><span class="rt">'+s.name+'</span><span class="rd">'+(s.wait==='the chair'?'Chair’s move':s.wait+'’s move')+'</span></span></a></li>';}).join('')+'</ul></div>';
-  return h+'</div>';
-}
-function NewsInner(){
-  var h=nband('What stopped','Bills and issues you lead or follow that stopped for the year, newest first.')+'<div class="pbody">';
-  S.news.forEach(function(n){
-    var go='',I;
-    h+='<article class="newsi"><p class="dt">'+n.when+'</p><h2><a href="'+(n.kind==='issue'?'#/issue/'+n.iss:'#/bill/'+n.bid)+'" style="text-decoration:none">'+n.title+'</a></h2><p>'+n.body+'</p>';
-    if(n.risk&&riskOn())h+='<p class="risk">'+ic('warn').replace('class="ic ','style="width:16px;height:16px;vertical-align:-3px;margin-right:4px" class="ic ')+'The one that is left is at risk.</p>';
-    if(n.kind==='issue')h+='<div class="go"><a class="btn quiet" href="#/public/SB1190"><span class="pm" aria-hidden="true">'+ic('globe')+'</span>Tell partners and the public</a></div>';
-    h+='</article>';
-  });
-  return h+'<p class="muted" style="margin:24px 0 32px;font-size:14px">Each line leaves Home a week after it happens, or when you open this page.</p></div>';
-}
-function IssuesInner(){
-  var rows=ISS.map(function(i){
-    var hl=health(i),al=alive(i.id),b=furthest(i.id),nd=needs(i.id),txt;
-    if(hl.dead)txt='None alive this year';
-    else if(hl.risk)txt='At risk · Sugary drink fee needs a hearing by Fri, Mar 20';
-    else txt=al+' of '+i.k+' bills alive'+(nd?' · '+nd+(nd===1?' needs you':' need you'):'');
-    return {i:i,hl:hl,b:b,txt:txt};
-  }).sort(function(a,b){return a.hl.rank-b.hl.rank;});
-  var h=nband('Your issues','Every issue you hold, where its furthest bill is.')+'<div class="pbody"><ul class="xl">';
-  rows.forEach(function(r){
-    h+='<li><a class="irowl'+(r.hl.dead?' dead':'')+'" href="#/issue/'+r.i.id+'">'+imark(r.i)+'<span><span class="rt">'+r.i.n+'</span><span class="rd'+(r.hl.risk?' risk':'')+'">'+(r.hl.risk?ic('warn').replace('class="ic ','style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" class="ic '):'')+r.txt+'</span></span>'+track(r.b,r.i.c)+'</a></li>';
-  });
-  return h+'</ul></div>';
+  var l=laterSteps();
+  var h=nband('Later','')+'<div class="pbody">';
+  if(!l.length)return h+'<p class="lead">Nothing later.</p></div>';
+  return h+'<ul class="xl">'+l.map(function(s){
+    return '<li><a class="xrow row2" href="#/do/'+s.id+'">'+ic(s.ic)+'<span class="g"><span class="rt">'+s.t+' · <span style="font-weight:400">'+s.name+'</span></span><span class="rd">'+s.due+(s.back?' · Kris sent it back':'')+'</span></span><span class="tm">'+s.tp+'</span></a></li>';}).join('')+'</ul></div>';
 }
 function billRow(b,I){
-  var mv=billMove(b),st=b.dead?'Did not advance · stopped in '+b.stop:b.s;
-  return '<li><a class="brow" href="#/bill/'+b.id+'"><span class="bn2">'+b.name+'<span class="bno">'+b.n+'</span>'+(b.isNew?'<span class="mark"><i aria-hidden="true"></i>New</span>':'')+'</span>'
-    +track(b,I.c)+'<span class="bst'+(b.dead?' dead':'')+'">'+st+'</span>'
+  var mv=billMove(b),st=b.dead?'':b.s,nt=!b.dead&&needsHearing(b)&&atRisk(b);
+  return '<li><a class="brow" href="'+bh(b.id,b.iss)+'"><span class="bn2">'+b.name+'<span class="bno">'+b.n+'</span>'+(b.isNew?'<span class="mark"><i aria-hidden="true"></i>New</span>':'')+'</span>'
+    +track(b,I.c)+'<span class="bst'+(b.dead?' dead':'')+(nt?' riskt':'')+'">'+(nt?ic('warn')+' ':'')+st+'</span>'
     +'<span class="pc">'+(mv?'<span class="ypill'+(mv[1]?' '+mv[1]:'')+'">'+mv[0]+'</span>':'')+'</span></a></li>';
 }
 function IssueInner(id){
-  var I=iss(id),l=BL[I.id],nd=needs(I.id),al=alive(I.id),risk=I.id==='sugar'&&riskOn();
-  var sub=I.k+' bills · '+(al?al+' alive'+(risk?', at risk':'')+' · '+(nd?nd+(nd===1?' needs you':' need you'):'nothing needs you'):'none alive this year');
-  var h=hband(I,{title:I.n,sub:sub});
+  var I=iss(id),l=BL[I.id],nd=needs(I.id),al=alive(I.id),lo=lookOnly(I),rbs=riskBills(I);
+  var sub=I.k+(I.k===1?' bill':' bills')+(al?' · '+al+' alive'+(lo?'':' · '+(nd?nd+(nd===1?' needs you':' need you'):'nothing needs you')):'');
+  var h=hband(I,{small:lo?'<span class="crumb">'+IV.person+'’s issue · you are looking</span>':'',title:I.n,sub:sub});
   h+='<div class="pbody">';
-  if(risk)h+='<div class="strip">'+ic('warn')+'<span class="stx">Sugary drink fee needs a hearing by Fri, Mar 20, or nothing is left alive for this issue this year.</span><a class="btn" href="#/do/ask">Ask for a hearing</a></div>';
-  if(!al)h+='<p class="lead">Nothing more can happen on this issue this year.</p>';
+  rbs.forEach(function(rb){
+    var sid=STEP_OF[rb.id],st=sid&&stepById(sid);
+    h+='<div class="strip">'+ic('warn')+'<span class="stx">'+(al===1?'It is the last bill alive for this issue.':'<b>'+rb.name+'</b>')+'</span>'+(!lo&&st&&!FIN[sid]?'<a class="btn" href="#/do/'+sid+'">'+st.t+'</a>':'')+'</div>';
+  });
+  if(!al)h+='<p class="lead">Nothing more can happen on this issue until next session.</p>';
   var live=l.filter(function(b){return !b.dead;}),dead=l.filter(function(b){return b.dead;});
   if(live.length)h+='<ul class="brows" style="--ic:'+I.c+'">'+live.map(function(b){return billRow(b,I);}).join('')+'</ul>';
   if(dead.length)h+='<h2 class="h18 dh">Did not advance</h2><ul class="brows">'+dead.map(function(b){return billRow(b,I);}).join('')+'</ul>';
-  if(!al)h+='<div class="bfoot">'+pubRow('Tell partners and the public','Opens public mode','#/public/'+dead[0].id)+'</div>';
+  if(!al&&!lo)h+='<div class="bfoot">'+pubRow('Tell partners and the public','Opens the public page for '+dead[0].n,'#/public/'+dead[0].id)+'</div>';
   return h+'</div>';
 }
 function stands(b){
-  var hr=S.hearings.filter(function(x){return x.id===b.id;})[0],du=S.dues.filter(function(x){return x.id===b.id;})[0];
-  var st=b.st||0;
+  var hr=hearingFor(b.id),st=b.st||0,nh=needsHearing(b),dl=S.dates[S.nowDate][1],sid=STEP_OF[b.id],as=sid&&stepById(sid);
   var just=b.just||(st===0?'Introduced and read the first time':(st===1?'Referred to '+b.at:'Passed its first chamber'));
   var next=b.s||'Waiting';
-  if(hr)next='Hearing '+S.days[hr.d]+', Mar '+(16+hr.d)+', '+hr.tm+', '+hr.where.replace(' · ',', ')+(hr.due?' · '+hr.due:'');
-  var after=b.after||(st===0?'A hearing in its first committee':(st===1?'Its next committee, or the floor':'The second chamber’s committees'));
-  return {just:just,next:next,after:after,hr:hr};
+  if(hr)next='Hearing '+(hr.wk===0&&hr.d===S.todayIx?'today':S.days[hr.d]+', Mar '+(16+hr.d+7*hr.wk))+', '+hr.tm+', '+hr.where.replace(' · ',', ')+(hr.due?' · '+hr.due:'');
+  if(nh)next='A hearing'+(as&&as.cmte?' in '+as.cmte:'')+' by '+dl;
+  var after=b.after||(st===0?'A committee vote, if it gets a hearing':(st===1?'Its next committee, or the floor':'The second chamber’s committees'));
+  return {just:just,next:next,after:after,hr:hr,nh:nh};
 }
 function BillInner(id){
-  var b=findBill(id)||findBill('HB1563'),I=iss(b.iss),mv=billMove(b),sid=STEP_OF[b.id],step=sid&&!calmMode?stepById(sid):null,X=stands(b);
+  var b=findBill(id)||findBill('HB1563'),I=iss(b.iss),mv=billMove(b),sid=STEP_OF[b.id],lo=lookOnly(I),step=sid&&!calmMode&&!lo?stepById(sid):null,X=stands(b);
   var h=hband(I,{small:backCrumb(I),title:b.name+'<span class="hn">'+b.n+'</span>'});
   h+='<div class="pbody">'+leadLine(b.id);
   if(b.dead){
     var al=BL[b.iss].filter(function(x){return !x.dead;});
-    h+='<h2 class="h18">Did not advance</h2><div class="where"><dl><dt>Stopped in</dt><dd class="next">'+b.stop+': it had no hearing by First decking (Fri, Mar 6).</dd>'
-      +'<dt>Still alive</dt><dd>'+(al.length?al.map(function(x){return '<a class="lk" href="#/bill/'+x.id+'">'+x.name+'</a>';}).join(', '):'Nothing else is alive for this issue this year.')+'</dd></dl></div>';
+    h+='<h2 class="h18">Did not advance</h2><div class="where"><dl><dt>Stopped in</dt><dd class="next">'+b.stop+'. '+b.why+'</dd>'
+      +'<dt>Still alive</dt><dd>'+(al.length?al.map(function(x){return '<a class="lk" href="'+bh(x.id,x.iss)+'">'+x.name+'</a>';}).join(', '):'Nothing else is alive for this issue this year.')+'</dd></dl></div>';
     h+=track(b,I.c,true);
-    h+='<div class="notef"><label class="lab" for="nfy">A note for next year (optional)</label><div class="actrow"><input class="field" id="nfy" type="text" autocomplete="off" style="max-width:420px"><button class="btn quiet" type="button" data-toast="Saved. It will be here next year.">Save note</button></div></div>';
+    h+=''+(lo?'':'<div class="notef"><label class="lab" for="nfy">A note for next year (optional)</label><div class="actrow"><input class="field" id="nfy" type="text" autocomplete="off" style="max-width:420px"><button class="btn quiet" type="button" data-toast="Saved for next year.">Save note</button></div></div>');
   }else{
-    h+='<h2 class="h18">Where it stands</h2><div class="where"><dl><dt>Just happened</dt><dd>'+X.just+'</dd><dt>Next</dt><dd class="next">'+X.next+'</dd><dt>After that</dt><dd>'+X.after+'</dd></dl>'
+    h+='<h2 class="h18">Where it stands</h2><div class="where"><dl><dt>Just happened</dt><dd>'+X.just+'</dd><dt>Next</dt><dd class="next'+(X.nh&&atRisk(b)?' risk':'')+'">'+(X.nh&&atRisk(b)?ic('warn')+' ':'')+X.next+'</dd><dt>After that</dt><dd>'+X.after+'</dd></dl>'
       +(step?(FIN[sid]?'<span class="ypill wait">'+mv[0]+'</span>':'<a class="btn quiet" href="#/do/'+sid+'">'+step.t+'</a>'):'')+'</div>';
     h+=track(b,I.c,true);
     h+='<div class="bsplit"><div><section class="sec"><h2>What it does</h2><p>'+(b.what||'The plain-words summary has not been written yet.')+'</p></section>'
-      +(X.hr?'<section class="sec"><h2>The hearing</h2><p>'+S.days[X.hr.d]+', Mar '+(16+X.hr.d)+', '+X.hr.tm+' · '+X.hr.where+'</p>'+(b.chair?'<p>Chair: '+b.chair+'</p>':'')+'</section>':'')
+      +(X.hr?'<section class="sec"><h2>The hearing</h2><p>'+S.days[X.hr.d]+', Mar '+(16+X.hr.d+7*X.hr.wk)+', '+X.hr.tm+' · '+X.hr.where+'</p>'+(b.chair?'<p>Chair: '+b.chair+'</p>':'')+'</section>':'')
       +(b.by?'<section class="sec"><h2>Introduced by</h2><ul class="names">'+b.by.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></section>':'')
-      +(b.comp?'<section class="sec"><p>Companion: <a class="lk" href="#/bill/'+b.comp+'">'+findBill(b.comp).name+' · '+findBill(b.comp).n+'</a></p></section>':'')
+      +(b.comp?'<section class="sec"><p>Companion: <a class="lk" href="'+bh(b.comp,findBill(b.comp).iss)+'">'+findBill(b.comp).name+' · '+findBill(b.comp).n+'</a></p></section>':'')
       +'</div><div><section class="sec"><h2>History</h2><ul class="hist">'+(b.hist||[['Jan 26','Introduced and read the first time']].concat(b.st>=1?[['Feb 3','Referred to '+b.at]]:[])).slice().sort(function(){return 0;}).map(function(r){return '<li><time>'+r[0]+'</time><span>'+r[1]+'</span></li>';}).join('')+'</ul></section>'
       +(b.notes?'<section class="sec"><h2>Team talk</h2>'+b.notes.map(function(n){return '<div class="note"><span class="person sm" aria-hidden="true">'+n[0]+'</span><div><div class="who">'+n[1]+'</div><div>'+n[2]+'</div></div></div>';}).join('')+'</section>':'')+'</div></div>';
   }
-  h+='<div class="bfoot">'+pubRow(b.dead?'Tell partners and the public':'Change what the public sees about this bill','Opens public mode','#/public/'+b.id)+'</div></div>';
+  if(!lo)h+='<div class="bfoot">'+pubRow(b.dead?'Tell partners and the public':'Change what the public sees about this bill','Opens the public page for '+b.n,'#/public/'+b.id)+'</div>';
+  h+='</div>';
   return h;
 }
 /* ---------- alerts: how it reaches you ---------- */
 function AlertInner(){
-  var h=nband('How it reaches you','The same message comes by Slack and by email. Its button opens the step.')+'<div class="pbody"><div class="msgs">';
-  h+='<div class="pic"><p class="cap">In Slack</p><div class="smsg"><span class="sav" aria-hidden="true">H</span><div><div class="smn"><b>HIPHI Tracker</b><span>9:04 AM</span></div><p>Flavored tobacco sales has a hearing Thu 2:00 PM. Testimony is due Wed 2:00 PM.</p><a class="pbtn" href="#/do/write">Write testimony</a></div></div></div>';
-  h+='<div class="pic"><p class="cap">By email</p><div class="emeta"><b>From</b> HIPHI Tracker · <b>To</b> Kevin<br><b>Subject</b> Flavored tobacco sales has a hearing Thu 2:00 PM</div><div class="emsg"><p>Hi Kevin,</p><p>Flavored tobacco sales has a hearing Thu 2:00 PM. Testimony is due Wed 2:00 PM.</p><a class="pbtn" href="#/do/write">Write testimony</a></div></div>';
-  h+='</div><p class="muted" style="margin-top:32px;max-width:640px">After Kris approves it, the next message says: “Approved. File it by Wed 2:00 PM.” <a class="btn text" href="#/do/file">See the filing step</a></p><div style="height:32px"></div></div>';
-  return h;
+  var hr=hearingFor('HB1563'),du=S.dues[0],ap=stepById('approve'),rs=stepById('resubmit'),as=stepById('ask'),tb=findBill('HB1563').name;
+  var hearing=S.days[hr.d]+' '+hr.tm,dueAt=S.days[du.d]+' '+du.tm;
+  function msg(o){
+    return '<div class="ablock"><div class="pic"><div class="smsg"><span class="sav" aria-hidden="true">H</span><div><div class="smn"><b>HIPHI Tracker</b><span>'+o.at+'</span></div><p>'+o.txt+'</p><a class="pbtn" href="'+o.to+'">'+o.btn+'</a></div></div></div>'
+      +'<div class="lands"><p class="l0">The button opens</p><a class="pg" href="'+o.to+'">'+ic('right')+'<span><b>'+o.btn+'</b><span class="s">'+o.bill+'</span></span></a></div></div>';
+  }
+  var sug=findBill('SB2204'),lastAlive=alive(sug.iss)===1;
+  var h=nband('How it reaches you','Three kinds of message, by Slack and by email. Each has one button.')+'<div class="pbody"><div class="alerts">';
+  h+='<section class="a-k1" aria-label="A hearing notice"><p class="acap">A hearing notice</p>'+msg({at:'Mon 9:04 AM',txt:tb+' has a hearing '+hearing+'. Testimony is due '+dueAt+'.',btn:'Write testimony',to:'#/do/write',bill:tb})+'</section>';
+  h+='<section class="a-k2" aria-label="A testimony update"><p class="acap">A testimony update</p><div class="astack">'
+    +msg({at:'Tue 8:15 AM',txt:'Kris sent back your '+rs.name+' testimony: “'+rs.note+'”',btn:'Resubmit testimony',to:'#/do/resubmit',bill:rs.name})
+    +msg({at:'Tue 8:40 AM',txt:'Mele sent '+ap.name+' testimony for your approval. It is due '+ap.due.replace('Due ','')+'.',btn:'Approve testimony',to:'#/do/approve',bill:ap.name})
+    +'<p class="alab">After Kris approves the letter you send today</p>'
+    +msg({at:'Wed 9:30 AM',txt:'Kris approved your '+tb+' testimony. File it by '+dueAt+'.',btn:'File testimony',to:'#/do/file',bill:tb})
+    +'</div></section>';
+  h+='<section class="a-k3" aria-label="A bill about to stop"><p class="acap">A bill about to stop</p>'+msg({at:'Tue 9:00 AM',txt:sug.name+' stops for the year on '+as.dl+' unless it gets a hearing.'+(lastAlive?' It is the last bill alive for '+iss(sug.iss).n+'.':''),btn:'Ask for a hearing',to:'#/do/ask',bill:sug.name})+'</section>';
+  h+='<section class="a-em" aria-label="By email"><p class="muted acap">The same words come by email.</p><div class="ablock"><div class="pic email"><div class="emeta"><b>Subject</b> '+tb+' has a hearing '+hearing+'</div><div class="emsg"><p>Testimony is due '+dueAt+'.</p><a class="pbtn" href="#/do/write">Write testimony</a></div></div><div></div></div></section>';
+  return h+'</div></div>';
 }
 
 /* ---------- wide sheets ---------- */
@@ -1130,9 +1300,9 @@ function xg(title,items){
 }
 function ExploreInner(){
   var h=nband('Explore','Everything in the tracker. Looking never changes anything.')+'<div class="pbody"><div class="exgroups">';
-  h+='<div class="col">'+xg('Bills and issues',[['All bills','Every bill, HIPHI’s position and who leads it: the team’s list','#/bills'],['New bills to sort','Bills nobody has picked up yet'],['Issues','Every issue you hold, with where its furthest bill is','#/issues']])
+  h+='<div class="col">'+xg('Bills and issues',[['All bills','Every bill, HIPHI’s position and who leads it: the team’s list','#/bills'],['New bills to sort','Bills nobody has picked up yet'],['Issues','Your issues, a teammate’s or everyone’s, with where each bill is','#/issues']])
     +xg('You',[['Your steps','Everything waiting on you, soonest first','#/steps'],['Your alerts','What we message you about, and how it looks','#/alert'],['Help','Short answers, in plain words']])+'</div>';
-  h+='<div class="col">'+xg('Hearings and testimony',[['Calendar','When hearings are','#/calendar'],['The session','The dates that decide what can happen to a bill','#/session'],['Testimony library','Every letter we have sent, to start from']])
+  h+='<div class="col">'+xg('Hearings and testimony',[['Calendar','When hearings are','#/calendar'],['The session','The dates that decide what can happen to a bill','#/issues/session'],['Testimony library','Every letter we have sent, to start from']])
     +xg('People',[['Team','Who is on the team and what they hold'],['Legislators','Who sits where, and who chairs'],['Committees','Members, rooms and meeting days']])+'</div>';
   h+='<div class="col"><section class="exgroup pubgroup"><div class="tag">'+ic('globe')+'Opens public mode</div><h2>The public site</h2><ul>'
     +[['What the public sees','The words on each public bill page','#/public/HB1563'],['Asks','The one thing we ask the public to do','#/public/HB1563'],['Lists','Groups of bills shown together'],['Supporters','People who joined the public site'],['Partners','Organizations working with us']].map(function(i){
@@ -1141,11 +1311,11 @@ function ExploreInner(){
 }
 function CalendarInner(){
   var W=S.weeks[CAL.wk],hs=S.hearings.filter(function(x){return x.wk===CAL.wk&&(!CAL.mine||x.mine);});
-  var h=nband('Calendar','Hearings '+(CAL.mine?'you follow':'at the Capitol')+', '+W.label+'.')+'<div class="pbody"><div class="cbar"><div class="chips" role="radiogroup" aria-label="Whose hearings">'
+  var h=weekStrip(CAL.wk)+'<div class="pbody"><div class="cbar"><div class="chips" role="radiogroup" aria-label="Whose hearings">'
    +[['Mine',true],['Everyone',false]].map(function(o){return '<button class="chip" type="button" role="radio" data-mine="'+o[1]+'" aria-checked="'+(CAL.mine===o[1])+'">'+ic('check')+o[0]+'</button>';}).join('')
    +'</div><button class="btn text" type="button" id="wkBtn">'+(CAL.wk?'‹ This week':'Next week ›')+'</button></div><ol class="week">';
   W.days.forEach(function(d,i){
-    var today=d[2]==='today',list=hs.filter(function(x){return x.d===i;}),dues=CAL.wk===0?S.dues.filter(function(x){return x.d===i;}):[];
+    var today=d[2]==='today',list=hs.filter(function(x){return x.d===i;}).sort(function(a,b){function mn(t){var m=t.match(/(\d+):(\d+) (AM|PM)/);return (m[1]%12+(m[3]==='PM'?12:0))*60+ +m[2];}return mn(a.tm)-mn(b.tm);}),dues=CAL.wk===0?S.dues.filter(function(x){return x.d===i;}):[];
     h+='<li class="day'+(today?' today':'')+'"><div><span class="dnm">'+d[0]+'</span><span class="dnum">'+d[1]+'</span>'+(today?'<span class="tdy">Today</span>':'')+'</div>';
     if(CAL.wk===0&&i===4)h+='<p class="dlf">'+ic('flag')+'Committee deadline</p>';
     dues.forEach(function(x){var b=findBill(x.id);h+='<a class="hcard duec" href="#/bill/'+x.id+'"><span class="tm">'+x.tm+'</span><span class="rt">'+x.w+'</span><span class="rd">'+b.name+'</span></a>';});
@@ -1153,14 +1323,14 @@ function CalendarInner(){
     list.forEach(function(x){h+='<a class="hcard" href="#/bill/'+x.id+'"><span class="tm">'+x.tm+' · Hearing</span><span class="rt">'+x.name+'<span class="no">'+x.no+'</span></span><span class="rd">'+x.where+'</span></a>';});
     h+='</li>';
   });
-  return h+'</ol><p class="sessline">Session dates: <a class="lk" href="#/session">First lateral Fri, Mar 20</a> · Crossover Thu, Apr 9 · Second lateral Fri, Apr 17 · End of session Thu, May 7</p></div>';
+  return h+'</ol></div>';
 }
 function CalendarBind(){
   document.querySelectorAll('[data-mine]').forEach(function(b){b.addEventListener('click',function(){CAL.mine=b.getAttribute('data-mine')==='true';route();});});
   document.getElementById('wkBtn').addEventListener('click',function(){CAL.wk=CAL.wk?0:1;route();});
 }
 function SamplesInner(){
-  var L=[['Home, Your week','#/'],['A calm day','#/calm'],['How an alert reaches you','#/alert'],['Write testimony','#/do/write'],['Approve testimony','#/do/approve'],['File testimony','#/do/file'],['Ask for a hearing','#/do/ask'],['Your steps','#/steps'],['What stopped','#/news'],['Your issues','#/issues'],['The session','#/session'],['A stopped bill','#/bill/SB1422'],['Public mode','#/public/HB1563']];
+  var L=[['Home','#/'],['A calm day','#/calm'],['A hearing today','#/hearing/HB1710'],['How it reaches you','#/alert'],['Write testimony','#/do/write'],['Approve testimony','#/do/approve'],['File testimony','#/do/file'],['Ask for a hearing','#/do/ask'],['Your steps','#/steps'],['Issues, yours','#/issues'],['The session','#/issues/session'],['A stopped bill','#/bill/SB1422'],['Public mode','#/public/HB1563']];
   return nband('Sample pages','For people judging the sample. Not part of the app.')+'<div class="pbody"><ul class="xl">'+L.map(function(l){return '<li><a class="xrow" href="'+l[1]+'"><span class="rt">'+l[0]+'</span></a></li>';}).join('')+'</ul></div>';
 }
 
@@ -1258,21 +1428,33 @@ var app=document.getElementById('app'),bar=document.getElementById('bar'),root=d
 function route(){
   clearTimeout(tick);clearTimeout(toastTimer);document.getElementById('toast').classList.remove('on');closeSearch();
   var p=(location.hash||'#/').slice(1)||'/',m,lap=LAP.matches;
-  if(p==='/calm')calmMode=true;else if(p==='/')calmMode=false;
-  if(p==='/done'&&lastStep!=='file')FIN[lastStep]=1;
-  if((m=p.match(/^\/do\/(\w+)$/))&&FIN[m[1]]&&!OUT_KEEP)delete FIN[m[1]];
-  if(p==='/news')NEWSREAD=true;
-  var v={key:'home',title:'Home',inner:'',bind:null,cls:'',sel:{},list:true,wide:false,chrome:true,back:'',phoneBare:false};
-  if(p==='/'||p==='/calm'){v.home=true;v.inner=WeekInner();}
-  else if((m=p.match(/^\/do\/(\w+)$/))){var sid=m[1]==='hearing'?'ask':m[1];v.sel.step=sid;v.inner=StepInner(sid);v.bind=StepBind;v.cls=' stepn';v.back='Back to Home';v.title='Step';v.phoneBare=true;}
+  calmMode=(p==='/calm');   // calm belongs to #/calm alone; it never sticks to another page
+  function redir(h){location.replace(location.href.split('#')[0]+h);}
+  if((m=p.match(/^\/undo\/(\w+)$/))){delete FIN[m[1]];if(m[1]==='file')delete FIN.write;redir('#/do/'+m[1]);return;}
+  if(p==='/done'){if(lastStep==='file')FIN.write=1;else FIN[lastStep]=1;}
+  if((m=p.match(/^\/do\/(\w+)$/))&&FIN[m[1]]&&!OUT_KEEP&&!(stepById(m[1])&&stepById(m[1]).kind==='ask'))delete FIN[m[1]];
+  if((m=p.match(/^\/issue\/(\w+)$/))){redir('#/issues/'+m[1]);return;}
+  if((m=p.match(/^\/bill\/(\w+)$/))){var bb=findBill(m[1]);redir(bb?'#/issues/'+bb.iss+'/'+bb.id:'#/issues');return;}
+  if(p==='/deadline'||p==='/session'){redir('#/issues/session');return;}
+  if(p==='/news'){redir('#/issues');return;}
+    var v={key:'home',title:'Home',inner:'',bind:null,cls:'',sel:{},list:true,wide:false,chrome:true,back:'',phoneBare:false};
+  CTX=p.indexOf('/issues')===0?'issues':'home';
+  if(p==='/'||p==='/calm'){v.col='home';var u0=actionRows()[0]||urgent()[0];
+    if(u0){v.sel.step=u0.key;if(u0.type==='hearing'){v.inner=HearingInner(u0.h);v.bind=HearingBind;}else{v.inner=StepInner(u0.s.id);v.bind=StepBind;v.cls=' stepn';}}
+    else v.inner=CalmInner();}
+  else if((m=p.match(/^\/hearing\/(\w+)$/))){var hh=hearingOf(m[1]);if(!hh){redir('#/');return;}v.sel.step='hearing:'+hh.id;v.inner=HearingInner(hh);v.bind=HearingBind;v.back='Back to Home';v.title='Hearing today';v.phoneBare=true;}
+  else if((m=p.match(/^\/do\/(\w+)$/))){var sid=m[1]==='hearing'?'ask':m[1];v.sel.step='step:'+sid;v.inner=StepInner(sid);v.bind=StepBind;v.cls=' stepn';v.back='Back to Home';v.title='Step';v.phoneBare=true;}
   else if(p==='/done'){v.inner=DoneInner();v.bind=DoneBind;v.title='Done';v.phoneBare=true;}
-  else if(p==='/deadline'||p==='/session'){v.inner=SessionInner();v.back='Back to Home';v.title='The session';}
-  else if(p==='/steps'){v.inner=StepsInner();v.back='Back to Home';v.title='Your steps';}
-  else if(p==='/news'){v.sel.link='news';v.inner=NewsInner();v.back='Back to Home';v.title='What stopped';}
-  else if(p==='/issues'){v.sel.link='issues';v.inner=IssuesInner();v.back='Back to Home';v.title='Your issues';}
-  else if(p==='/alert'){v.inner=AlertInner();v.back='Back to Home';v.title='How it reaches you';}
-  else if((m=p.match(/^\/issue\/(\w+)$/))){v.inner=IssueInner(m[1]);v.back='Back to Home';v.title='Issue';}
-  else if((m=p.match(/^\/bill\/(\w+)$/))){v.inner=BillInner(m[1]);v.title='Bill';}
+  else if(p==='/steps'){v.sel.link='steps';v.inner=StepsInner();v.back='Back to Home';v.title='Your steps';}
+  else if((m=p.match(/^\/issues(?:\/(\w+))?(?:\/(\w+))?$/))){
+    v.key='issues';v.title='Issues';v.col='issues';
+    if(m[1]&&m[1]!=='session'&&iss(m[1]).id===m[1]&&issueIds().indexOf(m[1])<0){IV.mode='all';IV.person=null;}   // an issue from Search or Calendar: show it among everyone's
+    var il=issueList();
+    if(m[1]==='session'){v.sel.session=1;v.inner=SessionInner();}
+    else if(!il.length)v.inner=TeamInner();
+    else{var iid=m[1]&&il.some(function(x){return x.id===m[1];})?m[1]:il[0].id;v.sel.issue=iid;v.inner=m[2]?BillInner(m[2]):IssueInner(iid);if(m[2])v.bind=BillBind;}
+  }
+  else if(p==='/alert'){v.list=false;v.wide=true;v.inner=AlertInner();v.key='explore';v.back='Back to Explore';v.title='How it reaches you';}
   else if(p==='/bills'){v.list=false;v.wide=true;v.inner=BillsInner();v.bind=BillsBind;v.key='explore';v.back='Back to Explore';v.title='All bills';}
   else if(p==='/explore'){v.list=false;v.wide=true;v.inner=ExploreInner();v.key='explore';v.title='Explore';}
   else if(p==='/samples'){v.list=false;v.wide=true;v.inner=SamplesInner();v.key='explore';v.title='Sample pages';}
@@ -1280,17 +1462,17 @@ function route(){
   else if((m=p.match(/^\/public\/(\w+)$/))){v.pub=true;v.pid=m[1];v.bind=PublicBind;v.title='Public mode';v.chrome=false;}
   else{location.hash='#/';return;}
   var pub=!!v.pub,html='',wsOn=false;
-  var lo={step:v.sel.step,link:v.sel.link};
+  var lo={sel:v.sel.step,link:v.sel.link,issue:v.sel.issue,session:v.sel.session},colf=v.col==='issues'?IssuesCol:ListInner;
   if(pub)html=Public(v.pid);
   else if(lap){
     wsOn=true;
     var old=document.getElementById('wl'),st=old?old.scrollTop:0;
     var sheet='<div class="wp"><div class="paper" id="paper"><div class="pn'+(v.wide?' wide':'')+v.cls+' enter">'+v.inner+'</div></div></div>';
-    html=v.list?'<div class="ws"><div class="wl" id="wl">'+ListInner(lo)+'</div>'+sheet+'</div>':'<div class="ws one">'+sheet+'</div>';
+    html=v.list?'<div class="ws"><div class="wl" id="wl">'+colf(lo)+'</div>'+sheet+'</div>':'<div class="ws one">'+sheet+'</div>';
     app.innerHTML=html;
     var nl=document.getElementById('wl');if(st&&nl)nl.scrollTop=st;
   }
-  else if(v.home){lo.phone=true;html='<div class="page">'+ListInner(lo)+'<div class="paper"><div class="pn enter">'+v.inner+'</div></div></div>';}
+  else if(v.col){lo.phone=true;html='<div class="page">'+colf(lo)+'<div class="paper"><div class="pn enter">'+v.inner+'</div></div></div>';}
   else html='<div class="page'+(v.phoneBare?' bare':'')+'">'+(v.back?'<a class="back" href="'+(v.back==='Back to Explore'?'#/explore':'#/')+'">'+ic('left')+v.back+'</a>':'')+'<div class="paper"><div class="pn'+(v.wide?' wide':'')+v.cls+' enter">'+v.inner+'</div></div></div>';
   root.dataset.mode=pub?'public':'staff';
   if(!wsOn)app.innerHTML=html;
@@ -1303,6 +1485,9 @@ function route(){
   document.title=v.title+' · Staff app, look A3';
   window.scrollTo(0,0);
   var pp=document.getElementById('paper');if(pp)pp.scrollTop=0;
+  function goIssues(){var c=location.hash;if(c==='#/issues/session'||c==='#/issues')route();else location.hash='#/issues';}
+  document.querySelectorAll('[data-ivmode]').forEach(function(b){b.addEventListener('click',function(){IV.mode=b.getAttribute('data-ivmode');IV.person=IV.mode==='mate'?(IV.person||'Kris'):null;goIssues();});});
+  document.querySelectorAll('[data-ivperson]').forEach(function(b){b.addEventListener('click',function(){IV.person=b.getAttribute('data-ivperson');goIssues();});});
   if(v.bind)v.bind();
 }
 window.toast=toast;
