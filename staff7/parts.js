@@ -1,6 +1,6 @@
 // Staff7 parts: the small pieces every page is made of (button, row, due strip, sheet band, file row, note, toast, person and status marks), each with its states in app.css.
 import { ic } from './icons7.js';
-import { left, soonSoon, dayTime, lateLine, LABEL } from './steps.js';
+import { left, soonSoon, dayTime, lateLine, LABEL, pastDue } from './steps.js';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -23,10 +23,14 @@ const tight = s => nb(String(s).replace(/ (\S+)$/, '\u00a0$1'));
 
 // Row: one step in the left list. The open one is the white pill with the teal bar (S-20).
 const KIND_ICON = { write: 'pencil', resubmit: 'undo-2', approve: 'badge-check', second: 'badge-check', file: 'file-text', ask: 'mail', missed: 'circle-help', stale: 'triangle-alert' };
-export function stepRow(s, open) {
-  const t = s.at == null ? '' : left(s.at), late = s.late || (s.at != null && new Date(s.at).getTime() <= Date.now()), amber = s.late || soonSoon(s.at);
-  const tm = s.kind === 'missed' || s.at == null ? '' : amber ? `<span class="stm soon">${ic('clock')}${esc(late ? (s.late ? 'late' : t + ' overdue') : t)}</span>` : `<span class="stm">${esc(t)}</span>`;
-  return `<li><a class="sr3${open ? ' sel' : ''}"${open ? ' aria-current="true"' : ''} href="#/do/${encodeURIComponent(s.id)}">${ic(KIND_ICON[s.kind])}<span class="sv"><b>${esc(s.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${tight(s.name)}&nbsp;<span class="no">${esc(s.no)}</span></span>${tm}</a></li>`;
+// `opts.risk`: a bill on this row is about to stop (a small amber triangle, with words for a screen reader, before the time). `opts.quiet`: a later step, a step quieter than To do.
+export function stepRow(s, open, opts = {}) {
+  const t = s.at == null ? '' : left(s.at), late = pastDue(s), amber = !opts.quiet && !late && soonSoon(s.at);
+  const risk = opts.risk ? `<span class="rmark">${ic('triangle-alert')}<span class="sr">A bill is about to stop. </span></span>` : '';
+  const tm = s.kind === 'missed' || (s.at == null && !late) ? '' : late ? `<span class="stm past">${risk}${ic('circle-alert')}<span>Past due</span></span>`
+    : amber ? `<span class="stm soon">${risk}${ic('clock')}${esc(t)}</span>` : `<span class="stm">${risk}${esc(t)}</span>`;
+  const mark = !tm && risk ? `<span class="stm">${risk}</span>` : tm;
+  return `<li><a class="sr3${opts.quiet ? ' lt' : ''}${open ? ' sel' : ''}"${open ? ' aria-current="true"' : ''} href="#/do/${encodeURIComponent(s.id)}">${ic(KIND_ICON[s.kind])}<span class="sv"><b>${esc(s.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${tight(s.name)}&nbsp;<span class="no">${esc(s.no)}</span></span>${mark}</a></li>`;
 }
 
 // Due strip: the team's time to act first, the Capitol's own deadline second, then the hearing. As wide as the letter.

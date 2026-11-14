@@ -1,6 +1,7 @@
 // Staff7's frame: boots the practice data, routes between Home, a step and its done moment, and draws the doors, the left list and the right sheet.
 import { S, DB, DEMO, hooks, savePractice } from '../staff6/data.js';
-import { stepsFor, homeRows, BUILT, hearingLine, left } from './steps.js';
+import { stepsFor, BUILT, hearingLine, left, memoKey } from './steps.js';
+import { homeModel, listsHTML, overviewParts, hearingSheet, waitingSheet, suggestedSheet, bindHome, bindWaiting } from './home.js';
 import { stepRow, dueStrip, band, plainBand, btn, esc, toast, clearToast, wireToast, toastHTML } from './parts.js';
 import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
 import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
@@ -38,7 +39,12 @@ const ctx = { me: null, notes: mk(), stage: Object.assign(mk(), saved.stage), ma
   approve: s => ctx.guard(s, async () => { ctx.finish(s, 'approved', { undo: await approveStep(s) }); }),
   // Filing, asking and the missed answers have no timed Undo; their done page keeps a text link that puts the step back (undo below)
   fileIt: s => ctx.guard(s, async () => { ctx.finish(s, 'filed', { undo: await fileStep(s) }); }),
-  askIt: s => ctx.guard(s, async () => { ctx.finish(s, 'asked', { undo: await askStep(s) }); }),
+  // "Yes, sent" reads the step again at the click: if the bills in it are not the bills the email names, nothing is recorded
+  askIt: s => ctx.guard(s, async () => {
+    const now = ctx.open().find(x => x.id === s.id);
+    if (!now) throw new Error('This ask is no longer open, so nothing was saved. Go back to Home.');
+    if (memoKey(now) !== memoKey(s)) throw new Error('The bills in this ask changed while you were writing, so nothing was saved. Open the step again to see the new email.');
+    ctx.finish(s, 'asked', { undo: await askStep(now) }); }),
   lateFiled: s => ctx.guard(s, async () => { ctx.finish(s, 'recorded', { answer: 'yes', undo: await fileStep(s) }); }),
   notFiledIt: s => ctx.guard(s, async () => { ctx.finish(s, 'recorded', { answer: 'no', undo: await notFiledStep(s) }); }),
   // a send back waits out the 10 seconds (as Staff v6 does), so Undo cancels it before anything is sent; a hidden tab or a closing page sends it at once
@@ -56,7 +62,7 @@ const ctx = { me: null, notes: mk(), stage: Object.assign(mk(), saved.stage), ma
       else if (f.kind === 'asked') await undoAsk(f.undo);
       else await undoApprove(f.undo);
     } catch (e) { f.noUndo = true; toast((e && e.message) || 'It could not be undone.'); render({ focus: 'main h1' }); return; }
-    delete ctx.finished[id]; ctx.setStage(id, 1); location.hash = '#/do/' + encodeURIComponent(id);
+    delete ctx.finished[id]; ctx.setStage(memoKey(f.step), 1); location.hash = '#/do/' + encodeURIComponent(id);
     const words = f.kind === 'filed' || f.kind === 'recorded' ? 'Put back. The timeline still shows it was marked filed.' : f.kind === 'asked' ? 'Put back. The ask is not recorded.' : 'Undone. Nothing was sent.';
     addEventListener('hashchange', () => toast(words, { ms: 5000 }), { once: true }); } };   // after the page is drawn, which clears the old toast
 const freshDraft = f => (S.drafts[f.billId] || []).find(d => d.id === f.draftId);
@@ -92,7 +98,7 @@ function boot() {
 function parse() {
   const [a, ...r] = location.hash.replace(/^#\/?/, '').split('/');
   let id = ''; try { id = decodeURIComponent(r.join('/')); } catch { return { r: 'missing' }; }
-  if (a === 'do' || a === 'done') return id ? { r: a, id } : { r: 'missing' };
+  if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested') return id ? { r: a, id } : { r: 'missing' };
   if (a && Object.hasOwn(WILL, a)) return { r: 'door', door: a };
   return a ? { r: 'missing' } : { r: 'home' };
 }
@@ -102,21 +108,7 @@ const bar = cur => `<nav class="bar" aria-label="Main"><a class="brand" href="#/
   `<li><a class="bi"${k === cur ? ' aria-current="page"' : ''} href="${h}"><span class="rpill">${ic(i)}</span><span>${n}</span></a></li>`).join('')}</ul>`
   + `<span class="who"><span class="person" title="${esc(ctx.me?.full_name)}" role="img" aria-label="Signed in as ${esc(ctx.me?.full_name)}">${esc(ctx.me?.initials)}</span><span class="prac">Practice</span></span></nav>`;
 
-function greeting() {
-  const hr = +new Date().toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', hour12: false });
-  const day = new Date().toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'long', month: 'long', day: 'numeric' });
-  return `${day} · Good ${hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : 'evening'}, ${esc((ctx.me?.full_name || '').split(' ')[0])}`;
-}
-function listCol(rows, openId, asH1) {
-  const t = asH1 ? 'h1' : 'h2';
-  let h = `<header><${t} class="gdate"${asH1 ? ' tabindex="-1"' : ''}>${greeting()}</${t}></header>`;
-  if (rows.length) h += `<section aria-labelledby="hs"><h3 class="lh" id="hs">Your steps</h3><ul class="srows3">${rows.map(s => stepRow(s, s.id === openId)).join('')}</ul></section>`;
-  return h;
-}
-
 // ---- the sheets ----
-const SUN = '<svg class="calm-pic" viewBox="0 0 96 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 40h88"/><path d="M26 40a22 22 0 0 1 44 0"/><path d="M48 6v6M20 16l4 4M76 16l-4 4"/></svg>';
-const calmSheet = () => `<div class="pn"><div class="hband neutral"><div class="calm-hd">${SUN}<div class="ht"><h1 tabindex="-1">Nothing needs you.</h1></div></div></div></div>`;
 function doorSheet(k) {
   const name = DOORS.find(d => d[0] === k)[1];
   return `<div class="pn">${plainBand(name, WILL[k])}<div class="pbody"><p class="lead"><span class="stmark">${ic('clock')}<span>Not built yet</span></span></p><p class="lead">This place is coming. Your steps are on Home.</p><div class="sfoot plain">${btn('Back to Home', { kind: 'filled', href: '#/' })}</div></div></div>`;
@@ -133,27 +125,34 @@ let lastRoute = '', first = true;
 function render(opts = {}) {
   stopDone(); clearInterval(ctx.pollT);
   const keepScroll = opts.tick ? [...document.querySelectorAll('.wl, .paper')].map(e => [e, e.scrollTop]) : [], tpOpen = opts.tick && !!document.getElementById('tpList') && !document.getElementById('tpList').hidden;
-  const had = document.activeElement && document.activeElement.id;
+  const ae = document.activeElement, had = ae && ae.id, hadHref = ae && ae.tagName === 'A' && ae.closest('#app') ? ae.getAttribute('href') : '';   // a row link has no id: it is found again by its address
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
-  const rt = parse(), rows = homeRows(ctx.open()), phone = PHONE.matches;
-  let sheet = '', openId = '', bindFn = null, cur = 'home', one = false;
+  const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
+  let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null;
   if (rt.r === 'home') {
-    const s = rows[0]; openId = s?.id || '';
-    if (!s) sheet = calmSheet(); else [sheet, bindFn] = sheetFor(s);
+    ov = overviewParts(m); sheet = `<div class="pn"><div class="ov">${ov.top}${ov.rest}</div></div>`; label = 'Overview';
   } else if (rt.r === 'do') {
-    const s = ctx.open().find(x => x.id === rt.id); openId = s?.id || '';
+    const s = open.find(x => x.id === rt.id);
     if (!s) sheet = missingSheet(); else [sheet, bindFn] = sheetFor(s);
-  } else if (rt.r === 'done') {
+  } else if (rt.r === 'hearing') { sheet = hearingSheet(m, rt.id) || missingSheet(); label = 'Hearing today'; }
+  else if (rt.r === 'waiting') { sheet = waitingSheet(m, rt.id) || missingSheet(); bindFn = bindWaiting; label = 'Waiting on others'; }
+  else if (rt.r === 'suggested') { sheet = suggestedSheet(m, rt.id, new URLSearchParams(location.search).get('as')) || missingSheet(); label = 'Suggested step'; }
+  else if (rt.r === 'done') {
     sheet = doneSheet(ctx, rt.id, freshDraft) || missingSheet(); bindFn = () => bindDone(ctx, rt.id);
-  } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; }
+  } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
   else sheet = missingSheet();
-  const onHome = rt.r === 'home', stepPage = rt.r === 'do' || rt.r === 'done' || rt.r === 'missing';
-  const cls = `ws${one ? ' one' : ''}${phone ? (onHome ? ' listonly' : ' sheetonly') : ''}`;
+  const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door';
+  const cls = `ws${one ? ' one' : ''}${phone ? (onHome ? ' homeone' : ' sheetonly') : ''}`;
+  const back = onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
-  $('app').innerHTML = `<div class="${cls}">${one ? '' : `<div class="wl">${listCol(rows, phone && onHome ? '' : openId, phone && onHome)}</div>`}<div class="wp"><a class="back backhome" href="#/">${ic('chevron-left')}Back to Home</a><div class="paper enter" role="region" aria-label="${one ? esc(DOORS.find(d => d[0] === rt.door)[1]) : 'Step'}">${sheet}</div></div></div>`;
+  const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
+  const lists = one ? '' : `<div class="wl">${listsHTML(m, location.hash)}</div>`;
+  // on a phone the greeting comes first, then the lists, then the facts and the session: the thing to do is never below a screen of overview
+  $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
+    : `<div class="${cls}">${lists}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
-  bindFn && bindFn();
+  bindHome(); bindFn && bindFn();
   if (opts.tick) {   // a tick changes only the numbers: no entry animation, same scroll, talking points as they were
     document.querySelectorAll('#app .enter').forEach(e => e.classList.remove('enter'));
     const tl = document.getElementById('tpList'), tb = document.getElementById('tpBtn'); if (tpOpen && tl) { tl.hidden = false; tb?.setAttribute('aria-expanded', 'true'); }
@@ -161,7 +160,7 @@ function render(opts = {}) {
   }
   if (location.hash !== lastRoute) clearToast();   // a toast belongs to the page it was said on
   const key = location.hash, vis = sel => [...document.querySelectorAll(sel)].find(e => e.getBoundingClientRect().width > 0);
-  const target = (opts.focus && vis(opts.focus)) || (opts.tick && had && document.getElementById(had));
+  const target = (opts.focus && vis(opts.focus)) || (opts.tick && had && document.getElementById(had)) || (opts.tick && hadHref && [...document.querySelectorAll('#app a[href]')].find(a => a.getAttribute('href') === hadHref && a.getBoundingClientRect().width > 0));
   if (target) target.focus({ preventScroll: true });
   else if (!first && (key !== lastRoute || !document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); if (key !== lastRoute) window.scrollTo(0, 0); }
   if (!opts.tick && (!document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); }   // focus never drops to the page body
@@ -172,7 +171,7 @@ function render(opts = {}) {
 function tick() {
   const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
   const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden);
-  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/do\/.*)$/.test(location.hash)) return;
+  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested)\/.*)$/.test(location.hash)) return;
   render({ tick: true });
 }
 window.__staff7Tick = tick;   // the tests call the minute's redraw directly

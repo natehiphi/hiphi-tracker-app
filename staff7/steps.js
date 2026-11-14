@@ -1,7 +1,8 @@
 // Staff7 steps: the testimony and hearing steps a person has, taken from the current app's own list (staff6/today.js work(me).own) so the two can never disagree. No DOM is drawn here.
 import { S, advocate, SESSION_YEAR, POSITIONS } from '../staff6/data.js';
-import { cmteName, roomName, lateLine, approverWords } from '../staff6/model.js';
+import { cmteName, roomName, lateLine, approverWords, diedish, draftHearing } from '../staff6/model.js';
 import { work, t6Fresh } from '../staff6/today.js';
+import { billStep, shownStatus } from '../staff6/steps.js';
 import { fullName, numWords } from '../staff6/steps.js';
 import { myIssueIds } from '../staff6/data.js';
 
@@ -59,32 +60,98 @@ const ORDER = { overdue: 0, late: 1, dated: 2, missed: 3, undated: 4 };   // the
 
 // stepsFor(person) -> that person's testimony and hearing steps, in the current app's order. `at` is the TEAM's time to act
 // (handTime, e.g. an approval by 11:00 AM for a 3:00 PM Capitol deadline); `due` is the Capitol's own deadline.
-// Out of this slice, on purpose: follow-ups, replies, to-dos, public asks, emails and the other kinds in work(me).own.
+// Out of this slice, on purpose: follow-ups, replies, to-dos, public asks, emails and the other kinds in work(me).own (suggestedFor below has some of them).
+// Three deliberate differences from work(me).own (R-398, Nate 14 Nov), each marked on the step it makes:
+//   1. no cap on asks (the current app shows at most three Email-the-chair rows, ASK_ROWS in staff6/today.js): every bill of the person's that needs a hearing has its ask;
+//   2. asks to one committee with one deadline are ONE step naming all its bills (`bills`, `members`);
+//   3. "whoever is lead on the bill is the testimony writer": a hearing, letter or filing nobody holds (no owner, no helper) goes to the bill's issue lead, else the admins (`orphan`).
+const slug = c => String(c || '').replace(/[^A-Za-z0-9]+/g, '_');
+const TONE = { overdue: 0, late: 1, neutral: 2 };
 export function stepsFor(me) {
   if (!me) return [];
   const prev = S.me; S.me = me;   // work() reads who is looking from S.me for "mine"
   t6Fresh();   // the current app's list is kept for one task; this asks for it worked out again from the data as it is now
-  let own; try { own = work(me).own; } finally { S.me = prev; }
+  let own, asks, orphans = [];
+  try { const w = work(me); own = w.own; asks = w.asks; orphans = orphanItems(me); } finally { S.me = prev; }
   const out = new Map();
-  for (const it of own) {
-    const kind = KIND[it.kind]; if (!kind || !it.s || !it.b) continue;
-    const b = it.b, s = it.s, h = it.h || null, num = String(b.bill_number).replace(/\s/g, '');
-    let id = kind === 'ask' ? `ask-${num}-${b.session_year || SESSION_YEAR}` : `t-${num}-${h?.id}`;
-    if (out.has(id) && kind !== 'ask' && it.d?.id) id += `-${it.d.id}`;   // two open drafts on one hearing both show
-    if (out.has(id)) continue;
-    let forWhom = '';
-    if (kind === 'ask' && s.ask?.key === 'giving') { const o = (S.assignments?.[b.id] || []).map(advocate).find(a => a && a.id !== me.id); forWhom = o ? first(o) : ''; }
+  const base = (id, kind, it, extra) => {
+    const b = it.b, s = it.s, h = it.h || null;
     const at = it.at ?? null, sentBack = it.d?.review_note || '';
-    out.set(id, { id, kind, raw: it.kind, bill: b, hearing: h, draft: it.d || null, at, due: s.due ?? null, until: s.until ?? null, act: s.act || null, tone: it.tone || 'neutral', late: s.act?.kind === 'late',
-      issue: issueOf(b), name: billName(b), no: billNo(b), forWhom, sentBack, ask: kind === 'ask' ? s.ask : null,   // the chair ask's own record (who, which committee, the deadline) for its page
-      verb: kind === 'ask' ? (s.ask?.decide ? 'Ask for a vote' : VERB.ask) : VERB[kind] });
+    return { id, kind, bill: b, hearing: h, draft: it.d || null, at, due: s.due ?? null, until: s.until ?? null, act: s.act || null, tone: it.tone || 'neutral', late: s.act?.kind === 'late',
+      issue: issueOf(b), name: billName(b), no: billNo(b), forWhom: '', sentBack, ask: null, verb: VERB[kind], ...extra };
+  };
+  for (const it of [...own, ...orphans]) {
+    const kind = KIND[it.kind]; if (!kind || kind === 'ask' || !it.s || !it.b) continue;
+    const b = it.b, h = it.h || null, num = String(b.bill_number).replace(/\s/g, '');
+    let id = `t-${num}-${h?.id}`;
+    if (out.has(id) && it.d?.id) id += `-${it.d.id}`;   // two open drafts on one hearing both show
+    if (out.has(id)) continue;
+    out.set(id, base(id, kind, it, it.orphan ? { orphan: true } : {}));
+  }
+  // ---- the asks: the capped rows and the rest, all of them, then one step for each committee and deadline ----
+  const all = [...own.filter(i => i.kind === 'chair').map(i => ({ b: i.b, s: i.s, at: i.at, tone: i.tone })), ...(asks || []).map(r => ({ b: r.b, s: r.s, at: r.by, tone: shownStatus(r.s)?.tone || 'neutral' }))]
+    .filter(r => r.s?.ask && r.b).sort((x, y) => String(x.b.bill_number).localeCompare(String(y.b.bill_number), 'en', { numeric: true }));
+  const groups = new Map();
+  for (const r of all) {
+    const a = r.s.ask, num = String(r.b.bill_number).replace(/\s/g, '');
+    let forWhom = '', forId = '';
+    if (a.key === 'giving') { const o = (S.assignments?.[r.b.id] || []).map(advocate).find(x => x && x.id !== me.id); forWhom = o ? first(o) : ''; forId = o ? String(o.id) : ''; }   // the person's id, not their first name: two people can share one
+    const together = !!a.m && !a.decide && !a.partial && !a.waitOn && !!a.st?.deadline && !a.st.deadline.missed;   // a vote ask, a joint committee's one chair and a missed date stay one bill each
+    const key = together ? `${a.code}|${a.st.deadline.date}|${a.key}|${forId}` : `one|${num}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ...r, forWhom, forId, num });
+  }
+  for (const list of groups.values()) {
+    const f = list[0], a = f.s.ask, many = list.length > 1, yr = f.b.session_year || SESSION_YEAR;
+    const id = many ? `ask-${slug(a.code)}-${a.st.deadline.date}-${yr}-${slug(a.key)}${f.forId ? '-' + slug(f.forId) : ''}` : `ask-${f.num}-${yr}`;   // the kind and the person are in it: the same committee and date can hold an ask and a giving
+    const ats = list.map(r => r.at).filter(x => x != null), days = list.map(r => r.s.ask.st?.deadline).filter(d => d && !d.missed && d.days != null).map(d => d.days);
+    const tone = list.map(r => r.tone || 'neutral').sort((x, y) => (TONE[x] ?? 2) - (TONE[y] ?? 2))[0];
+    const cm = cmteWords(a.code);
+    const st = base(id, 'ask', { ...f, at: ats.length ? Math.min(...ats) : null, tone }, {
+      forWhom: f.forWhom, ask: a, due: f.s.due ?? null, verb: a.decide ? 'Ask for a vote' : VERB.ask, dlDays: days.length ? Math.min(...days) : null,
+      members: list.map(r => ({ bill: r.b, ask: r.s.ask, at: r.at, name: billName(r.b), no: billNo(r.b) })), bills: list.map(r => ({ bill: r.b, name: billName(r.b), no: billNo(r.b) })) });
+    if (many) { st.name = cm; st.no = `${list.length} bills`; const cats = new Set(list.map(r => issueOf(r.b).cat)); st.issue = { id: null, name: cm, icon: 'mail', cat: cats.size === 1 ? [...cats][0] : 'other' }; }
+    out.set(id, st);
   }
   const ord = s => s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;
   return [...out.values()].sort((x, y) => ord(x) - ord(y) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true }));
 }
 
-// Home's list: which steps it shows. For now, all of them; Home's final rule is settled separately and changes only this.
-export const homeRows = steps => steps;
+// ---- rule 1 of 14 Nov: whoever leads the bill writes its testimony. work(me).own gives a hearing with no letter to the bill's owner or helpers; a bill nobody holds is only a line
+// for its issue's lead or an admin to hand over. Here it is the lead's own step: the bill's issue lead, else the admins. (Also the letter, the filing and the question after, once the letter is made, or the step would vanish at "Make the letter".)
+const live = id => !!id && advocate(id)?.is_active !== false;
+const issueLead = b => (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).find(i => i && live(i.owner_id))?.owner_id || null;
+export const leadsFor = b => { const io = issueLead(b); return io ? [io] : (S.advocates || []).filter(a => a.is_admin && a.is_active !== false).map(a => a.id); };
+function orphanItems(me) {
+  const out = [], now = Date.now();
+  for (const b of S.bills || []) {
+    if (b.tracked === false || !b.position || b.position === 'monitor' || diedish(b) || (S.assignments?.[b.id] || []).some(live)) continue;
+    if (!leadsFor(b).includes(me.id)) continue;
+    const drafts = (S.drafts?.[b.id] || []).filter(d => d.status !== 'cancelled');
+    const add = (d, h) => { const s = billStep(b, { viewer: me, d, h }); if (!s || !s.nobody || s.kind === 'none' || s.kind === 'filed') return;
+      out.push({ kind: s.kind, orphan: true, b, d, h, s, at: s.kind === 'missed' ? new Date(h.scheduled_at).getTime() : s.act?.at ?? s.due ?? null, tone: s.kind === 'missed' ? 'neutral' : (shownStatus(s)?.tone || 'neutral') }); };
+    for (const d of drafts) { if (d.status === 'filed') continue; const h = draftHearing(d); if (h && (h.status === 'cancelled' || new Date(h.scheduled_at).getTime() >= now - 2 * DAY)) add(d, h); }
+    for (const h of S.hearings || []) { if (h.bill_id !== b.id || h.status === 'cancelled' || new Date(h.scheduled_at).getTime() <= now || drafts.some(d => d.committee === h.committee)) continue; add(null, h); }
+  }
+  return out;
+}
+
+// ---- what Home lists (Nate, 14 Nov): To do holds four urgent kinds and "Did we file?"; everything else is one quiet line, "N more steps later" ----
+// testimony due within a day (or past), a letter waiting on this person's approval or second look, a bill about to stop (an ask whose committee deadline is 3 days off or less), and a hearing already past with nothing filed.
+export const URGENT_DAYS = 3;
+// Past due, said one way everywhere: the team's time to act has gone (or the letter is late, or an ask's committee date is behind us). A "Did we file?" is a question, not a time.
+export const pastDue = s => s.kind !== 'missed' && (!!s.late || s.tone === 'overdue' || s.tone === 'late' || (s.at != null && new Date(s.at).getTime() <= Date.now()) || (s.kind === 'ask' && !!s.ask?.st?.deadline?.missed));
+// A "check testimony" step is not one of the four kinds: it waits in the later line unless it is past due. A bill whose committee date has already passed is as urgent as one about to stop.
+export const isUrgent = s => s.kind === 'approve' || s.kind === 'second' || s.kind === 'missed'
+  || (s.kind === 'ask' ? (s.dlDays != null && s.dlDays <= URGENT_DAYS) || pastDue(s) : s.kind === 'stale' ? pastDue(s) : s.at != null && new Date(s.at).getTime() - Date.now() < DAY);
+const byTime = (x, y) => (pastDue(y) - pastDue(x)) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true });
+// homeRows(steps) -> the steps To do shows, past due first, then soonest. laterRows(steps) -> the rest, in the order stepsFor gave them.
+export const homeRows = steps => steps.filter(isUrgent).sort(byTime);
+export const laterRows = steps => steps.filter(s => !isUrgent(s));
+// "3 more steps later" (one phrase everywhere), "1 more step later".
+export const laterWords = rest => `${rest.length} more ${rest.length === 1 ? 'step' : 'steps'} later`;
+// The key the page remembers a typed email and its footer under: a step that holds several bills also holds who they are, so a bill joining or leaving never carries old words over.
+export const memoKey = s => s.members?.length > 1 ? `${s.id}|${s.members.map(m => String(m.bill.id)).sort().join(',')}` : s.id;
 
 // A committee in words with its chamber in front ("House Judiciary & Hawaiian Affairs"); a joint hearing joins its committees with "with".
 export function cmteWords(codes) {

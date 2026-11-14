@@ -39,7 +39,9 @@ def open_as(br, who, w, h, hash='', bad=None):
     return pg, errs
 def snap(pg, name, tag):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'{name}_{tag}.png'))
-def rows(pg): return pg.evaluate("() => [...document.querySelectorAll('.sr3')].map(a => ({ href: a.getAttribute('href'), text: a.innerText.replace(/\\s+/g, ' ').trim(), sel: a.classList.contains('sel'), cur: a.getAttribute('aria-current') }))")
+def rows(pg):
+    pg.evaluate("() => { const b = document.getElementById('laterBtn'); if (b && b.getAttribute('aria-expanded') === 'false') b.click(); }")   # Home (14 Nov): later steps are one quiet line until opened
+    return pg.evaluate("() => [...document.querySelectorAll('.sr3:not(.q)')].map(a => ({ href: a.getAttribute('href'), text: a.innerText.replace(/\\s+/g, ' ').trim(), sel: a.classList.contains('sel'), cur: a.getAttribute('aria-current') }))")
 def chrome_text(pg):
     return pg.evaluate("() => { const c = document.body.cloneNode(true); c.querySelectorAll('textarea,ul.tplist').forEach(e => e.remove()); return c.innerText; }")
 def row(pg, start): return next(r for r in rows(pg) if r['text'].startswith(start))
@@ -74,16 +76,18 @@ with sync_playwright() as p:
     pg, errs = open_as(br, 'NT', 1440, 900)
     cmp_ = pg.evaluate("""async () => { %s
       const KIND = { nodraft: 'write', write: 'write', submit: 'write', revise: 'resubmit', approve: 'approve', second: 'second', file: 'file', missed: 'missed', stale: 'stale', chair: 'ask' };
-      const out = {}; const left = {};
+      const out = {}; const left = {}; const iso = t => t == null ? '' : new Date(t).toISOString();
       for (const a of S.advocates) { S.me = a; S.follows = new Set(Object.entries(S.followersBy || {}).filter(([, ids]) => ids.includes(a.id)).map(([id]) => id));
-        t6.t6Fresh(); const own = t6.work(a).own; const ref = own.filter(i => KIND[i.kind]).map(i => KIND[i.kind] + '|' + i.b.bill_number + '|' + (i.at == null ? '' : new Date(i.at).toISOString())).sort();
-        const mine7 = s7.stepsFor(a).map(s => s.kind + '|' + s.bill.bill_number + '|' + (s.at == null ? '' : new Date(s.at).toISOString())).sort();
+        t6.t6Fresh(); const w = t6.work(a), own = w.own;
+        // deliberate differences (R-398, 14 Nov): the current app caps the ask rows at 3 (the rest are w.asks) and lists each bill; staff7 lists every ask, one step per committee and deadline, so compare per bill
+        const ref = [...own.filter(i => KIND[i.kind]).map(i => KIND[i.kind] + '|' + i.b.bill_number + '|' + iso(i.at)), ...w.asks.map(r => 'ask|' + r.b.bill_number + '|' + iso(r.by))].sort();
+        const mine7 = s7.stepsFor(a).filter(s => !s.orphan).flatMap(s => s.members ? s.members.map(m => 'ask|' + m.bill.bill_number + '|' + iso(m.at)) : [s.kind + '|' + s.bill.bill_number + '|' + iso(s.at)]).sort();
         out[a.initials] = { same: JSON.stringify(ref) === JSON.stringify(mine7), n: mine7.length, ref, mine7 };
         left[a.initials] = own.filter(i => !KIND[i.kind]).map(i => i.kind + ':' + (i.b?.bill_number || '')); }
       return { out, left }; }""" % PRE)
     for who, v in cmp_['out'].items(): ok(v['same'], f'B8 {who}: stepsFor equals the testimony and ask rows of work(me).own ({v["n"]} rows) {"" if v["same"] else v}')
     print('LEFT OUT by kind per person:', json.dumps(cmp_['left']))
-    print('STEPS per person:', json.dumps({k: v['mine7'] for k, v in cmp_['out'].items()}))
+    print('STEPS per person:', json.dumps({k: len(v['mine7']) for k, v in cmp_['out'].items()}))
     sc = lambda who, body: pg.evaluate('async () => {' + PRE + 'S.me = ini("%s"); S.follows = new Set();' % who + body + '}')
     r = sc('KV', "bill('SB3076').position = 'oppose'; return mine('SB3076');"); ok(any(x.startswith('resubmit') for x in r), f'B8: a bill set to oppose keeps its step ({r})')
     r = sc('KV', "bill('HB2121').position = 'strongly_oppose'; return mine('HB2121');"); ok(any(x.startswith('file') for x in r), f'B8: strongly oppose keeps its step ({r})')
@@ -105,7 +109,10 @@ with sync_playwright() as p:
         # ================= NT: approve first, then three letters to make, then asks =================
         pg, errs = open_as(br, 'NT', w, h)
         rs = rows(pg)
-        ok(len(rs) >= 5 and rs[0]['sel'] and rs[0]['cur'] == 'true' and sum(r['sel'] for r in rs) == 1 and pg.locator('.sr3[aria-current]').count() == 1, f'{tag}: Home opens with the first step open and its row marked')
+        ok(len(rs) >= 5 and not any(r['sel'] for r in rs) and pg.locator('.sr3[aria-current]').count() == 0 and pg.locator('.strip').count() == 0 and pg.evaluate(FILLED) == 0, f'{tag}: Home (14 Nov) opens on the overview: no step open, no row marked, no filled button')
+        pg.click('.srows3 .sr3'); pg.wait_for_selector('#apBtn'); pg.wait_for_timeout(300)   # the first To do row: the approve step
+        rs = rows(pg)
+        ok(rs[0]['sel'] and rs[0]['cur'] == 'true' and sum(r['sel'] for r in rs) == 1 and pg.locator('.sr3[aria-current]').count() == 1 and '#/do/' in pg.url, f'{tag}: clicking a To do row opens its step and keeps its row marked')
         ok(pg.evaluate(H1S) == 1 and pg.evaluate(FILLED) == 1 and pg.evaluate("document.documentElement.scrollWidth <= innerWidth"), f'{tag}: Home: one h1, one filled button, no sideways scroll')
         strip = pg.locator('.strip').inner_text()
         ok(re.search(r'Approve by \w{3} 11:00 AM', strip) and 'Capitol’s deadline is Mon 3:00 PM.' in strip and 'Hearing ' in strip, f'{tag}: approve: the team\'s time first ("Approve by Mon 11:00 AM"), the Capitol\'s second')
@@ -140,6 +147,7 @@ with sync_playwright() as p:
         pg.context.close()
 
         pg, errs = open_as(br, 'NT', w, h)
+        pg.click('.srows3 .sr3'); pg.wait_for_selector('#apBtn')
         pg.evaluate("() => { const b = document.getElementById('apBtn'); b.click(); b.click(); }"); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
         t = pg.evaluate(H1); dr = pg.evaluate(DR, 'HB1523')
         ok(t == 'Approved.' and len(dr) == 1 and dr[0][0] in ('second_review', 'approved'), f'{tag}: C2 two clicks in one task approve once ({t}, {dr})')
@@ -194,7 +202,7 @@ with sync_playwright() as p:
 
         # ================= KV: a letter sent back =================
         pg, errs = open_as(br, 'KV', w, h)
-        rs = rows(pg)
+        rs = rows(pg); pg.click('.srows3 .sr3'); pg.wait_for_selector('#sendBtn'); pg.wait_for_timeout(300); rs = rows(pg)
         ok(rs[0]['text'].startswith('Resubmit testimony') and rs[0]['sel'] and pg.evaluate(H1) == 'Resubmit testimony' and pg.locator('.note.flag').count() == 1 and pg.locator('#sendBtn').inner_text() == 'Resubmit', f'{tag}: KV opens on a letter sent back: note above, button Resubmit')
         ok(pg.evaluate(FILLED) == 1 and pg.locator('textarea').count() == 0 and 'Started from HIPHI’s' in pg.locator('.pdfrow').inner_text(), f'{tag}: resubmit: one filled button, the letter is a Doc row that says where it started')
         ok(pg.locator('.sr3 .nb').count() >= 1, f'{tag}: E9 hyphenated words in a row never break after the hyphen')
@@ -205,12 +213,12 @@ with sync_playwright() as p:
 
         # ================= LR: one step, the last done; SY: nothing to do =================
         pg, errs = open_as(br, 'LR', w, h)
-        pg.click('#sendBtn'); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
+        pg.click('.srows3 .sr3'); pg.wait_for_selector('#sendBtn'); pg.click('#sendBtn'); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
         d = pg.inner_text('.done')
-        ok(pg.evaluate(FILLED) == 0 and 'Nothing else needs you.' not in d and pg.locator('.done a:has-text("Back to Home")').count() == 1 and pg.locator('.segs').count() == 1 and len(rows(pg)) == 0, f'{tag}: E12 the last done: heading, sentence, week bar, a Back to Home link, no second "Nothing else needs you."')
+        ok(pg.evaluate(FILLED) == 1 and 'Nothing else needs you.' not in d and pg.locator('.done .btn.filled').inner_text().startswith('Next step: Ask for a hearing') and pg.locator('.segs').count() == 1 and not any(r['text'].startswith('Resubmit') for r in rows(pg)), f'{tag}: E12 the last urgent step done: heading, sentence, week bar, the next step is the later ask (14 Nov: later steps are offered too), no second "Nothing else needs you."')
         snap(pg, '7_done_last', tag); pg.context.close()
         pg, errs = open_as(br, 'SY', w, h)
-        ok(pg.evaluate(H1) == 'Nothing needs you.' and pg.evaluate(FILLED) == 0 and pg.locator('.wl').inner_text().count('\n') == 0 and 'Good morning' in pg.locator('.wl').inner_text() and len(pg.locator('.paper').inner_text().strip().split('\n')) == 1, f'{tag}: E10 nothing to do: the date line, and a sheet that is only the heading')
+        ok(re.match(r'Good \w+, Saya\. Nothing needs you today\.', pg.evaluate(H1)) and pg.evaluate(FILLED) == 0 and re.search(r'All clear|Nothing today · \d+ more steps? later', pg.locator('.wl').inner_text()) and 'Nothing needs you' not in pg.locator('.wl').inner_text() and pg.locator('.calm-pic').count() == 1, f'{tag}: E10 nothing to do: the calm overview (sun, "Nothing needs you today.") and a left that does not repeat it ("All clear", or only the later line)')
         snap(pg, '8_nothing_to_do', tag); pg.context.close()
 
         # ================= a door, the router, one more look =================
@@ -224,7 +232,7 @@ with sync_playwright() as p:
 
 
     # ================= F. file, ask and missed: the three step pages =================
-    OWN = """async (num) => { const d = await import('/staff6/data.js'), t6 = await import('/staff6/today.js'); t6.t6Fresh(); return t6.work(d.S.me).own.filter(i => i.b?.bill_number === num).map(i => i.kind); }"""
+    OWN = """async (num) => { const d = await import('/staff6/data.js'), t6 = await import('/staff6/today.js'); t6.t6Fresh(); const w = t6.work(d.S.me); return [...w.own.filter(i => i.b?.bill_number === num).map(i => i.kind), ...w.asks.filter(r => r.b.bill_number === num).map(() => 'chair')]; }"""   # an ask past the current app's cap of 3 is in w.asks, not w.own
     DRS = """async (num) => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === num); return (d.S.drafts[b.id] || []).map(x => x.status); }"""
     ASKS = """async (num) => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === num); return { notes: (d.S.demoNotes || []).filter(n => n.bill_id === b.id && n.answer === 'asked').length, todos: (d.S.todos[b.id] || []).filter(t => /^Ask /.test(t.title)).map(t => t.done) }; }"""
     SMALL = "() => [...document.querySelectorAll('.btn, .sr3, .field, .letter')].filter(e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.className)"
@@ -232,7 +240,7 @@ with sync_playwright() as p:
     NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && document.querySelector('.paper').scrollWidth <= document.querySelector('.paper').clientWidth"
     def open_step(who, w, h, start, hsh=''):
         bad = []; pg, errs = open_as(br, who, w, h, hsh, bad)
-        r = row(pg, start); pg.evaluate(f"location.hash = '{r['href']}'"); pg.wait_for_timeout(500)
+        r = {'href': start} if start.startswith('#/do/') else row(pg, start); pg.evaluate(f"location.hash = '{r['href']}'"); pg.wait_for_timeout(500)   # a bill's own step by its address; else the first row that starts so
         return pg, errs, bad, r['href']
     for w, h in ((1440, 900), (1280, 800)):
         tag = f'{w}x{h}'
@@ -277,7 +285,8 @@ with sync_playwright() as p:
             if who == 'KR': snap(pg, 'F1b_file_late_KR', tag)
             pg.context.close()
         # ---- asks ----
-        for who, start, num in (('NT', 'Ask for a hearing', 'HB1732'), ('KV', 'Ask for a hearing', 'SB2175'), ('JM', 'Ask for a hearing', 'SB11'), ('KR', 'Ask for a hearing', 'HB1991')):
+        # one bill's own ask page (the asks of a committee and deadline are one step now: staff7_home.py checks that page); HB1732 is in one for NT, so SB2615 stands in
+        for who, start, num in (('NT', '#/do/ask-SB2615-2026', 'SB2615'), ('KV', '#/do/ask-SB2175-2026', 'SB2175'), ('JM', '#/do/ask-SB11-2026', 'SB11'), ('KR', '#/do/ask-HB1991-2026', 'HB1991')):
             pg, errs, bad, href = open_step(who, w, h, start); pages = len(pg.context.pages)
             st = pg.locator('.strip').inner_text(); handed = who == 'KR'
             ok(pg.evaluate(H1) == 'Ask for a hearing' and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and pg.evaluate(INVIEW, '#mailBtn') and 'being built' not in pg.locator('.paper').inner_text(), f'{tag}: B1 {who} {num}: ask opens with one filled button in view')
@@ -388,6 +397,7 @@ with sync_playwright() as p:
 
         # A3: Undo during a slow held send back says it was sent
         pg, errs = open_as(br, 'NT', w, h)
+        pg.click('.srows3 .sr3'); pg.wait_for_selector('#sbBtn')
         pg.click('#sbBtn'); pg.fill('#sbNote', 'Slow one'); pg.click('#sbGo'); pg.wait_for_selector('.done'); pg.wait_for_timeout(300)
         pg.evaluate("""async () => { const d = await import('/staff6/data.js'), o = d.DB.transition.bind(d.DB); d.DB.transition = async (...a) => { await new Promise(r => setTimeout(r, 3000)); return o(...a); };
           Object.defineProperty(document, 'visibilityState', { get: () => 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true }); }""")
@@ -401,6 +411,7 @@ with sync_playwright() as p:
         ok(r == 'Hearing cancelled, no new date yet.', f'{tag}: A4 a cancelled hearing says so, never a day and time ({r!r})')
         r = pg.evaluate("async () => {" + PRE + "const x = openDraft('SB3076'); x.doc_url = ''; return 1; }")
         pg.evaluate("location.hash = '#/x'"); pg.wait_for_timeout(200); pg.evaluate("location.hash = '#/'"); pg.wait_for_timeout(400)
+        pg.click('.srows3 .sr3'); pg.wait_for_selector('#sendBtn'); pg.wait_for_timeout(300)   # Home opens on the overview: the first To do row opens the letter
         ok(pg.locator('#sendBtn').is_disabled() and 'link is missing' in pg.locator('.sfoot').inner_text() and pg.evaluate(FILLED) == 1, f'{tag}: A7 a letter with no Doc link cannot be sent, and says why')
         pg.context.close()
         pg, errs = open_as(br, 'NT', w, h)

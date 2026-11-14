@@ -2,7 +2,7 @@
 import { S } from '../staff6/data.js';
 import { btn, esc } from './parts.js';
 import { ic } from './icons7.js';
-import { approverLine, orNames, homeRows, inWeek, first } from './steps.js';
+import { approverLine, orNames, homeRows, laterRows, inWeek, first } from './steps.js';
 import { writerOf } from './do_approve.js';
 
 export const UNDO_MS = 10000;
@@ -14,10 +14,10 @@ export const reverseWords = f => f.noUndo ? '' : f.kind === 'filed' ? 'I have no
 
 export function doneSheet(ctx, id, fresh) {
   const f = ctx.finished[id]; if (!f) return '';
-  const s = f.step, open = ctx.open(), nx = homeRows(open)[0];
+  const s = f.step, open = ctx.open(), nx = homeRows(open)[0] || laterRows(open)[0];
   let title, sub;
   if (f.kind === 'filed') { title = 'Filed.'; sub = `Nothing else needs you on ${s.name}.`; }
-  else if (f.kind === 'asked') { title = 'Asked.'; sub = `Nothing else needs you on ${s.name} until ${(s.ask?.m?.n || 1) > 1 ? 'the chairs answer' : 'the chair answers'}.`; }
+  else if (f.kind === 'asked') { title = 'Asked.'; sub = `Nothing else needs you on ${s.bills?.length > 1 ? `these ${s.bills.length} bills` : s.name} until ${(s.ask?.m?.n || 1) > 1 ? 'the chairs answer' : 'the chair answers'}.`; }
   else if (f.kind === 'recorded') { title = 'Recorded.'; sub = f.answer === 'yes' ? `Noted on ${s.name}: the testimony was filed.` : `Noted on ${s.name}: the testimony was not filed.`; }
   else {
     const d = fresh(f) || s.draft, W = first(writerOf({ ...s, draft: d })), ap = approverLine(d, s.hearing, ctx.me), who = ap.main;
