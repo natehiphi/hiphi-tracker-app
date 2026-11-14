@@ -53,6 +53,7 @@ function coalitionIssues(have) {
   }
   return (S.issues || []).filter(i => via.has(i.id) && !i.archived_at).map(i => ({ ...standOf(i), own: false, via: via.get(i.id) }));
 }
+export { myIssues };   // R-397 version C: Home lists the same issues, the same way
 const Q = () => S.miSearch ??= { q: '' };
 const opts = () => ({ q: Q().q, from: 'mine', tagsOf: x => [x.via ? `Through ${x.via}` : x.own ? '' : 'You follow', isDraft(x.i) ? 'Not public yet' : ''].filter(Boolean) });
 

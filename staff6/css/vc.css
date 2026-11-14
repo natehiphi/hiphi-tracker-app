@@ -1,1 +1,65 @@
 /* R-397 version C, "Simple" (?vc=1). Every rule sits under html.vc, so nothing changes without vc=1. */
+
+/* ---- Home (staff6/home.js): Your steps and What changed side by side on a laptop, Your issues full width below ---- */
+html.vc .hm-root { display: block; min-width: 0; color: var(--v6-body); }
+html.vc .hm-root * { min-width: 0; }
+html.vc .hm-banner { margin-bottom: 16px; }
+html.vc .hm-top { display: grid; grid-template-columns: 1fr; gap: 28px; align-items: start; margin-bottom: 32px; }
+@media (min-width: 900px) { html.vc .hm-top { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; } }
+html.vc .hm-sec { margin: 0; }
+html.vc .hm-h { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; font: 600 var(--v6-t22, 22px)/1.25 Poppins, system-ui, sans-serif; color: var(--v6-ink); }
+html.vc .hm-n { display: inline-block; padding: 0 9px; border-radius: var(--v6-pill, 999px); background: var(--v6-wash); color: var(--v6-ink); font: 500 var(--v6-t14, 14px)/22px var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-sub2 { font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); color: var(--v6-muted); }
+html.vc .hm-empty { margin: 0; padding: 18px 16px; border-radius: var(--v6-r12, 12px); background: var(--v6-card); box-shadow: var(--v6-sh1); color: var(--v6-body); font: 400 var(--v6-t16, 16px)/1.5 var(--font, Lato, system-ui, sans-serif); }
+
+/* Your steps: the existing row, one button each */
+html.vc .hm-steps .hm-list { display: grid; gap: 8px; }
+html.vc .hm-steps .v6-row { background: var(--v6-card); border-radius: var(--v6-r12, 12px); box-shadow: var(--v6-sh1); }
+html.vc .hm-iss { color: var(--v6-muted); }
+html.vc .hm-more { margin-top: 10px; }
+html.vc .hm-more > summary, html.vc .hm-idle > summary { display: inline-flex; align-items: center; gap: 6px; padding: 8px 4px; cursor: pointer; color: var(--v6-body); font: 500 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); list-style: none; }
+html.vc .hm-more > summary::-webkit-details-marker, html.vc .hm-idle > summary::-webkit-details-marker { display: none; }
+html.vc .hm-more[open] > summary svg, html.vc .hm-idle[open] > summary svg { transform: rotate(180deg); }
+html.vc .hm-more > .hm-list { margin-top: 6px; }
+
+/* What changed: whole rows are links; a filled dot means new since you last opened Home */
+html.vc .hm-chgs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+html.vc .hm-chg { display: grid; grid-template-columns: 12px minmax(0, 1fr) 20px; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; border-radius: var(--v6-r12, 12px); background: var(--v6-card); box-shadow: var(--v6-sh1); color: var(--v6-ink); text-decoration: none; }
+html.vc .hm-chg:hover { background: var(--v6-hover, var(--v6-wash)); }
+html.vc .hm-chg:focus-visible { outline: 2px solid var(--v6-action); outline-offset: 2px; }
+html.vc .hm-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--v6-hair); box-sizing: border-box; }
+html.vc .hm-chg.fresh .hm-dot { background: var(--v6-action); border-color: var(--v6-action); }
+html.vc .hm-ctx { display: grid; gap: 2px; }
+html.vc .hm-ctx b { font: 600 var(--v6-t16, 16px)/1.35 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-sub { color: var(--v6-muted); font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); overflow-wrap: anywhere; }
+html.vc .hm-chg .chev { width: 18px; height: 18px; color: var(--v6-muted); }
+html.vc .hm-all { margin: 10px 4px 0; font: 500 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-all a { color: var(--v6-action); text-decoration: none; }
+html.vc .hm-all a:hover { text-decoration: underline; }
+
+/* Your issues: a card each, a line per live bill */
+html.vc .hm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; }
+html.vc .hm-card { display: grid; gap: 8px; padding: 14px 16px; background: var(--v6-card); border-radius: var(--v6-r12, 12px); box-shadow: var(--v6-sh1); }
+html.vc .hm-ctop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+html.vc .hm-cname { display: flex; align-items: flex-start; gap: 8px; font: 500 var(--v6-t18, 18px)/1.35 Poppins, system-ui, sans-serif; color: var(--v6-ink); text-decoration: none; overflow-wrap: anywhere; }
+html.vc .hm-cname:hover > span:last-child { text-decoration: underline; }
+html.vc .hm-cic { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--v6-wash); }
+html.vc .hm-cic svg { width: 18px; height: 18px; }
+html.vc .hm-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: var(--v6-pill, 999px); font: 500 var(--v6-t14, 14px)/var(--v6-lh14, 20px) var(--font, Lato, system-ui, sans-serif); white-space: nowrap; background: var(--v6-leaf-wash); color: var(--v6-leaf); }
+html.vc .hm-chip svg { width: 16px; height: 16px; }
+html.vc .hm-s-risk .hm-chip { background: var(--v6-wash); color: var(--v6-ink); }
+html.vc .hm-s-due .hm-chip, html.vc .hm-s-hearing .hm-chip { background: var(--v6-action-wash); color: var(--v6-action); }
+html.vc .hm-s-stopped .hm-chip { background: var(--v6-hair); color: var(--v6-muted); }
+html.vc .hm-tag { margin: -4px 0 0; font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); color: var(--v6-muted); }
+html.vc .hm-bills { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+html.vc .hm-bill { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 0; font: 400 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-bn { grid-row: 1 / span 2; font-weight: 700; color: var(--v6-ink); text-decoration: none; white-space: nowrap; }
+html.vc .hm-bn:hover { text-decoration: underline; }
+html.vc .hm-where { color: var(--v6-muted); font-size: var(--v6-t14, 14px); }
+html.vc .hm-move { color: var(--v6-body); }
+html.vc .hm-bill.you .hm-move { color: var(--v6-ink); font-weight: 700; }
+html.vc .hm-stopped { margin: 0; color: var(--v6-muted); font: 400 var(--v6-t14, 14px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-idle { margin-top: 14px; }
+html.vc .hm-idlel { list-style: none; margin: 4px 0 0; padding: 0 0 0 4px; display: grid; gap: 4px; font: 400 var(--v6-t16, 16px)/1.4 var(--font, Lato, system-ui, sans-serif); }
+html.vc .hm-idlel a { color: var(--v6-body); }
+@media (max-width: 599px) { html.vc .hm-card { padding: 12px 14px; } html.vc .hm-ctop { flex-direction: column-reverse; gap: 6px; } html.vc .hm-chip { align-self: flex-start; } html.vc .hm-top { gap: 24px; } }

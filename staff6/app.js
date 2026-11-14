@@ -16,7 +16,7 @@
 // own address (index.html and staff.html both load it); the old app lives on at classic.html for a week as the way
 // back, then retires. Screens are modules with
 // { render(route), wire(route, root), bar?(route), title(route), back?(route), tab, tabs?, wide?, narrow? }.
-import { S, DB, DEMO, VB, TRIAL, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver, seedPublicChanges } from './data.js';
+import { S, DB, DEMO, VB, VC, TRIAL, DEMO_ASOF, LIVE_REFRESH, SESSION_OVER, APP_URL, LINK_ERR, LINK_TOKEN, RECOVERY, setRecovery, hooks, esc, advocate, clearPractice, practiceRestarted, undoStartOver, seedPublicChanges } from './data.js';
 import { icon, btn, toast, skeleton, empty, menuSheet, popSheet, sheetOpen, takeSheetEntry, avatar, keysOn, placeToast, leavePageToasts } from './ui.js';
 import { MARK } from '../pub/art.js';
 import { PALETTES, DEFAULT_PALETTE } from './palettes.js';   // My settings, Colors (Nate 10/25)
@@ -24,6 +24,7 @@ import { reportError } from './errlog.js';
 import { installAskWatch, loadAsks } from './chairask.js';   // R-316 W3
 import { exactBill, billRoute, FACTS, draftFor, diedish } from './model.js';
 import today, { todayItems } from './today.js';
+import home from './home.js';   // R-397 version C: Home draws at #/ instead of Today (only with ?vc=1)
 import { wantQueue } from './partnerq.js';   // Today's count needs the partners' words from the first frame
 import review from './review.js';
 // The frame counts what the Inbox lists (messagesCount: messages to you, never the deadline reminders that live on each
@@ -50,7 +51,7 @@ import team from './team.js';
 import people from './people.js';
 import tools from './tools.js';
 import approvals from './approvals.js';   // R-376: public changes waiting for an admin
-import { PLACES, MAIN as MAIN_V6, BAR as BAR_V6, MAIN_B, BAR_B, vbSwitchHref, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
+import { PLACES, MAIN as MAIN_V6, BAR as BAR_V6, MAIN_B, BAR_B, MAIN_C, BAR_C, vbSwitchHref, vcSwitchHref, leadKeys, isLead, seesTeam, youName, syncWords, syncNote } from './more.js';
 
 keepWordsWhole(document.body);   // "e-cigarettes" never splits at its hyphen on a staff screen either (X9-1, X9-6)
 
@@ -88,7 +89,8 @@ const [pgroups] = lazy(() => import('./partnergroups.js'), m => ({ pgroups: m.de
 // address still opens the same thing (V36): an old one is redirected (replaced, never pushed) to its v6 address, keeping its
 // query (#/outreach/issues?view=links opens #/issues/all?view=links). tests/staff6_links.py proves it.
 const SCREENS = { today, myissues, review, inbox, bill, bills, triage, memo, partners, asks, legislators, legislator, search, supporters, person, issues, issue, lists, list, emails, composer, me, setup, help, devui, hearing, coalition, pgroups,
-  hearings, testimony: testimonyplace, team, people, tools, approvals, more: tools };   // More and More tools are one page (R-356), drawn by tools.js
+  hearings, testimony: testimonyplace, team, people, tools, approvals, more: tools };
+if (VC) SCREENS.today = home;   // R-397: Home is the address #/ in version C   // More and More tools are one page (R-356), drawn by tools.js
 export function parseRoute(h = location.hash) {
   // A "%" that is not part of a code (a stray one in a pasted link) made decodeURIComponent throw, and the page never drew (R-152 D).
   let dh; try { dh = decodeURIComponent(h || ''); } catch { dh = String(h || '').replace(/%(?![0-9a-fA-F]{2})/g, '%25'); try { dh = decodeURIComponent(dh); } catch { dh = '#/'; } }
@@ -172,7 +174,7 @@ const PLACE_OF = { today: 'today', hearings: 'hearings', hearing: 'hearings', te
 // reaches #/team?who= ("See a teammate's list") from More, so More is lit for them (B-13, A-12).
 // Two place keys died in round 2 (Bills is inside Issues; 'myissues' became 'issues'); a screen that still names one
 // (hearing.js's Back, S.billFrom) lights Issues.
-const MAIN = VB ? MAIN_B : MAIN_V6, BAR = VB ? BAR_B : BAR_V6;
+const MAIN = VC ? MAIN_C : VB ? MAIN_B : MAIN_V6, BAR = VC ? BAR_C : VB ? BAR_B : BAR_V6;
 // R-365 B: the lit place follows what the page IS, never how you arrived (no S.billFrom, no route.place).
 const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', review: 'testimony', testimony: 'testimony', search: 'search',
   // R-370: in B, Outreach lives under More (the sidebar has no Outreach row), so it lights More, not My issues.
@@ -230,7 +232,7 @@ const vbPlaceWord = t => ({ Hearings: 'Calendar', Issues: 'My issues' })[t] || t
 function vbPageName(route, title) {
   const t = String(title || '').trim();
   switch (route?.name) {
-    case 'today': return 'Today';
+    case 'today': return VC ? 'Home' : 'Today';
     case 'hearings': return route.q?.cmte ? t : 'Calendar';
     case 'myissues': return 'My issues';
     case 'issues': return 'All issues';
@@ -502,7 +504,7 @@ export function render() {
   if (route.name === 'bill' && S.route?.name !== 'bill') { const pt = placeOf(S.route); S.billFrom = pt && pt !== 'more' ? pt : null; }
   S.route = route;
   if (VB && route.name !== 'today') S.vbLeft = (S.vbLeft || 0) + 1;   // Today's Done banner ends when another page is drawn
-  const scr = SCREENS[route.name] || today;
+  const scr = SCREENS[route.name] || SCREENS.today;
   let main, bar = '';
   try { main = loadNotice() + scr.render(route); bar = scr.bar ? scr.bar(route) : ''; } catch (e) { console.error(e); reportError('render', e); main = empty({ title: 'Something went wrong on this page', text: 'Try again, or go back to Today.', action: btn('Back to Today', { href: '#/' }) }); }
   // Every page names itself (spec 3.1): a screen without its own h1 gets the frame's, at the top of the work column.
@@ -680,8 +682,11 @@ function accountItems() {
     // B is everyone's from 11 Nov: the way back to v6 is for the practice copy, trial runs and admins only.
     // R-370: in a trial only an admin sees the switch (a trial teammate has no use for another version).
     !(TRIAL ? S.me?.is_admin : DEMO || S.me?.is_admin) ? null
+      : VC ? { label: 'Switch off the simple layout', icon: 'undo-2', sub: 'You are in the simple layout now. This goes back to the trial layout', run: () => { location.href = vcSwitchHref(false); } }
       : VB ? { label: 'Switch off the trial layout', icon: 'undo-2', sub: 'You are in the trial layout now. This goes back to the earlier Staff v6', run: () => { location.href = vbSwitchHref(false); } }
       : { label: 'Switch on the trial layout', icon: 'flask-conical', sub: 'Three places: Today, My issues, Calendar', run: () => { location.href = vbSwitchHref(true); } },
+    // R-397: version C, "the simple layout" (?vc=1), tried from the trial layout by the same people who see B's switch.
+    VB && !VC && (TRIAL ? S.me?.is_admin : DEMO || S.me?.is_admin) ? { label: 'Try the simple layout', icon: 'house', sub: 'Home and Calendar, with only your steps, what changed and your issues', run: () => { location.href = vcSwitchHref(true); } } : null,
     DEMO ? { label: 'Practice as someone else', icon: 'id-card', sub: 'See the app as a teammate sees it, with your changes', run: () => setTimeout(practiseAs, 50) } : null,
     // F8 and F9: Refresh now, under it how fresh the Capitol data is, in plain neutral words (D3). From 12 hours old the
     // sidebar's foot says it too, as a line, not a row (more.js syncNote, B-7, 12.4).
