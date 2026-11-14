@@ -20,10 +20,10 @@
   --r4: 4px; --r8: 8px; --r12: 12px; --r16: 16px; --r20: 20px; --pill: 999px;
   --line: 1px; --line2: 2px; --mark: 3px; --seg: 8px;
   --hit: 44px; --hit-big: 48px; --icon: 20px; --icon-s: 16px; --icon-m: 22px; --icon-l: 32px; --tile: 64px; --person: 40px; --person-s: 32px;
-  --read: 680px; --letter-w: 640px; --done-w: 480px; --segs-w: 200px; --rail: 76px; --door: 68px; --door-h: 64px; --bar-h: 64px; --band-h: 132px;
+  --read: 680px; --list-min: 380px; --list-vw: 36vw; --list-max: 480px; --letter-w: 640px; --done-w: 480px; --segs-w: 200px; --rail: 76px; --door: 68px; --door-h: 64px; --bar-h: 64px; --band-h: 132px;
   --sh1: 0 1px 2px rgba(60, 45, 20, .06);
   --sheet: 0 1px 2px rgba(60, 45, 20, .06), 0 12px 32px rgba(60, 45, 20, .08);
   --float: 0 8px 32px rgba(28, 25, 21, .22);
   /* motion: 150 to 250 ms, nothing loops (S-17) */
-  --ease: cubic-bezier(.2, .7, .2, 1); --t-fast: 150ms; --t-mid: 200ms;
+  --track: -.02em; --ease: cubic-bezier(.2, .7, .2, 1); --t-fast: 150ms; --t-mid: 200ms;
 }
