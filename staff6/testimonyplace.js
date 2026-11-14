@@ -16,7 +16,7 @@
 // the list. Someone else's step in the open item says who has it and offers "Message Kris" (F63, the bill's chat with @Kris
 // typed in), so a teammate who sees something slipping nudges in two taps.
 // Route: { name: 'testimony', view } (app.js parseRoute); ?view=write|approve|sent|file|filed|missed|library.
-import { S, DB, VB, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
+import { S, DB, VB, VC, esc, hooks, SESSION_YEAR, SESSION_OVER, advocate } from './data.js';
 import { draftHearing, billById, alertsToReview, approves, standingIn, whenAt, lateLine, billRoute, isDecision, companionsOf, spanOf, capitolAt } from './model.js';
 import { icon, btn, sectionNav, toast, docBtn, faceLead } from './ui.js';
 import { SL, sl } from './ui.js';   // R-365 B plain words
@@ -395,7 +395,7 @@ function intro(view, m) {
 // F172: the supporter emails waiting for this approver, one quiet line to Outreach › Emails, the emails' one door here. It
 // sits under the list, in the list's column, so the head row has one right edge (fresh-eyes review 23 Oct).
 function emailsLine() {
-  const n = approves(S.me) ? alertsToReview().length : 0; if (!n) return '';
+  const n = approves(S.me) && !VC ? alertsToReview().length : 0; if (!n) return '';   // R-397 C: supporter emails to approve are Outreach's Needs you
   return `<a class="tp-emails" href="#/outreach/emails">${icon('mail')}<span>${n === 1 ? '1 supporter email to approve' : `${n} supporter emails to approve`}</span><span class="tp-open">Open</span>${icon('chevron-right')}</a>`;
 }
 // A tab whose only items are in the late block says "Nothing else" (R-373), so the block above and the tab never disagree.

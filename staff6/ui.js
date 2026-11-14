@@ -309,6 +309,8 @@ export const pathLine = parts => `<nav class="vb-path" aria-label="You are here"
 // Undo (today.js reads S.vbDone once and clears it; a page's own toast would not survive the move, A-16). One helper so
 // every page finishes alike. Call it only under VB, after the save succeeded; undo is what the page's toast would offer.
 export function vbFinish(what, undo = null) {
+  // R-397 version C: a step finished from Outreach's Needs you stays in Outreach (a toast with Undo), never to Home.
+  if (S.vcOutreach?.()) { toast(`${String(what || 'Done').replace(/[.]?$/, '.')}`, { ok: true, undo }); S.go(location.hash, { replace: true, force: true, keepScroll: true }); return; }
   S.vbDone = { what: String(what || 'Done'), undo, at: Date.now() };
   S.go('#/', { force: true });   // the sidebar's own Today address
 }

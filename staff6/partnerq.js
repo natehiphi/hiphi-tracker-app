@@ -19,7 +19,7 @@
 //     it joins once approved, and has one switch, "Also by text" (off: partner asks are email only unless Nate or Jess
 //     switches it on for one ask). An ask longer than a text (110 characters) needs a line of its own for the text. The
 //     approved ask then shows on the Partners screen as "Going out at 4:30 PM" with Take it back, like HIPHI's own.
-import { S, DB, esc, fmtDate, hooks } from './data.js';
+import { S, DB, esc, fmtDate, hooks, VC } from './data.js';
 import { icon, btn, chip, toast, openSheet, closeSheet, groupHead, friendly, switchRow, POS_WORD, POS_ICON } from './ui.js';
 import { whenAt, billNum, billRoute, billById } from './model.js';
 import { dailyWord, paused, HELD_NEXT } from './composer.js';   // which 4:30 PM email; while email is paused an approved ask is held, as HIPHI's own
@@ -88,7 +88,7 @@ export function wantQueue({ force = false } = {}) {
   S.pqLoading = true; S.pqErr = false;
   DB.partnerQueue().then(q => { S.pq = q; }).catch(e => { console.warn('partner_queue:', e?.message || e); S.pq = null; S.pqErr = true; })
     // Today, Team's bars and Partners draw them; every other page redraws only Today's count (sidebar, phone bar), in place.
-    .finally(() => { S.pqLoading = false; if (['today', 'team', 'pgroups'].includes(S.route?.name)) hooks.render(); else hooks.counts?.(); });
+    .finally(() => { S.pqLoading = false; if (['today', 'team', 'pgroups', ...(VC ? ['asks', 'more'] : [])].includes(S.route?.name)) hooks.render(); else hooks.counts?.(); });
 }
 // What waits on this person: the words they may approve (never one they hold in their 10 seconds).
 export function pqItems() {
