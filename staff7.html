@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- Staff7 is practice-only for now: with no ?demo in the address (the data layer's own test) it sends itself to ?demo=1 BEFORE any module loads; app.js
+     then checks the same thing again before it imports anything, so a real sign-in or a real write can never happen from this page yet. Remove this one script when the live app is ready for it. -->
+<script>if (!new URLSearchParams(location.search).has('demo')) { var q = new URLSearchParams(location.search); q.set('demo', '1'); location.replace(location.pathname + '?' + q.toString() + location.hash); }</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="only light">
+<meta name="robots" content="noindex">
+<title>HIPHI Tracker</title>
+<link rel="icon" href="pub/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Lato:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="staff7/tokens.css">
+<link rel="stylesheet" href="staff7/app.css">
+
+</head>
+<body>
+<a class="skip" href="#app">Skip to content</a>
+<div id="bar-slot"></div>
+<main id="app" tabindex="-1"></main>
+<div id="toast-slot"></div>
+<script type="module" src="staff7/app.js"></script>
+</body>
+</html>
