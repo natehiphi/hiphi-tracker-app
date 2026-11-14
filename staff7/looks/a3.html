@@ -1191,7 +1191,7 @@ function IssueInner(id){
   h+='<div class="pbody">';
   rbs.forEach(function(rb){
     var sid=STEP_OF[rb.id],st=sid&&stepById(sid);
-    h+='<div class="strip">'+ic('warn')+'<span class="stx">'+(al===1?'It is the last bill alive for this issue.':'<b>'+rb.name+'</b>')+'</span>'+(!lo&&st&&!FIN[sid]?'<a class="btn" href="#/do/'+sid+'">'+st.t+'</a>':'')+'</div>';
+    h+='<div class="strip">'+ic('warn')+'<span class="stx">'+(al===1?'It is the last bill alive for this issue.':'<b>'+rb.name+'</b> has no hearing yet. The other bills on this issue are still moving.')+'</span>'+(!lo&&st&&!FIN[sid]?'<a class="btn" href="#/do/'+sid+'">'+st.t+'</a>':'')+'</div>';
   });
   if(!al)h+='<p class="lead">Nothing more can happen on this issue until next session.</p>';
   var live=l.filter(function(b){return !b.dead;}),dead=l.filter(function(b){return b.dead;});
