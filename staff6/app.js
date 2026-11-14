@@ -183,7 +183,8 @@ const PLACE_OF_B = { today: 'today', hearings: 'calendar', hearing: 'calendar', 
   // A legislator is looked up, not part of an issue: it lights Search (the phone bar's fourth item; the laptop's header box), whatever page you came from.
   legislator: 'search' };
 const PLACE_KEY = { bills: 'issues', myissues: 'issues' };
-const placeOf = route => { if (VB && route?.name === 'bill') return billPlace(route);   // R-371 S3: a bill lights where it was opened from
+const placeOf = route => { const k = placeOf0(route); return VC && k === 'issues' && (route?.name === 'bill' || route?.name === 'issue') ? 'today' : k; };   // R-397 C: a bill or issue page lights Home (More is not where it lives)
+const placeOf0 = route => { if (VB && route?.name === 'bill') return billPlace(route);   // R-371 S3: a bill lights where it was opened from
   if (VB && route && PLACE_OF_B[route.name]) return PLACE_OF_B[route.name]; const k = !route ? '' : route.name === 'bill' && S.billFrom ? S.billFrom : route.place ? route.place
   : route.name === 'team' && !seesTeam() ? 'more' : PLACE_OF[route.name] ?? ''; return PLACE_KEY[k] || k; };
 // The phone bar lights More for every place that is not one of its five.
@@ -228,7 +229,7 @@ export function go(path, { replace = false, keepScroll = false, force = false } 
 S.go = go;
 // R-365 B: what Back calls the page you are leaving: its place's name for a place ("Today", "Calendar", "My issues", "Search"),
 // else the page's own title (an issue's name, "HB 2121", a committee, a person). Never the page you are going to.
-const vbPlaceWord = t => ({ Hearings: 'Calendar', Issues: 'My issues' })[t] || t;   // the old place names, in B's
+const vbPlaceWord = t => ({ Hearings: 'Calendar', Issues: 'My issues', ...(VC ? { Today: 'Home' } : {}) })[t] || t;   // the old place names, in B's
 function vbPageName(route, title) {
   const t = String(title || '').trim();
   if (inOutreach(route)) return 'Outreach';   // R-397 C: a page opened from Outreach says Back to Outreach
@@ -238,7 +239,7 @@ function vbPageName(route, title) {
     case 'myissues': return 'My issues';
     case 'issues': return 'All issues';
     case 'search': return 'Search';
-    default: return vbPlaceWord(t) || 'Today';
+    default: return vbPlaceWord(t) || (VC ? 'Home' : 'Today');
   }
 }
 // The same page with another tab: #/issue/ID and #/issue/ID/testimony, #/bill/HB2121 and #/bill/HB2121/talk.
@@ -364,8 +365,8 @@ function outHeader(route) {
 // Pages one level under More whose screens name no parent: a phone still shows Back to where they came from.
 const UNDER = { me: { href: '#/more', label: 'More' }, approvals: { href: '#/more', label: 'More' }, tools: { href: '#/more', label: 'More' }, devui: { href: '#/more', label: 'More' } };   // tools: a phone only (spec 3.2); a laptop's sidebar has More as a place, and draws no Back
 // The place a Back address belongs to, by name ("Today", "My issues", "Calendar"); a bare address names its page.
-const BACK_NAMES = [[/^#\/?$/, 'Today'], [/^#\/(issues|issue|bill|bills)/, 'My issues'], [/^#\/hearing/, 'Calendar'], [/^#\/(review|testimony)/, 'Today'], [/^#\/outreach/, 'My issues'], [/^#\/search/, 'Search'], [/^#\/more|^#\/tools/, 'More']];
-const backName = href => (BACK_NAMES.find(([re]) => re.test(href || '')) || [0, 'Today'])[1];
+const BACK_NAMES = [[/^#\/?$/, VC ? 'Home' : 'Today'], [/^#\/(issues|issue|bill|bills)/, 'My issues'], [/^#\/hearing/, 'Calendar'], [/^#\/(review|testimony)/, 'Today'], [/^#\/outreach/, 'My issues'], [/^#\/search/, 'Search'], [/^#\/more|^#\/tools/, 'More']];
+const backName = href => (BACK_NAMES.find(([re]) => re.test(href || '')) || [0, VC ? 'Home' : 'Today'])[1];
 function header(route, scr, title) {
   let b = scr.back ? scr.back(route) : UNDER[route.name] || null;
   // Back goes where the person came from when this page was opened inside the app (wireFrame: history.back()), so it says
