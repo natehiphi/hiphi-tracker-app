@@ -12,12 +12,12 @@ import { esc, btn, plainBand } from './parts.js';
 import { billName, billNo, posWords, cmteWords, dayTime, first } from './steps.js';
 import { myIssueStandings, billsOfIssue, issueStanding, billStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
 import { withMe, sessionHTML } from './home.js';
-import { dateWords, whenWords, sessionDates, touchMap, nextStop, whyWords } from './words.js';
+import { dateWords, whenWords, sessionDates, touchMap, nextStop, whyWords, daysTo } from './words.js';
 import { billPath, pathOf } from './path.js';
 
 const enc = encodeURIComponent;
 // What is open in the left column, kept across the minute's redraw in this visit only: the teammate picker.
-export const ui = { pick: false };
+export const ui = { pick: false, more: '' };   // more: the view (its `who` code) whose "Moved" list was opened, kept across the minute's redraw
 
 // "e-cigarettes", never "vape": the Legislature's own titles stay as written, but an issue's name is HIPHI's (CLAUDE.md R-158)
 const eCig = s => String(s || '').replace(/\bvap(?:e|es|ing)\b/gi, m => /^vap(es|ing)$/i.test(m) ? 'e-cigarettes' : 'e-cigarette');
@@ -104,6 +104,8 @@ function column(who, set, people, me, openKey, ses) {
 // The picker opens and closes in place: nothing is drawn again, so focus and scroll stay. A choice is a link, so Back works. Choosing where you already are draws nothing, so each
 // of these closes the picker itself.
 export function bindIssues() {
+  const mo = document.getElementById('sMore');
+  if (mo) mo.addEventListener('click', () => { ui.more = mo.dataset.k; mo.closest('p').remove(); document.querySelectorAll('#sMoved li.mx').forEach(l => { l.hidden = false; }); });
   const b = document.getElementById('whoMate'), l = document.getElementById('whoPick'); if (!b || !l) return;
   const set = on => { ui.pick = on; l.hidden = !on; b.setAttribute('aria-expanded', String(on)); };
   b.addEventListener('click', () => set(l.hidden));
@@ -182,11 +184,15 @@ function issueSheet(x, who, me, open, own) {
 
 // ---------------------------------------------------------------------------------- a bill's sheet (short, read-only)
 const clean = t => String(t).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => /^(HB|SB|HR|SR|HCR|SCR|PM|AM)$/.test(m) ? m : cmteWords(m));   // the Capitol's codes in words
+// The bill's last action in plain words, without the date
+function lastWords(b) {
+  const t = String(b.last_action || '').trim();
+  if (isCarry(b) && /^Carried over to/i.test(t)) return `Still alive from ${introYear(b)}`;
+  return t ? clean(plainAction(t)[0]) : 'Introduced';
+}
 function justHappened(b) {
-  const t = String(b.last_action || '').trim(), d = b.last_action_date ? dateWords(b.last_action_date) : '';
-  if (isCarry(b) && /^Carried over to/i.test(t)) return `Still alive from ${introYear(b)}${d ? ` · ${esc(d)}` : ''}`;
-  const w = t ? clean(plainAction(t)[0]) : 'Introduced';
-  return `${esc(w)}${d ? ` · ${esc(d)}` : ''}`;
+  const d = b.last_action_date ? dateWords(b.last_action_date) : '';
+  return `${esc(lastWords(b))}${d ? ` · ${esc(d)}` : ''}`;
 }
 // The committee after the one a bill is in, from the referral list the way stops.js reads it (the first chamber's committees first, then the second's)
 function nextCmte(b, st) {
@@ -208,6 +214,8 @@ function afterThat(b) {
   if (st.phase === 'governor') return 'The Governor signs it, vetoes it, or lets it become law';
   return '';
 }
+// when testimony is due for a hearing: the stated deadline, else a day before it starts
+const testimonyDue = h => h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : new Date(h.scheduled_at).getTime() - 864e5;
 function billSheet(b, issue, who, me, open, others, own) {
   const alive = isAlive(b), dl = deadlineOf(b), h = hearingAhead(b), lo = !own, st = own ? stepOn(open, b) : null;
   const crumb = `<a class="crumb back2" href="${issueHref(who, issue.id)}">${ic('chevron-left')}Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}</a>`;
@@ -220,7 +228,7 @@ function billSheet(b, issue, who, me, open, others, own) {
     out += `<h2 class="sh">Where it stands</h2>` + kv([['Just happened', justHappened(b)], ['Next', next], afterThat(b) ? ['After that', esc(afterThat(b))] : null]);
     out += `<div class="bigpath">${billPath(b, { wide: true })}</div>`;
     if (h) out += `<h2 class="sh">The hearing</h2>` + kv([['When', esc(dayTime(h.scheduled_at))], ['Where', esc(roomName(h.room) || 'No room is listed yet')], ['Committee', esc(cmteWords(h.committee))],
-      ['Testimony due', esc(dayTime(h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : new Date(h.scheduled_at).getTime() - 864e5))]]);
+      ['Testimony due', esc(dayTime(testimonyDue(h)))]]);
   } else {
     out += `<h2 class="sh">Did not advance</h2>` + kv([['Stopped at', esc(pathOf(b).label)], ['Why', esc(clean(whyWords(b)))],
       ['Still alive', others.length ? others.map(o => `<a class="lk" href="${billHref(who, o, issue.id)}">${esc(`${billNo(o)}, the ${chamberWord(o)} version · ${whereShort(o)}`)}</a>`).join('<br>') : 'Nothing else is alive for this issue this year.']]);
@@ -229,15 +237,83 @@ function billSheet(b, issue, who, me, open, others, own) {
   return out + `</div></div>`;
 }
 
-// ---------------------------------------------------------------------------------- the session's sheet: its next deadline, and which of the set's bills it touches
+// ---------------------------------------------------------------------------------- the session's sheet: the answer first (what is at risk, what is coming), then the dates and the next deadline
+const HST_TZ = { timeZone: 'Pacific/Honolulu' };
+const ymdOf = t => new Date(t).toLocaleDateString('en-CA', HST_TZ);
+// a time that never wraps inside ("Mon 9:30 AM")
+const tm = t => dayTime(t).replace(/[  ]/g, ' ');
+const clockOf = t => new Date(t).toLocaleTimeString('en-US', { ...HST_TZ, hour: 'numeric', minute: '2-digit' }).replace(/[  ]/g, ' ');
+const SHOW_MOVED = 5;
+// Hearing and hearing-notice actions are in "Next 7 days" already, so "Moved" leaves them out
+const HEARING_ACT = /^(?:Hearing|Decision making) (?:set|moved|cancelled)|^Taken off|^Hearing notice/i;
+const HEARING_RAW = /has scheduled a public hearing|to be heard by|will hold a public decision making|has rescheduled|deleted from the meeting|^Meeting scheduled on|hours? notice|day notice/i;
+// "Referred to JDC, WAM, FIN" in words: "Sent to 3 Senate committees" (the full list stays on the bill page)
+function movedWords(b) {
+  const t = String(b.last_action || '').trim(), pl = t ? plainAction(t)[0] : '', m = /^Referred to (.+)$/.exec(pl);
+  if (!m) return lastWords(b);
+  const codes = m[1].split(/\s*[,/]\s*/).filter(Boolean), ch = CHAMBER_NAME[stopOf(b).chamber];
+  return codes.length === 1 ? `Sent to ${cmteWords(codes[0])}` : `Sent to ${codes.length} ${ch ? ch + ' ' : ''}committees`;
+}
+// What the session holds for a set: the hearings of the next 7 days (Honolulu days 0 to 6, one per bill and time, alive bills only), the alive at-risk bills, and what moved in the last 7 days
+function weekOf(ses) {
+  const byId = new Map(ses.bills.filter(x => isAlive(x.b)).map(x => [x.b.id, x.b])), seen = new Set(), bills = ses.bills.map(x => x.b);
+  const hearings = (S.hearings || []).filter(h => h.status === 'scheduled' && byId.has(h.bill_id) && daysTo(ymdOf(h.scheduled_at)) >= 0 && daysTo(ymdOf(h.scheduled_at)) <= 6 && !seen.has(h.bill_id + '|' + h.scheduled_at) && seen.add(h.bill_id + '|' + h.scheduled_at))
+    .map(h => ({ h, b: byId.get(h.bill_id) })).sort((x, y) => new Date(x.h.scheduled_at) - new Date(y.h.scheduled_at) || num(x.b).localeCompare(num(y.b), 'en', { numeric: true }));
+  const risk = bills.filter(b => isAlive(b) && isAtRisk(b)).sort((x, y) => deadlineOf(x).date.localeCompare(deadlineOf(y).date) || num(x).localeCompare(num(y), 'en', { numeric: true }));
+  const moved = bills.filter(b => b.last_action_date && daysTo(b.last_action_date) >= -6 && daysTo(b.last_action_date) <= 0 && !HEARING_ACT.test(plainAction(String(b.last_action || ''))[0]) && !HEARING_RAW.test(String(b.last_action || '')))
+    .sort((x, y) => String(y.last_action_date).localeCompare(String(x.last_action_date)) || num(x).localeCompare(num(y), 'en', { numeric: true }));
+  return { hearings, risk, moved, alive: bills.filter(isAlive).length, total: bills.length };
+}
 function sessionSheet(who, set, me, ses) {
-  const nx = ses.next, whose = who.kind === 'mine' ? 'your bills' : who.kind === 'all' ? 'the bills on every issue' : `${first(who.person)}’s bills`;
+  const nx = ses.next, wk = weekOf(ses), mate = who.kind === 'person' ? who.person : null;
+  const whose = who.kind === 'mine' ? 'your bills' : who.kind === 'all' ? 'everyone’s bills' : `${first(who.person)}’s bills`;
   const issueOfBill = b => (set.find(x => x.bills.some(y => y.id === b.id)) || {}).issue;
-  const hit = nx ? nx.touched.slice().sort((p, q) => num(p).localeCompare(num(q), 'en', { numeric: true })) : [], shownBills = hit.slice(0, 12);
-  const list = !shownBills.length ? '' : `<ul class="tlist">${shownBills.map(b => `<li><a class="lk" href="${billHref(who, b, issueOfBill(b)?.id)}">${esc(billName(b))}</a><span class="no"> ${esc(billNo(b))}</span> <span class="tw">· ${esc(whereShort(b))}</span></li>`).join('')}</ul>${hit.length > 12 ? `<p class="hint">and ${hit.length - 12} more</p>` : ''}`;
-  const top = nx ? `<p class="ovdate">Next deadline</p><h1 tabindex="-1">${esc(nx.row.label)}</h1><p class="ovsub">${esc(whenWords(nx.row.date))}</p>` : `<h1 tabindex="-1">The session has ended</h1>`;
-  const touch = !nx ? '' : `<h2 class="sh">${hit.length ? `It touches ${hit.length} of ${whose}` : `It touches none of ${whose}`}</h2>`;
-  return `<div class="pn"><div class="ov"><div class="ovtop">${top}</div><div class="ovrest">${nx ? `<p class="lead tight">${esc(nx.row.says)}</p>${touch}${list}` : ''}${sessionHTML(null, ses.touch)}</div></div></div>`;
+  // the lead's face: after the row's words, on Everyone; on a teammate's view only when the lead is someone else; none on Mine
+  const face = b => {
+    if (who.kind === 'mine') return '';
+    const i = issueOfBill(b), id = [...(S.assignments?.[b.id] || []).filter(live), ...(live(i?.owner_id) ? [i.owner_id] : [])][0], a = id ? advocate(id) : null;
+    return a?.initials && !(mate && a.id === mate.id) ? ` <span class="person sm" role="img" aria-label="Led by ${esc(first(a))}">${esc(a.initials)}</span>` : '';
+  };
+  // one bill, drawn like the left column's rows: its issue's mark, the name in ink with the number after it, then its lines of words (already escaped)
+  const brow = (b, lines, extra = '') => { const i = issueOfBill(b) || {}; return `<li${extra}><a class="sr3 ir bl" href="${billHref(who, b, i.id)}"><span class="imark" style="${tint(i)}" aria-hidden="true">${ic(iconOf(i))}</span><span class="sv"><b>${esc(billName(b))}</b> <span class="no">${esc(billNo(b))}</span>${face(b)}${lines}</span></a></li>`; };
+  const line = (t, cls = '', icon = '') => `<span class="ir2${cls ? ' ' + cls : ''}">${icon ? ic(icon) : ''}<span>${t}</span></span>`;
+  const byNo = (x, y) => num(x).localeCompare(num(y), 'en', { numeric: true });
+
+  // 1. the answer
+  const hn = wk.hearings.length, riskN = wk.risk.length;
+  const answer = `${riskN ? `${n(riskN, 'bill', 'bills')} at risk` : 'Nothing at risk'} · ${hn ? n(hn, 'hearing', 'hearings') : 'no hearings'} in the next 7 days`;
+  const label = who.kind === 'mine' ? 'The session' : `The session · ${whose}`;
+  const top = `<p class="ovdate">${esc(label)}</p><h1 tabindex="-1">${esc(answer)}</h1><p class="ovsub">${wk.total ? esc(`${wk.alive} of ${wk.total} bills still alive`) : 'No bills on these issues yet.'}</p>`;
+
+  // 3. the next deadline and the bills it touches, each once, with their state for it
+  let next = '';
+  const touched = nx ? nx.touched.slice().sort((p, q) => (isAtRisk(q) - isAtRisk(p)) || byNo(p, q)) : [];
+  if (nx) {
+    const state = b => isAtRisk(b) ? line('At risk · needs a hearing', 'risk', 'triangle-alert') : hearingAhead(b) ? line(`Hearing ${esc(tm(hearingAhead(b).scheduled_at))}`) : line(esc(whereShort(b)));
+    next = `<h2 class="sh" id="sNext">Next deadline: ${esc(nx.row.label)} · ${esc(whenWords(nx.row.date))}</h2><p class="lead tight">${esc(nx.row.says)}</p>`
+      + (touched.length ? `<ul class="srows3 brs" id="sTouch">${touched.map(b => brow(b, state(b))).join('')}</ul>` : `<p class="hint">It touches none of ${esc(whose)}.</p>`);
+  }
+  const inTouch = new Set(touched.map(b => b.id)), also = wk.risk.filter(b => !inTouch.has(b.id));
+  if (also.length) next += `<h2 class="sh" id="sAlso">Also at risk</h2><ul class="srows3 brs" id="sRisk">${also.map(b => brow(b, line(`Needs a hearing by ${esc(whenWords(deadlineOf(b).date))}`, 'risk', 'triangle-alert'))).join('')}</ul>`;
+
+  // 4. the hearings, under their days
+  let hear = `<h2 class="sh" id="sHearH">Next 7 days</h2>`;
+  if (!hn) hear += `<p class="hint" id="sNoHear">No hearings for ${esc(whose)} in the next 7 days.</p>`;
+  else {
+    const days = []; for (const x of wk.hearings) { const d = ymdOf(x.h.scheduled_at), g = days[days.length - 1]; if (g && g.d === d) g.rows.push(x); else days.push({ d, rows: [x] }); }
+    const now = Date.now();
+    hear += `<div id="sHear">${days.map(g => `<h3 class="glab">${esc(dateWords(g.d))}</h3><ul class="srows3 brs">${g.rows.map(({ h, b }) => { const due = testimonyDue(h), late = due <= now;
+      return brow(b, line(`<b class="when">${esc(clockOf(h.scheduled_at))}</b> · ${esc(cmteWords(h.committee))}`) + (late ? line(`Testimony was due ${esc(tm(due))}`, 'late', 'circle-alert') : line(`Testimony due ${esc(tm(due))}`)), ` data-h="1"`); }).join('')}</ul>`).join('')}</div>`;
+  }
+
+  // 5. what moved, five rows and a button for the rest
+  let moved = '';
+  if (wk.moved.length) {
+    const key = who.code || 'mine', open = ui.more === key, rest = wk.moved.length - SHOW_MOVED;
+    const row = (b, k) => brow(b, line(`${esc(movedWords(b))} · ${esc(dateWords(b.last_action_date))}`), k >= SHOW_MOVED ? ` class="mx"${open ? '' : ' hidden'}` : '');
+    moved = `<h2 class="sh" id="sMovedH">Moved in the last 7 days</h2><ul class="srows3 brs" id="sMoved">${wk.moved.map(row).join('')}</ul>${rest > 0 && !open ? `<p class="more">${btn(`Show ${rest} more`, { kind: 'quiet', id: 'sMore', attrs: `data-k="${esc(key)}"` })}</p>` : ''}`;
+  }
+  return `<div class="pn"><div class="ov"><div class="ovtop">${top}</div><div class="ovrest">${sessionHTML(null, ses.touch).replace('<h2 class="fl" id="sesh">', '<h2 class="fl vh" id="sesh">')}${next}${hear}${moved}</div></div></div>`;
 }
 
 // ---------------------------------------------------------------------------------- put together
