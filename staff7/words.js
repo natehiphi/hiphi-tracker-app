@@ -12,6 +12,8 @@ const DAY = 864e5;
 const ymd = t => new Date(t).toLocaleDateString('en-CA', HST);
 const at = d => new Date(String(d).slice(0, 10) + 'T12:00:00-10:00');
 
+// "Thursday": the weekday alone, for "before Thursday’s deadline"
+export const dayName = d => at(d).toLocaleDateString('en-US', { ...HST, weekday: 'long' });
 // "Thu, Mar 19"
 export const dateWords = d => at(d).toLocaleDateString('en-US', { ...HST, weekday: 'short', month: 'short', day: 'numeric' });
 // whole days from today (Honolulu's day) to a date: 0 today, negative past

@@ -1,4 +1,5 @@
-# Staff7's Issues tab (R-398), on the practice copy: whose issues (Mine, a teammate's, Everyone's), the three groups (At risk, Moving, Stopped this year), an issue's sheet, a bill's short sheet.
+# Staff7's Issues tab (R-398), on the practice copy: whose issues (Mine, a teammate's, Everyone's), the five groups for where an issue stands (At risk, Hearing scheduled, Cleared the deadline, Moving, Stopped this year)
+# with a second line on every row, the summary sentence and its narrowing links, folding, Changed since you last looked, topics (Everyone's and a teammate's list) with a topic's own page, an issue's sheet, a bill's short sheet.
 # Rules kept by this file: the groups partition the set; any at-risk bill puts its issue in At risk; a bill with a hearing is never at risk; Mine = myIssueIds, Everyone = every issue with a bill this session;
 # a teammate's view has no link to a step; odd addresses give a calm "not found" sheet; one filled button at most; no sideways scroll; 44px targets; nothing leaves 127.0.0.1.
 #   python3 tests/staff7_issues.py [base] [shots folder]     base defaults to http://127.0.0.1:8851 (serve with a 256 backlog, one server per worktree)
@@ -26,8 +27,51 @@ MODEL = """async (who) => { const d = await import('/staff6/data.js'), st = awai
   const all = S.bills.filter(b => b.tracked !== false);
   return { rows, hearingRisk: all.filter(b => mo.hearingAhead(b) && st.isAtRisk(b)).length, hearingBills: all.filter(b => mo.hearingAhead(b)).length,
     needsFirst: S.issues.filter(has).length, people: S.advocates.filter(a => a.is_active !== false).map(a => a.initials) }; }"""
-GROUPS = """() => [...document.querySelectorAll('section[aria-labelledby^="g-"]')].map(s => [s.querySelector('h3').innerText.trim().replace(/ · \\d+$/, ''), [...s.querySelectorAll('a.sr3')].map(a => decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0])), +(/ · (\\d+)$/.exec(s.querySelector('h3').innerText.trim()) || [0, -1])[1]])"""
+GROUPS = """() => [...document.querySelectorAll('section[aria-labelledby^="g-"]')].map(s => [s.querySelector('h3').innerText.trim().replace(/ · \\d+$/, ''), [...s.querySelectorAll('a.sr3')].map(a => decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0])), +(/ · (\\d+)$/.exec(s.querySelector('h3').innerText.trim()) || [0, -1])[1], +((s.querySelector('.held')?.innerText || '').match(/^\\d+/) || [0])[0]])"""
 LEFTROWS = "() => [...document.querySelectorAll('.wl a.sr3')].map(a => [a.id, a.getAttribute('aria-current'), a.getAttribute('href')])"
+SHOWS = ['risk', 'hearing', 'cleared', 'moving', 'stopped']
+LABEL = {'risk': 'At risk', 'hearing': 'Hearing scheduled', 'cleared': 'Cleared the deadline', 'moving': 'Moving', 'stopped': 'Stopped this year'}
+SUMW = {'risk': 'at risk', 'hearing': 'with a hearing', 'cleared': 'cleared the deadline', 'moving': 'moving', 'stopped': 'stopped'}
+# what the page's own rules say, written again here (not the app's function): where each issue of a set stands, its topics, and the session's next deadline. who: 'mine', 'all' or initials.
+STATEX = """async (who) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), S = d.S;
+  const withMe = (p, fn) => { const prev = S.me; S.me = p; try { return fn(); } finally { S.me = prev; } };
+  const has = i => !i.archived_at && st.billsOfIssue(i).length > 0, HST = { timeZone: 'Pacific/Honolulu' }, ymd = t => new Date(t).toLocaleDateString('en-CA', HST), now = Date.now();
+  let ids; if (who === 'all') ids = S.issues.filter(has).map(i => String(i.id)); else { const p = who === 'mine' ? S.me : S.advocates.find(a => a.initials === who); ids = withMe(p, () => [...d.myIssueIds()]).filter(id => has(S.issues.find(i => String(i.id) === id))); }
+  const KEYS = ['first_crossover', 'second_triple', 'second_lateral', 'second_decking', 'conference', 'governor'];
+  const rows = KEYS.map(k => { const e = d.DEADLINES[k]; return e && e[0] ? { key: k, date: String(e[0][1]).slice(0, 10) } : null; }).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+  const fold = k => k === 'first_triple_senate' ? 'first_triple' : (k === 'final_decking' || k === 'fiscal') ? 'conference' : k;
+  const pool = new Map(); for (const id of ids) for (const b of st.billsOfIssue(S.issues.find(x => String(x.id) === id))) pool.set(b.id, b);   // the shown list's own bills: its session row's next deadline
+  const racing = new Map(); for (const b of pool.values()) { if (mo.diedish(b)) continue; for (const k of [fold(mo.stopOf(b).deadlineKey), 'governor']) if (k) racing.set(k, [...(racing.get(k) || []), b.id]); }
+  const today = ymd(now), ahead = rows.filter(r => r.date >= today), nxt = ahead.find(r => r.key !== 'governor' && (racing.get(r.key) || []).length) || ahead.find(r => (racing.get(r.key) || []).length) || ahead[0] || null;
+  const ORDER = ['first_triple', 'first_lateral', 'first_decking', 'first_crossover', 'second_triple', 'second_lateral', 'second_decking', 'second_crossover', 'conference'];
+  const cleared = b => { if (!nxt || nxt.key === 'governor') return false; const s = mo.stopOf(b), own = fold(s.deadlineKey); if (own === nxt.key) return false;
+    const pos = own ? ORDER.indexOf(own) : (['governor', 'law', 'ballot'].includes(s.phase) ? ORDER.length : -1), g = ORDER.indexOf(nxt.key); if (pos < 0) return false;
+    if (nxt.key === 'first_crossover') return s.leg !== 'first' && !/^(HR|SR)\\d/.test(b.bill_number); if (nxt.key === 'conference') return pos > g; if (s.leg === 'first') return false;
+    const refs = b.referrals || [], o = Math.min(b.origin_stops || 0, refs.length), c = s.leg === 'second' ? s.stops : (o ? refs.length - o : 0), need = nxt.key === 'second_triple' ? 3 : nxt.key === 'second_lateral' ? 2 : 1; return c >= need && pos > g; };
+  const bstate = b => { if (mo.diedish(b)) return { s: 'stopped' }; if (st.isAtRisk(b)) return { s: 'risk', date: st.deadlineOf(b).date };
+    const hs = S.hearings.filter(h => h.bill_id === b.id && h.status === 'scheduled' && Date.parse(h.scheduled_at) > now).sort((x, y) => Date.parse(x.scheduled_at) - Date.parse(y.scheduled_at));
+    return hs.length ? { s: 'hearing', t: Date.parse(hs[0].scheduled_at) } : { s: cleared(b) ? 'cleared' : 'moving' }; };
+  const ORDS = ['risk', 'hearing', 'cleared', 'moving', 'stopped'], keys = (S.categories || []).map(c => c.key);
+  const wd = t => new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short' }), clk = t => new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' }).replace(/[\\u202f\\u00a0]/g, ' ');
+  const noon = x => Date.parse(x + 'T12:00:00-10:00'), off = t => Math.round((noon(ymd(t)) - noon(today)) / 864e5), codes = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean).sort().join('/');
+  const week = bills => { const w = new Set(); for (const b of bills) if (!mo.diedish(b)) for (const h of S.hearings) if (h.bill_id === b.id && h.status === 'scheduled' && off(h.scheduled_at) >= 0 && off(h.scheduled_at) <= 6) w.add(codes(h.committee) + '|' + new Date(h.scheduled_at).toISOString()); return w; };
+  const out = ids.map(id => { const i = S.issues.find(x => String(x.id) === id), bills = st.billsOfIssue(i), per = bills.map(b => ({ b, ...bstate(b) })), state = ORDS.find(k => per.some(p => p.s === k)) || 'stopped';
+    const cats = [...new Set([i.category, ...S.issueCats.filter(x => String(x.issue_id) === id).map(x => x.category)].filter(c => keys.includes(c)))], hearT = Math.min(...per.filter(p => p.s === 'hearing').map(p => p.t)), riskDate = per.filter(p => p.s === 'risk').map(p => p.date).sort()[0] || '';
+    const first = per.filter(p => p.s === 'hearing' && p.t === hearT).map(p => p.b), before = first.map(b => !!nxt && (racing.get(nxt.key) || []).includes(b.id) && ymd(hearT) < nxt.date);
+    return { id, name: i.name, state, cats: cats.length ? cats : ['other'], owner: (S.advocates.find(a => a.id === i.owner_id && a.is_active !== false) || {}).initials || '', hearT: isFinite(hearT) ? hearT : 0, hearTxt: isFinite(hearT) ? (off(hearT) === 0 ? 'today ' + clk(hearT) : off(hearT) === 1 ? 'tomorrow ' + clk(hearT) : Math.abs(hearT - now) > 6 * 864e5 ? wd(hearT) + ', ' + new Date(hearT).toLocaleDateString('en-US', { ...HST, month: 'short', day: 'numeric' }) + ', ' + clk(hearT) : wd(hearT) + ' ' + clk(hearT)) : '', before, riskDate,
+      bills: bills.map(b => b.id), alive: bills.filter(b => !mo.diedish(b)).length, week: [...week(bills)] }; });
+  return { rows: out, nextKey: nxt ? nxt.key : '', nextDate: nxt ? nxt.date : '', nextDay: nxt ? new Date(nxt.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { ...HST, weekday: 'long' }) : '', cats: [...(S.categories || []).map(c => [c.key, c.name]), ['other', 'Other']],
+    today, clearedBills: [...pool.values()].filter(b => !mo.diedish(b) && cleared(b)).map(b => b.id), racingNext: nxt ? racing.get(nxt.key) || [] : [], info: Object.fromEntries([...pool.values()].map(b => [b.id, { s: bstate(b).s, wants: !['monitor', 'oppose', 'strongly_oppose'].includes(b.position) }])) }; }"""
+# the ids of the issue rows in a list, as the page draws them (a section's rows, hidden or not)
+IDS = "() => [...document.querySelectorAll('section[aria-labelledby^=\"g-\"] a.sr3')].map(a => decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0]))"
+def union_ids(pg, base):
+    # every issue of a list, found by narrowing to each group in turn: [(state, [ids])]
+    out = {}
+    for k in SHOWS:
+        go(pg, base + ('&' if '?' in base else '?') + f'show={k}'); out[k] = pg.evaluate(IDS)
+    return out
+CHANGED = """() => { const s = document.querySelector('section[aria-labelledby="c-changed"]'); if (!s) return null; return { n: +/ · (\\d+)$/.exec(s.querySelector('h3').innerText.trim())[1], rows: [...s.querySelectorAll('a.sr3')].map(a => ({ id: decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0]), hid: !!a.closest('li[hidden]'),
+  vh: a.querySelector('.ir2 .vh')?.textContent, text: (a.querySelector('.ir2 > span:last-child')?.textContent || '').replace(/[\\u00a0\\u202f]/g, ' ').trim() })), btn: s.querySelector('button[data-ifold]')?.innerText.trim() || '' }; }"""
 def left_first(pg): return pg.evaluate("() => document.querySelector('.wl .sr3').id")
 
 def external_blocker(ctx, bad):
@@ -55,15 +99,18 @@ with sync_playwright() as p:
         tag = f'{w}x{h}'; LABELS, OFFS, COUNTS = {}, {}, {}
         for who in PEOPLE:
             pg, errs, bad = open_as(br, who, w, h, '#/issues')
-            m = pg.evaluate(MODEL, 'mine'); g = pg.evaluate(GROUPS); ids = [i for _, l, _c in g for i in l]
+            m = pg.evaluate(MODEL, 'mine'); sx = pg.evaluate(STATEX, 'mine'); g = pg.evaluate(GROUPS); chg = pg.evaluate(CHANGED); chids = [r['id'] for r in chg['rows']] if chg else []; ids = [i for _, l, _c, _h in g for i in l] + chids; HD = lambda k, sx=sx: f"Cleared {sx['nextDay']}’s deadline" if k == 'cleared' else LABEL[k]
             ok(not errs and not bad, f'{tag} {who}: Issues opens with no console error and nothing leaving 127.0.0.1 ({errs[:1]} {bad[:1]})')
             ok(len(ids) == len(set(ids)) and set(ids) == {r['id'] for r in m['rows']}, f'{tag} {who}: Mine is exactly myIssueIds with a bill this session ({len(ids)} issues, each in one group)')
-            heads = [x[0] for x in g]; ok(all(x[2] == len(x[1]) for x in g), f'{tag} {who}: each group heading carries its count ({[(x[0], x[2]) for x in g]})'); order = [k for k in ['At risk', 'Moving', 'Stopped this year'] if k in heads]
+            heads = [x[0] for x in g]; ok(all(x[2] == len(x[1]) + x[3] and x[3] == sum(1 for r in sx['rows'] if r['id'] in chids and HD(r['state']) == x[0]) for x in g) and not set(chids) & {i for x in g for i in x[1]}, f'{tag} {who}: each group heading carries its full count, less those held above under Changed ({[(x[0], x[2], x[3]) for x in g]})'); order = [HD(k) for k in SHOWS if HD(k) in heads]
             ok(heads == order, f'{tag} {who}: the groups are {heads}, in order, an empty one not drawn')
-            where = {i: k for k, l, _c in g for i in l}; want = {'risk': 'At risk', 'moving': 'Moving', 'stopped': 'Stopped this year'}
-            ok(all(where[r['id']] == want[r['want']] for r in m['rows']), f'{tag} {who}: every issue is in the group its bills say (any at-risk bill: At risk; all stopped: Stopped this year)')
+            where = {i: x[0] for x in g for i in x[1]}
+            ok(all(where.get(r['id'], HD(r['state'])) == HD(r['state']) for r in sx['rows']) and len(sx['rows']) == len(ids), f'{tag} {who}: every issue is in the group its bills say, by an independent reading of the data ({ {k: sum(1 for r in sx["rows"] if r["state"] == k) for k in SHOWS} })')
+            cnt = {k: sum(1 for r in sx['rows'] if r['state'] == k) for k in SHOWS}; sm = pg.locator('#summ').inner_text().strip() if pg.locator('#summ').count() else ''; links = {k: pg.locator(f'#sum-{k}').inner_text().strip() if pg.locator(f'#sum-{k}').count() else '' for k in SHOWS}
+            ok((re.match(rf'{len(sx["rows"])} issues?', sm) or not sx['rows']) and all((links[k] == f'{cnt[k]} {SUMW[k]}') if cnt[k] else not links[k] for k in SHOWS) and sum(cnt.values()) == len(sx['rows']), f'{tag} {who}: the summary says "{sm}" and its numbers add up to the {len(sx["rows"])} issues')
+            ok(pg.locator('.wl a.sr3 .person').count() == 0, f'{tag} {who}: no lead initials on Mine')
             ok(m['hearingBills'] > 0 and m['hearingRisk'] == 0, f'{tag} {who}: a bill with a hearing scheduled is never at risk ({m["hearingBills"]} such bills)')
-            risky0 = [r for r in m['rows'] if r['want'] == 'risk']
+            risky0 = [r for r in sx['rows'] if r['state'] == 'risk']
             cur = pg.evaluate(LEFTROWS); marked = [c for c in cur if c[1]]
             ok(left_first(pg) == 'sessionRow' and pg.locator('#sessionRow b').inner_text().strip() == 'The session' and re.search(r'\w+ · \w{3}, \w{3} \d+ · (today|\d+ days?)$', pg.locator('#sessionRow .ir2').inner_text().strip()), f'{tag} {who}: the first row of the column is "The session" with its next deadline: "{pg.locator("#sessionRow .ir2").inner_text().strip()}"')
             ok(len(marked) == 1 and ((marked[0][0] == 'sessionRow') if not risky0 else marked[0][2].startswith('#/issue/' + g[0][1][0]) and g[0][0] == 'At risk'), f'{tag} {who}: the tab never opens unmarked: one row is marked ({marked[0][0] or marked[0][2][:24] if marked else None}); with an at-risk issue it is the first one')
@@ -74,8 +121,8 @@ with sync_playwright() as p:
             if risky0: go(pg, '#/issues')
             ok(pg.locator('.bi[aria-current="page"]').inner_text().strip() == 'Issues', f'{tag} {who}: Issues is current in the bar')
             ok(pg.evaluate(FILLED) <= 1 and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'{tag} {who}: at most one filled button, no sideways scroll, 44px targets ({pg.evaluate(SMALL)[:2]})')
-            risky = [r for r in m['rows'] if r['want'] == 'risk']
-            ok(all('At risk · ' in pg.locator(f'a.sr3[href^="#/issue/{r["id"]}"]').inner_text() for r in risky) and pg.locator('.ir2.risk').count() == len(risky) and all(len(re.findall(r'At risk', pg.locator('.ir2.risk').nth(k).inner_text())) == 1 for k in range(len(risky))), f'{tag} {who}: only an at-risk issue has a second line ("At risk · N days left", with a mark and words) ({len(risky)})')
+            risky = [r for r in sx['rows'] if r['state'] == 'risk']
+            ok(all('Needs a hearing by ' in pg.locator(f'a.sr3[href^="#/issue/{r["id"]}"]').first.inner_text() for r in risky) and pg.locator('.ir2.risk').count() == len(risky) and all(re.fullmatch(r'Needs a hearing by \w{3} · (today|tomorrow|in \d+ days)', pg.locator('.ir2.risk').nth(k).inner_text().strip()) for k in range(len(risky))), f'{tag} {who}: an at-risk issue\'s second line is "Needs a hearing by Thu · in 3 days" with a mark, and only those are amber ({len(risky)})')
             if who in ('JM', 'NT', 'default', 'KV'): snap(pg, f'issues_{who}', tag)
             if who == 'KV': go(pg, '#/issues/session'); snap(pg, 'issues_session_KV', tag)
             if risky: INFO[who] = risky[0]['id']
@@ -87,22 +134,22 @@ with sync_playwright() as p:
 
         # Everyone, a teammate, and the whose control
         pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=all')
-        m = pg.evaluate(MODEL, 'all'); mine = pg.evaluate(MODEL, 'mine'); mineids = {r['id'] for r in mine['rows']}; ids = [i for _, l, _c in pg.evaluate(GROUPS) for i in l]
-        ok(set(ids) == {r['id'] for r in m['rows']} and len(ids) == len(set(ids)) and len(ids) == m['needsFirst'], f'{tag}: Everyone is every issue with a bill this session ({len(ids)} of {m["needsFirst"]}), each once')
+        m = pg.evaluate(MODEL, 'all'); mine = pg.evaluate(MODEL, 'mine'); mineids = {r['id'] for r in mine['rows']}; un = union_ids(pg, '#/issues?who=all'); ids = [i for k in SHOWS for i in un[k]]; go(pg, '#/issues?who=all')
+        ok(set(ids) == {r['id'] for r in m['rows']} and len(ids) == len(set(ids)) and len(ids) == m['needsFirst'], f'{tag}: Everyone is every issue with a bill this session ({len(ids)} of {m["needsFirst"]}), each in exactly one group')
         ok(pg.locator('#whoAll').get_attribute('aria-current') == 'true' and pg.locator('#whoMine').get_attribute('aria-current') is None and pg.locator('#sessionRow').get_attribute('aria-current') == 'true' and 'Look only' not in pg.locator('main').inner_text(), f'{tag}: Everyone is the chosen segment, opens on the session (marked), and says nothing about look only there')
         # fix 2: the lead's initials at the right of each row, no bill count in any list
         lead = pg.evaluate("""async () => { const d = await import('/staff6/data.js'); const out = [];
-          for (const a of document.querySelectorAll('.wl section a.sr3')) { const id = decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0]), i = d.S.issues.find(x => String(x.id) === id), o = d.advocate(i.owner_id), p = a.querySelector('.person');
+          for (const a of document.querySelectorAll('.wl section a.sr3[href^="#/issue/"]')) { const id = decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0]), i = d.S.issues.find(x => String(x.id) === id), o = d.advocate(i.owner_id), p = a.querySelector('.person');
             out.push([!!p, p ? p.innerText.trim() : '', o && o.is_active !== false ? o.initials : '']); } return out; }""")
         ok(all((ok_ == bool(want) and (not ok_ or got == want)) for ok_, got, want in lead) and sum(1 for x in lead if x[0]) >= 1, f'{tag}: on Everyone each row shows its lead\'s initials at the right ({sum(1 for x in lead if x[0])} of {len(lead)}), as the data says')
         ok(not re.search(r'\b\d+ bills?\b', pg.locator('.wl').inner_text()), f'{tag}: no row says how many bills it has')
         snap(pg, 'issues_everyone', tag)
         ok(not errs and not bad, f'{tag}: Everyone has no console error')
         # the viewer's own issue under Everyone keeps its step links and button; someone else's is look-only
-        rid = INFO['JM']; pg.click(f'a.sr3[href^="#/issue/{rid}"]'); pg.wait_for_timeout(350)
+        rid = INFO['JM']; pg.locator(f'a.sr3[href^="#/issue/{rid}"]').first.click(); pg.wait_for_timeout(350)
         ok('Look only' not in pg.locator('main').inner_text() and steplinks(pg) >= 1 and pg.locator('.strip .btn.filled').count() == 1 and pg.evaluate(FILLED) == 1, f'{tag}: under Everyone my own at-risk issue keeps its step link and its Ask for a hearing button, and does not say "Look only"')
         snap(pg, 'rv_all_own_risk', tag)
-        other = next(i for i in ids if i not in mineids)
+        other = next(i for i in un['moving'] if i not in mineids); go(pg, '#/issues?who=all&show=moving')
         pg.click(f'a.sr3[href^="#/issue/{other}"]'); pg.wait_for_timeout(350)
         ok(pg.locator('main').inner_text().count('Look only') == 1 and steplinks(pg) == 0 and pg.locator('.ymove, .stbtn').count() == 0 and 'Everyone’s issues. Look only.' in pg.locator('main').inner_text(), f'{tag}: under Everyone someone else\'s issue says "Look only" once and has no step link')
         ok(not errs and not bad, f'{tag}: no console error, nothing left the machine')
@@ -128,13 +175,13 @@ with sync_playwright() as p:
         go(pg, '#/issues'); pg.click('#whoMate'); go(pg, '#/'); go(pg, '#/issues')
         ok(pg.locator('#whoPick').is_hidden(), f'{tag}: an open picker is closed again after leaving Issues and coming back')
         pg.click('#whoMate'); pg.click('#who-KV'); pg.wait_for_timeout(350)
-        km = pg.evaluate(MODEL, 'KV'); ids = [i for _, l, _c in pg.evaluate(GROUPS) for i in l]
+        km = pg.evaluate(MODEL, 'KV'); kun = union_ids(pg, '#/issues?who=KV'); ids = [i for k in SHOWS for i in kun[k]]; go(pg, '#/issues?who=KV')
         ok('who=KV' in pg.url and set(ids) == {r['id'] for r in km['rows']} and pg.locator('#whoPick').is_hidden() and 'Kevin' in pg.locator('.ihd').inner_text(), f'{tag}: picking Kevin puts him in the address and shows his {len(ids)} issues')
         ok(pg.locator('#whoChange').is_visible() and pg.locator('#whoChange').inner_text().strip() == 'Change' and pg.locator('.ihd').inner_text().strip() == 'Kevin’s issues' and pg.locator('#sessionRow').get_attribute('aria-current') == 'true', f'{tag}: Kevin\'s heading carries a small "Change" link; the tab opens on the session')
         pg.click('#whoChange'); pg.wait_for_timeout(150)
         ok(pg.locator('#whoPick').is_visible() and pg.locator('#whoMate').get_attribute('aria-expanded') == 'true', f'{tag}: "Change" reopens the picker')
         pg.click('#who-KV'); pg.wait_for_timeout(250)
-        kother = next(i for i in ids if i not in mineids)
+        kst = next(k for k in SHOWS if any(i not in mineids for i in kun[k])); kother = next(i for i in kun[kst] if i not in mineids); go(pg, f'#/issues?who=KV&show={kst}')
         pg.click(f'a.sr3[href^="#/issue/{kother}"]'); pg.wait_for_timeout(350)
         ok('Kevin’s issues. Look only.' in pg.locator('main').inner_text() and pg.locator('main').inner_text().count('Look only') == 1 and steplinks(pg) == 0, f'{tag}: Kevin\'s issue that is not mine says "Kevin’s issues. Look only." once, and has no step link')
         snap(pg, 'issues_teammate', tag)
@@ -148,7 +195,7 @@ with sync_playwright() as p:
         pg.context.close()
         # Kevin's issue that is also mine keeps its step links (look-only depends on the issue, not the view)
         pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=KV')
-        both = [i for i in [i for _, l, _c in pg.evaluate(GROUPS) for i in l] if i in mineids]
+        bun = union_ids(pg, '#/issues?who=KV'); both = [i for k in SHOWS for i in bun[k] if i in mineids]; bst = next((k for k in SHOWS if any(i in mineids for i in bun[k])), 'risk'); go(pg, f'#/issues?who=KV&show={bst}')
         ok(not both or (lambda: (pg.click(f'a.sr3[href^="#/issue/{both[0]}"]'), pg.wait_for_timeout(350), 'Look only' not in pg.locator('main').inner_text())[-1])(), f'{tag}: an issue that is Kevin\'s and mine ({len(both)}) does not say "Look only"')
         pg.context.close()
 
@@ -188,7 +235,7 @@ with sync_playwright() as p:
         # a stopped issue and a stopped bill, and a moving bill with a hearing
         pg, errs, bad = open_as(br, 'JM', w, h, '#/issues')
         sid = pg.evaluate(GROUPS)[-1][1][0]; ok(pg.evaluate(GROUPS)[-1][0] == 'Stopped this year', f'{tag} JM: there is a stopped issue to open')
-        pg.click(f'a.sr3[href^="#/issue/{sid}"]'); pg.wait_for_timeout(350)
+        pg.click('#more-stopped'); pg.click(f'a.sr3[href^="#/issue/{sid}"]'); pg.wait_for_timeout(350)
         st_txt = pg.locator('main').inner_text()
         ok('Stopped for this year' in pg.locator('.hband .bsub').inner_text() and 'Nothing more can happen' not in st_txt and 'None of its' not in st_txt and 'Did not advance' in st_txt and pg.locator('.strip').count() == 0 and not re.search(r'\bdead\b|\bdied\b|\bkilled\b|vape', st_txt, re.I), f'{tag} JM: a stopped issue\'s band says "Stopped for this year", it lists its bills under Did not advance, in S-7 words')
         snap(pg, 'issue_sheet_stopped', tag)
@@ -202,7 +249,7 @@ with sync_playwright() as p:
         # fix 3 and 5 across every issue: a stopped bill's "Still alive" leads with number and chamber; no row repeats its issue's name; no m/d/yy anywhere
         if w == 1440:
             pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=all')
-            allids = [i for _, l, _c in pg.evaluate(GROUPS) for i in l]; dupes = []; olds = []; alive_refs = []
+            aun = union_ids(pg, '#/issues?who=all'); allids = [i for k in SHOWS for i in aun[k]]; dupes = []; olds = []; alive_refs = []
             for iid in allids:
                 go(pg, f'#/issue/{iid}?who=all'); h1x = pg.evaluate(H1)
                 dupes += [t for t in pg.evaluate("() => [...document.querySelectorAll('.bn2')].map(a => a.innerText.trim())") if t == h1x]
@@ -234,7 +281,7 @@ with sync_playwright() as p:
         pg.context.close()
 
     # the session page (R-398): the answer first, the dates, the next deadline's bills, the next 7 days, what moved
-    SHOTS2 = '/private/tmp/claude-501/-Users-natehix--claude-spares-spare-fovE59/8642821d-b00a-4c8c-9765-481aee29b7f7/scratchpad/shots2'; os.makedirs(SHOTS2, exist_ok=True)
+    SHOTS2 = os.path.join(SHOTS or '/private/tmp/claude-501/-Users-natehix-hiphi-backend/608a757d-8967-4f09-8879-6ccad1528f7b/scratchpad', 'shots2'); os.makedirs(SHOTS2, exist_ok=True)
     WEEKX = """async (who) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), S = d.S;
       const withMe = (p, fn) => { const prev = S.me; S.me = p; try { return fn(); } finally { S.me = prev; } };
       const has = i => !i.archived_at && st.billsOfIssue(i).length > 0;
@@ -279,7 +326,7 @@ with sync_playwright() as p:
             # the hearings: all of them, under their days
             ok([r['no'] for r in s['hear']] == x['hear'] and all(re.fullmatch(r'\w{3}, \w{3} \d+', d) for d in s['dayHeads']) and len(s['dayHeads']) == len(x['days']), f'{tag} {nm}: Next 7 days lists all {len(x["hear"])} hearings in order under {len(x["days"])} days')
             if x['hear']:
-                ok(all(re.search(r'\d{1,2}:\d\d [AP]M · .+', r['text']) and re.search(r'Testimony (due|was due) \w{3}[ ,]', r['text']) for r in s['hear']) and all(r['late'] == ('Testimony was due' in r['text']) for r in s['hear']), f'{tag} {nm}: each hearing has its time, committee and testimony line')
+                ok(all(re.search(r'\d{1,2}:\d\d [AP]M · .+', r['text']) and re.search(r'Testimony (due|was due) (today|tomorrow|\w{3})[ ,]', r['text']) for r in s['hear']) and all(r['late'] == ('Testimony was due' in r['text']) for r in s['hear']), f'{tag} {nm}: each hearing has its time, committee and testimony line')
             else:
                 ok(s['noHear'] == f'No hearings for {whose} in the next 7 days.', f'{tag} {nm}: an empty week reads calmly ("{s["noHear"]}")')
             # moved
@@ -332,6 +379,267 @@ with sync_playwright() as p:
     # a teammate with no hearings: the same words for "your bills"
     pg, errs, bad = open_as(br, 'JM', 1440, 900, '#/issues'); pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.S.hearings.length = 0; }"); go(pg, '#/issues?who=all'); go(pg, '#/issues/session?who=all')
     ok(pg.evaluate(SESS)['noHear'] == 'No hearings for everyone’s bills in the next 7 days.' and re.search(r'no hearings in the next 7 days', pg.evaluate(SESS)['h1']), 'an empty week on Everyone: calm and consistent'); go(pg, '#/issues/session'); ok(pg.evaluate(SESS)['noHear'] == 'No hearings for your bills in the next 7 days.', 'an empty week on Mine: "No hearings for your bills in the next 7 days."'); pg.context.close()
+
+    # ------------------------------------------------------------------------------------------------------------------------------------
+    # R-398: the five groups, a second line on each row, the summary, folding, Changed since you last looked, topics and a topic's page
+    # every expected number below is worked out from the data again in STATEX / CHANGEX (not by the app's own function)
+    DLN = {'first_crossover': 'Crossed to the other chamber', 'second_triple': 'First committee deadline', 'second_lateral': 'Committee deadline', 'second_decking': 'Last committee deadline', 'conference': 'House and Senate must agree', 'governor': 'Session ends'}
+    NORM = lambda t: re.sub(r'[\u00a0\u202f]', ' ', t or '')
+    SECOND = """() => [...document.querySelectorAll('.wl section[aria-labelledby^="g-"] a.sr3')].map(a => ({ id: decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0]), sec: (a.querySelector('.ir2.one')?.innerText || '').replace(/[\\u00a0\\u202f]/g, ' ').trim(), amber: !!a.querySelector('.ir2.risk'), lead: a.querySelector('.person')?.innerText.trim() || '',
+      hid: !!a.closest('li[hidden], ul[hidden]') }))"""
+    CHANGEX = """async () => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), s7 = await import('/staff7/steps.js'), S = d.S, HST = { timeZone: 'Pacific/Honolulu' }, ymd = t => new Date(t).toLocaleDateString('en-CA', HST);
+      const now = Date.now(), since = now - 3 * 864e5, sinceDay = ymd(since), today = ymd(now), has = i => !i.archived_at && st.billsOfIssue(i).length > 0;
+      const RAW = /has scheduled a public hearing|to be heard by|will hold a public decision making|has rescheduled|deleted from the meeting|^Meeting scheduled on|hours? notice|day notice/i, ACT = /^(?:Hearing|Decision making) (?:set|moved|cancelled)|^Taken off|^Hearing notice/i;
+      const ev = (i) => { const out = []; for (const b of st.billsOfIssue(i)) {
+          if (!mo.diedish(b)) for (const h of S.hearings) { const p = h.notice_posted_at ? Date.parse(h.notice_posted_at) : NaN; if (h.bill_id === b.id && h.status === 'scheduled' && Date.parse(h.scheduled_at) > now && p >= since && p <= now) out.push('hearing'); }
+          const day = String(b.last_action_date || '').slice(0, 10); if (day && day >= sinceDay && day <= today && !ACT.test(mo.plainAction(String(b.last_action || ''))[0]) && !RAW.test(String(b.last_action || ''))) out.push('move'); }
+        for (const x of s7.stepsFor(S.me)) if (x.sentBack && String(x.issue?.id) === String(i.id) && x.draft?.updated_at && Date.parse(x.draft.updated_at) >= since && Date.parse(x.draft.updated_at) <= now) out.push('letter'); return out; };
+      const mine = new Set([...d.myIssueIds()].map(String)), r = { all: {}, mine: {} };
+      for (const i of S.issues.filter(has)) { const e = ev(i); if (e.length) { r.all[String(i.id)] = e; if (mine.has(String(i.id))) r.mine[String(i.id)] = e; } }
+      return r; }"""
+    VIEWS = [('KR', 'mine', ''), ('JM', 'mine', ''), ('KV', 'mine', ''), ('JM', 'all', '?who=all'), ('JM', 'KV', '?who=KV')]
+    TOPICS = "() => [...document.querySelectorAll('#topics a.sr3')].map(a => ({ key: a.getAttribute('href').split('/topic/')[1].split('?')[0], name: a.querySelector('b').innerText.trim(), line: a.querySelector('.ir2').innerText.replace(/\\s*\\n\\s*/g, ' ').trim(), amber: !!a.querySelector('.ir2 .tr.risk'), href: a.getAttribute('href') }))"
+    AMBER = "() => { const e = document.createElement('i'); e.style.color = 'var(--amber)'; document.body.appendChild(e); const c = getComputedStyle(e).color; e.remove(); const r = document.querySelector('.ir2.risk, .ir2 .tr.risk'); return r ? [getComputedStyle(r).color, c] : [c, c]; }"
+    HEADWORDS = ('At risk', 'Cleared', 'Waiting', 'Hearing scheduled', 'Moving', 'Stopped this year ·')
+    def sec_ok(r, x, nextDay):
+        t = r['sec']; k = x['state']
+        if t.startswith(HEADWORDS): return False   # a second line never says its group heading again
+        if k == 'risk': return r['amber'] and re.fullmatch(r'Needs a hearing by \w{3} · (today|tomorrow|in \d+ days)', t) is not None
+        if r['amber']: return False
+        if k == 'hearing':
+            base = 'Hearing ' + x['hearTxt']; tail = f' · before {nextDay}’s deadline'
+            return t == base + tail if all(x['before']) else t == base if not any(x['before']) else t in (base, base + tail)
+        if k == 'cleared': return t.startswith('Next: ') or (bool(t) and not t.startswith('Cleared'))
+        if k == 'moving': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^(In (\d+ (House|Senate) committees|(House|Senate) .+)|Ready for|In conference|With the|Signed|Going)', t) is not None and not re.search(r'has until (?!\w{3}, \w{3} \d+$)', t)
+        return t == 'Stopped this year' or t.startswith('Stopped at ')
+    def stats_sentence(sx, key, rows, bills):
+        # the topic page's deadline sentence, from the data: the next deadline against the topic's alive bills
+        nr = sx['nextKey']; info = sx['info']; racing = [b for b in sx['racingNext'] if b in bills]; clr = [b for b in bills if b in set(sx['clearedBills'])]
+        risk = sum(1 for b in racing if info[b]['s'] == 'risk'); heard = sum(1 for b in racing if info[b]['s'] == 'hearing'); rest = [b for b in racing if info[b]['s'] not in ('risk', 'hearing')]
+        wait = sum(1 for b in rest if info[b]['wants']); no = len(rest) - wait; total = len(racing) + len(clr)
+        parts = [x for x in [risk and f'{risk} at risk', heard and f'{heard} with a hearing set', wait and f'{wait} waiting for a hearing', no and f'{no} not asking for one', clr and f'{len(clr)} cleared'] if x]
+        return total, parts
+    for w, h in ((1440, 900), (1280, 800)):
+        tag = f'{w}x{h}'
+        for viewer, key, q in VIEWS:
+            pg, errs, bad = open_as(br, viewer, w, h, '#/issues' + q); nm = f'{viewer} {key}'
+            sx = pg.evaluate(STATEX, key); R = {r['id']: r for r in sx['rows']}; flat = key == 'mine'; nd = sx['nextDay']
+            cnt = {k: sum(1 for r in sx['rows'] if r['state'] == k) for k in SHOWS}
+            if w == 1440:
+                # the five groups, narrowed one at a time: the right issues, each with the right second line, every row showing, nothing folded
+                seen = []
+                for k in SHOWS:
+                    go(pg, '#/issues' + q + ('&' if q else '?') + f'show={k}'); rows = pg.evaluate(SECOND); want = {r['id'] for r in sx['rows'] if r['state'] == k}; seen += [r['id'] for r in rows]
+                    heads = pg.locator('section[aria-labelledby^="g-"] h3').all_inner_texts()
+                    ok({r['id'] for r in rows} == want and len(rows) == len(want) and (heads == [(f'Cleared {nd}’s deadline' if k == 'cleared' else LABEL[k]) + f' · {len(want)}'] if want else not heads) and not any(r['hid'] for r in rows) and pg.locator('button[data-ifold]').count() == 0, f'{tag} {nm}: show={k} lists exactly the {len(want)} {SUMW[k]} issues, all showing, nothing folded')
+                    bad_s = [(r['id'], r['sec'], R[r['id']]['state']) for r in rows if not sec_ok(r, R[r['id']], nd)]
+                    ok(not bad_s, f'{tag} {nm}: show={k}: every row\'s second line matches its state ({bad_s[:2]})')
+                    if k == 'risk': a = pg.evaluate(AMBER); ok(not rows or a[0] == a[1], f'{tag} {nm}: an at-risk second line is in the amber token')
+                    if k == 'hearing': ok(all((' · before ' in r['sec']) if all(R[r['id']]['before']) else (' · before ' not in r['sec']) if not any(R[r['id']]['before']) else True for r in rows) and all(re.match(r'Hearing (today|tomorrow|\w{3}) ', r['sec']) for r in rows), f'{tag} {nm}: "before <weekday>’s deadline" appears exactly when the hearing bill races this list\'s next deadline and the hearing is on an earlier day ({[r["sec"] for r in rows][:2]})')
+                    if k == 'cleared': ok(all(r['sec'] and not r['sec'].startswith('Cleared') for r in rows), f'{tag} {nm}: a cleared row says where it goes next, not the heading again ({[r["sec"] for r in rows][:2]})')
+                    lead_ok = all(r['lead'] == '' for r in rows) if flat else all(r['lead'] == (R[r['id']]['owner'] if not (key not in ('mine', 'all') and R[r['id']]['owner'] == key) else '') for r in rows)
+                    ok(lead_ok, f'{tag} {nm}: show={k}: ' + ('no lead initials on Mine' if flat else 'a row shows its lead\'s initials' + (' (not the teammate\'s own)' if key not in ('mine', 'all') else '')))
+                ok(sorted(seen) == sorted(R) and len(seen) == len(set(seen)), f'{tag} {nm}: the five groups hold every one of the {len(R)} issues exactly once ({cnt})')
+                # the summary and its links
+                go(pg, '#/issues' + q); sm = pg.locator('#summ').inner_text().strip(); links = {k: pg.locator(f'#sum-{k}').inner_text().strip() if pg.locator(f'#sum-{k}').count() else '' for k in SHOWS}
+                ok(re.match(rf'{len(R)} issues?', sm) and all((links[k] == f'{cnt[k]} {SUMW[k]}') if cnt[k] else not links[k] for k in SHOWS) and sum(cnt.values()) == len(R) and pg.locator('#showAll').count() == 0, f'{tag} {nm}: the summary says "{sm}"; a zero group is left out; the numbers add up to {len(R)}')
+                for k in [k for k in SHOWS if cnt[k]][:5]:
+                    go(pg, '#/issues' + q); pg.click(f'#sum-{k}'); pg.wait_for_timeout(250); a1 = pg.evaluate(IDS); cur = pg.locator(f'#sum-{k}').get_attribute('aria-current'); sa = pg.locator('#showAll').count()
+                    ok(f'show={k}' in pg.url and set(a1) == {r['id'] for r in sx['rows'] if r['state'] == k} and cur == 'true' and sa == 1 and pg.locator('[aria-current="true"].sl').count() == 1, f'{tag} {nm}: pressing "{links[k]}" narrows to those {cnt[k]} and marks it')
+                    pg.click(f'#sum-{k}'); pg.wait_for_timeout(250)
+                    ok('show=' not in pg.url and pg.locator('#showAll').count() == 0 and pg.locator('[aria-current="true"].sl').count() == 0, f'{tag} {nm}: pressing it again clears the narrowing')
+                    pg.click(f'#sum-{k}'); pg.wait_for_timeout(200); pg.click('#showAll'); pg.wait_for_timeout(250)
+                    ok('show=' not in pg.url and pg.locator('#showAll').count() == 0, f'{tag} {nm}: "Show all issues" clears it too')
+                go(pg, '#/issues' + q + ('&' if q else '?') + 'show=zz')
+                ok(pg.locator('#showAll').count() == 0 and pg.locator('[aria-current="true"].sl').count() == 0 and pg.locator('[data-notfound]').count() == 0 and pg.locator('#summ').count() == 1, f'{tag} {nm}: show=zz is ignored')
+                ok(not errs and not bad, f'{tag} {nm}: no console error, nothing left the machine')
+            # layout, both sizes
+            go(pg, '#/issues' + q)
+            ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'{tag} {nm}: no sideways scroll, 44px targets ({pg.evaluate(SMALL)[:2]})')
+            if w == 1440 and not flat:
+                ok(pg.locator('a[href^="#/do/"]').count() == 0 and pg.evaluate(FILLED) == 0, f'{tag} {nm}: the list has no step link and no filled button (look only)')
+            pg.context.close()
+
+        # ---- folding: a group over 5 shows 5 and "Show all N"; opening shows all, and it stays open across the minute's redraw; Stopped starts folded
+        if w == 1440:
+            pg, errs, bad = open_as(br, 'KR', w, h, '#/issues'); sx = pg.evaluate(STATEX, 'mine'); cnt0 = {k: sum(1 for r in sx['rows'] if r['state'] == k) for k in SHOWS}; chg0 = pg.evaluate(CHANGED); chids = {r['id'] for r in chg0['rows']} if chg0 else set(); cnt = {k: cnt0[k] - sum(1 for r in sx['rows'] if r['id'] in chids and r['state'] == k) for k in SHOWS}   # rows held above under Changed are not repeated
+            big = [k for k in SHOWS if cnt[k] > 5 and k != 'stopped']
+            ok(len(big) >= 1 and cnt['stopped'] >= 1, f'{tag} KR: there is a group over 5 to fold ({big}) and a stopped group ({cnt})')
+            VIS = "k => [...document.querySelectorAll(`#gl-${k} li`)].filter(l => !l.hidden && !l.closest('ul[hidden]')).length"
+            for k in big[:1]:
+                b = pg.locator(f'#more-{k}')
+                ok(pg.evaluate(VIS, k) == 5 and b.inner_text().strip() == f'Show all {cnt[k]}' and b.get_attribute('aria-expanded') == 'false' and b.evaluate('e => e.tagName') == 'BUTTON', f'{tag} KR: {LABEL[k]} ({cnt[k]}) shows 5 rows and a "Show all {cnt[k]}" button')
+                pg.evaluate("document.querySelector('.wl').scrollTop = 30"); b.click(); pg.wait_for_timeout(150)
+                ok(pg.evaluate(VIS, k) == cnt[k] and b.get_attribute('aria-expanded') == 'true', f'{tag} KR: opening it shows all {cnt[k]} in place')
+                pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(250)
+                ok(pg.evaluate(VIS, k) == cnt[k] and pg.locator(f'#more-{k}').get_attribute('aria-expanded') == 'true', f'{tag} KR: it stays open across the minute\'s redraw')
+                pg.locator(f'#more-{k}').click(); pg.wait_for_timeout(150); ok(pg.evaluate(VIS, k) == 5, f'{tag} KR: pressing it again folds back to 5')
+            hv = pg.evaluate("() => [document.querySelector('#gl-stopped').hidden, document.querySelector('#g-stopped').innerText.trim(), document.querySelector('#more-stopped').innerText.trim(), document.querySelector('#more-stopped').getAttribute('aria-expanded')]")
+            ok(hv == [True, f'Stopped this year · {cnt["stopped"]}', f'Show {cnt["stopped"]}', 'false'], f'{tag} KR: Stopped this year starts as its heading and "Show {cnt["stopped"]}" ({hv})')
+            pg.click('#more-stopped'); pg.wait_for_timeout(150); pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(250)
+            ok(pg.evaluate(VIS, 'stopped') == cnt['stopped'], f'{tag} KR: opened, it shows all {cnt["stopped"]} and stays so across the redraw')
+            ok(not errs and not bad, f'{tag} KR folding: no console error')
+            pg.context.close()
+            # a group of 5 or fewer shows all, with no button
+            pg, errs, bad = open_as(br, 'JM', w, h, '#/issues'); sj = pg.evaluate(STATEX, 'mine'); cj = {k: sum(1 for r in sj['rows'] if r['state'] == k) for k in SHOWS}
+            ok(all(pg.locator(f'#more-{k}').count() == 0 for k in SHOWS if 0 < cj[k] <= 5 and k != 'stopped') and all(pg.evaluate("k => document.querySelectorAll(`#gl-${k} li`).length", k) == cj[k] for k in SHOWS if cj[k] and k != 'stopped'), f'{tag} JM: a group of 5 or fewer shows all its rows and has no button ({cj})')
+            pg.context.close()
+
+        # ---- Changed since you last looked: the practice copy never writes, and counts from 3 days before the practice clock
+        if w == 1440:
+            for viewer, key, q in (('KR', 'all', '?who=all'), ('JM', 'mine', ''), ('KR', 'mine', '')):
+                pg, errs, bad = open_as(br, viewer, w, h, '#/issues' + q); cx = pg.evaluate(CHANGEX); want = cx['all' if key == 'all' else 'mine']; c = pg.evaluate(CHANGED)
+                ok((c is None and not want) or (c and c['n'] == len(want) and {r['id'] for r in c['rows']} == set(want) and len(c['rows']) == len(want)), f'{tag} {viewer} {key}: "Changed in the last 3 days" (the practice copy counts back 3 days) holds the {len(want)} issues with a hearing set, a move or a letter in the last 3 days of the practice clock ({c and c["n"]})')
+                if c:
+                    vis = [r for r in c['rows'] if not r['hid']]
+                    lim = 5 if key == 'mine' else 3
+                    ok(all(r['vh'] == 'New: ' and r['text'] for r in c['rows']) and not pg.locator('.newdot').count() and len(vis) == min(lim, c['n']) and (c['btn'] == f'Show all {c["n"]}' if c['n'] > lim else c['btn'] == ''), f'{tag} {viewer} {key}: each row has the hidden "New: " (and no dot); {len(vis)} show (limit {lim}), button "{c["btn"]}"')
+                    ok(all(r['text'].startswith('Hearing set for ') for r in c['rows'] if want[r['id']] == ['hearing']), f'{tag} {viewer} {key}: a row whose only change is a hearing says "Hearing set for ..."')
+                    first_ids = pg.evaluate("() => [...document.querySelectorAll('.wl > section h3')].map(h => h.innerText.trim().replace(/ · \\d+$/, ''))")
+                    ok(first_ids[0] == 'Changed in the last 3 days', f'{tag} {viewer} {key}: the heading says "in the last 3 days" on the practice copy and Changed is the first group ({first_ids[:2]})')
+                    # an issue under Changed still appears in its state group
+                    sx2 = pg.evaluate(STATEX, 'all' if key == 'all' else 'mine'); R2 = {r['id']: r for r in sx2['rows']}; gg = pg.evaluate(GROUPS); gid = {i for x in gg for i in x[1]}; ch = {r['id'] for r in c['rows']}
+                    ok(not (gid & ch) and all(x[3] == sum(1 for i in ch if (f"Cleared {sx2['nextDay']}’s deadline" if R2[i]['state'] == 'cleared' else LABEL[R2[i]['state']]) == x[0]) and x[2] == len(x[1]) + x[3] for x in gg) and gid | ch == set(R2) if key != 'all' else not (gid & ch), f'{tag} {viewer} {key}: no issue is under Changed and in its group too; each group says how many are held ("N more above, under Changed") ({[(x[0], x[3]) for x in gg]})')
+                else: ok(pg.locator('section[aria-labelledby="c-changed"]').count() == 0, f'{tag} {viewer} {key}: no Changed group when nothing changed')
+                if key == 'all':
+                    keys0 = pg.evaluate("() => Object.keys(localStorage).sort().join(',')"); pg.wait_for_timeout(10800); pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(300)
+                    keys1 = pg.evaluate("() => Object.keys(localStorage).sort().join(',')"); go(pg, '#/'); go(pg, '#/issues?who=all')
+                    ok(keys0 == keys1 == pg.evaluate("() => Object.keys(localStorage).sort().join(',')") and 'looked' not in keys1, f'{tag} {viewer}: the practice copy writes nothing to localStorage, not after 10 seconds and not on leaving Issues ("{keys1}")')
+                    chg = pg.evaluate("async () => { const m = await import('/staff7/issues.js'), n = Date.now(), D = 864e5; return [m.sinceFor(null, n) === n - 3 * D, m.sinceFor(String(n - 2 * D), n) === n - 2 * D, m.sinceFor(String(n - 8 * D), n) === n - 3 * D, m.sinceFor(String(n + D), n) === n - 3 * D, m.sinceFor('x', n) === n - 3 * D]; }")
+                    ok(all(chg), f'{tag}: the time to count from is the stored one within 7 days, else 3 days back (first visit, too old, in the future, unreadable) {chg}')
+                ok(not errs and not bad, f'{tag} {viewer} {key} Changed: no console error')
+                pg.context.close()
+
+        # ---- topics (Everyone's and a teammate's list) and a topic's own page
+        for viewer, key, q in (('JM', 'all', '?who=all'), ('JM', 'NT', '?who=NT')) if w == 1440 else (('JM', 'all', '?who=all'),):
+            pg, errs, bad = open_as(br, viewer, w, h, '#/issues' + q); nm = f'{viewer} {key}'; sx = pg.evaluate(STATEX, key); R = {r['id']: r for r in sx['rows']}; cats = sx['cats']
+            exp = [(ck, cn, [r for r in sx['rows'] if ck in r['cats']]) for ck, cn in cats]; exp = [e for e in exp if e[2]]
+            tps = pg.evaluate(TOPICS); gh = pg.evaluate("() => [...document.querySelectorAll('.wl > section h3')].map(h => h.innerText.trim().replace(/ · \\d+$/, ''))")
+            ok([t['key'] for t in tps] == [e[0] for e in exp] and [t['name'] for t in tps] == [e[1] for e in exp], f'{tag} {nm}: one topic row per category that has issues, in the categories\' order, "Other" last ({[t["key"] for t in tps]})')
+            ok(gh[-1] == 'Topics' and set(gh) <= {'Changed in the last 3 days', 'At risk', 'Topics'} and gh == sorted(gh, key=['Changed in the last 3 days', 'At risk', 'Topics'].index), f'{tag} {nm}: the list is Changed, At risk, then Topics ({gh})')
+            def line_for(rs):
+                r = sum(1 for x in rs if x['state'] == 'risk'); hr = sum(1 for x in rs if x['state'] == 'hearing'); return f'{len(rs)} issue{"" if len(rs) == 1 else "s"}' + (f' · {r} at risk' if r else '') + (f' · {hr} with a hearing' if hr else '')
+            ok(all(t['line'] == line_for(e[2]) and t['amber'] == any(x['state'] == 'risk' for x in e[2]) for t, e in zip(tps, exp)), f'{tag} {nm}: each topic says its counts, and starts amber with "N at risk" when it holds one ({[t["line"] for t in tps][:3]})')
+            a = pg.evaluate(AMBER) if any(t['amber'] for t in tps) else None
+            ok(a is None or a[0] == a[1], f'{tag} {nm}: the at-risk topic\'s line is in the amber token')
+            atr = [x for x in pg.evaluate(GROUPS) if x[0] == 'At risk']; ok(bool(atr) == any(r['state'] == 'risk' for r in sx['rows']) and all(x[2] == sum(1 for r in sx['rows'] if r['state'] == 'risk') and len(x[1]) + x[3] == x[2] for x in atr), f'{tag} {nm}: At risk shows in full above Topics ({atr and atr[0][2]})')
+            ok(pg.locator('.sl.nw').evaluate_all("els => els.every(e => e.getClientRects().length === 1)") and 'hearing scheduled' not in pg.locator('#summ').inner_text() + ' '.join(t['line'] for t in tps), f'{tag} {nm}: no summary link wraps inside itself, and "hearing scheduled" is not in the sentence or the topic rows')
+            ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'{tag} {nm}: topics list: no sideways scroll, 44px targets ({pg.evaluate(SMALL)[:2]})')
+            if w == 1280: snap(pg, 'topics', tag); pg.context.close(); continue
+            snap(pg, f'i3_{nm.replace(" ", "_")}', tag)
+            seen_issues = set(); followed = 0
+            for ck, cn, rs in exp:
+                go(pg, f'#/issues/topic/{ck}' + q); ids_t = {r['id'] for r in rs}; tcount = {k: sum(1 for r in rs if r['state'] == k) for k in SHOWS}
+                tr = pg.locator('#trail').inner_text().replace('\n', ' ').strip()
+                ok(tr.startswith('Issues') and tr.endswith(cn) and pg.locator('#trailIssues').get_attribute('href') == '#/issues' + q and pg.locator('#sessionRow').count() == 0, f'{tag} {nm}/{ck}: the trail reads "Issues › {cn}", Issues goes back to the list, and the session row is not shown')
+                sm = pg.locator('#summ').inner_text().strip(); lk = {k: pg.locator(f'#sum-{k}').inner_text().strip() if pg.locator(f'#sum-{k}').count() else '' for k in SHOWS}
+                ok(re.match(rf'{len(rs)} issues?', sm) and all((lk[k] == f'{tcount[k]} {SUMW[k]}') if tcount[k] else not lk[k] for k in SHOWS) and sum(tcount.values()) == len(rs), f'{tag} {nm}/{ck}: the summary says "{sm}" and adds up to the topic\'s {len(rs)}')
+                un = {}
+                for k in SHOWS: go(pg, f'#/issues/topic/{ck}' + q + ('&' if q else '?') + f'show={k}'); un[k] = pg.evaluate(IDS)
+                allt = [i for k in SHOWS for i in un[k]]; seen_issues |= set(allt)
+                ok(sorted(allt) == sorted(ids_t) and all(set(un[k]) == {r['id'] for r in rs if r['state'] == k} for k in SHOWS), f'{tag} {nm}/{ck}: its issues are in the five groups, each once ({len(allt)} of {len(ids_t)})')
+                go(pg, f'#/issues/topic/{ck}' + q)
+                # the page at the right
+                hn = {(r['id'], x) for r in rs for x in r['week']}
+                bills = {b for r in rs for b in r['bills']}; risk_n = sum(1 for b in bills if sx['info'][b]['s'] == 'risk'); want_h1 = (f'{risk_n} bill{"" if risk_n == 1 else "s"} at risk' if risk_n else 'Nothing at risk') + ' · ' + (f'{len(hn)} hearing{"" if len(hn) == 1 else "s"}' if hn else 'no hearings') + ' in the next 7 days'
+                alive_b = sum(1 for b in bills if sx['info'][b]['s'] != 'stopped'); alive_i = sum(1 for r in rs if r['state'] != 'stopped')
+                kick = pg.locator('#tKick').inner_text().strip(); sub = pg.locator('#tSub').inner_text().strip(); h1 = pg.evaluate(H1)
+                whose = 'everyone’s issues' if key == 'all' else {'KV': 'Kevin', 'NT': 'Nate'}[key] + '’s issues'
+                ok(h1 == want_h1 and kick == f'{cn} · {whose}' and sub == f'{alive_i} of {len(rs)} issue{"" if len(rs) == 1 else "s"} still alive · {alive_b} of {len(bills)} bill{"" if len(bills) == 1 else "s"}', f'{tag} {nm}/{ck}: "{h1}" / "{sub}" / "{kick}" as the data says')
+                rows_w = pg.evaluate("() => [...document.querySelectorAll('#tWeek li')].map(li => ({ issue: li.querySelector('a.twi').getAttribute('href'), name: li.querySelector('a.twi').innerText.trim(), sit: li.querySelector('.twl a').getAttribute('href'), text: li.querySelector('.twl').innerText.replace(/[\\u00a0\\u202f]/g, ' ').trim() }))")
+                ok(len(rows_w) == len(hn) and (not hn or pg.locator('#tWeekH').inner_text().strip() == 'Next 7 days') and (hn or pg.locator('#tWeekH').count() == 0), f'{tag} {nm}/{ck}: Next 7 days lists the {len(hn)} hearings of the next 7 days, one row for each issue and sitting')
+                ok(all(re.fullmatch(r'Hearing (?:today|tomorrow|\w{3}) \d+:\d\d [AP]M · .+ · letter (filed|ready to file|waiting for a second look|waiting for approval|not filed|sent back to fix|not started|being written)|Hearing .+ · (\d+ of \d+ letters filed|letters filed)', r['text']) for r in rows_w) and 'second review' not in ' '.join(r['text'] for r in rows_w).lower(), f'{tag} {nm}/{ck}: each says "Hearing Wed 1:00 PM (or today, tomorrow) · committee · where the letter stands", the day worded as the list words it ({[r["text"] for r in rows_w][:1]})')
+                # the next deadline against the topic's bills
+                total, parts = stats_sentence(sx, ck, rs, bills); dd = (lambda a, b: round((__import__('datetime').date.fromisoformat(a) - __import__('datetime').date.fromisoformat(b)).days))(sx['nextDate'], sx['today'])
+                rel = 'today' if dd <= 0 else 'tomorrow' if dd == 1 else f'in {dd} days'
+                want_dl = f'{DLN[sx["nextKey"]]} · {rel}. ' + (('The one bill it affects' if total == 1 else f'Of the {total} bills it affects') + ': ' + ', '.join(parts) + '.' if total else 'It affects none of this topic’s bills.')
+                if total: ok(pg.locator('#tDlH').inner_text().strip() == f'{sx["nextDay"]}’s deadline' and NORM(pg.locator('#tDl').inner_text()).strip() == want_dl, f'{tag} {nm}/{ck}: "{pg.locator("#tDlH").inner_text().strip()}": "{pg.locator("#tDl").inner_text().strip()}"')
+                else: ok(pg.locator('#tDlH').count() == 0 and pg.locator('#tDl').count() == 0, f'{tag} {nm}/{ck}: the deadline section is left out, since it affects none of this topic\'s bills')
+                if rows_w: ok(pg.evaluate("() => { const a = document.querySelector('.twl a'), t = document.querySelector('.twl'); return [getComputedStyle(a).fontWeight, getComputedStyle(t).fontWeight, getComputedStyle(a).textDecorationLine]; }") == ['400', '400', 'none'], f'{tag} {nm}/{ck}: the hearing link is regular weight, no underline at rest')
+                # who leads: each lead with a count, each a link to that teammate's list
+                lead_n = {}
+                for r in rs:
+                    if r['owner']: lead_n[r['owner']] = lead_n.get(r['owner'], 0) + 1
+                lls = pg.evaluate("() => [...document.querySelectorAll('#tLeads a')].map(a => [a.getAttribute('href'), a.innerText.trim(), a.nextSibling.textContent.trim().replace(/^[·\\s]+/, '').replace(/[·\\s]+$/, '')])")
+                ok(sorted(x[0].split('who=')[1] for x in lls) == sorted(lead_n) and all(x[2] == f'{lead_n[x[0].split("who=")[1]]} issue{"" if lead_n[x[0].split("who=")[1]] == 1 else "s"}' for x in lls), f'{tag} {nm}/{ck}: Who leads: {[(x[1], x[2]) for x in lls]}')
+                ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALL) and pg.locator('a[href^="#/do/"]').count() == 0 and pg.evaluate(FILLED) == 0 and not errs and not bad, f'{tag} {nm}/{ck}: the topic page fits, no step link, no filled button, no console error')
+                # every hearing link opens that sitting in Calendar (one or more per topic that has one), every issue link opens that issue
+                for r in rows_w[:2 if len(rows_w) > 1 else 1]:
+                    go(pg, f'#/issues/topic/{ck}' + q); pg.click(f'#tWeek a[href="{r["sit"]}"]'); pg.wait_for_timeout(450); followed += 1
+                    ok('#/calendar/sitting/' in pg.url and (('who=' + key) in pg.url if key != 'mine' and key != 'all' else True) and pg.locator('[data-notfound]').count() == 0 and pg.locator('.kick').first.inner_text().startswith('Hearing'), f'{tag} {nm}/{ck}: "{r["text"][:40]}" opens that hearing in Calendar')
+                go(pg, f'#/issues/topic/{ck}' + q)
+                if rows_w:
+                    pg.click(f'#tWeek a.twi[href="{rows_w[0]["issue"]}"]'); pg.wait_for_timeout(350)
+                    ok('#/issue/' in pg.url and pg.evaluate(H1) == rows_w[0]['name'] and f'topic={ck}' in pg.url and pg.locator('#trail').count() == 1, f'{tag} {nm}/{ck}: the issue link opens "{rows_w[0]["name"]}" with the trail still showing the topic')
+                    pg.go_back(); pg.wait_for_timeout(350); ok(f'/issues/topic/{ck}' in pg.url, f'{tag} {nm}/{ck}: Back returns to the topic')
+            ok(seen_issues == set(R), f'{tag} {nm}: across the topics every one of the {len(R)} issues appears (at least once)')
+            ok(followed >= 1, f'{tag} {nm}: {followed} hearing links were followed into Calendar')
+            # picking an issue in a topic: the sheet opens, the trail and the topic's list stay, Back returns
+            ck = exp[0][0]; rs0 = exp[0][2]; k0 = next(k for k in SHOWS if any(r['state'] == k for r in rs0)); pick = next(r for r in rs0 if r['state'] == k0)['id']
+            go(pg, f'#/issues/topic/{ck}' + q + ('&' if q else '?') + f'show={k0}'); pg.click(f'a.sr3[href^="#/issue/{pick}"]'); pg.wait_for_timeout(400)
+            ok(f'topic={ck}' in pg.url and 'show=' + k0 in pg.url and pg.locator('#trail').count() == 1 and pg.locator(f'a.sr3[href^="#/issue/{pick}"]').get_attribute('aria-current') == 'true' and pg.evaluate(H1) == R[pick]['name'].replace('vape', 'e-cigarette'), f'{tag} {nm}: an issue opened inside {ck} keeps the trail, the topic\'s list and its marked row')
+            snap(pg, f'i8_issue_open_inside_topic_{nm.replace(" ", "_")}', tag)
+            pg.go_back(); pg.wait_for_timeout(400); ok(f'/issues/topic/{ck}' in pg.url and 'topic=' not in pg.url, f'{tag} {nm}: Back returns to the topic')
+            go(pg, f'#/issues/topic/{ck}' + q + ('&' if q else '?') + f'show={k0}'); pg.click(f'a.sr3[href^="#/issue/{pick}"]'); pg.wait_for_timeout(350); pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
+            ok('#/bill/' in pg.url and f'topic={ck}' in pg.url, f'{tag} {nm}: the topic is kept through to a bill')
+            # the minute's redraw keeps the topic, the open fold and the place
+            go(pg, f'#/issues/topic/{ck}' + q); pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(250); ok(pg.locator('#trail').count() == 1 and pg.evaluate(H1), f'{tag} {nm}: the minute\'s redraw keeps the topic')
+            # an unknown topic is the not-found sheet
+            for bad_t in ('zzz', 'tobacco/x', '', 'TOBACCO', '%E0%A4%A', '__proto__'):
+                go(pg, f'#/issues/topic/{bad_t}' + q); ok(pg.locator('[data-notfound]').count() == 1 and pg.locator('main h1').count() == 1 and not errs, f'{tag} {nm}: "#/issues/topic/{bad_t}" gives the not-found sheet')
+            ok(not errs and not bad, f'{tag} {nm}: topics: no console error, nothing left the machine')
+            pg.context.close()
+
+        if w == 1440:
+            # ---- the list's own next deadline: the cleared group's heading names the weekday of the session row above the list (KR, KV, NT)
+            for viewer, key, q in (('KR', 'mine', ''), ('KV', 'mine', ''), ('NT', 'mine', ''), ('KR', 'all', '?who=all'), ('KR', 'NT', '?who=NT')):
+                pg, errs, bad = open_as(br, viewer, w, h, '#/issues' + q); sx = pg.evaluate(STATEX, key); row_txt = pg.locator('#sessionRow .ir2').inner_text().strip()
+                dl = {r['date']: r for r in []}
+                wd = pg.evaluate("(d) => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric' })", sx['nextDate'])
+                ok(wd in row_txt and sx['nextKey'] != '', f'{tag} {viewer} {key}: the session row ("{row_txt}") is the next deadline the page and the data both name ({sx["nextKey"]} {wd})')
+                un = union_ids(pg, '#/issues' + q); go(pg, '#/issues' + q + ('&' if q else '?') + 'show=cleared'); hd = pg.locator('#g-cleared').inner_text().strip() if pg.locator('#g-cleared').count() else ''
+                ok(set(un['cleared']) == {r['id'] for r in sx['rows'] if r['state'] == 'cleared'} and (not un['cleared'] or hd == f"Cleared {sx['nextDay']}’s deadline · {len(un['cleared'])}"), f'{tag} {viewer} {key}: the cleared group is headed "{hd}", the weekday of that list\'s own session row')
+                # Cleared again, from the raw fields only: the second-chamber committee count (referrals minus origin stops) and the raw stage, for every alive bill of the view
+                RAW = """async ([who, key]) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), S = d.S, now = Date.now();
+                  const withMe = (p, fn) => { const prev = S.me; S.me = p; try { return fn(); } finally { S.me = prev; } };
+                  const has = i => !i.archived_at && st.billsOfIssue(i).length > 0; let ids; if (who === 'all') ids = S.issues.filter(has).map(i => String(i.id)); else { const p = who === 'mine' ? S.me : S.advocates.find(a => a.initials === who); ids = withMe(p, () => [...d.myIssueIds()]).filter(id => has(S.issues.find(i => String(i.id) === id))); }
+                  const PAST = { second_triple: ['second_lateral', 'second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'enacted', 'ballot'], second_lateral: ['second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'enacted', 'ballot'],
+                    second_decking: ['second_floor', 'second_crossover', 'conference', 'governor', 'enacted', 'ballot'], conference: ['governor', 'enacted', 'ballot'], first_crossover: ['first_crossover', 'second_triple', 'second_lateral', 'second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'enacted', 'ballot'] };
+                  const NEED = { second_triple: 3, second_lateral: 2, second_decking: 1, conference: 0, first_crossover: 0 };
+                  const out = []; for (const id of ids) { const i = S.issues.find(x => String(x.id) === id), bills = st.billsOfIssue(i), alive = bills.filter(st.isAlive);
+                    const hear = b => S.hearings.some(h => h.bill_id === b.id && h.status === 'scheduled' && Date.parse(h.scheduled_at) > now);
+                    const raw = b => { const refs = (b.referrals || []).length, c = refs - Math.min(b.origin_stops || 0, refs), stage = b.stage; return !hear(b) && !st.isAtRisk(b) && (PAST[key] || []).includes(stage) && c >= NEED[key] && (key !== 'first_crossover' || !/^(HR|SR)\\d/.test(b.bill_number)); };
+                    out.push({ id, cleared: alive.length > 0 && !alive.some(b => st.isAtRisk(b) || hear(b)) && alive.some(raw) }); } return out; }"""
+                if sx['nextKey'] in ('second_triple', 'second_lateral', 'second_decking', 'conference', 'first_crossover'):
+                    rw = pg.evaluate(RAW, [key, sx['nextKey']]); rawc = {r['id'] for r in rw if r['cleared']}
+                    ok(rawc == set(un['cleared']), f'{tag} {viewer} {key}: the cleared issues ({len(un["cleared"])}) equal a reading of the raw fields (committees from referrals minus origin stops, and the raw stage) for the next deadline {sx["nextKey"]} ({len(rawc)})')
+                ok(not errs and not bad, f'{tag} {viewer} {key}: cleared heading: no console error')
+                pg.context.close()
+
+            # ---- a teammate whose issues are all in one topic is shown flat; one with several has Topics
+            pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=KV'); sk = pg.evaluate(STATEX, 'KV'); nt = len({c for r in sk['rows'] for c in r['cats']})
+            ok(nt == 1 and pg.locator('#topics').count() == 0 and any(pg.locator(f'#g-{k}').count() for k in SHOWS), f'{tag} KV: all {len(sk["rows"])} issues are in {nt} topic, so the groups are flat and there is no Topics group')
+            go(pg, '#/issues?who=NT'); sn = pg.evaluate(STATEX, 'NT'); nt2 = len({c for r in sn['rows'] for c in r['cats']})
+            ok(nt2 >= 2 and pg.locator('#topics a.sr3').count() == nt2, f'{tag} NT: issues in {nt2} topics keep the Topics rows ({pg.locator("#topics a.sr3").count()})')
+            pg.context.close()
+
+            # ---- fixtures put into the live page data (then taken out): the group must follow the Capitol's facts, not the app's own algorithm
+            pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=all'); un0 = union_ids(pg, '#/issues?who=all'); mv = un0['moving']
+            INJ = """async ([a, b, c]) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), S = d.S, now = Date.now(), H = 36e5; const alive = id => st.billsOfIssue(S.issues.find(i => String(i.id) === id)).find(st.isAlive);
+              const dead = S.issues.find(i => { const bs = st.billsOfIssue(i); return bs.length && bs.every(x => !st.isAlive(x) && x.stage === 'dead'); }), db = st.billsOfIssue(dead)[0], add = (id, b, at, status) => S.hearings.push({ id, bill_id: b.id, scheduled_at: new Date(at).toISOString(), status, committee: 'JDC', room: '325', testimony_deadline: null });
+              add('zz-cancel', alive(a), now + 30 * H, 'cancelled'); add('zz-past', alive(b), now - H, 'scheduled'); add('zz-dup1', alive(c), now + 30 * H, 'scheduled'); add('zz-dup2', alive(c), now + 30 * H, 'scheduled'); add('zz-dead', db, now + 30 * H, 'scheduled'); return String(dead.id); }"""
+            dead_id = pg.evaluate(INJ, mv[:3]); un1 = union_ids(pg, '#/issues?who=all'); where1 = {i: k for k in SHOWS for i in un1[k]}
+            ok(where1[mv[0]] == 'moving' and where1[mv[1]] == 'moving' and where1[mv[2]] == 'hearing' and where1[dead_id] == 'stopped' and all(len(un1[k]) == len(set(un1[k])) for k in SHOWS) and sum(len(v) for v in un1.values()) == sum(len(v) for v in un0.values()), f'{tag} fixtures: a cancelled future hearing and one that began an hour ago leave a moving issue moving; two rows for one hearing make it Hearing scheduled once; a future hearing on a stopped bill leaves a stopped issue stopped')
+            pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.S.hearings = d.S.hearings.filter(h => !String(h.id).startsWith('zz-')); }"); un2 = union_ids(pg, '#/issues?who=all')
+            ok(un2 == un0, f'{tag} fixtures: taken out again, every group is as it was')
+            pg.context.close()
+
+            # ---- a hearing today says "today"; the Calendar fold still opens and closes (Issues' fold buttons never touch Calendar's)
+            pg, errs, bad = open_as(br, 'KR', w, h, '#/issues?show=hearing'); sx = pg.evaluate(STATEX, 'mine'); tod = [r for r in sx['rows'] if r['state'] == 'hearing' and r['hearTxt'].startswith('today')]
+            ok(tod and all(any(x['sec'] == 'Hearing ' + r['hearTxt'] or x['sec'].startswith('Hearing ' + r['hearTxt']) for x in pg.evaluate(SECOND) if x['id'] == r['id']) for r in tod), f'{tag} KR: a hearing today reads "Hearing today ..." ({[r["hearTxt"] for r in tod]})')
+            go(pg, '#/calendar/sitting/HHS%7C2026-03-16T23%3A10%3A00.000Z'); f = pg.locator('#fbtn-cmte'); a0 = f.get_attribute('aria-expanded'); f.click(); pg.wait_for_timeout(150); a1 = f.get_attribute('aria-expanded'); snap(pg, 'i10_calendar_fold_still_works', tag); f.click(); pg.wait_for_timeout(150)
+            ok(a0 == 'true' and a1 == 'false' and f.get_attribute('aria-expanded') == 'true' and f.locator('svg').count() == 1 and not errs, f'{tag} Calendar: "The committee" closes and opens again and keeps its chevron')
+            pg.context.close()
 
     # phone: the list, then the picked thing in one column, with Back to Issues
     pg, errs, bad = open_as(br, 'JM', 390, 844, '#/issues')

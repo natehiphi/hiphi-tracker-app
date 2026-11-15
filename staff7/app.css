@@ -564,3 +564,30 @@ li[hidden] { display: none; }
 @container shb (min-width: 760px) { .cols { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); } }
 .pbody.cal a.hl { position: relative; z-index: 1; }   /* above the row's whole-row link */
 .pbody.cal .cmem a.lk { font-weight: 400; }
+
+/* ---------- Issues (R-398): the five groups, the summary, topics, and a topic's page ---------- */
+.summ { margin: var(--s3) 0 0; font-size: var(--f14); color: var(--muted); line-height: 1.6; }
+.sl { color: var(--act); font-weight: 700; text-decoration: none; }
+.twr a.lk, #tLeads a.lk { text-decoration: none; }
+.sl:hover, .sl:focus-visible, .twr a.lk:hover, .twr a.lk:focus-visible, #tLeads a.lk:hover, #tLeads a.lk:focus-visible { text-decoration: underline; text-underline-offset: var(--s1); }
+.sl[aria-current="true"] { background: var(--act); color: var(--on-act); border-radius: var(--pill); padding: 0 var(--s2); }
+.trail { display: flex; align-items: center; gap: var(--s1); margin: var(--s3) 0 var(--s2); font: 700 var(--f14)/1.3 var(--body); color: var(--ink); }
+.trail svg.ic { width: var(--icon-s); height: var(--icon-s); color: var(--muted); flex: none; }
+.ir2 svg.ic { flex: none; }
+.ir2.one > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ir2 .tr { display: inline-flex; align-items: center; gap: var(--s1); flex: none; }
+.ir2 .tr.risk { color: var(--amber); font-weight: 700; }
+.ir2 .sep { flex: none; }
+.sr3.ir.tp .go { flex: none; display: inline-flex; }
+.sr3.ir.tp .go svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.more.gfold { margin: 0 0 var(--s2) calc(var(--s6) + var(--s1)); }
+.sl.nw { white-space: nowrap; }
+.sbtn { background: none; border: 0; cursor: pointer; font-family: var(--body); font-size: var(--f14); min-height: var(--hit); padding: 0 var(--s2); }
+.hint.held { margin: 0 0 var(--s2); }
+.trows { list-style: none; margin: 0; padding: 0; max-width: var(--read); }
+.twr { display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s3) 0; }
+.twr + .twr { border-top: var(--line) solid var(--rule); }
+.twt { min-width: 0; }
+.twi { font: 600 var(--f16)/1.4 var(--head); }
+.twl { color: var(--ink); font-size: var(--f14); font-weight: 400; margin-top: var(--s1); }
+.twl a.lk { font-weight: 400; }
