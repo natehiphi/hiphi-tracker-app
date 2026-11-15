@@ -11,7 +11,7 @@ import { sittingDraft, roomName, streamOf, hearingAhead, billRef, lateLine } fro
 import { whereWords } from '../staff6/steps.js';
 import { ic } from './icons7.js';
 import { esc, plainBand } from './parts.js';
-import { billName, billNo, cmteWords, dayTime, first, advocate, VERB } from './steps.js';
+import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
 import { whoOf, setFor, sessionOf, posLine, stepOn, testimonyDue, tint, bindIssues, ui } from './issues.js';
@@ -242,13 +242,6 @@ export function calendarModel({ me, open, rt, people, phone }) {
     + `<p class="rdys${rd.late ? ' riskt' : ''}">${rd.late ? ic('triangle-alert') : ''}<span>${esc(rd.say)}</span></p>${rd.go ? `<a class="btn filled" id="rdyGo" href="#/do/${enc(rd.go.id)}">${esc(rd.go.verb)}</a>` : ''}</section>`;
 
   // ---- the right column: the other bills at this sitting, and the committee
-  const alsoOf = s => { const have = new Set(s.rows.map(r => r.b.id)), seen = new Set(), out = [];
-    for (const h of S.hearings || []) { if (h.status === 'cancelled' || h.bill_id == null || have.has(h.bill_id) || seen.has(h.bill_id) || sitKey(h) !== s.key) continue;
-      const b = (S.bills || []).find(x => x.id === h.bill_id); if (!b || b.tracked === false || !isAlive(b)) continue; seen.add(b.id); out.push(b); }
-    return out.sort(byNo); };
-  const leadFirst = b => { const live = x => !!x && advocate(x)?.is_active !== false; let ids = [...new Set((S.assignments?.[b.id] || []).filter(live))];
-    if (!ids.length) { const l = (S.billIssues || []).find(x => x.bill_id === b.id), i = l && (S.issues || []).find(y => y.id === l.issue_id && !y.archived_at); if (i && live(i.owner_id)) ids = [i.owner_id]; }
-    return ids.map(x => first(advocate(x))).join(' and '); };
   const legLink = l => http(l.capitol_url) ? `<a class="lk" target="_blank" rel="noopener" href="${esc(l.capitol_url)}">${esc(l.name)}</a>` : esc(l.name);
   const cmteOf = code => { const c = S.committees?.[code]; if (!c) return null;
     const ms = (S.committeeMembers || []).filter(m => m.committee === code).map(m => ({ role: m.role, l: (S.legislators || []).find(l => l.id === m.legislator_id) })).filter(x => x.l);
@@ -267,12 +260,10 @@ export function calendarModel({ me, open, rt, people, phone }) {
     const our = `<h2 class="sh" id="ourBills">${s.rows.length === 1 ? 'Our bill' : `Our ${s.rows.length} bills`}</h2><ul class="brows">${s.rows.map(r => {
       const st = stateOf(r.h, r.b), dueLine = one ? '' : line(esc(`${dueWord(r.due)} ${dayTime(r.due)}`), 'bst');
       return billLi(r.b, r.issue, `<p class="bmeta">${esc(posLine(r.b, r.issue, me))}</p>${dueLine}${stLine(st, s, r, several)}`, moveOf(r.b, false, rd.go?.id), linksRow(r.b, r.issue, r.h)); }).join('')}</ul>`;
-    const others = alsoOf(s), noticeLine = http(h.notice_url) ? `<p class="agnote">The full agenda is on the <a class="lk" target="_blank" rel="noopener" href="${esc(h.notice_url)}">hearing notice</a>.</p>` : '';
-    let right = '';
-    if (others.length) right += foldOf('also', 'Also at this hearing', esc(`${n(others.length, 'other bill', 'other bills')} the team tracks`),
-      `<ul class="alsol">${others.map((b, k) => { const ld = leadFirst(b); return `<li${k >= ALSO_SHOW && !ui.alsoAll ? ' hidden class="alx"' : k >= ALSO_SHOW ? ' class="alx"' : ''}><a class="alr" href="${billHrefOf(b, null)}"><span class="aln">${esc(billName(b))}</span><span class="bno">${esc(billNo(b))}</span></a>${ld ? `<span class="alead">${esc(ld)} ${ld.includes(' and ') ? 'lead' : 'leads'}</span>` : ''}</li>`; }).join('')}</ul>`
-      + (others.length > ALSO_SHOW && !ui.alsoAll ? `<button class="btn text qt" type="button" id="alsoMore">Show ${others.length - ALSO_SHOW} more</button>` : '') + noticeLine);
-    else right += noticeLine;
+    // the notice's own address when the hearing row holds one; else the first listed bill's Capitol page (where the notice is posted); else no row at all
+    const sUrl = s.rows[0]?.b.state_url, ag = (what, url) => `<section class="fold agenda"><h2 class="fh"><span class="ft">The agenda</span></h2><p class="agl">${what[0]}<a class="lk" target="_blank" rel="noopener" href="${esc(url)}">${what[1]}${ic('external-link')}</a></p></section>`;
+    const agenda = http(h.notice_url) ? ag(['The full agenda is on the ', 'hearing notice'], h.notice_url) : http(sUrl) ? ag(['The hearing notice is on the ', 'bill’s Capitol page'], sUrl) : '';
+    let right = agenda;
     const cms = [...new Set(String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean))].map(cmteOf).filter(Boolean);
     if (cms.length) right += foldOf('cmte', 'The committee', (() => { const ch = [...new Set(cms.flatMap(c => c.chairs.map(x => x.l.name)))]; return ch.length ? `${ch.length > 1 ? 'Chairs' : 'Chair'} ${nameList(ch.map(nbn))}${cms.length === 1 ? ` · ${n(cms[0].count, 'member', 'members')}` : ''}` : cms.length === 1 ? n(cms[0].count, 'member', 'members') : ''; })(),
       cms.map(c => `<div class="cm"><h3 class="cmn">${esc(c.name)}</h3><ul class="cmr">${[...c.chairs.map(x => ['Chair', x.l]), ...c.vices.map(x => ['Vice chair', x.l])].map(([r, l]) => `<li><span class="cmrole">${r}</span><span class="cmwho">${legLink(l)}</span><span class="cmroom">${l.room ? `<span>Room ${esc(l.room)}</span>` : ''}${l.phone ? `<span>${esc(l.phone)}</span>` : ''}</span></li>`).join('')}</ul>`
@@ -319,13 +310,10 @@ export function calendarModel({ me, open, rt, people, phone }) {
 }
 
 // Binding: the teammate picker as Issues has it; the two folds (open by default only when the sheet has two columns, then kept in ui so the minute's redraw does not close them); the day paper's and the sheet's scroll kept across that redraw.
-const ALSO_SHOW = 5;   // rows of "Also at this hearing" shown before "Show N more"
 const WIDE = 760;   // the width, in pixels, at which the hearing sheet has two columns (the same number as its @container rule in app.css)
 function bindCal() {
   bindIssues();
   const cq = document.querySelector('.cq'), wide = !!cq && cq.clientWidth >= WIDE; ui.folds = ui.folds || {};
-  const more = document.getElementById('alsoMore');
-  if (more) more.addEventListener('click', () => { ui.alsoAll = true; document.querySelectorAll('.alsol li.alx').forEach(l => { l.hidden = false; }); more.remove(); });
   document.querySelectorAll('.fbtn').forEach(b => {
     const k = b.dataset.fold, body = document.getElementById(b.getAttribute('aria-controls')), set = on => { b.setAttribute('aria-expanded', String(on)); body.hidden = !on; };
     set(k in ui.folds ? ui.folds[k] : wide); b.addEventListener('click', () => { const on = b.getAttribute('aria-expanded') !== 'true'; ui.folds[k] = on; set(on); });   // only a press is remembered: the default follows the sheet's width

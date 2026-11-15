@@ -17,7 +17,7 @@ NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && [...docume
 SMALL = "() => [...document.querySelectorAll('.btn, .sr3, .seg, .pk, .cgc, .back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.className + ' ' + e.innerText.slice(0, 20))"
 H1 = "() => [...document.querySelectorAll('main h1')].find(h => h.getBoundingClientRect().width > 0)?.innerText.trim()"
 # every control on the page that could write: a button other than the teammate picker and the sheet's folds (they only open and close), a form field, a link to a step
-WRITERS = "() => [...document.querySelectorAll('.paper button:not(#whoMate):not(#whoChange):not(.fbtn):not(#alsoMore), .wl button:not(#whoMate):not(#whoChange), .paper input, .paper textarea, .paper select, .wl input')].map(e => e.tagName + ' ' + e.innerText.slice(0, 20))"
+WRITERS = "() => [...document.querySelectorAll('.paper button:not(#whoMate):not(#whoChange):not(.fbtn), .wl button:not(#whoMate):not(#whoChange), .paper input, .paper textarea, .paper select, .wl input')].map(e => e.tagName + ' ' + e.innerText.slice(0, 20))"
 # a link to a step: allowed only on Mine, as the quiet "Your move" link (never filled)
 STEPS = "() => [...document.querySelectorAll('a[href^=\"#/do/\"]:not(#rdyGo)')].map(a => [a.className, a.innerText.trim()])"
 SITS = "root => [...document.querySelectorAll(root + ' [data-sit]')].map(a => [a.dataset.sit, a.innerText.replace(/\\s+/g, ' ').trim()])"
@@ -110,21 +110,18 @@ SHEET = """() => { const q = s => document.querySelector(s), t = s => q(s)?.inne
     dayCol: q('.dayp .cgcol')?.getAttribute('aria-labelledby') || '', dayH: t('.dayp .dph'), marked: [...document.querySelectorAll('.dayp a[aria-current="true"]')].map(a => [a.dataset.sit || '', a.dataset.td || '', a.dataset.dl || '']),
     marks: document.querySelectorAll('.dayp .cgc[aria-current="true"]').length, outline: q('.dayp .cgc[aria-current="true"]') ? getComputedStyle(q('.dayp .cgc[aria-current="true"]')).outlineColor + '|' + getComputedStyle(q('.dayp .cgc[aria-current="true"]')).outlineStyle : '',
     filled: [...document.querySelectorAll('.sheetp .btn.filled, .paper .btn.filled')].length, doLinks: document.querySelectorAll('.sheetp a[href^="#/do/"], .paper a[href^="#/do/"]').length, rdy: t('.rdy'), rdyGo: q('#rdyGo')?.getAttribute('href') || '',
-    bills: document.querySelectorAll('.cl .brow').length, also: document.querySelectorAll('.alsol li').length, alsoSum: t('.fbtn[data-fold="also"] .fs'), folds: [...document.querySelectorAll('.fbtn')].map(b => [b.dataset.fold, b.getAttribute('aria-expanded'), !!document.getElementById(b.getAttribute('aria-controls'))]),
+    bills: document.querySelectorAll('.cl .brow').length, agenda: t('.agenda'), agendaLink: q('.agenda a') ? [q('.agenda a').getAttribute('href'), q('.agenda a').getAttribute('target'), q('.agenda a').getAttribute('rel')] : null, folds: [...document.querySelectorAll('.fbtn')].map(b => [b.dataset.fold, b.getAttribute('aria-expanded'), !!document.getElementById(b.getAttribute('aria-controls'))]),
     cm: [...document.querySelectorAll('.cm')].map(c => ({ name: c.querySelector('.cmn').innerText.trim(), rows: [...c.querySelectorAll('.cmr li')].map(li => [li.querySelector('.cmrole').innerText.trim(), li.querySelector('.cmwho').innerText.trim(), li.querySelector('a')?.getAttribute('href') || '', li.querySelector('a')?.getAttribute('target') || '']), members: [...c.querySelectorAll('.cmem a')].map(a => [a.innerText.trim(), a.getAttribute('href')]) })),
     cmSum: [...document.querySelectorAll('.fbtn[data-fold="cmte"] .fs')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()),
     prev: q('#dayPrev') ? [q('#dayPrev').tagName, q('#dayPrev').getAttribute('aria-disabled'), q('#dayPrev').getAttribute('aria-label'), q('#dayPrev').getAttribute('href')] : null, next: q('#dayNext') ? [q('#dayNext').tagName, q('#dayNext').getAttribute('aria-disabled'), q('#dayNext').getAttribute('aria-label'), q('#dayNext').getAttribute('href')] : null,
     close: q('#calClose') ? [q('#calClose').getAttribute('aria-label'), q('#calClose').getAttribute('href')] : null, whole: q('#dayWeek')?.getAttribute('href') || '', back: !!q('#backWeek'),
     side: document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.paper, .sheetp, .dayp')].every(p => p.scrollWidth <= p.clientWidth), pageScroll: document.documentElement.scrollHeight <= innerHeight, sheetOverflow: q('.sheetp') ? getComputedStyle(q('.sheetp')).overflowY : '' }; }"""
-ALSO = """async key => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'); const S = d.S;
-  const sk = h => String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).sort().join('/') + '|' + new Date(h.scheduled_at).toISOString();
-  const ids = new Set(); for (const h of S.hearings) { if (h.status === 'cancelled' || sk(h) !== key) continue; const b = S.bills.find(x => x.id === h.bill_id); if (b && b.tracked !== false && st.isAlive(b)) ids.add(b.id); } return ids.size; }"""
 LINKS = """async key => { const d = await import('/staff6/data.js'), m = await import('/staff6/model.js'); const S = d.S, out = [];
   const sk = h => String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).sort().join('/') + '|' + new Date(h.scheduled_at).toISOString(), http = u => /^https?:\\/\\//i.test(String(u || '').trim());
   for (const row of document.querySelectorAll('.cl .brow')) { const ref = decodeURIComponent(row.querySelector('.bn2').getAttribute('href').replace(/^#\\/bill\\//, '').split('?')[0]); const b = S.bills.find(x => m.billRef(x) === ref); if (!b) { out.push({ ref, none: 1 }); continue; }
     // the draft read straight from the data (S.drafts, by hearing_id), never through the model's sittingDraft: the draft that names this hearing, or names none and has this hearing's committee codes
     const h = S.hearings.find(x => x.bill_id === b.id && x.status !== 'cancelled' && sk(x) === key), dd = h && (S.drafts[b.id] || []).find(x => x.status !== 'cancelled' && (x.hearing_id ? x.hearing_id === h.id : String(x.committee || '').split('/').map(c => c.trim()).sort().join('/') === String(h.committee).split('/').map(c => c.trim()).sort().join('/'))), a = t => [...row.querySelectorAll('.blinks a')].find(x => x.innerText.trim() === t);
-    out.push({ ref, bill: b.id, hearing: h && h.id, committee: h && h.committee, wantLetter: dd && http(dd.doc_url) ? dd.doc_url : null, letter: a('Open the letter')?.getAttribute('href') || null, letterTarget: a('Open the letter')?.getAttribute('target') || null, cap: a('On the Capitol site')?.getAttribute('href') || null, capTarget: a('On the Capitol site')?.getAttribute('target') || null, page: a('Bill page') ? 1 : 0 }); }
+    out.push({ ref, bill: b.id, hearing: h && h.id, committee: h && h.committee, notice: h && h.notice_url, wantLetter: dd && http(dd.doc_url) ? dd.doc_url : null, letter: a('Open the letter')?.getAttribute('href') || null, letterTarget: a('Open the letter')?.getAttribute('target') || null, cap: a('On the Capitol site')?.getAttribute('href') || null, capTarget: a('On the Capitol site')?.getAttribute('target') || null, page: a('Bill page') ? 1 : 0 }); }
   return out; }"""
 BILLS = {b['id']: b for b in SNAP['bills']}
 def day_of(label): return label.replace('g-', '')
@@ -238,6 +235,12 @@ with sync_playwright() as p:
         go(pg, '#/calendar?view=list&w=2026-03-23'); mon = dict((a, b) for a, b in pg.evaluate(DAYS))['Mon, Mar 23']
         ok(mon[0] == 'Testimony due Sun 3:00 PM' and mon[1].startswith('9:00 AM · '), f'{tag}: the next Monday: "Testimony due Sun 3:00 PM", then the 9:00 AM sitting ({mon})')
         ok(pg.locator('.wl .hint.nothing').count() >= 1, f'{tag}: in a week with something, a day with nothing keeps a quiet "Nothing scheduled"')
+        go(pg, '#/calendar/sitting/' + kq(KEYS['AGR']) + '?view=list'); ag = pg.locator('.agenda a'); ok(ag.count() == 1 and ag.get_attribute('href') == 'https://example.com/notice' and ag.get_attribute('target') == '_blank' and 'noopener' in ag.get_attribute('rel') and re.sub(r'\s+', ' ', pg.locator('.agenda').inner_text()).startswith('The agenda The full agenda is on the hearing notice'), f'{tag}: a hearing with a notice address: the agenda row links to it in a new tab ({pg.locator(".agenda").inner_text()!r})')
+        go(pg, '#/calendar/sitting/' + kq(KEYS['WLO']) + '?view=list'); ag = pg.locator('.agenda a'); su = pg.evaluate("async () => { const d = await import('/staff6/data.js'); return d.S.bills.find(b => b.id === d.S.hearings.find(h => h.id === 'cal-test-6').bill_id).state_url; }")
+        ok(ag.count() == 1 and ag.get_attribute('href') == su and ag.get_attribute('target') == '_blank' and 'noopener' in ag.get_attribute('rel') and 'bill’s Capitol page' in pg.locator('.agenda').inner_text() and 'No notice' not in body(pg), f'{tag}: no notice address: the row links to the first bill\'s Capitol page, from the data ({su})')
+        go(pg, '#/calendar/sitting/' + kq(KEYS['JHA']) + '?view=list'); ok(pg.locator('.agenda a[href^="javascript:"]').count() == 0 and pg.locator('.agenda a').count() == 1 and pg.locator('.agenda a').get_attribute('href').startswith('http') and pg.locator('.agenda a').get_attribute('href') != 'javascript:alert(1)', f'{tag}: a javascript: notice is never a link; the row falls back to the bill\'s Capitol page')
+        pg.evaluate("async () => { const d = await import('/staff6/data.js'); for (const b of d.S.bills) b.state_url = null; }"); go(pg, '#/calendar'); go(pg, '#/calendar/sitting/' + kq(KEYS['WLO']) + '?view=list'); ok(pg.locator('.agenda').count() == 0, f'{tag}: neither a notice nor a bill page: no agenda row')
+        go(pg, '#/calendar/sitting/' + kq(KEYS['AGR']) + '?view=list'); ok(pg.locator('.agenda a').get_attribute('href') == 'https://example.com/notice', f'{tag}: with a notice address the row is the same whatever the bills hold')
         go(pg, '#/calendar/sitting/' + kq(KEYS['JHA']) + '?view=list'); ok(pg.locator('.paper a[href^="javascript:"], .paper a[href^="ftp:"]').count() == 0 and 'Watch it live' not in pg.locator('.paper').inner_text() and 'Hearing notice' not in pg.locator('.paper').inner_text(), f'{tag}: a notice or video link that is not http(s) is not drawn')
         ok('Mar 23' in pg.locator('#weekRow').inner_text(), f'{tag}: a sitting opened with no week shows its own week on the left')
         go(pg, '#/calendar/sitting/' + kq(KEYS['AGR']) + '?view=list&w=2026-01-05'); ok('Mar 16' in pg.locator('#weekRow').inner_text() and pg.locator(f'.wl a.sel[data-sit="{KEYS["AGR"]}"]').count() == 1, f'{tag}: a sitting opened with a ?w of another week still shows its own week, with its row marked')
@@ -382,7 +385,7 @@ with sync_playwright() as p:
 
     # ================= every hearing of this week, picked in the grid: five views =================
     VIEWS = [('KR', '', 'KR mine'), ('JM', '', 'JM mine'), ('KV', '', 'KV mine'), ('JM', 'who=all', 'JM sees Everyone'), ('KR', 'who=KV', 'KR sees KV')]
-    seen_letters = 0; seen_also = 0; seen_cm = 0; seen_btn = 0
+    seen_letters = 0; seen_agenda = 0; seen_cm = 0; seen_btn = 0
     for who, vq, lab in VIEWS:
         pg, errs, bad = open_as(br, who, 1440, 900, '#/calendar' + ('?' + vq if vq else ''))
         keys = pg.evaluate("() => [...new Set([...document.querySelectorAll('.cgrid a[data-sit]')].map(a => a.dataset.sit))]"); look = bool(vq)
@@ -411,10 +414,13 @@ with sync_playwright() as p:
                 if len(want) > 1 and not (I['cmSum'] and I['cmSum'][0].startswith('Chair') and not re.search(r'\d|:', I['cmSum'][0])): P.append(f'joint closed line {I["cmSum"]}')
                 seen_cm += 1
             if len(want) != len(got): P.append(f'committees {len(got)} vs {len(want)}')
-            tot_here = pg.evaluate(ALSO, key); exp_also = tot_here - I['bills']
-            if I['also'] != exp_also: P.append(f'also {I["also"]} vs {exp_also}')
-            if I['also']: seen_also += 1; ok_sum = f'{I["also"]} other bill' in I['alsoSum']; P += [] if ok_sum else [f'also line {I["alsoSum"]}']
             L = pg.evaluate(LINKS, key)
+            # the agenda row: the hearing's notice address when it holds one, else the first listed bill's Capitol page, else no row
+            nu = L[0].get('notice') if L else None; want_ag = nu if nu and re.match(r'https?://', nu, re.I) else (L[0].get('cap') if L else None)
+            if want_ag:
+                seen_agenda += 1; al = I['agendaLink']; txt = 'The full agenda is on the hearing notice' if want_ag == nu else 'The hearing notice is on the bill’s Capitol page'
+                if not (al and al[0] == want_ag and al[1] == '_blank' and 'noopener' in (al[2] or '') and I['agenda'] == 'The agenda ' + txt): P.append(f'agenda {al} {I["agenda"]!r} want {want_ag}')
+            elif I['agenda'] or I['agendaLink']: P.append(f'agenda row drawn with nothing to link {I["agenda"]!r}')
             for r in L:
                 wl = r.get('wantLetter'); wc = (BILLS.get(r.get('bill')) or {}).get('state_url'); wc = wc if wc and re.match(r'https?://', wc, re.I) else None
                 if r.get('none') or r['letter'] != wl or r['cap'] != wc or not r['page'] or (r['cap'] and r['capTarget'] != '_blank') or (r['letter'] and r['letterTarget'] != '_blank'): P.append(f'links {r} want {wl} {wc}')
@@ -434,7 +440,7 @@ with sync_playwright() as p:
             if not (pg.locator('.cgrid').count() == 1 and pg.locator('.split').count() == 0 and (not vq or vq in pg.url) and 'sitting' not in pg.url): P.append(f'did not return to the grid {pg.url}')
             ok(not P, f'{lab}: hearing {key[:40]} picked in the grid ({n_ + 1}/{len(keys)}) {P[:4]}')
         ok(not errs and not bad, f'{lab}: no console error, nothing left 127.0.0.1 ({errs[:1]} {bad[:1]})'); pg.context.close()
-    ok(seen_cm >= 4 and seen_also >= 1 and seen_btn >= 1, f'the walk covered committees ({seen_cm}), other-bills folds ({seen_also}) and a filled button ({seen_btn}); letters seen {seen_letters}')
+    ok(seen_cm >= 4 and seen_btn >= 1 and seen_agenda >= 1, f'the walk covered committees ({seen_cm}), agenda rows ({seen_agenda}) and a filled button ({seen_btn}); letters seen {seen_letters}')
 
     # ================= testimony times and deadlines picked in the grid; the arrows =================
     pg, errs, bad = open_as(br, 'KR', 1440, 900, '#/calendar'); tds = pg.locator('.cgrid a[data-td]'); n_td = tds.count(); dls_ = pg.locator('.cgrid a[data-dl]').count(); P = []
@@ -474,18 +480,18 @@ with sync_playwright() as p:
         both = None
         for key in keys:
             pg.locator(f'.cgrid a[data-sit="{key}"]').first.click(); pg.wait_for_timeout(250)
-            if pg.locator('.fbtn').count() == 2: both = key; break
+            if pg.locator('.fbtn').count() == 1: both = key; break
             pg.click('#calClose'); pg.wait_for_timeout(200)
-        ok(both is not None, f'{tag}: a hearing with both folds is in the week')
-        I = pg.evaluate(SHEET); ok(all(f[1] == 'true' and f[2] for f in I['folds']) and I['side'], f'{tag}: in the Week view both folds start open (the sheet has two columns) ({I["folds"]})')
-        pg.click('.fbtn[data-fold="also"]'); pg.wait_for_timeout(150); ok(pg.locator('.fbtn[data-fold="also"]').get_attribute('aria-expanded') == 'false' and not pg.locator('#fold-also').is_visible(), f'{tag}: a fold closes when pressed')
-        pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(200); ok(pg.locator('.fbtn[data-fold="also"]').get_attribute('aria-expanded') == 'false' and pg.locator('.fbtn[data-fold="cmte"]').get_attribute('aria-expanded') == 'true', f'{tag}: the minute\'s redraw does not change a fold')
-        pg.click('.fbtn[data-fold="also"]'); snap(pg, 'cal_hearing_week', tag)
+        ok(both is not None, f'{tag}: a hearing with the committee fold is in the week')
+        I = pg.evaluate(SHEET); ok(all(f[1] == 'true' and f[2] for f in I['folds']) and I['side'], f'{tag}: in the Week view the committee fold starts open (the sheet has two columns) ({I["folds"]})')
+        pg.click('.fbtn[data-fold="cmte"]'); pg.wait_for_timeout(150); ok(pg.locator('.fbtn[data-fold="cmte"]').get_attribute('aria-expanded') == 'false' and not pg.locator('#fold-cmte').is_visible(), f'{tag}: a fold closes when pressed')
+        pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(200); ok(pg.locator('.fbtn[data-fold="cmte"]').get_attribute('aria-expanded') == 'false', f'{tag}: the minute\'s redraw does not change a fold')
+        pg.click('.fbtn[data-fold="cmte"]'); snap(pg, 'cal_hearing_week', tag)
         # the List, same hearing: the left column stays, no X, the sheet is narrower (one column at 1280), folds follow its width
-        go(pg, '#/calendar/sitting/' + both.replace('|', '%7C').replace(':', '%3A').replace('/', '%2F') + '?view=list'); I = pg.evaluate(SHEET)
+        pg.context.close(); pg, errs, bad = open_as(br, 'KR', w, h, '#/calendar/sitting/' + both.replace('|', '%7C').replace(':', '%3A').replace('/', '%2F') + '?view=list'); I = pg.evaluate(SHEET)   # a fresh page: the defaults, not the fold pressed above
         ok(pg.locator('.wl #weekRow').count() == 1 and I['close'] is None and I['split'] == 0 and I['bills'] >= 1 and I['side'] and I['filled'] <= 1, f'{tag}: the List keeps its left column and has no Close; the same sheet opens on the right')
         cols = pg.evaluate("() => getComputedStyle(document.querySelector('.cols')).gridTemplateColumns.split(' ').length")
-        ok(all((f[1] == 'true') == (cols == 2) for f in I['folds'] if f[0] == 'cmte') and dict((f[0], f[1]) for f in I['folds'])['also'] == 'true' and (w != 1280 or cols == 1), f'{tag}: in the List the folds follow the sheet\'s width ({cols} column(s); {I["folds"]})'); snap(pg, 'cal_hearing_list', tag)
+        ok(all((f[1] == 'true') == (cols == 2) for f in I['folds'] if f[0] == 'cmte') and (w != 1280 or cols == 1), f'{tag}: in the List the folds follow the sheet\'s width ({cols} column(s); {I["folds"]})'); snap(pg, 'cal_hearing_list', tag)
         ok(not errs and not bad, f'{tag}: folds and list: no console error ({errs[:1]} {bad[:1]})'); pg.context.close()
 
     # ================= round two: folds, sent back, late once, show more, words, deadline hearing links =================
@@ -501,19 +507,10 @@ with sync_playwright() as p:
         ok(pg.evaluate("() => document.activeElement && document.activeElement.id") == fid, f'focus stays on the fold button across the minute\'s redraw ({fid})')
     ok(not re.search(r'second review', body(pg), re.I), 'no "Second review" in the Week view sheet'); go(pg, '#/calendar'); ok(not re.search(r'second review', body(pg), re.I), 'no "Second review" in the grid')
     go(pg, '#/calendar?view=list'); ok(not re.search(r'second review', body(pg), re.I), 'no "Second review" in the List')
-    # Show N more: the Wednesday 1:00 PM House/Senate Health sitting has many bills the team tracks
-    HK = 'HHS|2026-03-18T23:00:00.000Z'; kq2 = HK.replace('|', '%7C').replace(':', '%3A')
-    go(pg, '#/calendar/sitting/' + kq2); tot = pg.evaluate(ALSO, HK); I = pg.evaluate(SHEET); ours = I['bills']; want_other = tot - ours
-    if pg.locator('#fbtn-also').get_attribute('aria-expanded') != 'true': pg.click('#fbtn-also')
-    vis = pg.evaluate("() => [...document.querySelectorAll('.alsol li')].filter(l => l.getBoundingClientRect().height > 0).length")
-    ok(want_other > 5 and pg.locator('#alsoMore').count() == 1 and vis == 5 and pg.locator('#alsoMore').inner_text() == f'Show {want_other - 5} more', f'Also at this hearing: five rows and "Show {want_other - 5} more" ({vis} shown, {want_other} in the data)')
-    pg.evaluate('window.__staff7Tick()'); pg.click('#alsoMore'); pg.wait_for_timeout(150)
-    vis = pg.evaluate("() => [...document.querySelectorAll('.alsol li')].filter(l => l.getBoundingClientRect().height > 0).length")
-    ok(vis == want_other and pg.locator('#alsoMore').count() == 0, f'Show more reveals all rows in place ({vis} = {want_other})')
-    pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(200)
-    vis = pg.evaluate("() => [...document.querySelectorAll('.alsol li')].filter(l => l.getBoundingClientRect().height > 0).length"); ok(vis == want_other, f'the minute\'s redraw keeps them shown ({vis})')
-    row1 = pg.evaluate("() => { const r = document.querySelector('.alsol li'); return [r.querySelector('.alr').innerText.replace(/\\s+/g, ' '), getComputedStyle(r.querySelector('.alr')).fontWeight, r.querySelector('.alead')?.innerText || '', getComputedStyle(r.querySelector('.alr')).whiteSpace]; }")
-    ok(row1[1] == '400' and (not row1[2] or re.search(r' (leads|lead)$', row1[2])), f'an Also row is the short name and number in regular weight, with its lead on its own line ({row1})')
+    # no "Also at this hearing" anywhere in Calendar
+    for hh_ in ('#/calendar/sitting/HHS%7C2026-03-18T23%3A00%3A00.000Z', '#/calendar/sitting/HHS%7C2026-03-18T23%3A00%3A00.000Z?who=all&view=list'):
+        go(pg, hh_); ok('Also at this hearing' not in body(pg) and pg.locator('.alsol').count() == 0 and pg.locator('#alsoMore').count() == 0, f'no "Also at this hearing" at {hh_[-30:]}')
+    go(pg, '#/calendar/sitting/HHS%7C2026-03-18T23%3A00%3A00.000Z?view=list'); ok(pg.locator('.agenda').count() == 1 and pg.locator('.agenda .fbtn').count() == 0 and pg.locator('.agenda svg').count() <= 1, 'the agenda row is not a fold')
     ok(not errs and not bad, f'round two page one: no console error ({errs[:1]} {bad[:1]})'); pg.context.close()
 
     # sent back, late once, late with several bills (hand-made data)
