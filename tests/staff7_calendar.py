@@ -47,9 +47,9 @@ SETUP = """async () => { const d = await import('/staff6/data.js'), is = await i
   D.stage_override = 'dead';
   S.hearings = [
     mk(A, { committee: 'AGR', scheduled_at: '2026-03-21T02:00:00.000Z', testimony_deadline: '2026-03-19T20:00:00.000Z', stream_url: 'https://example.com/live', notice_url: 'https://example.com/notice' }),   // 0 Fri 20 Mar 4:00 PM, testimony Thu 10:00 AM
-    mk(B, { committee: 'AGR', scheduled_at: '2026-03-21T02:00:00.000Z', testimony_deadline: '2026-03-19T20:00:00.000Z' }),   // 1 the same sitting (B's letter is filed)
+    mk(B, { committee: 'AGR', scheduled_at: '2026-03-21T02:00:00.000Z', testimony_deadline: '2026-03-19T20:00:00.000Z' }),   // 1 the same sitting (B's testimony is filed)
     mk(B, { committee: 'AGR', scheduled_at: '2026-03-21T02:00:00.000Z', testimony_deadline: '2026-03-19T20:00:00.000Z' }),   // 2 a repeated row: shown once
-    mk(C, { committee: 'ECD', scheduled_at: '2026-03-21T20:00:00.000Z' }),   // 3 Sat 21 Mar 10:00 AM, no stated testimony time: a day before, Fri 10:00 AM (C's letter is filed)
+    mk(C, { committee: 'ECD', scheduled_at: '2026-03-21T20:00:00.000Z' }),   // 3 Sat 21 Mar 10:00 AM, no stated testimony time: a day before, Fri 10:00 AM (C's testimony is filed)
     mk(A, { committee: 'JHA', scheduled_at: '2026-03-18T01:00:00.000Z', status: 'cancelled' }),   // 4 Tue 17 Mar 3:00 PM, cancelled
     mk(D, { committee: 'HLT', scheduled_at: '2026-03-18T19:00:00.000Z' }),   // 5 Wed 18 Mar 9:00 AM, a bill that has stopped
     mk(A, { committee: 'WLO', scheduled_at: '2026-03-17T00:00:00.000Z', testimony_deadline: '2026-03-16T18:00:00.000Z' }),   // 6 Mon 16 Mar 2:00 PM, testimony was due 8:00 AM, hearing still ahead: late, still accepted
@@ -121,7 +121,7 @@ LINKS = """async key => { const d = await import('/staff6/data.js'), m = await i
   for (const row of document.querySelectorAll('.cl .brow')) { const ref = decodeURIComponent(row.querySelector('.bn2').getAttribute('href').replace(/^#\\/bill\\//, '').split('?')[0]); const b = S.bills.find(x => m.billRef(x) === ref); if (!b) { out.push({ ref, none: 1 }); continue; }
     // the draft read straight from the data (S.drafts, by hearing_id), never through the model's sittingDraft: the draft that names this hearing, or names none and has this hearing's committee codes
     const h = S.hearings.find(x => x.bill_id === b.id && x.status !== 'cancelled' && sk(x) === key), dd = h && (S.drafts[b.id] || []).find(x => x.status !== 'cancelled' && (x.hearing_id ? x.hearing_id === h.id : String(x.committee || '').split('/').map(c => c.trim()).sort().join('/') === String(h.committee).split('/').map(c => c.trim()).sort().join('/'))), a = t => [...row.querySelectorAll('.blinks a')].find(x => x.innerText.trim() === t);
-    out.push({ ref, bill: b.id, hearing: h && h.id, committee: h && h.committee, notice: h && h.notice_url, wantLetter: dd && http(dd.doc_url) ? dd.doc_url : null, letter: a('Open the letter')?.getAttribute('href') || null, letterTarget: a('Open the letter')?.getAttribute('target') || null, cap: a('On the Capitol site')?.getAttribute('href') || null, capTarget: a('On the Capitol site')?.getAttribute('target') || null, page: a('Bill page') ? 1 : 0 }); }
+    out.push({ ref, bill: b.id, hearing: h && h.id, committee: h && h.committee, notice: h && h.notice_url, wantLetter: dd && http(dd.doc_url) ? dd.doc_url : null, letter: a('Open the testimony')?.getAttribute('href') || null, letterTarget: a('Open the testimony')?.getAttribute('target') || null, cap: a('On the Capitol site')?.getAttribute('href') || null, capTarget: a('On the Capitol site')?.getAttribute('target') || null, page: a('Bill page') ? 1 : 0 }); }
   return out; }"""
 BILLS = {b['id']: b for b in SNAP['bills']}
 def day_of(label): return label.replace('g-', '')
@@ -223,7 +223,7 @@ with sync_playwright() as p:
         ok(re.search(r'Testimony is due\s+Thu 10:00 AM', t) and t.count('Testimony is due') == 1 and t.count('Testimony due') == 0, f'{tag}: both bills share one testimony time, so it is said once, in the readiness block ({t.count("Testimony is due")})')
         rows = pg.locator('.paper .brow'); ok(rows.count() == 2 and all(re.match(r'^#/bill/[^?]+\?i=', hr) for hr in hrefs(pg, '.paper .bn2')), f'{tag}: each of our bills is a row linking to its bill page ({hrefs(pg, ".paper .bn2")})')
         txt = [rows.nth(i).inner_text() for i in range(2)]
-        ok(all(re.search(r'(Support|Oppose|Monitor|No position|Neutral|Comments|Amend)', x) and (' lead' in x or 'No lead yet' in x) for x in txt) and sum('Letter filed' in x for x in txt) == 1 and sum('Letter not started' in x or 'Letter being written' in x or 'Letter sent back' in x for x in txt) == 1, f'{tag}: each bill has its position and lead and where its testimony stands (one Filed, one not) ({txt})')
+        ok(all(re.search(r'(Support|Oppose|Monitor|No position|Neutral|Comments|Amend)', x) and (' lead' in x or 'No lead yet' in x) for x in txt) and sum('Testimony filed' in x for x in txt) == 1 and sum('Testimony not started' in x or 'Testimony being written' in x or 'Testimony sent back' in x for x in txt) == 1, f'{tag}: each bill has its position and lead and where its testimony stands (one Filed, one not) ({txt})')
         ok(not pg.evaluate(WRITERS) and pg.evaluate(FILLED) <= 1 and pg.locator('.paper .btn.filled').count() == pg.locator('#rdyGo').count() and all('quiet' in c and t.startswith('Your move · ') for c, t in pg.evaluate(STEPS)), f'{tag}: the sitting page writes nothing; its one filled button, if any, is the readiness block\'s; other step links are the quiet "Your move" ({pg.evaluate(STEPS)})')
         bh = hrefs(pg, '.paper .bn2'); go(pg, bh[0]); ok('We could not find' not in (pg.evaluate(H1) or '') and pg.locator('.pn').count() == 1, f'{tag}: a bill row lands on its bill page in Issues ({pg.evaluate(H1)})')
         go(pg, '#/calendar/sitting/' + kq(KEYS['WLO']) + '?view=list'); t = pg.locator('.paper').inner_text()
@@ -247,7 +247,7 @@ with sync_playwright() as p:
         go(pg, '#/calendar/sitting/' + kq(KEYS['AGR']) + '?view=list&w=2031-01-05'); ok('Mar 16' in pg.locator('#weekRow').inner_text(), f'{tag}: the same when ?w is clamped')
         # the week's summary, Mine
         go(pg, '#/calendar/week?view=list'); hh = pg.evaluate(H1); sub = pg.locator('.ovsub').inner_text() if pg.locator('.ovsub').count() else ''
-        ok(re.match(r'^4 letters still to write · the first is late, still accepted until 2:00 PM today$', hh) and sub == '2 other hearings need nothing from you.', f'{tag}: the week page: what needs you, then the rest in one quiet line ({hh!r} / {sub!r})')
+        ok(re.match(r'^4 testimonies still to write · the first is late, still accepted until 2:00 PM today$', hh) and sub == '2 other hearings need nothing from you.', f'{tag}: the week page: what needs you, then the rest in one quiet line ({hh!r} / {sub!r})')
         ok(pg.locator('#stillOpen').count() == 1 and pg.locator('.paper .brow').count() == 4 and 'of your bills have' not in pg.locator('.paper').inner_text() and pg.locator('.wl a#weekRow.sel').count() == 1, f'{tag}: it lists the four open letters, with no broken sentence, and The week row is marked')
         ok(all('quiet' in c and t.startswith('Your move · ') for c, t in pg.evaluate(STEPS)) and pg.evaluate(FILLED) == 0, f'{tag}: its step links are the quiet "Your move" only')
         go(pg, '#/calendar/week?who=all&view=list'); hh = pg.evaluate(H1); ok((hh.startswith('Everyone has ') or hh.startswith('Nothing is waiting')) and 'Look only' in pg.locator('.paper').inner_text() and not pg.evaluate(STEPS), f'{tag}: Everyone\'s week page is worded for everyone, look only, no step link ({hh!r})')
@@ -518,10 +518,10 @@ with sync_playwright() as p:
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S; const h6 = S.hearings.find(h => h.id === 'cal-test-6'), A = S.bills.find(b => b.id === h6.bill_id);
       S.drafts[A.id] = [{ id: 'cal-d9', bill_id: A.id, hearing_id: 'cal-test-6', committee: 'WLO', status: 'draft', review_note: 'Please tighten the first paragraph', version: A.current_version || null }]; }""")
     go(pg, '#/issues'); go(pg, '#/calendar/sitting/WLO%7C2026-03-17T00%3A00%3A00.000Z?view=list'); t = pg.locator('.paper').inner_text(); I = pg.evaluate(SHEET)
-    ok(I['rdy'].startswith('Are we ready? 1 letter sent back to fix') and 'still to write' not in I['rdy'], f'a sent-back letter has its own headline ({I["rdy"][:60]!r})')
+    ok(I['rdy'].startswith('Are we ready? 1 testimony sent back to fix') and 'still to write' not in I['rdy'], f'a sent-back testimony has its own headline ({I["rdy"][:60]!r})')
     if I['rdyGo']: ok(pg.locator('#rdyGo').inner_text().strip() == 'Resubmit testimony', f'the headline matches the button ({pg.locator("#rdyGo").inner_text()!r})')
     else: ok(True, 'no step of JM\'s on that bill; the button check is covered in the Everyone-free walk')
-    ok('Letter sent back to fix' in t and t.count('Late, still accepted') == 1, f'with one bill the late warning is said once, in the block ({t.count("Late, still accepted")})')
+    ok('Testimony sent back to fix' in t and t.count('Late, still accepted') == 1, f'with one bill the late warning is said once, in the block ({t.count("Late, still accepted")})')
     # a second, unfiled bill at the same late sitting
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S; const h6 = S.hearings.find(h => h.id === 'cal-test-6'), hb = S.hearings.find(h => h.id === 'cal-test-1');
       S.hearings.push({ ...h6, id: 'cal-test-extra', bill_id: hb.bill_id }); }""")

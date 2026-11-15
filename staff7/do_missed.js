@@ -10,7 +10,7 @@ export function missedSheet(s, ctx) {
   const d = s.draft, ok = d?.status === 'approved';   // only approved testimony can be marked filed (the database refuses the rest)
   let h = '<div class="pn">' + band(s.issue, 'Did we file?', s.name, s.no);
   h += '<div class="pbody">' + dueStrip(s, { hearing: [cmteWords(s.hearing?.committee), roomName(s.hearing?.room)].filter(Boolean).join(' · ') });
-  h += `<div class="stgrid"><div class="stmain">${d ? `<p class="lead tight">${ok ? 'The letter was approved. Nothing says it was filed.' : 'The letter was never approved, so it cannot be marked filed here.'}</p>` : '<p class="lead tight">Nothing says a letter was made for this hearing.</p>'}${approvedLine(s)}${letterRow(s, ctx)}</div></div>`;
+  h += `<div class="stgrid"><div class="stmain">${d ? `<p class="lead tight">${ok ? 'The testimony was approved. Nothing says it was filed.' : 'The testimony was never approved, so it cannot be marked filed here.'}</p>` : '<p class="lead tight">Nothing says testimony was made for this hearing.</p>'}${approvedLine(s)}${letterRow(s, ctx)}</div></div>`;
   h += d ? `<div class="sfoot" id="msFoot">${ok ? btn('Yes, filed', { kind: 'filled', id: 'yesBtn' }) : ''}${btn('No, it was not filed', { kind: ok ? 'quiet' : 'filled', id: 'noBtn' })}${ok ? '' : btn('It went in anyway', { kind: 'quiet', id: 'anyway' })}`
       + `<span class="fnote">It is noted on the bill for the team. No cannot be changed afterwards.</span></div>`
     : '<div class="sfoot plain"><a class="btn text" href="#/">Back to Home</a></div>';
@@ -34,7 +34,7 @@ export function bindMissed(s, ctx) {
 // No is what the current app records (staff6/steps.js nofile): one line on the bill's timeline, "Testimony not filed for the ... hearing ...", which the app reads back to stop asking.
 // The app has no way to take that line off the timeline again, so this page offers no reverse for No.
 export async function notFiledStep(s) {
-  const d = s.draft; if (!d) throw new Error('There is no letter to note.');
+  const d = s.draft; if (!d) throw new Error('There is no testimony to note.');
   await DB.addActivity(s.bill.id, 'testimony', noFileTitle(d));
   (S.v6NoFile ??= new Set()).add(String(d.id));
   try { clearReminders(s.bill, d); } catch { /* the dot stays until the next load */ }

@@ -210,15 +210,15 @@ export function hearingSheet(m, id) {
   return `<div class="pn">${band(issueOf(b), 'Hearing today', billName(b), billNo(b))}<div class="pbody">`
     + kv([['When', esc(when)], ['Where', esc(roomName(h.room) || 'No room is listed yet.')], ['Committee', esc(cmteWords(h.committee))],
       same.length ? ['Also on your bills', same.map(x => `${esc(x.name)}<span class="no"> ${esc(x.no)}</span>`).join('<br>')] : null,
-      ['Our testimony', `${esc(d ? TEST_WORDS[d.status] || 'In progress' : 'No letter yet')}${step ? ` · <a class="btn text" href="#/do/${encodeURIComponent(step.id)}">Open the step</a>` : ''}`],
+      ['Our testimony', `${esc(d ? TEST_WORDS[d.status] || 'In progress' : 'Not started')}${step ? ` · <a class="btn text" href="#/do/${encodeURIComponent(step.id)}">Open the step</a>` : ''}`],
       ['Going', esc(going.length ? going.join(', ') : 'No one is marked as going yet.')]])
     + `</div></div>`;
 }
 export function waitingSheet(m, id) {
   const w = m.waiting.find(x => x.id === id); if (!w) return '';
   const url = w.d && String(w.d.doc_url || '').startsWith('https://docs.google.com/') ? w.d.doc_url : '';
-  const doc = !w.d ? '' : !url ? fileRow(`Letter to ${cmteWords(w.h?.committee)}`, 'The letter’s link is missing.', '')
-    : fileRow(`Letter to ${cmteWords(w.h?.committee)}`, '', DEMO ? btn('Open the letter', { kind: 'quiet', id: 'openDoc' }) : `<a class="btn quiet" id="openDoc" href="${esc(url)}" target="_blank" rel="noopener">Open the letter</a>`);
+  const doc = !w.d ? '' : !url ? fileRow(`Testimony to ${cmteWords(w.h?.committee)}`, 'The testimony’s link is missing.', '')
+    : fileRow(`Testimony to ${cmteWords(w.h?.committee)}`, '', DEMO ? btn('Open the testimony', { kind: 'quiet', id: 'openDoc' }) : `<a class="btn quiet" id="openDoc" href="${esc(url)}" target="_blank" rel="noopener">Open the testimony</a>`);
   return `<div class="pn">${w.b ? band(issueOf(w.b), 'Waiting on others', w.name, w.no) : plainBand('Waiting on others', w.name)}<div class="pbody"><p class="lead">${esc(waitText(w))}</p>`
     + (w.h ? `<p class="hint hl0">${esc(hearingLine(w.h))}</p>` : '') + `<p class="lead mid">Nothing for you to do. It comes back to you if it needs you.</p>${doc}</div></div>`;
 }
@@ -228,4 +228,4 @@ export function suggestedSheet(m, id, as) {
   return `<div class="pn">${x.b ? band(issueOf(x.b), x.verb, x.name, x.no) : plainBand(x.verb, '')}<div class="pbody"><p class="lead">${esc(x.text)}</p>`
     + `<p class="lead tight">This step does not have a page in the new app yet.</p><p class="lead">${btn('For now, do this in the current staff app', { kind: 'text', href })}</p></div></div>`;
 }
-export const bindWaiting = () => { const o = document.getElementById('openDoc'); if (o && DEMO) o.addEventListener('click', () => toast('In the practice copy the letter does not open.')); };
+export const bindWaiting = () => { const o = document.getElementById('openDoc'); if (o && DEMO) o.addEventListener('click', () => toast('In the practice copy the testimony does not open.')); };

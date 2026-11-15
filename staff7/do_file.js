@@ -33,21 +33,21 @@ export function pdfUrl(url) { const m = /^https:\/\/docs\.google\.com\/document\
 
 // "The letter": the Doc, as one file row. In the practice copy its controls are buttons that open nothing. `pdf`: the file page's "Download the PDF" (the Capitol's form takes a file). Shared with the Did we file? page.
 export function letterRow(s, ctx, { pdf = false, pos = true } = {}) {
-  const d = s.draft, name = d && ['approved', 'filed'].includes(d.status) ? 'The approved letter' : 'The letter', dl = pdf ? pdfUrl(d?.doc_url) : '';
+  const d = s.draft, name = d && ['approved', 'filed'].includes(d.status) ? 'The approved testimony' : 'The testimony', dl = pdf ? pdfUrl(d?.doc_url) : '';
   let row;
-  if (!d) row = fileRow(name, 'There is no letter on record for this hearing.', '');
-  else if (!String(d.doc_url || '').startsWith(DOCS)) row = fileRow(name, 'The letter’s link is missing.', '');
+  if (!d) row = fileRow(name, 'There is no testimony on record for this hearing.', '');
+  else if (!String(d.doc_url || '').startsWith(DOCS)) row = fileRow(name, 'The testimony’s link is missing.', '');
   else {
     const kind = dl ? 'text' : 'quiet';
-    const open = DEMO ? btn('Open the letter', { kind, id: 'openDoc' }) : `<a class="btn ${kind}" id="openDoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open the letter</a>`;
+    const open = DEMO ? btn('Open the testimony', { kind, id: 'openDoc' }) : `<a class="btn ${kind}" id="openDoc" href="${esc(d.doc_url)}" target="_blank" rel="noopener">Open the testimony</a>`;
     const get = !dl ? '' : DEMO ? btn('Download the PDF', { kind: 'quiet', id: 'pdfBtn' }) : `<a class="btn quiet" id="pdfBtn" href="${esc(dl)}" target="_blank" rel="noopener">Download the PDF</a>`;
     row = fileRow(name, '', get + open);
   }
-  return `<p class="lethead"><span class="lab" id="letl">The letter</span>${pos ? `<span class="posnote"> · HIPHI’s position: ${esc(posWords(s.bill))}</span>` : ''}</p>${row}`;
+  return `<p class="lethead"><span class="lab" id="letl">The testimony</span>${pos ? `<span class="posnote"> · HIPHI’s position: ${esc(posWords(s.bill))}</span>` : ''}</p>${row}`;
 }
 export function bindLetterRow() {
   const open = document.getElementById('openDoc'), pdf = document.getElementById('pdfBtn');
-  if (open && DEMO) open.addEventListener('click', () => toast('In the practice copy the letter does not open.'));
+  if (open && DEMO) open.addEventListener('click', () => toast('In the practice copy the testimony does not open.'));
   if (pdf && DEMO) pdf.addEventListener('click', () => toast('In the practice copy the PDF does not download.'));
 }
 
@@ -106,7 +106,7 @@ export function bindFile(s, ctx) {
 // The data change: the approved draft is marked filed (the data layer's own transition, as staff6/filing.js markFiled does). Live this also queues a Slack message to the admins.
 export async function fileStep(s) {
   const b = s.bill, d = (S.drafts[b.id] || []).find(x => x.id === s.draft?.id);
-  if (!d) throw new Error('The letter could not be found.');
+  if (!d) throw new Error('The testimony could not be found.');
   await DB.transition(b.id, d.id, 'file');
   try { clearReminders(b, d); } catch { /* the dot stays until the next load */ }
   if ((S.drafts[b.id] || []).find(x => x.id === d.id)?.status !== 'filed') throw new Error('Nothing to do on it now.');   // live the row is replaced, so it is read again

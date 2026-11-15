@@ -13,7 +13,7 @@ export function approveSheet(s, ctx) {
   const who = w ? `<b>${esc(first(w))}</b> wrote this${sent ? ` and sent it ${esc(dayTime(sent))}` : ''}.${a1 ? ` <b>${esc(first(a1))}</b> approved it${d.approved_at ? ` ${esc(dayTime(d.approved_at))}` : ''}.` : ''}` : '';
   let h = '<div class="pn">' + band(s.issue, second ? 'Second look' : 'Approve testimony', s.name, s.no);
   h += '<div class="pbody">' + dueStrip(s, { hearing: hearingLine(s.hearing) });
-  h += `<div class="stgrid"><div class="stmain">${who ? `<p class="who2">${personMark(w.initials, { small: true })}<span>${who}</span></p>` : ''}${letterBlock(s, ctx, { label: 'The letter', sub: false, hint: 'It opens in Google Docs. Come back here to approve it or send it back.' })}`
+  h += `<div class="stgrid"><div class="stmain">${who ? `<p class="who2">${personMark(w.initials, { small: true })}<span>${who}</span></p>` : ''}${letterBlock(s, ctx, { label: 'The testimony', sub: false, hint: 'It opens in Google Docs. Come back here to approve it or send it back.' })}`
     + `<div class="sbnote" id="sbBox" hidden><label class="lab" for="sbNote">What should change?</label><textarea class="field" id="sbNote" aria-describedby="sbErr" aria-required="true" rows="4"></textarea>`
     + `<p class="errt" id="sbErr" hidden>${ic('circle-alert')}<span>Write what should change, so ${esc(w ? first(w) : 'the writer')} knows.</span></p></div></div></div>`;
   h += `<div class="sfoot" id="apFoot"></div><p class="errt" id="apErr" role="alert" hidden></p></div></div>`;

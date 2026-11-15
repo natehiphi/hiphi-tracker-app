@@ -218,7 +218,7 @@ function changesFor(rows, open, since) {
   }
   for (const s of open || []) {
     const t = s.draft?.updated_at ? new Date(s.draft.updated_at).getTime() : NaN, id = String(s.issue?.id ?? '');
-    if (s.sentBack && id && t >= since && t <= now && rows.some(x => String(x.issue.id) === id)) add(id, t, 'Letter sent back to fix', 'letter');
+    if (s.sentBack && id && t >= since && t <= now && rows.some(x => String(x.issue.id) === id)) add(id, t, 'Testimony sent back to fix', 'letter');
   }
   return out;
 }
@@ -540,8 +540,8 @@ export const sitKeyOf = h => `${String(h.committee || '').split('/').map(c => c.
 const codesKey = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean).sort().join('/');
 const draftFor = (h, b) => { const d = sittingDraft(h, b.id); return d && (d.hearing_id ? d.hearing_id === h.id : codesKey(d.committee) === codesKey(h.committee)) ? d : null; };
 const letterState = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', back: false, fresh: true }; };
-const letterWords = st => st.key === 'filed' ? 'letter filed' : st.key === 'file' ? 'letter ready to file' : st.key === 'second' ? 'letter waiting for a second look' : st.key === 'approve' ? 'letter waiting for approval'
-  : st.key === 'missed' ? 'letter not filed' : st.back ? 'letter sent back to fix' : st.fresh ? 'letter not started' : 'letter being written';   // calendar.js letterWords, said in the middle of a line
+const letterWords = st => st.key === 'filed' ? 'testimony filed' : st.key === 'file' ? 'testimony ready to file' : st.key === 'second' ? 'testimony waiting for a second look' : st.key === 'approve' ? 'testimony waiting for approval'
+  : st.key === 'missed' ? 'testimony not filed' : st.back ? 'testimony sent back to fix' : st.fresh ? 'testimony not started' : 'testimony being written';   // calendar.js letterWords, said in the middle of a line
 // One row for each issue and sitting: the hearings of the next 7 days (Honolulu days 0 to 6) of the topic's alive bills, by time
 function weekHearings(rows) {
   const by = new Map();
@@ -564,7 +564,7 @@ function topicSheet(who, tp, rows, nx) {
   let h = `<div class="pn"><div class="ov"><div class="ovtop"><p class="ovdate" id="tKick">${esc(tp.name)} · ${esc(whose)}</p><h1 tabindex="-1">${esc(answer)}</h1><p class="ovsub" id="tSub">${esc(`${alive} of ${n(rows.length, 'issue', 'issues')} still alive · ${bills.filter(isAlive).length} of ${n(bills.length, 'bill', 'bills')}`)}</p></div><div class="ovrest">`;
   if (hn) h += `<h2 class="sh" id="tWeekH">Next 7 days</h2><ul class="trows" id="tWeek">${wk.map(e => {
     const i = e.x.issue, sts = e.bills.map(y => letterState(y.h, y.b)), filed = sts.filter(s => s.key === 'filed').length;
-    const lw = sts.length === 1 ? letterWords(sts[0]) : filed === sts.length ? 'letters filed' : `${filed} of ${sts.length} letters filed`;
+    const lw = sts.length === 1 ? letterWords(sts[0]) : filed === sts.length ? 'testimonies filed' : `${filed} of ${sts.length} testimonies filed`;
     const sit = `#/calendar/sitting/${enc(e.key)}${who.code ? `?who=${enc(who.code)}` : ''}`;
     return `<li class="twr"><span class="imark" style="${tint(i)}" aria-hidden="true">${ic(iconOf(i))}</span><div class="twt"><a class="lk twi" href="${issueHref(who, i.id)}">${esc(eCig(i.name))}</a><p class="twl"><a class="lk" href="${sit}">${esc(`Hearing ${hearTxt(e.h.scheduled_at)} · ${cmteWords(e.h.committee)}`)}</a> · ${esc(lw)}</p></div></li>`; }).join('')}</ul>`;
   const r = nx && nx.next ? nx.next.row : null;

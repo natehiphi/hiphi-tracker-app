@@ -85,8 +85,8 @@ const words = l => String(l || '').replace(/second review/gi, m => m[0] === 'S' 
 // Where a bill's letter stands for a hearing: the data layer's own state ({ key, label, back (sent back to fix), fresh (not started) }), never the clock's
 const stateOf = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, label: words(s.label), back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', label: 'Not started', back: false, fresh: true }; };
 // a sentence about the letter itself
-const letterWords = st => st.key === 'filed' ? 'Letter filed' : st.key === 'file' ? 'Letter ready to file' : st.key === 'second' ? 'Letter waiting for a second look' : st.key === 'approve' ? 'Letter waiting for approval'
-  : st.key === 'missed' ? 'Letter not filed' : st.back ? 'Letter sent back to fix' : st.fresh ? 'Letter not started' : 'Letter being written';
+const letterWords = st => st.key === 'filed' ? 'Testimony filed' : st.key === 'file' ? 'Testimony ready to file' : st.key === 'second' ? 'Testimony waiting for a second look' : st.key === 'approve' ? 'Testimony waiting for approval'
+  : st.key === 'missed' ? 'Testimony not filed' : st.back ? 'Testimony sent back to fix' : st.fresh ? 'Testimony not started' : 'Testimony being written';
 // How a testimony time reads, by where the letters stand: all filed (neutral, a check); not filed with the hearing still ahead and the time gone (amber: late, still accepted); not filed and the
 // hearing gone (neutral: Missed); else neutral, the state in words. `what` is for one bill, `sum` for the sitting's bills, `line` the row's second line.
 function infoOf(g, now = Date.now()) {
@@ -183,7 +183,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
   const extLink = (url, label) => `<a class="bl" target="_blank" rel="noopener" href="${esc(url)}">${esc(label)}${ic('external-link')}</a>`;
   // one quiet row of links under a bill: its letter, its page here, its issue, the Capitol's page. They sit above the row's whole-row link.
   const linksRow = (b, issue, h) => { const d = h ? draftFor(h, b) : null, out = [];
-    if (d && http(d.doc_url)) out.push(extLink(d.doc_url, 'Open the letter'));
+    if (d && http(d.doc_url)) out.push(extLink(d.doc_url, 'Open the testimony'));
     out.push(`<a class="bl" href="${billHrefOf(b, issue)}">Bill page</a>`);
     if (issue?.id != null) out.push(`<a class="bl" href="${issueHrefOf(issue)}">Issue page</a>`);
     if (http(b.state_url)) out.push(extLink(b.state_url, 'On the Capitol site'));
@@ -224,12 +224,12 @@ export function calendarModel({ me, open, rt, people, phone }) {
   const readyOf = (s, tdPage) => {
     const now = Date.now(), rows = s.rows.map(r => ({ r, st: stateOf(r.h, r.b) })), k = rows.length, un = rows.filter(x => x.st.key !== 'filed'), filed = k - un.length, ahead = s.t > now;
     let tone = 'plain', icon = '', head, say = '', late = false;
-    if (!un.length) { tone = 'done'; icon = 'check'; head = k === 1 ? 'Filed' : `All ${k} letters filed`; say = 'Nothing is needed for this hearing.'; }
-    else if (!ahead) { tone = 'missed'; head = filed ? `${filed} of ${k} filed` : 'Missed'; say = filed ? 'The hearing has passed. The rest were not filed.' : 'The hearing has passed and no letter was filed.'; }
+    if (!un.length) { tone = 'done'; icon = 'check'; head = k === 1 ? 'Filed' : `All ${k} testimonies filed`; say = 'Nothing is needed for this hearing.'; }
+    else if (!ahead) { tone = 'missed'; head = filed ? `${filed} of ${k} filed` : 'Missed'; say = filed ? 'The hearing has passed. The rest were not filed.' : 'The hearing has passed and no testimony was filed.'; }
     else {
       const first1 = Math.min(...un.map(x => x.r.due)), cat = x => x.st.key === 'write' && x.st.back ? 'back' : x.st.key, keys = [...new Set(un.map(cat))], c = un.length;
-      const say1 = { write: `${n(c, 'letter', 'letters')} still to write`, file: `${c === 1 ? '1 letter is' : `${c} letters are`} ready to file`, approve: `${n(c, 'letter', 'letters')} waiting for approval`, second: `${n(c, 'letter', 'letters')} waiting for a second look`, back: `${n(c, 'letter', 'letters')} sent back to fix` };
-      head = filed ? `${filed} of ${k} filed` : keys.length === 1 && say1[keys[0]] ? say1[keys[0]] : `${n(c, 'letter', 'letters')} not filed yet`;
+      const say1 = { write: `${n(c, 'testimony', 'testimonies')} still to write`, file: `${c === 1 ? '1 testimony is' : `${c} testimonies are`} ready to file`, approve: `${n(c, 'testimony', 'testimonies')} waiting for approval`, second: `${n(c, 'testimony', 'testimonies')} waiting for a second look`, back: `${n(c, 'testimony', 'testimonies')} sent back to fix` };
+      head = filed ? `${filed} of ${k} filed` : keys.length === 1 && say1[keys[0]] ? say1[keys[0]] : `${n(c, 'testimony', 'testimonies')} not filed yet`;
       if (first1 <= now) { late = true; tone = 'late'; icon = 'triangle-alert'; const nl = un.filter(x => x.r.due <= now).length; say = k === 1 ? `${lateLine(s.t)}.` : `${nl === k ? `All ${k}` : `${nl} of ${k}`} ${lateLine(s.t, { lower: true })}.`; }
       else { const d0 = daysTo(ymd(first1)); say = `Testimony is due ${d0 === 0 ? `today at ${clock(first1)}` : d0 === 1 ? `tomorrow at ${clock(first1)}` : dayTime(first1)}.`; }
     }
@@ -286,13 +286,13 @@ export function calendarModel({ me, open, rt, people, phone }) {
     for (const s of weekSits) { let any = false; for (const r of s.rows) { const st = stateOf(r.h, r.b); if (s.t > now && st.key !== 'filed') { need.push({ s, r, st }); any = true; } } if (!any) calm.add(s.key); }
     need.sort((p, q) => p.r.due - q.r.due || p.s.t - q.s.t);
     const nm = need.length, allWrite = need.every(x => x.st.key === 'write'), f0 = need[0], who1 = who.kind === 'mine' ? '' : who.kind === 'all' ? 'Everyone has ' : `${first(who.person)} has `;
-    const letters = `${n(nm, 'letter', 'letters')} ${allWrite ? 'still to write' : 'not filed yet'}`;
+    const letters = `${n(nm, 'testimony', 'testimonies')} ${allWrite ? 'still to write' : 'not filed yet'}`;
     const firstDue = nm ? ` · ${f0.r.due > now ? `the first due ${dayTime(f0.r.due)}` : `the first is ${lateLine(f0.s.t, { lower: true })}`}` : '';
     const nothing = who.kind === 'mine' ? 'Nothing needs you this week' : who.kind === 'all' ? 'Nothing is waiting this week' : `Nothing needs ${first(who.person)} this week`;
     const head = empty ? 'A quiet week' : nm ? `${who1}${letters}${firstDue}` : nothing;
     const k = calm.size, from = who.kind === 'mine' ? 'you' : who.kind === 'all' ? 'anyone' : first(who.person);
     const sub = empty ? (dls.length ? `${n(dls.length, 'Capitol deadline', 'Capitol deadlines')} this week.` : '') : k ? `${nm ? (k === 1 ? '1 other hearing needs' : `${k} other hearings need`) : (k === 1 ? '1 hearing needs' : `${k} hearings need`)} nothing from ${from}.` : '';
-    const rows = nm ? `<h2 class="sh" id="stillOpen">Letters still open</h2><ul class="brows">${need.map(({ s, r, st }) => billLi(r.b, r.issue, `<p class="bmeta">${esc(posLine(r.b, r.issue, me))}</p>`
+    const rows = nm ? `<h2 class="sh" id="stillOpen">Testimony still open</h2><ul class="brows">${need.map(({ s, r, st }) => billLi(r.b, r.issue, `<p class="bmeta">${esc(posLine(r.b, r.issue, me))}</p>`
       + line(esc(`${st.label} · ${dueWord(r.due)} ${dayTime(r.due)} · hearing ${dayTime(s.t)}`), 'bst'), moveOf(r.b))).join('')}</ul>` : '';
     return `<div class="pn"><div class="ov"><div class="ovtop"><p class="ovdate">Week of ${esc(rangeOf(wk, addDays(wk, 4)))}${who.kind === 'mine' ? '' : ` · ${esc(whose)}`}${lookOnly ? ' · Look only' : ''}</p><h1 tabindex="-1">${esc(head)}</h1>${sub ? `<p class="ovsub">${esc(sub)}</p>` : ''}</div><div class="ovrest">${rows}</div></div></div>`;
   };
