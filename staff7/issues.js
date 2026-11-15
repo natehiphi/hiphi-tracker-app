@@ -22,8 +22,8 @@ export const ui = { pick: false, more: '' };   // more: the view (its `who` code
 // "e-cigarettes", never "vape": the Legislature's own titles stay as written, but an issue's name is HIPHI's (CLAUDE.md R-158)
 const eCig = s => String(s || '').replace(/\bvap(?:e|es|ing)\b/gi, m => /^vap(es|ing)$/i.test(m) ? 'e-cigarettes' : 'e-cigarette');
 const catOf = i => i && /^[a-z-]+$/.test(i.category || '') ? i.category : 'other';
-const iconOf = i => (i && i.icon) || (S.categories || []).find(c => c.key === i?.category)?.icon || 'circle';
-const tint = i => `--ic:var(--cat-${catOf(i)}, var(--cat-other))`;
+export const iconOf = i => (i && i.icon) || (S.categories || []).find(c => c.key === i?.category)?.icon || 'circle';
+export const tint = i => `--ic:var(--cat-${catOf(i)}, var(--cat-other))`;
 const live = id => !!id && advocate(id)?.is_active !== false;
 const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
 
@@ -41,12 +41,12 @@ export function whoOf(raw, me, people) {
 const qs = (who, extra = {}) => { const q = new URLSearchParams(); if (who.code) q.set('who', who.code); for (const [k, v] of Object.entries(extra)) if (v) q.set(k, v); const s = q.toString(); return s ? `?${s}` : ''; };
 const issuesHref = who => `#/issues${qs(who)}`;
 const issueHref = (who, id) => `#/issue/${enc(id)}${qs(who)}`;
-const billHref = (who, b, issueId) => `#/bill/${billRef(b).split('/').map(enc).join('/')}${qs(who, { i: issueId })}`;
+export const billHref = (who, b, issueId) => `#/bill/${billRef(b).split('/').map(enc).join('/')}${qs(who, { i: issueId })}`;
 const whoseWords = (who, me) => who.kind === 'mine' ? 'Your' : who.kind === 'all' ? 'Everyone’s' : `${first(who.person)}’s`;
 
 // ---------------------------------------------------------------------------------- the set
 // Every issue of the chosen set with its standing and the days left on its soonest at-risk bill: { issue, bills, standing, days }
-function setFor(who, me) {
+export function setFor(who, me) {
   const rows = who.kind === 'all'
     ? (S.issues || []).filter(i => !i.archived_at).map(i => { const bills = billsOfIssue(i); return { issue: i, bills, standing: issueStanding(bills) }; }).filter(x => x.standing)
     : withMe(who.kind === 'person' ? who.person : me, myIssueStandings);
@@ -63,7 +63,7 @@ function grouped(set) {
 
 // ---------------------------------------------------------------------------------- the session, for a set
 // The session's rows, which of them touch the set's bills, and the next one that does
-function sessionOf(set) {
+export function sessionOf(set) {
   const rows = sessionDates(null), bills = [], seen = new Set();
   for (const x of set) for (const b of x.bills) if (!seen.has(b.id)) { seen.add(b.id); bills.push({ b, issue: x.issue }); }
   const touch = touchMap(bills.map(x => x.b));
@@ -131,9 +131,9 @@ function leadWords(b, issue, me) {
   const j = names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   return names.length === 1 ? (names[0] === 'You' ? 'You lead' : `${names[0]} leads`) : `${j} lead`;
 }
-const posLine = (b, issue, me) => `${posWords(b)} · ${leadWords(b, issue, me)}`;
+export const posLine = (b, issue, me) => `${posWords(b)} · ${leadWords(b, issue, me)}`;
 // the step of the person's own that holds this bill, if any (a group ask holds several)
-const stepOn = (open, b) => (open || []).find(s => (s.members ? s.members.some(x => x.bill.id === b.id) : s.bill?.id === b.id)) || null;
+export const stepOn = (open, b) => (open || []).find(s => (s.members ? s.members.some(x => x.bill.id === b.id) : s.bill?.id === b.id)) || null;
 // which chamber's bill it is: HB, HR and HCR are the House's, SB, SR and SCR the Senate's
 const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
 // where an alive bill is, a few words: "in House Water & Land", "waiting for the floor vote"
@@ -215,7 +215,7 @@ function afterThat(b) {
   return '';
 }
 // when testimony is due for a hearing: the stated deadline, else a day before it starts
-const testimonyDue = h => h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : new Date(h.scheduled_at).getTime() - 864e5;
+export const testimonyDue = h => h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : new Date(h.scheduled_at).getTime() - 864e5;
 function billSheet(b, issue, who, me, open, others, own) {
   const alive = isAlive(b), dl = deadlineOf(b), h = hearingAhead(b), lo = !own, st = own ? stepOn(open, b) : null;
   const crumb = `<a class="crumb back2" href="${issueHref(who, issue.id)}">${ic('chevron-left')}Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}</a>`;

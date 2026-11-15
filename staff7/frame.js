@@ -11,6 +11,7 @@ import { missedSheet, bindMissed, notFiledStep } from './do_missed.js';
 import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
 import { issuesModel, ui as issuesUi } from './issues.js';
+import { calendarModel } from './calendar.js';
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
@@ -102,6 +103,7 @@ function parse() {
   let id = ''; try { id = decodeURIComponent(r.join('/')); } catch { if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id: '\ufffd', q }; return { r: 'missing' }; }   // an address that cannot be read is an issue or a bill that is not found, said calmly
   if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
 
+  if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
   if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested') return id ? { r: a, id } : { r: 'missing' };
   if (a && Object.hasOwn(WILL, a)) return { r: 'door', door: a };
   return a ? { r: 'missing' } : { r: 'home' };
@@ -125,7 +127,7 @@ const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(
   : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
 
 // ---- draw ----
-let lastRoute = '', first = true;
+let lastRoute = '', lastFam = '', first = true;
 function render(opts = {}) {
   stopDone(); clearInterval(ctx.pollT);
   const keepScroll = opts.tick ? [...document.querySelectorAll('.wl, .paper')].map(e => [e, e.scrollTop]) : [], tpOpen = opts.tick && !!document.getElementById('tpList') && !document.getElementById('tpList').hidden;
@@ -133,7 +135,7 @@ function render(opts = {}) {
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
   let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null;
-  if (!/^(issues|issue|bill)$/.test(rt.r)) issuesUi.pick = false;   // the teammate picker is open only within the Issues routes
+  { const fam = rt.r === 'calendar' ? 'c' : /^(issues|issue|bill)$/.test(rt.r) ? 'i' : ''; if (!fam || fam !== lastFam) issuesUi.pick = false; lastFam = fam; }   // the teammate picker is open only within one tab's routes   // the teammate picker is open only within the Issues routes
   if (rt.r === 'home') {
     ov = overviewParts(m); sheet = `<div class="pn"><div class="ov">${ov.top}${ov.rest}</div></div>`; label = 'Overview';
   } else if (rt.r === 'do') {
@@ -146,11 +148,13 @@ function render(opts = {}) {
     sheet = doneSheet(ctx, rt.id, freshDraft) || missingSheet(); bindFn = () => bindDone(ctx, rt.id);
   } else if (rt.r === 'issues' || rt.r === 'issue' || rt.r === 'bill') {
     cur = 'issues'; im = issuesModel({ me: ctx.me, open, rt, people }); sheet = im.sheet; label = im.label; bindFn = im.bind;
+  } else if (rt.r === 'calendar') {
+    cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
   else sheet = missingSheet();
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
-  const cls = `ws${one ? ' one' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked ? ' sheetonly isn' : ' isn') : ' sheetonly') : ''}`;
-  const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to Issues</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
+  const cls = `ws${one ? ' one' : ''}${im?.wide ? ' gridws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked ? ' sheetonly isn' : ' isn') : ' sheetonly') : ''}`;
+  const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to ${im.backLabel || 'Issues'}</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
@@ -178,7 +182,7 @@ function render(opts = {}) {
 function tick() {
   const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
   const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden);
-  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
+  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
   render({ tick: true });
 }
 window.__staff7Tick = tick;   // the tests call the minute's redraw directly

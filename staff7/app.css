@@ -435,3 +435,47 @@ li[hidden] { display: none; }
 
 /* Said once on the page, kept for screen readers (the session sheet's timeline heading) */
 .vh { position: absolute; inline-size: 0; block-size: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ---------- Calendar: the week's controls, letter states, and the Week grid ---------- */
+.wknav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--s2); margin-top: var(--s2); }
+.wknav .btn.text { min-height: var(--hit); }
+.wknav .btn.text svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.ihl { flex-wrap: wrap; }
+.ihl .vsw { margin: 0 0 0 auto; flex: none; }
+.vsw .seg { flex: none; padding: 0 var(--s4); }
+.nb { white-space: nowrap; }
+.tdst.st-done svg.ic { color: var(--done); }
+.bst.riskt, .ir2.risk { color: var(--amber); font-weight: 700; }
+.bst .ic { margin-right: var(--s1); }
+.hint.nothing { margin: 0 0 var(--s2); }
+.tdtop .tdl { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s4); }
+.tdtop .tdl.st-late { color: var(--amber); font-weight: 700; }
+.tdtop .tdl svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.cg { padding: var(--s5) var(--px) var(--s6); }
+.cgh { margin: 0 0 var(--s5); }
+.cgh .ovdate { margin-bottom: var(--s1); }
+.cgrid { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: var(--s3); align-items: start; }
+.cgcol { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; padding: var(--s2); border-radius: var(--r12); background: var(--wash); }
+.cgcol.today { background: var(--tint); }
+.cgd { display: flex; flex-direction: column; font: 600 var(--f16)/1.3 var(--head); padding: var(--s1) var(--s1) var(--s2); }
+.cgd span { font: 400 var(--f14)/1.3 var(--body); color: var(--muted); }
+.cgc { position: relative; display: flex; flex-direction: column; gap: var(--s1); min-height: var(--hit); padding: var(--s3); border-radius: var(--r8); background: var(--surface); box-shadow: var(--sh1); color: var(--ink); text-decoration: none; font-size: var(--f14); line-height: 1.35; }
+.cgc:hover { background: var(--wash); }
+.cgc:hover .cgt { text-decoration: underline; text-underline-offset: var(--s1); }
+.cgc .cgt b { font: 600 var(--f16)/1.3 var(--head); }
+.cgn { color: var(--muted); display: flex; align-items: flex-start; gap: var(--s1); min-width: 0; }
+.clamp2, .cgn.nm, .tdst > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.cgc.dl { flex-direction: row; align-items: flex-start; gap: var(--s2); background: transparent; box-shadow: none; padding: var(--s2) var(--s3); font-weight: 700; }
+.cgc.td { background: transparent; box-shadow: none; padding: var(--s2) var(--s3); }
+.cgc.td .cgt { color: var(--ink); font-weight: 700; }
+.cgn.tdst.st-late { color: var(--amber); font-weight: 700; }
+.cgn.tdst.st-done svg.ic { color: var(--done); }
+.cgc svg.ic { width: var(--icon-s); height: var(--icon-s); margin-top: var(--s1); flex: none; }
+.cgc.td .cgt svg.ic { display: inline; vertical-align: text-bottom; margin: 0 var(--s1) 0 0; }
+
+/* the Week grid: the header stays where it is in the List; the grid starts below it and spans the whole main width */
+@media (min-width: 900px) {
+  .ws.gridws { grid-template-rows: auto minmax(0, 1fr); }
+  .ws.gridws .wl { grid-column: 1; grid-row: 1; overflow: visible; padding-bottom: var(--s3); }
+  .ws.gridws .wp { grid-column: 1 / -1; grid-row: 2; height: auto; min-height: 0; padding: 0 var(--s5) var(--s5) var(--s2); }
+}
