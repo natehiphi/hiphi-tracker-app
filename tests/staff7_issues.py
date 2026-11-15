@@ -219,7 +219,7 @@ with sync_playwright() as p:
         pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
         ok('#/bill/' in pg.url and pg.locator('main h1').inner_text().strip() and pg.locator('.bsub').inner_text().strip() and pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true', f'{tag} JM: a bill opens from its row; name first ("{pg.locator("main h1").inner_text().strip()[:30]}"), number after, the issue still marked open')
         txt = pg.locator('main').inner_text()
-        ok(all(x in txt for x in ('Where it stands', 'Just happened', 'Next', 'After that')) and not re.search(r'capitol\.hawaii|Public site|public page', txt + pg.inner_html('main'), re.I) and pg.locator('main a[target], main input, main textarea, main select').count() == 0, f'{tag} JM: the bill sheet reads where it stands, has no controls and no link to the public site or the Capitol')
+        ok(all(x in txt for x in ('Where it stands', 'Just happened', 'Next', 'After that')) and not re.search(r'capitol\.hawaii|Public site|public page', txt + pg.inner_html('main'), re.I) and pg.locator('main a[target], main input:not(#findIn), main textarea, main select').count() == 0, f'{tag} JM: the bill sheet reads where it stands, has no controls and no link to the public site or the Capitol')
         # fix 4, 5: "Your move" is a quiet button right under the position line; the sheet does not restate the banner
         ymp = pg.evaluate("() => { const m = document.querySelector('.ymove'), l = document.querySelector('main .pbody > .lead'), h = document.querySelector('main h2.sh'); if (!m) return null; return [m.className, m.getBoundingClientRect().top - l.getBoundingClientRect().bottom, h.getBoundingClientRect().top - m.getBoundingClientRect().bottom]; }")
         ok(ymp and 'btn' in ymp[0] and 'quiet' in ymp[0] and 'text' not in ymp[0].split() and 0 <= ymp[1] < 40 and ymp[2] > 0 and pg.locator('.strip').count() == 0 and 'Without a hearing' not in txt and 'none is set' not in txt, f'{tag} JM: "Your move" is a quiet button right under the position line, and the bill sheet has no banner of its own ({ymp})')
@@ -495,7 +495,7 @@ with sync_playwright() as p:
                     lim = 5 if key == 'mine' else 3
                     ok(all(r['vh'] == 'New: ' and r['text'] for r in c['rows']) and not pg.locator('.newdot').count() and len(vis) == min(lim, c['n']) and (c['btn'] == f'Show all {c["n"]}' if c['n'] > lim else c['btn'] == ''), f'{tag} {viewer} {key}: each row has the hidden "New: " (and no dot); {len(vis)} show (limit {lim}), button "{c["btn"]}"')
                     ok(all(r['text'].startswith('Hearing set for ') for r in c['rows'] if want[r['id']] == ['hearing']), f'{tag} {viewer} {key}: a row whose only change is a hearing says "Hearing set for ..."')
-                    first_ids = pg.evaluate("() => [...document.querySelectorAll('.wl > section h3')].map(h => h.innerText.trim().replace(/ · \\d+$/, ''))")
+                    first_ids = pg.evaluate("() => [...document.querySelectorAll('#ilist > section h3')].map(h => h.innerText.trim().replace(/ · \\d+$/, ''))")
                     ok(first_ids[0] == 'Changed in the last 3 days', f'{tag} {viewer} {key}: the heading says "in the last 3 days" on the practice copy and Changed is the first group ({first_ids[:2]})')
                     # an issue under Changed still appears in its state group
                     sx2 = pg.evaluate(STATEX, 'all' if key == 'all' else 'mine'); R2 = {r['id']: r for r in sx2['rows']}; gg = pg.evaluate(GROUPS); gid = {i for x in gg for i in x[1]}; ch = {r['id'] for r in c['rows']}
@@ -514,7 +514,7 @@ with sync_playwright() as p:
         for viewer, key, q in (('JM', 'all', '?who=all'), ('JM', 'NT', '?who=NT')) if w == 1440 else (('JM', 'all', '?who=all'),):
             pg, errs, bad = open_as(br, viewer, w, h, '#/issues' + q); nm = f'{viewer} {key}'; sx = pg.evaluate(STATEX, key); R = {r['id']: r for r in sx['rows']}; cats = sx['cats']
             exp = [(ck, cn, [r for r in sx['rows'] if ck in r['cats']]) for ck, cn in cats]; exp = [e for e in exp if e[2]]
-            tps = pg.evaluate(TOPICS); gh = pg.evaluate("() => [...document.querySelectorAll('.wl > section h3')].map(h => h.innerText.trim().replace(/ · \\d+$/, ''))")
+            tps = pg.evaluate(TOPICS); gh = pg.evaluate("() => [...document.querySelectorAll('#ilist > section h3')].map(h => h.innerText.trim().replace(/ · \\d+$/, ''))")
             ok([t['key'] for t in tps] == [e[0] for e in exp] and [t['name'] for t in tps] == [e[1] for e in exp], f'{tag} {nm}: one topic row per category that has issues, in the categories\' order, "Other" last ({[t["key"] for t in tps]})')
             ok(gh[-1] == 'Topics' and set(gh) <= {'Changed in the last 3 days', 'At risk', 'Topics'} and gh == sorted(gh, key=['Changed in the last 3 days', 'At risk', 'Topics'].index), f'{tag} {nm}: the list is Changed, At risk, then Topics ({gh})')
             def line_for(rs):

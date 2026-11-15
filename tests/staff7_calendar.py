@@ -17,7 +17,7 @@ NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && [...docume
 SMALL = "() => [...document.querySelectorAll('.btn, .sr3, .seg, .pk, .cgc, .back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.className + ' ' + e.innerText.slice(0, 20))"
 H1 = "() => [...document.querySelectorAll('main h1')].find(h => h.getBoundingClientRect().width > 0)?.innerText.trim()"
 # every control on the page that could write: a button other than the teammate picker and the sheet's folds (they only open and close), a form field, a link to a step
-WRITERS = "() => [...document.querySelectorAll('.paper button:not(#whoMate):not(#whoChange):not(.fbtn), .wl button:not(#whoMate):not(#whoChange), .paper input, .paper textarea, .paper select, .wl input')].map(e => e.tagName + ' ' + e.innerText.slice(0, 20))"
+WRITERS = "() => [...document.querySelectorAll('.paper button:not(#whoMate):not(#whoChange):not(.fbtn), .wl button:not(#whoMate):not(#whoChange), .paper input, .paper textarea, .paper select, .wl input:not(#findIn)')].map(e => e.tagName + ' ' + e.innerText.slice(0, 20))"
 # a link to a step: allowed only on Mine, as the quiet "Your move" link (never filled)
 STEPS = "() => [...document.querySelectorAll('a[href^=\"#/do/\"]:not(#rdyGo)')].map(a => [a.className, a.innerText.trim()])"
 SITS = "root => [...document.querySelectorAll(root + ' [data-sit]')].map(a => [a.dataset.sit, a.innerText.replace(/\\s+/g, ' ').trim()])"

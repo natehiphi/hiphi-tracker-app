@@ -5,7 +5,7 @@
 // someone else's issue, in a teammate's view or Everyone's, is look-only.
 // Where an issue stands is decided in ONE place, issueState below (the groups, the second line of each row, the summary and the topic page all read it); standing.js still says At risk, Moving and
 // Stopped for Home. Nothing here restates the Capitol's deadlines: words.js and the data layer's stopOf do.
-import { S, advocate, myIssueIds, effStage, DEMO } from '../staff6/data.js';
+import { S, advocate, myIssueIds, effStage, isMine, DEMO } from '../staff6/data.js';
 import { hearingAhead, wantsHearing as wantsHearingOf, plainAction, stopOf, roomName, billByRef, billRef, isCarry, introYear, sittingDraft } from '../staff6/model.js';
 import { whereWords, billStep } from '../staff6/steps.js';
 import { CHAMBER_NAME, isOneChamber } from '../stops.js';
@@ -16,13 +16,14 @@ import { myIssueStandings, billsOfIssue, issueStanding, billStanding, deadlineOf
 import { withMe, sessionHTML } from './home.js';
 import { dateWords, whenWords, sessionDates, touchMap, nextStop, whyWords, daysTo, dayName } from './words.js';
 import { billPath, pathOf } from './path.js';
+import { boxHTML, issueHits, mark } from './find.js';
 
 const enc = encodeURIComponent;
 // What is open in the left column, kept across the minute's redraw in this visit only: the teammate picker, the "Moved" list, which groups were opened ("Show all N"), and when this person last looked.
-export const ui = { pick: false, more: '', folds: {}, look: null };   // more: the view (its `who` code) whose "Moved" list was opened, kept across the minute's redraw
+export const ui = { pick: false, more: '', folds: {}, look: null, redraw: null };   // more: the view (its `who` code) whose "Moved" list was opened, kept across the minute's redraw
 
 // "e-cigarettes", never "vape": the Legislature's own titles stay as written, but an issue's name is HIPHI's (CLAUDE.md R-158)
-const eCig = s => String(s || '').replace(/\bvap(?:e|es|ing)\b/gi, m => /^vap(es|ing)$/i.test(m) ? 'e-cigarettes' : 'e-cigarette');
+export const eCig = s => String(s || '').replace(/\bvap(?:e|es|ing)\b/gi, m => /^vap(es|ing)$/i.test(m) ? 'e-cigarettes' : 'e-cigarette');
 const catOf = i => i && /^[a-z-]+$/.test(i.category || '') ? i.category : 'other';
 export const iconOf = i => (i && i.icon) || (S.categories || []).find(c => c.key === i?.category)?.icon || 'circle';
 export const tint = i => `--ic:var(--cat-${catOf(i)}, var(--cat-other))`;
@@ -46,7 +47,7 @@ const noTopic = who => ({ ...who, topic: '' });
 const issuesHref = who => `#/issues${qs(noTopic(who))}`;
 const topicHref = (who, key) => `#/issues/topic/${enc(key)}${qs(noTopic(who))}`;
 const listHref = who => who.topic ? topicHref(who, who.topic) : issuesHref(who);   // where "back" goes: the topic's list when an issue was opened from a topic
-const issueHref = (who, id) => `#/issue/${enc(id)}${qs(who)}`;
+export const issueHref = (who, id) => `#/issue/${enc(id)}${qs(who)}`;
 export const billHref = (who, b, issueId) => `#/bill/${billRef(b).split('/').map(enc).join('/')}${qs(who, { i: issueId })}`;
 const whoseWords = (who, me) => who.kind === 'mine' ? 'Your' : who.kind === 'all' ? 'Everyone’s' : `${first(who.person)}’s`;
 
@@ -242,10 +243,10 @@ function leadOf(i, who) {
   const a = advocate(i.owner_id); if (!a?.initials || (who.kind === 'person' && a.id === who.person.id)) return '';
   return `<span class="person sm" role="img" aria-label="Led by ${esc(first(a))}">${esc(a.initials)}</span>`;
 }
-function row(x, who, openId, second, hid, fx) {
+function row(x, who, openId, second, hid, fx, mk) {
   const i = x.issue, on = String(i.id) === openId, dead = x.k === 'stopped';
   const mark = dead ? '<span class="imark" style="--ic:var(--edge)" aria-hidden="true">' : `<span class="imark" style="${tint(i)}" aria-hidden="true">`;
-  return `<li${fx ? ' class="fx"' : ''}${hid ? ' hidden' : ''}><a class="sr3 ir${on ? ' sel' : ''}${dead ? ' dead' : ''}"${on ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}">${mark}${ic(iconOf(i))}</span><span class="sv"><b>${esc(eCig(i.name))}</b>${second}</span>${leadOf(i, who)}</a></li>`;
+  return `<li${fx ? ' class="fx"' : ''}${hid ? ' hidden' : ''}><a class="sr3 ir${on ? ' sel' : ''}${dead ? ' dead' : ''}"${on ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}">${mark}${ic(iconOf(i))}</span><span class="sv"><b>${mk ? mk(eCig(i.name)) : esc(eCig(i.name))}</b>${second}</span>${leadOf(i, who)}</a></li>`;
 }
 function sessionRow(who, ses, on) {
   const nx = ses.next, line = nx ? `${nx.row.label} · ${whenWords(nx.row.date)}` : 'The session has ended';
@@ -267,7 +268,7 @@ function summaryHTML(t, total, who, hrefFor) {
   return `<p class="summ" id="summ">${n(total, 'issue', 'issues')}${parts.length ? `: ${parts.join(' · ')}` : ''}</p>` + (who.show ? `<p class="summ"><a class="sl" id="showAll" href="${hrefFor('')}">Show all issues</a></p>` : '');
 }
 function column(who, set, people, me, openKey, ses, x) {
-  const { rows, nx, changes, topic, topics } = x, mate = who.kind === 'person', vkey = `${who.code || 'mine'}|${topic ? topic.key : ''}`;
+  const { rows, nx, changes, topic, topics } = x, mate = who.kind === 'person', vkey = `${who.code || 'mine'}|${topic ? topic.key : ''}`, q0 = x.q || '';
   const seg = (id, label, on, href) => `<a class="seg" id="${id}" href="${href}"${on ? ' aria-current="true"' : ''}>${label}</a>`;
   const pick = ui.pick || false;
   const mates = people.filter(a => (!me || a.id !== me.id) && a.is_active !== false).sort((p, q) => String(p.full_name).localeCompare(String(q.full_name), 'en'));
@@ -275,23 +276,36 @@ function column(who, set, people, me, openKey, ses, x) {
     + `<div class="segs3" role="group" aria-label="Whose issues">${seg('whoMine', 'Mine', who.kind === 'mine' && !who.bad, '#/issues')}`
     + `<button class="seg" type="button" id="whoMate" aria-expanded="${pick}" aria-controls="whoPick"${mate ? ' aria-current="true"' : ''}>A teammate</button>${seg('whoAll', 'Everyone', who.kind === 'all', '#/issues?who=all')}</div>`
     + `<ul class="whopick" id="whoPick" aria-label="Which teammate"${pick ? '' : ' hidden'}>${mates.map(a =>
-      `<li><a class="pk${mate && who.person.id === a.id ? ' on' : ''}" id="who-${esc(String(a.initials).replace(/[^A-Za-z0-9]/g, ''))}" href="#/issues?who=${enc(a.initials)}"${mate && who.person.id === a.id ? ' aria-current="true"' : ''}>${esc(a.full_name)}</a></li>`).join('')}</ul></header>`;
-  if (!topic) h += sessionRow(who, ses, openKey.session);
-  else h += `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>`;
-  if (!rows.length) return h + `<p class="calmnote">${topic ? 'No issues in this topic.' : who.kind === 'mine' ? 'You are not on an issue yet. Pick Everyone to look around.' : who.kind === 'all' ? 'No issue has a bill this session.' : `${esc(first(who.person))} is not on an issue yet.`}</p>`;
+      `<li><a class="pk${mate && who.person.id === a.id ? ' on' : ''}" id="who-${esc(String(a.initials).replace(/[^A-Za-z0-9]/g, ''))}" href="#/issues?who=${enc(a.initials)}"${mate && who.person.id === a.id ? ' aria-current="true"' : ''}>${esc(a.full_name)}</a></li>`).join('')}</ul>`
+    + `${boxHTML({ who: who.code, q: q0 })}</header>`;
   const t = tally(rows), hrefFor = k => topic ? topicHref({ ...who, show: k }, topic.key) : issuesHref({ ...who, show: k });
-  h += summaryHTML(t, rows.length, who, hrefFor);
   const li = r => (hid, fx) => row(r, who, openKey.issue, r.second ? secHTML(r.second) : '', hid, fx);
-  const showChanged = !topic && !who.show && changes.length > 0, heldIds = new Set(showChanged ? changes.map(r => String(r.issue.id)) : []);
   const labelOf = k => k === 'cleared' && nx && nx.next ? `Cleared ${dayName(nx.next.row.date)}’s deadline` : STATES.find(s => s[0] === k)[1];
-  const grp = (k, opts) => { const g = inGroup(rows, k), vis = g.filter(r => !heldIds.has(String(r.issue.id))); return g.length ? groupHTML(k, labelOf(k), g.length, vis.map(r => li(r)), vkey, { ...opts, held: g.length - vis.length }) : ''; };
-  if (who.show) { const g = grp(who.show, { all: true }); return h + (g || '<p class="calmnote">No issues here.</p>'); }
-  if (showChanged) h += groupHTML('changed', x.fallback ? 'Changed in the last 3 days' : 'Changed since you last looked', changes.length, changes.map(r => (hid, fx) => row(r, who, openKey.issue, newHTML(r.change.text), hid, fx)), vkey, { limit: who.kind === 'mine' ? 5 : 3 });
-  if (topics) {   // Everyone's and a teammate's list: At risk in full, then a row for each topic
-    h += grp('risk', { all: true });
-    h += `<section aria-labelledby="topics-h"><h3 class="glab" id="topics-h">Topics</h3><ul class="srows3" id="topics">${topics.map(tp => topicRow(tp, who)).join('')}</ul></section>`;
-  } else for (const [k] of STATES) h += grp(k, k === 'stopped' ? { shut: true } : {});
-  return h;
+  const lead = () => topic ? `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>` : sessionRow(who, ses, openKey.session);
+  // The list while words are typed: the same groups and rows, only the issues of THIS view that match (a topic's list: that topic), nothing folded; the summary becomes "3 of 26 issues match".
+  // Drawn again in place on each key (find.js), never by render(). `ids`: the view's issues (the "Also found" issues are the others).
+  const narrowed = q => {
+    const hits = issueHits(rows.map(r => r.issue), q), have = new Set(hits.map(i => String(i.id))), mine = rows.filter(r => have.has(String(r.issue.id))), mk = s => mark(s, q);
+    const sum = `<p class="summ" id="summ">${mine.length} of ${n(rows.length, 'issue', 'issues')} match “${esc(eCig(q))}”<span id="summAlso"></span> <button class="sl sbtn" type="button" id="findClear">Clear</button></p>`;
+    const grps = STATES.map(([k]) => { const g = inGroup(mine, k); return g.length ? groupHTML(k, labelOf(k), g.length, g.map(r => (hid, fx) => row(r, who, openKey.issue, r.second ? secHTML(r.second) : '', hid, fx, mk)), vkey, { all: true }) : ''; }).join('');
+    return { html: (topic ? lead() : '') + sum + (mine.length ? grps : `<p class="calmnote" id="findNone">No issue in this list matches “${esc(eCig(q))}”.</p>`), ids: new Set(rows.map(r => String(r.issue.id))) };
+  };
+  const plain = () => {
+    let o = lead();
+    if (!rows.length) return o + `<p class="calmnote">${topic ? 'No issues in this topic.' : who.kind === 'mine' ? 'You are not on an issue yet. Pick Everyone to look around.' : who.kind === 'all' ? 'No issue has a bill this session.' : `${esc(first(who.person))} is not on an issue yet.`}</p>`;
+    o += summaryHTML(t, rows.length, who, hrefFor);
+    const showChanged = !topic && !who.show && changes.length > 0, heldIds = new Set(showChanged ? changes.map(r => String(r.issue.id)) : []);
+    const grp = (k, opts) => { const g = inGroup(rows, k), vis = g.filter(r => !heldIds.has(String(r.issue.id))); return g.length ? groupHTML(k, labelOf(k), g.length, vis.map(r => li(r)), vkey, { ...opts, held: g.length - vis.length }) : ''; };
+    if (who.show) { const g = grp(who.show, { all: true }); return o + (g || '<p class="calmnote">No issues here.</p>'); }
+    if (showChanged) o += groupHTML('changed', x.fallback ? 'Changed in the last 3 days' : 'Changed since you last looked', changes.length, changes.map(r => (hid, fx) => row(r, who, openKey.issue, newHTML(r.change.text), hid, fx)), vkey, { limit: who.kind === 'mine' ? 5 : 3 });
+    if (topics) {   // Everyone's and a teammate's list: At risk in full, then a row for each topic
+      o += grp('risk', { all: true });
+      o += `<section aria-labelledby="topics-h"><h3 class="glab" id="topics-h">Topics</h3><ul class="srows3" id="topics">${topics.map(tp => topicRow(tp, who)).join('')}</ul></section>`;
+    } else for (const [k] of STATES) o += grp(k, k === 'stopped' ? { shut: true } : {});
+    return o;
+  };
+  ui.redraw = q => q ? narrowed(q) : { html: plain(), ids: new Set() };
+  return h + `<div id="ilist">${q0 ? narrowed(q0).html : plain()}</div><div id="ialso" class="also"></div>`;
 }
 function topicRow(tp, who) {
   const t = tally(tp.rows), sep = '<span class="sep">·</span>';
@@ -301,14 +315,17 @@ function topicRow(tp, who) {
 }
 // The picker and the folds open and close in place: nothing is drawn again, so focus and scroll stay. A choice is a link, so Back works. Choosing where you already are draws nothing, so each
 // of these closes the picker itself.
-export function bindIssues() {
-  const mo = document.getElementById('sMore');
-  if (mo) mo.addEventListener('click', () => { ui.more = mo.dataset.k; mo.closest('p').remove(); document.querySelectorAll('#sMoved li.mx').forEach(l => { l.hidden = false; }); });
+export function bindFolds() {
   document.querySelectorAll('button[data-ifold]').forEach(f => f.addEventListener('click', () => {
     const on = f.getAttribute('aria-expanded') !== 'true', list = document.getElementById(f.getAttribute('aria-controls'));
     ui.folds[f.dataset.ifold] = on; f.setAttribute('aria-expanded', String(on)); f.textContent = on ? f.dataset.hide : f.dataset.show;
     if (list) { if (f.dataset.shut === '1') list.hidden = !on; else list.querySelectorAll('li.fx').forEach(l => { l.hidden = !on; }); }
   }));
+}
+export function bindIssues() {
+  const mo = document.getElementById('sMore');
+  if (mo) mo.addEventListener('click', () => { ui.more = mo.dataset.k; mo.closest('p').remove(); document.querySelectorAll('#sMoved li.mx').forEach(l => { l.hidden = false; }); });
+  bindFolds();
   const b = document.getElementById('whoMate'), l = document.getElementById('whoPick'); if (!b || !l) return;
   const set = on => { ui.pick = on; l.hidden = !on; b.setAttribute('aria-expanded', String(on)); };
   b.addEventListener('click', () => set(l.hidden));
@@ -340,7 +357,7 @@ export const stepOn = (open, b) => (open || []).find(s => (s.members ? s.members
 // which chamber's bill it is: HB, HR and HCR are the House's, SB, SR and SCR the Senate's
 const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
 // where an alive bill is, a few words: "in House Water & Land", "waiting for the floor vote"
-function whereShort(b) {
+export function whereShort(b) {
   if (!isAlive(b)) return 'did not advance';
   const st = stopOf(b);
   if (st.phase === 'committee') return st.committee ? `in ${cmteWords(String(st.committee).split('/')[0])}` : 'waiting for its committees';
@@ -351,7 +368,7 @@ function whereShort(b) {
   if (st.phase === 'ballot') return 'going to the voters';
   return whereWords(b, { deadline: false });
 }
-const sameName = (b, issue) => billName(b).trim().toLowerCase() === eCig(issue.name).trim().toLowerCase();
+const sameName = (b, issue) => !!issue && billName(b).trim().toLowerCase() === eCig(issue.name).trim().toLowerCase();
 
 // ---------------------------------------------------------------------------------- an issue's sheet
 const num = b => String(b.bill_number).replace(/\s/g, '');
@@ -421,7 +438,8 @@ function afterThat(b) {
 export const testimonyDue = h => h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : new Date(h.scheduled_at).getTime() - 864e5;
 function billSheet(b, issue, who, me, open, others, own) {
   const alive = isAlive(b), dl = deadlineOf(b), h = hearingAhead(b), lo = !own, st = own ? stepOn(open, b) : null;
-  const crumb = `<a class="crumb back2" href="${issueHref(who, issue.id)}">${ic('chevron-left')}Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}</a>`;
+  // a bill the team tracks that is on no issue has no issue to go back to: it goes back to the list (the find box reaches these bills too)
+  const crumb = issue ? `<a class="crumb back2" href="${issueHref(who, issue.id)}">${ic('chevron-left')}Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}</a>` : `<a class="crumb back2" href="${issuesHref(noTopic(who))}">${ic('chevron-left')}Back to Issues</a>`;
   let out = `<div class="pn"><div class="hband" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${crumb}<h1 tabindex="-1">${esc(billName(b))}</h1><p class="bsub">${esc(billNo(b))}</p></div></div><div class="pbody">`;
   out += `<p class="lead${st && alive ? ' tight' : ''}">${esc(posLine(b, issue, me))}</p>`;
   if (st && alive) out += `<p class="lead mv"><a class="btn quiet ymove" href="#/do/${enc(st.id)}">Your move · ${esc(st.verb)}</a></p>`;   // the same quiet button as on the issue's rows
@@ -518,7 +536,7 @@ function sessionSheet(who, set, me, ses) {
 
 // ---------------------------------------------------------------------------------- a topic's page
 // The topic's week, the next deadline against its bills, and who leads it. Letters are said in Calendar's own words (its hearing page's states), mapped from the data layer's own step state.
-const sitKeyOf = h => `${String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).sort().join('/')}|${new Date(h.scheduled_at).toISOString()}`;   // calendar.js sitKey: one committee and one instant
+export const sitKeyOf = h => `${String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).sort().join('/')}|${new Date(h.scheduled_at).toISOString()}`;   // calendar.js sitKey: one committee and one instant
 const codesKey = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean).sort().join('/');
 const draftFor = (h, b) => { const d = sittingDraft(h, b.id); return d && (d.hearing_id ? d.hearing_id === h.id : codesKey(d.committee) === codesKey(h.committee)) ? d : null; };
 const letterState = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', back: false, fresh: true }; };
@@ -567,6 +585,7 @@ function topicSheet(who, tp, rows, nx) {
 // ---------------------------------------------------------------------------------- put together
 // rt: { r: 'issues' | 'issue' | 'bill', id, q: URLSearchParams }. Returns what the frame draws.
 export function issuesModel({ me, open, rt, people }) {
+  ui.redraw = null;
   const who0 = whoOf(rt.q.get('who'), me, people), showRaw = rt.q.get('show'), show = STATE_KEYS.includes(showRaw) ? showRaw : '';   // a show value that is none of the groups is ignored
   const base0 = who0.bad ? { kind: 'mine', code: '' } : who0, set = setFor(base0, me), ses = sessionOf(set), nx = ses, all = statesFor(set, nx), own = ownSet(me);
   const topicOK = k => !!k && /^[a-z-]+$/.test(k) && (catKeys().includes(k) || (k === 'other' && all.some(x => catsOf(x.issue).includes('other'))));
@@ -600,8 +619,7 @@ export function issuesModel({ me, open, rt, people }) {
       const ids = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => String(x.issue_id)), want = rt.q.get('i') || '';
       const cand = (S.issues || []).filter(i => !i.archived_at && ids.includes(String(i.id)));
       const issue = cand.find(i => String(i.id) === want) || cand.find(i => set.some(y => String(y.issue.id) === String(i.id))) || cand[0];
-      if (!issue) gone('that bill’s issue');
-      else { openKey = { session: false, issue: String(issue.id) }; sheet = billSheet(b, issue, who, me, open, billsOfIssue(issue).filter(o => o.id !== b.id && isAlive(o)), own.has(String(issue.id))); label = 'Bill'; bk = ''; }   // its own back link, in the band, says where it goes
+      openKey = { session: false, issue: issue ? String(issue.id) : '' }; sheet = billSheet(b, issue || null, who, me, open, issue ? billsOfIssue(issue).filter(o => o.id !== b.id && isAlive(o)) : [], issue ? own.has(String(issue.id)) : isMine(b)); label = 'Bill'; bk = '';   // its own back link, in the band, says where it goes
     }
   }
   // what changed since the person last looked, and the topics (Everyone's and a teammate's list, not narrowed): only on the list itself
@@ -610,5 +628,5 @@ export function issuesModel({ me, open, rt, people }) {
   if (changes.length && rt.r === 'issues' && !rt.id) markDrawn();   // the Changed group is on the screen: from now on leaving Issues (or 10 seconds) says "looked"
   let topics = !who0.bad && who.kind !== 'mine' && !tp && !show ? topicsOf(all) : null;
   if (topics && topics.length < 2) topics = null;   // everything in one topic: the groups, flat, as Mine has them
-  return { who, set, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback }), sheet, picked, label, back: bk, backLabel, bind: bindIssues, notFound: /data-notfound/.test(sheet) };
+  return { who, set, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: bindIssues, notFound: /data-notfound/.test(sheet) };
 }

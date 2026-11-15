@@ -14,6 +14,7 @@ import { esc, plainBand } from './parts.js';
 import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
+import { boxHTML } from './find.js';
 import { whoOf, setFor, sessionOf, posLine, stepOn, testimonyDue, tint, bindIssues, ui } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -148,7 +149,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
     + `${wk !== thisMon ? `<a class="btn text" id="wkNow" href="${href('', { w: thisMon })}">This week</a>` : ''}<a class="btn text" id="wkNext" href="${href('', { w: addDays(wk, 7) })}">Next week${ic('chevron-right')}</a></div>`;
   const title = mate ? `${first(who.person)}’s calendar` : who.kind === 'all' ? 'Everyone’s calendar' : 'Calendar';
   const lookOnly = who.kind === 'mine' ? '' : who.kind === 'all' ? 'Everyone’s calendar. Look only.' : `${first(who.person)}’s calendar. Look only.`;
-  const header = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">${esc(title)}</h2>${mate ? '<button class="btn text chg" type="button" id="whoChange" aria-controls="whoPick">Change</button>' : ''}${viewSwitch}</div>${whoSwitch}${weekNav}</header>`;
+  const header = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">${esc(title)}</h2>${mate ? '<button class="btn text chg" type="button" id="whoChange" aria-controls="whoPick">Change</button>' : ''}${viewSwitch}</div>${whoSwitch}${boxHTML({ who: who.code })}${weekNav}</header>`;
 
   // ---- the left column: the row you click is the row marked
   const sitRow = s => { const on = okPick && kind === 'sitting' && item.key === s.key;

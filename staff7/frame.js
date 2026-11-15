@@ -12,11 +12,12 @@ import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
 import { issuesModel, ui as issuesUi } from './issues.js';
 import { calendarModel } from './calendar.js';
+import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
 const DOORS = [['home', 'Home', 'house', '#/'], ['issues', 'Issues', 'layers', '#/issues'], ['calendar', 'Calendar', 'calendar', '#/calendar'], ['search', 'Search', 'search', '#/search'], ['explore', 'Explore', 'layout-grid', '#/explore']];
-const WILL = { calendar: 'The week’s hearings and deadlines, in one place.', search: 'Go straight to a bill, a person, an issue or a place.', explore: 'Every other place in the app, with one line on what each is for.' };
+const WILL = { calendar: 'The week’s hearings and deadlines, in one place.', explore: 'Every other place in the app, with one line on what each is for.' };
 
 // Session memory: the typed send-back note, what is finished and what is in flight live here and nowhere else. The data layer also keeps
 // the practice copy's writes in sessionStorage (hiphi5_practice, shared with the current app's practice copy in this tab): staff7 does not fight it.
@@ -100,9 +101,10 @@ function boot() {
 function parse() {
   const [path, ...qr] = location.hash.replace(/^#\/?/, '').split('?'), q = new URLSearchParams(qr.join('?'));   // an address's own "?" starts its options; a "?" in an id is %3F
   const [a, ...r] = path.split('/');
-  let id = ''; try { id = decodeURIComponent(r.join('/')); } catch { if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id: '\ufffd', q }; return { r: 'missing' }; }   // an address that cannot be read is an issue or a bill that is not found, said calmly
+  let id = ''; try { id = decodeURIComponent(r.join('/')); } catch { if (a === 'issues' || a === 'issue' || a === 'bill' || a === 'search') return { r: a, id: '\ufffd', q }; return { r: 'missing' }; }   // an address that cannot be read is an issue or a bill that is not found, said calmly
   if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
 
+  if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
   if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested') return id ? { r: a, id } : { r: 'missing' };
   if (a && Object.hasOwn(WILL, a)) return { r: 'door', door: a };
@@ -131,7 +133,7 @@ let lastRoute = '', lastFam = '', first = true;
 function render(opts = {}) {
   stopDone(); clearInterval(ctx.pollT);
   const keepScroll = opts.tick ? [...document.querySelectorAll('.wl, .paper')].map(e => [e, e.scrollTop]) : [], tpOpen = opts.tick && !!document.getElementById('tpList') && !document.getElementById('tpList').hidden;
-  const ae = document.activeElement, had = ae && ae.id, hadHref = ae && ae.tagName === 'A' && ae.closest('#app') ? ae.getAttribute('href') : '';   // a row link has no id: it is found again by its address
+  const wasOpen = findOpen(), ae = document.activeElement, had = ae && ae.id, hadHref = ae && ae.tagName === 'A' && ae.closest('#app') ? ae.getAttribute('href') : '';   // a row link has no id: it is found again by its address
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
   let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null;
@@ -150,6 +152,8 @@ function render(opts = {}) {
     cur = 'issues'; im = issuesModel({ me: ctx.me, open, rt, people }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'calendar') {
     cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
+  } else if (rt.r === 'search') {
+    cur = 'search'; im = searchModel({ rt }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
   else sheet = missingSheet();
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
@@ -158,12 +162,14 @@ function render(opts = {}) {
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
-  const lists = one ? '' : `<div class="wl">${im ? im.col : listsHTML(m, location.hash)}</div>`;
+  const lists = one ? '' : `<div class="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
   // on a phone the greeting comes first, then the lists, then the facts and the session: the thing to do is never below a screen of overview
   $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
     : `<div class="${cls}">${lists}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
   bindHome(); bindFn && bindFn();
+  if (!opts.tick) noteOpened(rt);
+  bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}) });
   if (opts.tick) {   // a tick changes only the numbers: no entry animation, same scroll, talking points as they were
     document.querySelectorAll('#app .enter').forEach(e => e.classList.remove('enter'));
     const tl = document.getElementById('tpList'), tb = document.getElementById('tpBtn'); if (tpOpen && tl) { tl.hidden = false; tb?.setAttribute('aria-expanded', 'true'); }
@@ -175,6 +181,7 @@ function render(opts = {}) {
   if (target) target.focus({ preventScroll: true });
   else if (!first && (key !== lastRoute || !document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); if (key !== lastRoute) window.scrollTo(0, 0); }
   if (!opts.tick && (!document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); }   // focus never drops to the page body
+  if (rt.r === 'search' && !phone && !opts.tick && !im.picked) $('findIn')?.focus({ preventScroll: true });   // the Search door opens with the cursor in the box (on a phone it would raise the keyboard)
   first = false; lastRoute = key; document.documentElement.dataset.ready = '1';
 }
 
@@ -182,10 +189,11 @@ function render(opts = {}) {
 function tick() {
   const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
   const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden);
-  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
+  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?|#\/search(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
   render({ tick: true });
 }
-window.__staff7Tick = tick;   // the tests call the minute's redraw directly
+window.__staff7Tick = tick;
+window.__staff7Render = o => render(o);   // the tests force a redraw even while a field has the focus   // the tests call the minute's redraw directly
 
 hooks.toast = m => toast(m);
 async function start() {
