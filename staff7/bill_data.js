@@ -1,23 +1,32 @@
 // What a bill's page needs beyond what is already in memory (R-398 Part B): the Capitol's lines and the team's (DB.timeline), every hearing of the bill (DB.billHearings), and on the practice copy
 // a little sample team history (demo/bill_team.json). Asked for once per bill and kept for the visit; billExtras answers 'loading' the first time and the page is drawn again when the answer lands,
-// the way find.js otherRow does it (and only if the person is still on the same address). Everything else Part B shows (the outcomes, testimony drafts, the team's conversation, the pinned note) is read
+// the way find.js otherRow does it (and only while the person is still on this bill). Everything else Part B shows (the outcomes, testimony drafts, the team's conversation, the pinned note) is read
 // from memory each time it is drawn, so it is never older than the rest of the page. Nothing here writes anything.
 import { S, DB, DEMO } from '../staff6/data.js';
-import { rerender } from './find.js';
+import { redrawKeep } from './find.js';
+import { bui } from './bill.js';
 
 export const cache = new Map();   // bill id -> 'loading' | 'failed' | { tl, hearings, outcomes, tf, at }
 const STALE = 3 * 60 * 1000;
-let team = null;   // the practice sample, fetched once and only in practice
-const teamFile = () => DEMO ? (team ??= fetch('demo/bill_team.json?v=20261115a', { cache: 'force-cache' }).then(r => r.json()).catch(() => ({}))) : Promise.resolve({});
+let team = null, tfDone = null;   // the practice sample, fetched once and only in practice; tfDone is what it held once it has come
+const teamFile = () => DEMO ? (team ??= fetch('demo/bill_team.json?v=20261116a', { cache: 'force-cache' }).then(r => r.json()).catch(() => ({})).then(t => (tfDone = t))) : Promise.resolve({});
+// the history arriving (or failing) redraws the page the way the minute's tick does, and only while the person is still on THIS bill (the address may have changed its words, never its bill)
+const onBill = b => !!bui.ctx && bui.ctx.b.id === b.id && /^#\/bill\//.test(location.hash);
 
 function load(b, quiet) {
-  const at = location.hash; if (!quiet) cache.set(b.id, 'loading');
+  if (!quiet) cache.set(b.id, 'loading');
   Promise.all([DB.timeline(b.id), DB.billHearings(b.id), teamFile()])
     .then(([tl, bh, tf]) => cache.set(b.id, { tl: tl || [], hearings: bh.hearings || [], outcomes: bh.outcomes || [], tf: tf?.[b.bill_number] || {}, at: Date.now() }))
-    .catch(() => { if (!quiet) cache.set(b.id, 'failed'); })
-    .finally(() => { if (!quiet && location.hash === at) rerender(); });
+    .catch(async () => { if (!quiet) { await teamFile().catch(() => {}); cache.set(b.id, 'failed'); } })   // the sample (practice) is waited for, so the notes drawn with the failure are complete
+    .finally(() => { if (!quiet && onBill(b)) redrawKeep(); });
 }
-export const retry = b => { cache.delete(b.id); rerender(); };
+export const retry = b => { cache.delete(b.id); if (onBill(b)) redrawKeep(); };
+
+// What the page can say without asking: the team's conversation, the pinned note and the testimony drafts (all in memory), for when the rest could not be loaded
+export function memoryExtras(b) {
+  const tf = tfDone?.[b.bill_number] || {}, seen = new Set();
+  return { timeline: [], hearings: [], outcomes: {}, drafts: S.drafts?.[b.id] || [], messages: [...(S.messages?.[b.id] || []), ...(tf.messages || []).map(m => ({ ...m, bill_id: b.id }))].filter(m => !seen.has(m.id) && seen.add(m.id)), pinned: String(b.internal_notes || '').trim() || String(tf.pinned || '').trim() };
+}
 
 // 'loading' | 'failed' | { timeline, hearings, outcomes (by hearing id), drafts, messages, pinned }
 export function billExtras(b) {

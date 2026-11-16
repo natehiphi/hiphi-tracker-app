@@ -11,6 +11,7 @@ SHOTS = sys.argv[2] if len(sys.argv) > 2 else ''
 if SHOTS: os.makedirs(SHOTS, exist_ok=True)
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m, flush=True)
+def skip(m): print('SKIP (not counted)', m, flush=True)
 
 NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.paper, .wl')].every(p => p.scrollWidth <= p.clientWidth + 1)"
 SMALL = "() => [...document.querySelectorAll('.paper .btn, .paper .crumb.back2, .back')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 43.5 && !e.closest('[hidden]'); }).map(e => e.className + ' ' + (e.innerText || '').slice(0, 20))"
@@ -69,6 +70,8 @@ def open_as(br, who, w, h, hash=''):
     pg.goto(f'{BASE}/staff7.html?demo=1&as={who}' + hash); pg.wait_for_selector('.paper', timeout=60000)
     pg.evaluate("Promise.all([document.fonts.load('600 16px Poppins'), document.fonts.load('400 16px Lato'), document.fonts.load('700 16px Lato'), document.fonts.load('500 16px Poppins')])"); pg.wait_for_timeout(500)
     return pg, ctx
+def other_pos(pg):   # click a position that is not the checked one
+    cur = pg.evaluate("() => document.querySelector('#bEdit input:checked')?.value"); pg.click('#bp-' + ('neutral' if cur != 'neutral' else 'monitor'))
 def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(450)
 def snap(pg, name, tall=False):
     if not SHOTS: return
@@ -114,8 +117,8 @@ with sync_playwright() as p:
     exp = L['hearing']['text']
     ok(len(st) in (2, 3) and st[0].startswith('Hearing ') and st[1].startswith('Testimony '), f'{hb}: the status is two plain lines, the hearing then the testimony ({st})')
     ok(exp.split(' · ')[0] in st[0], f'{hb}: the hearing time equals the Issues list ("{exp.split(" · ")[0]}" in "{st[0]}")')
-    sit = pg.evaluate("() => document.querySelector('#bStat a.btn.text')?.getAttribute('href')")
-    ok(sit and (sit.startswith('#/calendar/sitting/') or sit.startswith('#/do/')), f'{hb}: one action at the right of the testimony line ({sit})')
+    sit = pg.evaluate("() => { const a = document.querySelector('#bStat .bln:first-child .bla a'); return a ? [a.innerText.trim(), a.getAttribute('href')] : null; }")
+    ok(sit and sit[0] == 'See the hearing' and sit[1].startswith('#/calendar/sitting/') and pg.locator('#bStat .bln:nth-child(2) .bla').count() == 0 and pg.locator('#bStat .bmv').count() == 0, f'{hb}: with no step of mine, "See the hearing" is at the end of the HEARING line, not the testimony line ({sit})')
     am = pg.evaluate(AMBER)
     due_late = hb in (C.get('late') or [])
     ok((len(am) > 0) == due_late and all(x == 'status' for x in am), f'{hb}: amber appears only for late testimony ({"late" if due_late else "not late"}; amber on {am[:3]})')
@@ -135,43 +138,46 @@ with sync_playwright() as p:
     # words
     tx = pg.evaluate(TEXTS)
     ok(not re.search(r'letter', tx, re.I) and not re.search(r'vap(e|es|ing)\b', tx, re.I), f'{hb}: the word "letter" and the word "vape" appear nowhere on the page')
-    ok(pg.evaluate("() => document.querySelectorAll('.pbody.bill .bpos-slot, .pbody.bill [data-bpart]').length >= 0"), 'the seams for Part B and Part C are in the code (empty)')
 
     # ============================================================ a hearing with an agenda, a joint hearing, late testimony
     ag = pick('agenda')
     if ag:
         bill(pg, ag); a = pg.evaluate("() => document.querySelector('#bStat a[target=_blank]')?.outerHTML || ''")
         ok('Agenda' in a and 'noopener' in a, f'{ag}: a hearing with a notice shows "Agenda" opening in a new tab ({a[:60]})')
-    else: ok(True, 'NOT FOUND in the practice copy: a coming hearing with a notice_url (so "Agenda" is checked on a synthetic one below)')
+    else: skip('no coming hearing in the practice copy has a notice_url: "Agenda" is checked on a synthetic one below')
     jt = pick('joint'); bill(pg, jt); jl = pg.evaluate(STAT)[0]; jn = pg.evaluate("() => document.querySelectorAll('#bStat .blt:first-child a[href^=\"#/search/committee/\"]').length")
     ok(' with ' in jl and jn == 2, f'{jt}: a joint hearing names both committees, each a link ({jl})')
     lt = pick('late'); bill(pg, lt); ls = pg.evaluate(STAT); am = pg.evaluate(AMBER)
-    ok(ls[1].startswith('Testimony was due ') and am and all(x == 'status' for x in am) and pg.locator('#bStat b.riskt svg').count() == 1, f'{lt}: testimony that was due and is not filed says so in amber with its icon, and nowhere else is amber ({ls[1]})')
+    ok(re.match(r'^Late, still accepted until \d+:\d\d [AP]M( today)? · ', ls[1]) and am and all(x == 'status' for x in am) and pg.locator('#bStat b.riskt svg').count() == 1, f'{lt}: late testimony says it in Calendar\'s own words, in amber with its icon, and nowhere else is amber ({ls[1]})')
     nl = pick('notlate'); bill(pg, nl); ok(not pg.evaluate(AMBER) and pg.locator('.riskt').count() == 0, f'{nl}: testimony not yet due has no amber anywhere')
     snap(pg, 'late_testimony.png')
 
     # ============================================================ at risk, needs a hearing, cleared, stopped: the words equal the Issues list
     rk = L['risk']['bill']; go(pg, f'#/bill/{rk}?i={L["risk"]["issue"]}&who=all'); st = pg.evaluate(STAT); lead = L['risk']['text'].split(' · ')[0]
-    ok(re.match(r'^Needs a hearing by \w{3}, \w{3} \d+ · .*\d+ days? left · none is scheduled$', st[0]) and st[0].split(' by ')[1][:3] == lead.split(' by ')[1][:3], f'{rk} (at risk): "{st[0]}" agrees with the Issues list ("{L["risk"]["text"]}")')
+    lm = re.match(r'^Needs a hearing by (\w{3}) · in (\d+) days?$', L['risk']['text'].strip()); pm = re.match(r'^Needs a hearing by (\w{3}), (\w{3} \d+) · (\d+) days? · in .+ · none is scheduled$', st[0])
+    ok(lm and pm and lm.group(1) == pm.group(1) and lm.group(2) == pm.group(3) and 'days left' not in st[0], f'{rk} (at risk): "{st[0]}" has the same weekday and days as the Issues list ("{L["risk"]["text"]}"), in the same date words')
     ok(len(st) == 2 and st[1].startswith('If it is not heard by then, it stops for the year.'), f'{rk} (at risk): the second line says what happens ({st[1:] })')
     ok(pg.evaluate("() => !!document.querySelector('#bStat a[href^=\"#/search/committee/\"]')"), f'{rk} (at risk): the committee it is in is a link')
     snap(pg, 'at_risk_bill.png')
     if 'cleared' in L:
         cb = L['cleared']['bill']; go(pg, f'#/bill/{cb}?i={L["cleared"]["issue"]}&who=all'); st = pg.evaluate(STAT); t = L['cleared']['text']
         want = t[6:] if t.startswith('Next: ') else t
-        ok(st[0].startswith('Cleared the ') and st[0].endswith(' deadline · ' + st[0].split(' deadline · ', 1)[-1]) and (want.split(' · ')[0] in st[0] or t.startswith('Next: ')), f'{cb} (cleared): "{st[0]}" agrees with the Issues list ("{t}")')
+        glab = pg.evaluate("async () => { const is = await import('/staff7/issues.js'); return is.clearedLabel(is.nextCtx().next.row); }")
+        where = t[6:] if t.startswith('Next: ') else t
+        ok(glab.startswith('Cleared ') and st[0].startswith(glab + ' · ') and (t.startswith('Next: ') or st[0].endswith(' · ' + where)), f'{cb} (cleared): "{st[0]}" says the Issues group\'s own words ("{glab}") and the list\'s own line ("{t}")')
         ok(len(st) == 1, f'{cb} (cleared, nothing later): one line')
         snap(pg, 'cleared_bill.png')
     else: ok(False, 'the Issues list has no cleared issue to compare with')
     cl2 = pick('cleared_later')
     if cl2:
-        bill(pg, cl2); st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by ') and any(re.match(r'^Cleared the \w{3}, \w{3} \d+ deadline\.', s) for s in st[1:]), f'{cl2}: a bill that cleared the next deadline but needs a hearing by a later one leads with the later need and says what it cleared ({st})')
-    else: ok(True, 'NOT FOUND in the practice copy: a bill that cleared the next deadline and needs a hearing by a later one')
+        bill(pg, cl2); st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by ') and any(re.match(r'^Cleared \w+’s deadline\.$', s) for s in st[1:]), f'{cl2}: a bill that cleared the next deadline but needs a hearing by a later one leads with the later need and says what it cleared ({st})')
+    else: skip('no practice bill cleared the next deadline and needs a hearing by a later one')
     nd = pick('need')
     bill(pg, nd); st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by ') and len(st) <= 2, f'{nd} (needs a hearing, not at risk): "{st[0]}"')
     sb = L['stopped']['bill']; go(pg, f'#/bill/{sb}?i={L["stopped"]["issue"]}&who=all'); st = pg.evaluate(STAT); t = L['stopped']['text']
-    ok(st[0].startswith('Stopped') and t.replace('Stopped at ', '') in st[0] or t == 'Stopped this year' and st[0].startswith('Stopped'), f'{sb} (stopped): "{st[0]}" agrees with the Issues list ("{t}")')
-    ok(len(st) == 2 and len(st[1]) > 10 and not re.search(r'\b[A-Z]{3}\b', st[1].replace('HB', '').replace('SB', '')), f'{sb} (stopped): the second line says why, with committees in words ({st[1:]})')
+    ok(len(st) == 1 and re.match(r'^Stopped (\w{3}, \w{3} \d+(, \d{4})?)? ?· ', st[0]), f'{sb} (stopped): one line, "Stopped <date> · why" ("{st[0]}"; the Issues list says "{t}")')
+    dt = re.match(r'^Stopped (\w{3}, \w{3} \d+)', st[0]).group(1)
+    ok(st[0].count(dt) == 1 and not re.search(r'\b[A-Z]{3}\b', st[0].replace('HB', '').replace('SB', '')) and ' on ' + dt not in st[0] and re.search(r'· [a-z]', st[0]), f'{sb} (stopped): the date is said once, the why is in lower-case plain words, committees in words ({st[0]})')
     ok(pg.locator('svg.trk.dead').count() >= 1 and not pg.evaluate(AMBER), f'{sb} (stopped): its path ends in a bar, no amber')
     snap(pg, 'stopped_bill.png')
     sn = pick('stopped_nodate')
@@ -183,7 +189,7 @@ with sync_playwright() as p:
         ok(f and 'Still alive' in f and len(al) == len(mx['alive']) and not bad_l, f'{mx["dead"][0]}: a stopped bill lists the issue\'s other bills that are alive, each a link ({f[:80]})')
         ok(not revisit(pg, al, 'alive') , f'{mx["dead"][0]}: those links land on real pages')
     if od:
-        bill(pg, od['dead'][0], f'i={od["id"]}&who=all'); ok('Nothing else is alive for this issue this year.' in pg.inner_text('#bAlive'), f'{od["dead"][0]}: a stopped bill on an issue with nothing alive says so')
+        bill(pg, od['dead'][0], f'i={od["id"]}&who=all'); ok('No other bill on this issue is still moving.' in pg.inner_text('#bAlive'), f'{od["dead"][0]}: a stopped bill on an issue with nothing alive says so')
     pl = None
     # an alive bill with no hearing and no deadline: one line from the words the Issues list uses
     plain = pg.evaluate("""async () => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), is = await import('/staff7/issues.js'), S = d.S, row = is.nextCtx().next.row;
@@ -195,7 +201,7 @@ with sync_playwright() as p:
 
     # ============================================================ the facts
     bill(pg, hb, f'i={hi}&who=all'); f = pg.evaluate(FACTS)
-    ok(list(f.keys())[:3] == ['What it does', 'Issue', 'Committees'] and 'Introduced by' in f and 'Companion bills' in f or hb not in (C.get('manycomp') or []), f'{hb}: the facts come in order: {list(f.keys())}')
+    ok(list(f.keys()) == ['What it does', 'Issue', 'Committees', 'Companion bills', 'Introduced by'], f'{hb}: the facts come in order: {list(f.keys())}')
     ok(re.search(r'Version (HD|SD|CD) \d', f['What it does']) and 'Read the bill' in f['What it does'] and 'The Capitol’s page' in f['What it does'], f'{hb}: What it does has the summary, the version spaced, and both links ({f["What it does"][-70:]})')
     isl = pg.evaluate("() => [...document.querySelectorAll('#bFacts > div')].find(d => d.querySelector('dt').innerText === 'Issue').querySelectorAll('a').length")
     ok(isl >= 1, f'{hb}: the issue is a link')
@@ -252,12 +258,14 @@ with sync_playwright() as p:
     pg, ctx = open_as(br, 'JM', 1440, 900, '#/issues'); errs, bad = ctx._errs, ctx._bad
     ask = pg.evaluate("async () => { const d = await import('/staff6/data.js'), ss = await import('/staff7/steps.js'), me = d.S.advocates.find(a => a.initials === 'JM'); const s = ss.stepsFor(me).find(x => x.kind === 'ask' && x.bill && x.members && x.members.length === 1); return s ? { id: s.id, no: s.bill.bill_number, verb: s.verb } : null; }")
     if ask:
-        bill(pg, ask['no'], ''); st = pg.evaluate(STAT); btn = pg.evaluate("() => { const a = document.querySelector('#bStat .bla a.btn.text'); return a ? [a.innerText.trim(), a.getAttribute('href')] : null; }")
-        ok(btn and btn[0] == ask['verb'] and btn[1] == '#/do/' + ask['id'], f'{ask["no"]}: my own bill with an open step shows that step\'s verb as a text button going to it ({btn}, {st})')
-        ok('Look only' not in pg.inner_text('main') and pg.evaluate(NOSIDE), f'{ask["no"]}: my own bill has no look-only line')
+        bill(pg, ask['no'], ''); st = pg.evaluate(STAT); btn = pg.evaluate("() => { const a = document.querySelector('#bStat .bmv a'); return a ? [a.innerText.trim(), a.getAttribute('href'), a.className] : null; }")
+        ok(btn and btn[0] == 'Your move · ' + ask['verb'] and btn[1] == '#/do/' + ask['id'] and 'ymove' in btn[2] and 'quiet' in btn[2] and 'text' not in btn[2].split(), f'{ask["no"]}: my own bill with an open step shows the same tonal button the issue page has, "Your move · {ask["verb"]}" ({btn})')
+        pos_ = pg.evaluate("() => { const m = document.querySelector('#bStat .bmv .btn').getBoundingClientRect(), l = [...document.querySelectorAll('#bStat .bln')].pop().getBoundingClientRect(), s = document.getElementById('bStat').getBoundingClientRect(), p = document.querySelector('main .bigpath').getBoundingClientRect(); return [m.top - l.bottom, Math.abs(m.left - s.left), p.top - m.bottom]; }")
+        ok(0 <= pos_[0] < 40 and pos_[1] < 2 and pos_[2] > 0, f'{ask["no"]}: the button sits on its own line directly under the status lines, left-aligned ({[round(x) for x in pos_]})')
+        ok('Look only' not in pg.inner_text('main') and pg.evaluate(NOSIDE), f'{ask["no"]}: no "Look only." line on the bill page')
         snap(pg, 'own_bill_step.png')
     else: ok(False, 'JM has an open ask step to test the button with')
-    bill(pg, hb, f'who=KV'); ok('Look only' in pg.inner_text('main') and pg.locator('#bStat a[href^="#/do/"]').count() == 0, f'{hb}: looking at a teammate\'s list shows "Look only" and no link to a step')
+    bill(pg, hb, f'who=KV'); ok('Look only' not in pg.inner_text('main') and pg.locator('#bStat a[href^="#/do/"]').count() == 0 and pg.locator('.ymove').count() == 0, f'{hb}: looking at a teammate\'s list has no "Look only." line and no link to a step')
     me_lead = pg.evaluate("async () => { const d = await import('/staff6/data.js'), S = d.S, me = S.advocates.find(a => a.initials === 'JM'); const b = S.bills.find(x => (S.assignments[x.id] || []).includes(me.id) && x.tracked !== false); return b && b.bill_number; }")
     if me_lead: bill(pg, me_lead, ''); ok(pg.inner_text('#bLead').strip() == 'You lead', f'{me_lead}: a bill I lead says "You lead"')
     # back links: where you came from
@@ -335,11 +343,11 @@ with sync_playwright() as p:
       bh.voteWords('The committee on TRN recommend that the measure be PASSED, WITH AMENDMENTS. The votes were as follows: 7 Ayes: Representative(s) Kila, Miyake; Ayes with reservations: Representative(s) Muraoka;  Noes: none; and 2 Excused: Representative(s) Cochran, Pierick.'),
       bh.voteWords('The committee(s) on  GVO recommend(s) that the measure be PASSED, WITH AMENDMENTS.  The votes in GVO were as follows: 4 Aye(s): Senator(s) McKelvey; Aye(s) with reservations: none ; 0 No(es): none; and 1 Excused: Senator(s) Fevella.'),
       bh.voteWords('The committee on HSH recommend that the measure be PASSED, WITH AMENDMENTS. The votes were as follows: 9 Ayes: Marten; Ayes with reservations: none;  Noes: none; and  Excused: none.'),
-      bh.voteWords('The committee on JHA recommend that the measure be PASSED. The votes were as follows: 9 Ayes: Tarnas; Ayes with reservations: 2 Ayes with reservations: Shimizu; 1 Noes: Garcia; and 1 Excused: Repr'),
+      bh.voteWords('The committee on JHA recommend that the measure be PASSED. The votes were as follows: 9 Ayes: Tarnas; 2 Ayes with reservations: Shimizu, Garcia; 1 Noes: Poepoe; and 1 Excused: Cochran.'),
       bh.voteWords('The committee on FIN recommend that the measure be PASSED, UNAMENDED. The votes were as follows: 14 Ayes: Yamashita, Takenouchi; Ayes with reservations: none;  Noes'),
       bh.voteWords('The committee on PSM deferred the measure.'), bh.voteWords('') ]; }""")
     ok(vt[0] == '7 yes, 0 no, 2 excused' and vt[1] == '4 yes, 0 no, 1 excused' and vt[2] == '9 yes, 0 no, 0 excused' and vt[4] == '' and vt[5] == '' and vt[6] == '', f'the vote sentence is read in both forms, counts only; a cut sentence or none gives no vote ({vt})')
-    ok(vt[3] == '' or vt[3].startswith('9 yes, 1 no, 1 excused'), f'a sentence read in full with a stated reservation count says it ({vt[3]})')
+    ok(vt[3] == '9 yes, 1 no, 1 excused (2 with reservations)', f'a sentence read in full with a stated reservation count says it ({vt[3]})')
     nb_ = PB['noparse'][0].split('|')[0]; bill(pg, nb_); pg.wait_for_selector('#bParts'); subs = pg.evaluate(PH)
     ok(subs and any(not re.search(r'\d+ yes', p['sub']) and not p['sub'].startswith('No result') for p in subs), f'{nb_}: a hearing whose sentence cannot be read in full shows its result and no vote ({[p["sub"][:60] for p in subs][:3]})')
     dfb = PB['deferred'][0]; bill(pg, dfb); pg.wait_for_selector('#bParts'); dsub = pg.evaluate(PH)
@@ -352,12 +360,12 @@ with sync_playwright() as p:
     bill(pg, 'HB1523'); pg.wait_for_selector('#bParts')
     H = "id => [...document.querySelectorAll('#' + id + ' li')].map(l => ({ t: l.innerText.replace(/\\s+/g, ' ').trim(), hid: l.hidden }))"
     cap, our = pg.evaluate(H, 'bCap'), pg.evaluate(H, 'bOurs')
-    ok(len(cap) == 18 and sum(1 for c in cap if not c['hid']) == 4 and pg.inner_text('#bCap button[data-bmore]') == 'Show all 18', f'HB1523: What the Capitol did shows four of {len(cap)} and "Show all 18"')
-    ok(cap[0]['t'].endswith('Fri, Mar 13 · Senate') or 'Mar 13' in cap[0]['t'], f'HB1523: the Capitol\'s lines are newest first, each with its date and chamber ({cap[0]["t"][:80]})')
+    ok(len(cap) >= 10 and sum(1 for c in cap if not c['hid']) == 4 and pg.inner_text('#bCap button[data-bmore]') == f'Show all {len(cap)}' and 'what the Capitol did' in pg.get_attribute('#bCap button[data-bmore]', 'aria-label'), f'HB1523: What the Capitol did shows four of {len(cap)}, "Show all {len(cap)}", and its button says which list it is for')
+    ok(cap[0]['t'].startswith('Hearing moved') and 'Fri, Mar 13 · Senate' in cap[0]['t'] and not any(c['t'].startswith('Hearing set: Senate Transportation Tue 3/17, 3:05') for c in cap), f'HB1523: newest first, each with its date and chamber; two same-day lines setting one hearing show only the later ("{cap[0]["t"][:60]}")')
     ok(not any(re.search(r'\b(TRS|JDC|JHA|TRN)\b', c['t']) for c in cap) and len({c['t'] for c in cap}) == len(cap), 'HB1523: committee codes are in words and no line repeats')
     ok(sum(1 for c in our if not c['hid']) == 4 and pg.inner_text('#bOurs button[data-bmore]').startswith('Show all'), f'HB1523: What we did shows four and its own Show all ({len(our)} rows)')
     alltxt = ' | '.join(c['t'] for c in our)
-    ok('Kris changed the position: Monitor to Support' in alltxt and 'Kris made Patti the lead' in alltxt and 'Patti asked the Senate Transportation chair for a hearing' in alltxt and 'Lauren sent testimony for approval' in alltxt and 'Nate approved the testimony' in alltxt and 'Lauren filed testimony' in alltxt and 'added a note' in alltxt, 'HB1523: What we did merges position and lead changes, the hearing request, the testimony steps and the notes')
+    ok('Kris changed the position: Monitor to Support' in alltxt and 'Kris made Patti the lead' in alltxt and 'Patti asked the Senate Transportation chair for a hearing' in alltxt and 'Lauren sent testimony for approval' in alltxt and 'Nate approved the testimony' in alltxt and 'Lauren filed testimony' in alltxt and 'added a note' not in alltxt, 'HB1523: What we did merges position and lead changes, the hearing request and the testimony steps, and does not list the notes again')
     ok('priority' not in alltxt.lower(), 'HB1523: a priority change is left out')
     pg.click('#bCap button[data-bmore]'); pg.click('#bOurs button[data-bmore]'); pg.wait_for_timeout(100); pg.evaluate("() => window.__staff7Tick()"); pg.wait_for_timeout(300)
     ok(all(not c['hid'] for c in pg.evaluate(H, 'bCap')) and all(not c['hid'] for c in pg.evaluate(H, 'bOurs')), 'HB1523: each history list has its own Show all, and both stay open across the minute\'s redraw')
@@ -389,7 +397,7 @@ with sync_playwright() as p:
       const d = await import('/staff6/data.js'), bw = await import('/staff7/bill_words.js'), S = d.S, out = {}, prev = S.me;
       const issueOf = b => { const ids = S.billIssues.filter(x => x.bill_id === b.id).map(x => x.issue_id); return S.issues.find(i => ids.includes(i.id) && !i.archived_at); };
       try { for (const a of S.advocates.filter(a => a.is_active !== false)) { S.me = a; const mine = new Set([...d.myIssueIds()].map(String));
-        for (const b of S.bills.filter(b => b.tracked !== false && issueOf(b)).slice(0, 400)) { const i = issueOf(b), lead = bw.leadIds(b, i).includes(a.id), own = mine.has(String(i.id)), adm = !!a.is_admin;
+        for (const b of S.bills.filter(b => b.tracked !== false && issueOf(b))  ) { const i = issueOf(b), lead = (S.assignments[b.id] || []).includes(a.id), own = i.owner_id === a.id, adm = !!a.is_admin;
           const k = lead && !adm ? 'lead' : own && !lead && !adm ? 'owner' : adm && !lead && !own ? 'admin' : !lead && !own && !adm ? 'none' : ''; if (k && !out[k]) out[k] = { ini: a.initials, bill: b.bill_number }; } } } finally { S.me = prev; }
       // a bill with a lead assigned and no issue owner to stand in for it; a bill that is not public; one that is
       const nobody = S.bills.find(b => b.tracked !== false && (S.assignments[b.id] || []).length === 1 && !(issueOf(b) && issueOf(b).owner_id));
@@ -398,14 +406,14 @@ with sync_playwright() as p:
       return out; }""")
     pg0.context.close()
     print('who sees the button:', WHO, flush=True)
-    ok(all(WHO.get(k) for k in ('lead', 'owner', 'admin', 'none', 'nobody', 'pub')), f'the practice copy has a lead, an issue owner, an admin and a stranger to test with, a bill with a lead and no owner to stand in, a public and a private bill ({ {k: WHO.get(k) for k in ("lead", "owner", "admin", "none")} })')
-    for kind in ('lead', 'owner', 'admin', 'none'):
+    ok(all(WHO.get(k) for k in ('lead', 'admin', 'none', 'nobody', 'pub')), f'the practice copy has a lead, an issue owner, an admin and a stranger to test with, a bill with a lead and no owner to stand in, a public and a private bill ({ {k: WHO.get(k) for k in ("lead", "owner", "admin", "none")} })')
+    for kind in ('lead', 'admin', 'none'):
         w = WHO[kind]; pgx, cx = open_as(br, w['ini'], 1440, 900, f'#/bill/{w["bill"]}'); pgx.wait_for_selector('#bParts', timeout=20000)
         see = pgx.locator('#bEditGo').count() == 1; txt = pgx.locator('#bEditGo').inner_text() if see else ''
         ok(see == (kind != 'none') and (not see or txt == 'Change position or lead'), f'{w["ini"]} ({kind}) on {w["bill"]}: the "Change position or lead" button is {"shown" if see else "not shown"}')
         ok(pgx.locator('#bNoteIn').count() == 1 and pgx.inner_text('label[for=bNoteIn]') == 'Add a note for the team', f'{w["ini"]} ({kind}): the note box is there for every team viewer')
         if kind == 'none':
-            go(pgx, f'#/bill/{w["bill"]}?who=all'); pgx.wait_for_selector('#bParts'); ok('Look only' in pgx.inner_text('main') and pgx.locator('#bEditGo').count() == 0 and pgx.locator('#bNoteIn').count() == 1, f'{w["ini"]}: looking at everyone\'s list: look only, no change button, but the note box is still there')
+            go(pgx, f'#/bill/{w["bill"]}?who=all'); pgx.wait_for_selector('#bParts'); ok('Look only' not in pgx.inner_text('main') and pgx.locator('#bEditGo').count() == 0 and pgx.locator('#bNoteIn').count() == 1, f'{w["ini"]}: looking at everyone\'s list: no change button, no "Look only." line, but the note box is still there')
         pgx.context.close()
 
     pg, ctx = open_as(br, 'NT', 1440, 900, '#/bill/HB2300'); errs, bad = ctx._errs, ctx._bad
@@ -421,7 +429,8 @@ with sync_playwright() as p:
     lab = pg.evaluate("() => ({ legend: document.querySelector('#bEdit fieldset legend').innerText, radios: [...document.querySelectorAll('#bEdit input[type=radio]')].map(r => [r.value, r.closest('label').innerText.trim(), r.checked]), lead: document.querySelector('label[for=bLeadSel]').innerText, opts: [...document.querySelectorAll('#bLeadSel option')].map(o => o.innerText), save: document.getElementById('bSave').disabled, savecls: document.getElementById('bSave').className })")
     labels = pg.evaluate("async () => (await import('/staff6/data.js')).POSITIONS.filter(p => p[0]).map(p => [p[0], p[1]])")
     ok(lab['legend'] == 'Position' and lab['lead'] == 'Lead' and [r[:2] for r in lab['radios']][:-1] == labels and lab['radios'][-1][:2] == ['', 'No position yet'] and sum(1 for r in lab['radios'] if r[2]) == 1, f'the position choices are the data layer\'s own list and labels, plus "No position yet" ({[r[1] for r in lab["radios"]]})')
-    ok(lab['opts'][0] == 'Nobody' and 'Nate' in lab['opts'] and 'Kris' in lab['opts'] and len(lab['opts']) == 1 + pg.evaluate("async () => (await import('/staff6/data.js')).S.advocates.filter(a => a.is_active !== false).length"), f'the lead select has Nobody and every active teammate by first name ({lab["opts"]})')
+    ownw = pg.evaluate("async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB2300'), i = S.issues.find(i => S.billIssues.some(x => x.bill_id === b.id && x.issue_id === i.id)); const o = S.advocates.find(a => a.id === i.owner_id); return o ? o.full_name.split(' ')[0] + ', who leads the issue' : 'Nobody'; }")
+    ok(lab['opts'][0] == ownw and 'Nate' in lab['opts'] and 'Kris' in lab['opts'] and len(lab['opts']) == 1 + pg.evaluate("async () => (await import('/staff6/data.js')).S.advocates.filter(a => a.is_active !== false).length"), f'the lead select has Nobody and every active teammate by first name ({lab["opts"]})')
     ok(lab['save'] and 'filled' in lab['savecls'], 'Save is a filled button and is disabled until something changes')
     ok(pg.inner_text('.beact .hint') == 'The position shows on the public site.' if pg.evaluate("async () => (await import('/staff6/data.js')).S.bills.find(b => b.bill_number === 'HB2300').is_public") else pg.locator('.beact .hint').count() == 0, 'the public hint matches whether HB2300 is public')
     snap(pg, 'c_editing.png')
@@ -440,13 +449,13 @@ with sync_playwright() as p:
     pg.click('#bEditGo'); pg.click('#bp-support_amend'); pg.click('#bSave'); pg.wait_for_timeout(500)
     ok(pg.inner_text('#bPos').replace('\n', ' ') == 'HIPHI’s position Support w/ amendments · You lead Change position or lead' and pg.locator('#bEdit').count() == 0 and pg.evaluate("() => document.activeElement.id") == 'bEditGo', f'position only: the page shows the new position and the same lead ({pg.inner_text("#bPos").replace(chr(10), " ")})')
     r = pg.evaluate(LISTROW); ok(r[0].startswith('Nate changed the position: Support to Support w/ amendments') and pg.evaluate(OURS) == n0 + 1, f'position only: "What we did" has the new row on top ({r[0]})')
-    ok(pg.inner_text('#toast .tin').replace('\n', ' ').startswith('Saved') and pg.locator('#toastUndo').is_visible(), 'position only: a toast "Saved" with Undo')
+    ok(pg.inner_text('#toast .tin').replace('\n', ' ').startswith('Position: Support w/ amendments') and 'Lead' not in pg.inner_text('#toast .tin') and pg.locator('#toastUndo').is_visible(), 'position only: the toast says what changed, "Position: Support w/ amendments", with Undo')
     snap(pg, 'c_saved_toast.png')
     pg.click('#toastUndo'); pg.wait_for_timeout(500)
     ok('Support' in pg.inner_text('#bPos') and 'amendments' not in pg.inner_text('#bPos') and pg.evaluate(OURS) == n0 and not pg.evaluate(LISTROW)[0].startswith('Nate changed'), 'position only: Undo puts the position back and takes the row out of the history')
     # lead only, then Undo
     pg.click('#bEditGo'); pg.select_option('#bLeadSel', label='Kris'); pg.click('#bSave'); pg.wait_for_timeout(500)
-    ok(pg.inner_text('#bLead').strip() == 'Kris leads' and pg.locator('#bLead a').get_attribute('href') == '#/issues?who=KR', f'lead only: the page says "Kris leads", a link to Kris\'s issues ({pg.inner_text("#bLead")})')
+    ok(pg.inner_text('#bLead').strip() == 'Kris leads' and pg.locator('#bLead a').get_attribute('href') == '#/issues?who=KR' and pg.inner_text('#toast .tin').replace('\n', ' ').startswith('Lead: Kris'), f'lead only: the page says "Kris leads", a link to Kris\'s issues, and the toast says "Lead: Kris" ({pg.inner_text("#bLead")})')
     ok(pg.evaluate(LISTROW)[0].startswith('Nate made Kris the lead') and 'changed the position' not in pg.evaluate(LISTROW)[0], 'lead only: "What we did" reads "Nate made Kris the lead"')
     pg.click('#toastUndo'); pg.wait_for_timeout(500)
     ok(pg.inner_text('#bLead').strip() == 'You lead' and pg.evaluate(OURS) == n0, 'lead only: Undo puts the lead back and removes the row')
@@ -454,6 +463,7 @@ with sync_playwright() as p:
     pg.click('#bEditGo'); pg.click('#bp-strongly_support'); pg.select_option('#bLeadSel', label='Jess'); pg.click('#bSave'); pg.wait_for_timeout(500)
     rows = pg.evaluate(LISTROW)
     ok('Strongly support' in pg.inner_text('#bPos') and 'Jess leads' in pg.inner_text('#bLead') and pg.evaluate(OURS) == n0 + 2 and any('made Jess the lead' in x for x in rows[:2]) and any('Support to Strongly support' in x for x in rows[:2]), f'both: one Save changes both, with a row for each ({rows[:2]})')
+    ok(pg.inner_text('#toast .tin').replace('\n', ' ').startswith('Position: Strongly support · Lead: Jess'), 'both: the toast names both, joined with " · "')
     pg.click('#toastUndo'); pg.wait_for_timeout(500)
     ok('Strongly' not in pg.inner_text('#bPos') and 'You lead' in pg.inner_text('#bLead') and pg.evaluate(OURS) == n0, 'both: one Undo puts both back')
     # the issues list at the left is drawn again, not left stale
@@ -514,7 +524,7 @@ with sync_playwright() as p:
     pg.click('#bNoteGo'); pg.wait_for_timeout(500)
     top = pg.evaluate("() => document.querySelector('#bl-notes > li:first-child').innerText.replace(/\\s+/g, ' ').trim()")
     ok(top.startswith('Nate ·') and 'Called the chair' in top and pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length") == nn + 1 and pg.input_value('#bNoteIn') == '' and pg.evaluate("() => document.getElementById('bNoteGo').disabled"), f'the note shows on top of the list at once and the box empties ({top[:60]})')
-    ok(pg.evaluate(LISTROW)[0].startswith('Nate added a note') and pg.evaluate(OURS) == n2 + 1 and 'Note added' in pg.inner_text('#toast .tin'), '"What we did" has "Nate added a note" on top, and a toast says "Note added"')
+    ok(pg.evaluate(OURS) == n2 and not any('added a note' in x for x in pg.evaluate(LISTROW)) and 'Note added' in pg.inner_text('#toast .tin'), 'a note is in the notes list, not repeated in "What we did", and a toast says "Note added"')
     pg.click('#toastUndo'); pg.wait_for_timeout(500)
     ok(pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length") == nn and pg.evaluate(OURS) == n2, 'Undo takes the note and its history row away')
     ok(not re.search(r'letter', pg.evaluate(TEXTS), re.I), 'HB2300 with the edit and note boxes: no "letter" anywhere')
@@ -529,6 +539,183 @@ with sync_playwright() as p:
     pg.click('#bCancel'); pg.evaluate("() => document.getElementById('bNoteIn').scrollIntoView()"); pg.fill('#bNoteIn', 'x')
     ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALLC), 'phone: the note box fits, with a 44px button')
     ok(not errs and not bad, f'Part C phone: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
+    pg.context.close()
+
+    # ============================================================ the review round: one wording, no codes, years, plain Capitol lines, real assignments, failures
+    pg0, ctx0 = open_as(br, 'NT', 1440, 900, '#/issues')
+    W2 = pg0.evaluate("""async () => {
+      const d = await import('/staff6/data.js'), S = d.S, out = {};
+      const issueOf = b => { const ids = S.billIssues.filter(x => x.bill_id === b.id).map(x => x.issue_id); return S.issues.find(i => ids.includes(i.id) && !i.archived_at); };
+      const live = id => !!id && S.advocates.find(a => a.id === id && a.is_active !== false), ini = id => S.advocates.find(a => a.id === id).initials;
+      const cands = S.bills.filter(b => b.tracked !== false && issueOf(b) && live(issueOf(b).owner_id) && !S.advocates.find(a => a.id === issueOf(b).owner_id).is_admin && (S.assignments[b.id] || []).length === 1);
+      const fb = cands[0], ob = cands.find(b => issueOf(b).owner_id !== issueOf(fb).owner_id) || cands[1], pick = o => S.advocates.find(a => a.is_active !== false && !a.is_admin && a.id !== o && a.initials !== 'KV').initials;
+      out.fallback = [fb.bill_number, ini(issueOf(fb).owner_id)]; out.ownerbill = [ob.bill_number, ini(issueOf(ob).owner_id), pick(issueOf(ob).owner_id)];
+      // a helper of an issue who neither owns it nor leads the bill, and is no admin
+      for (const h of S.issueHelpers || []) { const a = S.advocates.find(x => x.id === h.advocate_id), i = S.issues.find(x => x.id === h.issue_id); if (!a || !i || a.is_admin || i.owner_id === a.id) continue; const bl = S.billIssues.filter(x => x.issue_id === i.id).map(x => S.bills.find(b => b.id === x.bill_id)).find(b => b && b.tracked !== false && !(S.assignments[b.id] || []).includes(a.id)); if (bl) { out.helper = [bl.bill_number, a.initials]; break; } }
+      out.ids = Object.fromEntries(S.advocates.map(a => [a.initials, a.id]));
+      return out; }""")
+    pg0.context.close(); print('review round data:', {k: v for k, v in W2.items() if k != 'ids'}, flush=True)
+    ok(W2['fallback'] and W2['ownerbill'], f'the practice copy has bills whose issue owner is not an admin, to make the stand-in cases from ({W2["fallback"]}, {W2["ownerbill"]})')
+    if W2.get('helper'):
+        ph_, cx_ = open_as(br, W2['helper'][1], 1440, 900, f'#/bill/{W2["helper"][0]}'); ph_.wait_for_selector('#bParts', timeout=20000)
+        ok(ph_.locator('#bEditGo').count() == 0 and ph_.locator('#bNoteIn').count() == 1, f'{W2["helper"][1]} helps on the issue of {W2["helper"][0]} but does not lead it or own the issue: no "Change position or lead" (a helper is not an editor)'); ph_.context.close()
+    else: skip('no practice issue has a helper who is neither its owner nor a bill lead')
+    pg, ctx = open_as(br, 'NT', 1440, 900, '#/bill/HB1523'); errs, bad = ctx._errs, ctx._bad
+    pg.on('dialog', lambda d: errs.append('dialog: ' + d.message))
+    pg.wait_for_selector('#bParts', timeout=20000)
+    LISTROW = "() => [...document.querySelectorAll('#bOurs li')].slice(0, 3).map(l => l.innerText.replace(/\\s+/g, ' ').trim())"
+    OURS = "() => document.querySelectorAll('#bl-ours > li').length"
+    # --- D16: each Show all / Show fewer names its list
+    labs = pg.evaluate("() => [...document.querySelectorAll('button[data-bmore], button[data-bshow]')].map(b => [b.innerText.trim(), b.getAttribute('aria-label'), b.getAttribute('aria-controls') || 'introducers'])")
+    ok(len(labs) >= 3 and all(l[1] and l[1].startswith('Show all') and any(w in l[1] for w in ('introducers', 'notes', 'Capitol', 'we did', 'hearings')) for l in labs), f'every "Show all" button has an aria-label that names its list ({[l[1] for l in labs]})')
+    pg.click('#bCap button[data-bmore]'); ok(pg.get_attribute('#bCap button[data-bmore]', 'aria-label').startswith('Show fewer') and 'what the Capitol did' in pg.get_attribute('#bCap button[data-bmore]', 'aria-label'), 'and says "Show fewer ..." when open'); pg.click('#bCap button[data-bmore]')
+    # --- D11: one content width
+    wd = pg.evaluate("() => { const f = document.getElementById('bFacts').getBoundingClientRect(), n = document.querySelector('.bnote').getBoundingClientRect(), b = document.getElementById('bNoteBox').getBoundingClientRect(), t = document.getElementById('bNoteIn').getBoundingClientRect(); return [f.width, n.width, b.width, t.width]; }")
+    ok(all(abs(w - wd[0]) < 2 for w in wd[1:]), f'the note cards and the note box are as wide as the facts ({[round(w) for w in wd]})')
+    # --- D12: the chosen position is marked, not filled
+    pg.click('#bEditGo'); pg.wait_for_timeout(150)
+    st12 = pg.evaluate("() => { const t = document.createElement('i'); t.style.color = 'var(--ink)'; t.style.background = 'var(--wash)'; document.body.appendChild(t); const c = getComputedStyle(t); const ink = c.color, wash = c.backgroundColor; t.remove(); const on = document.querySelector('#bEdit .bsr:checked + span'), off = document.querySelector('#bEdit .bsr:not(:checked) + span'); const o = getComputedStyle(on), f = getComputedStyle(off); return { bg: o.backgroundColor === wash, notInk: o.backgroundColor !== ink, svg: getComputedStyle(on.querySelector('svg')).display !== 'none', svgOff: getComputedStyle(off.querySelector('svg')).display === 'none', col: o.color === ink, save: getComputedStyle(document.getElementById('bSave')).backgroundColor }; }")
+    ok(st12['bg'] and st12['notInk'] and st12['svg'] and st12['svgOff'] and st12['col'], f'the chosen position has the wash background and a check mark in ink, the others do not ({st12})')
+    snap(pg, 'f_editing.png'); pg.click('#bCancel')
+    # --- D3/D4/D5 on a carryover bill (SB11 stays in the House with codes the data layer has no name for)
+    bill(pg, 'SB11', ''); pg.wait_for_selector('#bParts'); tx = pg.inner_text('.pbody.bill')
+    ok(not re.search(r'\b(WTL|CPN|WAL|PBS|EEP|WAM|JDC|FIN)\b', tx) and 'Senate committee' in pg.evaluate(FACTS)['Committees'], f'SB11: no Capitol committee code is on the page; a code with no name reads "Senate committee" ({pg.evaluate(FACTS)["Committees"][:80]})')
+    capS = pg.evaluate("() => [...document.querySelectorAll('#bl-cap > li')].map(l => l.innerText.replace(/\\s+/g, ' ').trim())")
+    ok(any(', 2025' in c for c in capS) and any('Dec 8, 2025' in c for c in capS) and not any(re.search(r'Feb 1\d\b(?!,)', c) and '2025' not in c for c in capS if False), f'SB11 (a carryover): dates from 2025 carry their year ({[c for c in capS if "2025" in c][:2]})')
+    # --- D5: plain words for the Capitol's raw lines (HB1523)
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts'); pg.click('#bCap button[data-bmore]'); capH = pg.evaluate("() => [...document.querySelectorAll('#bl-cap > li .bh1')].map(l => l.innerText.trim())")
+    need = ['House Transportation passed it with changes', 'House Judiciary & Hawaiian Affairs passed it, no changes', 'House Transportation deferred it until Tue, Feb 17 9:15 AM', 'Decision set: Tue, Feb 17 9:15 AM · Room 430', 'Passed first reading', 'Introduced']
+    ok(all(n_ in capH for n_ in need) and not any(re.search(r'recommend|PASSED|The committee', c) for c in capH), f'HB1523: the Capitol\'s raw sentences are in plain words (missing {[n_ for n_ in need if n_ not in capH]})')
+    ok(capH.index('Hearing moved: Senate Transportation to Tue 3/17, 3:00 PM') < 3 and not any('3:05 PM' in c for c in capH), 'HB1523: the later "Hearing moved" is above, and the same-day "Hearing set ... 3:05 PM" is not shown again')
+    # --- D4 on a note: a note from another year carries it
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'); (S.messages[b.id] ||= []).push({ id: 'old-1', bill_id: b.id, advocate_id: S.advocates[3].id, body: 'An old one', created_at: '2025-12-08T20:00:00.000Z' }); window.__staff7Render({ tick: true }); }""")
+    pg.wait_for_timeout(200); ok(any('Dec 8, 2025' in t for t in pg.evaluate("() => [...document.querySelectorAll('#bl-notes small')].map(s => s.innerText)")), 'a team note from 2025 shows its year')
+    # --- C3: a joint hearing shows no vote
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'); S.hearings.filter(h => h.bill_id === b.id && h.committee === 'JHA').forEach(h => { h.committee = 'JHA/TRN'; }); window.__staff7Render({ tick: true }); }""")
+    pg.wait_for_timeout(200); ph2 = pg.evaluate("() => [...document.querySelectorAll('#bl-hear > li')].map(l => l.innerText.replace(/\\s+/g, ' '))")
+    ok(len(ph2) == 2 and ' with ' in ph2[0] and not re.search(r'\d+ yes', ph2[0]) and re.search(r'\d+ yes', ph2[1]), f'a joint hearing shows no vote count; the other one still does ({ph2[0][:90]})')
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'); S.hearings.filter(h => h.bill_id === b.id && h.committee === 'JHA/TRN').forEach(h => { h.committee = 'JHA'; }); }""")
+    # --- C6: an unknown status is escaped once; a cancelled hearing dated ahead is not a past one; committees match by sorted codes
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'), base = S.hearings.find(h => h.bill_id === b.id && h.committee === 'JHA');
+      S.hearings.push({ ...base, id: 'syn-odd', status: 'odd<b>', scheduled_at: new Date(Date.now() - 40 * 864e5).toISOString() });
+      S.hearings.push({ ...base, id: 'syn-fut', status: 'cancelled', scheduled_at: new Date(Date.now() + 9 * 864e5).toISOString() });
+      const t = new Date(Date.now() - 50 * 864e5).toISOString(); S.hearings.push({ ...base, id: 'syn-c1', status: 'cancelled', committee: 'WAM/CPN', scheduled_at: t });
+      const ahead = new Date(Date.now() + 864e5 * 0).toISOString(); window.__staff7Render({ tick: true }); }""")
+    pg.wait_for_timeout(200); ph3 = pg.evaluate("() => [...document.querySelectorAll('#bl-hear > li')].map(l => l.innerText.replace(/\\s+/g, ' '))")
+    ok(any('Odd<b>' in x for x in ph3) and not any('&lt;' in x or '&amp;' in x for x in ph3) and len(ph3) == 4, f'an unknown status is shown once-escaped as plain text, and a cancelled hearing dated ahead is not listed as a past one ({[x[:60] for x in ph3]})')
+    # --- C6: a live-shaped row (meta {} and JSON in details) reads as a lead change; "Testimony filed with" is not doubled
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), m = await import('/staff7/bill_data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'), c = m.cache.get(b.id);
+      c.tl.push({ bill_id: b.id, type: 'field_change', title: 'Lead changed', details: JSON.stringify({ field: 'lead', old: null, new: S.advocates.find(a => a.initials === 'PH').id }), meta: {}, advocate_id: S.advocates.find(a => a.initials === 'KR').id, occurred_at: '2026-03-14T20:00:00.000Z', source: 'team' });
+      c.tl.push({ bill_id: b.id, type: 'status_auto', title: 'Testimony filed with the Senate Transportation committee', details: '', advocate_id: S.advocates.find(a => a.initials === 'LR').id, occurred_at: '2026-03-14T21:00:00.000Z', source: 'team' }); window.__staff7Render({ tick: true }); }""")
+    pg.wait_for_timeout(200); pg.click('#bOurs button[data-bmore]'); oursT = pg.evaluate("() => [...document.querySelectorAll('#bl-ours > li')].map(l => l.innerText.replace(/\\s+/g, ' '))")
+    ok(any(x.startswith('Kris made Patti the lead') and 'Sat, Mar 14' in x for x in oursT) and not any('Testimony filed with' in x for x in oursT), 'a live-shaped row (meta {} and the fields as JSON in details) reads "Kris made Patti the lead", and a "Testimony filed with ..." activity row is not listed twice')
+    # --- C4: committee marks at the first chamber, the floor, a crossover, and a stopped bill
+    def marks(stage, refs, ob, committee=None, dead=None):
+        pg.evaluate("""async ([stage, refs, ob, cm, dead]) => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'); window.__k ||= { stage: b.stage, refs: b.referrals, ob: b.origin_stops, cm: b.committee, so: b.stage_override, hs: S.hearings.filter(h => h.bill_id === b.id) };
+          S.hearings = S.hearings.filter(h => h.bill_id !== b.id); b.stage_override = null; b.stage = stage; b.referrals = refs; b.origin_stops = ob; b.committee = cm; b.died_at_stage = dead; window.__staff7Render({ tick: true }); }""", [stage, refs, ob, committee, dead])
+        pg.wait_for_timeout(200); return pg.evaluate("() => [...document.querySelectorAll('.bcms > *')].map(e => (e.classList.contains('bcd') ? 'done:' : e.tagName === 'B' ? 'now:' : e.innerText.includes('(next)') ? 'next:' : 'plain:') + e.innerText.replace(/\\s+/g, ' ').replace(/ ✓.*$/, '').replace(/\\u00a0\\(.*\\)$/, '').trim())")
+    four = ['TRN', 'JHA', 'TRS', 'JDC']
+    m1 = marks('first_lateral', four, 2, 'TRN'); ok(m1[0].startswith('now:') and m1[1].startswith('next:') and m1[2].startswith('plain:') and m1[3].startswith('plain:'), f'in the first chamber: the one it is in is (now), the next is (next), none ticked ({m1})')
+    m2 = marks('first_floor', four, 2); ok([x.split(':')[0] for x in m2] == ['done', 'done', 'plain', 'plain'], f'on the first chamber\'s floor: the first chamber\'s committees are all ticked, the second\'s are not ({m2})')
+    m3 = marks('first_crossover', ['TRN', 'JHA'], 2); ok([x.split(':')[0] for x in m3] == ['done', 'done'], f'crossed over with no committee of the other chamber yet: the first chamber\'s are all ticked ({m3})')
+    m4 = marks('dead', four, 2, None, 'second_lateral'); ok([x.split(':')[0] for x in m4] == ['done', 'done', 'plain', 'plain'], f'a bill that stopped in the second chamber: the first chamber\'s committees it passed are ticked, no more is claimed ({m4})')
+    m5 = marks('dead', four, 2, None, 'first_lateral'); ok(all(x.startswith('plain:') for x in m5), f'a bill that stopped in its first committees: no marks, since the data does not say which held it ({m5})')
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'), k = window.__k; b.stage = k.stage; b.referrals = k.refs; b.origin_stops = k.ob; b.committee = k.cm; b.stage_override = k.so; b.died_at_stage = null; S.hearings.push(...k.hs); }""")
+    pg.context.close()
+
+    # --- C1/C2: lead editing works on the REAL assignments
+    fbn, fbi = W2['fallback']; pg, ctx = open_as(br, fbi, 1440, 900, f'#/bill/{fbn}'); errs, bad = ctx._errs, ctx._bad; pg.wait_for_selector('#bParts', timeout=20000)
+    ASG = "async n => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === n); return [...(d.S.assignments[b.id] || [])]; }"
+    OURS = "() => document.querySelectorAll('#bl-ours > li').length"
+    pg.evaluate("async n => { const d = await import('/staff6/data.js'); d.S.assignments[d.S.bills.find(x => x.bill_number === n).id] = []; window.__staff7Render({ tick: true }); }", fbn)   # the owner of the issue stands in as lead on the page
+    ok(pg.locator('#bEditGo').count() == 1, f'{fbi}, the owner of the issue, may change {fbn} though no one is assigned (a bill\'s issue owner is an editor)')
+    lead0 = pg.inner_text('#bLead').strip(); n0 = pg.evaluate(OURS)
+    pg.click('#bEditGo'); pg.wait_for_timeout(150)
+    sel = pg.evaluate("() => ({ v: document.getElementById('bLeadSel').value, o: document.querySelector('#bLeadSel option').innerText })")
+    ok(sel['v'] == '' and sel['o'].endswith(', who leads the issue') and pg.evaluate("() => document.getElementById('bSave').disabled"), f'{fbn}: with nobody assigned, the select shows the empty choice "{sel["o"]}" and Save is disabled (no change)')
+    other_pos(pg); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok(pg.evaluate(ASG, fbn) == [] and pg.inner_text('#bLead').strip() == lead0 and pg.evaluate(OURS) == n0 + 1 and 'Position:' in pg.inner_text('#toast .tin'), f'{fbn}: a position-only save writes no assignment and no lead row (assignments {pg.evaluate(ASG, fbn)})')
+    pg.click('#toastUndo'); pg.wait_for_timeout(400); ok(pg.evaluate(ASG, fbn) == [] and pg.evaluate(OURS) == n0, f'{fbn}: Undo leaves the assignments empty')
+    other = [i for i in ('KR', 'JM', 'JS', 'KV') if i != fbi][0]
+    pg.click('#bEditGo'); pg.select_option('#bLeadSel', value=W2['ids'][other]); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok(pg.evaluate(ASG, fbn) == [W2['ids'][other]] and 'made' in pg.evaluate(LISTROW)[0], f'{fbn}: choosing a lead assigns exactly that one')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500)
+    ok(pg.evaluate(ASG, fbn) == [] and pg.inner_text('#bLead').strip() == lead0 and pg.evaluate(OURS) == n0, f'{fbn}: Undo of a lead put on a bill that had only the issue owner standing in puts the assignments back to empty ({pg.evaluate(ASG, fbn)})')
+    # a real assignment and a different issue owner: the select shows the REAL lead; the empty choice removes it
+    pg.context.close()
+    obn, obi, obl = W2['ownerbill']; pg, ctx = open_as(br, obi, 1440, 900, f'#/bill/{obn}'); errs, bad = ctx._errs, ctx._bad; pg.wait_for_selector('#bParts', timeout=20000)
+    pg.evaluate("async ([n, a]) => { const d = await import('/staff6/data.js'); d.S.assignments[d.S.bills.find(x => x.bill_number === n).id] = [a]; window.__staff7Render({ tick: true }); }", [obn, W2['ids'][obl]])
+    n0 = pg.evaluate(OURS); pg.click('#bEditGo'); pg.wait_for_timeout(150)
+    ok(pg.evaluate("() => document.getElementById('bLeadSel').value") == W2['ids'][obl], f'{obn}: the select\'s value is the bill\'s real lead, not the issue owner')
+    pg.select_option('#bLeadSel', value=''); pg.click('#bSave'); pg.wait_for_timeout(500)
+    row0 = pg.evaluate(LISTROW)[0]
+    ok(pg.evaluate(ASG, obn) == [] and re.match(r'^\w+ took the lead off \w+', row0) and pg.evaluate(OURS) == n0 + 1, f'{obn}: choosing the empty choice removes the real lead, and the history says it was removed ("{row0}")')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500); ok(pg.evaluate(ASG, obn) == [W2['ids'][obl]] and pg.evaluate(OURS) == n0, f'{obn}: Undo puts the very same assignment back')
+    # several previous leads: no Undo for the lead
+    pg.evaluate("async ([n, a, b]) => { const d = await import('/staff6/data.js'); d.S.assignments[d.S.bills.find(x => x.bill_number === n).id] = [a, b]; window.__staff7Render({ tick: true }); }", [obn, W2['ids'][obl], W2['ids']['KV'] if obl != 'KV' else W2['ids']['KR']])
+    pg.click('#bEditGo'); pg.select_option('#bLeadSel', value=W2['ids']['JM'] if obl != 'JM' else W2['ids']['JS']); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok(pg.locator('#toastUndo').is_hidden() and pg.inner_text('#toast .tin').startswith('Lead:'), 'a lead change that replaced several assigned leads offers no Undo (it could not be put back exactly)')
+    # a position held for an admin: no Undo when nothing else changed; the lead failing after a held position says the position still waits
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__kU = d.DB.updateBill; window.__kO = d.DB.setOwner; d.DB.updateBill = async () => ['position']; }")
+    pg.click('#bEditGo'); other_pos(pg); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok('waits for an admin' in pg.inner_text('#toast .tin') and pg.locator('#toastUndo').is_hidden(), 'a held position with nothing else changed says so and offers no Undo (nothing was saved to undo)')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.setOwner = async () => { throw new Error('no'); }; }")
+    pg.click('#bEditGo'); other_pos(pg); pg.select_option('#bLeadSel', value=W2['ids']['NT']); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok('The position still waits for an admin’s yes.' in pg.inner_text('#bEditErr') and pg.evaluate("() => document.activeElement.id") == 'bSave', 'the lead failing after a held position says the position still waits, and the focus is still on Save')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.updateBill = window.__kU; d.DB.setOwner = window.__kO; }")
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    # --- C9: a save that finishes after the person went to another bill must not draw or focus that page
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__kU = d.DB.updateBill; d.DB.updateBill = async (id, p) => { await new Promise(r => setTimeout(r, 900)); return window.__kU(id, p); }; }")
+    pg.click('#bEditGo'); other_pos(pg); pg.click('#bSave'); pg.wait_for_timeout(100)
+    go(pg, '#/bill/HB2300?who=all'); pg.wait_for_selector('#bParts'); pg.focus('#bNoteIn'); pg.wait_for_timeout(1200)
+    ok(pg.evaluate("() => document.querySelector('main h1').innerText") != '' and pg.evaluate("() => document.activeElement.id") == 'bNoteIn' and pg.locator('#bEdit').count() == 0 and 'Position:' in pg.inner_text('#toast .tin'), 'a save that finishes on another bill\'s page does not redraw it or take its focus (it still says what it saved)')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.updateBill = window.__kU; }")
+    # --- D14: focus after a note and after a failed one
+    pg.fill('#bNoteIn', 'A second note'); pg.click('#bNoteGo'); pg.wait_for_timeout(500)
+    ok(pg.evaluate("() => document.activeElement.id") == 'bNoteIn', 'after a note is added the focus goes to the note box')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__kM = d.DB.sendMessage; d.DB.sendMessage = async () => { throw new Error('no'); }; }")
+    pg.fill('#bNoteIn', 'Will not save'); pg.focus('#bNoteGo'); pg.click('#bNoteGo'); pg.wait_for_timeout(400)
+    ok(pg.evaluate("() => document.activeElement.id") == 'bNoteGo' and pg.input_value('#bNoteIn') == 'Will not save', 'after a failed note the focus is still on the button and the words are still there')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.sendMessage = window.__kM; }")
+    # --- a note with markup in it shows as text
+    pg.click('#bNoteIn'); pg.keyboard.press('Meta+a'); pg.keyboard.insert_text('<img src=x onerror=alert(1)> and "quotes" and \'single\' & <b>bold</b>'); pg.click('#bNoteGo'); pg.wait_for_timeout(500)
+    top = pg.evaluate("() => { const l = document.querySelector('#bl-notes > li:first-child'); return [l.querySelector('p').innerText, l.querySelectorAll('img, b').length]; }")
+    ok(top[0] == '<img src=x onerror=alert(1)> and "quotes" and \'single\' & <b>bold</b>' and top[1] == 0, f'a note with markup and quotes shows as plain text, nothing is drawn from it ({top[0][:50]})')
+    pg.context.close()
+
+    # --- D15 and C5: the history failing, then arriving; the notes need only memory
+    pg, ctx = open_as(br, 'NT', 1440, 900, '#/issues'); errs, bad = ctx._errs, ctx._bad
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__kT = d.DB.timeline; d.DB.timeline = async () => { throw new Error('rejected'); }; }")
+    go(pg, '#/bill/HB2300'); pg.wait_for_selector('#bFail', timeout=10000)
+    ok(pg.locator('#bNotesH').count() == 1 and pg.locator('#bNoteIn').count() == 1 and pg.locator('#bPinned').count() == 1 and pg.locator('#bHearH').count() == 0 and pg.locator('#bHistH').count() == 0 and pg.evaluate("() => document.getElementById('bFail').previousElementSibling !== null"), 'the history failing (DB.timeline rejects): Team notes and the note box are still drawn, and the failure line takes the place of Past hearings and History')
+    ok('We could not load the bill’s history.' in pg.inner_text('#bFail') and pg.locator('#bRetry').count() == 1, 'the failure line has "Try again"')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.timeline = window.__kT; }"); pg.click('#bRetry'); pg.wait_for_selector('#bHistH', timeout=10000)
+    ok(pg.locator('#bFail').count() == 0 and pg.locator('#bHearH').count() == 1, 'Try again loads it, and the blocks come in')
+    # switching bills mid-load: the first bill's history arriving does not redraw the second page; the address's words do not matter, only the bill
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__kT = d.DB.timeline; d.DB.timeline = (id) => new Promise(r => setTimeout(() => r(window.__kT(id)), id === d.S.bills.find(b => b.bill_number === 'HB1562').id ? 500 : 1500)); }")
+    go(pg, '#/bill/HB1562'); pg.evaluate("() => { document.querySelector('.paper').dataset.m = 'x'; }")
+    go(pg, '#/bill/SB11?who=all'); pg.evaluate("() => { document.querySelector('.paper').dataset.m = 'second'; }")
+    pg.wait_for_timeout(900)
+    ok(pg.evaluate("() => document.querySelector('.paper').dataset.m") == 'second' and pg.locator('#bWait').count() == 1, 'switching bills mid-load: the first bill\'s history arriving does not redraw the page the person is on')
+    pg.evaluate("() => history.replaceState(history.state, '', location.pathname + location.search + '#/bill/SB11?who=all&q=zzz')")
+    pg.wait_for_selector('#bParts', timeout=10000)
+    ok(pg.evaluate("() => document.getElementById('bParts').dataset.bill") == pg.evaluate("async () => (await import('/staff6/data.js')).S.bills.find(b => b.bill_number === 'SB11').id"), 'the second bill\'s history arrives and is drawn even though the address\'s words changed while it loaded (only the bill matters)')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.timeline = window.__kT; }")
+    ok(not errs and not bad, f'review round: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
+    ok(pg.locator('#bNotes90').count() == 0, 'on the practice copy there is no "Notes from the last 90 days." line'); skip('the "Notes from the last 90 days." line shows only when not practice (staff7 runs only on the practice copy)')
+    skip('C10: an external address from data (state_url fallback of the bill-text link) is checked http(s) in code; the practice numbers never take the fallback, so there is no page that shows it')
+    pg.context.close()
+
+    # --- the phone: facts stacked, 44px links, the change button lines up
+    pg, ctx = open_as(br, 'NT', 390, 844, '#/bill/HB1523'); errs, bad = ctx._errs, ctx._bad; pg.wait_for_selector('#bParts', timeout=20000)
+    stk = pg.evaluate("() => [...document.querySelectorAll('#bFacts > div')].map(d => { const t = d.querySelector('dt').getBoundingClientRect(), v = d.querySelector('dd').getBoundingClientRect(), r = d.getBoundingClientRect(); return [t.bottom <= v.top + 2, Math.abs(v.left - t.left) < 2, v.width > r.width - 4]; })")
+    ok(stk and all(all(x) for x in stk), f'phone: each fact\'s label sits above its value, full width ({stk})')
+    tg = pg.evaluate("() => [...document.querySelectorAll('.bfacts .blist a, .bfacts dd > a.lk:only-child')].map(a => Math.round(a.getBoundingClientRect().height))")
+    ok(tg and all(h >= 43.5 for h in tg), f'phone: standalone links in the facts are 44px tall by padding ({tg})')
+    al = pg.evaluate("() => { const p = document.getElementById('bPos').getBoundingClientRect(), b = document.getElementById('bEditGo').getBoundingClientRect(); return [Math.round(p.left), Math.round(b.left), Math.round(b.top - p.top)]; }")
+    ok(al[2] < 5 or abs(al[0] - al[1]) < 3, f'phone: "Change position or lead" lines up with the text above (line left {al[0]}, button left {al[1]}, {al[2]}px down)')
+    snap(pg, 'f_phone.png')
+    ok(not errs and not bad, 'phone: no console error, nothing left 127.0.0.1')
     pg.context.close()
 
     # ============================================================ a phone

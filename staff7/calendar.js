@@ -6,8 +6,7 @@
 // A cancelled hearing, a dead bill's hearing and a repeated row (same bill, same time) are never drawn. Mine is the bills of my issues plus any bill I lead or follow, as Home's "next hearing" reads it.
 // Nothing here writes anything.
 import { S, isMine, SESSION_YEAR } from '../staff6/data.js';
-import { billStep } from '../staff6/steps.js';
-import { sittingDraft, roomName, streamOf, hearingAhead, billRef, lateLine } from '../staff6/model.js';
+import { roomName, streamOf, hearingAhead, billRef, lateLine } from '../staff6/model.js';
 import { whereWords } from '../staff6/steps.js';
 import { ic } from './icons7.js';
 import { esc, plainBand } from './parts.js';
@@ -15,7 +14,7 @@ import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
 import { boxHTML } from './find.js';
-import { cap, testimonyWords, draftFor } from './bill_words.js';
+import { cap, testimonyWords, draftFor, letterState } from './bill_words.js';
 import { whoOf, setFor, sessionOf, posLine, stepOn, testimonyDue, tint, bindIssues, ui } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -81,7 +80,7 @@ function dueOf(sits) {
 // The one word for one state in staff7: "second look" (the step's name), never the data layer's older "second review"
 const words = l => String(l || '').replace(/second review/gi, m => m[0] === 'S' ? 'Second look' : 'second look');
 // Where a bill's letter stands for a hearing: the data layer's own state ({ key, label, back (sent back to fix), fresh (not started) }), never the clock's
-const stateOf = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, label: words(s.label), back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', label: 'Not started', back: false, fresh: true }; };
+const stateOf = (h, b) => { const s = letterState(h, b); return { key: s.key, label: words(s.label || 'Not started'), back: s.back, fresh: s.fresh }; };
 // a sentence about the letter itself
 const letterWords = st => cap(testimonyWords(st));   // the one wording, bill_words.js; a sentence about the testimony itself starts with a capital
 // How a testimony time reads, by where the letters stand: all filed (neutral, a check); not filed with the hearing still ahead and the time gone (amber: late, still accepted); not filed and the

@@ -2,65 +2,74 @@
 // segmented row, from the data layer's own POSITIONS) and the lead (a select), Save and Cancel. (2) "Add a note for the team" above the notes: a note is a message in the bill's team conversation.
 // Everything is written through the data layer (DB.updateBill, DB.setOwner, DB.addActivity, DB.sendMessage, DB.deleteMessage, the same calls staff6's own bill page makes), so the same code works live
 // later; on the practice copy those change memory only. What is open or typed lives in bill.js's `bui`, so the minute's redraw (and a redraw after a save) keeps it.
-// Staff6's own bill page lets any team member change the position and the owner; the rule here is Nate's: the lead, the owner of the bill's issue (own), or an admin.
 import { S, DB, DEMO, DEMO_TL, POSITIONS } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { esc, btn, toast } from './parts.js';
 import { first } from './steps.js';
-import { leadIds } from './bill_words.js';
 import { refreshTimeline } from './bill_data.js';
 import { redrawKeep } from './find.js';
 import { bui } from './bill.js';
 
 const $ = id => document.getElementById(id);
 const OPTS = [...POSITIONS.filter(p => p[0]), ['', 'No position yet']];   // the data layer's own list and labels; clearing is allowed (staff6's picker has "No position")
-const curLead = (b, issue) => leadIds(b, issue)[0] || '';
-const canEdit = (b, issue, me, own) => !!me && (leadIds(b, issue).includes(me.id) || !!own || !!me.is_admin);
-export const mayEdit = canEdit;
-const dirty = (b, issue) => { const e = bui.edit; return !!e && (e.pos !== (b.position || '') || e.lead !== curLead(b, issue)); };
+const posLabel = v => (OPTS.find(o => o[0] === v) || [])[1] || 'No position yet';
+// Who may change them (Nate): the bill's assigned lead, the owner of the bill's issue, or an admin. Not a follower or a helper. (Staff6's own bill page lets any team member.)
+export const mayEdit = (b, issue, me) => !!me && ((S.assignments?.[b.id] || []).includes(me.id) || (!!issue && issue.owner_id === me.id) || !!me.is_admin);
+// The lead the form edits is the bill's REAL assignment, never the issue owner who stands in for it on the page
+const realLeads = b => [...(S.assignments?.[b.id] || [])];
+const curLead = b => realLeads(b)[0] || '';
+const dirty = b => { const e = bui.edit; return !!e && (e.pos !== (b.position || '') || e.lead !== curLead(b)); };
+const here = b => !!bui.ctx && bui.ctx.b.id === b.id;   // a save that finishes after the person went to another bill must not draw or focus that page
 
 // ---------------------------------------------------------------------------------- 1. position and lead
 export const editButton = () => btn('Change position or lead', { kind: 'text', id: 'bEditGo', attrs: 'aria-expanded="false" aria-controls="bEdit"' });
 export function editHTML(b, issue, me) {
-  const e = bui.edit, people = S.advocates.filter(a => a.is_active !== false || a.id === e.lead).slice().sort((x, y) => (y.id === me?.id) - (x.id === me?.id) || first(x).localeCompare(first(y), 'en'));
-  const radios = OPTS.map(([v, l]) => `<label class="bs"><input class="bsr" type="radio" name="bpos" id="bp-${v || 'none'}" value="${esc(v)}"${e.pos === v ? ' checked' : ''}><span>${esc(l)}</span></label>`).join('');
-  const sel = `<option value=""${e.lead === '' ? ' selected' : ''}>Nobody</option>${people.map(a => `<option value="${esc(a.id)}"${e.lead === a.id ? ' selected' : ''}>${esc(first(a))}</option>`).join('')}`;
+  const e = bui.edit, owner = issue && issue.owner_id ? S.advocates.find(a => a.id === issue.owner_id && a.is_active !== false) : null;
+  const people = S.advocates.filter(a => a.is_active !== false || a.id === e.lead).slice().sort((x, y) => (y.id === me?.id) - (x.id === me?.id) || first(x).localeCompare(first(y), 'en'));
+  const radios = OPTS.map(([v, l]) => `<label class="bs"><input class="bsr" type="radio" name="bpos" id="bp-${v || 'none'}" value="${esc(v)}"${e.pos === v ? ' checked' : ''}><span>${ic('check')}${esc(l)}</span></label>`).join('');
+  const none = owner ? `${first(owner)}, who leads the issue` : 'Nobody';   // with no one assigned the page names the issue's owner as lead: the empty choice says so
+  const sel = `<option value=""${e.lead === '' ? ' selected' : ''}>${esc(none)}</option>${people.map(a => `<option value="${esc(a.id)}"${e.lead === a.id ? ' selected' : ''}>${esc(first(a))}</option>`).join('')}`;
   return `<form class="bedit" id="bEdit" novalidate><fieldset class="bef"><legend class="fl">Position</legend><div class="bseg">${radios}</div></fieldset>`
     + `<div class="bef"><label class="fl" for="bLeadSel">Lead</label><select class="field bsel" id="bLeadSel">${sel}</select></div>`
-    + `<div class="beact">${btn('Save', { kind: 'filled', id: 'bSave', disabled: !dirty(b, issue) || e.busy, loading: !!e.busy }).replace('type="button"', 'type="submit"')}${btn('Cancel', { kind: 'text', id: 'bCancel' })}${b.is_public ? '<span class="hint">The position shows on the public site.</span>' : ''}</div>`
-    + `<p class="hint berr" id="bEditErr" role="alert"${e.err ? '' : ' hidden'}>We could not save that. Try again.</p></form>`;
+    + `<div class="beact">${btn('Save', { kind: 'filled', id: 'bSave', disabled: !dirty(b) || e.busy, loading: !!e.busy }).replace('type="button"', 'type="submit"')}${btn('Cancel', { kind: 'text', id: 'bCancel' })}${b.is_public ? '<span class="hint">The position shows on the public site.</span>' : ''}</div>`
+    + `<p class="hint berr" id="bEditErr" role="alert"${e.err ? '' : ' hidden'}>${esc(e.err === 'held' ? 'We could not save the lead. The position still waits for an admin’s yes.' : 'We could not save that. Try again.')}</p></form>`;
 }
 const openEdit = () => {
-  const { b, issue } = bui.ctx; bui.edit = { id: b.id, pos: b.position || '', lead: curLead(b, issue), err: false, busy: false };
+  const { b } = bui.ctx; bui.edit = { id: b.id, pos: b.position || '', lead: curLead(b), err: false, busy: false };
   redrawKeep(); ($('bEdit')?.querySelector('input:checked') || $('bEditGo'))?.focus();
 };
 const closeEdit = () => { bui.edit = null; redrawKeep(); $('bEditGo')?.focus(); };
 async function save() {
-  const { b, issue } = bui.ctx, e = bui.edit; if (!e || e.busy || !dirty(b, issue)) return;
-  const posChanged = e.pos !== (b.position || ''), leadChanged = e.lead !== curLead(b, issue), prev = { pos: b.position || '', lead: curLead(b, issue) }, rows = [];
+  const { b } = bui.ctx, e = bui.edit; if (!e || e.busy || !dirty(b)) return;
+  const posChanged = e.pos !== (b.position || ''), leadChanged = e.lead !== curLead(b), prev = { pos: b.position || '', leads: realLeads(b) }, rows = [];
   e.busy = true; e.err = false; redrawKeep();
   let held = [], posDone = false;
+  const failed = () => { e.busy = false; e.err = held.includes('position') ? 'held' : true; if (here(b)) { redrawKeep(); $('bSave')?.focus(); } };   // the block stays open, and the focus where it was (on Save)
   try {
     if (posChanged) { held = (await DB.updateBill(b.id, { position: e.pos || null })) || []; posDone = !held.includes('position'); }
     if (leadChanged) { try { await DB.setOwner(b.id, e.lead || null); } catch (x) { if (posDone) await DB.updateBill(b.id, { position: prev.pos || null }).catch(() => {}); throw x; } }
-  } catch { e.busy = false; e.err = true; redrawKeep(); return; }
+  } catch { return failed(); }
   // the history: a lead change is recorded here (nothing else records it); the real database records a position change itself, so only the practice copy writes that row, to show it
   const rec = async (field, old, nw) => { try { await DB.addActivity(b.id, 'field_change', field === 'lead' ? 'Lead changed' : 'Position changed', JSON.stringify({ field, old: old || null, new: nw || null })); if (DEMO) rows.push(DEMO_TL[0]); } catch { /* the save stands; the history line is only a record of it */ } };
   if (posDone && DEMO) await rec('position', prev.pos, e.pos);
-  if (leadChanged) await rec('lead', prev.lead, e.lead);
+  if (leadChanged) await rec('lead', prev.leads[0] || '', e.lead);
   await refreshTimeline(b);
-  const after = { pos: e.pos, lead: e.lead }; bui.edit = null; redrawKeep(); $('bEditGo')?.focus();
+  const after = e.lead, said = [posDone ? `Position: ${posLabel(e.pos)}` : '', leadChanged ? `Lead: ${e.lead ? first(S.advocates.find(a => a.id === e.lead)) : 'Nobody'}` : ''].filter(Boolean).join(' · ');
+  if (here(b)) { bui.edit = null; redrawKeep(); $('bEditGo')?.focus(); }
   const undo = async () => {
     try {
       if (posDone) await DB.updateBill(b.id, { position: prev.pos || null });
-      if (leadChanged) await DB.setOwner(b.id, prev.lead || null);
+      if (leadChanged) await DB.setOwner(b.id, prev.leads[0] || null);   // exactly the list there was: none, or the one
       // practice: take the rows this save added back out of the history; live: Undo is another save, so it is recorded like one
       if (DEMO) rows.forEach(r => { const i = DEMO_TL.indexOf(r); if (i >= 0) DEMO_TL.splice(i, 1); });
-      else if (leadChanged) await DB.addActivity(b.id, 'field_change', 'Lead changed', JSON.stringify({ field: 'lead', old: after.lead || null, new: prev.lead || null })).catch(() => {});
-      await refreshTimeline(b); redrawKeep(); toast('Put back');
+      else if (leadChanged) await DB.addActivity(b.id, 'field_change', 'Lead changed', JSON.stringify({ field: 'lead', old: after || null, new: prev.leads[0] || null })).catch(() => {});
+      await refreshTimeline(b); if (here(b)) redrawKeep(); toast('Put back');
     } catch { toast('We could not put that back.'); }
   };
-  toast(held.includes('position') ? 'Saved. The position waits for an admin’s yes.' : 'Saved', { undo });
+  // Undo is offered only when something was saved, and not for a lead change that replaced SEVERAL assigned leads: setOwner leaves one, so the list could not be put back exactly. None is offered rather than a wrong one.
+  const canUndo = (posDone || leadChanged) && !(leadChanged && prev.leads.length > 1);
+  if (!posDone && !leadChanged) toast('Saved. The position waits for an admin’s yes.');
+  else toast(held.includes('position') ? `${said}. The position waits for an admin’s yes.` : said, canUndo ? { undo } : {});
 }
 
 // ---------------------------------------------------------------------------------- 2. add a note
@@ -76,9 +85,9 @@ async function addNote() {
   bui.noteBusy = true; bui.noteErr = false; redrawKeep();
   try {
     const m = await DB.sendMessage(b.id, text);
-    bui.note.delete(b.id); bui.noteBusy = false; redrawKeep();
-    toast('Note added', { undo: async () => { try { await DB.deleteMessage(m); redrawKeep(); toast('Put back'); } catch { toast('We could not put that back.'); } } });
-  } catch { bui.noteBusy = false; bui.noteErr = true; redrawKeep(); }   // the words stay in the box
+    bui.note.delete(b.id); bui.noteBusy = false; if (here(b)) { redrawKeep(); $('bNoteIn')?.focus(); }   // after a note, the cursor is in the box for the next one
+    toast('Note added', { undo: async () => { try { await DB.deleteMessage(m); if (here(b)) redrawKeep(); toast('Put back'); } catch { toast('We could not put that back.'); } } });
+  } catch { bui.noteBusy = false; bui.noteErr = true; if (here(b)) { redrawKeep(); $('bNoteGo')?.focus(); } }   // the words stay in the box, and the focus where it was (on the button)
 }
 
 // ---------------------------------------------------------------------------------- wiring
@@ -86,7 +95,7 @@ export function bindEdit() {
   $('bEditGo')?.addEventListener('click', openEdit);
   const f = $('bEdit');
   if (f) {
-    const { b, issue } = bui.ctx, e = bui.edit, sync = () => { const s = $('bSave'); if (s && !e.busy) s.disabled = !dirty(b, issue); };
+    const { b } = bui.ctx, e = bui.edit, sync = () => { const s = $('bSave'); if (s && !e.busy) s.disabled = !dirty(b); };
     f.addEventListener('change', ev => { if (ev.target.name === 'bpos') e.pos = ev.target.value; else if (ev.target.id === 'bLeadSel') e.lead = ev.target.value; sync(); });
     f.addEventListener('submit', ev => { ev.preventDefault(); save(); });
     f.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeEdit(); } });

@@ -646,7 +646,6 @@ li[hidden] { display: none; }
 .bpos { font: 600 var(--f18)/1.3 var(--head); }
 .bsep { color: var(--muted); }
 .bposl .btn.text { margin-block: calc(var(--s2) * -1); }
-.hint.blook { margin: calc(var(--s2) * -1) 0 var(--s4); }
 .bstat { margin: 0 0 var(--s2); }
 .bln { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s1) var(--s4); margin: 0 0 var(--s2); font-size: var(--f16); }
 .bln .blt { flex: 1 1 auto; min-width: 0; }
@@ -669,7 +668,7 @@ li[hidden] { display: none; }
 .bill > .bparts, .bill > .bwait { max-width: var(--bill-w); width: 100%; }
 .bwait { margin: var(--s5) 0 0; }
 .bparts .sh { margin-top: var(--s6); }
-.bnote { background: var(--wash); border-radius: var(--r12); padding: var(--s3) var(--s4); margin: 0 0 var(--s2); max-width: var(--letter-w); }
+.bnote { background: var(--wash); border-radius: var(--r12); padding: var(--s3) var(--s4); margin: 0 0 var(--s2); }
 .bnote small { display: block; color: var(--muted); font-size: var(--f14); margin-bottom: var(--s1); }
 .bnote p { margin: 0; overflow-wrap: anywhere; }
 .bnote.pin { border-left: var(--mark) solid var(--edge); }
@@ -688,7 +687,7 @@ li[hidden] { display: none; }
 .blog.bnl > li { padding: 0; border: 0; }
 
 /* The bill page's Part C (bill_edit.js): the edit block that stands in the position line's place, and the note box. */
-.bill > .bedit, .bill > .bnadd { max-width: var(--bill-w); width: 100%; }
+.bill > .bedit { max-width: var(--bill-w); width: 100%; }
 .bedit { margin: 0 0 var(--s4); padding: var(--s4); background: var(--wash); border-radius: var(--r12); display: grid; gap: var(--s4); }
 .bef { margin: 0; padding: 0; border: 0; min-width: 0; }
 .bef .fl { padding: 0; }
@@ -697,7 +696,9 @@ li[hidden] { display: none; }
 .bs span { display: inline-flex; align-items: center; min-height: var(--hit); padding: 0 var(--s4); border: var(--line) solid var(--edge); border-radius: var(--r8); background: var(--surface); color: var(--ink); font: 400 var(--f16)/1.2 var(--body); cursor: pointer; }
 .bs:hover span { background: var(--tint); }
 .bsr { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.bsr:checked + span { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 700; }
+.bs span svg.ic { display: none; width: var(--icon-s); height: var(--icon-s); margin-right: var(--s2); }
+.bsr:checked + span { background: var(--wash); color: var(--ink); box-shadow: inset 0 0 0 var(--line2) var(--ink); font-weight: 700; }   /* the chosen one: marked, not filled (Save is the one filled thing) */
+.bsr:checked + span svg.ic { display: inline-block; }
 .bsr:focus-visible + span { outline: var(--mark) solid var(--ring); outline-offset: var(--line2); }
 .bsel { max-width: var(--letter-w); width: auto; min-width: calc(var(--s8) * 3); }
 .beact, .bnact { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); }
@@ -705,6 +706,16 @@ li[hidden] { display: none; }
 .beact .hint, .bnact .hint { margin: 0; }
 .berr { margin: var(--s1) 0 0; color: var(--ink); font-weight: 700; }
 .berr[hidden] { display: none; }
-.bnadd { margin: 0 0 var(--s4); display: grid; gap: var(--s2); max-width: var(--letter-w); }
+.bnadd { margin: 0 0 var(--s4); display: grid; gap: var(--s2); }
 .bnadd textarea { resize: vertical; }
 .bnadd .berr { margin: 0; }
+
+/* Review round: the viewer's own step under the status lines, the phone's facts, and the phone's link targets */
+.bmv { margin: var(--s2) 0 0; }
+.bmv .ymove { margin: 0; }
+.bposl .btn.text { padding-left: 0; }
+@container (max-width: 600px) {
+  .bfacts > div { grid-template-columns: minmax(0, 1fr); gap: var(--s1); }
+  .bfacts dt { padding-top: 0; }
+  .bfacts dd > a.lk:only-child, .blist a.lk { display: inline-block; padding-block: var(--s3); }
+}

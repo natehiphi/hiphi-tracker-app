@@ -5,19 +5,19 @@
 // someone else's issue, in a teammate's view or Everyone's, is look-only.
 // Where an issue stands is decided in ONE place, issueState below (the groups, the second line of each row, the summary and the topic page all read it); standing.js still says At risk, Moving and
 // Stopped for Home. Nothing here restates the Capitol's deadlines: words.js and the data layer's stopOf do.
-import { S, advocate, myIssueIds, effStage, isMine, DEMO } from '../staff6/data.js';
-import { hearingAhead, wantsHearing as wantsHearingOf, plainAction, stopOf, roomName, billByRef, billRef, isCarry, introYear, sittingDraft } from '../staff6/model.js';
-import { whereWords, billStep } from '../staff6/steps.js';
+import { S, advocate, myIssueIds, isMine, DEMO } from '../staff6/data.js';
+import { hearingAhead, wantsHearing as wantsHearingOf, plainAction, stopOf, billByRef, billRef, isCarry, introYear } from '../staff6/model.js';
+import { whereWords } from '../staff6/steps.js';
 import { CHAMBER_NAME, isOneChamber } from '../stops.js';
 import { ic } from './icons7.js';
 import { esc, btn, plainBand } from './parts.js';
 import { billName, billNo, posWords, cmteWords, dayTime, first } from './steps.js';
 import { myIssueStandings, billsOfIssue, issueStanding, billStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
 import { withMe, sessionHTML } from './home.js';
-import { dateWords, whenWords, sessionDates, touchMap, nextStop, whyWords, daysTo, dayName } from './words.js';
+import { dateWords, whenWords, sessionDates, touchMap, nextStop, daysTo, dayName } from './words.js';
 import { billPath, pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
-import { testimonyDue, draftFor, letterState, testimonyWords, leadIds } from './bill_words.js';
+import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
 export { testimonyDue };   // Calendar reads it from here
 
@@ -133,6 +133,8 @@ export function issueState(bills, nx) {
 function nextWhere(b) { const st = stopOf(b); return st.phase === 'committee' && st.committee ? st.committee : ''; }
 // The words for the one thing worth knowing about the issue, taken from the bill that gave it its state: { text, risk, icon } or null. Nothing here repeats the group's heading.
 const clockOf0 = t => new Date(t).toLocaleTimeString('en-US', { timeZone: 'Pacific/Honolulu', hour: 'numeric', minute: '2-digit' });
+// the group's name for the cleared state, and the bill page's: "Cleared Monday’s deadline"
+export const clearedLabel = row => `Cleared ${dayName(row.date)}’s deadline`;
 export const hearTxt = t => { const d = daysTo(ymdHST(t)); return d === 0 ? `today ${clockOf0(t)}` : d === 1 ? `tomorrow ${clockOf0(t)}` : dayTime(t); };
 const relWords = d => { const k = daysTo(d); return k <= 0 ? 'today' : k === 1 ? 'tomorrow' : `in ${k} days`; };
 const COMMITTEE_PHASES = { floor: 'Ready for the floor vote', conference: 'In conference', governor: 'With the Governor', law: 'Signed into law', ballot: 'Going to the voters' };
@@ -283,7 +285,7 @@ function column(who, set, people, me, openKey, ses, x) {
     + `${boxHTML({ who: who.code, q: q0 })}</header>`;
   const t = tally(rows), hrefFor = k => topic ? topicHref({ ...who, show: k }, topic.key) : issuesHref({ ...who, show: k });
   const li = r => (hid, fx) => row(r, who, openKey.issue, r.second ? secHTML(r.second) : '', hid, fx);
-  const labelOf = k => k === 'cleared' && nx && nx.next ? `Cleared ${dayName(nx.next.row.date)}’s deadline` : STATES.find(s => s[0] === k)[1];
+  const labelOf = k => k === 'cleared' && nx && nx.next ? clearedLabel(nx.next.row) : STATES.find(s => s[0] === k)[1];
   const lead = () => topic ? `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>` : sessionRow(who, ses, openKey.session);
   // The list while words are typed: the same groups and rows, only the issues of THIS view that match (a topic's list: that topic), nothing folded; the summary becomes "3 of 26 issues match".
   // Drawn again in place on each key (find.js), never by render(). `ids`: the view's issues (the "Also found" issues are the others).
