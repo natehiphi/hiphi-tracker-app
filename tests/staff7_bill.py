@@ -277,6 +277,112 @@ with sync_playwright() as p:
     ok(not errs and not bad, f'JM: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.context.close()
 
+    # ============================================================ Part B: Team notes, Past hearings, History
+    pg, ctx = open_as(br, 'KV', 1440, 900, '#/bill/HB2300?who=all'); errs, bad = ctx._errs, ctx._bad
+    PB = pg.evaluate("""async () => {
+      const d = await import('/staff6/data.js'), bh = await import('/staff7/bill_history.js'), S = d.S, out = { many: [], noparse: [], deferred: [], empty: [], parsed: [] };
+      for (const b of S.bills.filter(b => b.tracked !== false)) {
+        const past = S.hearings.filter(h => h.bill_id === b.id && !(h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now()) && h.status === 'scheduled');
+        const keys = new Set(past.map(h => h.committee + '|' + (S.outcomes[h.id] ? S.outcomes[h.id].reported_at : h.id)));
+        if (keys.size >= 4) out.many.push(b.bill_number);
+        for (const h of past) { const o = S.outcomes[h.id]; if (!o) continue; const v = bh.voteWords(o.report); if (o.outcome === 'deferred') out.deferred.push(b.bill_number); else if (!v) out.noparse.push(b.bill_number + '|' + h.id); else out.parsed.push(b.bill_number); }
+        if (!(S.messages[b.id] || []).length && !past.length && !(S.drafts[b.id] || []).length && !S.hearings.some(h => h.bill_id === b.id) && !b.internal_notes && !['HB1523', 'HB2300', 'HB10', 'SB11', 'HB1562'].includes(b.bill_number)) out.empty.push(b.bill_number);
+      }
+      return out; }""")
+    ok(PB['many'] and PB['noparse'] and PB['deferred'] and PB['empty'], f'the practice copy has bills with 4+ past hearings ({PB["many"][:2]}), an unparseable vote sentence ({[x.split("|")[0] for x in PB["noparse"][:2]]}), a deferred hearing ({PB["deferred"][:2]}) and a bill with no history ({PB["empty"][:2]})')
+    NOTES = "() => [...document.querySelectorAll('#bl-notes > li')].map(l => ({ t: l.innerText.replace(/\\s+/g, ' ').trim(), hid: l.hidden }))"
+    # --- team notes: the pinned one first (marked), then the conversation newest first, two shown, Show all N notes
+    pg.wait_for_selector('#bParts', timeout=10000)
+    ok(pg.inner_text('#bNotesH') == 'Team notes' and pg.evaluate("() => document.querySelector('#bPinned small').innerText") == 'Pinned', 'HB2300: Team notes has the pinned note first, marked "Pinned"')
+    order = pg.evaluate("() => [...document.querySelectorAll('#bNotesH ~ .bnote, #bNotesH ~ ul .bnote')].map(n => n.classList.contains('pin') ? 'pin' : n.querySelector('small').innerText)")
+    dts = [o.split(' · ')[1] for o in order[1:]]
+    ok(order[0] == 'pin' and len(order) == 4 and dts == ['Fri, Mar 13', 'Wed, Mar 11', 'Wed, Mar 4'], f'HB2300: the pinned note, then the conversation newest first ({order})')
+    nt = pg.evaluate(NOTES); ok(sum(1 for n in nt if not n['hid']) == 2 and len(nt) == 3, f'HB2300: two notes are shown (the pinned one does not count) and the rest wait ({len(nt)} in the list)')
+    ok(pg.inner_text('button[data-bmore^="notes"]') == 'Show all 3 notes', 'HB2300: the control says "Show all 3 notes"')
+    pg.click('button[data-bmore^="notes"]'); pg.wait_for_timeout(100); nt = pg.evaluate(NOTES); h0 = pg.evaluate('location.hash')
+    ok(all(not n['hid'] for n in nt) and pg.inner_text('button[data-bmore^="notes"]') == 'Show fewer', 'HB2300: Show all opens every note in place')
+    pg.evaluate("() => window.__staff7Tick()"); pg.wait_for_timeout(300)
+    ok(all(not n['hid'] for n in pg.evaluate(NOTES)), 'HB2300: the open notes stay open across the minute\'s redraw')
+    snap(pg, 'b_notes_open.png', tall=True)
+    pg.click('button[data-bmore^="notes"]'); pg.wait_for_timeout(100); ok(sum(1 for n in pg.evaluate(NOTES) if not n['hid']) == 2, 'HB2300: Show fewer closes them again')
+    # the seeded practice conversation shows too, with the bill's other notes
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts'); n1523 = pg.evaluate("() => [...document.querySelectorAll('#bl-notes .bnote small')].map(s => s.innerText)")
+    ok(len(n1523) == 5 and n1523[0].startswith('Kevin · Mon, Mar 16') and pg.locator('#bPinned').count() == 0, f'HB1523: the practice conversation (3 seeded, 2 sample) shows newest first, no pinned note ({n1523})')
+    ei = PB['empty'][0]; bill(pg, ei); pg.wait_for_selector('#bParts')
+    ok(pg.locator('#bNoNotes').inner_text() == 'No notes yet.' and pg.locator('#bHearH').count() == 0, f'{ei}: no notes says "No notes yet." and a bill with no past hearing leaves the block out')
+    hist = pg.evaluate("() => [...document.querySelectorAll('.bhist .hint')].map(h => h.innerText)")
+    # --- past hearings
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts')
+    PH = "() => [...document.querySelectorAll('#bl-hear > li')].map(l => ({ head: l.querySelector('.bh1').innerText.replace(/\\s+/g, ' '), sub: l.querySelector('small').innerText.replace(/\\s+/g, ' '), links: [...l.querySelectorAll('small a')].map(a => [a.innerText.trim(), a.target, a.rel, a.getAttribute('href')]), cm: [...l.querySelectorAll('.bh1 a')].map(a => a.getAttribute('href')), hid: l.hidden }))"
+    ph = pg.evaluate(PH)
+    ok([p['head'] for p in ph] == ['Thu, Feb 26 · House Judiciary & Hawaiian Affairs', 'Thu, Feb 12 · House Transportation'], f'HB1523: past hearings newest first, a result for each, the two Transportation sittings as one ({[p["head"] for p in ph]})')
+    ok(ph[0]['sub'].startswith('Passed, no changes · 8 yes, 0 no, 2 excused · Lauren filed our testimony'), f'HB1523: Feb 26 reads result, vote and who filed ({ph[0]["sub"]})')
+    ok(ph[1]['sub'].startswith('Passed with changes on Feb 17 · 7 yes, 0 no, 2 excused') and 'reservations' not in ph[1]['sub'], f'HB1523: Feb 12 says when the changes passed, and the vote ("with reservations" is not said: its count is not stated) ({ph[1]["sub"]})')
+    ok(all(p['links'] and p['links'][0][0] == 'Everyone’s testimony' and p['links'][0][1] == '_blank' and 'noopener' in p['links'][0][2] and p['links'][0][3].startswith('https://') for p in ph), 'HB1523: "Everyone’s testimony" is an external link (new tab, rel=noopener) on each row that filed with a link')
+    ok(all(p['cm'] and p['cm'][0].startswith('#/search/committee/') for p in ph) and not revisit(pg, [ph[0]['cm'][0]], 'c'), 'HB1523: each committee is a link that opens')
+    bill(pg, 'HB2300'); pg.wait_for_selector('#bParts'); p2 = pg.evaluate(PH)
+    ok(len(p2) == 2 and all(p['sub'].endswith('we did not file') and not p['links'] for p in p2), f'HB2300: a hearing where nothing was filed says "we did not file" and has no "Everyone’s testimony" link ({[p["sub"] for p in p2]})')
+    # synthetic: a filed draft with no link, a cancelled hearing, a joint hearing
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB2300'); const h = S.hearings.find(x => x.bill_id === b.id && new Date(x.scheduled_at) < Date.now());
+      (S.drafts[b.id] ||= []).push({ id: 'syn-f', bill_id: b.id, committee: h.committee, hearing_id: h.id, status: 'filed', filed_by: S.advocates[3].id, filed_at: h.scheduled_at, filed_url: null });
+      S.hearings.push({ ...h, id: 'syn-c', status: 'cancelled', scheduled_at: new Date(Date.now() - 20 * 864e5).toISOString(), committee: 'EDN/FIN' }); window.__staff7Render({}); }""")
+    pg.wait_for_timeout(300); p3 = pg.evaluate(PH)
+    ok(any('Kevin filed our testimony' in p['sub'] and not p['links'] for p in p3), f'a filed draft with no filed_url shows who filed and no "Everyone’s testimony" link (synthetic)')
+    cx = [p for p in p3 if 'Cancelled' in p['sub']]
+    ok(cx and ' with ' in cx[0]['head'] and 'filed' not in cx[0]['sub'] and 'did not file' not in cx[0]['sub'] and len(cx[0]['cm']) == 2, f'a cancelled joint hearing says Cancelled, names both committees, and says nothing about testimony (synthetic: {cx[0]["head"] if cx else None} / {cx[0]["sub"] if cx else None})')
+    # votes: parsed, and a sentence that cannot be read in full shows no vote
+    vt = pg.evaluate("""async () => { const bh = await import('/staff7/bill_history.js'); return [
+      bh.voteWords('The committee on TRN recommend that the measure be PASSED, WITH AMENDMENTS. The votes were as follows: 7 Ayes: Representative(s) Kila, Miyake; Ayes with reservations: Representative(s) Muraoka;  Noes: none; and 2 Excused: Representative(s) Cochran, Pierick.'),
+      bh.voteWords('The committee(s) on  GVO recommend(s) that the measure be PASSED, WITH AMENDMENTS.  The votes in GVO were as follows: 4 Aye(s): Senator(s) McKelvey; Aye(s) with reservations: none ; 0 No(es): none; and 1 Excused: Senator(s) Fevella.'),
+      bh.voteWords('The committee on HSH recommend that the measure be PASSED, WITH AMENDMENTS. The votes were as follows: 9 Ayes: Marten; Ayes with reservations: none;  Noes: none; and  Excused: none.'),
+      bh.voteWords('The committee on JHA recommend that the measure be PASSED. The votes were as follows: 9 Ayes: Tarnas; Ayes with reservations: 2 Ayes with reservations: Shimizu; 1 Noes: Garcia; and 1 Excused: Repr'),
+      bh.voteWords('The committee on FIN recommend that the measure be PASSED, UNAMENDED. The votes were as follows: 14 Ayes: Yamashita, Takenouchi; Ayes with reservations: none;  Noes'),
+      bh.voteWords('The committee on PSM deferred the measure.'), bh.voteWords('') ]; }""")
+    ok(vt[0] == '7 yes, 0 no, 2 excused' and vt[1] == '4 yes, 0 no, 1 excused' and vt[2] == '9 yes, 0 no, 0 excused' and vt[4] == '' and vt[5] == '' and vt[6] == '', f'the vote sentence is read in both forms, counts only; a cut sentence or none gives no vote ({vt})')
+    ok(vt[3] == '' or vt[3].startswith('9 yes, 1 no, 1 excused'), f'a sentence read in full with a stated reservation count says it ({vt[3]})')
+    nb_ = PB['noparse'][0].split('|')[0]; bill(pg, nb_); pg.wait_for_selector('#bParts'); subs = pg.evaluate(PH)
+    ok(subs and any(not re.search(r'\d+ yes', p['sub']) and not p['sub'].startswith('No result') for p in subs), f'{nb_}: a hearing whose sentence cannot be read in full shows its result and no vote ({[p["sub"][:60] for p in subs][:3]})')
+    dfb = PB['deferred'][0]; bill(pg, dfb); pg.wait_for_selector('#bParts'); dsub = pg.evaluate(PH)
+    ok(any(p['sub'].startswith('Deferred') and not re.search(r'\d+ yes', p['sub']) for p in dsub), f'{dfb}: a deferred hearing says Deferred, with no vote')
+    mb = PB['many'][0]; bill(pg, mb); pg.wait_for_selector('#bParts'); mh = pg.evaluate(PH)
+    ok(len(mh) > 3 and sum(1 for p in mh if not p['hid']) == 3 and pg.inner_text('button[data-bmore^="hear"]') == f'Show all {len(mh)}', f'{mb}: more than three past hearings show three and "Show all {len(mh)}"')
+    pg.click('button[data-bmore^="hear"]'); pg.wait_for_timeout(100); pg.evaluate("() => window.__staff7Tick()"); pg.wait_for_timeout(300)
+    ok(all(not p['hid'] for p in pg.evaluate(PH)), f'{mb}: Show all opens every hearing, and stays open across the minute\'s redraw')
+    # --- history
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts')
+    H = "id => [...document.querySelectorAll('#' + id + ' li')].map(l => ({ t: l.innerText.replace(/\\s+/g, ' ').trim(), hid: l.hidden }))"
+    cap, our = pg.evaluate(H, 'bCap'), pg.evaluate(H, 'bOurs')
+    ok(len(cap) == 18 and sum(1 for c in cap if not c['hid']) == 4 and pg.inner_text('#bCap button[data-bmore]') == 'Show all 18', f'HB1523: What the Capitol did shows four of {len(cap)} and "Show all 18"')
+    ok(cap[0]['t'].endswith('Fri, Mar 13 · Senate') or 'Mar 13' in cap[0]['t'], f'HB1523: the Capitol\'s lines are newest first, each with its date and chamber ({cap[0]["t"][:80]})')
+    ok(not any(re.search(r'\b(TRS|JDC|JHA|TRN)\b', c['t']) for c in cap) and len({c['t'] for c in cap}) == len(cap), 'HB1523: committee codes are in words and no line repeats')
+    ok(sum(1 for c in our if not c['hid']) == 4 and pg.inner_text('#bOurs button[data-bmore]').startswith('Show all'), f'HB1523: What we did shows four and its own Show all ({len(our)} rows)')
+    alltxt = ' | '.join(c['t'] for c in our)
+    ok('Kris changed the position: Monitor to Support' in alltxt and 'Kris made Patti the lead' in alltxt and 'Patti asked the Senate Transportation chair for a hearing' in alltxt and 'Lauren sent testimony for approval' in alltxt and 'Nate approved the testimony' in alltxt and 'Lauren filed testimony' in alltxt and 'added a note' in alltxt, 'HB1523: What we did merges position and lead changes, the hearing request, the testimony steps and the notes')
+    ok('priority' not in alltxt.lower(), 'HB1523: a priority change is left out')
+    pg.click('#bCap button[data-bmore]'); pg.click('#bOurs button[data-bmore]'); pg.wait_for_timeout(100); pg.evaluate("() => window.__staff7Tick()"); pg.wait_for_timeout(300)
+    ok(all(not c['hid'] for c in pg.evaluate(H, 'bCap')) and all(not c['hid'] for c in pg.evaluate(H, 'bOurs')), 'HB1523: each history list has its own Show all, and both stay open across the minute\'s redraw')
+    pos = pg.evaluate("() => { const a = document.getElementById('bCap').getBoundingClientRect(), b = document.getElementById('bOurs').getBoundingClientRect(); return [a.left, b.left, a.top, b.top]; }")
+    ok(pos[1] > pos[0] + 200 and abs(pos[2] - pos[3]) < 5, f'at laptop width the two history lists sit side by side ({pos})')
+    snap(pg, 'b_history_open.png', tall=True)
+    snap(pg, 'b_whole_page.png', tall=True)
+    # --- loading, failed, empty (forced in the page)
+    pg.evaluate("""async () => { const m = await import('/staff7/bill_data.js'), d = await import('/staff6/data.js'); m.cache.set(d.S.bills.find(b => b.bill_number === 'HB1523').id, 'loading'); window.__staff7Render({}); }""")
+    pg.wait_for_timeout(200)
+    ok(pg.inner_text('#bWait') == 'Loading the bill’s history.' and pg.locator('#bParts').count() == 0 and pg.locator('#bFacts').count() == 1 and pg.locator('#bStat').count() == 1, 'loading: the three blocks are one quiet line, and the top of the page (status, facts) is already there')
+    pg.evaluate("""async () => { const m = await import('/staff7/bill_data.js'), d = await import('/staff6/data.js'); m.cache.set(d.S.bills.find(b => b.bill_number === 'HB1523').id, 'failed'); window.__staff7Render({}); }""")
+    pg.wait_for_timeout(200)
+    ok('We could not load the bill’s history.' in pg.inner_text('#bFail') and pg.locator('#bRetry').count() == 1 and pg.locator('#bRetry').get_attribute('class').split().count('text') == 1, 'failed: one line and a text button "Try again"')
+    pg.click('#bRetry'); pg.wait_for_selector('#bParts', timeout=10000); ok(pg.locator('#bNotesH').count() == 1 and pg.locator('#bFail').count() == 0, 'Try again asks again and draws the history')
+    pg.evaluate("""async eb => { const m = await import('/staff7/bill_data.js'), d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === eb); m.cache.set(b.id, { tl: [], hearings: [], outcomes: [], tf: {}, at: Date.now() }); window.__staff7Render({}); }""", ei)
+    bill(pg, ei); pg.evaluate("""async eb => { const m = await import('/staff7/bill_data.js'), d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === eb); m.cache.set(b.id, { tl: [], hearings: [], outcomes: [], tf: {}, at: Date.now() }); window.__staff7Render({}); }""", ei); pg.wait_for_timeout(300)
+    hn = pg.evaluate("() => [...document.querySelectorAll('.bhist .hint')].map(h => h.innerText)")
+    ok(pg.inner_text('#bNoNotes') == 'No notes yet.' and hn == ['Nothing yet.', 'Nothing yet.'] and pg.locator('#bHearH').count() == 0, f'{ei}: empty states: "No notes yet.", "Nothing yet." in both history lists, no Past hearings block')
+    tx = pg.evaluate(TEXTS); bill(pg, 'HB2300'); pg.wait_for_selector('#bParts'); tx = pg.evaluate(TEXTS)
+    ok(not re.search(r'letter', tx, re.I) and not re.search(r'vap(e|es|ing)\b', tx, re.I), 'HB2300: the whole page, with its notes, hearings and history, never says "letter" or "vape"')
+    ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), 'HB2300: no sideways scroll, 44px targets with the history drawn')
+    ok(not errs and not bad, f'Part B at 1440: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
+    pg.context.close()
+
     # ============================================================ a phone
     pg, ctx = open_as(br, 'KV', 390, 844, f'#/bill/{hb}?i={hi}&who=all'); errs, bad = ctx._errs, ctx._bad
     for num in (hb, pick('manycmtes'), pick('stopped'), pick('manysp'), pick('longname'), pick('joint')):
@@ -286,6 +392,11 @@ with sync_playwright() as p:
     ok(pg.locator('svg.trk.row').first.is_visible() and pg.locator('svg.trk.wide').first.is_hidden(), 'phone: the path is the compact one')
     backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
     ok(len(backs) == 1 and backs[0].startswith('Back to '), f'phone: one back link, labelled with where it goes ({backs})')
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts'); pg.click('#bCap button[data-bmore]'); pg.wait_for_timeout(100)
+    st2 = pg.evaluate("() => { const a = document.getElementById('bCap').getBoundingClientRect(), b = document.getElementById('bOurs').getBoundingClientRect(); return [a.left, b.left, a.bottom, b.top]; }")
+    ok(abs(st2[0] - st2[1]) < 2 and st2[3] >= st2[2] - 1, f'phone: the two history lists are stacked ({st2})')
+    ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'phone HB1523: the notes, hearings and history fit with 44px targets ({pg.evaluate(SMALL)[:2]})')
+    snap(pg, 'b_phone.png', tall=False)
     snap(pg, 'phone_bill.png')
     ok(not errs and not bad, f'phone: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.context.close()

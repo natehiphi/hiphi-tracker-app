@@ -1,7 +1,7 @@
 // Staff7's bill page (R-398). Part A: the band, HIPHI's position and who leads, where the bill stands (two plain lines), the path drawing and the bill's facts (what it does, issue, committees, companions,
 // sponsors). Everything here is worked out from data already in memory, and the words for dates and states come from the SAME helpers the Issues list uses (hearTxt, whenWords, deadlineOf, isAtRisk, clearedOf,
 // whereWords, testimonyDue, bill_words.js), so the list and this page never disagree. Looking never changes anything: only a bill on one of the viewer's own issues has a link to one of their steps.
-// Seams for later parts (empty on purpose, drawn in this order): positionEditSlot (Part C: "Change position or lead", beside the position), partB (Part B: Team notes, Past hearings, History, after the facts).
+// Seams: positionEditSlot (Part C: "Change position or lead", beside the position); Part B (Team notes, Past hearings, History) is bill_history.js, drawn after the facts.
 import { S, SESSION_YEAR, capitolUrl, effStage } from '../staff6/data.js';
 import { hearingAhead, stopOf, roomName, companionsOf } from '../staff6/model.js';
 import { whereWords } from '../staff6/steps.js';
@@ -13,6 +13,7 @@ import { dateWords, whyWords } from './words.js';
 import { billPath, pathOf } from './path.js';
 import { norm } from './find.js';
 import { testimonyDue, letterState, testimonyShort, leadIds } from './bill_words.js';
+import { partB, bindPartB } from './bill_history.js';
 import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, lookLine, sameName, clean, whereShort, hearTxt, stepOn, clearedOf, sitKeyOf, nextCtx, billHref } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -20,7 +21,7 @@ const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
 const http = u => /^https?:\/\//i.test(String(u || '').trim());
 const num = b => String(b.bill_number).replace(/\s/g, '');
 // What is open on the page, kept across the minute's redraw in this visit only: the bills whose whole list of introducers was opened
-const bui = { all: new Set() };
+export const bui = { all: new Set(), open: new Set() };   // all: bills whose whole list of introducers is open; open: the "Show all" lists of Part B (key: list|bill id)
 
 // ---------------------------------------------------------------------------------- small parts
 const ext = (url, label) => `<a class="lk" target="_blank" rel="noopener" href="${esc(url)}">${esc(label)}${ic('external-link')}</a>`;
@@ -44,9 +45,6 @@ const billTextUrl = b => {
 // ---------------------------------------------------------------------------------- the seams for the parts that come next
 // Part C: the text button "Change position or lead", drawn beside the position (only for a bill the viewer may change). Nothing yet.
 const positionEditSlot = () => '';
-// Part B: Team notes, Past hearings and History, drawn after the facts, in the same content width. Nothing yet.
-const partB = () => '';
-const bindPartB = () => {};
 
 // ---------------------------------------------------------------------------------- back
 // "Back to <issue>", or where the person came from (the address carries from=calendar or from=search)

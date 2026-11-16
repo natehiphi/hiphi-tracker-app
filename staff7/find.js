@@ -403,6 +403,8 @@ function wireOnce() {
   });
 }
 // What the box is doing before the page is drawn again: the redraw removes the focused input, and the browser may say it lost focus (which closes the panel) before the new one is made
+// the frame's own redraw, for a page whose data arrives after it is drawn (the bill page's history)
+export const rerender = () => F.env?.rerender?.();
 export const findOpen = () => !!($('findIn') && F.open && !$('findDrop')?.hidden);
 export function bindFind(env) {
   F.env = env; wireOnce(); clearTimeout(F.timer);

@@ -664,3 +664,25 @@ li[hidden] { display: none; }
 .blist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); }
 .bill > .bigpath { margin: var(--s5) 0 var(--s2); }
 #bAlive { margin: var(--s2) 0 0; }
+
+/* The bill page's Part B (bill_history.js): team notes, past hearings, history. Same content width as Part A. */
+.bill > .bparts, .bill > .bwait { max-width: var(--bill-w); width: 100%; }
+.bwait { margin: var(--s5) 0 0; }
+.bparts .sh { margin-top: var(--s6); }
+.bnote { background: var(--wash); border-radius: var(--r12); padding: var(--s3) var(--s4); margin: 0 0 var(--s2); max-width: var(--letter-w); }
+.bnote small { display: block; color: var(--muted); font-size: var(--f14); margin-bottom: var(--s1); }
+.bnote p { margin: 0; overflow-wrap: anywhere; }
+.bnote.pin { border-left: var(--mark) solid var(--edge); }
+.bmore { margin: var(--s1) 0 0; }
+.bmore .btn.text { padding-left: 0; }
+.blog { list-style: none; margin: 0; padding: 0; }
+.blog > li { padding: var(--s2) 0; font-size: var(--f16); }
+.blog > li + li { border-top: var(--line) solid var(--rule); }
+.blog > li[hidden] { display: none; }
+.blog small { display: block; color: var(--muted); font-size: var(--f14); margin-top: var(--s1); overflow-wrap: anywhere; }
+.blog small svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: calc(var(--s1) * -1); margin-left: var(--s1); }
+.bh1 { overflow-wrap: anywhere; }
+.bhist { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--s5); }
+.bh3 { font: 600 var(--f16)/1.3 var(--head); margin: 0 0 var(--s1); color: var(--muted); }
+@container (min-width: 700px) { .bhist { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.blog.bnl > li { padding: 0; border: 0; }

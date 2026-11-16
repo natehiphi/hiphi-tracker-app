@@ -1,0 +1,236 @@
+{
+ "_about": "Practice-only sample team notes and history for a few bills (R-398 Part B). Read only by staff7/bill_data.js when the practice copy is on, merged in memory, never written anywhere. Keys are bill numbers; advocate ids are the snapshot's.",
+ "HB1523": {
+  "messages": [
+   {
+    "id": "bt-1523-1",
+    "advocate_id": "a99609e5-ad6f-4d60-b32f-93bbad7b5e2a",
+    "body": "House Judiciary hearing is Thursday at 2:00 PM. We can send the same testimony as Transportation, with one line on the amended language.",
+    "created_at": "2026-02-24T20:00:00.000Z"
+   },
+   {
+    "id": "bt-1523-2",
+    "advocate_id": "76d802aa-1668-440c-8188-c04f8d95f61c",
+    "body": "Now in the Senate and sent to Transportation, then Judiciary. Waiting on a hearing date.",
+    "created_at": "2026-03-11T20:00:00.000Z"
+   }
+  ],
+  "timeline": [
+   {
+    "type": "field_change",
+    "title": "Lead changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-26T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "lead",
+     "old": null,
+     "new": "a99609e5-ad6f-4d60-b32f-93bbad7b5e2a"
+    }
+   },
+   {
+    "type": "field_change",
+    "title": "Position changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-02-02T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "position",
+     "old": "monitor",
+     "new": "support"
+    }
+   },
+   {
+    "type": "hearing_ask",
+    "title": "asked the Senate Transportation chair for a hearing",
+    "advocate_id": "a99609e5-ad6f-4d60-b32f-93bbad7b5e2a",
+    "occurred_at": "2026-03-11T20:00:00.000Z",
+    "source": "team"
+   }
+  ]
+ },
+ "HB2300": {
+  "pinned": "Keep the local food purchasing language as it is. The House Education amendment was ours, so do not support any change that adds a cap.",
+  "messages": [
+   {
+    "id": "bt-2300-1",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "body": "Passed House Finance with no changes on Tuesday. Next it goes to the House floor.",
+    "created_at": "2026-03-04T20:00:00.000Z"
+   },
+   {
+    "id": "bt-2300-2",
+    "advocate_id": "76d802aa-1668-440c-8188-c04f8d95f61c",
+    "body": "Now in the Senate. I will ask the Education chair for a hearing this week.",
+    "created_at": "2026-03-11T20:00:00.000Z"
+   },
+   {
+    "id": "bt-2300-3",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "body": "The chair said the committee is looking at the 18th.",
+    "created_at": "2026-03-13T20:00:00.000Z"
+   }
+  ],
+  "timeline": [
+   {
+    "type": "field_change",
+    "title": "Lead changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-29T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "lead",
+     "old": null,
+     "new": "76d802aa-1668-440c-8188-c04f8d95f61c"
+    }
+   },
+   {
+    "type": "field_change",
+    "title": "Position changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-29T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "position",
+     "old": "",
+     "new": "support"
+    }
+   },
+   {
+    "type": "hearing_ask",
+    "title": "asked the Senate Education chair for a hearing",
+    "advocate_id": "76d802aa-1668-440c-8188-c04f8d95f61c",
+    "occurred_at": "2026-03-12T20:00:00.000Z",
+    "source": "team"
+   }
+  ]
+ },
+ "HB10": {
+  "messages": [
+   {
+    "id": "bt-10-1",
+    "advocate_id": "b974ed5b-73e2-43bf-9d82-f9f59a1faecd",
+    "body": "Carried over from last year and still in House Health. We oppose it, so there is nothing to ask for.",
+    "created_at": "2026-01-28T20:00:00.000Z"
+   },
+   {
+    "id": "bt-10-2",
+    "advocate_id": "b974ed5b-73e2-43bf-9d82-f9f59a1faecd",
+    "body": "It did not get a hearing before the committee deadline on the 11th, so it stopped for this year.",
+    "created_at": "2026-02-12T20:00:00.000Z"
+   }
+  ],
+  "timeline": [
+   {
+    "type": "field_change",
+    "title": "Lead changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-12T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "lead",
+     "old": null,
+     "new": "b974ed5b-73e2-43bf-9d82-f9f59a1faecd"
+    }
+   },
+   {
+    "type": "field_change",
+    "title": "Position changed",
+    "advocate_id": "b974ed5b-73e2-43bf-9d82-f9f59a1faecd",
+    "occurred_at": "2026-01-12T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "position",
+     "old": "monitor",
+     "new": "oppose"
+    }
+   }
+  ]
+ },
+ "SB11": {
+  "messages": [
+   {
+    "id": "bt-11-1",
+    "advocate_id": "ff018c90-4ff6-41ff-9026-125ab2a0a80b",
+    "body": "This was deferred in House Water and Land last March and carried over. We need a hearing there before the March 19 committee deadline.",
+    "created_at": "2026-02-20T20:00:00.000Z"
+   },
+   {
+    "id": "bt-11-2",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "body": "Asked both chairs' offices for a hearing. No date yet.",
+    "created_at": "2026-03-12T20:00:00.000Z"
+   }
+  ],
+  "timeline": [
+   {
+    "type": "field_change",
+    "title": "Lead changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-14T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "lead",
+     "old": null,
+     "new": "ff018c90-4ff6-41ff-9026-125ab2a0a80b"
+    }
+   },
+   {
+    "type": "field_change",
+    "title": "Position changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-14T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "position",
+     "old": "monitor",
+     "new": "support"
+    }
+   },
+   {
+    "type": "hearing_ask",
+    "title": "asked the House Water & Land chair for a hearing",
+    "advocate_id": "ff018c90-4ff6-41ff-9026-125ab2a0a80b",
+    "occurred_at": "2026-03-12T20:00:00.000Z",
+    "source": "team"
+   }
+  ]
+ },
+ "HB1562": {
+  "messages": [
+   {
+    "id": "bt-1562-1",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "body": "Passed House Finance with no changes on the 27th. It is now in Senate Health and Human Services.",
+    "created_at": "2026-03-10T20:00:00.000Z"
+   },
+   {
+    "id": "bt-1562-2",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "body": "Hearing is set for Monday at 1:10 PM.",
+    "created_at": "2026-03-13T20:00:00.000Z"
+   }
+  ],
+  "timeline": [
+   {
+    "type": "field_change",
+    "title": "Position changed",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-01-26T20:00:00.000Z",
+    "source": "team",
+    "meta": {
+     "field": "position",
+     "old": "neutral",
+     "new": "support"
+    }
+   },
+   {
+    "type": "hearing_ask",
+    "title": "asked the Senate Health and Human Services chair for a hearing",
+    "advocate_id": "75e0cb10-f31d-456e-938e-a1f2f5303e02",
+    "occurred_at": "2026-03-11T20:00:00.000Z",
+    "source": "team"
+   }
+  ]
+ }
+}
