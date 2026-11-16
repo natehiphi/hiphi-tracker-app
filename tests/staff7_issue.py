@@ -85,7 +85,7 @@ with sync_playwright() as p:
         ok(pg.locator('#tDead').is_hidden() and pg.locator('#tFoldBtn').get_attribute('aria-expanded') == 'false', 'the stopped bills are folded away')
         pg.click('#tFoldBtn'); pg.wait_for_timeout(150)
         dead = pg.evaluate("() => [...document.querySelectorAll('#tDead tbody tr')].map(r => r.innerText.replace(/\\s+/g, ' ').trim())")
-        ok(pg.locator('#tDead').is_visible() and pg.locator('#tFoldBtn').inner_text() == 'Show fewer' and len(dead) == P['mixed']['dead'] and all(re.search(r'Stopped( [A-Z][a-z]{2} \d+)?', d) for d in dead), f'"Show N" opens the stopped bills ({dead[:2]})')
+        ok(pg.locator('#tDead').is_visible() and pg.locator('#tFoldBtn').inner_text() == 'Show fewer' and len(dead) == P['mixed']['dead'] and all(re.search(r'Stopped( [A-Z][a-z]{2} \d+)?', d) and 'did not reach' not in d and 'first committee' not in d for d in dead), f'"Show N" opens the stopped bills ({dead[:2]})')
         pg.click('#tFoldBtn'); pg.wait_for_timeout(150)
         ok(pg.locator('#tDead').is_hidden() and pg.locator('#tFoldBtn').inner_text().startswith('Show '), '"Show fewer" closes them again')
     snap(pg, 'F_issue_hearing.png'); snap(pg, 'F_issue_hearing_full.png', tall=True)
@@ -175,7 +175,7 @@ with sync_playwright() as p:
     pg, ctx = open_as(br, 'NT', 1440, 900, f'#/issue/{P["stopped"]["id"]}'); errs, bad = ctx._errs, ctx._bad
     ok(pg.evaluate(H1) == P['stopped']['name'] and re.match(r'^(None of its \d+ bills is alive|Its bill stopped this year)$', pg.inner_text('.hband .bsub').strip()), 'the band says none of its bills is alive')
     st = pg.evaluate("() => [...document.querySelectorAll('#iStat .bln')].map(p => p.innerText.replace(/\\s+/g, ' ').trim())")
-    ok(len(st) == 2 and st[0].startswith('Stopped for this year') and 'try again in 2027' in st[1], f'the status is the stopped line and the muted line ({st})')
+    ok(len(st) == 2 and st[0].startswith('Stopped for this year') and 'try again in 2027' in st[1] and 'did not reach' not in st[0], f'the status is the stopped line and the muted line ({st})')
     first_dead = pg.inner_text('#tDead tbody tr:first-child td.tw').strip()
     ok(re.match(r'^Stopped( [A-Z][a-z]{2} \d+)?$', first_dead), f'the status line already tells why, so the last bill\'s row says only when ({first_dead!r})')
     ok(pg.locator('#tBills').count() == 0 and pg.locator('#tDead').is_visible() and pg.locator('#tDead tbody tr').count() == P['stopped']['n'] and pg.locator('#tFoldBtn').count() == 0, 'every bill is listed as stopped, with no fold to open')

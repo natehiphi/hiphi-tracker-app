@@ -29,8 +29,8 @@ export function stoppedWhy(b) {
     .sort((p, q) => String(q.scheduled_at).localeCompare(String(p.scheduled_at)))[0];
   const passed = heard && ['passed', 'passed_amended'].includes((S.outcomes?.[heard.id] || {}).outcome);
   if (heard) return { date, why: passed ? '' : `heard ${monD(heard.scheduled_at)} and held`, cmte };
-  if (/_triple$/.test(stage)) return { date, why: 'no hearing in its first committee', cmte };
-  if (/_lateral$/.test(stage)) return { date, why: `did not reach ${name}`, cmte };
+  if (/_triple$/.test(stage)) return { date, why: `no hearing in ${name}`, cmte };
+  if (/_lateral$/.test(stage)) return { date, why: `no hearing in ${name}`, cmte };
   if (/_decking$/.test(stage)) return { date, why: `no hearing in ${name}`, cmte };
   return { date, why: '', cmte, name };
 }
