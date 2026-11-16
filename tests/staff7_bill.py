@@ -201,18 +201,18 @@ with sync_playwright() as p:
 
     # ============================================================ the facts
     bill(pg, hb, f'i={hi}&who=all'); f = pg.evaluate(FACTS)
-    ok(list(f.keys()) == ['What it does', 'Issue', 'Committees', 'Companion bills', 'Introduced by'], f'{hb}: the facts come in order: {list(f.keys())}')
+    ok(list(f.keys())[0].endswith(' referral') and [k for k in f.keys() if not k.endswith(' referral')] == ['What it does', 'Issue', 'Companion bills', 'Introduced by'], f'{hb}: the referral rows come first, then the facts in order: {list(f.keys())}')
     ok(re.search(r'Version (HD|SD|CD) \d', f['What it does']) and 'Read the bill' in f['What it does'] and 'The Capitol’s page' in f['What it does'], f'{hb}: What it does has the summary, the version spaced, and both links ({f["What it does"][-70:]})')
     isl = pg.evaluate("() => [...document.querySelectorAll('#bFacts > div')].find(d => d.querySelector('dt').innerText === 'Issue').querySelectorAll('a').length")
     ok(isl >= 1, f'{hb}: the issue is a link')
     ni = pick('noissue'); bill(pg, ni); fi = pg.evaluate(FACTS); ok(fi.get('Issue') == 'On no issue yet' and real_page(pg) and pg.locator('#bBack').inner_text().strip() == 'Back to Issues', f'{ni}: a bill on no issue says "On no issue yet" and goes back to Issues')
     nb = pick('nobodyleads'); bill(pg, nb); ok(pg.inner_text('#bLead').strip() == 'Nobody leads it yet', f'{nb}: nobody leads says "Nobody leads it yet" ({pg.inner_text("#bLead").strip()})')
     # committees: passed muted with a tick, the one it is in bold (now), the next (next), each a link; six committees wrap
-    mc = pick('manycmtes'); bill(pg, mc); cmx = pg.evaluate("() => { const e = document.querySelector('.bcms'); return { txt: e.innerText.replace(/\\s+/g, ' ').trim(), links: e.querySelectorAll('a').length, now: e.querySelector('b')?.innerText, h: e.getBoundingClientRect().height, w: e.getBoundingClientRect().width, p: e.closest('dd').getBoundingClientRect().width, done: [...e.querySelectorAll('.bcd')].length }; }")
-    ok(cmx['h'] < 150 and cmx['links'] >= 4 and cmx['w'] <= cmx['p'] + 1 and (cmx['now'] or '').replace('\xa0', ' ').endswith('(now)') and ('(next)' in cmx['txt'] or True), f'{mc}: the committees list has every committee as a link, the current one bold "(now)" ({cmx["txt"][:110]})')
+    mc = pick('manycmtes'); bill(pg, mc); cmx = pg.evaluate("() => { const es = [...document.querySelectorAll('.bcms')]; return { txt: es.map(e => e.innerText).join(' ').replace(/\\s+/g, ' ').trim(), links: es.reduce((n, e) => n + e.querySelectorAll('a').length, 0), now: document.querySelector('.bcms b')?.innerText, h: Math.max(...es.map(e => e.getBoundingClientRect().height)), w: Math.max(...es.map(e => e.getBoundingClientRect().width)), p: es[0].closest('dd').getBoundingClientRect().width, done: document.querySelectorAll('.bcms .bcd').length }; }")
+    ok(cmx['h'] < 150 and cmx['links'] >= 4 and cmx['w'] <= cmx['p'] + 1 and (cmx['now'] or '').replace('\xa0', ' ').endswith('(now)') and cmx['done'] >= 0, f'{mc}: the committees list has every committee as a link, the current one bold "(now)" ({cmx["txt"][:110]})')
     jc = pg.evaluate("async () => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === 'HB1523'); return b.referrals; }")
-    bill(pg, 'HB1523'); cmx = pg.evaluate("() => document.querySelector('.bcms').innerText.replace(/\\s+/g, ' ').trim()")
-    ok('✓' in cmx and '(now)' in cmx and '(next)' in cmx and cmx.index('✓') < cmx.index('(now)') < cmx.index('(next)'), f'HB1523: passed committees carry a tick, then (now), then (next) ({cmx})')
+    bill(pg, 'HB1523'); rf = pg.evaluate(FACTS); ks = list(rf.keys())
+    ok(ks[:2] == ['Senate referral', 'House referral'] and rf['Senate referral'].replace('\xa0', ' ') == 'Senate Transportation (now) · Senate Judiciary (next)' and rf['House referral'].count('✓') == 2 and '(now)' not in rf['House referral'], f'HB1523: the referral is one row for each chamber, the chamber it is in first with (now) and (next), then the chamber it came from with its committees ticked ({ks[:2]}: {rf["Senate referral"]} / {rf["House referral"]})')
     # companions
     mcp = pick('manycomp'); bill(pg, mcp); cps = pg.evaluate("() => [...document.querySelectorAll('.blist li')].map(l => [l.innerText.replace(/\\s+/g, ' ').trim(), l.querySelector('a')?.getAttribute('href') || ''])")
     ok(len(cps) >= 2 and all(re.match(r'^[A-Z]+ \d+', t) for t, _ in cps), f'{mcp}: every companion is its own entry, split from the snapshot\'s one string ({[t for t, _ in cps]})')
@@ -579,7 +579,7 @@ with sync_playwright() as p:
     snap(pg, 'f_editing.png'); pg.click('#bCancel')
     # --- D3/D4/D5 on a carryover bill (SB11 stays in the House with codes the data layer has no name for)
     bill(pg, 'SB11', ''); pg.wait_for_selector('#bParts'); tx = pg.inner_text('.pbody.bill')
-    ok(not re.search(r'\b(WTL|CPN|WAL|PBS|EEP|WAM|JDC|FIN)\b', tx) and 'Senate committee' in pg.evaluate(FACTS)['Committees'], f'SB11: no Capitol committee code is on the page; a code with no name reads "Senate committee" ({pg.evaluate(FACTS)["Committees"][:80]})')
+    ok(not re.search(r'\b(WTL|CPN|WAL|PBS|EEP|WAM|JDC|FIN)\b', tx) and any('Senate committee' in v for k, v in pg.evaluate(FACTS).items() if k.endswith('referral')), f'SB11: no Capitol committee code is on the page; a code with no name reads "Senate committee" ({[v[:60] for k, v in pg.evaluate(FACTS).items() if k.endswith("referral")]})')
     capS = pg.evaluate("() => [...document.querySelectorAll('#bl-cap > li')].map(l => l.innerText.replace(/\\s+/g, ' ').trim())")
     ok(any(', 2025' in c for c in capS) and any('Dec 8, 2025' in c for c in capS) and not any(re.search(r'Feb 1\d\b(?!,)', c) and '2025' not in c for c in capS if False), f'SB11 (a carryover): dates from 2025 carry their year ({[c for c in capS if "2025" in c][:2]})')
     # --- D5: plain words for the Capitol's raw lines (HB1523)
@@ -613,7 +613,7 @@ with sync_playwright() as p:
     def marks(stage, refs, ob, committee=None, dead=None):
         pg.evaluate("""async ([stage, refs, ob, cm, dead]) => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'); window.__k ||= { stage: b.stage, refs: b.referrals, ob: b.origin_stops, cm: b.committee, so: b.stage_override, hs: S.hearings.filter(h => h.bill_id === b.id) };
           S.hearings = S.hearings.filter(h => h.bill_id !== b.id); b.stage_override = null; b.stage = stage; b.referrals = refs; b.origin_stops = ob; b.committee = cm; b.died_at_stage = dead; window.__staff7Render({ tick: true }); }""", [stage, refs, ob, committee, dead])
-        pg.wait_for_timeout(200); return pg.evaluate("() => [...document.querySelectorAll('.bcms > *')].map(e => (e.classList.contains('bcd') ? 'done:' : e.tagName === 'B' ? 'now:' : e.innerText.includes('(next)') ? 'next:' : 'plain:') + e.innerText.replace(/\\s+/g, ' ').replace(/ ✓.*$/, '').replace(/\\u00a0\\(.*\\)$/, '').trim())")
+        pg.wait_for_timeout(200); return pg.evaluate("() => [...document.querySelectorAll('.bcms')].sort((a, b) => a.dataset.leg - b.dataset.leg).flatMap(r => [...r.children]).map(e => (e.classList.contains('bcd') ? 'done:' : e.tagName === 'B' ? 'now:' : e.innerText.includes('(next)') ? 'next:' : 'plain:') + e.innerText.replace(/\\s+/g, ' ').replace(/ ✓.*$/, '').replace(/\\u00a0\\(.*\\)$/, '').trim())")
     four = ['TRN', 'JHA', 'TRS', 'JDC']
     m1 = marks('first_lateral', four, 2, 'TRN'); ok(m1[0].startswith('now:') and m1[1].startswith('next:') and m1[2].startswith('plain:') and m1[3].startswith('plain:'), f'in the first chamber: the one it is in is (now), the next is (next), none ticked ({m1})')
     m2 = marks('first_floor', four, 2); ok([x.split(':')[0] for x in m2] == ['done', 'done', 'plain', 'plain'], f'on the first chamber\'s floor: the first chamber\'s committees are all ticked, the second\'s are not ({m2})')

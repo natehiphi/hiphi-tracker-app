@@ -148,13 +148,22 @@ function cmteMarks(b) {
   else if (['floor', 'conference', 'governor', 'law', 'ballot'].includes(st.phase)) for (let i = 0; i < (st.phase === 'floor' && !second ? (originN || refs.length) : refs.length); i++) marks[i] = 'done';
   return { refs, marks };
 }
-function committeesHTML(b) {
-  const { refs, marks } = cmteMarks(b); if (!refs.length) return '';
+// The referral, one row for each chamber (Nate 15 Nov: the referral matters for the chamber the bill is in and the one before it): the chamber it is in now first, then the one it came from.
+// Returns [[label, html], ...] for the facts list. A bill that has crossed and has no committees in the other chamber yet says so.
+function referralRows(b) {
+  const { refs, marks } = cmteMarks(b); if (!refs.length) return [];
+  const stage = effStage(b), originN = Math.min(b.origin_stops || 0, refs.length) || (/^second_(triple|lateral|decking)$|^first_crossover$/.test(stage) ? 0 : refs.length);
   const item = (ref, m) => {
     const ls = codesOf(ref).map(c => cmteLink(c, b, m === 'done' ? ' dim' : '')).join(' with ');
     return m === 'done' ? `<span class="bcd">${ls}<span aria-hidden="true"> ✓</span><span class="vh"> (passed)</span></span>` : m === 'now' ? `<b>${ls}&nbsp;(now)</b>` : m === 'next' ? `<span>${ls}&nbsp;(next)</span>` : `<span>${ls}</span>`;
   };
-  return `<span class="bcms">${refs.map((r, i) => item(r, marks[i])).join(' · ')}</span>`;
+  const row = (leg, lo, hi) => `<span class="bcms" data-leg="${leg}">${refs.slice(lo, hi).map((r, i) => item(r, marks[lo + i])).join(' · ')}</span>`;
+  const one = /^[HS]R\d/.test(num(b)), origin = /^S/i.test(num(b)) ? 'Senate' : 'House', other = origin === 'Senate' ? 'House' : 'Senate';
+  if (one) return [['Referral', row(1, 0, refs.length)]];
+  const inSecond = isAlive(b) ? (stopOf(b).leg === 'second' || stage === 'first_crossover') : pathOf(b).i >= 2;
+  const first = originN ? [`${origin} referral`, row(1, 0, originN)] : null;
+  const second = originN < refs.length ? [`${other} referral`, row(2, originN, refs.length)] : inSecond ? [`${other} referral`, '<span class="m">Not referred yet</span>'] : null;
+  return (inSecond ? [second, first] : [first, second]).filter(Boolean);
 }
 // A companion: its number, and where it stands when we can find it (one of our bills, or in the practice index)
 function companionsHTML(b, who) {
@@ -188,11 +197,12 @@ function factsHTML(b, who) {
   const desc = (String(b.public_summary || '').trim() || String(b.description || '').replace(/\s+/g, ' ').trim()), ver = spaceVer(b.current_version), cap = capitolUrl(b);
   const does = [ver ? `<span class="m">Version ${esc(ver)}</span>` : '', http(billTextUrl(b)) ? ext(billTextUrl(b), 'Read the bill') : '', http(cap) ? ext(cap, 'The Capitol’s page') : ''].filter(Boolean).join(' · ');
   const issues = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => (S.issues || []).find(i => i.id === x.issue_id)).filter(i => i && !i.archived_at);
-  const sps = sponsorsHTML(b), cms = committeesHTML(b), comp = companionsHTML(b, who);
+  const sps = sponsorsHTML(b), comp = companionsHTML(b, who);
   return kv([
+    ...referralRows(b),
     ['What it does', `${desc ? `${esc(eCig(desc))} ` : ''}${does}`],
     ['Issue', issues.length ? issues.map(i => `<a class="lk" href="${issueHref(who, i.id)}">${esc(eCig(i.name))}</a>`).join(' · ') : 'On no issue yet'],
-    cms ? ['Committees', cms] : null, comp ? ['Companion bills', comp] : null, sps ? ['Introduced by', sps] : null]);
+    comp ? ['Companion bills', comp] : null, sps ? ['Introduced by', sps] : null]);
 }
 
 // ---------------------------------------------------------------------------------- the page
