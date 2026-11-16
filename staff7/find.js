@@ -140,7 +140,7 @@ function toItem(e, recent, ws, nm) {
   }
   if (e.kind === 'bill') {
     const b = e.b, is = issueOfBill(b, e.iss);
-    return { kind: 'bill', key: 'b' + b.id, name: e.name, no: billNo(b), why, tile: tile(is ? iconOf(is) : 'file-text', is ? tint(is) : '', !is), path: billHref(F.who, b, is?.id), sub: `Bill · ${hearOf(b)}${recent || !is ? '' : ` · ${posLine(b, is, S.me)}`}` };
+    return { kind: 'bill', key: 'b' + b.id, name: e.name, no: billNo(b), why, tile: tile(is ? iconOf(is) : 'file-text', is ? tint(is) : '', !is), path: billHref(F.who, b, is?.id, 'search'), sub: `Bill · ${hearOf(b)}${recent || !is ? '' : ` · ${posLine(b, is, S.me)}`}` };
   }
   if (e.kind === 'cmte') return { kind: 'cmte', key: 'c' + e.code, name: e.name, no: '', why, tile: tile('landmark', '', true), path: `#/search/committee/${enc(e.code)}`, search: true, sub: why || !e.c.chair ? 'Committee' : `Committee · Chair ${e.c.chair}` };
   if (e.kind === 'leg') {

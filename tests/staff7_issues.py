@@ -219,12 +219,12 @@ with sync_playwright() as p:
         pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
         ok('#/bill/' in pg.url and pg.locator('main h1').inner_text().strip() and pg.locator('.bsub').inner_text().strip() and pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true', f'{tag} JM: a bill opens from its row; name first ("{pg.locator("main h1").inner_text().strip()[:30]}"), number after, the issue still marked open')
         txt = pg.locator('main').inner_text()
-        ok(all(x in txt for x in ('Where it stands', 'Just happened', 'Next', 'After that')) and not re.search(r'capitol\.hawaii|Public site|public page', txt + pg.inner_html('main'), re.I) and pg.locator('main a[target], main input:not(#findIn), main textarea, main select').count() == 0, f'{tag} JM: the bill sheet reads where it stands, has no controls and no link to the public site or the Capitol')
+        ok(all(x in pg.locator('#bFacts').inner_text() for x in ('What it does', 'Issue', 'Committees')) and pg.locator('#bStat .bln').count() >= 1 and pg.locator('main input:not(#findIn), main textarea, main select').count() == 0, f'{tag} JM: the bill page reads where it stands and its facts, and has no form controls')
         # fix 4, 5: "Your move" is a quiet button right under the position line; the sheet does not restate the banner
-        ymp = pg.evaluate("() => { const m = document.querySelector('.ymove'), l = document.querySelector('main .pbody > .lead'), h = document.querySelector('main h2.sh'); if (!m) return null; return [m.className, m.getBoundingClientRect().top - l.getBoundingClientRect().bottom, h.getBoundingClientRect().top - m.getBoundingClientRect().bottom]; }")
-        ok(ymp and 'btn' in ymp[0] and 'quiet' in ymp[0] and 'text' not in ymp[0].split() and 0 <= ymp[1] < 40 and ymp[2] > 0 and pg.locator('.strip').count() == 0 and 'Without a hearing' not in txt and 'none is set' not in txt, f'{tag} JM: "Your move" is a quiet button right under the position line, and the bill sheet has no banner of its own ({ymp})')
-        nxt = pg.evaluate("() => [...document.querySelectorAll('.kv > div')].map(d => [d.querySelector('dt').innerText, d.querySelector('dd').innerText])")
-        ok(re.fullmatch(r'A hearing by \w{3}, \w{3} \d+ · \d+ days?', dict(nxt)['Next']) and dict(nxt)['After that'] and not dict(nxt)['After that'].startswith('Its next committee'), f'{tag} JM: Next reads "{dict(nxt)["Next"]}" (one time form) and After that is specific ("{dict(nxt)["After that"]}")')
+        ymp = pg.evaluate("() => { const m = document.querySelector('#bStat .bla .btn.text'), l = document.getElementById('bPos'), h = document.getElementById('bigpathProbe') || document.querySelector('main .bigpath'); if (!m) return null; return [m.className, m.getBoundingClientRect().top - l.getBoundingClientRect().bottom, h.getBoundingClientRect().top - m.getBoundingClientRect().bottom]; }")
+        ok(ymp and 'btn' in ymp[0] and 'text' in ymp[0].split() and ymp[1] > 0 and ymp[2] > 0 and pg.locator('.strip').count() == 0, f'{tag} JM: "Your move" is a text button at the right of the status line, above the path, and the bill page has no banner of its own ({ymp})')
+        nxt = pg.evaluate("() => [...document.querySelectorAll('#bStat .bln')].map(p => p.innerText.replace(/\\s+/g, ' ').trim())")
+        ok(re.match(r'^Needs a hearing by \w{3}, \w{3} \d+ · .*\d+ days? left · none is scheduled$', nxt[0]) and nxt[1].startswith('If it is not heard by then'), f'{tag} JM: the status reads "{nxt[0]}" (one time form) and says what happens without a hearing')
         snap(pg, 'bill_sheet', tag)
         ok(pg.locator('.crumb.back2').inner_text().strip().startswith('Back to'), f'{tag} JM: the bill sheet\'s back link says where it goes ("{pg.locator(".crumb.back2").inner_text().strip()}")')
         pg.click('.crumb.back2'); pg.wait_for_timeout(350)
@@ -240,8 +240,8 @@ with sync_playwright() as p:
         ok('Stopped for this year' in pg.locator('.hband .bsub').inner_text() and 'Nothing more can happen' not in st_txt and 'None of its' not in st_txt and 'Did not advance' in st_txt and pg.locator('.strip').count() == 0 and not re.search(r'\bdead\b|\bdied\b|\bkilled\b|vape', st_txt, re.I), f'{tag} JM: a stopped issue\'s band says "Stopped for this year", it lists its bills under Did not advance, in S-7 words')
         snap(pg, 'issue_sheet_stopped', tag)
         pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
-        b_txt = pg.locator('main').inner_text(); why = dict(pg.evaluate("() => [...document.querySelectorAll('.kv > div')].map(d => [d.querySelector('dt').innerText, d.querySelector('dd').innerText])")).get('Why', '')
-        ok(pg.locator('main h2.sh').first.inner_text().strip() == 'Did not advance' and why and pg.locator('svg.trk.dead').count() >= 1, f'{tag} JM: a stopped bill says where it stopped and why, and its path ends in a bar')
+        b_txt = pg.locator('main').inner_text(); why = pg.locator('#bStat .bln').nth(1).inner_text()
+        ok(pg.locator('#bStat .bln').first.inner_text().startswith('Stopped') and why and pg.locator('svg.trk.dead').count() >= 1, f'{tag} JM: a stopped bill says where it stopped and why, and its path ends in a bar')
         ok(not re.search(r'\d+/\d+/\d+|Lateral|Decking|Triple', why) and (re.search(r'\w{3}, \w{3} \d+', why) or 'Failed' in why or 'Not adopted' in why or 'Deferred' in why or why.endswith('Stopped.') or 'Missed' in why), f'{tag} JM: "Why" uses plain words and dates like "Fri, Feb 20" ("{why}")')
         snap(pg, 'bill_sheet_stopped', tag)
         ok(not errs and not bad, f'{tag} JM stopped: no console error')
@@ -259,7 +259,7 @@ with sync_playwright() as p:
             sa = []
             for iid in alive_refs:
                 go(pg, f'#/issue/{iid}?who=all'); pg.locator('.brow.dead .bn2').first.click(); pg.wait_for_timeout(300)
-                sa += [a.strip() for a in pg.evaluate("() => [...document.querySelectorAll('.kv a.lk')].map(a => a.innerText)")]
+                sa += [a.strip() for a in pg.evaluate("() => [...document.querySelectorAll('#bAlive a.lk')].map(a => a.innerText)")]
             ok(sa and all(re.fullmatch(r'[A-Z]+ ?\d+, the (House|Senate) version · .+', a) for a in sa), f'{tag}: a stopped bill\'s "Still alive" leads with number and chamber ({sa[:2]})')
             pg.context.close()
 
@@ -346,7 +346,7 @@ with sync_playwright() as p:
             hrs = list(dict.fromkeys(r['href'] for r in rows))[:6]; bad_l = []
             for hr in hrs:
                 go(pg, hr)
-                if pg.locator('[data-notfound]').count() or pg.locator('main h2.sh', has_text='Where it stands').count() + pg.locator('main h2.sh', has_text='Did not advance').count() == 0: bad_l.append(hr)
+                if pg.locator('[data-notfound]').count() or pg.locator('#bStat .bln').count() == 0: bad_l.append(hr)
             ok(not bad_l and all(r['tag'] == 'A' for r in rows), f'{tag} {nm}: rows are whole links; {len(hrs)} tried, bad: {bad_l[:1]}')
             go(pg, hsh)
             ok(pg.evaluate(FILLED) == 0 and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL) and not errs and not bad, f'{tag} {nm}: no filled button, no sideways scroll, 44px rows, no console error ({pg.evaluate(SMALL)[:1]})')

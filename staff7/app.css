@@ -637,3 +637,30 @@ li[hidden] { display: none; }
   .fdrop { left: calc(var(--s4) * -1); right: calc(var(--s4) * -1); border-radius: var(--r12); }
   .fit .ir2 { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }   /* two lines of second line on a phone, so a row is three lines at most */
 }
+
+/* The bill page (bill.js, R-398). One content width for every block: the letter's width and a little more, set once on the body. */
+.pbody.bill { --bill-w: calc(var(--letter-w) + var(--s8) + var(--s6)); }
+.bill > .bposl, .bill > .hint, .bill > .bstat, .bill > .kv, .bill > .bigpath { max-width: var(--bill-w); width: 100%; }
+.bposl { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: 0 0 var(--s4); font-size: var(--f16); }
+.bpos-k { color: var(--muted); font-size: var(--f14); }
+.bpos { font: 600 var(--f18)/1.3 var(--head); }
+.bsep { color: var(--muted); }
+.bposl .btn.text { margin-block: calc(var(--s2) * -1); }
+.hint.blook { margin: calc(var(--s2) * -1) 0 var(--s4); }
+.bstat { margin: 0 0 var(--s2); }
+.bln { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s1) var(--s4); margin: 0 0 var(--s2); font-size: var(--f16); }
+.bln .blt { flex: 1 1 auto; min-width: 0; }
+.bln b { font: 600 var(--f16)/1.3 var(--head); }
+.bln .bla { margin-left: auto; }
+.bln .bla .btn.text, .bfacts dd .btn.text { min-height: var(--hit); margin-block: calc(var(--s2) * -1); }
+.bln.m, .bln .m, .bfacts .m { color: var(--muted); }
+.bln b.riskt { color: var(--amber); }
+.bln b.riskt svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: calc(var(--s1) * -1); margin-right: var(--s1); }
+.bfacts { margin: var(--s4) 0 0; }
+.bfacts dd { min-width: 0; overflow-wrap: anywhere; }
+.bfacts dd svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: calc(var(--s1) * -1); margin-left: var(--s1); }
+.bfacts .lk.dim { color: var(--muted); font-weight: 400; }
+.bfacts .bcd { color: var(--muted); }
+.blist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s1); }
+.bill > .bigpath { margin: var(--s5) 0 var(--s2); }
+#bAlive { margin: var(--s2) 0 0; }

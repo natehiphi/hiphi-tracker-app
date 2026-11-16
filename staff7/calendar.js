@@ -15,6 +15,7 @@ import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
 import { boxHTML } from './find.js';
+import { cap, testimonyWords, draftFor } from './bill_words.js';
 import { whoOf, setFor, sessionOf, posLine, stepOn, testimonyDue, tint, bindIssues, ui } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -77,16 +78,12 @@ function dueOf(sits) {
   for (const s of sits) { const g = new Map(); for (const r of s.rows) { const k = Math.round(r.due); if (!g.has(k)) g.set(k, { sit: s, due: k, rows: [] }); g.get(k).rows.push(r); } out.push(...g.values()); }
   return out.sort((p, q) => p.due - q.due || p.sit.t - q.sit.t);
 }
-// A draft is this hearing's when it names this hearing, or names none and its committee codes are this hearing's (a draft for the same committee's other hearing is not)
-const codesKey = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean).sort().join('/');
-const draftFor = (h, b) => { const d = sittingDraft(h, b.id); return d && (d.hearing_id ? d.hearing_id === h.id : codesKey(d.committee) === codesKey(h.committee)) ? d : null; };
 // The one word for one state in staff7: "second look" (the step's name), never the data layer's older "second review"
 const words = l => String(l || '').replace(/second review/gi, m => m[0] === 'S' ? 'Second look' : 'second look');
 // Where a bill's letter stands for a hearing: the data layer's own state ({ key, label, back (sent back to fix), fresh (not started) }), never the clock's
 const stateOf = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, label: words(s.label), back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', label: 'Not started', back: false, fresh: true }; };
 // a sentence about the letter itself
-const letterWords = st => st.key === 'filed' ? 'Testimony filed' : st.key === 'file' ? 'Testimony ready to file' : st.key === 'second' ? 'Testimony waiting for a second look' : st.key === 'approve' ? 'Testimony waiting for approval'
-  : st.key === 'missed' ? 'Testimony not filed' : st.back ? 'Testimony sent back to fix' : st.fresh ? 'Testimony not started' : 'Testimony being written';
+const letterWords = st => cap(testimonyWords(st));   // the one wording, bill_words.js; a sentence about the testimony itself starts with a capital
 // How a testimony time reads, by where the letters stand: all filed (neutral, a check); not filed with the hearing still ahead and the time gone (amber: late, still accepted); not filed and the
 // hearing gone (neutral: Missed); else neutral, the state in words. `what` is for one bill, `sum` for the sitting's bills, `line` the row's second line.
 function infoOf(g, now = Date.now()) {
@@ -176,7 +173,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
   const line = (t, cls = '') => `<p class="${cls}">${t}</p>`;
   const stLine = (st, s, r, several) => { const now = Date.now(), late = s.t > now && r.due <= now && st.key !== 'filed';   // the late line: with one bill the readiness block says it, with several only the late bills carry it
     return `<p class="bst">${st.key === 'filed' ? ic('check') : ''}<span>${esc(letterWords(st))}</span></p>` + (late && several ? `<p class="bst riskt">${ic('triangle-alert')}<span>${esc(lateLine(s.t))}</span></p>` : ''); };
-  const billHrefOf = (b, issue) => { const p = new URLSearchParams(); if (who.code) p.set('who', who.code); if (issue?.id != null) p.set('i', issue.id); const s = p.toString(); return `#/bill/${billRef(b).split('/').map(enc).join('/')}${s ? `?${s}` : ''}`; };
+  const billHrefOf = (b, issue) => { const p = new URLSearchParams(); if (who.code) p.set('who', who.code); if (issue?.id != null) p.set('i', issue.id); p.set('from', 'calendar'); const s = p.toString(); return `#/bill/${billRef(b).split('/').map(enc).join('/')}${s ? `?${s}` : ''}`; };
   const billLi = (b, issue, lines, move, links = '') => `<li class="brow" style="${tint(issue || {})}"><div class="bmain"><a class="bn2" href="${billHrefOf(b, issue)}">${esc(billName(b))}<span class="bno">${esc(billNo(b))}</span></a>${lines}${links}${move}</div></li>`;
   const moveOf = (b, onlyRisk, skipId) => { const st = who.kind === 'mine' && (!onlyRisk || isAtRisk(b)) ? stepOn(open, b) : null; return st && st.id !== skipId ? `<a class="btn quiet ymove" href="#/do/${enc(st.id)}">Your move · ${esc(st.verb)}</a>` : ''; };
   const issueHrefOf = issue => issue?.id != null ? `#/issue/${enc(issue.id)}${who.code ? `?who=${enc(who.code)}` : ''}` : '';

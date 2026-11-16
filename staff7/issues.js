@@ -1,7 +1,7 @@
 // Staff7 Issues (R-398, rules S-19, S-20): the door where awareness lives. The left is a list of issues (whose: Mine, a teammate's, Everyone's) in five groups for where each stands
 // (At risk, Hearing scheduled, Cleared the deadline, Moving, Stopped this year), under a first row, The session; Everyone's and a teammate's list lead with At risk and then give a row for each
 // topic, which opens its own list and its own page. The right is always the thing picked from it (never an unmarked summary): the session's next deadline and the bills it touches, a topic's
-// week, an issue's sheet (its bills, each with one path drawing), or a bill's short sheet. Looking never changes anything: only an issue that is the viewer's own has links to its steps;
+// week, an issue's sheet (its bills, each with one path drawing), or a bill's page (bill.js). Looking never changes anything: only an issue that is the viewer's own has links to its steps;
 // someone else's issue, in a teammate's view or Everyone's, is look-only.
 // Where an issue stands is decided in ONE place, issueState below (the groups, the second line of each row, the summary and the topic page all read it); standing.js still says At risk, Moving and
 // Stopped for Home. Nothing here restates the Capitol's deadlines: words.js and the data layer's stopOf do.
@@ -17,6 +17,9 @@ import { withMe, sessionHTML } from './home.js';
 import { dateWords, whenWords, sessionDates, touchMap, nextStop, whyWords, daysTo, dayName } from './words.js';
 import { billPath, pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
+import { testimonyDue, draftFor, letterState, testimonyWords, leadIds } from './bill_words.js';
+import { billSheet, bindBill } from './bill.js';
+export { testimonyDue };   // Calendar reads it from here
 
 const enc = encodeURIComponent;
 // What is open in the left column, kept across the minute's redraw in this visit only: the teammate picker, the "Moved" list, which groups were opened ("Show all N"), and when this person last looked.
@@ -43,12 +46,12 @@ export function whoOf(raw, me, people) {
   return { kind: 'person', code: p.initials, person: p };
 }
 const qs = (who, extra = {}) => { const q = new URLSearchParams(); if (who.code) q.set('who', who.code); if (who.topic) q.set('topic', who.topic); if (who.show) q.set('show', who.show); for (const [k, v] of Object.entries(extra)) if (v) q.set(k, v); const s = q.toString(); return s ? `?${s}` : ''; };
-const noTopic = who => ({ ...who, topic: '' });
-const issuesHref = who => `#/issues${qs(noTopic(who))}`;
+export const noTopic = who => ({ ...who, topic: '' });
+export const issuesHref = who => `#/issues${qs(noTopic(who))}`;
 const topicHref = (who, key) => `#/issues/topic/${enc(key)}${qs(noTopic(who))}`;
 const listHref = who => who.topic ? topicHref(who, who.topic) : issuesHref(who);   // where "back" goes: the topic's list when an issue was opened from a topic
 export const issueHref = (who, id) => `#/issue/${enc(id)}${qs(who)}`;
-export const billHref = (who, b, issueId) => `#/bill/${billRef(b).split('/').map(enc).join('/')}${qs(who, { i: issueId })}`;
+export const billHref = (who, b, issueId, from = '') => `#/bill/${billRef(b).split('/').map(enc).join('/')}${qs(who, { i: issueId, from })}`;   // `from`: 'calendar' or 'search', so the bill page can say where Back goes
 const whoseWords = (who, me) => who.kind === 'mine' ? 'Your' : who.kind === 'all' ? 'Everyone’s' : `${first(who.person)}’s`;
 
 // ---------------------------------------------------------------------------------- the set
@@ -340,12 +343,11 @@ const hband = (i, title, sub, crumb, grey) => `<div class="hband" style="${grey 
 const notFound = (what, back) => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${what}.`, 'It may have been renamed, or it is not on the practice copy.')}<div class="pbody"><p class="lead"><a class="btn text" href="${back}">Back to Issues</a></p></div></div>`;
 const kv = rows => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 // Said on an issue (or a bill) that is not the viewer's, and nowhere else
-const lookLine = who => who.kind === 'all' ? 'Everyone’s issues. Look only.' : who.kind === 'person' ? `${first(who.person)}’s issues. Look only.` : 'Look only.';
+export const lookLine = who => who.kind === 'all' ? 'Everyone’s issues. Look only.' : who.kind === 'person' ? `${first(who.person)}’s issues. Look only.` : 'Look only.';
 
 // HIPHI's position and who leads a bill: "Support w/ amendments · Kris leads", "No position yet · You lead"
 function leadWords(b, issue, me) {
-  let ids = [...new Set((S.assignments?.[b.id] || []).filter(live))];
-  if (!ids.length && live(issue?.owner_id)) ids = [issue.owner_id];
+  const ids = leadIds(b, issue);
   if (!ids.length) return 'No lead yet';
   const names = ids.map(id => me && id === me.id ? 'You' : first(advocate(id)));
   const j = names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
@@ -354,8 +356,6 @@ function leadWords(b, issue, me) {
 export const posLine = (b, issue, me) => `${posWords(b)} · ${leadWords(b, issue, me)}`;
 // the step of the person's own that holds this bill, if any (a group ask holds several)
 export const stepOn = (open, b) => (open || []).find(s => (s.members ? s.members.some(x => x.bill.id === b.id) : s.bill?.id === b.id)) || null;
-// which chamber's bill it is: HB, HR and HCR are the House's, SB, SR and SCR the Senate's
-const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
 // where an alive bill is, a few words: "in House Water & Land", "waiting for the floor vote"
 export function whereShort(b) {
   if (!isAlive(b)) return 'did not advance';
@@ -368,7 +368,7 @@ export function whereShort(b) {
   if (st.phase === 'ballot') return 'going to the voters';
   return whereWords(b, { deadline: false });
 }
-const sameName = (b, issue) => !!issue && billName(b).trim().toLowerCase() === eCig(issue.name).trim().toLowerCase();
+export const sameName = (b, issue) => !!issue && billName(b).trim().toLowerCase() === eCig(issue.name).trim().toLowerCase();
 
 // ---------------------------------------------------------------------------------- an issue's sheet
 const num = b => String(b.bill_number).replace(/\s/g, '');
@@ -402,62 +402,14 @@ function issueSheet(x, who, me, open, own) {
   return h + `</div></div>`;
 }
 
-// ---------------------------------------------------------------------------------- a bill's sheet (short, read-only)
-const clean = t => String(t).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => /^(HB|SB|HR|SR|HCR|SCR|PM|AM)$/.test(m) ? m : cmteWords(m));   // the Capitol's codes in words
+// ---------------------------------------------------------------------------------- the Capitol's words, kept short (the bill page itself is bill.js)
+export const clean = t => String(t).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => /^(HB|SB|HR|SR|HCR|SCR|PM|AM)$/.test(m) ? m : cmteWords(m));   // the Capitol's codes in words
 // The bill's last action in plain words, without the date
 function lastWords(b) {
   const t = String(b.last_action || '').trim();
   if (isCarry(b) && /^Carried over to/i.test(t)) return `Still alive from ${introYear(b)}`;
   return t ? clean(plainAction(t)[0]) : 'Introduced';
 }
-function justHappened(b) {
-  const d = b.last_action_date ? dateWords(b.last_action_date) : '';
-  return `${esc(lastWords(b))}${d ? ` · ${esc(d)}` : ''}`;
-}
-// The committee after the one a bill is in, from the referral list the way stops.js reads it (the first chamber's committees first, then the second's)
-function nextCmte(b, st) {
-  const refs = Array.isArray(b.referrals) ? b.referrals : [], stage = effStage(b);
-  const originN = Math.min(b.origin_stops || 0, refs.length) || (/^second_(triple|lateral|decking)$|^first_crossover$/.test(stage) ? 0 : refs.length);
-  const list = st.leg === 'first' ? refs.slice(0, originN || refs.length) : refs.slice(originN || refs.length);
-  return list.length === st.stops && st.committee && list[st.stop - 1] === st.committee ? list[st.stop] || '' : '';
-}
-function afterThat(b) {
-  const p = pathOf(b); if (p.dead) return '';
-  const st = stopOf(b), ch = CHAMBER_NAME[st.chamber] || 'chamber';
-  if (st.phase === 'committee') {
-    if (st.isFinal || !st.stops || st.stops < 2) return `The floor vote in the ${ch}`;
-    const nx = nextCmte(b, st);
-    return nx ? `${cmteWords(nx)}, then the floor vote` : 'Its next committee, then the floor vote';
-  }
-  if (st.phase === 'floor') return st.leg === 'first' ? 'It crosses to the other chamber' : 'Back to the first chamber to agree, or to the Governor';
-  if (st.phase === 'conference') return 'A final vote in each chamber, then the Governor';
-  if (st.phase === 'governor') return 'The Governor signs it, vetoes it, or lets it become law';
-  return '';
-}
-// when testimony is due for a hearing: the stated deadline, else a day before it starts
-export const testimonyDue = h => h.testimony_deadline ? new Date(h.testimony_deadline).getTime() : new Date(h.scheduled_at).getTime() - 864e5;
-function billSheet(b, issue, who, me, open, others, own) {
-  const alive = isAlive(b), dl = deadlineOf(b), h = hearingAhead(b), lo = !own, st = own ? stepOn(open, b) : null;
-  // a bill the team tracks that is on no issue has no issue to go back to: it goes back to the list (the find box reaches these bills too)
-  const crumb = issue ? `<a class="crumb back2" href="${issueHref(who, issue.id)}">${ic('chevron-left')}Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}</a>` : `<a class="crumb back2" href="${issuesHref(noTopic(who))}">${ic('chevron-left')}Back to Issues</a>`;
-  let out = `<div class="pn"><div class="hband" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${crumb}<h1 tabindex="-1">${esc(billName(b))}</h1><p class="bsub">${esc(billNo(b))}</p></div></div><div class="pbody">`;
-  out += `<p class="lead${st && alive ? ' tight' : ''}">${esc(posLine(b, issue, me))}</p>`;
-  if (st && alive) out += `<p class="lead mv"><a class="btn quiet ymove" href="#/do/${enc(st.id)}">Your move · ${esc(st.verb)}</a></p>`;   // the same quiet button as on the issue's rows
-  if (lo) out += `<p class="hint lk0">${esc(lookLine(who))}</p>`;
-  if (alive) {
-    const next = h ? `Hearing ${esc(dayTime(h.scheduled_at))}` : dl ? `A hearing by ${esc(whenWords(dl.date))}` : esc(whereWords(b, { deadline: false }));
-    out += `<h2 class="sh">Where it stands</h2>` + kv([['Just happened', justHappened(b)], ['Next', next], afterThat(b) ? ['After that', esc(afterThat(b))] : null]);
-    out += `<div class="bigpath">${billPath(b, { wide: true })}</div>`;
-    if (h) out += `<h2 class="sh">The hearing</h2>` + kv([['When', esc(dayTime(h.scheduled_at))], ['Where', esc(roomName(h.room) || 'No room is listed yet')], ['Committee', esc(cmteWords(h.committee))],
-      ['Testimony due', esc(dayTime(testimonyDue(h)))]]);
-  } else {
-    out += `<h2 class="sh">Did not advance</h2>` + kv([['Stopped at', esc(pathOf(b).label)], ['Why', esc(clean(whyWords(b)))],
-      ['Still alive', others.length ? others.map(o => `<a class="lk" href="${billHref(who, o, issue.id)}">${esc(`${billNo(o)}, the ${chamberWord(o)} version · ${whereShort(o)}`)}</a>`).join('<br>') : 'Nothing else is alive for this issue this year.']]);
-    out += `<div class="bigpath">${billPath(b, { wide: true })}</div>`;
-  }
-  return out + `</div></div>`;
-}
-
 // ---------------------------------------------------------------------------------- the session's sheet: the answer first (what is at risk, what is coming), then the dates and the next deadline
 const HST_TZ = { timeZone: 'Pacific/Honolulu' };
 const ymdOf = t => new Date(t).toLocaleDateString('en-CA', HST_TZ);
@@ -537,11 +489,6 @@ function sessionSheet(who, set, me, ses) {
 // ---------------------------------------------------------------------------------- a topic's page
 // The topic's week, the next deadline against its bills, and who leads it. Letters are said in Calendar's own words (its hearing page's states), mapped from the data layer's own step state.
 export const sitKeyOf = h => `${String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).sort().join('/')}|${new Date(h.scheduled_at).toISOString()}`;   // calendar.js sitKey: one committee and one instant
-const codesKey = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean).sort().join('/');
-const draftFor = (h, b) => { const d = sittingDraft(h, b.id); return d && (d.hearing_id ? d.hearing_id === h.id : codesKey(d.committee) === codesKey(h.committee)) ? d : null; };
-const letterState = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', back: false, fresh: true }; };
-const letterWords = st => st.key === 'filed' ? 'testimony filed' : st.key === 'file' ? 'testimony ready to file' : st.key === 'second' ? 'testimony waiting for a second look' : st.key === 'approve' ? 'testimony waiting for approval'
-  : st.key === 'missed' ? 'testimony not filed' : st.back ? 'testimony sent back to fix' : st.fresh ? 'testimony not started' : 'testimony being written';   // calendar.js letterWords, said in the middle of a line
 // One row for each issue and sitting: the hearings of the next 7 days (Honolulu days 0 to 6) of the topic's alive bills, by time
 function weekHearings(rows) {
   const by = new Map();
@@ -564,7 +511,7 @@ function topicSheet(who, tp, rows, nx) {
   let h = `<div class="pn"><div class="ov"><div class="ovtop"><p class="ovdate" id="tKick">${esc(tp.name)} · ${esc(whose)}</p><h1 tabindex="-1">${esc(answer)}</h1><p class="ovsub" id="tSub">${esc(`${alive} of ${n(rows.length, 'issue', 'issues')} still alive · ${bills.filter(isAlive).length} of ${n(bills.length, 'bill', 'bills')}`)}</p></div><div class="ovrest">`;
   if (hn) h += `<h2 class="sh" id="tWeekH">Next 7 days</h2><ul class="trows" id="tWeek">${wk.map(e => {
     const i = e.x.issue, sts = e.bills.map(y => letterState(y.h, y.b)), filed = sts.filter(s => s.key === 'filed').length;
-    const lw = sts.length === 1 ? letterWords(sts[0]) : filed === sts.length ? 'testimonies filed' : `${filed} of ${sts.length} testimonies filed`;
+    const lw = sts.length === 1 ? testimonyWords(sts[0]) : filed === sts.length ? 'testimonies filed' : `${filed} of ${sts.length} testimonies filed`;
     const sit = `#/calendar/sitting/${enc(e.key)}${who.code ? `?who=${enc(who.code)}` : ''}`;
     return `<li class="twr"><span class="imark" style="${tint(i)}" aria-hidden="true">${ic(iconOf(i))}</span><div class="twt"><a class="lk twi" href="${issueHref(who, i.id)}">${esc(eCig(i.name))}</a><p class="twl"><a class="lk" href="${sit}">${esc(`Hearing ${hearTxt(e.h.scheduled_at)} · ${cmteWords(e.h.committee)}`)}</a> · ${esc(lw)}</p></div></li>`; }).join('')}</ul>`;
   const r = nx && nx.next ? nx.next.row : null;
@@ -619,7 +566,7 @@ export function issuesModel({ me, open, rt, people }) {
       const ids = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => String(x.issue_id)), want = rt.q.get('i') || '';
       const cand = (S.issues || []).filter(i => !i.archived_at && ids.includes(String(i.id)));
       const issue = cand.find(i => String(i.id) === want) || cand.find(i => set.some(y => String(y.issue.id) === String(i.id))) || cand[0];
-      openKey = { session: false, issue: issue ? String(issue.id) : '' }; sheet = billSheet(b, issue || null, who, me, open, issue ? billsOfIssue(issue).filter(o => o.id !== b.id && isAlive(o)) : [], issue ? own.has(String(issue.id)) : isMine(b)); label = 'Bill'; bk = '';   // its own back link, in the band, says where it goes
+      openKey = { session: false, issue: issue ? String(issue.id) : '' }; sheet = billSheet(b, issue || null, who, me, open, issue ? billsOfIssue(issue).filter(o => o.id !== b.id && isAlive(o)) : [], issue ? own.has(String(issue.id)) : isMine(b), { nx, from: rt.q.get('from') || '' }); label = 'Bill'; bk = '';   // its own back link, in the band, says where it goes
     }
   }
   // what changed since the person last looked, and the topics (Everyone's and a teammate's list, not narrowed): only on the list itself
@@ -628,5 +575,5 @@ export function issuesModel({ me, open, rt, people }) {
   if (changes.length && rt.r === 'issues' && !rt.id) markDrawn();   // the Changed group is on the screen: from now on leaving Issues (or 10 seconds) says "looked"
   let topics = !who0.bad && who.kind !== 'mine' && !tp && !show ? topicsOf(all) : null;
   if (topics && topics.length < 2) topics = null;   // everything in one topic: the groups, flat, as Mine has them
-  return { who, set, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: bindIssues, notFound: /data-notfound/.test(sheet) };
+  return { who, set, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: rt.r === 'bill' ? () => { bindIssues(); bindBill(); } : bindIssues, notFound: /data-notfound/.test(sheet) };
 }
