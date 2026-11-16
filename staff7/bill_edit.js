@@ -74,18 +74,23 @@ async function save() {
 
 // ---------------------------------------------------------------------------------- 2. add a note
 const NOTE_MAX = 4000;   // staff6's own team-chat box (activity.js) holds 4,000 letters
+// The box is closed until it is wanted: one quiet button where it stands. It is open when the person opened it (kept in bui.noteOpen across the minute's redraw) or has words typed in it.
+const noteOpen = b => bui.noteOpen === b.id || !!(bui.note.get(b.id) || '').trim();
 export function noteBoxHTML(b) {
+  if (!noteOpen(b)) return `<div class="bnadd closed" id="bNoteBox">${btn('Add a note', { kind: 'quiet', id: 'bNoteOpen', attrs: 'aria-expanded="false" aria-controls="bNoteBox"' })}</div>`;
   const v = bui.note.get(b.id) || '', empty = !v.trim();
   return `<div class="bnadd" id="bNoteBox"><label class="fl" for="bNoteIn">Add a note for the team</label><textarea class="field" id="bNoteIn" rows="3" maxlength="${NOTE_MAX}">${esc(v)}</textarea>`
     + `<div class="bnact">${btn('Add the note', { kind: 'quiet', id: 'bNoteGo', disabled: empty || bui.noteBusy, loading: !!bui.noteBusy })}<span class="hint">Only the team sees notes.</span></div>`
     + `<p class="hint berr" id="bNoteErr" role="alert"${bui.noteErr ? '' : ' hidden'}>We could not save that. Try again.</p></div>`;
 }
+const openNote = () => { const { b } = bui.ctx; bui.noteOpen = b.id; redrawKeep(); $('bNoteIn')?.focus(); };
+const closeNote = () => { bui.noteOpen = null; redrawKeep(); $('bNoteOpen')?.focus(); };
 async function addNote() {
   const { b } = bui.ctx, text = (bui.note.get(b.id) || '').trim(); if (!text || bui.noteBusy) return;
   bui.noteBusy = true; bui.noteErr = false; redrawKeep();
   try {
     const m = await DB.sendMessage(b.id, text);
-    bui.note.delete(b.id); bui.noteBusy = false; if (here(b)) { redrawKeep(); $('bNoteIn')?.focus(); }   // after a note, the cursor is in the box for the next one
+    bui.note.delete(b.id); bui.noteBusy = false; bui.noteOpen = null; if (here(b)) { redrawKeep(); $('bNoteOpen')?.focus(); }   // after a note the box closes again, and the focus is on the button that opens it
     toast('Note added', { undo: async () => { try { await DB.deleteMessage(m); if (here(b)) redrawKeep(); toast('Put back'); } catch { toast('We could not put that back.'); } } });
   } catch { bui.noteBusy = false; bui.noteErr = true; if (here(b)) { redrawKeep(); $('bNoteGo')?.focus(); } }   // the words stay in the box, and the focus where it was (on the button)
 }
@@ -101,12 +106,14 @@ export function bindEdit() {
     f.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeEdit(); } });
     $('bCancel').addEventListener('click', closeEdit);
   }
+  $('bNoteOpen')?.addEventListener('click', openNote);
   const t = $('bNoteIn');
   if (t) {
     const { b } = bui.ctx, go = $('bNoteGo');
     t.addEventListener('input', () => { bui.note.set(b.id, t.value); bui.noteSel = [t.selectionStart, t.selectionEnd]; if (go && !bui.noteBusy) go.disabled = !t.value.trim(); });
     t.addEventListener('keyup', () => { bui.noteSel = [t.selectionStart, t.selectionEnd]; });
     t.addEventListener('focus', () => { if (bui.noteSel) try { t.setSelectionRange(bui.noteSel[0], bui.noteSel[1]); } catch { /* none */ } });
+    t.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !t.value.trim() && !bui.noteBusy) { ev.preventDefault(); ev.stopPropagation(); closeNote(); } });   // Escape closes an empty box; words typed are never thrown away
     go?.addEventListener('click', addNote);
   }
 }

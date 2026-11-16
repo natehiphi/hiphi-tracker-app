@@ -9,14 +9,14 @@ import { bui } from './bill.js';
 export const cache = new Map();   // bill id -> 'loading' | 'failed' | { tl, hearings, outcomes, tf, at }
 const STALE = 3 * 60 * 1000;
 let team = null, tfDone = null;   // the practice sample, fetched once and only in practice; tfDone is what it held once it has come
-const teamFile = () => DEMO ? (team ??= fetch('demo/bill_team.json?v=20261116a', { cache: 'force-cache' }).then(r => r.json()).catch(() => ({})).then(t => (tfDone = t))) : Promise.resolve({});
+const teamFile = () => DEMO ? (team ??= fetch('demo/bill_team.json?v=20261116b', { cache: 'force-cache' }).then(r => r.json()).catch(() => ({})).then(t => (tfDone = t))) : Promise.resolve({});
 // the history arriving (or failing) redraws the page the way the minute's tick does, and only while the person is still on THIS bill (the address may have changed its words, never its bill)
 const onBill = b => !!bui.ctx && bui.ctx.b.id === b.id && /^#\/bill\//.test(location.hash);
 
 function load(b, quiet) {
   if (!quiet) cache.set(b.id, 'loading');
-  Promise.all([DB.timeline(b.id), DB.billHearings(b.id), teamFile()])
-    .then(([tl, bh, tf]) => cache.set(b.id, { tl: tl || [], hearings: bh.hearings || [], outcomes: bh.outcomes || [], tf: tf?.[b.bill_number] || {}, at: Date.now() }))
+  Promise.all([DB.timeline(b.id), DB.billHearings(b.id), teamFile(), Promise.resolve().then(() => DB.conversations({ billId: b.id })).catch(() => [])])   // the chair asks (legislator notes of this bill) ride along; their failure never fails the history
+    .then(([tl, bh, tf, cv]) => cache.set(b.id, { tl: tl || [], hearings: bh.hearings || [], outcomes: bh.outcomes || [], tf: tf?.[b.bill_number] || {}, asks: (cv || []).filter(r => r.answer === 'asked'), at: Date.now() }))
     .catch(async () => { if (!quiet) { await teamFile().catch(() => {}); cache.set(b.id, 'failed'); } })   // the sample (practice) is waited for, so the notes drawn with the failure are complete
     .finally(() => { if (!quiet && onBill(b)) redrawKeep(); });
 }
@@ -44,3 +44,20 @@ export function billExtras(b) {
 }
 // the timeline asked for again after the page itself added a row (a lead change), so the new line shows at once
 export async function refreshTimeline(b) { const c = cache.get(b.id); if (c && typeof c === 'object') { try { c.tl = (await DB.timeline(b.id)) || c.tl; } catch { /* the old lines stay */ } } }
+
+// What is already in memory about a bill, for the top of the page: it never asks and never waits. { hearings, outcomes (by hearing id), tl (the Capitol's and the team's lines), asks (chair asks, newest first) }
+// until the history has landed, only the hearings and outcomes the app holds; tl and asks are empty then.
+export function known(b) {
+  const c = cache.get(b.id), mine = (S.hearings || []).filter(h => h.bill_id === b.id);
+  if (!c || typeof c !== 'object') return { hearings: mine, outcomes: S.outcomes || {}, tl: [], asks: [] };
+  return {
+    hearings: [...new Map([...c.hearings, ...mine].map(h => [h.id, h])).values()],
+    outcomes: { ...(S.outcomes || {}), ...Object.fromEntries(c.outcomes.map(o => [o.hearing_id, o])) },
+    tl: [...c.tl, ...(c.tf.timeline || [])], asks: c.asks || [],
+  };
+}
+// How many people follow the bill on the public site: the app's own counts when it has them, else (practice only) the little sample in demo/bill_team.json. undefined when nobody can say.
+export function followersOf(b) {
+  const n = S.pubCounts?.[b.id]?.followers; if (typeof n === 'number') return n;
+  const m = DEMO ? tfDone?._followers?.[b.bill_number] : undefined; return typeof m === 'number' ? m : undefined;
+}

@@ -219,7 +219,7 @@ with sync_playwright() as p:
         pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
         ok('#/bill/' in pg.url and pg.locator('main h1').inner_text().strip() and pg.locator('.bsub').inner_text().strip() and pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true', f'{tag} JM: a bill opens from its row; name first ("{pg.locator("main h1").inner_text().strip()[:30]}"), number after, the issue still marked open')
         txt = pg.locator('main').inner_text()
-        ok(all(x in pg.locator('#bFacts').inner_text() for x in ('What it does', 'Issue', ' referral')) and pg.locator('#bStat .bln').count() >= 1 and pg.locator('main input:not(#findIn), main textarea:not(#bNoteIn), main select').count() == 0, f'{tag} JM: the bill page reads where it stands and its facts, and has no form controls but the note box')
+        ok('What it does' in pg.locator('#bFacts').inner_text() and pg.locator('.bigpath .btl .bts').count() >= 3 and pg.locator('#bStat .bln').count() >= 1 and pg.locator('main input:not(#findIn), main textarea:not(#bNoteIn), main select').count() == 0, f'{tag} JM: the bill page reads where it stands and its facts and timeline, and has no form controls but the note box')
         # fix 4, 5: "Your move" is a quiet button right under the position line; the sheet does not restate the banner
         ymp = pg.evaluate("() => { const m = document.querySelector('#bStat .bmv .ymove'), l = [...document.querySelectorAll('#bStat .bln')].pop(), h = document.querySelector('main .bigpath'); if (!m) return null; return [m.className, m.getBoundingClientRect().top - l.getBoundingClientRect().bottom, h.getBoundingClientRect().top - m.getBoundingClientRect().bottom]; }")
         ok(ymp and 'btn' in ymp[0] and 'quiet' in ymp[0] and 'text' not in ymp[0].split() and 0 <= ymp[1] < 40 and ymp[2] > 0 and pg.locator('.strip').count() == 0 and 'Without a hearing' not in txt and 'none is set' not in txt, f'{tag} JM: "Your move" is a quiet button right under the status lines, and the bill page has no banner of its own and does not restate its words ({ymp})')
@@ -241,7 +241,7 @@ with sync_playwright() as p:
         snap(pg, 'issue_sheet_stopped', tag)
         pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
         b_txt = pg.locator('main').inner_text(); why = pg.locator('#bStat .bln').first.inner_text()
-        ok(why.startswith('Stopped') and pg.locator('#bStat .bln').count() == 1 and pg.locator('svg.trk.dead').count() >= 1, f'{tag} JM: a stopped bill says where it stopped and why, and its path ends in a bar')
+        ok(why.startswith('Stopped') and pg.locator('#bStat .bln').count() in (1, 2) and pg.locator('.btl.dead').count() == 1 and pg.locator('.bts.bs-x').count() == 1 and pg.locator('svg.trk.dead').count() >= 1, f'{tag} JM: a stopped bill says where it stopped and why, and its path ends in a bar')
         ok(not re.search(r'\d+/\d+/\d+|Lateral|Decking|Triple', why) and (re.search(r'\w{3}, \w{3} \d+', why) or 'ailed' in why or 'not adopted' in why or 'eferred' in why or why.strip() == 'Stopped' or 'issed' in why), f'{tag} JM: "Why" uses plain words and dates like "Fri, Feb 20" ("{why}")')
         snap(pg, 'bill_sheet_stopped', tag)
         ok(not errs and not bad, f'{tag} JM stopped: no console error')
@@ -259,8 +259,8 @@ with sync_playwright() as p:
             sa = []
             for iid in alive_refs:
                 go(pg, f'#/issue/{iid}?who=all'); pg.locator('.brow.dead .bn2').first.click(); pg.wait_for_timeout(300)
-                sa += [a.strip() for a in pg.evaluate("() => [...document.querySelectorAll('#bAlive a.lk')].map(a => a.innerText)")]
-            ok(sa and all(re.fullmatch(r'[A-Z]+ ?\d+, the (House|Senate) version · .+', a) for a in sa), f'{tag}: a stopped bill\'s "Still alive" leads with number and chamber ({sa[:2]})')
+                sa += [a.strip() for a in pg.evaluate("() => [...document.querySelectorAll('#bStat .bln:not(:first-child) a.lk')].map(a => a.innerText)")]
+            ok(sa and all(re.fullmatch(r'[A-Z]+ ?\d+, the (House|Senate) version', a) for a in sa), f'{tag}: a stopped bill\'s "Still alive" leads with number and chamber ({sa[:2]})')
             pg.context.close()
 
         # by address
@@ -654,7 +654,7 @@ with sync_playwright() as p:
     snap(pg, 'issue_sheet_phone', '390x844')
     pg.locator('.bn2').first.click(); pg.wait_for_timeout(400)
     backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
-    ok(pg.evaluate(NOSIDE) and pg.locator('svg.trk.row').first.is_visible() and pg.locator('svg.trk.wide').first.is_hidden(), 'phone: a bill sheet fits, its path is the compact one')
+    ok(pg.evaluate(NOSIDE) and pg.locator('svg.trk.row').first.is_visible() and pg.locator('.bigpath .btl').first.is_hidden(), 'phone: a bill sheet fits, its path is the compact one')
     ok(len(backs) == 1 and backs[0].startswith('Back to ') and backs[0] != pg.evaluate(H1) and not pg.evaluate(SMALL), f'phone: a bill sheet has one back link, labelled with where it goes ({backs})')
     snap(pg, 'bill_sheet_phone', '390x844')
     pg.click('.crumb.back2'); pg.wait_for_timeout(400)

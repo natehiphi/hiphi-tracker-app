@@ -5,6 +5,7 @@ import { S, advocate, SESSION_YEAR } from '../staff6/data.js';
 import { sittingDraft } from '../staff6/model.js';
 import { billStep } from '../staff6/steps.js';
 import { esc } from './parts.js';
+import { ic } from './icons7.js';
 import { cmteWords } from './steps.js';
 import { dateWords } from './words.js';
 
@@ -54,3 +55,10 @@ export const cmteLink = (c, b, cls = '') => S.committees?.[c] ? `<a class="lk${c
 export const cmtesLinks = (codes, b) => codesOf(codes).map(c => cmteLink(c, b)).join(' with ');
 // the Capitol's codes inside a sentence, in words ("HB", "SB" and the like stay); a code that is nobody's committee here ("CR 229") is left alone
 export const cleanCodes = (t, b) => String(t).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => /^(HB|SB|HR|SR|HCR|SCR|PM|AM)$/.test(m) ? m : codesOf(m).every(c => known(c) || refsOf(b).some(r => codesOf(r).includes(c))) ? cmtesText(m, b) : m);
+
+// an external link: new tab, rel=noopener, the external-link icon the bill page uses
+export const ext = (url, label) => `<a class="lk" target="_blank" rel="noopener" href="${esc(url)}">${esc(label)}${ic('external-link')}</a>`;
+// a moment as Honolulu's day: "2026-03-06", and "Mar 6" (with its year, "Mar 6, 2025", when it is not in the session's year)
+const HST = { timeZone: 'Pacific/Honolulu' };
+export const ymdH = t => new Date(t).toLocaleDateString('en-CA', HST);
+export const monD = t => { const w = new Date(t).toLocaleDateString('en-US', { ...HST, month: 'short', day: 'numeric' }), y = ymdH(t).slice(0, 4); return +y === +SESSION_YEAR ? w : `${w}, ${y}`; };

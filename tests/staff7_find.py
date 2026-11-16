@@ -430,7 +430,7 @@ with sync_playwright() as p:
     noi = pg.evaluate("async () => { const d = await import('/staff6/data.js'), S = d.S; const act = new Set(S.issues.filter(i => !i.archived_at).map(i => i.id)); const w = new Set(S.billIssues.filter(x => act.has(x.issue_id)).map(x => x.bill_id)); return S.bills.filter(b => b.tracked !== false && !w.has(b.id)).slice(0, 3).map(b => b.bill_number); }")
     for num in noi:
         go(pg, '#/search?q=' + num); settle(pg); pg.click(f'#slist a[data-k=bill][href^="#/bill/{num}"]'); pg.wait_for_timeout(500)
-        ok(pg.evaluate('location.hash').startswith(f'#/bill/{num}') and pg.locator('[data-notfound]').count() == 0 and pg.locator('a.back2:has-text("Back to Search")').count() == 1 and pg.locator('#bFacts').inner_text().find('On no issue yet') >= 0, f'{num}: one of our bills that is on no issue still opens its bill page (no dead end; it came from Search, so Back goes to Search)')
+        ok(pg.evaluate('location.hash').startswith(f'#/bill/{num}') and pg.locator('[data-notfound]').count() == 0 and pg.locator('a.back2:has-text("Back to Search")').count() == 1 and pg.locator('#bNoIssue').inner_text() == 'On no issue yet', f'{num}: one of our bills that is on no issue still opens its bill page (no dead end; it came from Search, so Back goes to Search)')
     sit = None
     for code, _ in [(c, 0) for c in pg.evaluate("async () => Object.keys((await import('/staff6/data.js')).S.committees)")]:
         go(pg, f'#/search/committee/{code}'); s = pg.locator('.paper a[href^="#/calendar/sitting/"]')

@@ -2,13 +2,15 @@
 // The data comes from bill_data.js (asked for once, 'loading' then drawn again); until it lands the three blocks are one quiet line, and if it fails Team notes (which need only memory) are drawn with a failure line where Past hearings and History would be. The top of the page never waits.
 // Every "Show all" is a button with data-bmore; the lists are always drawn in full with the extra rows hidden, so opening one changes nothing else, and the open state is kept in bill.js's `bui`
 // (the minute's redraw keeps it).
-// Part C's note box (bill_edit.js) sits above the notes.
+// Part C's note box (bill_edit.js) sits at the top of the notes. The order: Hearings and votes so far, Team notes, More from the Capitol’s page (closed), History.
 import { S, POSITIONS, DEMO, SESSION_YEAR } from '../staff6/data.js';
 import { plainAction } from '../staff6/model.js';
 import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
 import { first } from './steps.js';
-import { draftFor, http, dateY, codesKey, cmtesLinks, cmtesText, cleanCodes } from './bill_words.js';
+import { draftFor, http, dateY, codesKey, cmtesLinks, cmtesText, cleanCodes, ext } from './bill_words.js';
+import { floorVotes } from './bill_floor.js';
+import { capitolHTML } from './bill_more.js';
 import { billExtras, retry, memoryExtras } from './bill_data.js';
 import { bui } from './bill.js';
 import { noteBoxHTML } from './bill_edit.js';
@@ -66,20 +68,25 @@ function hearingsBlock(b, x) {
     const o = x.outcomes[h.id], k = o && h.status === 'scheduled' ? `${codesKey(h.committee)}|${o.reported_at}|${o.outcome}` : h.id;
     if (by.has(k)) by.get(k).hs.push(h); else { const g = { hs: [h], o: h.status === 'scheduled' ? o : null }; by.set(k, g); groups.push(g); }
   }
-  if (!groups.length) return '';
-  const rows = groups.sort((p, q) => String(q.hs[0].scheduled_at).localeCompare(String(p.hs[0].scheduled_at))).map(g => {
+  const floors = floorVotes(x.timeline);
+  if (!groups.length && !floors.length) return '';
+  const hearRows = groups.map(g => {
     const h = g.hs[0], o = g.o, st = STATUS[h.status] || (h.status !== 'scheduled' ? String(h.status).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()) : '');
     const did = st || (o && OUTCOME[o.outcome] ? OUTCOME[o.outcome] + (o.reported_at && ymd(o.reported_at) !== ymd(h.scheduled_at) && /^passed/.test(o.outcome) ? ` on ${short(o.reported_at)}` : '') : 'No result recorded');
     const vote = !st && o && !String(h.committee || '').includes('/') ? voteWords(o.report) : '';   // a joint hearing's sentence holds more than one committee's vote: no count is shown
     let ours = '', link = '';
     if (!st) {
       const ds = g.hs.map(hh => draftFor(hh, b)).filter(Boolean), d = ds.find(z => z.status === 'filed') || null;
-      ours = d ? (d.filed_by ? `${esc(nameOf(d.filed_by))} filed our testimony` : 'we filed our testimony') : 'we did not file';
+      // our testimony: a link to its Doc and who filed it, or that we did not file
+      ours = d ? `${http(d.doc_url) ? ext(d.doc_url, 'Our testimony') : 'Our testimony'}${d.filed_by ? `, filed by ${esc(nameOf(d.filed_by))}` : ', filed'}` : 'we did not file';
       if (d && http(d.filed_url)) link = `<a class="lk" target="_blank" rel="noopener" href="${esc(d.filed_url)}">Everyone’s testimony${ic('external-link')}</a>`;
     }
-    return `<span class="bh1">${esc(day(h.scheduled_at))} · ${cmtesLinks(h.committee, b)}</span><small>${[esc(did), vote ? esc(vote) : '', ours, link].filter(Boolean).join(' · ')}</small>`;
+    return { t: h.scheduled_at, html: `<span class="bh1">${esc(day(h.scheduled_at))} · ${cmtesLinks(h.committee, b)}</span><small>${[esc(did), vote ? esc(vote) : '', ours, link].filter(Boolean).join(' · ')}</small>` };
   });
-  return `<h2 class="sh" id="bHearH">Past hearings</h2>${list('hear', b, rows, 3, 'past hearings')}`;
+  // a floor vote the Capitol's lines give: "Fri, Mar 6 · House floor, third reading", then "Passed" and the counts only when they were read in full
+  const floorRows = floors.map(f => ({ t: f.t, html: `<span class="bh1">${esc(day(f.t))} · ${f.chamber} floor, third reading</span><small>${esc(['Passed', f.counts].filter(Boolean).join(' · '))}</small>` }));
+  const rows = [...hearRows, ...floorRows].sort((p, q) => String(q.t).localeCompare(String(p.t))).map(r => r.html);
+  return `<h2 class="sh" id="bHearH">Hearings and votes so far</h2>${list('hear', b, rows, 3, 'hearings and votes')}`;
 }
 
 // ---------------------------------------------------------------------------------- History
@@ -158,8 +165,8 @@ export function partB(b) {
   const x = billExtras(b);
   if (x === 'loading') return '<p class="hint bwait" id="bWait">Loading the bill’s history.</p>';
   // the notes need only memory: they are drawn even when the rest could not be loaded, and the failure takes the place of Past hearings and History
-  if (x === 'failed') return `<div class="bparts" id="bParts" data-bill="${esc(b.id)}">${notesBlock(b, memoryExtras(b))}<p class="hint bwait" id="bFail">We could not load the bill’s history. ${btn('Try again', { kind: 'text', id: 'bRetry', attrs: `data-bill="${esc(b.id)}"` })}</p></div>`;
-  return `<div class="bparts" id="bParts" data-bill="${esc(b.id)}">${notesBlock(b, x)}${hearingsBlock(b, x)}${historyBlock(b, x)}</div>`;
+  if (x === 'failed') return `<div class="bparts" id="bParts" data-bill="${esc(b.id)}">${notesBlock(b, memoryExtras(b))}${capitolHTML(b, [])}<p class="hint bwait" id="bFail">We could not load the bill’s history. ${btn('Try again', { kind: 'text', id: 'bRetry', attrs: `data-bill="${esc(b.id)}"` })}</p></div>`;
+  return `<div class="bparts" id="bParts" data-bill="${esc(b.id)}">${hearingsBlock(b, x)}${notesBlock(b, x)}${capitolHTML(b, x.timeline)}${historyBlock(b, x)}</div>`;
 }
 export function bindPartB() {
   document.querySelectorAll('button[data-bmore]').forEach(bt => bt.addEventListener('click', () => {
