@@ -9,10 +9,10 @@ import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
 import { billName, billNo, posWords, first, lateLine } from './steps.js';
 import { isAlive, deadlineOf, isAtRisk } from './standing.js';
-import { dateWords, whenWords, whyWords } from './words.js';
+import { dateWords, whenWords, whyWords, PATH_NAMES } from './words.js';
 import { billPath, pathOf } from './path.js';
 import { norm } from './find.js';
-import { testimonyDue, letterState, testimonyShort, leadIds, http, dateY, codesOf, cmteLink, cmtesLinks, cleanCodes } from './bill_words.js';
+import { testimonyDue, letterState, testimonyShort, leadIds, http, dateY, codesOf, cmteLink, cmtesLinks, cmtesText, cleanCodes } from './bill_words.js';
 import { partB, bindPartB } from './bill_history.js';
 import { editButton, editHTML, mayEdit, bindEdit } from './bill_edit.js';
 import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, sameName, whereShort, hearTxt, stepOn, clearedOf, clearedLabel, sitKeyOf, nextCtx, billHref } from './issues.js';
@@ -148,16 +148,55 @@ function cmteMarks(b) {
   else if (['floor', 'conference', 'governor', 'law', 'ballot'].includes(st.phase)) for (let i = 0; i < (st.phase === 'floor' && !second ? (originN || refs.length) : refs.length); i++) marks[i] = 'done';
   return { refs, marks };
 }
+// The bill page's own path (Nate 15 Nov: the timeline names the specific committees): Introduced, each committee of the first chamber, Crossed over, each committee of the second, Governor.
+// Committees are named by the Capitol's short codes, which fit under a dot; the referral rows just below say each one in words. A chamber whose committees the data cannot place
+// (a bill that stopped somewhere in them, or one not referred there yet) keeps the one general stop the list's drawing has. Same marks and classes as path.js, so it looks the same.
+const wrap11 = l => { const out = []; let cur = ''; for (const w of String(l).split(' ')) { if (cur && (cur + ' ' + w).length > 11) { out.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } if (cur) out.push(cur); return out; };
+function timelineStops(b) {
+  const { refs, marks } = cmteMarks(b), p = pathOf(b), stage = effStage(b);
+  const originN = Math.min(b.origin_stops || 0, refs.length) || (/^second_(triple|lateral|decking)$|^first_crossover$/.test(stage) ? 0 : refs.length);
+  const stops = [{ t: 'Introduced', said: 'Introduced', s: p.i > 0 ? 'done' : 'now' }];
+  // one chamber's part: its committees one by one when every one can be placed, else the general stop
+  const part = (lo, hi, i, general) => {
+    const ms = marks.slice(lo, hi), placed = hi > lo && (p.i < i || ms.includes('now') || ms.every(m => m === 'done'));
+    if (!placed) { stops.push({ t: p.i === i ? p.label : general, said: p.i === i ? p.label : general, s: p.i > i ? 'done' : p.i === i ? 'now' : 'todo' }); return; }
+    for (let k = lo; k < hi; k++) stops.push({ t: codesOf(refs[k]).join('/'), said: cmtesText(refs[k], b), s: marks[k] === 'done' ? 'done' : marks[k] === 'now' ? 'now' : 'todo' });
+    if (p.i === i && !ms.includes('now')) stops.push({ t: p.label, said: p.label, s: 'now' });   // through its committees and not yet across: the floor vote, or the conference
+  };
+  part(0, originN, 1, PATH_NAMES[1]);
+  if (!/^[HS]R\d/.test(num(b))) {
+    stops.push({ t: 'Crossed over', said: PATH_NAMES[2], s: p.i > 2 ? 'done' : p.i === 2 ? 'now' : 'todo' });
+    part(originN, refs.length, 3, PATH_NAMES[3]);
+  }
+  stops.push({ t: p.i === 4 ? p.label : PATH_NAMES[4], said: p.i === 4 ? p.label : PATH_NAMES[4], s: p.i === 4 ? 'now' : 'todo' });
+  return { stops, dead: p.dead };
+}
+function billTimeline(b) {
+  const { stops, dead } = timelineStops(b), at = Math.max(0, stops.findIndex(x => x.s === 'now')), shown = dead ? stops.slice(0, at + 1) : stops, n = stops.length;
+  const w = Math.max(640, n * 84), pad = 48, y = 10, xs = stops.map((_, k) => pad + k * (w - 2 * pad) / (n - 1)), ml = Math.max(...shown.map(x => wrap11(x.t).length)), H = 42 + ml * 16;
+  let h = `<svg class="trk wide${dead ? ' dead' : ''}" viewBox="0 0 ${w} ${H}" role="img" aria-label="${esc(dead ? `Did not advance, stopped at ${stops[at].said}` : `Stop ${at + 1} of ${n}: ${stops[at].said}`)}">`;
+  h += `<line class="tr" x1="${xs[0]}" y1="${y}" x2="${dead ? xs[at] : xs[n - 1]}" y2="${y}"/>`;
+  if (at > 0) h += `<line class="tp" x1="${xs[0]}" y1="${y}" x2="${xs[at]}" y2="${y}"/>`;
+  shown.forEach((x, k) => {
+    const tt = `<title>${esc(x.said)}${k < at ? ', passed' : k === at ? (dead ? ', where it stopped' : ', now') : ', to come'}</title>`;
+    h += k < at ? `<circle class="tp" cx="${xs[k]}" cy="${y}" r="4">${tt}</circle>` : k === at ? `<circle class="tn" cx="${xs[k]}" cy="${y}" r="7">${tt}</circle>` : `<circle class="tc" cx="${xs[k]}" cy="${y}" r="4.5">${tt}</circle>`;
+    h += `<text class="tl${k === at ? ' now' : ''}" x="${xs[k]}" y="34" text-anchor="middle">${wrap11(x.t).map((t, m) => `<tspan x="${xs[k]}" dy="${m ? 16 : 0}">${esc(t)}</tspan>`).join('')}<title>${esc(x.said)}</title></text>`;
+  });
+  if (dead) h += `<line class="tx" x1="${xs[at] + 12}" y1="${y - 7}" x2="${xs[at] + 12}" y2="${y + 7}"/>`;
+  const said = shown.map((x, k) => `${x.said}${k < at ? ', passed' : k === at ? (dead ? ', where it stopped' : ', now') : ', to come'}`).join('. ');
+  return billPath(b) + h + `</svg><span class="sr">${esc(said)}.</span>`;
+}
 // The referral, one row for each chamber (Nate 15 Nov: the referral matters for the chamber the bill is in and the one before it): the chamber it is in now first, then the one it came from.
 // Returns [[label, html], ...] for the facts list. A bill that has crossed and has no committees in the other chamber yet says so.
 function referralRows(b) {
   const { refs, marks } = cmteMarks(b); if (!refs.length) return [];
   const stage = effStage(b), originN = Math.min(b.origin_stops || 0, refs.length) || (/^second_(triple|lateral|decking)$|^first_crossover$/.test(stage) ? 0 : refs.length);
+  // each committee on its own line: its name, the Capitol's short code after it (Nate 15 Nov: staff know committees by their codes), then where the bill is with it
   const item = (ref, m) => {
-    const ls = codesOf(ref).map(c => cmteLink(c, b, m === 'done' ? ' dim' : '')).join(' with ');
-    return m === 'done' ? `<span class="bcd">${ls}<span aria-hidden="true"> ✓</span><span class="vh"> (passed)</span></span>` : m === 'now' ? `<b>${ls}&nbsp;(now)</b>` : m === 'next' ? `<span>${ls}&nbsp;(next)</span>` : `<span>${ls}</span>`;
+    const ls = codesOf(ref).map(c => `${cmteLink(c, b, m === 'done' ? ' dim' : '')} (${esc(c)})`).join(' with ');
+    return m === 'done' ? `<span class="bcd">${ls}<span aria-hidden="true"> ✓</span><span class="vh"> (passed)</span></span>` : m === 'now' ? `<b>${ls} · now</b>` : m === 'next' ? `<span>${ls} · next</span>` : `<span>${ls}</span>`;
   };
-  const row = (leg, lo, hi) => `<span class="bcms" data-leg="${leg}">${refs.slice(lo, hi).map((r, i) => item(r, marks[lo + i])).join(' · ')}</span>`;
+  const row = (leg, lo, hi) => `<span class="bcms" data-leg="${leg}">${refs.slice(lo, hi).map((r, i) => item(r, marks[lo + i])).join('')}</span>`;
   const one = /^[HS]R\d/.test(num(b)), origin = /^S/i.test(num(b)) ? 'Senate' : 'House', other = origin === 'Senate' ? 'House' : 'Senate';
   if (one) return [['Referral', row(1, 0, refs.length)]];
   const inSecond = isAlive(b) ? (stopOf(b).leg === 'second' || stage === 'first_crossover') : pathOf(b).i >= 2;
@@ -216,7 +255,7 @@ export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   out += positionHTML(b, issue, me, can);
   out += `<div class="bstat" id="bStat">${statusLines(b, issue, who, open, own, nx, onIssue)}</div>`;
   out += stillAlive(b, issue, who, others);
-  out += `<div class="bigpath">${billPath(b, { wide: true })}</div>`;
+  out += `<div class="bigpath">${billTimeline(b)}</div>`;
   out += factsHTML(b, who);
   out += partB(b);
   return out + `</div></div>`;

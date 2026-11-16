@@ -719,3 +719,7 @@ li[hidden] { display: none; }
   .bfacts dt { padding-top: 0; }
   .bfacts dd > a.lk:only-child, .blist a.lk { display: inline-block; padding-block: var(--s3); }
 }
+
+/* the referral rows: one committee a line, its short code after its name */
+.bfacts .bcms { display: flex; flex-direction: column; gap: var(--s1); }
+.bill > .bigpath .trk.wide { max-width: none; }
