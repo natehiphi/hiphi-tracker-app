@@ -3,13 +3,13 @@
 // now = a large dot and bold, to come = a ring, did not advance = a grey dot with a bar. Everything is worked out from data already in memory (the Capitol's stage and referrals, the hearings and
 // outcomes the app holds, and the history once it has landed); nothing here asks for anything or writes. Under 560px of width the page shows the list's compact drawing instead (path.js).
 // cmteMarks is also what the status lines use to find the committees that remain.
-import { S, effStage } from '../staff6/data.js';
+import { S, effStage, billStop } from '../staff6/data.js';
 import { stopOf } from '../staff6/model.js';
 import { esc } from './parts.js';
 import { isAlive } from './standing.js';
 import { PATH_NAMES } from './words.js';
 import { billPath, pathOf } from './path.js';
-import { codesOf, monD } from './bill_words.js';
+import { codesOf, monD, RETIRED } from './bill_words.js';
 import { known } from './bill_data.js';
 import { floorVotes } from './bill_floor.js';
 
@@ -18,6 +18,12 @@ const num = b => String(b.bill_number).replace(/\s/g, '');
 const own = b => /^S/i.test(num(b)) ? 'Senate' : 'House';
 const oneChamber = b => /^[HS]R\d/.test(num(b));
 
+// The committee a stopped bill was waiting in, when the data names it: the same reading staff6's whyWords uses (stops.js stoppedAt: the committee of the stage it died at, not bills.committee, which is the
+// last committee of the referral). { leg, committee } or null when it did not stop in a committee.
+function stoppedIn(b) {
+  const d = b.died_at_stage || ''; if (!/^(first|second)_(triple|lateral|decking)$/.test(d)) return null;
+  try { const st = billStop({ ...b, stage: d }, { deadlineFor: () => null, stage: d, hearings: [], outcomes: {} }); return st.phase === 'committee' && st.committee ? { leg: st.leg, committee: st.committee } : null; } catch { return null; }
+}
 // The committees in the order the bill goes through them: the ones it has passed, the one it is in, the one after. The referral list is read the way stops.js reads it: the first chamber's committees first,
 // then the second's. originN: how many are the first chamber's. lo, hi: the range of the chamber the bill is in (alive bills).
 export function cmteMarks(b) {
@@ -26,6 +32,12 @@ export function cmteMarks(b) {
   const out = { refs, marks, originN, lo: 0, hi: refs.length };
   if (!refs.length) return out;
   if (!isAlive(b)) {   // stopped: what it passed before the stop, when the stop's place on the path says so (after the first chamber's committees, all of those; at the Governor, all); else no marks, since the data does not say which committee held it
+    const sa = stoppedIn(b);
+    if (sa) {   // it stopped in a committee the data names: the ones before it passed (all of the first chamber's, when it stopped in the second), that one is where it stopped
+      const second = sa.leg === 'second', lo = second ? originN : 0, hi = second ? refs.length : (originN || refs.length), cur = codesOf(sa.committee), at = [];
+      for (let i = lo; i < hi; i++) if (codesOf(refs[i]).some(c => cur.includes(c))) at.push(i);
+      if (at.length) { for (let i = 0; i < at[0]; i++) marks[i] = 'done'; for (const i of at) marks[i] = 'now'; out.lo = lo; out.hi = hi; return out; }
+    }
     const i = pathOf(b).i, firstN = originN || refs.length;
     for (let k = 0; k < (i >= 4 ? refs.length : i >= 2 ? firstN : 0); k++) marks[k] = 'done';
     return out;
@@ -45,7 +57,7 @@ export function cmteMarks(b) {
 }
 
 // A committee's short name without its chamber ("Transportation"), from the data layer's own list; '' for a code it has no name for
-const shortName = c => String(S.committees?.[c]?.name || '').trim();
+const shortName = c => String(S.committees?.[c]?.name || RETIRED[c]?.name || '').trim();
 const codeLink = c => S.committees?.[c] ? `<a class="lk" href="#/search/committee/${enc(c)}">${esc(c)}</a>` : esc(c);
 
 // When a committee passed the bill, from the hearings and outcomes in memory: "passed Feb 17", '' when they do not say
@@ -67,7 +79,7 @@ export function timelineModel(b) {
   // one chamber's part: its committees one by one when every one can be placed, else the one general stop. i: the chamber's place on the path (1 first, 3 second).
   const chamber = (lo, hi, i, ch, general) => {
     const out = [], ms = marks.slice(lo, hi);
-    const placed = hi > lo && (alive ? (p.i < i || ms.includes('now') || ms.every(m => m === 'done')) : ms.every(m => m === 'done')) && !(i === 3 && p.i === 2);   // crossed and not yet referred is one stop, "Not referred yet"
+    const placed = hi > lo && (alive ? (p.i < i || ms.includes('now') || ms.every(m => m === 'done')) : (ms.includes('now') || ms.every(m => m === 'done'))) && !(i === 3 && p.i === 2);   // crossed and not yet referred is one stop, "Not referred yet"
     if (!placed) {
       const waiting = (i === 3 && p.i === 2 && alive) || (i === 1 && p.i === 0 && !refs.length);
       const here = p.i === i, label = waiting ? 'Not referred yet' : here ? p.label : general;
@@ -99,16 +111,19 @@ export function timelineModel(b) {
 }
 
 // how much of the width a stop takes, in shares: a committee needs room for its name, a joint pair more, a floor vote less
+// the room a stop needs so that no word of it is cut: its longest word, in the unit of a figure's width (the codes and labels are larger and bold, so they count more)
+const WORDS = t => String(t || '').split(/\s+/).filter(Boolean);
+const MW = x => Math.ceil(Math.max(1, ...WORDS(x.name).map(w => w.length), ...WORDS(x.k === 'cmte' ? x.codes.join(' / ') : x.t).map(w => w.length * 1.25), ...WORDS(x.sub).map(w => w.length)));
 const WT = x => x.k === 'cmte' ? (x.codes.length > 1 ? 2.2 : 1.6) : x.k === 'general' ? 1.8 : x.k === 'intro' ? 2 : x.k === 'final' ? 1.5 : x.k === 'gov' ? 2 : 1.1;
 const STATE = { done: ', passed', now: ', now', todo: ', to come', x: ', where it stopped' };
 function stopHTML(x) {
   const t = x.k === 'cmte' ? x.codes.map(codeLink).join(' / ') : esc(x.t);
   const sub = x.s === 'now' ? 'now' : x.s === 'x' ? 'stopped' : x.sub;
-  return `<li class="bts bs-${x.s}" data-k="${x.k}" data-s="${x.s}" style="--w:${WT(x)}"><b class="btk">${t}</b>${x.name ? `<small class="btnm">${esc(x.name)}</small>` : ''}${sub ? `<small class="btsb">${esc(sub)}</small>` : ''}</li>`;
+  return `<li class="bts bs-${x.s}" data-k="${x.k}" data-s="${x.s}" style="--w:${WT(x)};--mw:${MW(x)}"><b class="btk">${t}</b>${x.name ? `<small class="btnm">${esc(x.name)}</small>` : ''}${sub ? `<small class="btsb">${esc(sub)}</small>` : ''}</li>`;
 }
 // the compact drawing (phones) and the timeline (wider), with one sentence for a screen reader
 export function billTimeline(b) {
   const m = timelineModel(b);
   const said = m.flat.map(x => `${x.said}${STATE[x.s]}`).join('. ');
-  return billPath(b) + `<div class="btl${m.dead ? ' dead' : ''}" lang="en">${m.groups.map(g => `<div class="btg" data-g="${esc(g.cap || '')}" style="--n:${g.stops.reduce((a, x) => a + WT(x), 0)}"><span class="btc">${esc(g.cap)}</span><ol class="bts-l">${g.stops.map(stopHTML).join('')}</ol></div>`).join('')}</div><span class="sr">${esc(said)}.</span>`;
+  return billPath(b) + `<div class="btl${m.dead ? ' dead' : ''}">${m.groups.map(g => `<div class="btg" data-g="${esc(g.cap || '')}" style="--n:${g.stops.reduce((a, x) => a + WT(x), 0)};--gm:${g.stops.reduce((a, x) => a + MW(x), 0)};--gc:${g.stops.length}"><span class="btc">${esc(g.cap)}</span><ol class="bts-l">${g.stops.map(stopHTML).join('')}</ol></div>`).join('')}</div><span class="sr">${esc(said)}.</span>`;
 }

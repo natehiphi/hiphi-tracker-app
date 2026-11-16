@@ -11,6 +11,7 @@ import { first } from './steps.js';
 import { draftFor, http, dateY, codesKey, cmtesLinks, cmtesText, cleanCodes, ext } from './bill_words.js';
 import { floorVotes } from './bill_floor.js';
 import { capitolHTML } from './bill_more.js';
+import { isCarry } from '../staff6/model.js';
 import { billExtras, retry, memoryExtras } from './bill_data.js';
 import { bui } from './bill.js';
 import { noteBoxHTML } from './bill_edit.js';
@@ -86,7 +87,9 @@ function hearingsBlock(b, x) {
   // a floor vote the Capitol's lines give: "Fri, Mar 6 · House floor, third reading", then "Passed" and the counts only when they were read in full
   const floorRows = floors.map(f => ({ t: f.t, html: `<span class="bh1">${esc(day(f.t))} · ${f.chamber} floor, third reading</span><small>${esc(['Passed', f.counts].filter(Boolean).join(' · '))}</small>` }));
   const rows = [...hearRows, ...floorRows].sort((p, q) => String(q.t).localeCompare(String(p.t))).map(r => r.html);
-  return `<h2 class="sh" id="bHearH">Hearings and votes so far</h2>${list('hear', b, rows, 3, 'hearings and votes')}`;
+  // a carried-over bill whose hearings from before this year are not in the list: they are in History
+  const old = isCarry(b) && !x.hearings.some(h => new Date(h.scheduled_at).getTime() < new Date(`${SESSION_YEAR}-01-01T00:00:00-10:00`).getTime());
+  return `<h2 class="sh" id="bHearH">Hearings and votes so far</h2>${old ? `<p class="bhn" id="bHearOld">Hearings before ${esc(SESSION_YEAR)} are in History.</p>` : ''}${list('hear', b, rows, 3, 'hearings and votes')}`;
 }
 
 // ---------------------------------------------------------------------------------- History

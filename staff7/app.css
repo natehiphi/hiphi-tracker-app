@@ -649,7 +649,7 @@ li[hidden] { display: none; }
 .bln { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s1) var(--s4); margin: 0 0 var(--s2); font-size: var(--f16); }
 .bln .blt { flex: 1 1 auto; min-width: 0; }
 .bln b { font: 600 var(--f16)/1.3 var(--head); }
-.bfacts dd .btn.text { min-height: var(--hit); margin-block: calc(var(--s2) * -1); }
+.bfacts dd .btn.text { min-height: var(--hit); margin-block: calc(var(--s2) * -1); padding-left: 0; }
 .bln.m, .bln .m, .bfacts .m { color: var(--muted); }
 .bln b.riskt { color: var(--amber); }
 .bln b.riskt svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: calc(var(--s1) * -1); margin-right: var(--s1); }
@@ -735,26 +735,24 @@ li[hidden] { display: none; }
 .btalk li { padding: var(--s1) 0; }
 
 /* The timeline: groups (Introduced | a chamber | the other chamber | Final votes and Governor) side by side, sharing the width by their number of stops. A stop is a dot on the line, its code, its short name and when it passed. */
-.btl { --dot: var(--ic, var(--cat-other)); gap: var(--s3); max-width: var(--bill-w); }
+.btl { --dot: var(--ic, var(--cat-other)); gap: var(--s4) var(--s3); flex-wrap: wrap; max-width: var(--bill-w); }
 .btl.dead { --dot: var(--edge); }
-.btg { flex: var(--n) 1 0; min-width: 0; }
-.btc { display: block; min-height: calc(var(--f14) * 1.3); font-size: var(--f14); line-height: 1.3; color: var(--muted); border-bottom: var(--line) solid var(--rule); padding-bottom: var(--s1); margin-bottom: var(--s2); }
+.btg { flex: var(--n) 1 calc(var(--gm) * 1ch + var(--gc) * var(--s2)); min-width: calc(var(--gm) * 1ch + var(--gc) * var(--s2)); }   /* a group never gets less room than its words need: it goes to the next row instead */
+.btc { display: block; box-sizing: border-box; height: var(--s5); font-size: var(--f14); line-height: 1.3; color: var(--muted); border-bottom: var(--line) solid var(--rule); margin-bottom: var(--s2); }   /* the same height with or without words, so every dot sits on one line */
 .bts-l { list-style: none; margin: 0; padding: 0; display: flex; }
-.bts { flex: var(--w, 1) 1 0; min-width: 0; position: relative; padding: var(--s5) var(--s1) 0 0; font-size: var(--f14); line-height: 1.3; color: var(--muted); overflow-wrap: break-word; hyphens: auto; }
+.bts { flex: var(--w, 1) 1 calc(var(--mw) * 1ch + var(--s2)); min-width: calc(var(--mw) * 1ch + var(--s2)); position: relative; padding: var(--s5) var(--s2) 0 0; font-size: var(--f14); line-height: 1.3; color: var(--muted); overflow-wrap: normal; hyphens: manual; }
 .bts::before { content: ""; position: absolute; top: var(--s2); left: 0; right: 0; height: var(--line2); background: var(--rule); }
-.bts:last-child::before { right: calc(var(--s3) * -1); }
-.btg:last-child .bts:last-child::before { right: 100%; }
 .bts.bs-done::before { background: var(--dot); }
 .bts::after { content: ""; position: absolute; left: 0; top: calc(var(--s2) + var(--line) - var(--s3) / 2); width: var(--s3); height: var(--s3); box-sizing: border-box; border-radius: var(--pill); background: var(--surface); border: var(--line2) solid var(--edge); }
 .bts.bs-done::after { background: var(--dot); border-color: var(--dot); }
 .bts.bs-now::after { width: var(--s4); height: var(--s4); top: calc(var(--s2) + var(--line) - var(--s4) / 2); background: var(--dot); border-color: var(--dot); }
 .bts.bs-x::after { background: var(--edge); border-color: var(--edge); }
-.bts.bs-x::before { left: calc(var(--s3) + var(--s2)); right: auto; width: var(--line2); height: var(--s3); top: calc(var(--s2) + var(--line) - var(--s3) / 2); background: var(--edge); }
-.bts .btk { display: block; font: 700 var(--f16)/1.3 var(--body); color: var(--ink); }
+.bts.bs-x::before { display: none; }   /* nothing follows where it stopped; the word "stopped" says it */
+.bts .btk { display: block; font: 400 var(--f16)/1.3 var(--body); color: var(--ink); }
 .bts .btk a.lk { font-weight: 700; }
+.bts.bs-now .btk { font-weight: 700; }
 .bts .btnm, .bts .btsb { display: block; }
 .bts.bs-now .btsb { color: var(--ink); font-weight: 700; }
-.bts.bs-todo .btk { font-weight: 400; }
 .btl.dead .bts.bs-x .btk { color: var(--muted); }
 
 /* Hearings and votes, the closed Capitol section, and the note button */
@@ -764,5 +762,14 @@ li[hidden] { display: none; }
 .bcapb:focus-visible { outline: var(--mark) solid var(--ring); outline-offset: var(--line2); }
 .bchev svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: middle; }
 .bcaph { color: var(--muted); font: 400 var(--f14) var(--body); margin-left: var(--s2); }
-.bcap .bfacts { margin: 0 0 var(--s3); }
+.bcap .bfacts { margin: 0 0 var(--s3); max-width: var(--bill-w); }
 .bln .lk svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: calc(var(--s1) * -1); margin-left: var(--s1); }
+
+/* fix round: phone numbers never break, the bill band's icon sits on the title's first line, the small notes under a heading */
+.bill a[href^="tel:"] { white-space: nowrap; }
+.bhn { margin: calc(var(--s1) * -1) 0 var(--s2); color: var(--muted); font-size: var(--f14); }
+@media (max-width: 640px) {
+  .hband.bb { align-items: flex-start; }
+  .hband.bb .imark { margin-top: var(--s6); }
+  .hband.bb .bsub .bls { gap: 0 var(--s4); margin-left: calc((var(--person) + var(--s4)) * -1); flex-basis: calc(100% + var(--person) + var(--s4)); }   /* the links hang under the icon, so both fit on one line */
+}

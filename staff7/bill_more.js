@@ -102,7 +102,8 @@ export function capitolHTML(b, tl) {
   const open = bui.cap.has(b.id), cur = /^(HD|SD|CD|FD)\d{1,2}$/.test(b.current_version || '') ? b.current_version : '';
   const rows = [];
   if (b.title) rows.push(['Official title', esc(titleCaseTitle(String(b.title)))]);
-  if (b.description) rows.push(['The Capitol’s description', esc(eCig(String(b.description).replace(/\s+/g, ' ').trim()))]);
+  const desc = String(b.description || '').replace(/\s+/g, ' ').replace(/\s*\((?:HD|SD|CD|FD)\s?\d{1,2}\)\s*$/, '').trim();   // the draft tag the Capitol ends it with can disagree with the version shown beside it
+  if (desc) rows.push(['The Capitol’s description', esc(eCig(desc))]);
   const links = [];
   if (cur) links.push(ext(billTextUrl(b), `${spaceVer(cur)}, the current one`));
   for (const v of earlierDrafts(b, tl).reverse()) links.push(ext(billTextUrl(b, v), spaceVer(v)));

@@ -127,7 +127,10 @@ function statusLines(b, issue, who, open, own, nx, onIssue, others) {
     return out.join('') + mine;
   }
   const where = cleanCodes(whereWords(b, { deadline: false }), b);
-  return (cleared ? line(`<b>${esc(clearedLabel(row))}</b> · ${esc(where)}`) : line(boldFirst(where))) + mine;
+  // in a committee with nothing scheduled and no deadline of its own to chase: say so, and the date the committee must hear it by when the Capitol's calendar gives one (never guessed)
+  const cs = stopOf(b), cd = cs.deadline && !cs.deadline.missed ? cs.deadline : null;
+  const none = cs.phase === 'committee' && cs.committee ? line(`No hearing is scheduled in ${cmtesLinks(cs.committee, b)} yet${cd ? `, which must hear it by ${esc(whenWords(cd.date))}` : ''}`, { muted: true }) : '';
+  return (cleared ? line(`<b>${esc(clearedLabel(row))}</b> · ${esc(where)}`) : line(boldFirst(where))) + none + mine;
 }
 
 // ---------------------------------------------------------------------------------- 4. the facts
@@ -178,7 +181,7 @@ function numberLine(b) {
 export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   const alive = isAlive(b), nx = x.nx || nextCtx(), from = x.from === 'calendar' || x.from === 'search' ? x.from : '';
   const onIssue = (S.billIssues || []).some(y => y.bill_id === b.id && (S.issues || []).some(i => i.id === y.issue_id && !i.archived_at));
-  let out = `<div class="pn"><div class="hband" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${backOf(issue, b, who, from)}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b)}</div></div><div class="pbody bill">`;
+  let out = `<div class="pn"><div class="hband bb" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${backOf(issue, b, who, from)}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b)}</div></div><div class="pbody bill">`;
   const can = mayEdit(b, issue, me); if (!(can && bui.edit && bui.edit.id === b.id)) bui.edit = null;   // an edit open on another bill, or one this person may not make, is dropped
   bui.ctx = { b, issue, me };
   out += positionHTML(b, issue, me, can);

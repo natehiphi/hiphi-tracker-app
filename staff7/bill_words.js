@@ -47,8 +47,10 @@ export function chamberOfCode(b, code) {
   const own = /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
   return i < o ? own : own === 'Senate' ? 'House' : 'Senate';
 }
-const known = c => !!S.committees?.[c] || cmteWords(c) !== c;
-export const cmteLabel = (c, b) => known(c) ? cmteWords(c) : (chamberOfCode(b, c) ? `${chamberOfCode(b, c)} committee` : 'A committee');
+// Codes the 2026 committee list no longer has (the Senate's old Water and Land and Higher Education committees; older bills still name them): their names, as plain text (no committee page exists)
+export const RETIRED = { WTL: { name: 'Water and Land', chamber: 'Senate' }, HRE: { name: 'Higher Education', chamber: 'Senate' } };
+const known = c => !!S.committees?.[c] || !!RETIRED[c] || cmteWords(c) !== c;
+export const cmteLabel = (c, b) => RETIRED[c] && !S.committees?.[c] ? `${RETIRED[c].chamber} ${RETIRED[c].name}` : known(c) ? cmteWords(c) : (chamberOfCode(b, c) ? `${chamberOfCode(b, c)} committee` : 'A committee');
 export const cmtesText = (codes, b) => codesOf(codes).map(c => cmteLabel(c, b)).join(' with ');
 export const cmteLink = (c, b, cls = '') => S.committees?.[c] ? `<a class="lk${cls}" href="#/search/committee/${enc(c)}">${esc(cmteLabel(c, b))}</a>` : esc(cmteLabel(c, b));
 // a committee or a joint pair: "House Health with House Human Services", each one a link

@@ -199,9 +199,9 @@ with sync_playwright() as p:
     plain = pg.evaluate("""async () => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), is = await import('/staff7/issues.js'), S = d.S, row = is.nextCtx().next.row;
       return S.bills.filter(b => b.tracked !== false && st.isAlive(b) && !mo.hearingAhead(b) && !st.deadlineOf(b) && is.clearedOf(b, row) !== 'yes').slice(0, 2).map(b => b.bill_number); }""")
     for nb in plain[:1]:
-        bill(pg, nb); st = pg.evaluate(STAT); ok(len(st) == 1 and pg.locator('#bStat .blt > b').count() == 1, f'{nb}: alive with no hearing and no deadline: one line, its first words bold ({st})')
+        bill(pg, nb); st = pg.evaluate(STAT); ok(len(st) in (1, 2) and pg.locator('#bStat .blt > b').count() == 1 and (len(st) == 1 or st[1].startswith('No hearing is scheduled in ')), f'{nb}: alive with no hearing and no deadline: its first words bold, and at most the line saying no hearing is scheduled ({st})')
     # a hearing that was cancelled or deferred, with nothing new
-    ot = pick('otherstatus'); bill(pg, ot); st = pg.evaluate(STAT); ok(len(st) == 1 and not st[0].startswith('Hearing '), f'{ot}: a cancelled hearing with nothing new is one line of where the bill is ({st})')
+    ot = pick('otherstatus'); bill(pg, ot); st = pg.evaluate(STAT); ok(len(st) in (1, 2) and not st[0].startswith('Hearing ') and (len(st) == 1 or st[1].startswith('No hearing is scheduled in ')), f'{ot}: a cancelled hearing with nothing new is a line of where the bill is, and that no hearing is scheduled ({st})')
 
     # ============================================================ the facts
     bill(pg, 'HB1523', f'who=all'); pg.wait_for_selector('#bParts'); f = pg.evaluate(FACTS)
@@ -263,6 +263,46 @@ with sync_playwright() as p:
     mc = pick('manycmtes'); bill(pg, mc); pg.wait_for_selector('#bParts'); t = pg.evaluate(TLJS)
     ok(t['vis'] and t['fit'] and not t['over'] and t['w'] and sum(1 for g in t['groups'] for x in g['stops'] if x['k'] == 'cmte') >= 4, f'{mc}: five or more committees wrap inside the page, no overlap, no sideways scroll ({t["w"]}, {t["fit"]}, {t["over"]})')
     snap(pg, 'six_committees.png')
+    # ---- the fix round: words never split, one line of dots, only "now" bold, stopped bills, retired codes
+    SPLIT = """() => { const bad = []; for (const el of document.querySelectorAll('.bigpath .bts .btk, .bigpath .bts .btnm, .bigpath .bts .btsb')) { const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const re = /\\S+/g; let m; while ((m = re.exec(n.data))) { const r = document.createRange(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); if (new Set([...r.getClientRects()].map(x => Math.round(x.top))).size > 1) bad.push(m[0]); } } } return bad; }"""
+    DOTS = """() => { const rows = {}; for (const s of document.querySelectorAll('.bigpath .bts')) { const r = s.getBoundingClientRect(), g = Math.round(s.closest('.btg').getBoundingClientRect().top / 8); (rows[g] ||= []).push(r.top); } const ys = Object.values(rows); return { rows: ys.length, ok: ys.every(a => Math.max(...a) - Math.min(...a) <= 1), over: document.documentElement.scrollWidth <= innerWidth && document.querySelector('.bigpath .btl').scrollWidth <= document.querySelector('.bigpath').clientWidth + 1 }; }"""
+    for num_ in ('HB108', 'SB11', 'HB1523'):
+        bill(pg, num_); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(200)
+        sp = pg.evaluate(SPLIT); dt = pg.evaluate(DOTS)
+        ok(not sp and dt['ok'] and dt['over'], f'{num_}: no word of a stop label breaks in the middle ({sp[:3]}), every dot of a row sits on one line ({dt}), nothing overflows')
+    wrap = pg.evaluate("() => new Set([...document.querySelectorAll('.bigpath .btg')].map(g => Math.round(g.getBoundingClientRect().top))).size")
+    bill(pg, 'HB108'); pg.wait_for_selector('#bParts'); rows108 = pg.evaluate(DOTS)['rows']
+    ok(rows108 >= 2, f'HB108: with five committees the groups go onto a second row (House row, then Senate row) rather than squeezing ({rows108} rows)')
+    # weights: only the stop it is at is bold; links keep their own weight
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts')
+    wt = pg.evaluate("() => [...document.querySelectorAll('.bigpath .bts')].map(s => [s.dataset.k, s.dataset.s, +getComputedStyle(s.querySelector('.btk')).fontWeight, [...s.querySelectorAll('.btk a')].map(a => +getComputedStyle(a).fontWeight)])")
+    ok(all((w >= 700) == (st_ == 'now') for k, st_, w, ls in wt) and all(all(x >= 700 for x in ls) for k, st_, w, ls in wt) and any(k == 'floor' and w == 400 for k, st_, w, ls in wt), f'HB1523: only the stop it is at is bold; Introduced, Floor vote, Final votes and Governor are regular; committee codes keep their link weight ({[(k, w) for k, st_, w, ls in wt]})')
+    # retired codes: SB11's WTL is "Water and Land", plain text, and nothing says "Senate committee"
+    bill(pg, 'SB11'); pg.wait_for_selector('#bParts'); t = pg.evaluate(TLJS); flat = [x for g in t['groups'] for x in g['stops']]
+    ok('Water and Land' in flat[1]['name'] and 'Senate committee' not in pg.inner_text('.paper') and not any(l.endswith('/WTL') for l in flat[1]['links']), f'SB11: the retired code WTL reads "Water and Land" in the timeline, as plain text, and no "Senate committee" is on the page ({flat[1]["name"]})')
+    rl = pg.evaluate("async () => { const w = await import('/staff7/bill_words.js'), d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'SB11'); return [w.cmteLabel('WTL', b), w.cmteLabel('HRE', b), w.cmtesText('WTL/CPN', b), w.cmteLabel('ZZZ', b)]; }")
+    ok(rl[0] == 'Senate Water and Land' and rl[1] == 'Senate Higher Education' and rl[2].startswith('Senate Water and Land with ') and rl[3] in ('A committee', 'House committee', 'Senate committee'), f'the retired-code map feeds the words too ({rl})')
+    ok(pg.evaluate("() => [...document.querySelectorAll('.bill a[href^=\"tel:\"]')].every(a => getComputedStyle(a).whiteSpace === 'nowrap')") and pg.locator('.bill a[href^="tel:"]').count() >= 1, 'SB11: a phone number never wraps inside the number')
+    # a stopped bill draws the committees up to where it stopped, "stopped" under that stop and nothing after
+    bill(pg, 'HB10'); pg.wait_for_selector('#bParts'); tr = pg.evaluate(TLF); t = pg.evaluate(TLJS)
+    sx = pg.evaluate("() => { const x = document.querySelector('.bigpath .bts.bs-x'); return x ? [x.querySelector('.btk').innerText.trim(), x.querySelector('.btnm')?.innerText.trim(), x.querySelector('.btsb').innerText.trim(), getComputedStyle(x, '::before').display, x === [...document.querySelectorAll('.bigpath .bts')].pop()] : null; }")
+    ok(sx and sx[2] == 'stopped' and sx[0] != 'First committees' and sx[1] and sx[3] == 'none' and sx[4], f'HB10: a stopped bill ends at the committee it was waiting in, "stopped" under it, nothing after it, no bar glyph ({tr}, {sx})')
+    ok(pg.locator('.bigpath svg.trk.row.dead, .bigpath svg.trk.row .tx').count() >= 1, 'HB10: the compact drawing is unchanged (it keeps its bar)')
+    # F6, F9, F10, F11 on HB108 / HB1523
+    bill(pg, 'HB108'); pg.wait_for_selector('#bParts'); st = pg.evaluate(STAT)
+    ok(len(st) >= 2 and re.match(r'^No hearing is scheduled in .+ yet(, which must hear it by \w{3}, \w{3} \d+ · \d+ days?)?$', st[1]) and pg.locator('#bStat .bln:nth-child(2).m a[href^="#/search/committee/"]').count() == 1, f'HB108: a bill in a committee with nothing scheduled and no needs-a-hearing state says so, with the committee as a link and the date it must be heard by when the calendar gives one ({st})')
+    bill(pg, 'SB11'); st = pg.evaluate(STAT); ok(not any(x.startswith('No hearing is scheduled') for x in st), 'SB11: a bill in the needs-a-hearing state does not get that line as well')
+    bill(pg, 'HB1523'); pg.wait_for_selector('#bParts'); ok(pg.locator('#bHearOld').count() == 0, 'HB1523: a bill of this year has no note about earlier hearings')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.intro_year = 2025; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(250)
+    ok(pg.locator('#bHearOld').count() == 1 and pg.inner_text('#bHearOld') == 'Hearings before 2026 are in History.' and pg.evaluate("() => { const o = document.getElementById('bHearOld'), h = document.getElementById('bHearH'); return o.previousElementSibling === h && getComputedStyle(o).fontSize === '14px'; }"), 'a carried-over bill with no hearing from before this year in the list says "Hearings before 2026 are in History." under the heading (synthetic: HB1523 made a 2025 bill)')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.intro_year = null; window.__staff7Render({ tick: true }); }")
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'HB1523'); window.__ds = b.description; b.description = 'Removes references to countdown timers.  Effective 3/22/2075.  (SD1)'; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(250)
+    pg.click('#bCapBtn'); pg.wait_for_timeout(150); cd = pg.evaluate("() => ({ d: document.querySelectorAll('#bCapKv dd')[1].innerText, w: [document.getElementById('bCapKv').getBoundingClientRect().width, document.getElementById('bFacts').getBoundingClientRect().width] })")
+    ok(cd['d'] == 'Removes references to countdown timers. Effective 3/22/2075.' and abs(cd['w'][0] - cd['w'][1]) < 2, f'the trailing draft tag is cut from the Capitol description, and the section rows are as wide as the page\'s ({cd})')
+    pg.click('#bCapBtn')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.description = window.__ds; }")
+    al = pg.evaluate("() => { const dd = [...document.querySelectorAll('#bFacts > div')].map(d => [d.querySelector('dt').innerText, d.querySelector('dd')]); const left = e => Math.round(e.getBoundingClientRect().left); const pub = dd.find(x => x[0] === 'On the public site')[1], tk = dd.find(x => x[0] === 'Talking points')[1]; return [left(pub), left(tk.querySelector('button')), left(tk)]; }")
+    ok(abs(al[1] - al[0]) <= 1, f'the Talking points value lines up with the other values ({al})')
     # a one-chamber resolution has no second chamber and no final votes
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'); window.__k0 = [b.bill_number, b.referrals, b.origin_stops, b.stage]; b.bill_number = 'HR1523'; b.referrals = ['TRN']; b.origin_stops = 1; b.stage = 'first_lateral'; b.stage_override = null; window.__staff7Render({ tick: true }); }""")
     bill(pg, 'HR1523'); tr = pg.evaluate(TLF)
@@ -400,7 +440,7 @@ with sync_playwright() as p:
     ph = pg.evaluate(PH)
     ok(pg.inner_text('#bHearH') == 'Hearings and votes so far' and pg.evaluate("() => document.getElementById('bHearH').getBoundingClientRect().top < document.getElementById('bNotesH').getBoundingClientRect().top"), 'HB1523: the block is called "Hearings and votes so far" and stands above Team notes')
     ok([p['head'] for p in ph] == ['Fri, Mar 6 · House floor, third reading', 'Thu, Feb 26 · House Judiciary & Hawaiian Affairs', 'Thu, Feb 12 · House Transportation'], f'HB1523: newest first, the House floor vote a row of its own, a result for each hearing, the two Transportation sittings as one ({[p["head"] for p in ph]})')
-    ok(ph[0]['sub'] == 'Passed · 1 no, 3 excused' and not ph[0]['links'], f'HB1523: the floor vote row says "Passed" and the counts the Capitol\'s line gives in full ({ph[0]["sub"]})')
+    ok(ph[0]['sub'] == 'Passed · 1 voted no, 3 excused' and not ph[0]['links'], f'HB1523: the floor vote row says "Passed" and the counts the Capitol\'s line gives in full ({ph[0]["sub"]})')
     ok(re.match(r'^Passed, no changes · 8 yes, 0 no, 2 excused · Our testimony, filed by Lauren · Everyone’s testimony$', ph[1]['sub']), f'HB1523: Feb 26 reads result, vote, our testimony and who filed, everyone\'s testimony ({ph[1]["sub"]})')
     ok(ph[2]['sub'].startswith('Passed with changes on Feb 17 · 7 yes, 0 no, 2 excused') and 'reservations' not in ph[2]['sub'], f'HB1523: Feb 12 says when the changes passed, and the vote ("with reservations" is not said: its count is not stated) ({ph[2]["sub"]})')
     hr = [p for p in ph if p['cm']]
@@ -473,8 +513,9 @@ with sync_playwright() as p:
       f.floorCounts('Passed Third Reading with none voting aye with reservations; Representative(s) Olds voting no (1) and Representative(s) Perruso, Quin'),
       f.floorCounts('Report Adopted; Passed Third Reading, as amended (SD 1).  Ayes, 22; Aye(s) with reservations: none.  Noes, 0 (none).  Exc'),
       f.floorCounts('Passed Third Reading.'),
+      f.floorCounts('Passed Third Reading with none voting aye with reservations; none voting no (0) and Representative(s) Cochran, Pierick, Templo, Ward excused (4).  Transmitted to Senate.'),
       f.floorVotes([{ title: 'Passed Third Reading.  Transmitted to Senate.', details: 'Official action - House', occurred_at: '2026-03-06T18:00:00.000Z', source: 'auto' }, { title: 'Reported from JHA, recommending passage on Third Reading.', details: 'Official action - House', occurred_at: '2026-03-06T18:00:00.000Z', source: 'auto' }]).map(x => x.chamber + '|' + x.counts) ]; }""")
-    ok(fc[0] == '1 no, 3 excused' and fc[1] == '25 yes, 0 no, 0 excused' and fc[2] == '' and fc[3] == '' and fc[4] == '' and fc[5] == ['House|'], f'floor vote counts are read only when the Capitol\'s line gives them in full, never partial or wrong ({fc})')
+    ok(fc[0] == '1 voted no, 3 excused' and fc[1] == '25 yes, 0 no, 0 excused' and fc[2] == '' and fc[3] == '' and fc[4] == '' and fc[6] == ['House|'] and fc[5] == 'none voted no, 4 excused', f'floor vote counts are read only when the Capitol\'s line gives them in full, never partial or wrong ({fc})')
     snap(pg, 'b_history_open.png', tall=True)
     snap(pg, 'b_whole_page.png', tall=True)
     # --- loading, failed, empty (forced in the page)
@@ -732,8 +773,11 @@ with sync_playwright() as p:
     m1 = marks('first_lateral', four, 2, 'TRN'); ok(m1 == ['Introduced:done', 'TRN:now', 'JHA:todo', 'Floor vote:todo', 'TRS:todo', 'JDC:todo', 'Floor vote:todo', 'Final votes:todo', 'Governor:todo'], f'in the first chamber: the committee it is in is now, the rest to come ({m1})')
     m2 = marks('first_floor', four, 2); ok(m2 == ['Introduced:done', 'TRN:done', 'JHA:done', 'Floor vote:now', 'TRS:todo', 'JDC:todo', 'Floor vote:todo', 'Final votes:todo', 'Governor:todo'], f'on the first chamber\'s floor: its committees passed, its floor vote is now ({m2})')
     m3 = marks('first_crossover', ['TRN', 'JHA'], 2); ok(m3 == ['Introduced:done', 'TRN:done', 'JHA:done', 'Floor vote:done', 'Not referred yet:now', 'Final votes:todo', 'Governor:todo'], f'crossed over with no committee of the other chamber yet: the first chamber is passed, the second says "Not referred yet" ({m3})')
-    m4 = marks('dead', four, 2, None, 'second_lateral'); ok(m4 == ['Introduced:done', 'TRN:done', 'JHA:done', 'Floor vote:done', 'Second chamber:x'] and pg.locator('.bigpath .btl.dead').count() == 1 and pg.locator('.bigpath .btl .bts').count() == 5, f'a bill that stopped in the second chamber: the first chamber is passed, it ends at one general stop with the bar, nothing after it ({m4})')
-    m5 = marks('dead', four, 2, None, 'first_lateral'); ok(m5 == ['Introduced:done', 'First committees:x'], f'a bill that stopped in its first committees: one general stop with the bar, since the data does not say which committee held it ({m5})')
+    m4 = marks('dead', four, 2, None, 'second_lateral'); ok(m4[:4] == ['Introduced:done', 'TRN:done', 'JHA:done', 'Floor vote:done'] and m4[-1].endswith(':x') and len(m4) in (5, 6) and pg.locator('.bigpath .btl.dead').count() == 1 and m4[-1] != 'Second chamber:x', f'a bill that stopped in a second-chamber committee: the first chamber is passed, then the committees up to where it stopped, nothing after it ({m4})')
+    m5 = marks('dead', four, 2, None, 'first_lateral'); ok(m5[0] == 'Introduced:done' and m5[-1].endswith(':x') and m5[-1] != 'First committees:x' and not any(x.startswith(('JDC', 'TRS')) for x in m5), f'a bill that stopped in a first committee: that committee is where it stopped ({m5})')
+    m5b = marks('dead', four, 2, None, 'first_floor'); ok(m5b[0] == 'Introduced:done' and m5b[-1].endswith(':x') and len(m5b) <= 5, f'a bill stopped with no committee named keeps the general stop or the floor ({m5b})')
+    pg.evaluate("""async () => { const d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.died_at_stage = null; b.stage = 'dead'; window.__staff7Render({ tick: true }); }"""); pg.wait_for_timeout(250)
+    m5c = pg.evaluate(TLF); ok(m5c == ['Introduced:done', 'First committees:x'], f'a stopped bill whose committee the data does not name keeps one general stop ({m5c})')
     m6 = marks('second_floor', four, 2); ok(m6 == ['Introduced:done', 'TRN:done', 'JHA:done', 'Floor vote:done', 'TRS:done', 'JDC:done', 'Floor vote:now', 'Final votes:todo', 'Governor:todo'], f'on the second chamber\'s floor ({m6})')
     m7 = marks('introduced', [], 0); ok(m7[0] == 'Introduced:now' and not any(x.endswith(':x') for x in m7), f'not referred yet: Introduced is now, the chambers are general stops ({m7})')
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB1523'), k = window.__k; b.stage = k.stage; b.referrals = k.refs; b.origin_stops = k.ob; b.committee = k.cm; b.stage_override = k.so; b.died_at_stage = null; S.hearings.push(...k.hs); }""")
@@ -831,6 +875,8 @@ with sync_playwright() as p:
     ok(tg and all(h >= 43.5 for h in tg), f'phone: standalone links in the facts are 44px tall by padding ({tg})')
     al = pg.evaluate("() => { const p = document.getElementById('bPos').getBoundingClientRect(), b = document.getElementById('bEditGo').getBoundingClientRect(); return [Math.round(p.left), Math.round(b.left), Math.round(b.top - p.top)]; }")
     ok(al[2] < 5 or abs(al[0] - al[1]) < 3, f'phone: "Change position or lead" lines up with the text above (line left {al[0]}, button left {al[1]}, {al[2]}px down)')
+    ic_ = pg.evaluate("() => { const i = document.querySelector('.hband .imark').getBoundingClientRect(), h = document.querySelector('.hband h1').getBoundingClientRect(), lh = parseFloat(getComputedStyle(document.querySelector('.hband h1')).lineHeight) || 34; return [i.top + i.height / 2, h.top + lh / 2, h.height / lh]; }")
+    ok(abs(ic_[0] - ic_[1]) <= 12, f'phone: the band\'s icon lines up with the first line of the title, not the middle of its {round(ic_[2])} lines ({[round(x) for x in ic_]})')
     snap(pg, 'f_phone.png')
     ok(not errs and not bad, 'phone: no console error, nothing left 127.0.0.1')
     pg.context.close()
@@ -843,7 +889,7 @@ with sync_playwright() as p:
     bill(pg, hb, f'i={hi}&who=all')
     ok(pg.locator('svg.trk.row').first.is_visible() and pg.locator('.bigpath .btl').first.is_hidden(), 'phone: the path is the compact one, the timeline is hidden')
     bn = pg.evaluate("() => { const n = document.querySelector('.hband .bno').getBoundingClientRect(), l = [...document.querySelectorAll('.hband .bls a')].map(a => a.getBoundingClientRect()); return [Math.round(n.top), l.map(r => Math.round(r.top)), l.map(r => Math.round(r.height))]; }")
-    ok(all(t > bn[0] + 10 for t in bn[1]) and all(h >= 44 for h in bn[2]), f'phone: the Capitol and Read-the-bill links wrap to their own line under the number, 44px tall ({bn})')
+    ok(len(set(bn[1])) == 1 and all(t > bn[0] + 10 for t in bn[1]) and all(h >= 44 for h in bn[2]), f'phone: the Capitol and Read-the-bill links wrap to their own line under the number, 44px tall ({bn})')
     backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
     ok(len(backs) == 1 and backs[0].startswith('Back to '), f'phone: one back link, labelled with where it goes ({backs})')
     bill(pg, 'HB1523'); pg.wait_for_selector('#bParts'); pg.click('#bCap button[data-bmore]'); pg.wait_for_timeout(100)
@@ -854,6 +900,16 @@ with sync_playwright() as p:
     snap(pg, 'phone_bill.png')
     ok(not errs and not bad, f'phone: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.context.close()
+    # ---- narrower laptops and a tablet: no word breaks, nothing overflows, the timeline or the compact drawing shows
+    for (w_, h_) in ((1024, 768), (768, 1024)):
+        pg, ctx = open_as(br, 'KV', w_, h_, '#/bill/HB108'); errs, bad = ctx._errs, ctx._bad; pg.wait_for_selector('#bParts', timeout=20000)
+        for num_ in ('HB108', 'SB11', 'HB1523'):
+            bill(pg, num_); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(250)
+            shown = pg.evaluate("() => document.querySelector('.bigpath .btl').getBoundingClientRect().height > 0")
+            sp = pg.evaluate(SPLIT) if shown else []
+            ok(not sp and pg.evaluate(NOSIDE) and (shown or pg.locator('.bigpath svg.trk.row').first.is_visible()), f'{w_}x{h_} {num_}: the timeline ({"shown" if shown else "hidden, the compact drawing shows"}) breaks no word ({sp[:3]}), no sideways scroll')
+        ok(not errs and not bad, f'{w_}x{h_}: no console error')
+        pg.context.close()
     br.close()
 print(f'{sum(res)}/{len(res)} passed')
 sys.exit(0 if all(res) else 1)
