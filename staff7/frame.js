@@ -169,7 +169,7 @@ function render(opts = {}) {
   if (phone) document.body.classList.remove('isws');
   bindHome(); bindFn && bindFn();
   if (!opts.tick) noteOpened(rt);
-  bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}) });
+  bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}), keep: () => render({ tick: true }) });
   if (opts.tick) {   // a tick changes only the numbers: no entry animation, same scroll, talking points as they were
     document.querySelectorAll('#app .enter').forEach(e => e.classList.remove('enter'));
     const tl = document.getElementById('tpList'), tb = document.getElementById('tpBtn'); if (tpOpen && tl) { tl.hidden = false; tb?.setAttribute('aria-expanded', 'true'); }

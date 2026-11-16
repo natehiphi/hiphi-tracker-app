@@ -33,3 +33,5 @@ export function billExtras(b) {
     drafts: S.drafts?.[b.id] || [], messages, pinned: String(b.internal_notes || '').trim() || String(c.tf.pinned || '').trim(),
   };
 }
+// the timeline asked for again after the page itself added a row (a lead change), so the new line shows at once
+export async function refreshTimeline(b) { const c = cache.get(b.id); if (c && typeof c === 'object') { try { c.tl = (await DB.timeline(b.id)) || c.tl; } catch { /* the old lines stay */ } } }

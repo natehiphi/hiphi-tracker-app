@@ -1,7 +1,7 @@
 // Staff7's bill page (R-398). Part A: the band, HIPHI's position and who leads, where the bill stands (two plain lines), the path drawing and the bill's facts (what it does, issue, committees, companions,
 // sponsors). Everything here is worked out from data already in memory, and the words for dates and states come from the SAME helpers the Issues list uses (hearTxt, whenWords, deadlineOf, isAtRisk, clearedOf,
 // whereWords, testimonyDue, bill_words.js), so the list and this page never disagree. Looking never changes anything: only a bill on one of the viewer's own issues has a link to one of their steps.
-// Seams: positionEditSlot (Part C: "Change position or lead", beside the position); Part B (Team notes, Past hearings, History) is bill_history.js, drawn after the facts.
+// Part B (Team notes, Past hearings, History) is bill_history.js, drawn after the facts; Part C (Change position or lead, Add a note) is bill_edit.js.
 import { S, SESSION_YEAR, capitolUrl, effStage } from '../staff6/data.js';
 import { hearingAhead, stopOf, roomName, companionsOf } from '../staff6/model.js';
 import { whereWords } from '../staff6/steps.js';
@@ -14,6 +14,7 @@ import { billPath, pathOf } from './path.js';
 import { norm } from './find.js';
 import { testimonyDue, letterState, testimonyShort, leadIds } from './bill_words.js';
 import { partB, bindPartB } from './bill_history.js';
+import { editButton, editHTML, mayEdit, bindEdit } from './bill_edit.js';
 import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, lookLine, sameName, clean, whereShort, hearTxt, stepOn, clearedOf, sitKeyOf, nextCtx, billHref } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -21,7 +22,7 @@ const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
 const http = u => /^https?:\/\//i.test(String(u || '').trim());
 const num = b => String(b.bill_number).replace(/\s/g, '');
 // What is open on the page, kept across the minute's redraw in this visit only: the bills whose whole list of introducers was opened
-export const bui = { all: new Set(), open: new Set() };   // all: bills whose whole list of introducers is open; open: the "Show all" lists of Part B (key: list|bill id)
+export const bui = { all: new Set(), open: new Set(), edit: null, ctx: null, note: new Map(), noteSel: null, noteErr: false, noteBusy: false };   // all: bills whose whole list of introducers is open; open: the "Show all" lists of Part B (key: list|bill id)
 
 // ---------------------------------------------------------------------------------- small parts
 const ext = (url, label) => `<a class="lk" target="_blank" rel="noopener" href="${esc(url)}">${esc(label)}${ic('external-link')}</a>`;
@@ -43,8 +44,6 @@ const billTextUrl = b => {
 };
 
 // ---------------------------------------------------------------------------------- the seams for the parts that come next
-// Part C: the text button "Change position or lead", drawn beside the position (only for a bill the viewer may change). Nothing yet.
-const positionEditSlot = () => '';
 
 // ---------------------------------------------------------------------------------- back
 // "Back to <issue>", or where the person came from (the address carries from=calendar or from=search)
@@ -66,9 +65,10 @@ function leadHTML(b, issue, me) {
   const j = names.length < 3 ? names.join(' and ') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
   return `${j} ${names.length === 1 && ids[0] !== me?.id ? 'leads' : 'lead'}`;
 }
-function positionHTML(b, issue, me) {
+function positionHTML(b, issue, me, can) {
+  if (can && bui.edit && bui.edit.id === b.id) return editHTML(b, issue, me);   // the edit block stands in the position line's place
   const pos = b.position ? `<span class="bpos-k">HIPHI’s position</span> <b class="bpos">${esc(posWords(b))}</b>` : '<b class="bpos">No position yet</b>';
-  return `<p class="bposl" id="bPos">${pos}<span class="bsep" aria-hidden="true">·</span><span id="bLead">${leadHTML(b, issue, me)}</span>${positionEditSlot(b, issue, me)}</p>`;
+  return `<p class="bposl" id="bPos">${pos}<span class="bsep" aria-hidden="true">·</span><span id="bLead">${leadHTML(b, issue, me)}</span>${can ? editButton() : ''}</p>`;
 }
 
 // ---------------------------------------------------------------------------------- 2. where it stands
@@ -191,7 +191,9 @@ export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   const alive = isAlive(b), lo = !own, nx = x.nx || nextCtx(), from = x.from === 'calendar' || x.from === 'search' ? x.from : '';
   const onIssue = (S.billIssues || []).some(y => y.bill_id === b.id && (S.issues || []).some(i => i.id === y.issue_id && !i.archived_at));
   let out = `<div class="pn"><div class="hband" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${backOf(issue, b, who, from)}<h1 tabindex="-1">${esc(billName(b))}</h1><p class="bsub">${esc(billNo(b))}</p></div></div><div class="pbody bill">`;
-  out += positionHTML(b, issue, me);
+  const can = mayEdit(b, issue, me, own); if (!(can && bui.edit && bui.edit.id === b.id)) bui.edit = null;   // an edit open on another bill, or one this person may not make, is dropped
+  bui.ctx = { b, issue, me };
+  out += positionHTML(b, issue, me, can);
   if (lo) out += `<p class="hint blook">${esc(lookLine(who))}</p>`;
   out += `<div class="bstat" id="bStat">${statusLines(b, issue, who, open, own, nx, onIssue).join('')}</div>`;
   out += stillAlive(b, issue, who, others);
@@ -209,5 +211,5 @@ export function bindBill() {
     bt.setAttribute('aria-expanded', String(on)); bt.textContent = on ? 'Show fewer' : 'Show all';
     dd?.querySelector('[data-bs="short"]')?.toggleAttribute('hidden', on); dd?.querySelector('[data-bs="long"]')?.toggleAttribute('hidden', !on);
   }));
-  bindPartB();
+  bindEdit(); bindPartB();
 }

@@ -2,7 +2,7 @@
 // The data comes from bill_data.js (asked for once, 'loading' then drawn again); until it lands, or if it fails, the three blocks are one quiet line, and the top of the page never waits for it.
 // Every "Show all" is a button with data-bmore; the lists are always drawn in full with the extra rows hidden, so opening one changes nothing else, and the open state is kept in bill.js's `bui`
 // (the minute's redraw keeps it).
-// Seam for Part C: noteAddSlot, above the notes (the box and "Add the note").
+// Part C's note box (bill_edit.js) sits above the notes.
 import { S } from '../staff6/data.js';
 import { plainAction } from '../staff6/model.js';
 import { POSITIONS } from '../staff6/data.js';
@@ -13,6 +13,7 @@ import { dateWords } from './words.js';
 import { draftFor } from './bill_words.js';
 import { billExtras, retry } from './bill_data.js';
 import { bui } from './bill.js';
+import { noteBoxHTML } from './bill_edit.js';
 import { eCig, clean } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -22,7 +23,7 @@ const day = t => dateWords(ymd(t));
 const short = t => new Date(t).toLocaleDateString('en-US', { ...HST, month: 'short', day: 'numeric' });
 const http = u => /^https?:\/\//i.test(String(u || '').trim());
 const nameOf = id => first(S.advocates.find(a => a.id === id));
-const noteAddSlot = () => '';   // Part C: the box and "Add the note"
+
 
 // ---------------------------------------------------------------------------------- the Capitol's vote sentence
 // Counts only, never names. The sentence comes in at least two forms ("4 Aye(s): ...; 0 No(es): none; and 1 Excused: ..." and "7 Ayes: ...; Noes: none; and 2 Excused: ...") and the data cuts it at 300 letters,
@@ -54,7 +55,7 @@ function notesBlock(b, x) {
   const body = t => esc(eCig(t)).replace(/\n/g, '<br>');
   const pin = x.pinned ? `<div class="bnote pin" id="bPinned"><small>Pinned</small><p>${body(x.pinned)}</p></div>` : '';
   const items = msgs.map(m => `<div class="bnote"><small>${esc(nameOf(m.advocate_id))} · ${esc(day(m.created_at))}</small><p>${body(m.body)}</p></div>`);
-  return `<h2 class="sh" id="bNotesH">Team notes</h2>${noteAddSlot(b)}${pin}${items.length ? list('notes', b, items, 2, 'notes', ' bnl') : pin ? '' : '<p class="hint" id="bNoNotes">No notes yet.</p>'}`;
+  return `<h2 class="sh" id="bNotesH">Team notes</h2>${noteBoxHTML(b)}${pin}${items.length ? list('notes', b, items, 2, 'notes', ' bnl') : pin ? '' : '<p class="hint" id="bNoNotes">No notes yet.</p>'}`;
 }
 
 // ---------------------------------------------------------------------------------- Past hearings
@@ -106,9 +107,11 @@ function ourRows(b, x) {
     if (!r.advocate_id || r.source === 'auto') continue;
     const who = esc(nameOf(r.advocate_id));
     if (r.type === 'field_change') {
-      const m = r.meta || {};
+      let m = r.meta; if (!m) { try { m = JSON.parse(r.details); } catch { m = {}; } }   // the database's own rows carry meta; one this page writes carries the same fields as JSON in its details
+      m = m || {};
       if (m.field === 'position') add(r.occurred_at, `${who} changed the position: ${esc(posName(m.old))} to ${esc(posName(m.new))}`);
       else if (m.field === 'lead' && m.new) add(r.occurred_at, `${who} made ${esc(nameOf(m.new))} the lead`);
+      else if (m.field === 'lead' && m.old) add(r.occurred_at, `${who} took the lead off ${esc(nameOf(m.old))}`);
       continue;   // priority and any other field change: left out
     }
     if (r.type === 'note') add(r.occurred_at, `${who} added a note`, r.title);

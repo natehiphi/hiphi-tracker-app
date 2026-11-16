@@ -383,6 +383,154 @@ with sync_playwright() as p:
     ok(not errs and not bad, f'Part B at 1440: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.context.close()
 
+    # ============================================================ Part C: change position or lead, add a note
+    pg0, ctx0 = open_as(br, 'NT', 1440, 900, '#/issues')
+    WHO = pg0.evaluate("""async () => {
+      const d = await import('/staff6/data.js'), bw = await import('/staff7/bill_words.js'), S = d.S, out = {}, prev = S.me;
+      const issueOf = b => { const ids = S.billIssues.filter(x => x.bill_id === b.id).map(x => x.issue_id); return S.issues.find(i => ids.includes(i.id) && !i.archived_at); };
+      try { for (const a of S.advocates.filter(a => a.is_active !== false)) { S.me = a; const mine = new Set([...d.myIssueIds()].map(String));
+        for (const b of S.bills.filter(b => b.tracked !== false && issueOf(b)).slice(0, 400)) { const i = issueOf(b), lead = bw.leadIds(b, i).includes(a.id), own = mine.has(String(i.id)), adm = !!a.is_admin;
+          const k = lead && !adm ? 'lead' : own && !lead && !adm ? 'owner' : adm && !lead && !own ? 'admin' : !lead && !own && !adm ? 'none' : ''; if (k && !out[k]) out[k] = { ini: a.initials, bill: b.bill_number }; } } } finally { S.me = prev; }
+      // a bill with a lead assigned and no issue owner to stand in for it; a bill that is not public; one that is
+      const nobody = S.bills.find(b => b.tracked !== false && (S.assignments[b.id] || []).length === 1 && !(issueOf(b) && issueOf(b).owner_id));
+      const pub = S.bills.find(b => b.tracked !== false && b.is_public && issueOf(b) && (S.assignments[b.id] || []).length), priv = S.bills.find(b => b.tracked !== false && !b.is_public && (S.assignments[b.id] || []).length && issueOf(b));
+      out.nobody = nobody ? nobody.bill_number : null; out.pub = pub ? [pub.bill_number, S.advocates.find(a => a.id === S.assignments[pub.id][0]).initials] : null; out.priv = priv ? [priv.bill_number, S.advocates.find(a => a.id === S.assignments[priv.id][0]).initials] : null;
+      return out; }""")
+    pg0.context.close()
+    print('who sees the button:', WHO, flush=True)
+    ok(all(WHO.get(k) for k in ('lead', 'owner', 'admin', 'none', 'nobody', 'pub')), f'the practice copy has a lead, an issue owner, an admin and a stranger to test with, a bill with a lead and no owner to stand in, a public and a private bill ({ {k: WHO.get(k) for k in ("lead", "owner", "admin", "none")} })')
+    for kind in ('lead', 'owner', 'admin', 'none'):
+        w = WHO[kind]; pgx, cx = open_as(br, w['ini'], 1440, 900, f'#/bill/{w["bill"]}'); pgx.wait_for_selector('#bParts', timeout=20000)
+        see = pgx.locator('#bEditGo').count() == 1; txt = pgx.locator('#bEditGo').inner_text() if see else ''
+        ok(see == (kind != 'none') and (not see or txt == 'Change position or lead'), f'{w["ini"]} ({kind}) on {w["bill"]}: the "Change position or lead" button is {"shown" if see else "not shown"}')
+        ok(pgx.locator('#bNoteIn').count() == 1 and pgx.inner_text('label[for=bNoteIn]') == 'Add a note for the team', f'{w["ini"]} ({kind}): the note box is there for every team viewer')
+        if kind == 'none':
+            go(pgx, f'#/bill/{w["bill"]}?who=all'); pgx.wait_for_selector('#bParts'); ok('Look only' in pgx.inner_text('main') and pgx.locator('#bEditGo').count() == 0 and pgx.locator('#bNoteIn').count() == 1, f'{w["ini"]}: looking at everyone\'s list: look only, no change button, but the note box is still there')
+        pgx.context.close()
+
+    pg, ctx = open_as(br, 'NT', 1440, 900, '#/bill/HB2300'); errs, bad = ctx._errs, ctx._bad
+    pg.wait_for_selector('#bParts', timeout=20000)
+    LISTROW = "() => [...document.querySelectorAll('#bOurs li')].slice(0, 3).map(l => l.innerText.replace(/\\s+/g, ' ').trim())"
+    OURS = "() => document.querySelectorAll('#bl-ours > li').length"
+    snap(pg, 'c_button.png')
+    ok(pg.inner_text('#bPos').replace('\n', ' ').startswith('HIPHI’s position') and pg.evaluate("() => document.getElementById('bPos').lastElementChild.id") == 'bEditGo', 'HB2300: the button is at the end of the position line')
+    # open: focus on the checked position; the status lines stay; Cancel and Escape close and give the focus back
+    n0 = pg.evaluate(OURS); stat0 = pg.evaluate(STAT)
+    pg.click('#bEditGo'); pg.wait_for_timeout(200)
+    ok(pg.evaluate("() => document.activeElement.id") == 'bp-support' and pg.locator('#bEdit').count() == 1 and pg.locator('#bPos').count() == 0 and pg.evaluate(STAT) == stat0, 'open: the edit block stands in the position line\'s place, focus is on the checked position, the status lines are still there')
+    lab = pg.evaluate("() => ({ legend: document.querySelector('#bEdit fieldset legend').innerText, radios: [...document.querySelectorAll('#bEdit input[type=radio]')].map(r => [r.value, r.closest('label').innerText.trim(), r.checked]), lead: document.querySelector('label[for=bLeadSel]').innerText, opts: [...document.querySelectorAll('#bLeadSel option')].map(o => o.innerText), save: document.getElementById('bSave').disabled, savecls: document.getElementById('bSave').className })")
+    labels = pg.evaluate("async () => (await import('/staff6/data.js')).POSITIONS.filter(p => p[0]).map(p => [p[0], p[1]])")
+    ok(lab['legend'] == 'Position' and lab['lead'] == 'Lead' and [r[:2] for r in lab['radios']][:-1] == labels and lab['radios'][-1][:2] == ['', 'No position yet'] and sum(1 for r in lab['radios'] if r[2]) == 1, f'the position choices are the data layer\'s own list and labels, plus "No position yet" ({[r[1] for r in lab["radios"]]})')
+    ok(lab['opts'][0] == 'Nobody' and 'Nate' in lab['opts'] and 'Kris' in lab['opts'] and len(lab['opts']) == 1 + pg.evaluate("async () => (await import('/staff6/data.js')).S.advocates.filter(a => a.is_active !== false).length"), f'the lead select has Nobody and every active teammate by first name ({lab["opts"]})')
+    ok(lab['save'] and 'filled' in lab['savecls'], 'Save is a filled button and is disabled until something changes')
+    ok(pg.inner_text('.beact .hint') == 'The position shows on the public site.' if pg.evaluate("async () => (await import('/staff6/data.js')).S.bills.find(b => b.bill_number === 'HB2300').is_public") else pg.locator('.beact .hint').count() == 0, 'the public hint matches whether HB2300 is public')
+    snap(pg, 'c_editing.png')
+    pg.click('#bp-oppose'); pg.wait_for_timeout(100); ok(not pg.evaluate("() => document.getElementById('bSave').disabled"), 'Save is enabled once a choice differs')
+    pg.click('#bp-support'); pg.wait_for_timeout(100); ok(pg.evaluate("() => document.getElementById('bSave').disabled"), 'putting the choice back disables Save again')
+    pg.click('#bCancel'); pg.wait_for_timeout(200)
+    ok(pg.locator('#bEdit').count() == 0 and pg.evaluate("() => document.activeElement.id") == 'bEditGo' and 'Support' in pg.inner_text('#bPos') and pg.evaluate(OURS) == n0, 'Cancel closes with nothing saved and the focus goes back to the button')
+    pg.click('#bEditGo'); pg.click('#bp-monitor'); pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    ok(pg.locator('#bEdit').count() == 0 and pg.evaluate("() => document.activeElement.id") == 'bEditGo' and 'Monitor' not in pg.inner_text('#bPos'), 'Escape closes with nothing saved and the focus goes back to the button')
+    # the open block and its unsaved choices survive a redraw
+    pg.click('#bEditGo'); pg.click('#bp-oppose'); pg.select_option('#bLeadSel', label='Kris')
+    pg.evaluate("() => window.__staff7Render({ tick: true })"); pg.wait_for_timeout(300)
+    ok(pg.locator('#bEdit').count() == 1 and pg.evaluate("() => document.querySelector('#bEdit input:checked').value") == 'oppose' and pg.evaluate("() => document.getElementById('bLeadSel').selectedOptions[0].innerText") == 'Kris' and not pg.evaluate("() => document.getElementById('bSave').disabled"), 'the open block and its unsaved choices survive the minute\'s redraw')
+    pg.click('#bCancel')
+    # save position only, then Undo
+    pg.click('#bEditGo'); pg.click('#bp-support_amend'); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok(pg.inner_text('#bPos').replace('\n', ' ') == 'HIPHI’s position Support w/ amendments · You lead Change position or lead' and pg.locator('#bEdit').count() == 0 and pg.evaluate("() => document.activeElement.id") == 'bEditGo', f'position only: the page shows the new position and the same lead ({pg.inner_text("#bPos").replace(chr(10), " ")})')
+    r = pg.evaluate(LISTROW); ok(r[0].startswith('Nate changed the position: Support to Support w/ amendments') and pg.evaluate(OURS) == n0 + 1, f'position only: "What we did" has the new row on top ({r[0]})')
+    ok(pg.inner_text('#toast .tin').replace('\n', ' ').startswith('Saved') and pg.locator('#toastUndo').is_visible(), 'position only: a toast "Saved" with Undo')
+    snap(pg, 'c_saved_toast.png')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500)
+    ok('Support' in pg.inner_text('#bPos') and 'amendments' not in pg.inner_text('#bPos') and pg.evaluate(OURS) == n0 and not pg.evaluate(LISTROW)[0].startswith('Nate changed'), 'position only: Undo puts the position back and takes the row out of the history')
+    # lead only, then Undo
+    pg.click('#bEditGo'); pg.select_option('#bLeadSel', label='Kris'); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok(pg.inner_text('#bLead').strip() == 'Kris leads' and pg.locator('#bLead a').get_attribute('href') == '#/issues?who=KR', f'lead only: the page says "Kris leads", a link to Kris\'s issues ({pg.inner_text("#bLead")})')
+    ok(pg.evaluate(LISTROW)[0].startswith('Nate made Kris the lead') and 'changed the position' not in pg.evaluate(LISTROW)[0], 'lead only: "What we did" reads "Nate made Kris the lead"')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500)
+    ok(pg.inner_text('#bLead').strip() == 'You lead' and pg.evaluate(OURS) == n0, 'lead only: Undo puts the lead back and removes the row')
+    # both at once, then Undo
+    pg.click('#bEditGo'); pg.click('#bp-strongly_support'); pg.select_option('#bLeadSel', label='Jess'); pg.click('#bSave'); pg.wait_for_timeout(500)
+    rows = pg.evaluate(LISTROW)
+    ok('Strongly support' in pg.inner_text('#bPos') and 'Jess leads' in pg.inner_text('#bLead') and pg.evaluate(OURS) == n0 + 2 and any('made Jess the lead' in x for x in rows[:2]) and any('Support to Strongly support' in x for x in rows[:2]), f'both: one Save changes both, with a row for each ({rows[:2]})')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500)
+    ok('Strongly' not in pg.inner_text('#bPos') and 'You lead' in pg.inner_text('#bLead') and pg.evaluate(OURS) == n0, 'both: one Undo puts both back')
+    # the issues list at the left is drawn again, not left stale
+    ok(pg.locator('.wl a.sr3').count() > 3 and pg.locator('a.sr3[aria-current=true]').count() >= 1, 'the Issues list at the left is still there and still marks the open issue after a save')
+    # keyboard only
+    pg.focus('#bEditGo'); pg.keyboard.press('Enter'); pg.wait_for_timeout(200)
+    ok(pg.evaluate("() => document.activeElement.id") == 'bp-support', 'keyboard: Enter on the button opens the block with the focus on the checked position')
+    pg.keyboard.press('ArrowRight'); pg.wait_for_timeout(100)
+    ok(pg.evaluate("() => document.querySelector('#bEdit input:checked').value") == 'support_amend', 'keyboard: the arrow keys move through the positions')
+    pg.keyboard.press('Tab'); ok(pg.evaluate("() => document.activeElement.id") == 'bLeadSel', 'keyboard: Tab goes on to the lead')
+    pg.keyboard.type('Kris'); pg.wait_for_timeout(150); pk = pg.evaluate("() => document.getElementById('bLeadSel').selectedOptions[0].innerText")
+    ok(pk == 'Kris', f'keyboard: typing a name changes the lead (the arrow keys open the browser\'s own list on a Mac) ({pk})')
+    pg.keyboard.press('Tab'); ok(pg.evaluate("() => document.activeElement.id") == 'bSave', 'keyboard: Tab reaches Save')
+    pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+    ok('Support w/ amendments' in pg.inner_text('#bPos') and pg.evaluate("() => document.activeElement.id") == 'bEditGo', 'keyboard: Enter on Save saves, and the focus returns to the button')
+    pg.click('#toastUndo'); pg.wait_for_timeout(400)
+    # forced failures
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__keepU = d.DB.updateBill; d.DB.updateBill = async () => { throw new Error('no'); }; }")
+    pg.click('#bEditGo'); pg.click('#bp-oppose'); pg.click('#bSave'); pg.wait_for_timeout(400)
+    ok(pg.inner_text('#bEditErr') == 'We could not save that. Try again.' and pg.locator('#bEdit').count() == 1 and pg.evaluate("() => document.querySelector('#bEdit input:checked').value") == 'oppose' and pg.evaluate(OURS) == n0, 'a failed position save keeps the block open, says one plain line, and changes nothing')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.updateBill = window.__keepU; window.__keepO = d.DB.setOwner; d.DB.setOwner = async () => { throw new Error('no'); }; }")
+    pg.select_option('#bLeadSel', label='Kris'); pg.click('#bSave'); pg.wait_for_timeout(500)
+    posnow = pg.evaluate("async () => (await import('/staff6/data.js')).S.bills.find(b => b.bill_number === 'HB2300').position")
+    ok(pg.inner_text('#bEditErr') == 'We could not save that. Try again.' and posnow == 'support' and pg.evaluate(OURS) == n0, f'a failed lead save puts the position back too, so nothing is half done (position {posnow})')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.setOwner = window.__keepO; }")
+    pg.click('#bCancel')
+    # held for an admin (the data layer says so)
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__keepU = d.DB.updateBill; d.DB.updateBill = async () => ['position']; }")
+    pg.click('#bEditGo'); pg.click('#bp-oppose'); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok('The position waits for an admin’s yes.' in pg.inner_text('#toast .tin') and 'Oppose' not in pg.inner_text('#bPos') and pg.evaluate(OURS) == n0, 'a position the database keeps for an admin says so, and is not shown as final')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.updateBill = window.__keepU; }")
+    # a bill with a lead and nobody to stand in: "Nobody"
+    nb = WHO['nobody']; bill(pg, nb, ''); pg.wait_for_selector('#bParts'); who0 = pg.inner_text('#bLead').strip(); n1 = pg.evaluate(OURS)
+    pg.click('#bEditGo'); pg.select_option('#bLeadSel', label='Nobody'); pg.click('#bSave'); pg.wait_for_timeout(500)
+    ok(pg.inner_text('#bLead').strip() == 'Nobody leads it yet' and pg.evaluate(LISTROW)[0].startswith('Nate took the lead off ') and pg.evaluate(OURS) == n1 + 1, f'{nb}: choosing Nobody says "Nobody leads it yet" and the history reads "{pg.evaluate(LISTROW)[0]}" (it was "{who0}")')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500); ok(pg.inner_text('#bLead').strip() == who0 and pg.evaluate(OURS) == n1, f'{nb}: Undo puts the lead back')
+    # the public hint only on a public bill
+    pb = WHO['pub']; pv = WHO['priv'] or [WHO['lead']['bill'], WHO['lead']['ini']]   # every tracked practice bill with a lead is public: the private one is made so in the page
+    for (num, ini), want in ((pb, True), (pv, False)):
+        pgx, cx = open_as(br, ini, 1440, 900, f'#/bill/{num}'); pgx.wait_for_selector('#bParts')
+        if not want: pgx.evaluate("async n => { const d = await import('/staff6/data.js'); d.S.bills.find(b => b.bill_number === n).is_public = false; window.__staff7Render({ tick: true }); }", num)
+        pgx.click('#bEditGo'); pgx.wait_for_timeout(150)
+        has = pgx.locator('.beact .hint').count() == 1 and pgx.inner_text('.beact .hint') == 'The position shows on the public site.'
+        ok(has == want, f'{num}: the public hint is {"there" if want else "not there"} on a {"public" if want else "private"} bill')
+        pgx.context.close()
+    # --- add a note
+    bill(pg, 'HB2300', ''); pg.wait_for_selector('#bParts'); nn = pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length"); n2 = pg.evaluate(OURS)
+    ok(pg.evaluate("() => document.getElementById('bNoteBox').nextElementSibling.id") == 'bPinned' and pg.inner_text('#bNoteBox .hint') == 'Only the team sees notes.' and pg.inner_text('#bNoteGo') == 'Add the note' and pg.evaluate("() => document.getElementById('bNoteGo').disabled"), 'the note box sits above the notes (pinned note and list), has the hint, and "Add the note" is disabled while the box is empty')
+    pg.fill('#bNoteIn', '   \n  '); ok(pg.evaluate("() => document.getElementById('bNoteGo').disabled"), 'spaces only keep "Add the note" disabled')
+    pg.fill('#bNoteIn', 'Called the chair\'s office. They will hear it on the 18th.'); ok(not pg.evaluate("() => document.getElementById('bNoteGo').disabled"), 'words enable "Add the note"')
+    pg.evaluate("() => window.__staff7Render({ tick: true })"); pg.wait_for_timeout(300)
+    ok(pg.input_value('#bNoteIn').startswith('Called the chair') and not pg.evaluate("() => document.getElementById('bNoteGo').disabled"), 'typed words survive the minute\'s redraw')
+    snap(pg, 'c_add_note.png')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__keepM = d.DB.sendMessage; d.DB.sendMessage = async () => { throw new Error('no'); }; }")
+    pg.click('#bNoteGo'); pg.wait_for_timeout(400)
+    ok(pg.inner_text('#bNoteErr') == 'We could not save that. Try again.' and pg.input_value('#bNoteIn').startswith('Called the chair') and pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length") == nn, 'a failed note keeps the words, says one plain line, and adds nothing')
+    pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.sendMessage = window.__keepM; }")
+    pg.click('#bNoteGo'); pg.wait_for_timeout(500)
+    top = pg.evaluate("() => document.querySelector('#bl-notes > li:first-child').innerText.replace(/\\s+/g, ' ').trim()")
+    ok(top.startswith('Nate ·') and 'Called the chair' in top and pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length") == nn + 1 and pg.input_value('#bNoteIn') == '' and pg.evaluate("() => document.getElementById('bNoteGo').disabled"), f'the note shows on top of the list at once and the box empties ({top[:60]})')
+    ok(pg.evaluate(LISTROW)[0].startswith('Nate added a note') and pg.evaluate(OURS) == n2 + 1 and 'Note added' in pg.inner_text('#toast .tin'), '"What we did" has "Nate added a note" on top, and a toast says "Note added"')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500)
+    ok(pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length") == nn and pg.evaluate(OURS) == n2, 'Undo takes the note and its history row away')
+    ok(not re.search(r'letter', pg.evaluate(TEXTS), re.I), 'HB2300 with the edit and note boxes: no "letter" anywhere')
+    ok(not errs and not bad, f'Part C at 1440: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
+    pg.context.close()
+    # --- a phone
+    pg, ctx = open_as(br, 'NT', 390, 844, '#/bill/HB2300'); errs, bad = ctx._errs, ctx._bad; pg.wait_for_selector('#bParts', timeout=20000)
+    pg.click('#bEditGo'); pg.wait_for_timeout(200)
+    SMALLC = "() => [...document.querySelectorAll('#bEdit .bs span, #bEdit select, #bEdit .btn, #bEditGo, #bNoteIn, #bNoteGo')].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 43.5; }).map(e => e.className + ' ' + e.id)"
+    ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALLC) and pg.evaluate("() => { const r = [...document.querySelectorAll('#bEdit .bs')].map(l => Math.round(l.getBoundingClientRect().top)); return new Set(r).size > 1; }"), f'phone: the edit block wraps its position choices, no sideways scroll, 44px targets ({pg.evaluate(SMALLC)[:2]})')
+    snap(pg, 'c_phone_editing.png')
+    pg.click('#bCancel'); pg.evaluate("() => document.getElementById('bNoteIn').scrollIntoView()"); pg.fill('#bNoteIn', 'x')
+    ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALLC), 'phone: the note box fits, with a 44px button')
+    ok(not errs and not bad, f'Part C phone: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
+    pg.context.close()
+
     # ============================================================ a phone
     pg, ctx = open_as(br, 'KV', 390, 844, f'#/bill/{hb}?i={hi}&who=all'); errs, bad = ctx._errs, ctx._bad
     for num in (hb, pick('manycmtes'), pick('stopped'), pick('manysp'), pick('longname'), pick('joint')):
