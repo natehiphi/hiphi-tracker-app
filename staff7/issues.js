@@ -1,5 +1,5 @@
-// Staff7 Issues (R-398, rules S-19, S-20): the door where awareness lives. The left is a list of issues (whose: Mine, a teammate's, Everyone's) in five groups for where each stands
-// (At risk, Hearing scheduled, Cleared the deadline, Moving, Stopped this year), under a first row, The session; Everyone's and a teammate's list lead with At risk and then give a row for each
+// Staff7 Issues (R-398, rules S-19, S-20): the door where awareness lives. The left is a list of issues (whose: Mine, a teammate's, Everyone's) in six groups for where each stands
+// (At risk, Hearing scheduled, Needs a hearing, Cleared the deadline, Past committees, Stopped this year), under a first row, The session; Everyone's and a teammate's list lead with At risk and then give a row for each
 // topic, which opens its own list and its own page. The right is always the thing picked from it (never an unmarked summary): the session's next deadline and the bills it touches, a topic's
 // week, an issue's sheet (its bills, each with one path drawing), or a bill's page (bill.js). Looking never changes anything: only an issue that is the viewer's own has links to its steps;
 // someone else's issue, in a teammate's view or Everyone's, is look-only.
@@ -12,13 +12,15 @@ import { CHAMBER_NAME, isOneChamber } from '../stops.js';
 import { ic } from './icons7.js';
 import { esc, btn, plainBand } from './parts.js';
 import { billName, billNo, posWords, cmteWords, dayTime, first } from './steps.js';
-import { myIssueStandings, billsOfIssue, issueStanding, billStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
+import { myIssueStandings, billsOfIssue, issueStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
 import { withMe, sessionHTML } from './home.js';
 import { dateWords, whenWords, sessionDates, touchMap, nextStop, daysTo, dayName } from './words.js';
-import { billPath, pathOf } from './path.js';
+import { pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
 import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
+import { deadlineCell, clearedOf } from './bill_cell.js';
+export { clearedOf };   // moved to bill_cell.js so the list and the issue page share it; other files still import it from here
 export { testimonyDue };   // Calendar reads it from here
 
 const enc = encodeURIComponent;
@@ -35,7 +37,7 @@ const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
 
 // ---------------------------------------------------------------------------------- whose issues, and the address
 // `?who=` is nothing (Mine), `all` (Everyone) or a teammate's initials. A value that is none of these is "bad": the sheet says so calmly.
-// `?show=` narrows a list to one group (risk, hearing, cleared, moving, stopped) and `?topic=` keeps a topic's list beside an issue's sheet; both ride on the `who` object so every link keeps them.
+// `?show=` narrows a list to one group (risk, hearing, need, cleared, past, stopped) and `?topic=` keeps a topic's list beside an issue's sheet; both ride on the `who` object so every link keeps them.
 export function whoOf(raw, me, people) {
   if (raw == null || raw === '') return { kind: 'mine', code: '' };
   const r = String(raw).slice(0, 40);
@@ -66,12 +68,14 @@ const byName = (x, y) => eCig(x.issue.name).localeCompare(eCig(y.issue.name), 'e
 
 // ---------------------------------------------------------------------------------- where an issue stands: five groups
 // In order of how much they need a look. A bill is in exactly one; an issue takes the first of these that any of its ALIVE bills is in, and an issue with no alive bill is Stopped.
-//   risk      the next deadline affects it and it has no hearing set (standing.js isAtRisk)
-//   hearing   alive, not at risk, and a hearing is scheduled and has not started (the data layer's hearingAhead: not cancelled, not yet begun)
-//   cleared   alive, no hearing set, and the session's next deadline is one this bill has already passed (clearedOf)
-//   moving    alive and none of the above
+// Each bill's group comes from bill_cell.js deadlineCell, the same answer the issue page's table shows (its key in brackets), so the list and the page cannot disagree.
+//   risk      the next deadline affects it and it has no hearing set (risk), or its hearing is after its own deadline (late)
+//   hearing   a hearing is scheduled and has not started (hearing)
+//   need      alive, no hearing yet, deadline not within 7 days (need, until, unsure): most of what used to be called Moving
+//   cleared   alive and the session's next deadline is one this bill has already passed (cleared)
+//   past      already out of committee, or a bill we do not ask a hearing for (past, noask)
 //   stopped   did not advance this year
-export const STATES = [['risk', 'At risk', 'at risk'], ['hearing', 'Hearing scheduled', 'with a hearing'], ['cleared', 'Cleared the deadline', 'cleared the deadline'], ['moving', 'Moving', 'moving'], ['stopped', 'Stopped this year', 'stopped']];
+export const STATES = [['risk', 'At risk', 'at risk'], ['hearing', 'Hearing scheduled', 'with a hearing'], ['need', 'Needs a hearing', 'need a hearing'], ['cleared', 'Cleared the deadline', 'cleared the deadline'], ['past', 'Past committees', 'past committees'], ['stopped', 'Stopped this year', 'stopped']];
 const STATE_KEYS = STATES.map(s => s[0]);
 
 // The session's next deadline for ALL issues. No longer used for the lists (each list uses its own session, sessionOf, so it agrees with the session row above it); kept for search.
@@ -82,40 +86,19 @@ export function nextCtx() {
   return { rows, touch, next: nextStop(rows, touch) };
 }
 
-// Has this alive bill already passed the deadline of `row`? 'yes', 'no' (the deadline is not one of its steps, or it has not got there) or 'unknown' (the data cannot say).
-// The data layer's stopOf names the deadline each bill races NEXT (its deadlineKey) and the order of a bill's road is fixed, so a bill that is racing a LATER gate has passed this one, provided
-// this gate is one of its steps: the second chamber's gates depend on how many committees the bill was sent to there (Triple filing: three or more; Lateral: two or more; Decking: any).
-const RANK = { first_triple: 1, first_lateral: 2, first_decking: 3, first_crossover: 4, second_triple: 5, second_lateral: 6, second_decking: 7, second_crossover: 8, conference: 9 };
-const GATE = k => k === 'first_triple_senate' ? 'first_triple' : k === 'final_decking' || k === 'fiscal' ? 'conference' : k;
-const secondCmtes = (b, st) => {   // how many committees the bill was sent to in the second chamber
-  if (st.leg === 'second') return st.stops;
-  const refs = Array.isArray(b.referrals) ? b.referrals : [], o = Math.min(b.origin_stops || 0, refs.length);
-  return o ? refs.length - o : 0;
-};
-export function clearedOf(b, row) {
-  if (!row || !b || !isAlive(b)) return 'no';
-  const k = row.key, st = stopOf(b);
-  if (k === 'governor' || GATE(st.deadlineKey) === k) return 'no';   // the last day is nobody's "cleared"; racing it is the opposite
-  const here = RANK[GATE(st.deadlineKey)] ?? (['governor', 'law', 'ballot'].includes(st.phase) ? 9.5 : null);
-  if (RANK[k] == null || here == null) return 'unknown';
-  if (k === 'first_crossover') return isOneChamber(b) || st.leg === 'first' ? 'no' : 'yes';
-  if (k === 'conference') return here > RANK.conference ? 'yes' : 'no';
-  if (st.leg === 'first') return 'no';   // still in its first chamber: the second chamber's gates are not its steps yet
-  const c = secondCmtes(b, st);
-  if (!c) return 'unknown';   // sent on, but the referral list does not say to how many committees
-  return c < (k === 'second_triple' ? 3 : k === 'second_lateral' ? 2 : 1) ? 'no' : here > RANK[k] ? 'yes' : 'no';
-}
 const ymdHST = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 const numOf = b => String(b.bill_number).replace(/\s/g, '');
 const byNum = (x, y) => numOf(x).localeCompare(numOf(y), 'en', { numeric: true });
+const GROUP = { risk: 'risk', late: 'risk', hearing: 'hearing', need: 'need', until: 'need', unsure: 'need', cleared: 'cleared', past: 'past', noask: 'past' };
 function billState(b, nx) {
   if (!isAlive(b)) return { b, state: 'stopped' };
-  const dl = deadlineOf(b);
-  if (isAtRisk(b)) return { b, state: 'risk', dl, at: dl.date };
-  const h = hearingAhead(b);
-  if (h) return { b, state: 'hearing', h, at: new Date(h.scheduled_at).getTime() };
-  const c = nx && nx.next ? clearedOf(b, nx.next.row) : 'no';
-  return { b, state: c === 'yes' ? 'cleared' : 'moving', unknown: c === 'unknown', row: nx?.next?.row };
+  const row = nx?.next?.row, c = deadlineCell(b, row), state = GROUP[c.key], own = stopOf(b).deadline;
+  const r = { b, state, cell: c, row, unknown: c.key === 'unsure' };
+  if (c.key === 'risk') return { ...r, dl: deadlineOf(b), at: c.at };
+  if (c.key === 'late') return { ...r, h: hearingAhead(b), at: String(own.date).slice(0, 10) };   // sorted among the at-risk by its own deadline
+  if (c.key === 'hearing') return { ...r, h: hearingAhead(b), at: c.at };
+  if (state === 'need') return { ...r, dl: deadlineOf(b), at: c.at || '9999' };   // the date its hearing must happen by; none sorts last
+  return r;
 }
 const recent = (x, y) => String(y.b.last_action_date || '').localeCompare(String(x.b.last_action_date || '')) || byNum(x.b, y.b);
 // The one function the groups, the rows' second lines, the summary and the topic page all read: { state, bill (the one that gave the issue its state), at (when: a deadline date or a hearing's time), dl, h, row, unknown }
@@ -123,7 +106,7 @@ export function issueState(bills, nx) {
   if (!bills || !bills.length) return null;
   const per = bills.map(b => billState(b, nx));
   const k = STATE_KEYS.find(s => per.some(p => p.state === s)), hit = per.filter(p => p.state === k);
-  const best = k === 'risk' ? hit.sort((x, y) => x.at.localeCompare(y.at) || byNum(x.b, y.b))[0]
+  const best = k === 'risk' || k === 'need' ? hit.sort((x, y) => x.at.localeCompare(y.at) || byNum(x.b, y.b))[0]
     : k === 'hearing' ? hit.sort((x, y) => x.at - y.at || byNum(x.b, y.b))[0]
     : k === 'cleared' ? hit.sort((x, y) => (nextWhere(y.b) ? 1 : 0) - (nextWhere(x.b) ? 1 : 0) || recent(x, y))[0]
     : k === 'stopped' ? hit.sort((x, y) => pathOf(y.b).i - pathOf(x.b).i || recent(x, y))[0] : hit.sort(recent)[0];
@@ -138,31 +121,35 @@ export const clearedLabel = row => `Cleared ${dayName(row.date)}’s deadline`;
 export const hearTxt = t => { const d = daysTo(ymdHST(t)); return d === 0 ? `today ${clockOf0(t)}` : d === 1 ? `tomorrow ${clockOf0(t)}` : dayTime(t); };
 const relWords = d => { const k = daysTo(d); return k <= 0 ? 'today' : k === 1 ? 'tomorrow' : `in ${k} days`; };
 const COMMITTEE_PHASES = { floor: 'Ready for the floor vote', conference: 'In conference', governor: 'With the Governor', law: 'Signed into law', ballot: 'Going to the voters' };
-function movingWords(b) {
-  const st = stopOf(b); let t;
+function placeWords(b) {
+  const st = stopOf(b);
   if (st.phase === 'committee' && st.committee) {
     const codes = String(st.committee).split('/').map(c => c.trim()).filter(Boolean);
-    t = codes.length > 1 ? `In ${codes.length} ${CHAMBER_NAME[st.chamber] || ''} committees`.replace('  ', ' ') : `In ${cmteWords(codes[0])}`;
-  } else t = COMMITTEE_PHASES[st.phase] || whereWords(b, { deadline: false });
-  return st.deadline && !st.deadline.missed ? `${t} · has until ${dateWords(st.deadline.date)}` : t;
+    return codes.length > 1 ? `In ${codes.length} ${CHAMBER_NAME[st.chamber] || ''} committees`.replace('  ', ' ') : `In ${cmteWords(codes[0])}`;
+  }
+  return COMMITTEE_PHASES[st.phase] || whereWords(b, { deadline: false });
 }
+// "by Mon, Mar 30 · 14 days" ("today", "tomorrow" for 0 and 1)
+const byWords = d => { const k = daysTo(d); return `by ${dateWords(d)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`; };
 function secondOf(st, nx) {
   const b = st.bill;
+  if (st.state === 'risk' && st.cell.key === 'late') return { text: `Hearing ${hearTxt(st.h.scheduled_at)} · after the deadline`, risk: true, icon: 'triangle-alert' };
   if (st.state === 'risk') return { text: `Needs a hearing by ${dateWords(st.dl.date).split(',')[0]} · ${relWords(st.dl.date)}`, risk: true, icon: 'triangle-alert' };
   if (st.state === 'hearing') {
     const r = nx && nx.next ? nx.next.row : null, before = r && (nx.touch.get(r.key) || []).some(y => y.id === b.id) && ymdHST(st.h.scheduled_at) < r.date;
     return { text: `Hearing ${hearTxt(st.h.scheduled_at)}${before ? ` · before ${dayName(r.date)}’s deadline` : ''}` };
   }
   if (st.state === 'cleared') { const c = nextWhere(b); return { text: c ? `Next: ${cmteWords(c)}` : whereWords(b, { deadline: false }) }; }
-  if (st.state === 'moving') return { text: movingWords(b) };
+  if (st.state === 'need') { const d = st.cell.key === 'unsure' ? null : st.cell.key === 'until' ? stopOf(b).deadline?.date : st.dl?.date; return { text: d ? `${placeWords(b)} · ${byWords(d)}` : placeWords(b) }; }
+  if (st.state === 'past') return { text: placeWords(b) };
   const p = pathOf(b); return { text: p.i >= 1 ? `Stopped at ${p.label}` : 'Stopped this year' };
 }
 // The issues of a set with their state: { issue, bills, standing, days, k (the group's key), st (issueState), second }
 export function statesFor(set, nx) {
   return set.map(x => { const st = issueState(x.bills, nx); return { ...x, k: st.state, st, second: secondOf(st, nx) }; });
 }
-const whenKey = x => x.k === 'risk' ? x.st.at : x.k === 'hearing' ? x.st.at : null;
-const inGroup = (rows, k) => rows.filter(x => x.k === k).sort((x, y) => { const a = whenKey(x), c = whenKey(y); return a == null ? byName(x, y) : (k === 'risk' ? a.localeCompare(c) : a - c) || byName(x, y); });
+const whenKey = x => x.k === 'risk' || x.k === 'hearing' || x.k === 'need' ? x.st.at : null;
+const inGroup = (rows, k) => rows.filter(x => x.k === k).sort((x, y) => { const a = whenKey(x), c = whenKey(y); return a == null ? byName(x, y) : (typeof a === 'string' ? a.localeCompare(c) : a - c) || byName(x, y); });
 
 // ---------------------------------------------------------------------------------- topics
 // An issue is in its own category and in any extra ones (S.issueCats); an issue with none is in "Other", the last topic.
@@ -175,7 +162,7 @@ export function catsOf(i) {
 }
 const topicsOf = rows => [...(S.categories || []).map(c => ({ key: c.key, name: c.name, icon: c.icon })), { key: 'other', name: 'Other', icon: 'layers' }]
   .map(t => ({ ...t, rows: rows.filter(x => catsOf(x.issue).includes(t.key)) })).filter(t => t.rows.length);
-const tally = rows => { const t = { risk: 0, hearing: 0, cleared: 0, moving: 0, stopped: 0 }; for (const x of rows) t[x.k]++; return t; };
+const tally = rows => { const t = { risk: 0, hearing: 0, need: 0, cleared: 0, past: 0, stopped: 0 }; for (const x of rows) t[x.k]++; return t; };
 
 // ---------------------------------------------------------------------------------- what changed since this person last looked
 const LOOK_KEY = 'hiphi7_looked_', DAY = 864e5;
@@ -269,7 +256,7 @@ function groupHTML(id, label, count, lis, vkey, { shut = false, all = false, lim
 }
 // The summary sentence: "26 issues: 1 at risk · 4 with a hearing · ..." Each count narrows the list to that group; the active one is marked, and pressing it again clears it.
 function summaryHTML(t, total, who, hrefFor) {
-  const parts = STATES.filter(([k]) => t[k]).map(([k, , w]) => `<a class="sl nw" id="sum-${k}" href="${hrefFor(who.show === k ? '' : k)}"${who.show === k ? ' aria-current="true"' : ''}>${t[k]} ${w}</a>`);
+  const parts = STATES.filter(([k]) => t[k]).map(([k, , w]) => `<a class="sl nw" id="sum-${k}" href="${hrefFor(who.show === k ? '' : k)}"${who.show === k ? ' aria-current="true"' : ''}>${t[k]} ${k === 'past' ? (t[k] === 1 ? 'past its committees' : 'past their committees') : w}</a>`);
   return `<p class="summ" id="summ">${n(total, 'issue', 'issues')}${parts.length ? `: ${parts.join(' · ')}` : ''}</p>` + (who.show ? `<p class="summ"><a class="sl" id="showAll" href="${hrefFor('')}">Show all issues</a></p>` : '');
 }
 function column(who, set, people, me, openKey, ses, x) {
@@ -372,37 +359,8 @@ export function whereShort(b) {
 }
 export const sameName = (b, issue) => !!issue && billName(b).trim().toLowerCase() === eCig(issue.name).trim().toLowerCase();
 
-// ---------------------------------------------------------------------------------- an issue's sheet
+// ---------------------------------------------------------------------------------- shared small helpers (an issue's own page is issue.js)
 const num = b => String(b.bill_number).replace(/\s/g, '');
-const ordered = bills => bills.slice().sort((x, y) => (billStanding(x) === 'risk' ? 0 : 1) - (billStanding(y) === 'risk' ? 0 : 1) || num(x).localeCompare(num(y), 'en', { numeric: true }));
-// `quiet`: the issue's banner already says where this bill stands (an issue with one bill, at risk), so the row does not say it again
-function billRow(b, issue, who, me, open, shown, own, quiet) {
-  const alive = isAlive(b), risk = isAtRisk(b), dl = deadlineOf(b), st = own ? stepOn(open, b) : null, same = sameName(b, issue);
-  const status = !alive || quiet ? '' : risk ? `<p class="bst riskt">${ic('triangle-alert')}<span>At risk · no hearing yet</span></p>`
-    : dl ? `<p class="bst">${esc(`Needs a hearing by ${whenWords(dl.date)}`)}</p>` : same ? '' : `<p class="bst">${esc(whereWords(b, { deadline: false }))}</p>`;
-  const move = st && !shown.has(st.id) ? `<a class="btn quiet ymove" href="#/do/${enc(st.id)}">Your move · ${esc(st.verb)}</a>` : '';
-  const title = same ? esc(`${billNo(b)} · ${whereShort(b)}`) : `${esc(billName(b))}<span class="bno">${esc(billNo(b))}</span>`;   // a bill named like its issue is named by its number and where it is
-  return `<li class="brow${alive ? '' : ' dead'}" style="${tint(issue)}"><div class="bmain"><a class="bn2" href="${billHref(who, b, issue.id)}">${title}</a>`
-    + `<p class="bmeta">${esc(posLine(b, issue, me))}</p>${status}${move}</div><div class="bpath">${billPath(b)}</div></li>`;
-}
-function issueSheet(x, who, me, open, own) {
-  const i = x.issue, bills = ordered(x.bills), alive = bills.filter(isAlive), dead = bills.filter(b => !isAlive(b)), risky = alive.filter(isAtRisk), lo = !own;
-  const sub = !x.bills.length ? 'No bill on it this session.' : !alive.length ? 'Stopped for this year' : alive.length === bills.length ? esc(n(bills.length, 'bill', 'bills')) : esc(`${alive.length} of ${bills.length} bills still alive`);
-  const crumb = lo ? `<span class="crumb">${esc(lookLine(who))}</span>` : '';
-  let h = `<div class="pn">${hband(i, eCig(i.name), sub, crumb, !alive.length)}<div class="pbody">`;
-  const shown = new Set(), banner = new Set();
-  for (const b of risky) {
-    const dl = deadlineOf(b), st = own ? stepOn(open, b) : null, ask = st && st.kind === 'ask' && !shown.has(st.id) ? st : null;
-    if (ask) shown.add(ask.id);
-    banner.add(b.id);
-    h += `<div class="strip risk">${ic('triangle-alert')}<div class="stx"><strong>${bills.length > 1 ? `${esc(billName(b))} needs` : 'Needs'} a hearing by ${esc(whenWords(dl.date))}</strong>`
-      + `<span class="hl">${alive.length === 1 && bills.length > 1 ? 'It is the last bill alive for this issue. ' : ''}Without a hearing it stops for the year.</span></div>${ask ? `<a class="btn filled stbtn" href="#/do/${enc(ask.id)}">${esc(ask.verb)}</a>` : ''}</div>`;
-  }
-  const row1 = b => billRow(b, i, who, me, open, shown, own, bills.length === 1 && banner.has(b.id));
-  if (alive.length) h += `<ul class="brows">${alive.map(row1).join('')}</ul>`;
-  if (dead.length) h += `<h2 class="dh">Did not advance</h2><ul class="brows">${dead.map(row1).join('')}</ul>`;
-  return h + `</div></div>`;
-}
 
 // ---------------------------------------------------------------------------------- the Capitol's words, kept short (the bill page itself is bill.js)
 export const clean = t => String(t).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, m => /^(HB|SB|HR|SR|HCR|SCR|PM|AM)$/.test(m) ? m : cmteWords(m));   // the Capitol's codes in words
@@ -543,9 +501,9 @@ export function issuesModel({ me, open, rt, people }) {
   const who = { ...who0, show, topic: tkey }, tp = tkey ? { key: tkey, name: tkey === 'other' ? 'Other' : (S.categories || []).find(c => c.key === tkey).name } : null;
   const rows = tp ? all.filter(x => catsOf(x.issue).includes(tkey)) : all;
   const back = issuesHref(who.bad ? { code: '' } : who);
-  let sheet, label = 'Issues', picked = true, openKey = { session: false, issue: '' }, bk = back, backLabel = '';
+  let sheet, label = 'Issues', pageIssue = null, picked = true, openKey = { session: false, issue: '' }, bk = back, backLabel = '';
   const showSession = () => { openKey = { session: true, issue: '' }; sheet = sessionSheet(who, set, me, ses); label = 'The session'; };
-  const showIssue = x => { openKey = { session: false, issue: String(x.issue.id) }; sheet = issueSheet(x, who, me, open, own.has(String(x.issue.id))); label = 'Issue'; };
+  const showIssue = x => { openKey = { session: false, issue: String(x.issue.id) }; pageIssue = x.issue; sheet = ''; label = 'Issue'; };   // the page itself is issue.js, drawn by frame.js from `pageIssue`
   const gone = what => { sheet = notFound(what, back); label = 'Not found'; };
   if (who0.bad) gone('that list of issues');
   else if (rt.r === 'issues') {
@@ -577,5 +535,5 @@ export function issuesModel({ me, open, rt, people }) {
   if (changes.length && rt.r === 'issues' && !rt.id) markDrawn();   // the Changed group is on the screen: from now on leaving Issues (or 10 seconds) says "looked"
   let topics = !who0.bad && who.kind !== 'mine' && !tp && !show ? topicsOf(all) : null;
   if (topics && topics.length < 2) topics = null;   // everything in one topic: the groups, flat, as Mine has them
-  return { who, set, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: rt.r === 'bill' ? () => { bindIssues(); bindBill(); } : bindIssues, notFound: /data-notfound/.test(sheet) };
+  return { who, set, ses, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: rt.r === 'bill' ? () => { bindIssues(); bindBill(); } : bindIssues, notFound: /data-notfound/.test(sheet), pageIssue };
 }

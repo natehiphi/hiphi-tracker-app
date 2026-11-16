@@ -212,7 +212,7 @@ with sync_playwright() as p:
     everyone = pg.evaluate("async () => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'); return d.S.issues.filter(i => !i.archived_at && st.billsOfIssue(i).length > 0).map(i => String(i.id)); }")
     inview = [i for i in sx if i in everyone]
     ok(re.match(rf'^{len(inview)} of {len(everyone)} issues match “health”( · also .+ below)? Clear$', ev['sum']) and ev['rows'] == len(inview) and ev['clear'] == 'Clear', f'the summary says "{ev["sum"]}" and the list holds the {len(inview)} matching issues of the view')
-    ok(ev['heads'] and all(h in ('At risk', 'Hearing scheduled', 'Moving', 'Stopped this year') or h.startswith('Cleared') for h in ev['heads']) and '<mark>' in ev['top'], f'the list keeps its group headings ({ev["heads"]}) and marks the letters')
+    ok(ev['heads'] and all(h in ('At risk', 'Hearing scheduled', 'Needs a hearing', 'Past committees', 'Stopped this year') or h.startswith('Cleared') for h in ev['heads']) and '<mark>' in ev['top'], f'the list keeps its group headings ({ev["heads"]}) and marks the letters')
     ok(pg.locator('#sessionRow').count() == 0 and pg.locator('#topics').count() == 0, 'the narrowed list shows only issues (no session row, no topics)')
     also = pg.evaluate("() => ({ h: document.getElementById('alsoH')?.innerText, heads: [...document.querySelectorAll('#ialso [role=group] h4')].map(x => x.innerText), all: document.querySelector('#ialso a.fall')?.innerText })")
     ok(also['h'] == 'Also found' and 'Our bills' in also['heads'] and 'Committees and legislators' in also['heads'] and also['all'] and 'Issues' not in also['heads'], f'"Also found" under the list gives the other groups with See all ({also})')

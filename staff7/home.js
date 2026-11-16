@@ -188,7 +188,7 @@ export function overviewParts(m) {
     : fact('#/issues', 'Your bills', 'All have a hearing or are past it', true, '');
   const bits = [];
   if (tl.risk) bits.push(['risk', `${ic('triangle-alert')}${tl.risk} at risk`]);
-  if (tl.moving) bits.push(['', `${tl.moving} moving`]);
+  if (tl.moving) bits.push(['', `${tl.moving} not at risk`]);
   if (tl.stopped) bits.push(['', `${tl.stopped} stopped`]);
   const parts = bits.map(([c, t], i) => `<span${c ? ` class="${c}"` : ''}>${t}${i < bits.length - 1 ? '<span class="dotsep" aria-hidden="true"> ·</span>' : ''}</span>`);
   const f3 = parts.length ? fact('#/issues', 'Your issues', parts.join(' '), false, '', ' iss') : fact('#/issues', 'Your issues', 'None followed yet', true, '');

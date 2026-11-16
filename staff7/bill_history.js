@@ -98,7 +98,7 @@ const posName = v => (v && (POSITIONS.find(p => p[0] === v) || [])[1]) || 'No po
 const clock = t => String(t).replace(/\s*([AP]M)$/i, ' $1').toUpperCase();
 const iso = (m, d, y) => `${2000 + +y}-${m}-${d}`;
 // The Capitol's sentences plainAction leaves raw, in plain words; anything else stays as plainAction has it
-function plainer(title, b) {
+export function plainer(title, b) {
   const t = String(title || '').replace(/\s+/g, ' ').trim(), C = c => cmtesText(c, b);
   let m = /^The committee(?:\(s\))? on ([A-Z/]+) recommend(?:\(s\))? that the measure be deferred(?: until (\d\d)-(\d\d)-(\d\d)(?: at (\d{1,2}:\d\d ?[AP]M))?)?/i.exec(t);
   if (m) return `${C(m[1])} deferred it${m[2] ? ` until ${dateY(iso(m[2], m[3], m[4]))}${m[5] ? ` ${clock(m[5])}` : ''}` : ''}`;
@@ -114,7 +114,8 @@ function plainer(title, b) {
 }
 // A hearing the Capitol set and then moved on the same day, for the same committee, is told once: the later one (the data cannot order two lines of one day)
 const SETS = /has (re)?scheduled (?:its|a) public hearing|^Bill scheduled to be heard by/i, SETC = /(?:committee\(s\) on|heard by) ([A-Z/]+)/i;
-function capitolRows(x, b) {
+// The Capitol's lines, one list: [{ t, text, ch }] newest first. The issue page (issue_notes.js) uses this same list, so both pages word history the same way.
+export function capitolItems(x, b) {
   const rows = x.timeline.filter(r => !(r.advocate_id && r.source !== 'auto')).map(r => {
     const raw = String(r.title || ''), sc = SETS.test(raw) ? SETC.exec(raw) : null;
     return { r, raw, set: sc ? `${ymd(r.occurred_at)}|${codesKey(sc[1])}` : '', moved: /has rescheduled/i.test(raw) };
@@ -126,14 +127,16 @@ function capitolRows(x, b) {
     const text = plainer(z.raw, b); if (!text) continue;
     const k = `${text}|${ymd(z.r.occurred_at)}`; if (seen.has(k)) continue; seen.add(k);
     const ch = /Official action\s*-\s*(\w+)/i.exec(z.r.details || '');
-    out.push({ t: z.r.occurred_at, html: `<span class="bh1">${esc(eCig(text))}</span><small>${esc(day(z.r.occurred_at))}${ch ? ` · ${esc(ch[1])}` : ''}</small>` });
+    out.push({ t: z.r.occurred_at, text, ch: ch ? ch[1] : '' });
   }
-  return out.sort((p, q) => String(q.t).localeCompare(String(p.t))).map(r => r.html);   // a stable sort: lines of one moment keep the order the data gave them
+  return out.sort((p, q) => String(q.t).localeCompare(String(p.t)));   // a stable sort: lines of one moment keep the order the data gave them
 }
+const capitolRows = (x, b) => capitolItems(x, b).map(i => `<span class="bh1">${esc(eCig(i.text))}</span><small>${esc(day(i.t))}${i.ch ? ` · ${esc(i.ch)}` : ''}</small>`);
 // What a field_change row says: the database's own rows carry meta {field, old, new}; a row this page writes carries the same fields as JSON in its details
 const fieldsOf = r => { if (r.meta && r.meta.field) return r.meta; try { const m = JSON.parse(r.details); return m && m.field ? m : {}; } catch { return {}; } };
-function ourRows(b, x) {
-  const out = [], add = (t, html, small) => { if (t) out.push({ t, html: `<span class="bh1">${html}</span><small>${esc(day(t))}${small ? ` · ${esc(small)}` : ''}</small>` }); };
+// What the team did, one list: [{ t, html (words, already escaped), small }] newest first (also used by the issue page)
+export function ourItems(b, x) {
+  const out = [], add = (t, html, small) => { if (t) out.push({ t, html, small: small || '' }); };
   for (const r of x.timeline) {
     if (!r.advocate_id || r.source === 'auto' || /^Testimony filed with/i.test(r.title || '')) continue;   // the testimony draft says that itself, below
     const who = esc(nameOf(r.advocate_id));
@@ -156,8 +159,9 @@ function ourRows(b, x) {
     if (d.second_approved_at && d.second_approved_by) add(d.second_approved_at, `${esc(nameOf(d.second_approved_by))} gave the testimony a second look`, cm);
     if (d.filed_at && d.filed_by) add(d.filed_at, `${esc(nameOf(d.filed_by))} filed testimony`, cm);
   }
-  return out.sort((p, q) => String(q.t).localeCompare(String(p.t))).map(r => r.html);
+  return out.sort((p, q) => String(q.t).localeCompare(String(p.t)));
 }
+const ourRows = (b, x) => ourItems(b, x).map(i => `<span class="bh1">${i.html}</span><small>${esc(day(i.t))}${i.small ? ` · ${esc(i.small)}` : ''}</small>`);
 function historyBlock(b, x) {
   const cap = capitolRows(x, b), ours = ourRows(b, x), col = (key, title, rows, id, name) => `<div class="bcol" id="${id}"><h3 class="bh3">${title}</h3>${rows.length ? list(key, b, rows, 4, name) : '<p class="hint">Nothing yet.</p>'}</div>`;
   return `<h2 class="sh" id="bHistH">History</h2><div class="bhist">${col('cap', 'What the Capitol did', cap, 'bCap', 'lines of what the Capitol did')}${col('ours', 'What we did', ours, 'bOurs', 'lines of what we did')}</div>`;

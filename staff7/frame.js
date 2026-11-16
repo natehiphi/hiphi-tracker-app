@@ -1,7 +1,7 @@
 // Staff7's frame: boots the practice data, routes between Home, a step and its done moment, and draws the doors, the left list and the right sheet.
-import { S, DB, DEMO, hooks, savePractice } from '../staff6/data.js';
+import { S, DB, DEMO, hooks, savePractice, myIssueIds } from '../staff6/data.js';
 import { stepsFor, BUILT, hearingLine, left, memoKey } from './steps.js';
-import { homeModel, listsHTML, overviewParts, hearingSheet, waitingSheet, suggestedSheet, bindHome, bindWaiting } from './home.js';
+import { withMe, homeModel, listsHTML, overviewParts, hearingSheet, waitingSheet, suggestedSheet, bindHome, bindWaiting } from './home.js';
 import { stepRow, dueStrip, band, plainBand, btn, esc, toast, clearToast, wireToast, toastHTML } from './parts.js';
 import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
 import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
@@ -11,6 +11,7 @@ import { missedSheet, bindMissed, notFiledStep } from './do_missed.js';
 import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
 import { issuesModel, ui as issuesUi } from './issues.js';
+import { issuePage } from './issue.js';
 import { calendarModel } from './calendar.js';
 import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
 
@@ -150,6 +151,11 @@ function render(opts = {}) {
     sheet = doneSheet(ctx, rt.id, freshDraft) || missingSheet(); bindFn = () => bindDone(ctx, rt.id);
   } else if (rt.r === 'issues' || rt.r === 'issue' || rt.r === 'bill') {
     cur = 'issues'; im = issuesModel({ me: ctx.me, open, rt, people }); sheet = im.sheet; label = im.label; bindFn = im.bind;
+    // an issue's own page is issue.js (the list on the left and the not-found sheet are still issues.js's)
+    if (im.pageIssue && !im.notFound) {
+      const issue = im.pageIssue, mine = new Set(withMe(ctx.me, () => [...myIssueIds()]).map(String));
+      if (issue) { const pg = issuePage({ issue, me: ctx.me, open, who: im.who, row: im.ses ? (im.ses.next?.row || null) : undefined, own: mine.has(String(issue.id)), back: im.back, backLabel: im.backLabel }), b0 = im.bind; sheet = pg.html; bindFn = () => { b0 && b0(); pg.bind(); }; }
+    }
   } else if (rt.r === 'calendar') {
     cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'search') {

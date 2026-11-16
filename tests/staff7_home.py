@@ -112,7 +112,7 @@ with sync_playwright() as p:
         # ---- JM: a hearing today, a bill about to stop (At risk in amber, with a mark and words) ----
         pg, errs, bad = open_as(br, 'JM', w, h)
         ok(pg.locator('.fv .risk svg').count() == 1 and re.search(r'\d+ at risk', pg.locator('.fv .risk').inner_text()) and pg.evaluate("getComputedStyle(document.querySelector('.fv .risk')).color") == 'rgb(122, 74, 0)', f'{tag} JM: At risk reads in the amber colour with a mark and words ({pg.locator(".fv.iss").inner_text()})')
-        ok(re.search(r'\d+ moving', pg.locator('.fv.iss').inner_text()) and re.search(r'\d+ stopped', pg.locator('.fv.iss').inner_text()) and pg.locator('.fact').count() == 3, f'{tag} JM: the three facts, the issues one as "N at risk · N moving · N stopped"')
+        ok(re.search(r'\d+ not at risk', pg.locator('.fv.iss').inner_text()) and re.search(r'\d+ stopped', pg.locator('.fv.iss').inner_text()) and pg.locator('.fact').count() == 3, f'{tag} JM: the three facts, the issues one as "N at risk · N moving · N stopped"')
         facts = pg.evaluate("() => [...document.querySelectorAll('.fact')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\s+/g, ' ')])")
         ok([f[0] for f in facts] == ['#/calendar', '#/issues', '#/issues'] and facts[0][1].startswith('Your next hearing') and facts[1][1].startswith('Your bills') and facts[2][1].startswith('Your issues'), f'{tag} JM: each fact is a link to where it lives ({[f[0] for f in facts]})')
         ok(pg.locator('.sd li').count() >= 4 and pg.locator('.here').count() == 1 and 'You are here' in pg.locator('.here').inner_text(), f'{tag} JM: the session\'s dates, with "You are here"')

@@ -1,4 +1,4 @@
-# Staff7's Issues tab (R-398), on the practice copy: whose issues (Mine, a teammate's, Everyone's), the five groups for where an issue stands (At risk, Hearing scheduled, Cleared the deadline, Moving, Stopped this year)
+# Staff7's Issues tab (R-398), on the practice copy: whose issues (Mine, a teammate's, Everyone's), the six groups for where an issue stands (At risk, Hearing scheduled, Needs a hearing, Cleared the deadline, Past committees, Stopped this year)
 # with a second line on every row, the summary sentence and its narrowing links, folding, Changed since you last looked, topics (Everyone's and a teammate's list) with a topic's own page, an issue's sheet, a bill's short sheet.
 # Rules kept by this file: the groups partition the set; any at-risk bill puts its issue in At risk; a bill with a hearing is never at risk; Mine = myIssueIds, Everyone = every issue with a bill this session;
 # a teammate's view has no link to a step; odd addresses give a calm "not found" sheet; one filled button at most; no sideways scroll; 44px targets; nothing leaves 127.0.0.1.
@@ -23,15 +23,16 @@ MODEL = """async (who) => { const d = await import('/staff6/data.js'), st = awai
   if (who === 'all') ids = S.issues.filter(has).map(i => String(i.id));
   else { const p = who === 'mine' ? me : S.advocates.find(a => a.initials === who); ids = withMe(p, () => [...d.myIssueIds()]).filter(id => has(S.issues.find(i => String(i.id) === id))); }
   const rows = ids.map(id => { const i = S.issues.find(x => String(x.id) === id), bills = st.billsOfIssue(i);
-    const want = bills.some(st.isAtRisk) ? 'risk' : bills.some(st.isAlive) ? 'moving' : 'stopped'; return { id, name: i.name, want, bills: bills.length }; });
+    const want = bills.some(st.isAtRisk) ? 'risk' : bills.some(st.isAlive) ? 'alive' : 'stopped'; return { id, name: i.name, want, bills: bills.length }; });
   const all = S.bills.filter(b => b.tracked !== false);
   return { rows, hearingRisk: all.filter(b => mo.hearingAhead(b) && st.isAtRisk(b)).length, hearingBills: all.filter(b => mo.hearingAhead(b)).length,
     needsFirst: S.issues.filter(has).length, people: S.advocates.filter(a => a.is_active !== false).map(a => a.initials) }; }"""
 GROUPS = """() => [...document.querySelectorAll('section[aria-labelledby^="g-"]')].map(s => [s.querySelector('h3').innerText.trim().replace(/ · \\d+$/, ''), [...s.querySelectorAll('a.sr3')].map(a => decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0])), +(/ · (\\d+)$/.exec(s.querySelector('h3').innerText.trim()) || [0, -1])[1], +((s.querySelector('.held')?.innerText || '').match(/^\\d+/) || [0])[0]])"""
 LEFTROWS = "() => [...document.querySelectorAll('.wl a.sr3')].map(a => [a.id, a.getAttribute('aria-current'), a.getAttribute('href')])"
-SHOWS = ['risk', 'hearing', 'cleared', 'moving', 'stopped']
-LABEL = {'risk': 'At risk', 'hearing': 'Hearing scheduled', 'cleared': 'Cleared the deadline', 'moving': 'Moving', 'stopped': 'Stopped this year'}
-SUMW = {'risk': 'at risk', 'hearing': 'with a hearing', 'cleared': 'cleared the deadline', 'moving': 'moving', 'stopped': 'stopped'}
+SHOWS = ['risk', 'hearing', 'need', 'cleared', 'past', 'stopped']
+LABEL = {'risk': 'At risk', 'hearing': 'Hearing scheduled', 'need': 'Needs a hearing', 'cleared': 'Cleared the deadline', 'past': 'Past committees', 'stopped': 'Stopped this year'}
+SUMW = {'risk': 'at risk', 'hearing': 'with a hearing', 'need': 'need a hearing', 'cleared': 'cleared the deadline', 'past': 'past committees', 'stopped': 'stopped'}
+def sw(k, n): return ('past its committees' if n == 1 else 'past their committees') if k == 'past' else SUMW[k]   # the past group's words follow its count
 # what the page's own rules say, written again here (not the app's function): where each issue of a set stands, its topics, and the session's next deadline. who: 'mine', 'all' or initials.
 STATEX = """async (who) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), S = d.S;
   const withMe = (p, fn) => { const prev = S.me; S.me = p; try { return fn(); } finally { S.me = prev; } };
@@ -48,10 +49,11 @@ STATEX = """async (who) => { const d = await import('/staff6/data.js'), st = awa
     const pos = own ? ORDER.indexOf(own) : (['governor', 'law', 'ballot'].includes(s.phase) ? ORDER.length : -1), g = ORDER.indexOf(nxt.key); if (pos < 0) return false;
     if (nxt.key === 'first_crossover') return s.leg !== 'first' && !/^(HR|SR)\\d/.test(b.bill_number); if (nxt.key === 'conference') return pos > g; if (s.leg === 'first') return false;
     const refs = b.referrals || [], o = Math.min(b.origin_stops || 0, refs.length), c = s.leg === 'second' ? s.stops : (o ? refs.length - o : 0), need = nxt.key === 'second_triple' ? 3 : nxt.key === 'second_lateral' ? 2 : 1; return c >= need && pos > g; };
-  const bstate = b => { if (mo.diedish(b)) return { s: 'stopped' }; if (st.isAtRisk(b)) return { s: 'risk', date: st.deadlineOf(b).date };
+  const bstate = b => { if (mo.diedish(b)) return { s: 'stopped' }; const sp = mo.stopOf(b); if (sp.phase !== 'committee') return { s: 'past' }; if (cleared(b)) return { s: 'cleared' };
     const hs = S.hearings.filter(h => h.bill_id === b.id && h.status === 'scheduled' && Date.parse(h.scheduled_at) > now).sort((x, y) => Date.parse(x.scheduled_at) - Date.parse(y.scheduled_at));
-    return hs.length ? { s: 'hearing', t: Date.parse(hs[0].scheduled_at) } : { s: cleared(b) ? 'cleared' : 'moving' }; };
-  const ORDS = ['risk', 'hearing', 'cleared', 'moving', 'stopped'], keys = (S.categories || []).map(c => c.key);
+    if (hs.length) { const own = sp.deadline && String(sp.deadline.date).slice(0, 10); return own && ymd(hs[0].scheduled_at) > own ? { s: 'risk', date: own, late: true } : { s: 'hearing', t: Date.parse(hs[0].scheduled_at) }; }   // a hearing after the bill's own deadline is At risk (bill_cell.js 'late')
+    if (!mo.wantsHearing(b)) return { s: 'past' }; if (st.isAtRisk(b)) return { s: 'risk', date: st.deadlineOf(b).date }; return { s: 'need', date: st.deadlineOf(b)?.date || '9999' }; };
+  const ORDS = ['risk', 'hearing', 'need', 'cleared', 'past', 'stopped'], keys = (S.categories || []).map(c => c.key);
   const wd = t => new Date(t).toLocaleDateString('en-US', { ...HST, weekday: 'short' }), clk = t => new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' }).replace(/[\\u202f\\u00a0]/g, ' ');
   const noon = x => Date.parse(x + 'T12:00:00-10:00'), off = t => Math.round((noon(ymd(t)) - noon(today)) / 864e5), codes = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean).sort().join('/');
   const week = bills => { const w = new Set(); for (const b of bills) if (!mo.diedish(b)) for (const h of S.hearings) if (h.bill_id === b.id && h.status === 'scheduled' && off(h.scheduled_at) >= 0 && off(h.scheduled_at) <= 6) w.add(codes(h.committee) + '|' + new Date(h.scheduled_at).toISOString()); return w; };
@@ -61,7 +63,7 @@ STATEX = """async (who) => { const d = await import('/staff6/data.js'), st = awa
     return { id, name: i.name, state, cats: cats.length ? cats : ['other'], owner: (S.advocates.find(a => a.id === i.owner_id && a.is_active !== false) || {}).initials || '', hearT: isFinite(hearT) ? hearT : 0, hearTxt: isFinite(hearT) ? (off(hearT) === 0 ? 'today ' + clk(hearT) : off(hearT) === 1 ? 'tomorrow ' + clk(hearT) : Math.abs(hearT - now) > 6 * 864e5 ? wd(hearT) + ', ' + new Date(hearT).toLocaleDateString('en-US', { ...HST, month: 'short', day: 'numeric' }) + ', ' + clk(hearT) : wd(hearT) + ' ' + clk(hearT)) : '', before, riskDate,
       bills: bills.map(b => b.id), alive: bills.filter(b => !mo.diedish(b)).length, week: [...week(bills)] }; });
   return { rows: out, nextKey: nxt ? nxt.key : '', nextDate: nxt ? nxt.date : '', nextDay: nxt ? new Date(nxt.date + 'T12:00:00-10:00').toLocaleDateString('en-US', { ...HST, weekday: 'long' }) : '', cats: [...(S.categories || []).map(c => [c.key, c.name]), ['other', 'Other']],
-    today, clearedBills: [...pool.values()].filter(b => !mo.diedish(b) && cleared(b)).map(b => b.id), racingNext: nxt ? racing.get(nxt.key) || [] : [], info: Object.fromEntries([...pool.values()].map(b => [b.id, { s: bstate(b).s, wants: !['monitor', 'oppose', 'strongly_oppose'].includes(b.position) }])) }; }"""
+    today, clearedBills: [...pool.values()].filter(b => !mo.diedish(b) && cleared(b)).map(b => b.id), racingNext: nxt ? racing.get(nxt.key) || [] : [], info: Object.fromEntries([...pool.values()].map(b => [b.id, { s: bstate(b).s, risk: st.isAtRisk(b), ha: !!mo.hearingAhead(b), wants: !['monitor', 'oppose', 'strongly_oppose'].includes(b.position) }])) }; }"""
 # the ids of the issue rows in a list, as the page draws them (a section's rows, hidden or not)
 IDS = "() => [...document.querySelectorAll('section[aria-labelledby^=\"g-\"] a.sr3')].map(a => decodeURIComponent(a.getAttribute('href').split('/issue/')[1].split('?')[0]))"
 def union_ids(pg, base):
@@ -107,7 +109,7 @@ with sync_playwright() as p:
             where = {i: x[0] for x in g for i in x[1]}
             ok(all(where.get(r['id'], HD(r['state'])) == HD(r['state']) for r in sx['rows']) and len(sx['rows']) == len(ids), f'{tag} {who}: every issue is in the group its bills say, by an independent reading of the data ({ {k: sum(1 for r in sx["rows"] if r["state"] == k) for k in SHOWS} })')
             cnt = {k: sum(1 for r in sx['rows'] if r['state'] == k) for k in SHOWS}; sm = pg.locator('#summ').inner_text().strip() if pg.locator('#summ').count() else ''; links = {k: pg.locator(f'#sum-{k}').inner_text().strip() if pg.locator(f'#sum-{k}').count() else '' for k in SHOWS}
-            ok((re.match(rf'{len(sx["rows"])} issues?', sm) or not sx['rows']) and all((links[k] == f'{cnt[k]} {SUMW[k]}') if cnt[k] else not links[k] for k in SHOWS) and sum(cnt.values()) == len(sx['rows']), f'{tag} {who}: the summary says "{sm}" and its numbers add up to the {len(sx["rows"])} issues')
+            ok((re.match(rf'{len(sx["rows"])} issues?', sm) or not sx['rows']) and all((links[k] == f'{cnt[k]} {sw(k, cnt[k])}') if cnt[k] else not links[k] for k in SHOWS) and sum(cnt.values()) == len(sx['rows']), f'{tag} {who}: the summary says "{sm}" and its numbers add up to the {len(sx["rows"])} issues')
             ok(pg.locator('.wl a.sr3 .person').count() == 0, f'{tag} {who}: no lead initials on Mine')
             ok(m['hearingBills'] > 0 and m['hearingRisk'] == 0, f'{tag} {who}: a bill with a hearing scheduled is never at risk ({m["hearingBills"]} such bills)')
             risky0 = [r for r in sx['rows'] if r['state'] == 'risk']
@@ -146,12 +148,12 @@ with sync_playwright() as p:
         snap(pg, 'issues_everyone', tag)
         ok(not errs and not bad, f'{tag}: Everyone has no console error')
         # the viewer's own issue under Everyone keeps its step links and button; someone else's is look-only
-        rid = INFO['JM']; pg.locator(f'a.sr3[href^="#/issue/{rid}"]').first.click(); pg.wait_for_timeout(350)
-        ok('Look only' not in pg.locator('main').inner_text() and steplinks(pg) >= 1 and pg.locator('.strip .btn.filled').count() == 1 and pg.evaluate(FILLED) == 1, f'{tag}: under Everyone my own at-risk issue keeps its step link and its Ask for a hearing button, and does not say "Look only"')
-        snap(pg, 'rv_all_own_risk', tag)
-        other = next(i for i in un['moving'] if i not in mineids); go(pg, '#/issues?who=all&show=moving')
-        pg.click(f'a.sr3[href^="#/issue/{other}"]'); pg.wait_for_timeout(350)
-        ok(pg.locator('main').inner_text().count('Look only') == 1 and steplinks(pg) == 0 and pg.locator('.ymove, .stbtn').count() == 0 and 'Everyone’s issues. Look only.' in pg.locator('main').inner_text(), f'{tag}: under Everyone someone else\'s issue says "Look only" once and has no step link')
+        rid = INFO['JM']; pg.locator(f'a.sr3[href^="#/issue/{rid}"]').first.click(); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(350)
+        ok('Look only' not in pg.locator('main').inner_text() and steplinks(pg) >= 1 and pg.locator('#iStat .bmv a.btn.quiet').count() == 1 and pg.evaluate(FILLED) == 0, f'{tag}: under Everyone my own at-risk issue keeps its "Your move" step link (quiet, not filled)')
+        snap(pg, 'issue_all_own_risk', tag)
+        other = next(i for i in un['need'] if i not in mineids); go(pg, '#/issues?who=all&show=need')
+        pg.click(f'a.sr3[href^="#/issue/{other}"]'); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(350)
+        ok('Look only' not in pg.locator('main').inner_text() and steplinks(pg) == 0 and pg.locator('#iStat .bmv').count() == 0 and pg.locator('.ymove, .stbtn').count() == 0, f'{tag}: under Everyone someone else\'s issue offers no step (a look-only viewer gets no edit controls; the page\'s own test has the rest)')
         ok(not errs and not bad, f'{tag}: no console error, nothing left the machine')
         pg.context.close()
         pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=ALL')
@@ -182,14 +184,14 @@ with sync_playwright() as p:
         ok(pg.locator('#whoPick').is_visible() and pg.locator('#whoMate').get_attribute('aria-expanded') == 'true', f'{tag}: "Change" reopens the picker')
         pg.click('#who-KV'); pg.wait_for_timeout(250)
         kst = next(k for k in SHOWS if any(i not in mineids for i in kun[k])); kother = next(i for i in kun[kst] if i not in mineids); go(pg, f'#/issues?who=KV&show={kst}')
-        pg.click(f'a.sr3[href^="#/issue/{kother}"]'); pg.wait_for_timeout(350)
-        ok('Kevin’s issues. Look only.' in pg.locator('main').inner_text() and pg.locator('main').inner_text().count('Look only') == 1 and steplinks(pg) == 0, f'{tag}: Kevin\'s issue that is not mine says "Kevin’s issues. Look only." once, and has no step link')
+        pg.click(f'a.sr3[href^="#/issue/{kother}"]'); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(350)
+        ok('Look only' not in pg.locator('main').inner_text() and steplinks(pg) == 0 and pg.locator('#iStat .bmv').count() == 0, f'{tag}: Kevin\'s issue that is not mine offers no step and says nothing about look only')
         snap(pg, 'issues_teammate', tag)
         pg.go_back(); pg.wait_for_timeout(350); pg.go_forward(); pg.wait_for_timeout(350)
         ok('who=KV' in pg.url and pg.locator('#whoMate').get_attribute('aria-current') == 'true', f'{tag}: Back and Forward keep the whose choice')
         pg.reload(); pg.wait_for_selector('.paper'); pg.wait_for_timeout(500)
         ok('who=KV' in pg.url and 'Kevin' in pg.locator('.ihd').inner_text(), f'{tag}: a reload keeps Kevin')
-        pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
+        pg.locator('#tBills tbody th a').first.click(); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(350)
         ok('#/bill/' in pg.url and 'who=KV' in pg.url and steplinks(pg) == 0 and pg.locator('.ymove').count() == 0 and 'Look only' not in pg.locator('main').inner_text(), f'{tag}: Kevin\'s bill page has no link to a step of mine, and no "Look only." line')
         ok(not errs and not bad, f'{tag}: no console error, nothing left the machine')
         pg.context.close()
@@ -199,68 +201,27 @@ with sync_playwright() as p:
         ok(not both or (lambda: (pg.click(f'a.sr3[href^="#/issue/{both[0]}"]'), pg.wait_for_timeout(350), 'Look only' not in pg.locator('main').inner_text())[-1])(), f'{tag}: an issue that is Kevin\'s and mine ({len(both)}) does not say "Look only"')
         pg.context.close()
 
-        # JM's own at-risk issue: the sheet, its one thing to do, the bill sheet
+        # JM's own at-risk issue opened from the list: it keeps its one step; the page itself is tested in tests/staff7_issue.py
         pg, errs, bad = open_as(br, 'JM', w, h, '#/issues')
-        rid = INFO['JM']; pg.click(f'a.sr3[href^="#/issue/{rid}"]'); pg.wait_for_timeout(350)
+        rid = INFO['JM']; pg.click(f'a.sr3[href^="#/issue/{rid}"]'); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(350)
         ok(pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true' and pg.locator('a.sr3[aria-current="true"]').count() == 1, f'{tag} JM: the picked issue\'s row is marked open, only one')
-        ok(pg.locator('.strip.risk').count() >= 1 and pg.locator('.stbtn').count() >= 1 and pg.locator('.stbtn').first.inner_text().strip().startswith('Ask for a'), f'{tag} JM: the at-risk bill\'s one thing to do is its Ask for a hearing step ("{pg.locator(".stbtn").first.inner_text().strip() if pg.locator(".stbtn").count() else ""}")')
-        href = pg.locator('.stbtn').first.get_attribute('href')
-        ok(href.startswith('#/do/ask-') and pg.locator('.brow').count() >= 1 and pg.locator('.brow svg.trk.row').count() == pg.locator('.brow').count() and pg.locator('.ymove').count() == 0, f'{tag} JM: each bill is a row with one path drawing; the ask is not said twice ({href[:30]})')
-        # fix 4: the banner's button is the page's one filled button
-        ok(pg.locator('.stbtn').first.get_attribute('class').split().count('filled') == 1 and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL) and 'Look only' not in pg.locator('main').inner_text(), f'{tag} JM: "Ask for a hearing" is the page\'s one filled button; no sideways scroll, 44px, no look-only words on my own issue')
-        # fix 5: say it once, one time form; fix 3: a bill named like its issue is named by number and place
-        strip = pg.locator('.strip.risk strong').inner_text().strip(); h1i = pg.evaluate(H1)
-        ok(re.fullmatch(r'Needs a hearing by \w{3}, \w{3} \d+ · \d+ days?', strip) and pg.locator('.brow').count() == 1 and pg.locator('.brow .bst').count() == 0, f'{tag} JM: the banner says "{strip}" once; the issue\'s one bill does not say it again')
-        bn = pg.locator('.bn2').first.inner_text().strip()
-        ok(re.fullmatch(r'[A-Z]+ ?\d+ · in .+', bn) and bn != h1i and pg.locator('.bn2 .bno').count() == 0, f'{tag} JM: a bill named like its issue shows its number and where it is ("{bn}"), not the name again')
-        # fix 9: the path's dots carry their names (a title on hover and a hidden list)
-        ok(pg.locator('.brow svg.trk.row circle title').count() == 5 and 'Introduced' in pg.locator('.brow .bpath .sr').inner_text() and 'Governor' in pg.locator('.brow .bpath .sr').inner_text() and 'Crossed to the other chamber' in pg.locator('.brow .bpath .sr').inner_text(), f'{tag} JM: each path dot has its name on hover, and the whole path is in hidden text')
-        snap(pg, 'issue_sheet_atrisk_JM', tag)
-        pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
-        ok('#/bill/' in pg.url and pg.locator('main h1').inner_text().strip() and pg.locator('.bsub').inner_text().strip() and pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true', f'{tag} JM: a bill opens from its row; name first ("{pg.locator("main h1").inner_text().strip()[:30]}"), number after, the issue still marked open')
-        txt = pg.locator('main').inner_text()
-        ok('What it does' in pg.locator('#bFacts').inner_text() and pg.locator('.bigpath .btl .bts').count() >= 3 and pg.locator('#bStat .bln').count() >= 1 and pg.locator('main input:not(#findIn), main textarea:not(#bNoteIn), main select').count() == 0, f'{tag} JM: the bill page reads where it stands and its facts and timeline, and has no form controls but the note box')
-        # fix 4, 5: "Your move" is a quiet button right under the position line; the sheet does not restate the banner
-        ymp = pg.evaluate("() => { const m = document.querySelector('#bStat .bmv .ymove'), l = [...document.querySelectorAll('#bStat .bln')].pop(), h = document.querySelector('main .bigpath'); if (!m) return null; return [m.className, m.getBoundingClientRect().top - l.getBoundingClientRect().bottom, h.getBoundingClientRect().top - m.getBoundingClientRect().bottom]; }")
-        ok(ymp and 'btn' in ymp[0] and 'quiet' in ymp[0] and 'text' not in ymp[0].split() and 0 <= ymp[1] < 40 and ymp[2] > 0 and pg.locator('.strip').count() == 0 and 'Without a hearing' not in txt and 'none is set' not in txt, f'{tag} JM: "Your move" is a quiet button right under the status lines, and the bill page has no banner of its own and does not restate its words ({ymp})')
-        nxt = pg.evaluate("() => [...document.querySelectorAll('#bStat .bln')].map(p => p.innerText.replace(/\\s+/g, ' ').trim())")
-        ok(re.match(r'^Needs a hearing by \w{3}, \w{3} \d+ · \d+ days? · .* · none is scheduled$', nxt[0]) and nxt[1].startswith('If it is not heard by then'), f'{tag} JM: the status reads "{nxt[0]}" (one time form) and says what happens without a hearing')
-        snap(pg, 'bill_sheet', tag)
-        ok(pg.locator('.crumb.back2').inner_text().strip().startswith('Back to'), f'{tag} JM: the bill sheet\'s back link says where it goes ("{pg.locator(".crumb.back2").inner_text().strip()}")')
-        pg.click('.crumb.back2'); pg.wait_for_timeout(350)
-        ok(f'#/issue/{rid}' in pg.url and 'who=' not in pg.url, f'{tag} JM: the bill\'s back link goes to its issue')
+        ok(pg.locator('#iStat .bmv a.ymove').count() == 1 and pg.locator('#iStat .bmv a.ymove').get_attribute('href').startswith('#/do/') and pg.evaluate(FILLED) == 0 and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL) and 'Look only' not in pg.locator('main').inner_text(), f'{tag} JM: my own at-risk issue offers its one "Your move" step, nothing filled, no sideways scroll, 44px, no look-only words')
+        snap(pg, 'issue_page_atrisk_JM', tag)
+        pg.locator('#tBills tbody th a').first.click(); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(350)
+        ok('#/bill/' in pg.url and pg.locator('main h1').inner_text().strip() and pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true', f'{tag} JM: a bill opens from the issue\'s table; the issue is still marked open in the list ({pg.locator("main h1").inner_text().strip()[:30]})')
+        pg.locator('#bBack a').nth(1).click(); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(300)
+        ok(f'#/issue/{rid}' in pg.url and 'who=' not in pg.url, f'{tag} JM: the bill\'s trail goes back to its issue')
         ok(not errs and not bad, f'{tag} JM: no console error, nothing left the machine')
-        pg.context.close()
-
-        # a stopped issue and a stopped bill, and a moving bill with a hearing
-        pg, errs, bad = open_as(br, 'JM', w, h, '#/issues')
-        sid = pg.evaluate(GROUPS)[-1][1][0]; ok(pg.evaluate(GROUPS)[-1][0] == 'Stopped this year', f'{tag} JM: there is a stopped issue to open')
-        pg.click('#more-stopped'); pg.click(f'a.sr3[href^="#/issue/{sid}"]'); pg.wait_for_timeout(350)
-        st_txt = pg.locator('main').inner_text()
-        ok('Stopped for this year' in pg.locator('.hband .bsub').inner_text() and 'Nothing more can happen' not in st_txt and 'None of its' not in st_txt and 'Did not advance' in st_txt and pg.locator('.strip').count() == 0 and not re.search(r'\bdead\b|\bdied\b|\bkilled\b|vape', st_txt, re.I), f'{tag} JM: a stopped issue\'s band says "Stopped for this year", it lists its bills under Did not advance, in S-7 words')
-        snap(pg, 'issue_sheet_stopped', tag)
-        pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
-        b_txt = pg.locator('main').inner_text(); why = pg.locator('#bStat .bln').first.inner_text()
-        ok(why.startswith('Stopped') and pg.locator('#bStat .bln').count() in (1, 2) and pg.locator('.btl.dead').count() == 1 and pg.locator('.bts.bs-x').count() == 1 and pg.locator('svg.trk.dead').count() >= 1, f'{tag} JM: a stopped bill says where it stopped and why, and its path ends in a bar')
-        ok(not re.search(r'\d+/\d+/\d+|Lateral|Decking|Triple', why) and (re.search(r'\w{3}, \w{3} \d+', why) or 'ailed' in why or 'not adopted' in why or 'eferred' in why or why.strip() == 'Stopped' or 'issed' in why), f'{tag} JM: "Why" uses plain words and dates like "Fri, Feb 20" ("{why}")')
-        snap(pg, 'bill_sheet_stopped', tag)
-        ok(not errs and not bad, f'{tag} JM stopped: no console error')
         pg.context.close()
         # fix 3 and 5 across every issue: a stopped bill's "Still alive" leads with number and chamber; no row repeats its issue's name; no m/d/yy anywhere
         if w == 1440:
+            # the old per-bill-row checks went with the old sheet (tests/staff7_issue.py has the table's); an old-style date must still appear nowhere on any issue page
             pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=all')
-            aun = union_ids(pg, '#/issues?who=all'); allids = [i for k in SHOWS for i in aun[k]]; dupes = []; olds = []; alive_refs = []
+            aun = union_ids(pg, '#/issues?who=all'); allids = [i for k in SHOWS for i in aun[k]]; olds = []
             for iid in allids:
-                go(pg, f'#/issue/{iid}?who=all'); h1x = pg.evaluate(H1)
-                dupes += [t for t in pg.evaluate("() => [...document.querySelectorAll('.bn2')].map(a => a.innerText.trim())") if t == h1x]
+                go(pg, f'#/issue/{iid}?who=all'); pg.wait_for_selector('#iFacts', timeout=15000)
                 if re.search(r'\d+/\d+/\d+', pg.locator('main').inner_text()): olds.append(iid)
-                if pg.locator('.dh').count() and pg.locator('.brows').count() == 2 and len(alive_refs) < 3: alive_refs.append(iid)
-            ok(not dupes and not olds, f'{tag}: across all {len(allids)} issues no bill row repeats its issue\'s name ({dupes[:1]}) and no date reads m/d/yy ({olds[:1]})')
-            sa = []
-            for iid in alive_refs:
-                go(pg, f'#/issue/{iid}?who=all'); pg.locator('.brow.dead .bn2').first.click(); pg.wait_for_timeout(300)
-                sa += [a.strip() for a in pg.evaluate("() => [...document.querySelectorAll('#bStat .bln:not(:first-child) a.lk')].map(a => a.innerText)")]
-            ok(sa and all(re.fullmatch(r'[A-Z]+ ?\d+, the (House|Senate) version', a) for a in sa), f'{tag}: a stopped bill\'s "Still alive" leads with number and chamber ({sa[:2]})')
+            ok(not olds and not errs, f'{tag}: across all {len(allids)} issues no date reads m/d/yy ({olds[:1]})')
             pg.context.close()
 
         # by address
@@ -400,22 +361,24 @@ with sync_playwright() as p:
     VIEWS = [('KR', 'mine', ''), ('JM', 'mine', ''), ('KV', 'mine', ''), ('JM', 'all', '?who=all'), ('JM', 'KV', '?who=KV')]
     TOPICS = "() => [...document.querySelectorAll('#topics a.sr3')].map(a => ({ key: a.getAttribute('href').split('/topic/')[1].split('?')[0], name: a.querySelector('b').innerText.trim(), line: a.querySelector('.ir2').innerText.replace(/\\s*\\n\\s*/g, ' ').trim(), amber: !!a.querySelector('.ir2 .tr.risk'), href: a.getAttribute('href') }))"
     AMBER = "() => { const e = document.createElement('i'); e.style.color = 'var(--amber)'; document.body.appendChild(e); const c = getComputedStyle(e).color; e.remove(); const r = document.querySelector('.ir2.risk, .ir2 .tr.risk'); return r ? [getComputedStyle(r).color, c] : [c, c]; }"
-    HEADWORDS = ('At risk', 'Cleared', 'Waiting', 'Hearing scheduled', 'Moving', 'Stopped this year ·')
+    HEADWORDS = ('At risk', 'Cleared', 'Waiting', 'Hearing scheduled', 'Needs a hearing', 'Past committees', 'Stopped this year ·')
     def sec_ok(r, x, nextDay):
         t = r['sec']; k = x['state']
-        if t.startswith(HEADWORDS): return False   # a second line never says its group heading again
-        if k == 'risk': return r['amber'] and re.fullmatch(r'Needs a hearing by \w{3} · (today|tomorrow|in \d+ days)', t) is not None
+        if k == 'risk': return r['amber'] and (re.fullmatch(r'Needs a hearing by \w{3} · (today|tomorrow|in \d+ days)', t) is not None or re.fullmatch(r'Hearing .+ · after the deadline', t) is not None)
         if r['amber']: return False
+        if t.startswith(HEADWORDS): return False   # a second line never says its group heading again (an at-risk line is the one that says "Needs a hearing by ...", above)
         if k == 'hearing':
             base = 'Hearing ' + x['hearTxt']; tail = f' · before {nextDay}’s deadline'
             return t == base + tail if all(x['before']) else t == base if not any(x['before']) else t in (base, base + tail)
         if k == 'cleared': return t.startswith('Next: ') or (bool(t) and not t.startswith('Cleared'))
-        if k == 'moving': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^(In (\d+ (House|Senate) committees|(House|Senate) .+)|Ready for|In conference|With the|Signed|Going)', t) is not None and not re.search(r'has until (?!\w{3}, \w{3} \d+$)', t)
+        if k == 'need': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^In (\d+ (House|Senate) committees|(House|Senate) .+?)( · by \w{3}, \w{3} \d+ · (\d+ days|today|tomorrow))?$', t) is not None
+        if k == 'past': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^(In (\d+ (House|Senate) committees|(House|Senate) .+)|Ready for|In conference|With the|Signed|Going)', t) is not None and ' · by ' not in t
         return t == 'Stopped this year' or t.startswith('Stopped at ')
     def stats_sentence(sx, key, rows, bills):
         # the topic page's deadline sentence, from the data: the next deadline against the topic's alive bills
         nr = sx['nextKey']; info = sx['info']; racing = [b for b in sx['racingNext'] if b in bills]; clr = [b for b in bills if b in set(sx['clearedBills'])]
-        risk = sum(1 for b in racing if info[b]['s'] == 'risk'); heard = sum(1 for b in racing if info[b]['s'] == 'hearing'); rest = [b for b in racing if info[b]['s'] not in ('risk', 'hearing')]
+        # the page counts from its own two tests, not from the group a bill is in (a bill with a hearing set after its deadline is 'late', in the At risk group, but counts here as having a hearing)
+        risk = sum(1 for b in racing if info[b]['risk']); heard = sum(1 for b in racing if not info[b]['risk'] and info[b]['ha']); rest = [b for b in racing if not info[b]['risk'] and not info[b]['ha']]
         wait = sum(1 for b in rest if info[b]['wants']); no = len(rest) - wait; total = len(racing) + len(clr)
         parts = [x for x in [risk and f'{risk} at risk', heard and f'{heard} with a hearing set', wait and f'{wait} waiting for a hearing', no and f'{no} not asking for one', clr and f'{len(clr)} cleared'] if x]
         return total, parts
@@ -442,7 +405,7 @@ with sync_playwright() as p:
                 ok(sorted(seen) == sorted(R) and len(seen) == len(set(seen)), f'{tag} {nm}: the five groups hold every one of the {len(R)} issues exactly once ({cnt})')
                 # the summary and its links
                 go(pg, '#/issues' + q); sm = pg.locator('#summ').inner_text().strip(); links = {k: pg.locator(f'#sum-{k}').inner_text().strip() if pg.locator(f'#sum-{k}').count() else '' for k in SHOWS}
-                ok(re.match(rf'{len(R)} issues?', sm) and all((links[k] == f'{cnt[k]} {SUMW[k]}') if cnt[k] else not links[k] for k in SHOWS) and sum(cnt.values()) == len(R) and pg.locator('#showAll').count() == 0, f'{tag} {nm}: the summary says "{sm}"; a zero group is left out; the numbers add up to {len(R)}')
+                ok(re.match(rf'{len(R)} issues?', sm) and all((links[k] == f'{cnt[k]} {sw(k, cnt[k])}') if cnt[k] else not links[k] for k in SHOWS) and sum(cnt.values()) == len(R) and pg.locator('#showAll').count() == 0, f'{tag} {nm}: the summary says "{sm}"; a zero group is left out; the numbers add up to {len(R)}')
                 for k in [k for k in SHOWS if cnt[k]][:5]:
                     go(pg, '#/issues' + q); pg.click(f'#sum-{k}'); pg.wait_for_timeout(250); a1 = pg.evaluate(IDS); cur = pg.locator(f'#sum-{k}').get_attribute('aria-current'); sa = pg.locator('#showAll').count()
                     ok(f'show={k}' in pg.url and set(a1) == {r['id'] for r in sx['rows'] if r['state'] == k} and cur == 'true' and sa == 1 and pg.locator('[aria-current="true"].sl').count() == 1, f'{tag} {nm}: pressing "{links[k]}" narrows to those {cnt[k]} and marks it')
@@ -533,7 +496,7 @@ with sync_playwright() as p:
                 tr = pg.locator('#trail').inner_text().replace('\n', ' ').strip()
                 ok(tr.startswith('Issues') and tr.endswith(cn) and pg.locator('#trailIssues').get_attribute('href') == '#/issues' + q and pg.locator('#sessionRow').count() == 0, f'{tag} {nm}/{ck}: the trail reads "Issues › {cn}", Issues goes back to the list, and the session row is not shown')
                 sm = pg.locator('#summ').inner_text().strip(); lk = {k: pg.locator(f'#sum-{k}').inner_text().strip() if pg.locator(f'#sum-{k}').count() else '' for k in SHOWS}
-                ok(re.match(rf'{len(rs)} issues?', sm) and all((lk[k] == f'{tcount[k]} {SUMW[k]}') if tcount[k] else not lk[k] for k in SHOWS) and sum(tcount.values()) == len(rs), f'{tag} {nm}/{ck}: the summary says "{sm}" and adds up to the topic\'s {len(rs)}')
+                ok(re.match(rf'{len(rs)} issues?', sm) and all((lk[k] == f'{tcount[k]} {sw(k, tcount[k])}') if tcount[k] else not lk[k] for k in SHOWS) and sum(tcount.values()) == len(rs), f'{tag} {nm}/{ck}: the summary says "{sm}" and adds up to the topic\'s {len(rs)}')
                 un = {}
                 for k in SHOWS: go(pg, f'#/issues/topic/{ck}' + q + ('&' if q else '?') + f'show={k}'); un[k] = pg.evaluate(IDS)
                 allt = [i for k in SHOWS for i in un[k]]; seen_issues |= set(allt)
@@ -580,7 +543,7 @@ with sync_playwright() as p:
             ok(f'topic={ck}' in pg.url and 'show=' + k0 in pg.url and pg.locator('#trail').count() == 1 and pg.locator(f'a.sr3[href^="#/issue/{pick}"]').get_attribute('aria-current') == 'true' and pg.evaluate(H1) == R[pick]['name'].replace('vape', 'e-cigarette'), f'{tag} {nm}: an issue opened inside {ck} keeps the trail, the topic\'s list and its marked row')
             snap(pg, f'i8_issue_open_inside_topic_{nm.replace(" ", "_")}', tag)
             pg.go_back(); pg.wait_for_timeout(400); ok(f'/issues/topic/{ck}' in pg.url and 'topic=' not in pg.url, f'{tag} {nm}: Back returns to the topic')
-            go(pg, f'#/issues/topic/{ck}' + q + ('&' if q else '?') + f'show={k0}'); pg.click(f'a.sr3[href^="#/issue/{pick}"]'); pg.wait_for_timeout(350); pg.locator('.bn2').first.click(); pg.wait_for_timeout(350)
+            go(pg, f'#/issues/topic/{ck}' + q + ('&' if q else '?') + f'show={k0}'); pg.click(f'a.sr3[href^="#/issue/{pick}"]'); pg.wait_for_timeout(350); pg.locator('#tBills tbody th a').first.click(); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(350)
             ok('#/bill/' in pg.url and f'topic={ck}' in pg.url, f'{tag} {nm}: the topic is kept through to a bill')
             # the minute's redraw keeps the topic, the open fold and the place
             go(pg, f'#/issues/topic/{ck}' + q); pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(250); ok(pg.locator('#trail').count() == 1 and pg.evaluate(H1), f'{tag} {nm}: the minute\'s redraw keeps the topic')
@@ -600,7 +563,7 @@ with sync_playwright() as p:
                 un = union_ids(pg, '#/issues' + q); go(pg, '#/issues' + q + ('&' if q else '?') + 'show=cleared'); hd = pg.locator('#g-cleared').inner_text().strip() if pg.locator('#g-cleared').count() else ''
                 ok(set(un['cleared']) == {r['id'] for r in sx['rows'] if r['state'] == 'cleared'} and (not un['cleared'] or hd == f"Cleared {sx['nextDay']}’s deadline · {len(un['cleared'])}"), f'{tag} {viewer} {key}: the cleared group is headed "{hd}", the weekday of that list\'s own session row')
                 # Cleared again, from the raw fields only: the second-chamber committee count (referrals minus origin stops) and the raw stage, for every alive bill of the view
-                RAW = """async ([who, key]) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), S = d.S, now = Date.now();
+                RAW = """async ([who, key]) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), S = d.S, now = Date.now();
                   const withMe = (p, fn) => { const prev = S.me; S.me = p; try { return fn(); } finally { S.me = prev; } };
                   const has = i => !i.archived_at && st.billsOfIssue(i).length > 0; let ids; if (who === 'all') ids = S.issues.filter(has).map(i => String(i.id)); else { const p = who === 'mine' ? S.me : S.advocates.find(a => a.initials === who); ids = withMe(p, () => [...d.myIssueIds()]).filter(id => has(S.issues.find(i => String(i.id) === id))); }
                   const PAST = { second_triple: ['second_lateral', 'second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'enacted', 'ballot'], second_lateral: ['second_decking', 'second_floor', 'second_crossover', 'conference', 'governor', 'enacted', 'ballot'],
@@ -608,8 +571,9 @@ with sync_playwright() as p:
                   const NEED = { second_triple: 3, second_lateral: 2, second_decking: 1, conference: 0, first_crossover: 0 };
                   const out = []; for (const id of ids) { const i = S.issues.find(x => String(x.id) === id), bills = st.billsOfIssue(i), alive = bills.filter(st.isAlive);
                     const hear = b => S.hearings.some(h => h.bill_id === b.id && h.status === 'scheduled' && Date.parse(h.scheduled_at) > now);
-                    const raw = b => { const refs = (b.referrals || []).length, c = refs - Math.min(b.origin_stops || 0, refs), stage = b.stage; return !hear(b) && !st.isAtRisk(b) && (PAST[key] || []).includes(stage) && c >= NEED[key] && (key !== 'first_crossover' || !/^(HR|SR)\\d/.test(b.bill_number)); };
-                    out.push({ id, cleared: alive.length > 0 && !alive.some(b => st.isAtRisk(b) || hear(b)) && alive.some(raw) }); } return out; }"""
+                    const raw = b => { const refs = (b.referrals || []).length, c = refs - Math.min(b.origin_stops || 0, refs), stage = b.stage; return mo.stopOf(b).phase === 'committee' && !hear(b) && !st.isAtRisk(b) && (PAST[key] || []).includes(stage) && c >= NEED[key] && (key !== 'first_crossover' || !/^(HR|SR)\\d/.test(b.bill_number)); };
+                    const okb = b => raw(b) || mo.stopOf(b).phase !== 'committee' || !mo.wantsHearing(b);   // a bill that still needs a hearing keeps the issue in Needs a hearing (R-398 group order: risk, hearing, need, cleared, past)
+                    out.push({ id, cleared: alive.length > 0 && !alive.some(b => st.isAtRisk(b) || hear(b)) && alive.every(okb) && alive.some(raw) }); } return out; }"""
                 if sx['nextKey'] in ('second_triple', 'second_lateral', 'second_decking', 'conference', 'first_crossover'):
                     rw = pg.evaluate(RAW, [key, sx['nextKey']]); rawc = {r['id'] for r in rw if r['cleared']}
                     ok(rawc == set(un['cleared']), f'{tag} {viewer} {key}: the cleared issues ({len(un["cleared"])}) equal a reading of the raw fields (committees from referrals minus origin stops, and the raw stage) for the next deadline {sx["nextKey"]} ({len(rawc)})')
@@ -624,12 +588,12 @@ with sync_playwright() as p:
             pg.context.close()
 
             # ---- fixtures put into the live page data (then taken out): the group must follow the Capitol's facts, not the app's own algorithm
-            pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=all'); un0 = union_ids(pg, '#/issues?who=all'); mv = un0['moving']
+            pg, errs, bad = open_as(br, 'JM', w, h, '#/issues?who=all'); un0 = union_ids(pg, '#/issues?who=all'); mv = un0['need']
             INJ = """async ([a, b, c]) => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), S = d.S, now = Date.now(), H = 36e5; const alive = id => st.billsOfIssue(S.issues.find(i => String(i.id) === id)).find(st.isAlive);
               const dead = S.issues.find(i => { const bs = st.billsOfIssue(i); return bs.length && bs.every(x => !st.isAlive(x) && x.stage === 'dead'); }), db = st.billsOfIssue(dead)[0], add = (id, b, at, status) => S.hearings.push({ id, bill_id: b.id, scheduled_at: new Date(at).toISOString(), status, committee: 'JDC', room: '325', testimony_deadline: null });
               add('zz-cancel', alive(a), now + 30 * H, 'cancelled'); add('zz-past', alive(b), now - H, 'scheduled'); add('zz-dup1', alive(c), now + 30 * H, 'scheduled'); add('zz-dup2', alive(c), now + 30 * H, 'scheduled'); add('zz-dead', db, now + 30 * H, 'scheduled'); return String(dead.id); }"""
             dead_id = pg.evaluate(INJ, mv[:3]); un1 = union_ids(pg, '#/issues?who=all'); where1 = {i: k for k in SHOWS for i in un1[k]}
-            ok(where1[mv[0]] == 'moving' and where1[mv[1]] == 'moving' and where1[mv[2]] == 'hearing' and where1[dead_id] == 'stopped' and all(len(un1[k]) == len(set(un1[k])) for k in SHOWS) and sum(len(v) for v in un1.values()) == sum(len(v) for v in un0.values()), f'{tag} fixtures: a cancelled future hearing and one that began an hour ago leave a moving issue moving; two rows for one hearing make it Hearing scheduled once; a future hearing on a stopped bill leaves a stopped issue stopped')
+            ok(where1[mv[0]] == 'need' and where1[mv[1]] == 'need' and where1[mv[2]] == 'hearing' and where1[dead_id] == 'stopped' and all(len(un1[k]) == len(set(un1[k])) for k in SHOWS) and sum(len(v) for v in un1.values()) == sum(len(v) for v in un0.values()), f'{tag} fixtures: a cancelled future hearing and one that began an hour ago leave a moving issue moving; two rows for one hearing make it Hearing scheduled once; a future hearing on a stopped bill leaves a stopped issue stopped')
             pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.S.hearings = d.S.hearings.filter(h => !String(h.id).startsWith('zz-')); }"); un2 = union_ids(pg, '#/issues?who=all')
             ok(un2 == un0, f'{tag} fixtures: taken out again, every group is as it was')
             pg.context.close()
@@ -649,17 +613,15 @@ with sync_playwright() as p:
     ok(pg.locator('.wl').is_hidden() and 'session' in pg.url and pg.locator('.back').inner_text().strip() == 'Back to Issues' and pg.locator('.sess').is_visible(), 'phone: The session opens alone with its line and Back to Issues')
     snap(pg, 'issues_session_phone', '390x844'); fullshots(pg, 'JM_Mine_phone_390x844')
     pg.click('.back'); pg.wait_for_timeout(400)
-    pg.click(f'a.sr3[href^="#/issue/{INFO["JM"]}"]'); pg.wait_for_timeout(400)
+    pg.click(f'a.sr3[href^="#/issue/{INFO["JM"]}"]'); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(400)
     ok(pg.locator('.wl').is_hidden() and pg.locator('.back').inner_text().strip() == 'Back to Issues' and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'phone: an issue shows alone with "Back to Issues", no sideways scroll ({pg.evaluate(SMALL)[:2]})')
-    snap(pg, 'issue_sheet_phone', '390x844')
-    pg.locator('.bn2').first.click(); pg.wait_for_timeout(400)
-    backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
-    ok(pg.evaluate(NOSIDE) and pg.locator('svg.trk.row').first.is_visible() and pg.locator('.bigpath .btl').first.is_hidden(), 'phone: a bill sheet fits, its path is the compact one')
-    ok(len(backs) == 1 and backs[0].startswith('Back to ') and backs[0] != pg.evaluate(H1) and not pg.evaluate(SMALL), f'phone: a bill sheet has one back link, labelled with where it goes ({backs})')
-    snap(pg, 'bill_sheet_phone', '390x844')
-    pg.click('.crumb.back2'); pg.wait_for_timeout(400)
-    ok(f'#/issue/{INFO["JM"]}' in pg.url and pg.locator('.back').inner_text().strip() == 'Back to Issues', 'phone: that link goes to the issue, which has Back to Issues')
-    pg.click('.back'); pg.wait_for_timeout(400)
+    snap(pg, 'issue_page_phone', '390x844')
+    pg.locator('#tBills tbody th a').first.click(); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(300)
+    backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2, #bBack a')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
+    ok('#/bill/' in pg.url and 'i=' in pg.url and pg.evaluate(NOSIDE) and len(backs) >= 1, f'phone: a bill opened from the issue\'s table fits and says where it goes back to ({backs})')
+    pg.evaluate("() => history.back()"); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(300)
+    ok(f'#/issue/{INFO["JM"]}' in pg.url and pg.locator('.back').inner_text().strip() == 'Back to Issues', 'phone: back from the bill is the issue, which has Back to Issues')
+    pg.wait_for_selector('.back', state='visible'); pg.click('.back'); pg.wait_for_timeout(400)
     ok(pg.locator('.wl').is_visible() and pg.locator('.sr3.ir').count() > 0 and not errs and not bad, 'phone: Back to Issues returns to the list; no errors')
     pg.context.close()
 

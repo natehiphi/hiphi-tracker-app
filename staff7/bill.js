@@ -29,7 +29,7 @@ const kv = rows => `<dl class="kv bfacts" id="bFacts">${rows.filter(Boolean).map
 const boldFirst = t => { const k = String(t).indexOf(' · '); return k < 0 ? `<b>${esc(t)}</b>` : `<b>${esc(t.slice(0, k))}</b>${esc(t.slice(k))}`; };
 const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
 // the Capitol's own date a bill was stopped by (the m/d/yy at the end of died_deadline) as YYYY-MM-DD; '' when the data holds none
-const stoppedISO = b => { const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || ''); if (!m) return ''; const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`; };
+export const stoppedISO = b => { const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || ''); if (!m) return ''; const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`; };
 const stoppedOn = b => { const d = stoppedISO(b); return d ? dateY(d) : ''; };
 // ---------------------------------------------------------------------------------- back
 // "Back to <issue>", or where the person came from (the address carries from=calendar or from=search)
@@ -171,9 +171,9 @@ function factsHTML(b, who) {
     talk ? ['Talking points', talk] : null]);
 }
 // the number's line in the band: "HB 1523 · The Capitol’s page ↗ · Read the bill ↗" (the two links wrap to their own line on a phone)
-function numberLine(b) {
+function numberLine(b, noNo = false) {   // noNo: opened from an issue, the number is the small line above the title instead
   const cap = capitolUrl(b), txt = billTextUrl(b), ls = [http(cap) ? ext(cap, 'The Capitol’s page') : '', http(txt) ? ext(txt, 'Read the bill') : ''].filter(Boolean);
-  return `<p class="bsub"><span class="bno">${esc(billNo(b))}</span>${ls.length ? `<span class="bls">${ls.map(l => `<span class="bsep" aria-hidden="true">·</span>${l}`).join('')}</span>` : ''}</p>`;
+  return `<p class="bsub">${noNo ? '' : `<span class="bno">${esc(billNo(b))}</span>`}${ls.length ? `<span class="bls">${ls.map((l, i) => `${noNo && !i ? '' : '<span class="bsep" aria-hidden="true">·</span>'}${l}`).join('')}</span>` : ''}</p>`;
 }
 
 // ---------------------------------------------------------------------------------- the page
@@ -181,7 +181,11 @@ function numberLine(b) {
 export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   const alive = isAlive(b), nx = x.nx || nextCtx(), from = x.from === 'calendar' || x.from === 'search' ? x.from : '';
   const onIssue = (S.billIssues || []).some(y => y.bill_id === b.id && (S.issues || []).some(i => i.id === y.issue_id && !i.archived_at));
-  let out = `<div class="pn"><div class="hband bb" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${backOf(issue, b, who, from)}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b)}</div></div><div class="pbody bill">`;
+  // Opened from an issue (the address says ?i=<that issue>): the issue is the whole, the bill a part of it. The mark is smaller and only outlined, the number is the small line above the title, and Back is the trail
+  // "Issues › <issue name>". Without ?i= (or from Calendar or Search) the page is as it was.
+  const fi = !!issue && !from && (new URLSearchParams((location.hash.split('?')[1] || '')).get('i') || '') === String(issue.id);
+  const trail = `<span class="crumb back2 trail" id="bBack"><a class="lk" href="${esc(issuesHref(noTopic(who)))}">Issues</a><span aria-hidden="true">${ic('chevron-right')}</span><a class="lk" href="${esc(issueHref(who, issue?.id))}">${esc(eCig(issue?.name))}</a></span>`;
+  let out = `<div class="pn"><div class="hband bb${fi ? ' fromissue' : ''}" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big${fi ? ' out' : ''}" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${fi ? trail : backOf(issue, b, who, from)}${fi ? `<p class="kindl no">${esc(billNo(b))}</p>` : ''}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b, fi)}</div></div><div class="pbody bill">`;
   const can = mayEdit(b, issue, me); if (!(can && bui.edit && bui.edit.id === b.id)) bui.edit = null;   // an edit open on another bill, or one this person may not make, is dropped
   bui.ctx = { b, issue, me };
   out += positionHTML(b, issue, me, can);
