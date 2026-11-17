@@ -9,7 +9,7 @@ import { S, isMine, SESSION_YEAR } from '../staff6/data.js';
 import { roomName, streamOf, hearingAhead, billRef, lateLine } from '../staff6/model.js';
 import { whereWords } from '../staff6/steps.js';
 import { ic } from './icons7.js';
-import { esc, plainBand } from './parts.js';
+import { esc, plainBand, keepWords } from './parts.js';
 import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
@@ -154,7 +154,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
   const dueWord = t => t <= Date.now() ? 'Testimony was due' : 'Testimony due';
   const tdRow = (g, moved) => { const on = okPick && kind === 'testimony' && item.key === g.sit.key, i = infoOf(g);
     return `<li><a class="sr3 ir cal${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} data-td="${esc(g.sit.key)}" href="${tdHref(g.sit)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('clock')}</span>`
-      + `<span class="sv"><b>${dueWord(g.due)} <span class="nb">${esc(moved ? wdClock(g.due) : clock(g.due))}</span></b><span class="ir2 tdst st-${i.tone}${i.tone === 'late' ? ' risk' : ''}">${i.icon ? ic(i.icon) : ''}<span>${esc(i.line)}</span></span></span></a></li>`; };
+      + `<span class="sv"><b>${dueWord(g.due)} <span class="nb">${esc(moved ? wdClock(g.due) : clock(g.due))}</span></b><span class="ir2 tdst st-${i.tone}${i.tone === 'late' ? ' risk' : ''}">${i.icon ? ic(i.icon) : ''}<span>${keepWords(esc(i.line))}</span></span></span></a></li>`; };
   const dlRow = r => { const on = okPick && kind === 'deadline' && item.key === r.key;
     return `<li><a class="sr3 ir cal${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} data-dl="${esc(r.key)}" href="${dlHref(r)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('flag')}</span><span class="sv"><b>${esc(r.label)}</b><span class="ir2">Capitol deadline</span></span></a></li>`; };
   const itemRow = (x, d) => x.s ? sitRow(x.s) : tdRow(x.g, ymd(x.g.due) !== d);
@@ -311,9 +311,11 @@ const WIDE = 760;   // the width, in pixels, at which the hearing sheet has two 
 function bindCal() {
   bindIssues();
   const cq = document.querySelector('.cq'), wide = !!cq && cq.clientWidth >= WIDE; ui.folds = ui.folds || {};
+  const def = ui.foldDef && ui.foldDef.h === location.hash ? ui.foldDef : (ui.foldDef = { h: location.hash, v: {} });   // the width decides a fold only when the page is first drawn: dragging the list's width and a redraw never open or close one nobody pressed
   document.querySelectorAll('.fbtn').forEach(b => {
     const k = b.dataset.fold, body = document.getElementById(b.getAttribute('aria-controls')), set = on => { b.setAttribute('aria-expanded', String(on)); body.hidden = !on; };
-    set(k in ui.folds ? ui.folds[k] : wide); b.addEventListener('click', () => { const on = b.getAttribute('aria-expanded') !== 'true'; ui.folds[k] = on; set(on); });   // only a press is remembered: the default follows the sheet's width
+    if (!(k in def.v)) def.v[k] = wide;
+    set(k in ui.folds ? ui.folds[k] : def.v[k]); b.addEventListener('click', () => { const on = b.getAttribute('aria-expanded') !== 'true'; ui.folds[k] = on; set(on); });   // only a press is remembered: the default follows the sheet's width
   });
   const keep = ui.calScroll && ui.calScroll.h === location.hash ? ui.calScroll : { h: location.hash, y: {} }; ui.calScroll = keep;
   document.querySelectorAll('.dayp, .sheetp').forEach(e => { const c = e.classList[0]; if (keep.y[c]) e.scrollTop = keep.y[c]; e.addEventListener('scroll', () => { keep.y[c] = e.scrollTop; }, { passive: true }); });

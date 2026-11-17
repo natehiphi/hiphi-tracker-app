@@ -487,11 +487,11 @@ with sync_playwright() as p:
         pg.click('.fbtn[data-fold="cmte"]'); pg.wait_for_timeout(150); ok(pg.locator('.fbtn[data-fold="cmte"]').get_attribute('aria-expanded') == 'false' and not pg.locator('#fold-cmte').is_visible(), f'{tag}: a fold closes when pressed')
         pg.evaluate('window.__staff7Tick()'); pg.wait_for_timeout(200); ok(pg.locator('.fbtn[data-fold="cmte"]').get_attribute('aria-expanded') == 'false', f'{tag}: the minute\'s redraw does not change a fold')
         pg.click('.fbtn[data-fold="cmte"]'); snap(pg, 'cal_hearing_week', tag)
-        # the List, same hearing: the left column stays, no X, the sheet is narrower (one column at 1280), folds follow its width
+        # the List, same hearing: the left column stays, no X, the sheet is narrower (two columns at 1280 now that the list is 340 wide, R-398 list width), folds follow its width
         pg.context.close(); pg, errs, bad = open_as(br, 'KR', w, h, '#/calendar/sitting/' + both.replace('|', '%7C').replace(':', '%3A').replace('/', '%2F') + '?view=list'); I = pg.evaluate(SHEET)   # a fresh page: the defaults, not the fold pressed above
         ok(pg.locator('.wl #weekRow').count() == 1 and I['close'] is None and I['split'] == 0 and I['bills'] >= 1 and I['side'] and I['filled'] <= 1, f'{tag}: the List keeps its left column and has no Close; the same sheet opens on the right')
         cols = pg.evaluate("() => getComputedStyle(document.querySelector('.cols')).gridTemplateColumns.split(' ').length")
-        ok(all((f[1] == 'true') == (cols == 2) for f in I['folds'] if f[0] == 'cmte') and (w != 1280 or cols == 1), f'{tag}: in the List the folds follow the sheet\'s width ({cols} column(s); {I["folds"]})'); snap(pg, 'cal_hearing_list', tag)
+        ok(all((f[1] == 'true') == (cols == 2) for f in I['folds'] if f[0] == 'cmte') and (w != 1280 or cols == 2), f'{tag}: in the List the folds follow the sheet\'s width ({cols} column(s); {I["folds"]})'); snap(pg, 'cal_hearing_list', tag)
         ok(not errs and not bad, f'{tag}: folds and list: no console error ({errs[:1]} {bad[:1]})'); pg.context.close()
 
     # ================= round two: folds, sent back, late once, show more, words, deadline hearing links =================

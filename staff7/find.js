@@ -11,7 +11,7 @@
 import { S, DB, DEMO, advocate, capitolUrl, myIssueIds, isMine } from '../staff6/data.js';
 import { hearingAhead, billRef, billByRef, stopOf, titleCaseTitle } from '../staff6/model.js';
 import { ic } from './icons7.js';
-import { esc, plainBand } from './parts.js';
+import { esc, plainBand, keepWords, keepEcig, KEEP_ECIG } from './parts.js';
 import { billName, billNo, cmteWords, first, issueOf } from './steps.js';
 import { billsOfIssue, isAlive } from './standing.js';
 import { pathOf } from './path.js';
@@ -51,7 +51,7 @@ function tierOf(primary, nq, numbers) {
 // The matched letters marked, on the ORIGINAL letters (a kahakō, an ʻokina or "&" in the text does not shift them). Words are marked at the start of a word only.
 // `vis`: when the first match is further along than this, the row's name is cut before it and nothing is marked.
 export function mark(text, q, vis = 0) {
-  const t = String(text ?? ''), ws = matchWords(q).flat(); if (!ws.length) return esc(t);
+  const t = String(text ?? ''), ws = matchWords(q).flat(); if (!ws.length) return keepEcig(esc(t));
   let nt = ''; const at = [];
   for (let i = 0; i < t.length; i++) {
     const b = t[i].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -59,12 +59,18 @@ export function mark(text, q, vis = 0) {
     if (b === '&') { for (const c of ' and ') { nt += c; at.push(i); } continue; }
     for (const c of b) { nt += /[a-z0-9]/.test(c) ? c : ' '; at.push(i); }
   }
-  const on = new Array(t.length).fill(false);
+  const on = new Array(t.length).fill(false), keep = new Array(t.length).fill(false);
   for (const w of ws) for (let s = nt.indexOf(w); s >= 0; s = nt.indexOf(w, s + 1)) if (s === 0 || nt[s - 1] === ' ') for (let k = s; k < s + w.length; k++) on[at[k]] = true;
-  if (vis && on.indexOf(true) >= vis) return esc(t);
-  let out = '', open = false;
-  for (let i = 0; i < t.length; i++) { if (on[i] !== open) { out += open ? '</mark>' : '<mark>'; open = on[i]; } out += esc(t[i]); }
-  return out + (open ? '</mark>' : '');
+  for (const m of t.matchAll(KEEP_ECIG)) for (let k = m.index; k < m.index + m[0].length; k++) keep[k] = true;   // "e-cigarette" is held whole as the tags are laid down, never by searching tagged text
+  if (vis && on.indexOf(true) >= vis) return keepEcig(esc(t));
+  let out = '', open = false, hold = false;
+  for (let i = 0; i < t.length; i++) {
+    if (open && (!on[i] || keep[i] !== hold)) { out += '</mark>'; open = false; }
+    if (keep[i] !== hold) { out += keep[i] ? '<span class="kd">' : '</span>'; hold = keep[i]; }
+    if (on[i] && !open) { out += '<mark>'; open = true; }
+    out += esc(t[i]);
+  }
+  return out + (open ? '</mark>' : '') + (hold ? '</span>' : '');
 }
 // a bill number: marked as letters, or whole when the words found it with the space left out ("hb1562")
 const markNo = (no, q) => { const m = mark(no, q); if (m.includes('<mark>')) return m; const c = norm(no).replace(/ /g, ''); return matchWords(q).flat().some(w => /\d/.test(w) && c.startsWith(w)) ? `<mark>${esc(no)}</mark>` : esc(no); };
@@ -157,7 +163,7 @@ const hrefOf = (it, q) => (it.search ? it.path + (q ? `?q=${enc(q)}${ALLQ ? `&al
 function rowHTML(it, q, { ix = -1, plain = false, cur = '', pre = 'fo', nomark = false } = {}) {
   const mq = nomark ? '' : q, on = cur && cur === it.path;
   return `<a class="sr3 ir fit${on ? ' sel' : ''}"${plain ? '' : ` role="option" id="${pre}-${ix}" tabindex="-1" aria-selected="false"`}${on ? ' aria-current="true"' : ''} data-k="${it.kind}" href="${esc(hrefOf(it, q))}">${it.tile}`
-    + `<span class="sv"><span class="fn"><b>${mark(it.name, mq, SEEN)}</b>${it.no ? ` <span class="no">${markNo(it.no, mq)}</span>` : ''}</span><span class="ir2">${it.why ? `<span class="why">${markNo(it.why, mq)}</span> · ` : ''}${esc(it.sub)}</span></span>${it.tag ? `<span class="ftag">${esc(it.tag)}</span>` : ''}</a>`;
+    + `<span class="sv"><span class="fn"><span class="fnt"><b>${mark(it.name, mq, SEEN)}</b></span>${it.no ? ` <span class="no">${markNo(it.no, mq)}</span>` : ''}</span><span class="ir2">${it.why ? `<span class="why">${markNo(it.why, mq)}</span> · ` : ''}${keepWords(esc(it.sub))}</span></span>${it.tag ? `<span class="ftag">${esc(it.tag)}</span>` : ''}</a>`;
 }
 
 // ---------------------------------------------------------------------------------- results

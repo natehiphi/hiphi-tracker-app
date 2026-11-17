@@ -17,6 +17,14 @@ export const personMark = (initials, { small = false } = {}) => `<span class="pe
 // Status mark: a dot or icon AND words, never colour alone.
 export const statusMark = (words, { icon = '', tone = '' } = {}) => `<span class="stmark${tone ? ' ' + tone : ''}">${icon ? ic(icon) : ''}<span>${esc(words)}</span></span>`;
 
+// The list column never cuts a fact off, so a row's second line wraps, and a count of days stays in one piece when it does ("14 days", "in 14 days"), and every "·" stays with the word after it, so a line
+// breaks before a separator and never ends on one. Takes text that is already escaped; only what is drawn changes, never the words. ("kd" has a rule only at 900px and up: a phone draws it as plain text.)
+const KEEP_DAYS = /· (?:in )?\d+ days?\b|· \S+|(?:in )?\d+ days?\b/g;
+export const keepWords = html => String(html).replace(KEEP_DAYS, m => `<span class="kd">${m}</span>`);
+// "e-cigarette" never breaks after "e-": on plain escaped text (a marked name is done inside mark(), on the text before any tag exists)
+export const KEEP_ECIG = /\be-cigarettes?\b/gi;
+export const keepEcig = html => String(html).replace(KEEP_ECIG, m => `<span class="kd">${m}</span>`);
+
 // A row's words: a hyphenated word never breaks after its hyphen, and the number stays with the name's last word.
 const nb = s => esc(s).replace(/\S*-\S*/g, '<span class="nb">$&</span>');
 const tight = s => nb(String(s).replace(/ (\S+)$/, '\u00a0$1'));

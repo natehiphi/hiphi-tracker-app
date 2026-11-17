@@ -154,10 +154,48 @@ body.nobar main { padding-bottom: 0; }
   .bar .who { display: flex; margin-top: auto; }
   main { margin-left: var(--rail); }
   html.isws, body.isws { overflow: hidden; height: 100vh; }
-  .ws { display: grid; grid-template-columns: clamp(var(--list-min), var(--list-vw), var(--list-max)) minmax(0, 1fr); grid-template-rows: minmax(0, 100vh); height: 100vh; overflow: hidden; position: relative; }
+  .ws { --lw: clamp(var(--list-lo), var(--list-w), min(var(--list-hi), var(--list-share))); display: grid; grid-template-columns: var(--lw) minmax(0, 1fr); grid-template-rows: minmax(0, 100vh); height: 100vh; overflow: hidden; position: relative; }
   .ws.one { grid-template-columns: minmax(0, 1fr); }
+  .ws.gridws { --lw: var(--list-week); }   /* Week view: the list's header shares column 1 with the grid's start, so it keeps its own fixed width */
   .ws.sheetonly .wl, .ws.listonly .wp { display: block; }
-  .ws .wl { overflow-y: auto; padding: var(--s6) var(--s4) var(--s5); max-width: none; margin: 0; }
+  .ws .wl { overflow-y: auto; padding: var(--s6) var(--s4) var(--s5); max-width: none; margin: 0; container: wl / inline-size; }
+  /* the width handle (width.js): over the gap between the list and the page, 4px into the list's padding (nothing is there: the rows end 4px short of it) and 8px into the paper's empty edge. Nothing shows until it is pointed at. */
+  .wsz { position: absolute; top: 0; bottom: 0; left: calc(var(--lw) - var(--grab-in)); width: var(--grab); z-index: 2; cursor: col-resize; touch-action: none; outline: none; }
+  .wsz::after { content: ""; position: absolute; top: var(--s5); bottom: var(--s5); left: calc(var(--grab-in) + (var(--s2) - var(--line2)) / 2); width: var(--line2); border-radius: var(--line2); background: var(--act); opacity: 0; transition: opacity var(--t-fast) var(--ease); }
+  .wsz:hover::after { opacity: .6; }
+  .wsz:focus-visible::after, .wsz.on::after { opacity: 1; }
+  .wsz:focus-visible::after { background: var(--ring); }
+  body.wdrag, body.wdrag * { cursor: col-resize !important; user-select: none !important; }
+  @media (any-pointer: coarse) { .wsz::after { opacity: 1; background: var(--edge); } .wsz:focus-visible::after, .wsz.on::after { background: var(--ring); } }
+  @media (forced-colors: active) { .wsz:hover::after, .wsz:focus-visible::after, .wsz.on::after { forced-color-adjust: none; background: Highlight; } }
+  /* a second line wraps in the list column instead of ending in dots; a count of days and "e-cigarette" stay whole */
+  .ir2.one { align-items: flex-start; }
+  .ir2.one > svg.ic { margin-top: calc((1lh - var(--icon-s)) / 2); }
+  .ws .ir2.one > span:last-child { overflow: visible; text-overflow: clip; white-space: normal; }
+  .kd { white-space: nowrap; }   /* a count of days, "e-cigarette": only in this desktop block; a phone draws them as plain text */
+  /* a search result: the title (two lines at most, unless a matched word is in it) with the bill number beside it and never clamped; a pill goes under the words, not beside them */
+  .wl .fit { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s3); }
+  .wl .fit > .imark { grid-row: 1 / span 2; grid-column: 1; }
+  .wl .fit > .sv { grid-row: 1; grid-column: 2; }
+  .wl .fit > .ftag { grid-row: 2; grid-column: 2; justify-self: start; margin: 0 0 var(--s1); }
+  .wl .fit .fn { display: flex; align-items: baseline; white-space: normal; overflow: visible; }
+  .wl .fit .fnt { flex: 0 1 auto; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+  .wl .fit .fnt:has(mark) { display: block; -webkit-line-clamp: none; overflow: visible; }   /* a title with a matched word is shown whole: the word is never clamped away */
+  .wl .fit .fn .no { flex: none; }
+  .wl .fit .ir2 { white-space: normal; overflow: visible; text-overflow: clip; }
+  .wl .fdrop .fit { display: flex; }
+  .wl .fdrop .fit > .imark { grid-row: auto; }
+  .wl .fdrop .fit > .ftag { margin-left: auto; margin-bottom: 0; }
+  .wl .fdrop .fit .fn { display: block; white-space: nowrap; overflow: hidden; }
+  .wl .fdrop .fit .fnt { display: inline; overflow: visible; overflow-wrap: normal; }
+  .wl .fdrop .fit .ir2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* the narrowest list (the container is the column less its padding): tabs a little tighter, no key hint, nothing clipped or scrolling sideways */
+  @container wl (max-width: 300px) {
+    .wl .segs3 .seg, .wl .vsw .seg { padding: 0 var(--s1); }
+    .wl .findb kbd.fkey { display: none; }
+    .wl .wknav { flex-wrap: nowrap; }
+    .wl .wknav .btn.text { padding-left: var(--s1); padding-right: var(--s1); }
+  }
   .ws .wp { height: 100vh; padding: var(--s5) var(--s5) var(--s5) var(--s2); max-width: none; margin: 0; min-width: 0; }
   .ws.one .wp { padding-left: var(--s2); }
   .ws .backhome { display: none; }
@@ -588,7 +626,7 @@ li[hidden] { display: none; }
 .findb { display: flex; align-items: center; gap: var(--s2); background: var(--surface); border: var(--line) solid var(--edge); border-radius: var(--r12); padding: 0 var(--s3); min-height: var(--hit-big); }
 .findb:focus-within { border-color: var(--act); box-shadow: 0 0 0 var(--line2) var(--act); }
 .findb svg.ic { width: var(--icon-s); height: var(--icon-s); color: var(--muted); flex: none; }
-.findb input { all: unset; flex: 1; min-width: 0; font: 400 var(--f16)/1.2 var(--body); color: var(--ink); min-height: var(--hit); }
+.findb input { all: unset; flex: 1; min-width: 0; font: 400 var(--f16)/1.2 var(--body); color: var(--ink); min-height: var(--hit); overflow: hidden; text-overflow: ellipsis; }
 .findb input::placeholder { color: var(--muted); opacity: 1; }
 .findb kbd.fkey { font: 700 var(--f14)/1 var(--body); color: var(--muted); border: var(--line) solid var(--edge); border-radius: var(--r4); padding: var(--s1) var(--s2); flex: none; }
 /* the panel covers the column's full width (the list's rows reach past its edge by one space step); its height is set from where it starts, and "See all" stays at its foot */

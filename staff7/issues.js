@@ -10,7 +10,7 @@ import { hearingAhead, wantsHearing as wantsHearingOf, plainAction, stopOf, bill
 import { whereWords } from '../staff6/steps.js';
 import { CHAMBER_NAME, isOneChamber } from '../stops.js';
 import { ic } from './icons7.js';
-import { esc, btn, plainBand } from './parts.js';
+import { esc, btn, plainBand, keepWords, keepEcig } from './parts.js';
 import { billName, billNo, posWords, cmteWords, dayTime, first } from './steps.js';
 import { myIssueStandings, billsOfIssue, issueStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
 import { withMe, sessionHTML } from './home.js';
@@ -227,8 +227,8 @@ export function sessionOf(set) {
 // ---------------------------------------------------------------------------------- the left column
 // Look-only depends on the issue, not the view: the viewer's own issues keep their links to their steps, anyone else's say "Look only".
 const ownSet = me => new Set(withMe(me, () => [...myIssueIds()]).map(String));
-const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${s.icon ? ic(s.icon) : ''}<span>${esc(s.text)}</span></span>` : '';
-const newHTML = text => `<span class="ir2 one" title="${esc(text)}"><span class="vh">New: </span><span>${esc(text)}</span></span>`;
+const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${s.icon ? ic(s.icon) : ''}<span>${keepWords(esc(s.text))}</span></span>` : '';
+const newHTML = text => `<span class="ir2 one" title="${esc(text)}"><span class="vh">New: </span><span>${keepWords(esc(text))}</span></span>`;
 // the lead's initials at the right of a row, on Everyone and on a teammate's list (there, only when the lead is someone else)
 function leadOf(i, who) {
   if (who.kind === 'mine' || !live(i.owner_id)) return '';
@@ -238,11 +238,11 @@ function leadOf(i, who) {
 function row(x, who, openId, second, hid, fx, mk) {
   const i = x.issue, on = String(i.id) === openId, dead = x.k === 'stopped';
   const mark = dead ? '<span class="imark" style="--ic:var(--edge)" aria-hidden="true">' : `<span class="imark" style="${tint(i)}" aria-hidden="true">`;
-  return `<li${fx ? ' class="fx"' : ''}${hid ? ' hidden' : ''}><a class="sr3 ir${on ? ' sel' : ''}${dead ? ' dead' : ''}"${on ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}">${mark}${ic(iconOf(i))}</span><span class="sv"><b>${mk ? mk(eCig(i.name)) : esc(eCig(i.name))}</b>${second}</span>${leadOf(i, who)}</a></li>`;
+  return `<li${fx ? ' class="fx"' : ''}${hid ? ' hidden' : ''}><a class="sr3 ir${on ? ' sel' : ''}${dead ? ' dead' : ''}"${on ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}">${mark}${ic(iconOf(i))}</span><span class="sv"><b>${mk ? mk(eCig(i.name)) : keepEcig(esc(eCig(i.name)))}</b>${second}</span>${leadOf(i, who)}</a></li>`;
 }
 function sessionRow(who, ses, on) {
   const nx = ses.next, line = nx ? `${nx.row.label} · ${whenWords(nx.row.date)}` : 'The session has ended';
-  return `<ul class="srows3 sessrow"><li><a class="sr3 ir${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} id="sessionRow" href="#/issues/session${qs(who)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('flag')}</span><span class="sv"><b>The session</b><span class="ir2">${esc(line)}</span></span></a></li></ul>`;
+  return `<ul class="srows3 sessrow"><li><a class="sr3 ir${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} id="sessionRow" href="#/issues/session${qs(who)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('flag')}</span><span class="sv"><b>The session</b><span class="ir2"><span>${keepWords(esc(line))}</span></span></span></a></li></ul>`;
 }
 // A group: its heading with the count of ALL its issues, its first `limit` rows, and a button for the rest. `shut`: only the heading and a button ("Stopped this year"). `all`: no fold (a narrowed list, a list in full).
 // `held`: issues of the group that are drawn above, under Changed, and so not repeated: the group says how many.

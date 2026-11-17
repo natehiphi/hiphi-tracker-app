@@ -14,6 +14,7 @@ import { issuesModel, ui as issuesUi } from './issues.js';
 import { issuePage } from './issue.js';
 import { calendarModel } from './calendar.js';
 import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
+import { initWidth, handleHTML, syncHandle, dragging } from './width.js';
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
@@ -168,14 +169,16 @@ function render(opts = {}) {
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
-  const lists = one ? '' : `<div class="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
+  const lists = one ? '' : `<div class="wl" id="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
+  const grip = phone || one || im?.wide ? '' : handleHTML();   // the width handle sits between the list and the page; not on a phone, not where there is no list beside the page, not above Calendar's Week grid
   // on a phone the greeting comes first, then the lists, then the facts and the session: the thing to do is never below a screen of overview
   $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
-    : `<div class="${cls}">${lists}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
+    : `<div class="${cls}">${lists}${grip}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
   bindHome(); bindFn && bindFn();
   if (!opts.tick) noteOpened(rt);
   bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}), keep: () => render({ tick: true }) });
+  syncHandle();   // the handle's numbers from the drawn column, and the drag's mark if one is going
   if (opts.tick) {   // a tick changes only the numbers: no entry animation, same scroll, talking points as they were
     document.querySelectorAll('#app .enter').forEach(e => e.classList.remove('enter'));
     const tl = document.getElementById('tpList'), tb = document.getElementById('tpBtn'); if (tpOpen && tl) { tl.hidden = false; tb?.setAttribute('aria-expanded', 'true'); }
@@ -194,7 +197,7 @@ function render(opts = {}) {
 // The times tick: drawn again each minute and on coming back to the tab, only when nothing is being typed, held or sent.
 function tick() {
   const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
-  const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden);
+  const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden) || dragging();
   if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?|#\/search(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
   render({ tick: true });
 }
@@ -206,7 +209,7 @@ async function start() {
   if (!DEMO) throw new Error('staff7 is practice-only');   // the second lock, before anything is loaded
   await DB.init(); await DB.loadAll();
   await DB.chairAsks().catch(() => {});   // as the current app's afterLoad: a teammate's recorded ask is known (the practice copy answers with none)
-  boot();
+  boot(); initWidth(ctx.me);   // the width this person left the list at, before the first draw so nothing jumps
   $('toast-slot').innerHTML = toastHTML; wireToast();
   window.addEventListener('hashchange', () => render()); PHONE.addEventListener('change', () => render());
   setInterval(tick, 60000);
