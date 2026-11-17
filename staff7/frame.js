@@ -15,6 +15,7 @@ import { issuePage } from './issue.js';
 import { calendarModel } from './calendar.js';
 import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
 import { initWidth, handleHTML, syncHandle, dragging } from './width.js';
+import { hooks7 } from './sort_data.js';
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
@@ -203,6 +204,8 @@ function tick() {
 }
 window.__staff7Tick = tick;
 window.__staff7Render = o => render(o);   // the tests force a redraw even while a field has the focus   // the tests call the minute's redraw directly
+hooks7.draw = o => render(o);   // a read that the person is waiting on (the next bills, an introducers list): drawn at once, scroll and focus kept
+hooks7.render = o => o && o.tick ? tick() : render(o);   // Sort new bills: a queue that lands after the page is drawn draws it again the way the minute's tick does (never over a field being typed in)
 
 hooks.toast = m => toast(m);
 async function start() {

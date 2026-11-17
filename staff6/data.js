@@ -854,6 +854,45 @@ export const DB = {
     const { error } = await S.supa.rpc('triage_undo', { p_bill: row.id }); if (error) throw error;
     if (row.tracked) { await S.supa.from('bills').update({ tracked: false }).eq('id', row.id); S.bills = S.bills.filter(b => b.id !== row.id); }
   },
+  // Staff7's Sort new bills (R-398): track for the team only (migration 203, triage_track_team: never on the public site by itself) and its Undo.
+  // o: { campaignId (null only for "No coalition"), position (null for none), issueId (null for none), leadId, issueVia: 'suggested' | 'changed' | 'staff' }.
+  // The practice copy does all of it in memory and sends nothing; what Track changed is kept so that Undo puts back exactly that.
+  async triageTrackTeam(row, o = {}) {
+    const { campaignId = null, position = 'monitor', issueId = null, leadId = null, issueVia = 'staff' } = o;
+    if (DEMO) {
+      const b = { ...row, tracked: true, is_public: false, position: position || null, priority: position === 'strongly_support' ? 1 : 2, stage: 'introduced', referrals: [], sponsors: [], companions: row.companions || [], session_year: SESSION_YEAR, state_url: 'https://www.capitol.hawaii.gov', last_action: 'Introduced and Pass First Reading.', last_action_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }) };
+      S.bills.push(b); S.bills.sort((a, b2) => a.bill_number.localeCompare(b2.bill_number));
+      (S.demoTeamTracked ??= new Set()).add(row.id);
+      if (campaignId) S.billCampaigns[b.id] = [campaignId];
+      if (leadId) S.assignments[b.id] = [leadId];
+      if (issueId) (S.billIssues ||= []).push({ bill_id: b.id, issue_id: issueId, added_via: issueVia });
+      S.demoTriaged.add(row.id); return { bill: b.id, tracked: true, is_public: false, position: b.position, campaign: campaignId, issue: issueId, lead: leadId };
+    }
+    const { data: out, error } = await S.supa.rpc('triage_track_team', { p_bill: row.id, p_campaign: campaignId || null, p_position: position || null, p_issue: issueId || null, p_lead: leadId || null, p_issue_via: issueVia });
+    if (error) throw error;
+    const { data } = await S.supa.from('bills').select('*').eq('id', row.id).single();
+    if (data) S.bills = S.bills.filter(x => x.id !== data.id).concat(data).sort((a, b2) => a.bill_number.localeCompare(b2.bill_number));
+    if (campaignId) S.billCampaigns[row.id] = [campaignId];
+    if (leadId) S.assignments[row.id] = [leadId];
+    if (issueId && !(S.billIssues || []).some(x => x.bill_id === row.id && x.issue_id === issueId)) (S.billIssues ||= []).push({ bill_id: row.id, issue_id: issueId, added_via: issueVia });
+    await this.adoptHearings(row.id);
+    return out;
+  },
+  // Undo of that Track. Answers { undone: true, ... }, or { undone: false, reason: 'nothing to undo' } on a second Undo; the database refuses
+  // ("This bill has changed since it was tracked", "Only the person who tracked this bill, or an admin, can undo it") and that error is thrown as it is.
+  async triageTrackTeamUndo(row) {
+    const drop = () => { S.bills = S.bills.filter(b => b.id !== row.id); delete S.billCampaigns[row.id]; delete S.assignments[row.id]; S.billIssues = (S.billIssues || []).filter(x => x.bill_id !== row.id); };
+    if (DEMO) {
+      if (!S.demoTeamTracked?.has(row.id)) return { bill: row.id, undone: false, reason: 'nothing to undo' };
+      S.demoTeamTracked.delete(row.id); S.demoTriaged.delete(row.id); drop(); return { bill: row.id, undone: true, tracked: false };
+    }
+    const { data, error } = await S.supa.rpc('triage_track_team_undo', { p_bill: row.id }); if (error) throw error;
+    if (data?.undone) {
+      if (data.tracked === false) drop();
+      else { const { data: b } = await S.supa.from('bills').select('*').eq('id', row.id).single(); if (b) S.bills = S.bills.filter(x => x.id !== b.id).concat(b).sort((x, y) => x.bill_number.localeCompare(y.bill_number)); }
+    }
+    return data;
+  },
   async saveCampaign(id, patch) {
     const c = S.campaigns.find(x => x.id === id); if (c) Object.assign(c, patch);
     if (DEMO) return;

@@ -156,7 +156,7 @@ function legFor(sp, b) {
   const title = (l ? l.chamber : ch) === 'S' ? 'Sen.' : 'Rep.', text = esc(`${title} ${last}`);
   return l ? `<a class="lk" href="#/search/person/${enc(l.id)}">${text}</a>` : text;
 }
-function sponsorsHTML(b) {
+export function sponsorsHTML(b) {
   const sps = (b.sponsors || []).filter(s => String(s?.n || s?.name || s || '').trim()); if (!sps.length) return '';
   const all = sps.map(s => legFor(s, b)), rest = all.length - 1, open = bui.all.has(b.id);
   if (!rest) return all[0];

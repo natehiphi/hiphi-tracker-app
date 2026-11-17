@@ -20,6 +20,7 @@ import { boxHTML, issueHits, mark } from './find.js';
 import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
 import { deadlineCell, clearedOf } from './bill_cell.js';
+import { entryRow, sortModel } from './sort.js';
 export { clearedOf };   // moved to bill_cell.js so the list and the issue page share it; other files still import it from here
 export { testimonyDue };   // Calendar reads it from here
 
@@ -240,9 +241,9 @@ function row(x, who, openId, second, hid, fx, mk) {
   const mark = dead ? '<span class="imark" style="--ic:var(--edge)" aria-hidden="true">' : `<span class="imark" style="${tint(i)}" aria-hidden="true">`;
   return `<li${fx ? ' class="fx"' : ''}${hid ? ' hidden' : ''}><a class="sr3 ir${on ? ' sel' : ''}${dead ? ' dead' : ''}"${on ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}">${mark}${ic(iconOf(i))}</span><span class="sv"><b>${mk ? mk(eCig(i.name)) : keepEcig(esc(eCig(i.name)))}</b>${second}</span>${leadOf(i, who)}</a></li>`;
 }
-function sessionRow(who, ses, on) {
+function sessionRow(who, ses, on, extra = '') {
   const nx = ses.next, line = nx ? `${nx.row.label} · ${whenWords(nx.row.date)}` : 'The session has ended';
-  return `<ul class="srows3 sessrow"><li><a class="sr3 ir${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} id="sessionRow" href="#/issues/session${qs(who)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('flag')}</span><span class="sv"><b>The session</b><span class="ir2"><span>${keepWords(esc(line))}</span></span></span></a></li></ul>`;
+  return `<ul class="srows3 sessrow"><li><a class="sr3 ir${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} id="sessionRow" href="#/issues/session${qs(who)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('flag')}</span><span class="sv"><b>The session</b><span class="ir2"><span>${keepWords(esc(line))}</span></span></span></a></li>${extra}</ul>`;
 }
 // A group: its heading with the count of ALL its issues, its first `limit` rows, and a button for the rest. `shut`: only the heading and a button ("Stopped this year"). `all`: no fold (a narrowed list, a list in full).
 // `held`: issues of the group that are drawn above, under Changed, and so not repeated: the group says how many.
@@ -273,7 +274,7 @@ function column(who, set, people, me, openKey, ses, x) {
   const t = tally(rows), hrefFor = k => topic ? topicHref({ ...who, show: k }, topic.key) : issuesHref({ ...who, show: k });
   const li = r => (hid, fx) => row(r, who, openKey.issue, r.second ? secHTML(r.second) : '', hid, fx);
   const labelOf = k => k === 'cleared' && nx && nx.next ? clearedLabel(nx.next.row) : STATES.find(s => s[0] === k)[1];
-  const lead = () => topic ? `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>` : sessionRow(who, ses, openKey.session);
+  const lead = () => topic ? `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>` : sessionRow(who, ses, openKey.session, who.kind === 'mine' && !who.bad ? entryRow(me) : '');
   // The list while words are typed: the same groups and rows, only the issues of THIS view that match (a topic's list: that topic), nothing folded; the summary becomes "3 of 26 issues match".
   // Drawn again in place on each key (find.js), never by render(). `ids`: the view's issues (the "Also found" issues are the others).
   const narrowed = q => {
@@ -493,6 +494,7 @@ function topicSheet(who, tp, rows, nx) {
 // rt: { r: 'issues' | 'issue' | 'bill', id, q: URLSearchParams }. Returns what the frame draws.
 export function issuesModel({ me, open, rt, people }) {
   ui.redraw = null;
+  if (rt.r === 'issues' && /^new(\/|$)/.test(rt.id || '')) { const sm = sortModel({ me, rt }); if (sm) return sm; }   // New bills (sort.js): for someone who sorts them; for anyone else the address is not found, said calmly, below
   const who0 = whoOf(rt.q.get('who'), me, people), showRaw = rt.q.get('show'), show = STATE_KEYS.includes(showRaw) ? showRaw : '';   // a show value that is none of the groups is ignored
   const base0 = who0.bad ? { kind: 'mine', code: '' } : who0, set = setFor(base0, me), ses = sessionOf(set), nx = ses, all = statesFor(set, nx), own = ownSet(me);
   const topicOK = k => !!k && /^[a-z-]+$/.test(k) && (catKeys().includes(k) || (k === 'other' && all.some(x => catsOf(x.issue).includes('other'))));

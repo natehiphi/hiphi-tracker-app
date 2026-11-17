@@ -70,13 +70,13 @@ export const note = (who, words, { flag = false, mark = '' } = {}) =>
 
 // Toast with Undo: one at a time, above the docked footer, gone by itself.
 let toastTimer = 0, undoFn = null;
-export function toast(msg, { undo = null, ms = 6000 } = {}) {
+export function toast(msg, { undo = null, ms = 6000, key = '' } = {}) {   // key: a shortcut shown beside Undo (Sort new bills: U)
   const el = document.getElementById('toast'); if (!el) return;
   undoFn = undo; el.querySelector('#toastMsg').textContent = msg;
   // above the docked footer, from its measured height (a wrapped footnote makes it taller)
   const f = document.querySelector('.sfoot'), r = f && getComputedStyle(f).position === 'sticky' ? f.getBoundingClientRect() : null;
   if (r && r.height && r.top < innerHeight && r.bottom > 0) el.style.setProperty('--toast-b', `${Math.ceil(innerHeight - r.top) + 8}px`); else el.style.removeProperty('--toast-b');
-  el.querySelector('#toastUndo').hidden = !undo;
+  const ub = el.querySelector('#toastUndo'); ub.hidden = !undo; ub.innerHTML = key ? `Undo <kbd class="fkey" aria-hidden="true">${esc(key)}</kbd>` : 'Undo'; if (key) ub.setAttribute('aria-keyshortcuts', key); else ub.removeAttribute('aria-keyshortcuts');
   el.classList.add('on'); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('on'), ms);
 }
 export const clearToast = () => { clearTimeout(toastTimer); undoFn = null; document.getElementById('toast')?.classList.remove('on'); };
