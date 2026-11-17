@@ -14,7 +14,7 @@ import { ic } from './icons7.js';
 import { esc, plainBand, keepWords, keepEcig, KEEP_ECIG } from './parts.js';
 import { billName, billNo, cmteWords, first, issueOf } from './steps.js';
 import { billsOfIssue, isAlive } from './standing.js';
-import { pathOf } from './path.js';
+import { stoppedWords } from './issue_table.js';
 import { eCig, issueHref, billHref, hearTxt, posLine, whereShort, tint, iconOf, catsOf, statesFor, nextCtx, sitKeyOf, ui as issuesUi, bindFolds } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -126,8 +126,8 @@ export function issueHits(list, q) { const ws = matchWords(q), ix = getIdx(); re
 const F = { who: { code: '' }, open: false, active: -1, hl: true, seq: 0, timer: 0, other: null, busy: false, text: '', sel: [0, 0], env: null, saved: new Map(), back: false, keepY: null, wantY: null, suppress: false };
 const tile = (icon, style = '', plain = false) => `<span class="imark${plain ? ' plain' : ''}"${style ? ` style="${style}"` : ''} aria-hidden="true">${ic(icon)}</span>`;
 const issueLead = i => { const a = person(i.owner_id); return a ? leadPhrase(a) : 'No lead yet'; };
-// where a bill stands, in the words the issue rows use ("Stopped at First committees"), and "Hearing" written the same way everywhere
-const whereOf = b => { if (!isAlive(b)) { const p = pathOf(b); return p.i >= 1 ? `Stopped at ${p.label}` : 'Stopped this year'; } return whereShort(b); };
+// where a bill stands, in the words the issue rows use ("Stopped Feb 11 · No hearing in House Health (HLT)"), and "Hearing" written the same way everywhere
+const whereOf = b => isAlive(b) ? whereShort(b) : stoppedWords(b);   // a stopped bill in the app's one wording (issue_table.js)
 const hearOf = b => { const h = isAlive(b) ? hearingAhead(b) : null; return h ? `Hearing ${hearTxt(h.scheduled_at)}` : whereOf(b); };
 const roleWord = l => (l.chamber === 'S' ? 'Senator' : 'Representative');
 const chairsOf = id => (S.committeeMembers || []).filter(m => String(m.legislator_id) === String(id) && m.role === 'chair').map(m => cmteWords(m.committee));

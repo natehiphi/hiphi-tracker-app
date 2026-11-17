@@ -4,7 +4,8 @@ import { stopOf, hearingAhead, wantsHearing } from '../staff6/model.js';
 import { CHAMBER_NAME, isOneChamber } from '../stops.js';
 import { isAlive, isAtRisk, deadlineOf } from './standing.js';
 import { dateWords, daysTo } from './words.js';
-import { cmteLink, codesOf } from './bill_words.js';
+import { cmteLink, cmteLabel, codesOf } from './bill_words.js';
+import { whereWords } from '../staff6/steps.js';
 import { esc } from './parts.js';
 
 // ---------------------------------------------------------------------------------- has a bill passed a deadline?
@@ -78,4 +79,17 @@ export function whereCell(b) {
   const codes = codesOf(st.committee);
   if (codes.length) return codes.map(c => `${cmteLink(c, b)} (${esc(c)})`).join(' with ');
   return esc(st.leg === 'second' && ch ? `Crossed to the ${ch} · no committee yet` : 'No committee yet');
+}
+
+// ---------------------------------------------------------------------------------- "Where it is", as plain words for one bill (the All bills table; the Issues list's own line is issues.js placeWords, which sums a joint stop up as "In 2 Senate committees")
+// An alive bill: its committees, each with its own code ("In Senate Education (EDU)", a joint stop "In House Water & Land (WAL) with House Public Safety (PBS)", at most `max` and then "and 1 more");
+// otherwise the phase in words ("In conference"). A stopped bill's words are issue_table.js stoppedReason.
+export const PHASE_WORDS = { floor: 'Ready for the floor vote', conference: 'In conference', governor: 'With the Governor', law: 'Signed into law', ballot: 'Going to the voters' };
+export function whereLine(b, max = 2) {
+  const st = stopOf(b);
+  if (st.phase === 'committee') {
+    const codes = codesOf(st.committee);
+    if (codes.length) { const names = codes.map(c => `${cmteLabel(c, b)} (${c})`); return `In ${names.slice(0, max).join(' with ')}${names.length > max ? ` and ${names.length - max} more` : ''}`; }
+  }
+  return PHASE_WORDS[st.phase] || whereWords(b, { deadline: false });
 }

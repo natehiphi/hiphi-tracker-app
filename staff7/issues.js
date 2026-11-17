@@ -19,7 +19,9 @@ import { pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
 import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
-import { deadlineCell, clearedOf } from './bill_cell.js';
+import { deadlineCell, clearedOf, PHASE_WORDS } from './bill_cell.js';
+import { stoppedWords, stoppedWhy } from './issue_table.js';
+import { billsModel, mineCount, trackedBills, billsFor } from './bills.js';
 import { entryRow, sortModel } from './sort.js';
 export { clearedOf };   // moved to bill_cell.js so the list and the issue page share it; other files still import it from here
 export { testimonyDue };   // Calendar reads it from here
@@ -121,7 +123,7 @@ const clockOf0 = t => new Date(t).toLocaleTimeString('en-US', { timeZone: 'Pacif
 export const clearedLabel = row => `Cleared ${dayName(row.date)}’s deadline`;
 export const hearTxt = t => { const d = daysTo(ymdHST(t)); return d === 0 ? `today ${clockOf0(t)}` : d === 1 ? `tomorrow ${clockOf0(t)}` : dayTime(t); };
 const relWords = d => { const k = daysTo(d); return k <= 0 ? 'today' : k === 1 ? 'tomorrow' : `in ${k} days`; };
-const COMMITTEE_PHASES = { floor: 'Ready for the floor vote', conference: 'In conference', governor: 'With the Governor', law: 'Signed into law', ballot: 'Going to the voters' };
+const COMMITTEE_PHASES = PHASE_WORDS;
 function placeWords(b) {
   const st = stopOf(b);
   if (st.phase === 'committee' && st.committee) {
@@ -131,8 +133,8 @@ function placeWords(b) {
   return COMMITTEE_PHASES[st.phase] || whereWords(b, { deadline: false });
 }
 // "by Mon, Mar 30 · 14 days" ("today", "tomorrow" for 0 and 1)
-const byWords = d => { const k = daysTo(d); return `by ${dateWords(d)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`; };
-function secondOf(st, nx) {
+export const byWords = d => { const k = daysTo(d); return `by ${dateWords(d)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`; };
+function secondOf(st, nx, bills = [st.bill]) {
   const b = st.bill;
   if (st.state === 'risk' && st.cell.key === 'late') return { text: `Hearing ${hearTxt(st.h.scheduled_at)} · after the deadline`, risk: true, icon: 'triangle-alert' };
   if (st.state === 'risk') return { text: `Needs a hearing by ${dateWords(st.dl.date).split(',')[0]} · ${relWords(st.dl.date)}`, risk: true, icon: 'triangle-alert' };
@@ -143,11 +145,17 @@ function secondOf(st, nx) {
   if (st.state === 'cleared') { const c = nextWhere(b); return { text: c ? `Next: ${cmteWords(c)}` : whereWords(b, { deadline: false }) }; }
   if (st.state === 'need') { const d = st.cell.key === 'unsure' ? null : st.cell.key === 'until' ? stopOf(b).deadline?.date : st.dl?.date; return { text: d ? `${placeWords(b)} · ${byWords(d)}` : placeWords(b) }; }
   if (st.state === 'past') return { text: placeWords(b) };
-  const p = pathOf(b); return { text: p.i >= 1 ? `Stopped at ${p.label}` : 'Stopped this year' };
+  // Stopped: one bill says what the bill's own words say everywhere (stoppedWords: "Stopped Feb 11 · No hearing in House Health (HLT)"). Several bills keep one short line for the issue: the committee
+  // with its code when every one of them stopped in the same one ("Stopped in House Health (HLT)"), else how many different committees they stopped in ("Stopped in 3 committees", the same shape as "In 2 Senate committees").
+  if (bills.length === 1) return { text: stoppedWords(bills[0]) };
+  const ws = bills.map(stoppedWhy), same = ws[0].name && ws.every(w => w.cmte === ws[0].cmte);
+  if (same) return { text: `Stopped in ${ws[0].name}` };
+  const k = new Set(ws.flatMap(w => w.codes)).size;
+  return { text: k ? `Stopped in ${k} ${k === 1 ? 'committee' : 'committees'}` : 'Stopped' };
 }
 // The issues of a set with their state: { issue, bills, standing, days, k (the group's key), st (issueState), second }
 export function statesFor(set, nx) {
-  return set.map(x => { const st = issueState(x.bills, nx); return { ...x, k: st.state, st, second: secondOf(st, nx) }; });
+  return set.map(x => { const st = issueState(x.bills, nx); return { ...x, k: st.state, st, second: secondOf(st, nx, x.bills) }; });
 }
 const whenKey = x => x.k === 'risk' || x.k === 'hearing' || x.k === 'need' ? x.st.at : null;
 const inGroup = (rows, k) => rows.filter(x => x.k === k).sort((x, y) => { const a = whenKey(x), c = whenKey(y); return a == null ? byName(x, y) : (typeof a === 'string' ? a.localeCompare(c) : a - c) || byName(x, y); });
@@ -241,6 +249,11 @@ function row(x, who, openId, second, hid, fx, mk) {
   const mark = dead ? '<span class="imark" style="--ic:var(--edge)" aria-hidden="true">' : `<span class="imark" style="${tint(i)}" aria-hidden="true">`;
   return `<li${fx ? ' class="fx"' : ''}${hid ? ' hidden' : ''}><a class="sr3 ir${on ? ' sel' : ''}${dead ? ' dead' : ''}"${on ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}">${mark}${ic(iconOf(i))}</span><span class="sv"><b>${mk ? mk(eCig(i.name)) : keepEcig(esc(eCig(i.name)))}</b>${second}</span>${leadOf(i, who)}</a></li>`;
 }
+// The row for the All bills table (bills.js), under The session beside New bills: how many bills are the viewer's (the same function the table's Mine uses) and how many the team tracks
+const billsRow = (who, me) => {
+  const t = trackedBills().length.toLocaleString('en-US'), words = who.kind === 'all' ? `${t} tracked` : who.kind === 'person' ? `${billsFor(who, me).bills.length.toLocaleString('en-US')} for ${first(who.person)} · ${t} tracked` : `${mineCount(me).toLocaleString('en-US')} mine · ${t} tracked`;   // the words are for the view the row opens
+  return `<li><a class="sr3 ir" id="allBillsRow" href="#/issues/bills${who.code ? `?who=${enc(who.code)}` : ''}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('list')}</span><span class="sv"><b>All bills</b><span class="ir2"><span id="allBillsN">${esc(words)}</span></span></span></a></li>`;
+};
 function sessionRow(who, ses, on, extra = '') {
   const nx = ses.next, line = nx ? `${nx.row.label} · ${whenWords(nx.row.date)}` : 'The session has ended';
   return `<ul class="srows3 sessrow"><li><a class="sr3 ir${on ? ' sel' : ''}"${on ? ' aria-current="true"' : ''} id="sessionRow" href="#/issues/session${qs(who)}"><span class="imark" style="--ic:var(--act)" aria-hidden="true">${ic('flag')}</span><span class="sv"><b>The session</b><span class="ir2"><span>${keepWords(esc(line))}</span></span></span></a></li>${extra}</ul>`;
@@ -274,7 +287,7 @@ function column(who, set, people, me, openKey, ses, x) {
   const t = tally(rows), hrefFor = k => topic ? topicHref({ ...who, show: k }, topic.key) : issuesHref({ ...who, show: k });
   const li = r => (hid, fx) => row(r, who, openKey.issue, r.second ? secHTML(r.second) : '', hid, fx);
   const labelOf = k => k === 'cleared' && nx && nx.next ? clearedLabel(nx.next.row) : STATES.find(s => s[0] === k)[1];
-  const lead = () => topic ? `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>` : sessionRow(who, ses, openKey.session, who.kind === 'mine' && !who.bad ? entryRow(me) : '');
+  const lead = () => topic ? `<p class="trail" id="trail"><a class="sl" id="trailIssues" href="${issuesHref(who)}">Issues</a>${ic('chevron-right')}<span>${esc(topic.name)}</span></p>` : sessionRow(who, ses, openKey.session, (who.kind === 'mine' && !who.bad ? entryRow(me) : '') + (who.bad ? '' : billsRow(who, me)));
   // The list while words are typed: the same groups and rows, only the issues of THIS view that match (a topic's list: that topic), nothing folded; the summary becomes "3 of 26 issues match".
   // Drawn again in place on each key (find.js), never by render(). `ids`: the view's issues (the "Also found" issues are the others).
   const narrowed = q => {
@@ -494,6 +507,7 @@ function topicSheet(who, tp, rows, nx) {
 // rt: { r: 'issues' | 'issue' | 'bill', id, q: URLSearchParams }. Returns what the frame draws.
 export function issuesModel({ me, open, rt, people }) {
   ui.redraw = null;
+  if (rt.r === 'issues' && rt.id === 'bills') return billsModel({ me, rt, people });   // All bills (bills.js): its own page, with no list beside it
   if (rt.r === 'issues' && /^new(\/|$)/.test(rt.id || '')) { const sm = sortModel({ me, rt }); if (sm) return sm; }   // New bills (sort.js): for someone who sorts them; for anyone else the address is not found, said calmly, below
   const who0 = whoOf(rt.q.get('who'), me, people), showRaw = rt.q.get('show'), show = STATE_KEYS.includes(showRaw) ? showRaw : '';   // a show value that is none of the groups is ignored
   const base0 = who0.bad ? { kind: 'mine', code: '' } : who0, set = setFor(base0, me), ses = sessionOf(set), nx = ses, all = statesFor(set, nx), own = ownSet(me);
@@ -528,7 +542,7 @@ export function issuesModel({ me, open, rt, people }) {
       const ids = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => String(x.issue_id)), want = rt.q.get('i') || '';
       const cand = (S.issues || []).filter(i => !i.archived_at && ids.includes(String(i.id)));
       const issue = cand.find(i => String(i.id) === want) || cand.find(i => set.some(y => String(y.issue.id) === String(i.id))) || cand[0];
-      openKey = { session: false, issue: issue ? String(issue.id) : '' }; sheet = billSheet(b, issue || null, who, me, open, issue ? billsOfIssue(issue).filter(o => o.id !== b.id && isAlive(o)) : [], issue ? own.has(String(issue.id)) : isMine(b), { nx, from: rt.q.get('from') || '' }); label = 'Bill'; bk = '';   // its own back link, in the band, says where it goes
+      openKey = { session: false, issue: issue ? String(issue.id) : '' }; sheet = billSheet(b, issue || null, who, me, open, issue ? billsOfIssue(issue).filter(o => o.id !== b.id && isAlive(o)) : [], issue ? own.has(String(issue.id)) : isMine(b), { nx, from: rt.q.get('from') || '', bq: rt.q.get('bq') || '' }); label = 'Bill'; bk = '';   // its own back link, in the band, says where it goes
     }
   }
   // what changed since the person last looked, and the topics (Everyone's and a teammate's list, not narrowed): only on the list itself

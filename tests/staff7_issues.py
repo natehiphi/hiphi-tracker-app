@@ -373,7 +373,7 @@ with sync_playwright() as p:
         if k == 'cleared': return t.startswith('Next: ') or (bool(t) and not t.startswith('Cleared'))
         if k == 'need': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^In (\d+ (House|Senate) committees|(House|Senate) .+?)( · by \w{3}, \w{3} \d+ · (\d+ days|today|tomorrow))?$', t) is not None
         if k == 'past': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^(In (\d+ (House|Senate) committees|(House|Senate) .+)|Ready for|In conference|With the|Signed|Going)', t) is not None and ' · by ' not in t
-        return t == 'Stopped this year' or t.startswith('Stopped at ')
+        return re.fullmatch(r'Stopped( \w{3} \d+ · (No hearing in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*|Heard \w{3} \d+ in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*, held|Was in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*)| in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*| in \d+ committees)?', t) is not None   # exactly: one bill's own line (a code per committee); "Stopped in <names with codes>"; "Stopped in N committees"; a bare "Stopped" (no stage data)
     def stats_sentence(sx, key, rows, bills):
         # the topic page's deadline sentence, from the data: the next deadline against the topic's alive bills
         nr = sx['nextKey']; info = sx['info']; racing = [b for b in sx['racingNext'] if b in bills]; clr = [b for b in bills if b in set(sx['clearedBills'])]

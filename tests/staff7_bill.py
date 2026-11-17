@@ -179,9 +179,9 @@ with sync_playwright() as p:
     nd = pick('need')
     bill(pg, nd); st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by ') and len(st) <= 3, f'{nd} (needs a hearing, not at risk): "{st[0]}"')
     sb = L['stopped']['bill']; go(pg, f'#/bill/{sb}?i={L["stopped"]["issue"]}&who=all'); st = pg.evaluate(STAT); t = L['stopped']['text']
-    ok(len(st) in (1, 2) and re.match(r'^Stopped (\w{3}, \w{3} \d+(, \d{4})?)? ?· ', st[0]) and (len(st) == 1 or st[1].startswith('Still alive for this issue: ') or st[1].startswith('No other bill')), f'{sb} (stopped): "Stopped <date> · why", then at most the line about the issue ("{st[0]}"; the Issues list says "{t}")')
-    dt = re.match(r'^Stopped (\w{3}, \w{3} \d+)', st[0]).group(1)
-    ok(st[0].count(dt) == 1 and not re.search(r'\b[A-Z]{3}\b', st[0].replace('HB', '').replace('SB', '')) and ' on ' + dt not in st[0] and re.search(r'· [a-z]', st[0]), f'{sb} (stopped): the date is said once, the why is in lower-case plain words, committees in words ({st[0]})')
+    ok(len(st) in (1, 2) and re.match(r'^Stopped (\w{3} \d+(, \d{4})?)? ?· ', st[0]) and (len(st) == 1 or st[1].startswith('Still alive for this issue: ') or st[1].startswith('No other bill')), f'{sb} (stopped): "Stopped <date> · why", then at most the line about the issue ("{st[0]}"; the Issues list says "{t}")')
+    dt = re.match(r'^Stopped (\w{3} \d+)', st[0]).group(1)
+    ok(st[0].count(dt) == 1 and ' on ' + dt not in st[0] and re.search(r'· (No hearing in|Heard \w{3} \d+ in) .+ \([A-Z]{2,4}\)', st[0]), f'{sb} (stopped): the date is said once, the why is the app\'s one wording with each committee\'s code ({st[0]}; the Issues list says "{t}")')
     ok(pg.locator('svg.trk.dead').count() >= 1 and not pg.evaluate(AMBER), f'{sb} (stopped): its path ends in a bar, no amber')
     snap(pg, 'stopped_bill.png')
     sn = pick('stopped_nodate')

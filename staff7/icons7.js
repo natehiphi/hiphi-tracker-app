@@ -1,6 +1,7 @@
 // The few icons staff7 needs that icons.js (Lucide) does not carry, drawn in Lucide's style, and one helper that draws any of them (an unknown name draws a plain circle).
 import { ICONS, icon } from '../icons.js';
 const EXTRA = {
+  'chevrons-up-down': '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
   layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
   'layout-grid': '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
 };

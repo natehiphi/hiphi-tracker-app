@@ -165,18 +165,19 @@ function render(opts = {}) {
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
   else sheet = missingSheet();
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
-  const cls = `ws${one ? ' one' : ''}${im?.wide ? ' gridws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked ? ' sheetonly isn' : ' isn') : ' sheetonly') : ''}`;
+  const solo = !!im?.solo;   // a page with no list beside it (All bills)
+  const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : ' isn') : ' sheetonly') : ''}`;
   const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to ${im.backLabel || 'Issues'}</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
-  const lists = one ? '' : `<div class="wl" id="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
-  const grip = phone || one || im?.wide ? '' : handleHTML();   // the width handle sits between the list and the page; not on a phone, not where there is no list beside the page, not above Calendar's Week grid
+  const lists = one || solo ? '' : `<div class="wl" id="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
+  const grip = phone || one || solo || im?.wide ? '' : handleHTML();   // the width handle sits between the list and the page; not on a phone, not where there is no list beside the page, not above Calendar's Week grid
   // on a phone the greeting comes first, then the lists, then the facts and the session: the thing to do is never below a screen of overview
   $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
     : `<div class="${cls}">${lists}${grip}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
-  bindHome(); bindFn && bindFn();
+  bindHome(); bindFn && bindFn({ sync: () => { lastRoute = location.hash; }, tick: !!opts.tick });   // sync: a page that changes its own address (replaceState) tells the frame, so the next minute's redraw does not take it for a new page
   if (!opts.tick) noteOpened(rt);
   bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}), keep: () => render({ tick: true }) });
   syncHandle();   // the handle's numbers from the drawn column, and the drag's mark if one is going

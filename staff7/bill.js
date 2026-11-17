@@ -9,12 +9,14 @@ import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
 import { billName, billNo, posWords, first, lateLine } from './steps.js';
 import { isAlive, deadlineOf, isAtRisk } from './standing.js';
-import { dateWords, whenWords, whyWords } from './words.js';
+import { whenWords } from './words.js';
 import { norm } from './find.js';
-import { testimonyDue, letterState, testimonyShort, leadIds, http, dateY, draftFor, cmtesLinks, cleanCodes, ext } from './bill_words.js';
+import { testimonyDue, letterState, testimonyShort, leadIds, http, draftFor, cmtesLinks, cleanCodes, ext } from './bill_words.js';
 import { billTimeline } from './bill_tl.js';
 import { billTextUrl, afterHTML, moreAfterHTML, chairsHTML, askedWords, publicHTML, talkingHTML, bindMore } from './bill_more.js';
 import { partB, bindPartB } from './bill_history.js';
+import { stoppedWords, stoppedDate, stoppedReason } from './issue_table.js';
+import { backHref } from './bills.js';
 import { editButton, editHTML, mayEdit, bindEdit } from './bill_edit.js';
 import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, sameName, whereShort, hearTxt, stepOn, clearedOf, clearedLabel, sitKeyOf, nextCtx, billHref } from './issues.js';
 
@@ -30,12 +32,12 @@ const boldFirst = t => { const k = String(t).indexOf(' · '); return k < 0 ? `<b
 const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
 // the Capitol's own date a bill was stopped by (the m/d/yy at the end of died_deadline) as YYYY-MM-DD; '' when the data holds none
 export const stoppedISO = b => { const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || ''); if (!m) return ''; const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`; };
-const stoppedOn = b => { const d = stoppedISO(b); return d ? dateY(d) : ''; };
 // ---------------------------------------------------------------------------------- back
 // "Back to <issue>", or where the person came from (the address carries from=calendar or from=search)
-function backOf(issue, b, who, from) {
+function backOf(issue, b, who, from, bq = '') {
   let href, label;
-  if (from === 'calendar') { href = `#/calendar${who.code ? `?who=${enc(who.code)}` : ''}`; label = 'Back to Calendar'; }
+  if (from === 'bills') { href = backHref(bq); label = 'Back to All bills'; }
+  else if (from === 'calendar') { href = `#/calendar${who.code ? `?who=${enc(who.code)}` : ''}`; label = 'Back to Calendar'; }
   else if (from === 'search') { href = '#/search'; label = 'Back to Search'; }
   else if (issue) { href = issueHref(who, issue.id); label = `Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}`; }   // a bill the team tracks that is on no issue has no issue to go back to
   else { href = issuesHref(noTopic(who)); label = 'Back to Issues'; }
@@ -70,13 +72,6 @@ function sitHref(h, who, own, onIssue) {
   const q = who.kind === 'person' || who.kind === 'all' ? `?who=${enc(who.code)}` : own ? '' : onIssue ? '?who=all' : null;
   return q == null ? '' : `#/calendar/sitting/${enc(sitKeyOf(h))}${q}`;
 }
-// why a stopped bill stopped, in a few plain words, without the date the line already says
-function whyShort(b, plainDate) {
-  let t = cleanCodes(whyWords(b), b).replace(/\.$/, '');
-  if (t === 'Stopped') return '';
-  if (plainDate) t = t.split(` on ${plainDate}`).join('').split(` by ${plainDate}`).join('').replace(', while', ' while');
-  return t.replace(/^./, c => c.toLowerCase());
-}
 // The viewer's own step as the same tonal button the issue page has, under the lines
 const mineBtn = step => step ? `<p class="bmv"><a class="btn quiet ymove" href="#/do/${enc(step.id)}">Your move · ${esc(step.verb)}</a></p>` : '';
 // "waiting for Nate’s approval" / "waiting for a second look by Kris", when the data names the one person who can give it (whoseStep); else the plain state ("waiting for approval")
@@ -92,10 +87,10 @@ function testimonyState(h, b, st) {
 function statusLines(b, issue, who, open, own, nx, onIssue, others) {
   const alive = isAlive(b), step = own ? stepOn(open, b) : null, mine = mineBtn(step);
   if (!alive) {
-    const iso = stoppedISO(b), why = whyShort(b, iso ? dateWords(iso) : '');
+    const why = stoppedReason(b);   // the app's one wording for a stopped bill (issue_table.js): "Stopped Feb 11 · No hearing in House Health (HLT)"
     const al = !issue ? '' : others.length ? others.map((o, k) => line(`${k ? '' : 'Still alive for this issue: '}<a class="lk" href="${billHref(who, o, issue.id)}">${esc(`${billNo(o)}, the ${chamberWord(o)} version`)}</a> · ${esc(whereShort(o))}`, { id: k ? '' : 'bAlive' })).join('')
       : line('No other bill on this issue is still moving.', { id: 'bAlive' });
-    return line(`<b>Stopped${iso ? ` ${esc(dateY(iso))}` : ''}</b>${why ? ` · ${esc(why)}` : ''}`) + al;
+    return line(`<b>${esc(stoppedDate(b))}</b>${why ? ` · ${esc(why)}` : ''}`) + al;
   }
   const hs = aheadList(b), h = hearingAhead(b) ? hs[0] : null, out = [], row = nx && nx.next ? nx.next.row : null;
   if (h) {
@@ -140,8 +135,8 @@ function companionsHTML(b, who) {
   const idx = S.snapshot?.index || [];
   const li = c => {
     const t = c.replace(/^([A-Z]+)(\d)/, '$1 $2'), own = (S.bills || []).find(x => num(x) === c && (!x.session_year || !b.session_year || +x.session_year === +b.session_year));
-    if (own && own.tracked !== false) return `<li><a class="lk" href="${billHref(who, own, '')}">${esc(t)}</a> · ${esc(isAlive(own) ? whereShort(own) : `stopped${stoppedOn(own) ? ` ${stoppedOn(own)}` : ''}`)}</li>`;
-    if (own) return `<li>${esc(t)} · ${esc(isAlive(own) ? whereShort(own) : `stopped${stoppedOn(own) ? ` ${stoppedOn(own)}` : ''}`)}</li>`;
+    if (own && own.tracked !== false) return `<li><a class="lk" href="${billHref(who, own, '')}">${esc(t)}</a> · ${esc(isAlive(own) ? whereShort(own) : stoppedWords(own))}</li>`;
+    if (own) return `<li>${esc(t)} · ${esc(isAlive(own) ? whereShort(own) : stoppedWords(own))}</li>`;
     return idx.some(x => num(x) === c) ? `<li><a class="lk" href="#/search/other/${enc(c)}">${esc(t)}</a></li>` : `<li>${esc(t)}</li>`;
   };
   return `<ul class="blist">${nums.map(li).join('')}</ul>`;
@@ -179,13 +174,13 @@ function numberLine(b, noNo = false) {   // noNo: opened from an issue, the numb
 // ---------------------------------------------------------------------------------- the page
 // `x`: { nx: the session as the Issues list has it (its next deadline), from: 'calendar' | 'search' | '' }
 export function billSheet(b, issue, who, me, open, others, own, x = {}) {
-  const alive = isAlive(b), nx = x.nx || nextCtx(), from = x.from === 'calendar' || x.from === 'search' ? x.from : '';
+  const alive = isAlive(b), nx = x.nx || nextCtx(), from = x.from === 'calendar' || x.from === 'search' || x.from === 'bills' ? x.from : '';
   const onIssue = (S.billIssues || []).some(y => y.bill_id === b.id && (S.issues || []).some(i => i.id === y.issue_id && !i.archived_at));
   // Opened from an issue (the address says ?i=<that issue>): the issue is the whole, the bill a part of it. The mark is smaller and only outlined, the number is the small line above the title, and Back is the trail
   // "Issues › <issue name>". Without ?i= (or from Calendar or Search) the page is as it was.
   const fi = !!issue && !from && (new URLSearchParams((location.hash.split('?')[1] || '')).get('i') || '') === String(issue.id);
   const trail = `<span class="crumb back2 trail" id="bBack"><a class="lk" href="${esc(issuesHref(noTopic(who)))}">Issues</a><span aria-hidden="true">${ic('chevron-right')}</span><a class="lk" href="${esc(issueHref(who, issue?.id))}">${esc(eCig(issue?.name))}</a></span>`;
-  let out = `<div class="pn"><div class="hband bb${fi ? ' fromissue' : ''}" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big${fi ? ' out' : ''}" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${fi ? trail : backOf(issue, b, who, from)}${fi ? `<p class="kindl no">${esc(billNo(b))}</p>` : ''}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b, fi)}</div></div><div class="pbody bill">`;
+  let out = `<div class="pn"><div class="hband bb${fi ? ' fromissue' : ''}" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big${fi ? ' out' : ''}" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${fi ? trail : backOf(issue, b, who, from, x.bq)}${fi ? `<p class="kindl no">${esc(billNo(b))}</p>` : ''}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b, fi)}</div></div><div class="pbody bill">`;
   const can = mayEdit(b, issue, me); if (!(can && bui.edit && bui.edit.id === b.id)) bui.edit = null;   // an edit open on another bill, or one this person may not make, is dropped
   bui.ctx = { b, issue, me };
   out += positionHTML(b, issue, me, can);
