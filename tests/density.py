@@ -183,7 +183,7 @@ def main():
             # the Home before 11 Oct for the long list (its baseline), the calm Home (everyone's since 11 Oct) on its own
             out += run(b, f'{HOST}/track.html?demo=1&ab=layout.today', PUB, 'public', W, H, tag, True)
             out += run(b, f'{HOST}/track.html?demo=1&ab=layout.calm', PUB_A, 'publicA', W, H, tag, True)
-            out += run(b, f'{HOST}/staff.html?demo=1', SV, 'staff2', W, H, tag, False)
+            # Staff v2 (staff.html) is no longer measured (R-400, Nate 17 Nov 2026 dropped the Staff v2 and v5 tests); its staff2|* baseline keys are gone too.
         b.close()
     if '--json' in sys.argv:
         print(json.dumps(out, indent=1)); return

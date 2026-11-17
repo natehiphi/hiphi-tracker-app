@@ -25,7 +25,8 @@
 #   btns    buttons with words on them in view (icon-only buttons are not counted)
 #   words   words in the work column on the first screen;  wpage: on the whole page
 #   codes   Capitol codes in view (HD1, SD2, committee codes such as HHS, P1);  rowc: those inside list rows (always 0)
-#   facts   the most facts on any one row (the pieces between dots or on their own lines): 4 at most
+#   facts   the most facts on any one row (the pieces between dots or on their own lines): 5 at most (4 until R-400, Nate 17 Nov 2026,
+#           who kept the R-388 carryover fact and the R-373 coalition rows and raised the limit)
 #   r/btn   the most buttons on any one row: 1 at most (D16)
 #   col     text colours in view, status colours apart: 5 at most;  stat: the status colours shown (done, late, missed)
 #   bord    things with a drawn border line in the window: 8 at most;  rad: different corner roundings: 3 at most
@@ -279,13 +280,13 @@ def targets(r):
   if key == 'setup' and LAPTOP(r):
     T('Session setup: groups', m.get('setup_parts'), 5, m.get('setup_parts') == 5); T('Session setup: longest part (screens)', m.get('setup_part_screens'), 1.5)
   # every screen
-  T('facts per row (most)', m['facts_max'], 4)
+  T('facts per row (most)', m['facts_max'], 5)   # R-400 (Nate 17 Nov): 5, was 4
   T('buttons per row (most, D16)', m['row_buttons_max'], 1)
   T('codes in rows (D15)', m['row_codes'], 0)
   T('text at 14px or under (%)', m['small_pct'], 30)
   T('bold text (%, beyond spec 12.1\'s title, section headings, filled button and open tab)', m['bold_pct'], 25)
   T('bordered elements on the first screen', m['bordered'], 8)
-  T('distinct corner radii', m['radii'], 3)
+  T('distinct corner radii', m['radii'], 4)   # R-400 (Nate 17 Nov): 4, was 3 (My settings, R-387)
   T('text colours in view (status colours apart, spec 13)', m['colors'], 5)
   T('filled buttons in the first screen (rule 1)', m['filled'], 1)
   T('amber/red marks with no word beside them (D3)', m['marks_unworded'], 0)
