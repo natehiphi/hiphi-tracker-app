@@ -234,11 +234,12 @@ with sync_playwright() as p:
     ok(now_w(pg) == 300 and pg.evaluate(STORED, KEY) == {'NT': 300}, f'a new page drawn in the middle of a drag does not break it ({now_w(pg)})')
     pg.context.close()
 
-    # ============================================================ no handle where there is no list beside a page; the Week grid keeps 340 whatever is stored
+    # ============================================================ no handle where there is no list beside a page; the Week view's header is one row across the page whatever is stored
     pg = open_as(br, 'NT', 1440, 900, '#/calendar', store={'NT': 500})
     ok(pg.locator('.ws.gridws').count() == 1 and pg.locator('#wsz').count() == 0, 'Calendar\'s Week view has no handle')
     wk = now_w(pg) if pg.locator('#wl').count() else pg.evaluate("() => Math.round(document.querySelector('.wl').getBoundingClientRect().width)")
-    ok(wk == 340, f'and its header column stays 340 (the same as the List\'s usual width, so the switch does not move) whatever is stored ({wk})')
+    full = pg.evaluate("() => Math.round(document.querySelector('.ws').getBoundingClientRect().width)")
+    ok(wk == full, f'and its header runs the full width of the page, not the stored list width ({wk} of {full})')
     snap(pg, 'width_week.png')
     go(pg, '#/explore'); ok(pg.locator('.ws.one').count() == 1 and pg.locator('#wsz').count() == 0, 'a one-column page (Explore) has no handle')
     go(pg, '#/calendar?view=list'); ok(pg.locator('#wsz').count() == 1 and now_w(pg) == 500, 'back on the List the handle is there and 500 is kept')

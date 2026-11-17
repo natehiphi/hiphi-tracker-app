@@ -272,14 +272,52 @@ with sync_playwright() as p:
         ok(pg.locator('.cgcol.today').count() == 1 and pg.locator('.cgcol.today .cgd').inner_text().startswith('Mon'), f'{tag}: today is marked in the grid')
         ok(pg.evaluate(FILLED) == 0 and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL) and not pg.evaluate(WRITERS), f'{tag}: the grid: no filled button, no sideways scroll, 44px ({pg.evaluate(SMALL)[:2]})')
         snap(pg, 'cal_grid_JM_crafted', tag)
-        # the List | Week switch does not move when pressed
+        # Week's header is ONE row across the card's width (Nate chose it, knowing the switch moves between List and Week); List's header is unchanged
         def box(sel): return pg.locator(sel).bounding_box()
-        go(pg, '#/calendar?view=list'); b1 = box('#viewWeek'); w1 = box('#whoMine'); t1 = box('#ihd'); pg.click('#viewWeek'); pg.wait_for_timeout(350); b2 = box('#viewWeek'); w2 = box('#whoMine'); t2 = box('#ihd')
-        same = lambda a, b: all(abs(a[k] - b[k]) < 1 for k in ('x', 'y', 'width', 'height'))
-        ok(same(b1, b2) and same(w1, w2) and same(t1, t2), f'{tag}: pressing Week moves nothing: the switch, the whose switch and the title stay put ({b1} {b2})')
-        ok(b1['y'] < w1['y'] and b1['x'] > w1['x'] and abs((b1['y'] + b1['height'] / 2) - (t1['y'] + t1['height'] / 2)) < 12, f'{tag}: the switch is on the title line, to its right; the whose switch is below it')
+        near = lambda a, b, d=1: abs(a - b) < d
+        LIST_NOW = {'#ihd': (92, 44.3, 101.3, 27.5), '#viewList': (256.7, 36, 58.7, 44), '#viewWeek': (319.4, 36, 76.6, 44), '#whoMine': (96, 100, 68.7, 44), '#whoAll': (298.6, 100, 97.4, 44), '.findw': (92, 160, 308, 48), '.wknav': (92, 216, 308, 44)}   # read from the page before the one-row change
+        go(pg, '#/calendar?view=list')
+        off = [(s, [round(box(s)[k], 1) for k in ('x', 'y', 'width', 'height')]) for s, v in LIST_NOW.items() if not all(near(box(s)[k], x) for k, x in zip(('x', 'y', 'width', 'height'), v))]
+        ok(not off, f'{tag}: the List\'s header boxes are what they were (title, switch, whose switch, find, week links) ({off})')
+        pg.click('#viewWeek'); pg.wait_for_timeout(350)
+        ROW = ['#ihd', '.vsw', '.segs3:not(.vsw)', '.findw', '#wkPrev', '#wkNext']
+        def rowcheck(label, want_rows=1):
+            bs = [box(s) for s in ROW]; cy = [b['y'] + b['height'] / 2 for b in bs]; hd = box('.wl'); pp = box('.paper')
+            first4 = max(cy[:4]) - min(cy[:4]) <= 2; wk = max(cy[4:]) - min(cy[4:]) <= 2
+            same_row = first4 and wk and max(cy) - min(cy) <= 2
+            order = all(bs[i]['x'] + bs[i]['width'] <= bs[i + 1]['x'] + 0.5 for i in range(len(bs) - 1)) if same_row else all(bs[i]['x'] + bs[i]['width'] <= bs[i + 1]['x'] + 0.5 for i in range(3)) and bs[4]['x'] + bs[4]['width'] <= bs[5]['x'] + 0.5
+            links_below = (not same_row) and min(cy[4:]) > max(cy[:4]) + 20 and bs[4]['y'] >= max(b['y'] + b['height'] for b in bs[:4]) - 0.5 and bs[5]['x'] + bs[5]['width'] > pp['x'] + pp['width'] - 60
+            return bs, hd, pp, first4, wk, same_row, order, links_below
+        bs, hd, pp, first4, wk, same_row, order, _ = rowcheck('week')
+        ok(same_row and order and hd['height'] <= 96.5, f'{tag}: Week: title, List/Week, whose switch, find box and week links share one row (centres within 2px), left to right, none overlapping; the header is one row high ({hd["height"]}, at most 96)')
+        ok(near(bs[0]['x'], 92, 1.5) and near(bs[5]['x'] + bs[5]['width'], pp['x'] + pp['width'], 1.5) and near(pp['y'], hd['y'] + hd['height'], 1.5) and pg.locator('.ws.gridws').count() == 1 and pg.evaluate(NOSIDE), f'{tag}: Week: the title keeps its left (the other doors\' titles) and the week links end at the card\'s right edge; the card starts right under the header ({bs[0]["x"]}, {bs[5]["x"] + bs[5]["width"]} vs {pp["x"] + pp["width"]}, card top {pp["y"]} vs {hd["height"]})')
+        ok(pg.locator('.findw input').evaluate("i => i.scrollWidth <= i.clientWidth + 1 || getComputedStyle(i).textOverflow === 'ellipsis'") and box('.findw')['width'] >= 200, f'{tag}: Week: the find box keeps room to read ({box(".findw")["width"]}px; the placeholder ends in an ellipsis when it is short)')
+        T0 = {s: box(s) for s in ROW}
+        # Tab order: List, Week, Mine, A teammate, Everyone, the find box, Previous week, Next week, then the week
+        pg.focus('#viewList'); seq = []
+        for _ in range(8): pg.keyboard.press('Tab'); seq.append(pg.evaluate("() => document.activeElement.id || (document.activeElement.closest('.cgrid') ? 'grid' : document.activeElement.tagName)"))
+        ok(seq == ['viewWeek', 'whoMine', 'whoMate', 'whoAll', 'findIn', 'wkPrev', 'wkNext', 'grid'], f'{tag}: Week: Tab goes List/Week, whose switch, find box, week links, then the week ({seq})')
+        go(pg, '#/calendar')
+        # the teammate picker opens as its own full-width line under the row; nothing in the row moves
+        pg.click('#whoMate'); pg.wait_for_timeout(300); wp_ = box('#whoPick'); bs2, hd2, pp2, f4, wk2, sr2, ord2, _ = rowcheck('picker')
+        ok(pg.locator('#whoPick').is_visible() and sr2 and ord2 and wp_['y'] >= max(b['y'] + b['height'] for b in bs2) - 0.5 and wp_['x'] >= hd2['x'] and wp_['x'] + wp_['width'] <= hd2['x'] + hd2['width'] and near(pp2['y'], hd2['y'] + hd2['height'], 1.5) and pp2['y'] >= wp_['y'] + wp_['height'] and all(near(bs2[i][k], bs[i][k], 1) for i in range(6) for k in ('x', 'y', 'width', 'height')) and pg.evaluate(NOSIDE), f'{tag}: Week: the open teammate picker is a full-width line under the row; the row does not move; the card is below it (picker y {wp_["y"]}, header {hd2["height"]})')
+        pg.click('#whoMate'); pg.wait_for_timeout(200)
+        # the find box's dropdown opens whole, over the card
+        pg.click('#findIn'); pg.keyboard.type('school'); pg.wait_for_timeout(900); fd = box('#findDrop')
+        top = pg.evaluate("() => { const d = document.getElementById('findDrop'), r = d.getBoundingClientRect(); return [[r.left + 24, r.top + 24], [r.right - 24, r.top + 24], [r.left + 24, r.bottom - 24], [r.right - 24, r.bottom - 24]].map(([x, y]) => !!document.elementFromPoint(x, y)?.closest('#findDrop')); }")
+        ok(pg.locator('#findDrop').is_visible() and fd and fd['x'] >= 0 and fd['x'] + fd['width'] <= w and fd['y'] + fd['height'] <= h + 0.5 and all(top) and pg.evaluate(NOSIDE), f'{tag}: Week: the find box\'s dropdown ("school") is fully on screen and above the card, not clipped ({fd}, {top})')
+        pg.keyboard.press('Escape'); go(pg, '#/calendar?view=list'); go(pg, '#/calendar')
+        # Everyone's calendar (a longer title) and next week (with "This week"): one row at 1440; at 1280 the week links go alone to a clean second row
+        for hsh, what in (('#/calendar?who=all', 'Everyone'), ('#/calendar?w=2026-03-23', 'Next week (with This week)')):
+            go(pg, hsh); bsx, hdx, ppx, f4x, wkx, srx, ordx, below = rowcheck(what)
+            wrapped_ok = (f4x and wkx and ordx and below and hdx['height'] <= 148.5 and bsx[4]['height'] <= 45 and bsx[5]['height'] <= 45)
+            ok(pg.evaluate(NOSIDE) and near(ppx['y'], hdx['y'] + hdx['height'], 1.5) and ((srx and ordx and hdx['height'] <= 96.5) if w == 1440 else (srx and ordx and hdx['height'] <= 96.5) or wrapped_ok) and (pg.locator('#wkNow').count() == 1 if 'This' in what else pg.locator('#ihd').inner_text() == 'Everyone’s calendar'), f'{tag}: Week, {what}: {"one row" if srx else "first four on one row, the week links alone on a clean second row at the right"}; header {hdx["height"]} (one row 96, two rows at most 148); nothing cut')
+        go(pg, '#/calendar')
+        # a picked hearing: the page opens beside its day, and the header is the same row, in the same place
         pg.click(f'.cgrid a[data-sit="{KEYS["AGR"]}"]'); pg.wait_for_timeout(300)
-        ok(pg.locator('#calClose').get_attribute('aria-label') == 'Close' and pg.locator('#backWeek').count() == 0 and pg.locator('.wl [data-sit]').count() == 0 and 'Agriculture' in pg.evaluate(H1) and same(box('#viewWeek'), b1), f'{tag}: a sitting picked in the grid opens its page beside its day, with Close, the header where it was')
+        bp = {s: box(s) for s in ROW}; hdp = box('.wl'); ppp = box('.paper')
+        ok(all(near(bp[s][k], T0[s][k], 1) for s in ROW for k in ('x', 'y', 'width', 'height')) and near(ppp['y'], hdp['y'] + hdp['height'], 1.5) and hdp['height'] <= 96.5, f'{tag}: a sitting picked in Week: the header is the same row, the title and every control exactly where they were (header {hdp["height"]})')
+        ok(pg.locator('#calClose').get_attribute('aria-label') == 'Close' and pg.locator('#backWeek').count() == 0 and pg.locator('.wl [data-sit]').count() == 0 and 'Agriculture' in pg.evaluate(H1), f'{tag}: a sitting picked in the grid opens its page beside its day, with Close')
         snap(pg, 'cal_sitting_JM_crafted', tag)
         pg.click('#calClose'); pg.wait_for_timeout(300); ok(pg.locator('.cgrid').count() == 1 and 'view=' not in pg.url, f'{tag}: Close returns to the grid')
         pg.click('.cgrid a[data-dl]'); pg.wait_for_timeout(300); ok(pg.locator('#calClose').count() == 1 and pg.evaluate(H1) == 'First committee deadline', f'{tag}: a deadline picked in the grid has the same Close')

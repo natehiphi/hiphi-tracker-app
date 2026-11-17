@@ -156,7 +156,6 @@ body.nobar main { padding-bottom: 0; }
   html.isws, body.isws { overflow: hidden; height: 100vh; }
   .ws { --lw: clamp(var(--list-lo), var(--list-w), min(var(--list-hi), var(--list-share))); display: grid; grid-template-columns: var(--lw) minmax(0, 1fr); grid-template-rows: minmax(0, 100vh); height: 100vh; overflow: hidden; position: relative; }
   .ws.one { grid-template-columns: minmax(0, 1fr); }
-  .ws.gridws { --lw: var(--list-week); }   /* Week view: the list's header shares column 1 with the grid's start, so it keeps its own fixed width */
   .ws.sheetonly .wl, .ws.listonly .wp { display: block; }
   .ws .wl { overflow-y: auto; padding: var(--s6) var(--s4) var(--s5); max-width: none; margin: 0; container: wl / inline-size; }
   /* the width handle (width.js): over the gap between the list and the page, 4px into the list's padding (nothing is there: the rows end 4px short of it) and 8px into the paper's empty edge. Nothing shows until it is pointed at. */
@@ -505,7 +504,16 @@ li[hidden] { display: none; }
 /* the Week grid: the header stays where it is in the List; the grid starts below it and spans the whole main width */
 @media (min-width: 900px) {
   .ws.gridws { grid-template-rows: auto minmax(0, 1fr); }
-  .ws.gridws .wl { grid-column: 1; grid-row: 1; overflow: visible; padding-bottom: var(--s3); }
+  .ws.gridws .wl { grid-column: 1 / -1; grid-row: 1; overflow: visible; padding: var(--s5) var(--s5) var(--s3) var(--s4); }
+  /* Week's header is ONE row across the whole width: title + List/Week, whose, find, then the week links at the right edge. The teammate picker, when open, is its own full-width line under the row. */
+  .ws.gridws .wl .ihead { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s2) var(--s4); }
+  .ws.gridws .wl .ihead > * { margin: 0; }
+  .ws.gridws .wl .ihl { gap: var(--s5); flex: none; }
+  .ws.gridws .wl .ihl .vsw { margin: 0; }
+  .ws.gridws .wl .segs3 { flex: none; }
+  .ws.gridws .wl .findw { flex: 1 1 var(--find-min); min-width: var(--find-min); max-width: var(--find-max); }
+  .ws.gridws .wl .wknav { margin-left: auto; gap: 0 var(--s4); flex: none; }
+  .ws.gridws .wl .whopick { order: 1; flex: 0 0 100%; }
   .ws.gridws .wp { grid-column: 1 / -1; grid-row: 2; height: auto; min-height: 0; padding: 0 var(--s5) var(--s5) var(--s2); }
 }
 
