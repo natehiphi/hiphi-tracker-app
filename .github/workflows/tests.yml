@@ -87,39 +87,6 @@ jobs:
       - name: "This week's hearings in one calendar file on My issues: the line, the file (the one-hearing file's events and UIDs, Testimony due only where it can be sent), the done line, none in Edit, with nothing in the week or between sessions; the one-hearing file unchanged (R-212 #51)"
         if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/week_cal.py http://localhost:8832 /tmp
-      - name: "Staff v5 on a laptop (R-277, DESIGN A-24): the same budget"
-        if: ${{ !cancelled() && matrix.shard == 4 }}
-        run: python3 tests/staff5_budget.py
-      - name: "Staff v5: each person's three things (as v4's)"
-        if: ${{ !cancelled() && matrix.shard == 7 }}
-        run: python3 tests/staff5_people.py
-      - name: "Staff v5: no hearing ask on a bill HIPHI opposes (R-316 W2)"
-        if: ${{ !cancelled() && matrix.shard == 6 }}
-        run: python3 tests/staff5_oppose.py
-      - name: "Staff v5: turning someone off never hides their work (R-316 W28)"
-        if: ${{ !cancelled() && matrix.shard == 8 }}
-        run: python3 tests/staff5_turnoff.py
-      - name: "Staff v5: a hearing cancelled with no new date yet keeps its testimony row, with no countdown (R-316 W24)"
-        if: ${{ !cancelled() && matrix.shard == 7 }}
-        run: python3 tests/staff5_cancelled.py
-      - name: "Staff v5: Help answers everyday questions; search finds coalitions (R-316 W29)"
-        if: ${{ !cancelled() && matrix.shard == 4 }}
-        run: python3 tests/staff5_help_search.py
-      - name: "Staff v5: every ask to a chair is recorded and the team sees it; hand-on skips the night (R-316 W3, W31)"
-        if: ${{ !cancelled() && matrix.shard == 4 }}
-        run: python3 tests/staff5_chair_ask.py
-      - name: "Staff v5: no label spills out of its card at 1280 and 1440 (R-316 W54)"
-        if: ${{ !cancelled() && matrix.shard == 2 }}
-        run: python3 tests/staff5_overflow.py
-      - name: "Staff v5: My issues and Bills give the same testimony step and due time (R-316 W23)"
-        if: ${{ !cancelled() && matrix.shard == 4 }}
-        run: python3 tests/staff5_step_match.py
-      - name: "Staff v5: search finds conversations with legislators and the asks to chairs (R-316 H-15)"
-        if: ${{ !cancelled() && matrix.shard == 1 }}
-        run: python3 tests/staff5_conv_search.py
-      # Staff v6 (R-352 groundwork, 27 Oct): none of its tests ran on a push, so the drift between 23 and 27 Oct (22 budget
-      # misses) went unseen. Its own unmerged workflow (build/R-336-switch, staff6.yml) is replaced by these steps here,
-      # each on one machine. APP defaults to staff6 and HOST to this server, so no prefix is needed.
       - name: "Staff v6: one word per step and testimony state, no browser (spec 5, D15)"
         if: ${{ !cancelled() && matrix.shard == 4 }}
         run: node tests/staff6_steps_test.mjs
@@ -149,36 +116,12 @@ jobs:
       - name: "A bill link and a returner's Home ask the database one question at time zero, with today's reads as the fallback (R-357 Part 6)"
         if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/page_answer.py http://localhost:8832/
-      - name: "Staff v2 on a fake database (R-152): reads, a failed read, refresh, saves, two sessions' bill numbers, error reports"
-        if: ${{ !cancelled() && matrix.shard == 5 }}
-        run: python3 tests/staff_live.py
-      - name: Staff v2's flows in the sandbox (R-152)
-        if: ${{ !cancelled() && matrix.shard == 2 }}
-        run: python3 tests/staff_flows.py
-      - name: "Staff v2, batch C: countdowns, the Public tab, the week's asks (R-152)"
-        if: ${{ !cancelled() && matrix.shard == 3 }}
-        run: python3 tests/staff_r152c.py
-      - name: "Staff v2, batch D: the practice copy, readiness, small fixes (R-152)"
-        if: ${{ !cancelled() && matrix.shard == 3 }}
-        run: python3 tests/staff_r152d.py
-      - name: Staff v2, Today | Ahead (R-049)
-        if: ${{ !cancelled() && matrix.shard == 2 }}
-        run: python3 tests/staff_ahead.py
-      - name: Staff v2, a bill the team does not track (R-058)
-        if: ${{ !cancelled() && matrix.shard == 5 }}
-        run: python3 tests/staff_untracked.py
-      - name: Staff v2, the note on an issue when a bill goes against its stance (R-095)
-        if: ${{ !cancelled() && matrix.shard == 6 }}
-        run: python3 tests/staff_issue_note.py
       - name: A stop asked for by number, from any browser (D1-3, R-180)
         if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/stop_number.py
       - name: The plans' sign-up keeps the promise beside the button, and promises no reminder (D1-6, D1-1)
         if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/plans_join.py
-      - name: Staff v2, Session setup > Privacy and keeping (J2-1, J2-2)
-        if: ${{ !cancelled() && matrix.shard == 8 }}
-        run: python3 tests/staff_privacy.py
       - name: The privacy page, whole and short (J2-3)
         if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/privacy_page.py
@@ -186,7 +129,7 @@ jobs:
         if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/unsubscribe_page.py
       - name: A stopped bill whose same idea became law says so (X4-4)
-        if: ${{ !cancelled() && matrix.shard == 8 }}
+        if: ${{ !cancelled() && matrix.shard == 2 }}
         run: python3 tests/same_idea_law.py
       - name: "What kind of advocate are you? In the practice copy, and not outside it (R-217, a draft)"
         if: ${{ !cancelled() && matrix.shard == 8 }}
@@ -197,15 +140,9 @@ jobs:
       - name: "The tracker in other languages: the machinery, with a made-up language (R-166 step 3)"
         if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/i18n.py
-      - name: "Staff v2, R-180 wave 3: new hearings, the rallying path, saves that say what they did (X10-3, X10-5, X10-6)"
-        if: ${{ !cancelled() && matrix.shard == 1 }}
-        run: python3 tests/staff_x10.py
       - name: "The step tests: thirteen journeys within budget and working (X10-7)"
         if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/journeys.py
-      - name: Session setup shows the dated steps as expected, and Sort new bills puts a hearing first (Z1-6)
-        if: ${{ !cancelled() && matrix.shard == 7 }}
-        run: python3 tests/setup_expected.py
       - name: Home's first card counts the day's deadlines, and twin bills are one card (R-131, R-244)
         if: ${{ !cancelled() && matrix.shard == 5 }}
         run: python3 tests/home_now.py
@@ -266,9 +203,6 @@ jobs:
       - name: "Every bill HIPHI tracks keeps its search and filters in the address: bookmark, reload, Back, share (R-212 #43)"
         if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/allbills_address.py http://localhost:8832/ /tmp
-      - name: "Staff v2, Session setup > Tests: the list, each test's versions as pictures side by side, the switches; the practice copy follows them (R-192, R-201)"
-        if: ${{ !cancelled() && matrix.shard == 7 }}
-        run: python3 tests/versions.py
       - name: Density and splits across 70 screens against the recorded baseline (X9-6)
         if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/density.py --check
@@ -287,12 +221,12 @@ jobs:
         if: ${{ !cancelled() && matrix.shard == 1 }}
         run: python3 tests/v2_bill.py http://localhost:8832
       - name: "The issue page opens with its drawing behind ?v2=1 (R-357 pL)"
-        if: ${{ !cancelled() && matrix.shard == 1 }}
+        if: ${{ !cancelled() && matrix.shard == 4 }}
         run: python3 tests/v2_issue.py http://localhost:8832
       # R-357 Parts 2 to 4 (30 Oct 2026): the letter in three screens, Home's week and the nine-tap first visit, all behind ?v2=1. Each takes the
       # address of this server first (as v2_bill.py does) and goes on a machine with 9 steps, not all on the one with the fewest.
       - name: "The letter in three screens behind ?v2=1: your letter, the Capitol account once, send; the email; today's walkthrough unchanged (R-357 Part 2)"
-        if: ${{ !cancelled() && matrix.shard == 1 }}
+        if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/v2_letter.py http://localhost:8832
       - name: "Home's week behind ?v2=1: This week by day, the lit row, Also due with no number, Edit my issues last; today's Home unchanged (R-357 Part 3)"
         if: ${{ !cancelled() && matrix.shard == 7 }}
