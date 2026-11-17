@@ -40,7 +40,7 @@ MOVED = [
   ('#/bills/muted', 'KV', r'^#/issues/bills/muted', 'Issues', r'Muted'),
   (f'#/outreach?segment={L.SEGMENT}', 'SY', r'^#/outreach/supporters', 'Outreach', r'Supporters'),
   ('#/bills/memo', 'JS', r'^#/outreach/partners', 'Outreach', r'Partner update'),   # Partner update is the leads' since round 3 (decision 6); staff land on This week's asks
-  ('#/bills/memo', 'LR', r'^#/outreach$', 'Outreach', r'This week’s asks'),
+  ('#/bills/memo', 'LR', r'^#/outreach$', 'Outreach', r'Write the public ask'),   # R-373 (bc8d3b5c, 12 Nov): the page's title "This week’s asks" went; it is headed Outreach and lists the asks
   ('#/coalition', 'PH', r'^#/issues/coalitions', 'Issues', r'Coalitions'),
   # Holding our bills and Who to ask are gone (R-356 round 2, decision 4): the old addresses draw the plain directory
   ('#/legislators?view=holding', 'KV', r'^#/legislators(\?|$)', 'More', r'Legislators'),
@@ -76,9 +76,12 @@ LOOK = r"""() => { const main = document.querySelector('main'); const t = main ?
 def arrive(b, who, addr, w, h, i):
   pg = b.page(who, w, h)
   try:
-    pg.page.goto(f"{L.HOST}/{L.APP}.html?demo=1&as={who}&_={i}{addr}"); pg.page.wait_for_timeout(700); pg.ready(9000)
+    pg.page.goto(f"{L.HOST}/{L.APP}.html?demo=1&as={who}&vb=0&_={i}{addr}"); pg.page.wait_for_timeout(700); pg.ready(9000)
     x = pg.page.evaluate(LOOK); x['errors'] = pg.errors[:2]; return x
   finally: pg.close()
+
+# Pages whose v5 title was changed on purpose: R-373 (bc8d3b5c, 12 Nov) headed Saya's #/outreach "Outreach" instead of "This week’s asks".
+RETITLED = {'#/outreach|SY': 'Outreach'}
 
 def placename(x):
   # Staff v5's sidebar names "My settings"; v6's account door is "You". Either is the same place.
@@ -112,6 +115,7 @@ def main():
       v5 = base.get(f'{addr}|{who}', {})
       # "the same thing": v5's page title still names the page (an h1, a tab or a heading), and the right place is lit
       title = re.split(r'\s+·\s+', v5.get('h1') or '')[0].strip()
+      title = RETITLED.get(f'{addr}|{who}', title)
       shown = (x['text'] + ' ' + x['h1'] + ' ' + ' '.join(x['tab'])).lower()
       # a sub-page (a Session setup part, a Help topic) must also still show what v5 headed it with
       sub = (v5.get('h2') or '').strip() if re.match(r'#/(setup|help)/', addr) else ''

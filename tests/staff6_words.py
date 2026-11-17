@@ -136,8 +136,10 @@ def rule6_chair(R, b):
         seen.setdefault(it['num'], {}).setdefault(ph, set()).add(r)
     pg.close()
     for n in nums:
+      # HB 756 used to be required on /issues too. Since R-373 (issue cards) and R-388 (b061b1f4, "2025 carryover, not moving") the issues
+      # list does not print a chair step for it, so Today and Bills (routes[:2]) are the two screens that must agree.
       d = seen.get(n, {}); where = set().union(*d.values()) if d else set()
-      R.check(f'{L.NAMES[who]}: {n}\'s chair step is one wording on {", ".join(routes)}', len(d) == 1 and where >= set(routes[:2]) and (n != 'HB 756' or where == set(routes)),
+      R.check(f'{L.NAMES[who]}: {n}\'s chair step is one wording on {", ".join(routes)}', len(d) == 1 and where >= set(routes[:2]),
               ' | '.join(f'"{k}" on {", ".join(sorted(v))}' for k, v in d.items()) or 'not found')
 NAMES_ = L.NAMES
 # ---- 4: the names of places a Help page might use, the v5 ones v6 retires included ----

@@ -12,9 +12,9 @@ const ROOT = new URL('../', import.meta.url);
 const noop = () => {};
 const store = () => { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), clear: () => m.clear() }; };
 Object.assign(globalThis, {
-  window: globalThis, location: { search: '?demo=1&as=NT', hash: '', origin: 'https://v6.test', pathname: '/staff6.html', href: 'https://v6.test/staff6.html?demo=1' },
+  window: globalThis, location: { search: '?demo=1&as=NT&vb=0', hash: '', origin: 'https://v6.test', pathname: '/staff6.html', href: 'https://v6.test/staff6.html?demo=1&vb=0' },
   localStorage: store(), sessionStorage: store(), addEventListener: noop, removeEventListener: noop, matchMedia: () => ({ matches: true, addEventListener: noop }),
-  document: { addEventListener: noop, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, body: null, createElement: () => ({ style: {} }) },
+  document: { documentElement: { classList: { add: noop } }, addEventListener: noop, querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, body: null, createElement: () => ({ style: {} }) },
   history: { state: null, pushState: noop, replaceState: noop, back: noop }, requestAnimationFrame: f => setTimeout(f, 0), CSS: { escape: s => s },
   fetch: async url => { const f = new URL(String(url).split('?')[0], ROOT); return { ok: true, json: async () => JSON.parse(readFileSync(f)) }; },
 });
@@ -46,8 +46,9 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   // R-352 (Nate 27 Oct, amending R-344's Decision 2; A-5 on v6): due today is plain ('today', drawn in the body colour,
   // steps.css), with a neutral clock and its time; amber only when late. 6 hours out: no time left in words yet.
   ok(t.tone === 'today' && t.soon && t.icon === 'clock' && t.words === 'Due today 3:00 PM', `due today is 'today' (plain, first), with a clock and its time: "${t.words}"`);
+  // 1.5 hours out reads "in 2 hours": the hour countdown rounds to the nearest hour (R-370 second walk, c8c2b455, 11 Nov; it floored before).
   const t2 = X.status({ due: hst('2026-03-16T10:30:00-10:00') });
-  ok(t2.tone === 'today' && t2.soon && t2.icon === 'clock' && t2.words === 'Due today 10:30 AM, in 1 hour', `under 3 hours, due today says the time left in words, still plain: "${t2.words}"`);
+  ok(t2.tone === 'today' && t2.soon && t2.icon === 'clock' && t2.words === 'Due today 10:30 AM, in 2 hours', `under 3 hours, due today says the time left in words, still plain: "${t2.words}"`);
   const t3 = X.status({ due: hst('2026-03-16T09:25:00-10:00') });
   ok(t3.words === 'Due today 9:25 AM, in 25 min', `under an hour, in minutes: "${t3.words}"`);
   const late = X.status({ kind: 'file', due: hst('2026-03-16T08:00:00-10:00'), until: hst('2026-03-16T13:10:00-10:00') });
@@ -202,7 +203,9 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
 {
   ok(S.advocates.filter(a => a.initials === 'PH').length === 1 && S.advocates.filter(a => a.initials === 'JMM').length === 1, 'Patti and Julie are teammates once each');
   const heal = S.campaigns.find(c => c.name === 'HEAL').id, hiapa = S.campaigns.find(c => c.name === 'HIAPA').id;
-  ok(PH.prefs.coalitions.includes(heal) && JMM.prefs.coalitions.includes(hiapa), 'Patti helps on HEAL, Julie on HIAPA');
+  // R-381 (a2724351, 12 Nov): Patti is in demo/snapshot.json now with prefs {} (demoInit adds her coalition only when she is missing), so
+  // her HEAL work is read from the team lists below, not from prefs.coalitions; Julie is still added by demoInit with HIAPA.
+  ok(PH.is_active !== false && (JMM.prefs.coalitions || []).includes(hiapa), 'Patti is on the team, Julie helps on HIAPA');
   const lrHeal = Object.values(S.drafts).flat().filter(d => /^dd\d+$/.test(d.id) && (S.assignments[d.bill_id] || [])[0] === LR.id && (S.billCampaigns[d.bill_id] || []).includes(heal) && d.submitted_by);
   ok(lrHeal.length > 0 && lrHeal.every(d => d.submitted_by === PH.id), `Patti sent this week's testimony on Lauren's HEAL bills (${lrHeal.length})`);
   const sb = lrHeal.find(d => d.status === 'draft' && d.review_note);
@@ -242,7 +245,17 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
 {
   const strip = h => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   // A draft nobody holds is nobody's own step: no filled button, "No owner yet" (C-15, the bill header's words), Take it.
-  const nob = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: JMM }) })).filter(x => x.s.nobody);
+  // R-381 (a2724351, 12 Nov): every practice bill now has an owner (the snapshot matches the live tracker), so no draft is unowned any
+  // more. The rule is still real for a bill whose owner is removed, so this makes one: it empties one filing bill's owners
+  // its coalitions and who sent its draft for this block, and puts them back at the end of the block.
+  const savedAssign = S.assignments, savedCamp = S.billCampaigns, savedSub = [];
+  const nobodyNow = () => S.bills.map(b => ({ b, s: X.billStep(b, { viewer: JMM }) })).filter(x => x.s.nobody);
+  if (!nobodyNow().length) {
+    const cand = S.bills.find(b => { const s = X.billStep(b, { viewer: JMM }); return s && !s.nobody && s.kind === 'file'; });
+    if (cand) { S.assignments = { ...S.assignments, [cand.id]: [] }; S.billCampaigns = { ...S.billCampaigns, [cand.id]: [] };   // no owner, no coalition helpers, nobody who sent the draft
+      for (const d of Object.values(S.drafts).flat()) if (d.bill_id === cand.id && d.submitted_by) { savedSub.push([d, d.submitted_by]); d.submitted_by = null; } }
+  }
+  const nob = nobodyNow();
   ok(nob.length > 0 && nob.every(x => !x.s.you), `${nob.length} step(s) nobody holds are nobody's own step (Julie: ${nob.map(x => x.b.bill_number).join(', ')})`);
   const nb = nob.find(x => x.s.kind === 'file') || nob[0];
   if (nb) {
@@ -253,6 +266,7 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
     ok(nb.s.line.startsWith(`${nb.s.state.word} · ${X.NO_OWNER}, `) && / by .+|Testimony due/.test(nb.s.line), `the row says so: state, "No owner yet", one labelled time: "${nb.s.line}"`);
     ok(X.billStep(nb.b, { viewer: NT }).takeFor && !X.billStep(nb.b, { viewer: JMM }).takeFor, 'it reaches whoever may hand it (an admin, the issue’s owner), not everyone');
   }
+  S.assignments = savedAssign; S.billCampaigns = savedCamp; for (const [d, v] of savedSub) d.submitted_by = v;
   // The card names its bill where nothing else does, and not in the open item (its h2 does).
   const b1 = M.billByNum('HB1523'), today = X.stepCard(b1, { viewer: KR, where: 'today' }), pane = X.stepCard(b1, { viewer: KR, where: 'pane' });
   // Option E (Nate 10/26): the card's one heading names the step and the bill, the bill's name a link inside the sentence;
@@ -298,15 +312,17 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
 {
   const strip = h => h.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   const people = [NT, KV, KR, PH, JMM, LR];
-  const STATE = /\b(Writing|With an approver|Second look|Ready to file|Filed|Missed)\b/;
+  // R-370 (de92007b, 11 Nov): a bill with no draft yet says "Not started" alone, which is its state word.
+  const STATE = /\b(Not started|Writing|With an approver|Second look|Ready to file|Filed|Missed)\b/;
   // Rows: the line has two parts at most, so a row holds four facts with its name and number (spec 8).
   const long = [];
   for (const who of people) for (const b of S.bills) { const s = X.billStep(b, { viewer: who }); if (s && s.line && s.line.split(' · ').length > 2) long.push(`${who.initials} ${b.bill_number}: ${s.line}`); }
   ok(!long.length, `every row line (six people, every bill) has two parts at most${long.length ? '; e.g. ' + long.slice(0, 3).join(' | ') : ''}`);
   // Someone else's step says who does what, then when (spec 6's "Kris approves · due today 3:00 PM"); R-352: the team's
   // time where one is still ahead, "by", the same time its owner sees ("Kris approves it · by 11:00 AM today"; R-352 FIX-2: the clock first, as "until 1:10 PM today").
+  // R-373 (7973cfdb, 12 Nov): the team's time and the Capitol's read as one fact, joined by a comma and in lower case: "approves it, approval by today 11 AM (4 hours before the Capitol's 3 PM)".
   const oth = S.bills.map(b => X.billStep(b, { viewer: JMM })).find(s => s && s.kind === 'approve' && !s.you);
-  ok(!!oth && /^With an approver · [A-Z][\w ,]* approves it · (Approval by|Testimony due|Late|Testimony was due)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
+  ok(!!oth && /^With an approver · [A-Z][\w ,]* approves it[ ·,]+(?:[Aa]pproval by|Testimony due|Late|Testimony was due)/.test(oth.line), `someone else's approval: "${oth && oth.line}"`);
   // Hearing cards: every one of our bills on every sitting says where its testimony stands, in two parts.
   const sittings = [...new Map(S.hearings.filter(h => h.status !== 'cancelled').map(h => [h.committee + h.scheduled_at, h])).values()];
   const noState = [], tooLong = [];
@@ -532,10 +548,11 @@ const NT = byIni.NT, KV = byIni.KV, KR = byIni.KR, PH = byIni.PH, JMM = byIni.JM
   ok(M.gateGloss('Triple filing') === 'bills sent to 3 or more committees must clear their first committee', `triple filing: "${M.gateGloss('Triple filing')}"`);
   const glossBad = ['First lateral', 'Second decking', 'First crossover', 'Second crossover', 'Final decking', 'Fiscal'].filter(g => !/\bmust\b/.test(M.gateGloss(g)));
   ok(!glossBad.length, `every gate's gloss says what bills must do${glossBad.length ? '; not: ' + glossBad.join(', ') : ''}`);
+  // R-373 (7973cfdb): the late line now says which of our times passed ("Kevin files it, our file time passed Wed 7:30 AM, testimony due today 9:30 AM").
   // Someone else's late filing on a hearing card names who files it (Kris's Friday: Kevin's HB 2121, late until 9:30).
   at('2026-03-20T07:30:00-10:00');
   const lt = S.bills.map(b => ({ b, s: X.billStep(b, { viewer: KR }) })).find(x => x.s?.kind === 'file' && !x.s.you && !x.s.nobody && x.s.status.tone === 'late');
-  if (lt) ok(new RegExp(`^Ready to file · \\w+ files it · Late`).test(X.hearingLine(lt.s)), `someone else's late filing on a card: "${X.hearingLine(lt.s)}"`);
+  if (lt) ok(new RegExp(`^Ready to file · \\w+ files it[ ·,]+(?:Late|our file time passed)`).test(X.hearingLine(lt.s)), `someone else's late filing on a card: "${X.hearingLine(lt.s)}"`);
   else ok(false, 'someone else’s late filing on Kris’s Friday');
   at(MON9);
 }
