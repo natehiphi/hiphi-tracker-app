@@ -19,7 +19,7 @@ export function deadlineOf(b) {
 }
 // A bill that still needs a hearing before its next deadline (what Your bills counts).
 export const needsHearing = b => !!deadlineOf(b);
-export const isAtRisk = b => { const d = deadlineOf(b); return !!d && d.days <= RISK_DAYS; };
+export const isAtRisk = b => { const d = deadlineOf(b); return !!d && d.days <= RISK_DAYS && POS_GROUP[b.position] === 'support'; };   // bills we support only, not neutral (Nate, 18 Nov): the same bills that get the amber triangle
 // Nate, 18 Nov: a bill with the amber conference triangle, or the amber hourglass, is at risk too. The same facts as bill_cell.js signalOf (which imports this file, so the
 // test is written out here, not imported back). 'conference': in conference, we support or oppose it, the conference deadline is 7 days or less. 'vote': heard, no vote, we
 // support it, its own deadline 3 days or less, no hearing ahead. '' otherwise. Not when the session is over.
