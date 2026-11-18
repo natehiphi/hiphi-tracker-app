@@ -4,6 +4,7 @@
 import { reportError } from './errlog.js';   // first, so its handlers are in place before the screens' code runs (R-111)
 import { initLang, isEn, loadDbTranslations, S, D, DEMO, SEASON_OFF, app, esc, icon, toast, friendly, init, loadUser, onb, onbSet, wiz, firstVisit, readyForSession, sessionInfo, loadCatalog, applyCachedCatalog, catalogReady, followsAnything, hstDay, restoreFollows, issueFollowed } from './kernel.js';
 import { MARK } from './art.js';
+import { orgFoot } from './orgfoot.js';   // R-402: the organisation's name, address and site, drawn once at the end of each page
 import { skeleton, keepWordsWhole, loadFail, failWords } from './ui.js';
 import * as VL from './visitlog.js';   // the small shell (R-357 5c); a namespace, so a copy cached from before the split has no missing export to break on
 import { abSettled, armOf, abSeen } from './variant.js';
@@ -416,7 +417,7 @@ export function render() {
   const keep = location.hash === lastRouteKey ? focusKey(document.activeElement) : null;
   // The sticky action bar is part of the page's main content (it holds the page's main button), so it sits inside <main>.
   $app().innerHTML = `<button type="button" class="skip" data-skip>Skip to content</button>${header(route, scr)}
-    <main id="main" tabindex="-1">${main}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main>
+    <main id="main" tabindex="-1">${main}${FIRST_VISIT.includes(route.name) || !styled ? '' : orgFoot()}${bar ? `<div class="actionbar"><div class="inner">${bar}</div></div>` : ''}</main>
     ${tabs ? tabbar(route, scr) : ''}
     ${helperMod ? helperMod.render() : ''}`;
   document.title = (scr.title ? scr.title(route) + ' · ' : '') + 'HIPHI Bill Tracker';

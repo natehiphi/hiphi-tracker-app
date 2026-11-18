@@ -120,6 +120,15 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 .muted { color: var(--n500); }
 .small { font-size: var(--t14); }
 .meta { font-size: var(--t13); color: var(--n500); }
+/* The organisation's name, address and site at the end of every page (R-402; A-1 type 13, A-4 contrast: --n500 on the page is 5:1).
+   Stacked on a phone, one line with dots between from 640px (the dots are CSS, so none can start a line). The page's own bottom padding
+   keeps the tab bar off it. */
+.orgfoot { margin: var(--s48) 0 0; padding-top: var(--s16); border-top: 1px solid var(--n200); display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; font-size: var(--t13); line-height: 1.45; color: var(--n500); }
+.orgfoot address { font-style: normal; }
+.orgfoot .of-site { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s8); font-weight: 700; }
+@media (min-width: 640px) { .orgfoot { flex-direction: row; justify-content: center; flex-wrap: wrap; column-gap: 0; }
+  .orgfoot > :not(:last-child)::after { content: "·"; display: inline-block; margin: 0 var(--s8); }
+  .orgfoot .of-site { padding: 0; min-height: 32px; } }
 .strong { font-weight: 700; color: var(--n900); }
 .sechead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin: var(--s32) 0 var(--s12); }
 .sechead h2 { font-size: var(--t18); }
