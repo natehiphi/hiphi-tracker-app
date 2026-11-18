@@ -35,12 +35,18 @@ def shot(p, name): p.screenshot(path=os.path.join(OUT, name + '.png'))
 def moment(p):
     return p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
 # The "Mahalo!" page (R-140, Nate 11 Oct): the alerts step drawn again in place, its heading, lines and the card of what was given.
-def thanks(p):
-    return p.evaluate("[...document.querySelectorAll('.st-thanks #st-h, .st-thanks .st-thsub, .st-thanks .lede, .st-thanks .st-alertdone')].map(e => e.innerText).join('\\n')")
+# R-404: since R-306 (b47583d0, Nate 18 Oct) this page is gone for everyone (?demo=1&mahalo=old keeps it; tests/mahalo_home.py): the
+# whole window celebrates, then folds into a band on top of A bill's story. "thanks" waits for the folded band (not the one still
+# held under the cover) and returns its words with plain spaces.
+def thanks(p, timeout=8000):
+    p.wait_for_selector('.st-lesson .st-mhband:not(.st-mbhold)', timeout=timeout); p.wait_for_timeout(1200)
+    return p.evaluate("document.querySelector('.st-mhband')?.innerText || ''").replace('\xa0', ' ')
 
 # From a restart to the alerts screen (topic Food, HIPHI's ticked issues followed).
 def to_alerts(p, extra=''):
-    p.goto(BASE + '?demo=1&codes=0&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&codes=0&restart' + extra); p.wait_for_selector('.st-hellopage, .st-tile', timeout=15000)
+    if p.locator('.st-hellopage').count(): p.click('.st-hellobar [data-stnext]'); p.wait_for_selector('.st-tile', timeout=15000)   # R-297: the welcome page comes first
+    p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
@@ -79,27 +85,26 @@ with sync_playwright() as pw:
     ok(text(p, '#st-a-err').strip() == '', 'typing clears the message (C-9)')
     p.click('#st-send'); p.wait_for_timeout(300)
     ok('10-digit' in text(p, '#st-a-err') and p.get_attribute('#st-a-phone', 'aria-invalid') == 'true', 'a short number: the 10-digit message, marked invalid')
-    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(300)
+    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send')
     m = thanks(p)
-    ok(p.inner_text('#st-h') == 'Mahalo!' and 'following' in m and 'We’ll text (808) 555-0123 to confirm it’s your number' in m and 'YES' not in m and p.url.endswith('#/start/3') and moment(p) == '',
-       f'the "Mahalo!" page celebrates both, in place of the box, and says a text will confirm the number: {m[:140]!r}')
-    ok(p.inner_text('.actionbar [data-stnext]').strip() == 'Next: A Bill’s Story', 'its button names what comes next (C-6), not "Continue", in title case (R-186), as the strip and the page name it (C-15, R-249)')
+    ok('We’ll watch' in m and 'following' in m and 'We’ll text you to confirm it’s your number' in m and 'Texts go to (808) 555-0123' in m and 'YES' not in m and p.url.endswith('#/start/4') and moment(p) == '',
+       f'the celebration folds into the story\'s band, celebrates both, and says a text will confirm the number: {m[:160]!r}')
     shot(p, '1b_mahalo')
     saved = p.evaluate("localStorage.getItem('hiphi_text')")
     ok(saved and '8085550123' in saved, 'this browser keeps the number (the sandbox copy)')
     p.wait_for_timeout(3000)
-    ok(p.locator('.st-thanks #st-h').count() == 1 and p.url.endswith('#/start/3'), 'the page is still there after 3 s: it waits for Next (R-140, Nate 11 Oct: a page that waits for Next)')
-    p.click('.actionbar [data-stnext]'); p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(600)
-    ok(p.url.endswith('#/start/4'), 'Next goes on to the story')
-    p.click('[data-stback]'); p.wait_for_timeout(1200)
-    t = text(p)
-    ok(p.url.endswith('#/start/3') and 'We’ll text (808) 555-0123 to confirm it’s your number.' in t and 'Use a different number' in t and p.inner_text('#st-h') == 'Mahalo!' and p.locator('.st-thanksnew').count() == 0,
-       'Back: the same "Mahalo!" page (the confirming text is still to come), with a way to change it, the flower not replayed')
-    ok(p.locator('.st-bar button', has_text='Next').count() == 1, 'Back: the bar says Next')
+    ok(p.locator('.st-mhband').count() == 1 and p.url.endswith('#/start/4'), 'the band is still there after 3 s: it stays until they move on in the story (R-306)')
+    # The old page's "Next: A Bill's Story" button and its Back (the same page again, flower not replayed) went with the page (R-306);
+    # Back from the story is tests/mahalo_try.py's. What stays here: Change on the band opens the alerts box again.
+    p.click('[data-stbandchange]'); p.wait_for_selector('#st-aform', timeout=5000); p.wait_for_timeout(500)
+    ok(p.locator('#st-a-phone').count() == 1 and p.locator('#st-send').count() == 1, 'Change on the band opens the number box again')
     shot(p, '1c_back_set')
-    p.click('[data-stnext]'); p.wait_for_timeout(900)
-    ok(moment(p) == '' and p.url.endswith('#/start/4'), 'Next from there: the story again, no moment over it')
-    story_to_soon(p)
+    p.fill('#st-a-phone', '808.555.0123'); p.click('#st-send'); thanks(p)
+    p.wait_for_selector('.lx-count', timeout=10000); p.click('[data-stnext]'); p.wait_for_timeout(900)
+    ok(p.locator('.st-mhband').count() == 0 and moment(p) == '' and p.url.endswith('#/start/4'), 'the story\'s first Next: the band is gone, no moment over it')
+    p.click('[data-stnext]'); p.wait_for_timeout(1300)   # story_to_soon's own two Nexts, one of them taken above
+    for _ in range(2): p.click('.lx-doors [data-lx-pick]'); p.wait_for_timeout(900); p.click('[data-stnext]'); p.wait_for_timeout(1300)
+    p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(700)
     ok(p.locator('#st-a-phone, #st-eform, #st-email').count() == 0 and 'Want alerts' not in text(p), 'Coming up asks nothing (the number was given)')
     shot(p, '1d_soon')
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(600)
@@ -118,10 +123,10 @@ with sync_playwright() as pw:
     shot(p, '2_alerts_email')
     p.fill('#st-a-email', 'leilani@example'); p.click('#st-send'); p.wait_for_timeout(300)
     ok('name@example.com' in text(p, '#st-a-err'), 'an unfinished email says so')
-    p.fill('#st-a-email', 'leilani@example.com'); p.click('#st-send'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
+    p.fill('#st-a-email', 'leilani@example.com'); p.click('#st-send')
     m = thanks(p)
-    ok('Mahalo!' in m and 'Link sent to leilani@example.com' in m and 'Tap it when you finish here' in m and 'Use a different email' in m, f'the "Mahalo!" page says where the link went and to finish first (C-6): {m[:160]!r}')
-    p.click('.actionbar [data-stnext]'); story_to_soon(p)
+    ok('We’ll watch' in m and 'Sent to leilani@example.com' in m and 'tap the link we emailed you' in m and 'Change' in m, f'the band says where the link went and to finish first (C-6; R-306): {m[:160]!r}')
+    story_to_soon(p)
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(500)
     ok('Alerts almost set' in text(p, '.st-did') and 'Tap the link we sent to leilani@example.com to turn on alerts.' in text(p, '.st-did'), 'the finale: "Almost set", tap the link (it said "Reminders: one tap to go")')
     c.close()
@@ -129,16 +134,20 @@ with sync_playwright() as pw:
     # ---- 3. Skip ----
     c, p = ctx(b)
     to_alerts(p, '&fv=full&end=today')
-    p.click('[data-stskip]'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.wait_for_timeout(400)
+    p.click('[data-stskip]')
     m = thanks(p)
-    ok('Mahalo!' in m and 'text' not in m.lower() and 'bill' in m and p.locator('.st-alertdone').count() == 0, f'Skip: the "Mahalo!" page for the issues, with the bills line and no card: {m[:120]!r}')
-    p.click('.actionbar [data-stnext]'); story_to_soon(p)
+    ok('We’ll watch' in m and 'following' in m and 'text' not in m.lower() and 'Change' not in m, f'Skip: the band for the issues, no number or email given and no Change: {m[:120]!r}')
+    story_to_soon(p)
     ok('Want alerts by text or email?' in text(p) and p.locator('#st-a-phone').count() == 0, 'Coming up: one quiet line, no second ask')
     p.click('[data-stnext]'); p.wait_for_selector('.st-did', timeout=8000); p.wait_for_timeout(400)
-    ok('Alerts are off' in text(p, '.st-did') and p.locator('.st-did [data-alsheet]', has_text='Turn on alerts').count() == 1, 'the finale: "Alerts are off", with its own "Turn on alerts" (X10-4)')
+    # R-404: once the ask was skipped the ending leaves out "Alerts are off · Turn on alerts" for the rest of the visit (cd3a94e3, R-357 Light fixes h,
+    # Nate's yes 30 Oct, DESIGN C-3: one profile ask per visit), so this check now asserts the line is not there; tests/ask_once.py holds the rest.
+    ok('Alerts are off' not in text(p, '.st-did') and p.locator('.st-did [data-alsheet]').count() == 0 and 'You follow 2 issues' in text(p, '.st-did'), 'the finale after Skip: no "Alerts are off" and no "Turn on alerts" (one ask per visit, C-3)')
     p.click('[data-stdone]'); p.wait_for_timeout(1500)
     # Home on the next load asks once: one quiet line (R-222), whose button opens the same box in the sheet.
-    p.reload(); p.wait_for_timeout(2500)
+    # R-404: the tab's session holds "the ask was shown" (hiphi_ask_asked, 2a903cb6: one profile ask per visit, a reload keeps it), so a
+    # reload in the same tab is the same visit and Home asks nothing. "The next load" is the next visit: a new tab, which has no mark.
+    p.evaluate("sessionStorage.removeItem('hiphi_ask_asked')"); p.reload(); p.wait_for_timeout(2500)
     ok(p.locator('.nudgecard form').count() == 0 and p.locator('.hm-profline [data-hm-prof]').count() == 1, 'Home, next load: one quiet line, no form in the page (R-222)')
     p.locator('.hm-profline').scroll_into_view_if_needed(); shot(p, '3_home_line')
     p.locator('.hm-profline [data-hm-prof]').click(); p.wait_for_selector('.al-sheet[open] #al-sh-phone', timeout=5000)
@@ -180,7 +189,8 @@ with sync_playwright() as pw:
     c, p = ctx(b)
     p.goto(BASE + '?demo=1&codes=0&restart#/more'); p.wait_for_timeout(2500)
     # R-147 (10/4): More's first row is the person; without a number or email it invites them to make a profile with the same box.
-    ok(p.locator('a.mr-me[href="#/profile"]', has_text='Get alerts and make your profile').count() == 1, 'More: "Get alerts and make your profile" is the first row (R-147, X10-4)')
+    # R-404: More is the calm You page (R-303): the person's row invites alerts ("Get alerts on your issues", to #/alerts) until there is a profile.
+    ok(p.locator('a.yu-me.yu-me-new[href="#/alerts"]', has_text='Get alerts on your issues').count() == 1, 'You: "Get alerts on your issues" is the first row (R-147, X10-4; R-303)')
     p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_timeout(1500)
     t = text(p)
     ok('Get alerts on your issues' in t and p.locator('#mr-al-phone').count() == 1 and p.locator('button.al-swap[data-alswap="email"]').count() == 1, 'the page: the phone box, "Use email instead" in place (D1-5)')
@@ -194,7 +204,7 @@ with sync_playwright() as pw:
     shot(p, '6_more_alerts')
     p.fill('#mr-al-phone', '808 555 0166'); p.click('#mr-al-send'); p.wait_for_timeout(800)
     t = text(p)
-    ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0166 to confirm it’s your number.' in t and 'Stop texts' in t and 'alerts are on' not in t.lower(), 'given: "Almost set" (not "Text alerts are on") with Change number and Stop texts')
+    ok('Almost set. We’ll text (808) ••• 0166 to confirm it’s your number.' in t and 'Stop texts' in t and 'alerts are on' not in t.lower(), 'given: "Almost set" (not "Text alerts are on") with Change number and Stop texts')
     shot(p, '6b_more_on')
     p.click('[data-mr-alchange]'); p.wait_for_timeout(400)
     ok(p.input_value('#mr-al-phone') == '(808) 555-0166' and 'Change your number' in text(p), 'Change number: the box with the number in it')
@@ -203,11 +213,14 @@ with sync_playwright() as pw:
     ok(p.locator('#mr-al-phone').count() == 1 and 'Texts stopped' in text(p, 'body'), 'Stop texts: the box again, and a toast')
     undo = p.locator('button', has_text='Undo')
     if undo.count(): undo.first.click(); p.wait_for_timeout(800)
-    ok(p.inner_text('h1') == 'Alerts almost set' and '(808) 555-0166' in text(p), 'Undo: the number is back, almost set again')
+    ok('Almost set' in text(p) and '(808) ••• 0166' in text(p), 'Undo: the number is back, almost set again')
     p.goto(BASE + '?demo=1&codes=0#/more'); p.wait_for_timeout(1200)
-    ok(p.locator('a.mr-me[href="#/profile"]', has_text='Your profile').count() == 1, 'More: with a number, the first row is the profile (R-147)')
+    ok(p.locator('a.yu-me[href="#/profile"]', has_text='Your profile').count() == 1, 'You: with a number, the first row is the profile (R-147; R-303)')
     p.goto(BASE + '?demo=1&codes=0#/profile'); p.wait_for_timeout(1200)
-    ok('(808) ••• 0166' in text(p) and p.locator('#pf-email a[href="#/signin"]').count() == 1, 'the profile: texts on (the number masked), and email still offered')
+    # R-404: the calm profile (R-303) keeps alerts on their own page: its "Your alerts" row opens #/alerts, where the number (masked) and the email offer are.
+    ok('Your alerts' in text(p) and p.locator('a[href="#/alerts"]').count() >= 1, 'the profile: the Your alerts row')
+    p.goto(BASE + '?demo=1&codes=0#/alerts'); p.wait_for_timeout(1200)
+    ok('(808) ••• 0166' in text(p) and 'Email: not added' in text(p) and p.locator('a[href="#/signin"]', has_text='Add your email').count() == 1, 'the alerts page: texts on (the number masked), and email still offered')
     p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_timeout(1200)
     ok('If you add your email or number' in text(p) and 'never see your text-alert number' in text(p) and 'left out of HIPHI' in text(p), 'the privacy page names numbers')
     c.close()

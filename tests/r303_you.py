@@ -128,8 +128,11 @@ def main():
                 # ---- Profile ----
                 open_page(pg, '#/profile', sel='#main .pf')
                 if signed:
-                    check(pg.evaluate(ORDER, ['#main .pf-head', '#main .yu-pfal', '#main #pf-about']) == 'ok', f'{t}: Profile\'s first row is Your alerts')
-                    check(pg.evaluate("document.querySelector('#main .yu-pfal a').getAttribute('href')") == '#/alerts', f'{t}: it opens #/alerts')
+                    # R-404: Profile is five rows since R-304 (d287b2d4, Nate's yes 28 Oct): Your voice, Your alerts, then the letters, help and data
+                    # pages. "Your alerts" is the second row now, not the first (.yu-pfal and #pf-about went with the old page); it still opens #/alerts.
+                    rws = pg.evaluate("[...document.querySelectorAll('#main .pfr-rows .rc-rname')].map(e => e.innerText)")
+                    check(pg.evaluate(ORDER, ['#main .pf-head', '#main .pfr-rows']) == 'ok' and rws[:2] == ['Your voice', 'Your alerts'], f'{t}: Profile\'s rows, under the heading, begin Your voice, Your alerts ({rws})')
+                    check(pg.evaluate("document.querySelector('#main .pfr-rows a[href=\"#/alerts\"]')?.innerText.includes('Your alerts')") is True, f'{t}: the Your alerts row opens #/alerts')
                     check(pg.evaluate("!document.querySelector('#pf-email, #pf-issues, .pf-lvls')"), f'{t}: no Alerts or Your issues section in Profile')
                 else:
                     check(pg.evaluate("document.querySelector('#main h1').innerText") == 'Make your profile', f'{t}: without a profile, "Make your profile"')
