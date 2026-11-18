@@ -125,7 +125,7 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
    a phone, one on a laptop). Each dot rides on the part before it behind a no-break space, so no line can start with one. --n500 on
    the page is 4.8:1 (A-4). The link's 44px touch area is a pseudo-element, so it adds no height. The page's own bottom padding keeps
    the tab bar off it. */
-.orgfoot { margin: var(--s16) 0 0; text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
+.orgfoot { margin: var(--s8) 0 0; text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
 .orgfoot address { display: inline; font-style: normal; }
 /* On a phone the name has its own line and the address is never broken in two (Nate 17 Nov): the address moves as one piece, and
    breaks inside only on a screen too narrow to hold it. */
