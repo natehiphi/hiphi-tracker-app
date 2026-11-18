@@ -47,6 +47,8 @@ with sync_playwright() as pw:
         ok('Updated 17 November 2026.' in norm(p.locator('main').text_content()) and 'Hawaiʻi Public Health Institute (HIPHI) runs this tracker.' in norm(p.locator('main').text_content()) and p.locator('.yu-pv a[target=_blank]').count() == 1, f'{tag}: the foot')
         ok(p.locator('[data-rc-fold="privacy-who"] h3').first.text_content() == 'Your story', f'{tag}: Who sees it starts with "Your story"')
         main = norm(p.locator('main').evaluate("m => { m.querySelectorAll('details').forEach(d => d.open = true); return m.textContent; }"))
+        # one phrase is reworded on purpose: the services are listed below the sharing sentence now, not above it
+        old = [x.replace('the services above', 'the services that run the tracker') for x in old]
         lost = [norm(x) for x in old if norm(x) and norm(x) not in main]
         ok(not lost, f'{tag}: no words lost ({len(old)} old lines)' + ('' if not lost else ': ' + ' | '.join(l[:90] for l in lost[:5])))
         ok(not p.evaluate('document.documentElement.scrollWidth > innerWidth + 1'), f'{tag}: no sideways scroll at 390')

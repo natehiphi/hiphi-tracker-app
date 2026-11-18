@@ -145,7 +145,7 @@ body.rec .yu-pv .rc-fp { white-space: nowrap; overflow: hidden; text-overflow: e
 body.rec .yu-pv .rc-fin > h3.yu-sub { margin-top: var(--s16); font: 700 var(--t14)/1.35 var(--font); color: var(--n900); }
 body.rec .yu-pv .rc-fin > h3.yu-sub:first-child { margin-top: 0; }
 body.rec .yu-pv .rc-fin > h3.yu-sub + * { margin-top: var(--s4); }
-body.rec .yu-pv .yu-acc > * + * { margin-top: var(--s8); }
+body.rec .yu-pv .yu-acc > * + * { margin-top: var(--s16); }
 body.rec .yu-pv .yu-acc p { margin: 0; max-width: 65ch; line-height: 1.5; }
 body.rec .yu-pv .yu-upd { margin-top: var(--s16); }
 body.rec .yu-pv .mr-ext { margin-top: var(--s4); }

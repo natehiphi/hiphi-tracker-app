@@ -169,7 +169,9 @@ export const PV2 = () => REC() && new URLSearchParams(location.search).get('pv')
 export const accessPage = () => PV2() && /[?&]part=access\b/.test(location.hash);
 const group = (rows, keys, { lead = '', head = true } = {}) => lead + keys.map(k => { const r = rows.find(x => x[0] === k); if (!r) return '';
   return (head ? `<h3 class="yu-sub">${r[1]}</h3>` : '') + body(r[2]); }).join('');
-export function privacyRec2({ rows, story, testimony, mail, updated, policy, a11y }) {
+export function privacyRec2({ rows: rows0, story, testimony, mail, policy, a11y }) {
+  // The services are named in the last card now, so "the services above" would point the wrong way: the one reworded phrase.
+  const rows = rows0.map(([ic, t, p]) => ic === 'shield-check' ? [ic, t, String(p).replace('the services above', 'the services that run the tracker')] : [ic, t, p]);
   if (accessPage()) return `<div class="mr mr-privacy rc yu yu-pv">
     ${backFrom('#/more', 'You')}
     ${recHead({ title: 'Accessibility' })}
@@ -181,9 +183,13 @@ export function privacyRec2({ rows, story, testimony, mail, updated, policy, a11
     '<b>Testimony is public:</b> the Capitol posts your name and letter.',
     `<b>Never sold.</b> Delete your account any time under You, or email ${mail} to have everything removed.`];
   const storyBody = story.replace(/^<b>[^<]*<\/b>\s*/, '').replace(/^./, c => c.toUpperCase());
-  const texts = group(rows, ['message-square'], { head: false }) + '<p>Reply HELP for help. <a href="text-terms.html">Text terms</a></p>';
+  // HELP and the terms link are the list's last line, so they line up with the sentences above them.
+  // The lines a phone carrier's reviewer looks for (no sharing, how often and the cost, STOP, HELP and the terms) come first,
+  // so they are on the first screen of the open card (ui-critic, A-1); the sign-in and storage lines follow, unchanged.
+  const tx = (rows.find(x => x[0] === 'message-square') || [0, 0, []])[2], first = s => /We do not share, sell|at most once a day|Reply STOP/.test(s);
+  const texts = body([...tx.filter(first), 'Reply HELP for help. <a href="text-terms.html">Text terms</a>', ...tx.filter(s => !first(s))]);
   const folds = [
-    ['privacy-texts', 'Text messages', 'What we text, how often, and how to stop', texts, true],
+    ['privacy-texts', 'Text messages', 'How we use your number, how often we text, and how to stop', texts, true],
     ['privacy-keep', 'What we keep', 'On this device, and with your account', group(rows, ['lock', 'user', 'list-checks', 'map-pin'])],
     ['privacy-who', 'Who sees it', 'What staff see, and who we share with', group(rows, ['clipboard-list', 'users', 'shield-check'], { lead: `<h3 class="yu-sub">Your story</h3><p>${storyBody}</p>` })],
     ['privacy-public', 'What becomes public', 'Testimony at the Capitol, and our copies', group(rows, ['notebook-pen'], { lead: `<p>${testimony}</p>`, head: false })],
