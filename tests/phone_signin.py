@@ -37,10 +37,15 @@ def until(p, js, t=30000):
 def moment(p):
     return p.evaluate("(() => { const m = document.getElementById('fx-moment'); return m && !m.hidden ? m.innerText : ''; })()")
 # The "Mahalo!" page the alerts step turns into (R-140, Nate 11 Oct), its words with plain spaces.
-def thanks(p):
-    return p.evaluate("document.querySelector('.st-thanks')?.innerText || ''").replace('\xa0', ' ')
+# R-404: since R-306 (b47583d0) there is no "Mahalo!" page for everyone: the whole window celebrates, then folds into a band
+# on top of A bill's story. So "thanks" waits for the folded band (not the one still held under the cover) and reads it.
+def thanks(p, timeout=10000):
+    p.wait_for_selector('.st-lesson .st-mhband:not(.st-mbhold)', timeout=timeout); p.wait_for_timeout(1200)
+    return p.evaluate("document.querySelector('.st-mhband')?.innerText || ''").replace('\xa0', ' ')
 def to_alerts(p, extra=''):
-    p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=20000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-hellopage, .st-tile', timeout=20000)
+    if p.locator('.st-hellopage').count(): p.click('.st-hellobar [data-stnext]'); p.wait_for_selector('.st-tile', timeout=20000)   # R-297: the welcome page comes first
+    p.wait_for_timeout(800)
     p.locator('.st-tile', has_text='Food').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
@@ -54,10 +59,13 @@ with sync_playwright() as pw:
     ok(p.locator('#mr-al-send', has_text='Text me a code').count() == 1 and 'YES' not in text(p), 'the practice copy shows codes on without &codes (R-176)')
     c.close()
     c, p = ctx(b, 1440, 900)
-    p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
+    p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.yu-me', timeout=60000); p.wait_for_timeout(500)
     t = text(p)
-    ok('Made one before? Sign in with your email' in t, 'codes off: More still offers sign-in with an email')
-    ok('Signed up with your number? Add your email on your phone, then sign in here with it.' in t, 'codes off: the line for a number-only person on a laptop')
+    # R-404: More is the calm "You" page (R-303, on for everyone since 19 Oct): its one line is "Made one before? Sign in" and, with codes
+    # off, the link opens the email page. The laptop-only "Signed up with your number? Add your email on your phone" line was not carried over
+    # (8aab2e75), so that check is gone; the email link is checked by where it goes.
+    ok('Made one before? Sign in' in t and p.locator('.yu-in a[href="#/signin"]').count() == 1, 'codes off: You still offers sign-in, and it opens the email page')
+    ok('Signed up with your number?' not in t, 'codes off: no number-only stopgap line on You (R-303 dropped it)')
     shot(p, 'A1_more_laptop')
     p.goto(BASE + '?demo=1&codes=0#/signin?by=number'); p.wait_for_selector('#mr-email, #mr-pi-phone', timeout=60000)
     ok(p.locator('#mr-email').count() == 1 and p.locator('#mr-pi-phone').count() == 0, 'codes off: "Sign in" opens the email page')
@@ -66,13 +74,15 @@ with sync_playwright() as pw:
     ok('Msg & data rates may apply. Reply STOP to cancel.' in text(p) and 'YES' not in text(p) and p.locator('#mr-al-send', has_text='Text me a code').count() == 0, 'codes off: the box\'s one consent line, no code promised, never "reply YES" (R-176, R-265)')
     p.fill('#mr-al-phone', '808 555 0155'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
     # D1-4 (R-180): the page heads "Alerts almost set" with the alerts step's words, not "Text alerts are on" over "We'll text you first".
-    ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0155 to confirm it’s your number.' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "Almost set", "confirm it’s your number", no YES')
-    p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
+    # R-404: the calm "Your alerts" page (R-303) heads "Your alerts" and says "Almost set. We’ll text (808) ••• 0155 to confirm it’s your number."; the number is masked.
+    ok(p.inner_text('h1') == 'Your alerts' and 'Almost set. We’ll text (808) ••• 0155 to confirm it’s your number.' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "Almost set", "confirm it’s your number", no YES')
+    p.goto(BASE + '?demo=1&codes=0&pv=1#/privacy'); p.wait_for_selector('.yu-pv', timeout=60000)   # R-401: pv=1 is the sixteen-card page
+    p.evaluate("document.querySelectorAll('main details').forEach(d => d.open = true)")   # R-404: the calm You page (R-303) keeps the number's words in a closed card, which innerText leaves out
     ok('Our first text confirms the number is yours' in text(p) and 'YES' not in text(p) and re.search(r'Updated \d+ October 2026', text(p)), 'codes off: the privacy page says the first text confirms the number, dated 5 October')
     c.close()
     c, p = ctx(b)
-    p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
-    ok('Made one before? Sign in with your email' in text(p) and 'Signed up with your number?' not in text(p), 'codes off, on a phone: no laptop line (it would contradict itself there)')
+    p.goto(BASE + '?demo=1&restart&codes=0#/more'); p.wait_for_selector('.yu-me', timeout=60000); p.wait_for_timeout(500)
+    ok('Made one before? Sign in' in text(p) and p.locator('.yu-in a[href="#/signin"]').count() == 1 and 'Signed up with your number?' not in text(p), 'codes off, on a phone: no laptop line (it would contradict itself there)')
     c.close()
 
     # ================= B. codes on, the practice copy =================
@@ -101,22 +111,24 @@ with sync_playwright() as pw:
     p.click('[data-alnumber]'); p.wait_for_timeout(500)
     ok(p.locator('#st-a-phone').count() == 1 and p.input_value('#st-a-phone') == '(808) 555-0123' and p.locator('#st-send', has_text='Text me a code').count() == 1 and 'Save your profile' in p.inner_text('#st-h'), 'a different number: the number box again, with the number in it')
     p.fill('#st-a-phone', '808 555 0177'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=5000)
-    p.type('#st-a-code', '123456'); p.wait_for_selector('.st-thanks #st-h', timeout=6000); p.wait_for_timeout(250)   # R-140, Nate 11 Oct: a page that waits for Next
-    m = thanks(p)
-    ok('Mahalo!' in m and 'Your profile is saved.' in m and 'Text alerts are on for (808) 555-0177.' in m and 'signed in' not in m and moment(p) == '', f'six digits send it by themselves; the "Mahalo!" page says the profile is saved and alerts are on (R-188): {m[:160]!r}')
+    p.type('#st-a-code', '123456'); m = thanks(p, 8000)
+    ok('We’ll watch' in m and 'We’ll text you when they need you' in m and 'Texts go to (808) 555-0177' in m and 'signed in' not in m and moment(p) == '' and p.url.split('#')[1] == '/start/4', f'six digits send it by themselves; the story\'s band says we will watch their issues and where texts go, alerts on (R-306; the old page\'s "Your profile is saved" line is gone): {m[:160]!r}')
     shot(p, 'B2_mahalo')
     saved = json.loads(p.evaluate("localStorage.getItem('hiphi_text')") or 'null')
     ok(saved and saved.get('phone') == '8085550177' and saved.get('confirmed') is True, 'this browser keeps the number, confirmed (the sandbox copy)')
-    p.click('.actionbar [data-stnext]'); p.wait_for_selector('.lx-count', timeout=10000); p.wait_for_timeout(600)
-    p.click('[data-stback]'); p.wait_for_timeout(1200)
-    t = text(p)
-    ok(p.inner_text('#st-h') == 'Mahalo!' and 'Text alerts are on for (808) 555-0177' in t and 'reply YES' not in t, 'Back: the "Mahalo!" page again, alerts on, no YES')
+    p.click('.actionbar [data-stnext]'); p.wait_for_timeout(900)
+    ok(p.locator('.st-mhband').count() == 0, 'the band leaves on the story\'s first Next (R-306)')
+    # The old "Mahalo!" page that Back used to find is gone for everyone (R-306, b47583d0; ?mahalo=old keeps it, tests/mahalo_home.py):
+    # Back from the story now passes the alerts screen to the issues, and the number stays kept.
+    p.click('[data-stback]'); p.wait_for_timeout(900); p.click('[data-stback]'); p.wait_for_timeout(1500)
+    ok(p.locator('.st2').count() == 1 and 'reply YES' not in text(p), 'Back from the story passes the alerts screen to the issues, no YES')
+    ok((json.loads(p.evaluate("localStorage.getItem('hiphi_text')") or 'null') or {}).get('confirmed') is True, 'and the number is still kept, confirmed')
     shot(p, 'B3_back_set')
     c.close()
 
     # More on a laptop: "Sign in" by number
     c, p = ctx(b, 1440, 900)
-    p.goto(BASE + '?demo=1&restart&codes#/more'); p.wait_for_selector('.mr-me', timeout=60000); p.wait_for_timeout(500)
+    p.goto(BASE + '?demo=1&restart&codes#/more'); p.wait_for_selector('.yu-me', timeout=60000); p.wait_for_timeout(500)
     t = text(p)
     ok('Made one before? Sign in' in t and 'Add your email on your phone' not in t, 'codes on: More says "Made one before? Sign in", no stopgap line')
     p.click('a[href="#/signin?by=number"]'); p.wait_for_selector('#mr-pi-phone', timeout=5000); p.wait_for_timeout(300)
@@ -131,7 +143,7 @@ with sync_playwright() as pw:
     shot(p, 'B5_signin_code')
     p.type('#mr-pi-code', '654321'); p.wait_for_selector('#mr-pi-h', timeout=5000); p.wait_for_timeout(500)
     ok('Code accepted' in text(p) and 'you stay signed out' in text(p), 'the sandbox: "Code accepted", and it says you stay signed out there')
-    p.goto(BASE + '?demo=1&codes#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
+    p.goto(BASE + '?demo=1&codes&pv=1#/privacy'); p.wait_for_selector('.yu-pv', timeout=60000)
     t = text(p)
     ok('6-digit code' in t and 'signs you in, the way an email does' in t and 'never your number' in t and re.search(r'Updated \d+ October 2026', t), 'codes on: the privacy page says the number signs people in, staff never see it')
     c.close()
@@ -144,7 +156,7 @@ with sync_playwright() as pw:
     ok(p.locator('#mr-alform button.al-swap[data-alswap="email"]').count() == 1, 'More > Get alerts: email is still a way out from the code step')
     p.type('#mr-al-code', '111111'); p.wait_for_timeout(1200)
     t = text(p)
-    ok('Text alerts are on' in t and '(808) 555-0166' in t and 'reply YES' not in t, 'More > Get alerts: on, with no YES text to wait for')
+    ok('Text alerts are on' in t and '(808) ••• 0166' in t and 'reply YES' not in t, 'More > Get alerts: on, with no YES text to wait for')
     c.close()
     c, p = ctx(b)
     p.goto(BASE + '?demo=1&restart&codes#/profile'); p.wait_for_selector('#pf-alf-phone', timeout=60000); p.wait_for_load_state('networkidle')
@@ -158,7 +170,7 @@ with sync_playwright() as pw:
     # Home's card after a skipped first visit
     c, p = ctx(b)
     to_alerts(p, '&codes&fv=full&end=today')
-    p.click('[data-stskip]'); p.wait_for_selector('.st-thanks #st-h', timeout=5000); p.click('.actionbar [data-stnext]'); p.wait_for_timeout(800)   # the "Mahalo!" page's Next (R-140)
+    p.click('[data-stskip]'); p.wait_for_selector('.st-lesson .st-mhband:not(.st-mbhold)', timeout=8000); p.click('.actionbar [data-stnext]'); p.wait_for_timeout(800)   # Skip, the fold into the story's band, its Next (R-306)
     p.goto(BASE + '?demo=1&codes#/'); p.wait_for_timeout(1500); p.evaluate("localStorage.setItem('hiphi_wiz_demo', JSON.stringify({ ...JSON.parse(localStorage.getItem('hiphi_wiz_demo') || '{}'), finale: true }))")
     p.reload(); p.wait_for_timeout(3000)
     if p.locator('.hm-profline [data-hm-prof]').count():   # Home's ask is one line since R-222; its box opens in the sheet
@@ -208,7 +220,7 @@ with sync_playwright() as pw:
 
     # A laptop: Sign in with the number.
     c, p, calls = live(b, 1440, 900)
-    p.goto(LIVE + '#/more'); p.wait_for_selector('.mr-me', timeout=30000); p.wait_for_function("document.querySelector('.mr-me-in')?.innerText.trim() === 'Made one before? Sign in'", timeout=10000)
+    p.goto(LIVE + '#/more'); p.wait_for_selector('.yu-me', timeout=30000); p.wait_for_function("document.querySelector('.yu-in')?.innerText.trim() === 'Made one before? Sign in'", timeout=10000)
     ok('Made one before? Sign in' in text(p) and 'Add your email on your phone' not in text(p), 'live, Supabase says phone sign-in is on: More offers "Sign in"')
     p.goto(LIVE + '#/signin?by=number'); p.wait_for_selector('#mr-pi-phone', timeout=8000)
     p.fill('#mr-pi-phone', '(808) 555-0123'); p.click('#mr-pi-send'); p.wait_for_selector('#mr-pi-code', timeout=8000)
@@ -225,25 +237,29 @@ with sync_playwright() as pw:
     t = text(p)
     ok('Keoni Text' in t and 'Signed in with (808) ••• 0123' in t, f'the profile: their name and "Signed in with (808) ••• 0123"')
     ok(p.evaluate("document.activeElement?.id") != 'pf-h' or p.evaluate("getComputedStyle(document.activeElement).outlineStyle") == 'none', 'no focus box drawn round the profile heading')
-    ok('Email: not added' in t and p.locator('#pf-email a[href="#/signin"]').count() == 1, 'no email yet: offered, with no email choices to change')
+    # R-404: the calm profile (R-303, 8aab2e75) keeps alerts on their own page: it shows "Your alerts" and its row opens #/alerts, and the email offer ("Email: not added", Add your email) is there, checked after the screenshot below.
+    ok('Your alerts' in t and p.locator('a[href="#/alerts"]').count() >= 1, 'the profile has the Your alerts row, which opens the alerts page')
     ok('Your mobile number, which signs you in' in t and 'except your number, your letters' in t and 'Sign out' in t, 'Your data: the number-only list (X4-5), with Sign out')
     shot(p, 'C1_profile_signed_in')
+    p.goto(LIVE + '#/alerts'); p.wait_for_selector('main a[href="#/signin"]', timeout=8000); ta = text(p)
+    ok('Email: not added' in ta and p.locator('a[href="#/signin"]', has_text='Add your email').count() == 1 and 'Emails to' not in ta, 'no email yet: the alerts page offers one, with no email choices to change')
     p.goto(LIVE + '#/signin'); p.wait_for_timeout(1000)
     ok('Add your email' in text(p) and 'sign in with either' in text(p), 'a number account’s "Add your email" adds it to the same account')
     c.close()
 
     # A phone: the first visit's box, with a real code step.
     c, p, calls = live(b)
-    p.goto(LIVE + '#/'); p.wait_for_selector('.st-tile', timeout=20000); p.wait_for_timeout(800)
+    p.goto(LIVE + '#/'); p.wait_for_selector('.st-hellopage, .st-tile', timeout=20000)
+    if p.locator('.st-hellopage').count(): p.click('.st-hellobar [data-stnext]'); p.wait_for_selector('.st-tile', timeout=20000)   # R-297: the welcome page comes first
+    p.wait_for_timeout(800)
     p.locator('.st-tile').first.click(); p.wait_for_timeout(200)
     p.click('[data-stnext]'); p.wait_for_selector('[data-stpick]', timeout=10000); p.wait_for_timeout(800)
     p.click('[data-stnext]'); p.wait_for_selector('.st-alertspage', timeout=10000); p.wait_for_timeout(700)
     ok(p.locator('#st-send', has_text='Text me a code').count() == 1, 'live: the button says a code comes first')
     p.fill('#st-a-phone', '808-555-0123'); p.click('#st-send'); p.wait_for_selector('#st-a-code', timeout=8000)
     ok(any(k == 'otp' for k, _ in calls) and not any(k.endswith('rpc/text_signup') for k, _ in calls), 'Text me asks for a code; nothing is kept before it')
-    p.type('#st-a-code', '123456'); p.wait_for_selector('.st-thanks #st-h', timeout=10000); p.wait_for_timeout(800)
-    m = thanks(p)
-    ok('Your profile is saved.' in m and 'Text alerts are on for (808) 555-0123.' in m and p.url.split('#')[1].startswith('/start/'), f'the "Mahalo!" page says the profile is saved and alerts are on (R-188), and the visit goes on (no restart): {m[:120]!r}')
+    p.type('#st-a-code', '123456'); m = thanks(p)
+    ok('We’ll text you when they need you' in m and 'Texts go to (808) 555-0123' in m and p.url.split('#')[1].startswith('/start/'), f'the story\'s band says where texts go and that alerts are on (R-306), and the visit goes on (no restart): {m[:120]!r}')
     sign = [json.loads(d or '{}') for k, d in calls if k == 'POST rpc/text_signup']
     ok(sign and sign[-1].get('p', {}).get('consent') == 't5' and sign[-1]['p'].get('phone') == '8085550123', f'the number is kept with the session, under the t5 words ({sign[-1] if sign else None})')
     links = [k for k, _ in calls if k == 'POST rpc/text_link']

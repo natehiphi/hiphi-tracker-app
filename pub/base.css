@@ -11,7 +11,7 @@
   --o50: #FFF4EE; --o200: #FCD09D; --o400: #F68B2C; --o600: #AD560F; --o700: #984B0B;
   /* neutrals */
   --n0: #FFFFFF; --n50: #F4F7F9; --n100: #EAEFF2; --n200: #DBE3E7; --n300: #C2CCD1; --n400: #7D8C93;
-  --n500: #5F6F76; --n700: #344852; --n900: #142B35;
+  --n500: #52636B; --n700: #344852; --n900: #142B35;
   /* meaning */
   --ok-wash: #E6FAE9; --ok-text: #056639;
   --warn-wash: #FFF5E8; --warn-fill: #F4B223; --warn-text: #906106;
@@ -120,6 +120,37 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 .muted { color: var(--n500); }
 .small { font-size: var(--t14); }
 .meta { font-size: var(--t13); color: var(--n500); }
+/* The organisation's name, address and site at the end of every page (R-402). Discreet on purpose (Nate 17 Nov: "much more discreet
+   and take up less vertical space on the phone"): the smallest size the pages already use (a sixth size on the bill page would break A-4), no rule above, no bold, one run of text that wraps where it must (two lines on
+   a phone, one on a laptop). Each dot rides on the part before it behind a no-break space, so no line can start with one. --n500 on
+   the page is 5.8:1 (A-4). The link's 44px touch area is a pseudo-element, so it adds no height. The page's own bottom padding keeps
+   the tab bar off it. */
+.orgfoot { margin: 0; padding-top: var(--s8); text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
+.orgfoot address { display: inline; font-style: normal; }
+/* On a phone the name has its own line and the address is never broken in two (Nate 17 Nov): the address moves as one piece, and
+   breaks inside only on a screen too narrow to hold it. */
+.orgfoot address { display: inline-block; max-width: 100%; }
+@media (max-width: 639px) { .orgfoot .of-name { display: block; } .orgfoot > .of-name:not(:last-child)::after { content: none; } }
+.orgfoot > :not(:last-child)::after { content: "\00a0·"; }
+.orgfoot .of-site { position: relative; color: inherit; font-weight: 400; }
+.orgfoot .of-site::before { content: ""; position: absolute; inset: -15px -10px; }
+/* The space round it (Nate 17 Nov: "a lot of space between the bottom of the content and the footer and from the bottom of the footer
+   to the bottom of the page"): the screen above gives up its own bottom padding, and the page ends 12px under the footer (above the tab
+   bar on a phone), not 32 to 48. A page with the sticky action bar keeps its room for the bar. Browsers without :has keep the old room. */
+main#main > :has(+ .orgfoot) { padding-bottom: 0; margin-bottom: 0; }
+/* On a page too short to fill the window the footer sits at the bottom of the window, not floating under the content (Nate 17 Nov,
+   My issues): the frame fills the window's height and the page takes what the header leaves. The page itself stays a plain block
+   (making it a flex column moved the content of Help, Committees and This week at tablet width); the footer is sticky with a top of
+   the window's height, so it slides down to the end of the page's box and no further, and on a long page it is where it always was.
+   Screen only, so a printed page is laid out as before. */
+@media screen {
+  #app:has(> main > .orgfoot) { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+  #app:has(> main > .orgfoot) > main { flex: 1 0 auto; width: 100%; }
+  main > .orgfoot { position: sticky; top: 100vh; }
+}
+body:not(.hasbar) main:has(> .orgfoot) { padding-bottom: calc(var(--tabbar) + var(--safe-b) + var(--s12)); }
+body.notabs:not(.hasbar) main:has(> .orgfoot) { padding-bottom: calc(var(--s16) + var(--safe-b)); }
+@media (min-width: 900px) { body:not(.hasbar) main:has(> .orgfoot), body.notabs:not(.hasbar) main:has(> .orgfoot) { padding-bottom: var(--s24); } }
 .strong { font-weight: 700; color: var(--n900); }
 .sechead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin: var(--s32) 0 var(--s12); }
 .sechead h2 { font-size: var(--t18); }

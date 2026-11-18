@@ -59,7 +59,7 @@ PUB = [
   # X9-6 (R-180 wave 3): the sign-in, the profile and the privacy page were not measured
   ('signin',      '/signin',       'the email box',        '#mr-email, .mr-form input'),
   ('profile',     '/profile',      'the invitation',       '.pf-invite .card, .pf-invite form, .pf .card'),
-  ('privacy',     '/privacy',      'what we have on you',  '.yu-short'),
+  ('privacy',     '/privacy',      'in short',             '.yu-short'),
 ]
 # R-187: the live test 'layout', on the same returning visitor. Since R-222 (11 Oct) its first version, the calm Home, is
 # everyone's Home and changes Home only; the bill page is measured once more as a check that it is today's.
