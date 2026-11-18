@@ -43,3 +43,16 @@
   h1.hero { font-size: var(--t36); letter-spacing: -.025em; }
   #toast { left: auto; right: var(--s24); justify-content: flex-end; }
 }
+
+/* Between 900 and 1100px, with Sign in showing, the header ran out of room: the small line under "Bill Tracker" was cut short
+   ("Hawaiʻi Public Health Instit…") and "My issues" broke onto two lines (found 17 Nov, R-405, after the line became the
+   organisation's full name, R-402). The name never shrinks, the menu words stay on one line, and the search box gives up the room. */
+@media (min-width: 900px) {
+  .hdr .brand { flex: none; }
+  .hdr .hnav a { white-space: nowrap; }
+  .hdr .hsearch { flex: 0 1 auto; min-width: 150px; }
+}
+@media (min-width: 900px) and (max-width: 1099px) {
+  .hdr .hnav { margin-left: var(--s12); gap: 0; }
+  .hdr .hnav a { padding: 0 10px; }
+}
