@@ -90,7 +90,7 @@ dialog[open] { position: absolute !important; inset: 0 auto auto 0 !important; w
   box-shadow: none !important; transform: none !important; background: #fff !important; }
 dialog::backdrop { display: none !important; background: none !important; }
 /* A sheet printed alone carries the brand and the day at its top, as a page does. */
-dialog[data-pr-sheet]::before { content: 'Bill Tracker \00B7  Hawai\2BB i health bills \00B7  from HIPHI' var(--pr-day, ''); display: block; margin: 0 0 12px;
+dialog[data-pr-sheet]::before { content: 'Bill Tracker \00B7  Hawai\2BB i Public Health Institute' var(--pr-day, ''); display: block; margin: 0 0 12px;
   padding: 0 0 6px; border-bottom: 1px solid var(--n400); font: 700 13px/1.4 var(--font); color: var(--n900); }
 dialog[open] * { max-height: none !important; }
 dialog[open] :is(.hp-frame, .hp-body, .af-body, .al-body) { display: block !important; height: auto !important; overflow: visible !important; }

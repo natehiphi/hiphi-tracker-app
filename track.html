@@ -267,7 +267,7 @@ body[data-screen="start"]:has(.st.fit6) .actionbar{padding-top:var(--s8);padding
 </style>
 </head>
 <body>
-<div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi health bills · from HIPHI</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
+<div id="app"><div class="boot0top">Bill Tracker<small>Hawaiʻi Public Health Institute</small></div><div class="boot0" aria-busy="true" aria-label="Loading"><i></i><i></i><i></i><i></i></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- On paper (R-212 #48): its own stylesheet, here in <body> so it comes after every screen's (pub/app.js adds those to
      <head> as they are needed), and the line that says where a printed page came from. A browser fetches a print sheet with the
@@ -415,7 +415,7 @@ try {
       try {
         var box = document.getElementById('app');
         var el = function (tag, cls, txt) { var n = document.createElement(tag); if (cls) n.className = cls; if (txt) n.textContent = txt; return n; };
-        var top = el('div', 'boot0top', 'Bill Tracker'); top.appendChild(el('small', '', 'Hawaiʻi health bills · from HIPHI'));
+        var top = el('div', 'boot0top', 'Bill Tracker'); top.appendChild(el('small', '', 'Hawaiʻi Public Health Institute'));
         var card = el('div', 'empty loadfail'); card.setAttribute('role', 'alert');
         card.appendChild(el('h1', '', 'We couldn’t load the tracker'));
         card.appendChild(el('p', '', 'The tracker is taking too long to start. Check your connection, then press Try again.'));

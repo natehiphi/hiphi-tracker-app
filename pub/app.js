@@ -331,7 +331,7 @@ function whoAmI() {
 }
 const avatar = (me, cls = 'hav') => `<span class="${cls}" aria-hidden="true">${me.ini ? esc(me.ini) : icon('user', { size: 18 })}</span>`;
 // The wordmark, one markup for the skeleton and the header, so the real header replaces the skeleton's without a jump (R-357 5c).
-const brandLink = () => `<a class="brand" href="${calmPlace()}" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi health bills · from HIPHI</small></span></a>`;
+const brandLink = () => `<a class="brand" href="${calmPlace()}" aria-label="Bill Tracker home">${MARK}<span class="bname"><b>Bill Tracker</b><small>Hawaiʻi Public Health Institute</small></span></a>`;
 // skel: under the skeleton nobody is known yet, so a possibly signed-in person gets no "Sign in" that would change.
 function header(route, scr, skel = false) {
   const inStart = route.name === 'start';

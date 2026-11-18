@@ -33,7 +33,7 @@ with sync_playwright() as pw:
             a = f.locator('a')
             ok(a.count() == 1 and a.get_attribute('href') == 'https://www.hiphi.org/' and a.get_attribute('target') == '_blank' and 'noopener' in a.get_attribute('rel') and a.text_content() == 'hiphi.org', f'{tag} {name}: the hiphi.org link')
             fs = f.evaluate('e => parseFloat(getComputedStyle(e).fontSize)')
-            ok(fs <= 12.5, f'{tag} {name}: small type ({fs}px)')
+            ok(fs <= 13.5, f'{tag} {name}: small type ({fs}px)')
             col = f.evaluate('e => getComputedStyle(e).color'); bg = p.evaluate('getComputedStyle(document.body).backgroundColor')
             l1, l2 = p.evaluate(f'({LUM})({col!r})'), p.evaluate(f'({LUM})({bg!r})')
             ratio = (max(l1, l2) + .05) / (min(l1, l2) + .05)

@@ -121,11 +121,11 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 .small { font-size: var(--t14); }
 .meta { font-size: var(--t13); color: var(--n500); }
 /* The organisation's name, address and site at the end of every page (R-402). Discreet on purpose (Nate 17 Nov: "much more discreet
-   and take up less vertical space on the phone"): 12px, no rule above, no bold, one run of text that wraps where it must (two lines on
+   and take up less vertical space on the phone"): the smallest size the pages already use (a sixth size on the bill page would break A-4), no rule above, no bold, one run of text that wraps where it must (two lines on
    a phone, one on a laptop). Each dot rides on the part before it behind a no-break space, so no line can start with one. --n500 on
    the page is 4.8:1 (A-4). The link's 44px touch area is a pseudo-element, so it adds no height. The page's own bottom padding keeps
    the tab bar off it. */
-.orgfoot { margin: var(--s24) 0 0; text-align: center; font-size: .75rem; line-height: 1.5; color: var(--n500); }
+.orgfoot { margin: var(--s24) 0 0; text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
 .orgfoot address { display: inline; font-style: normal; }
 /* On a phone the name has its own line and the address is never broken in two (Nate 17 Nov): the address moves as one piece, and
    breaks inside only on a screen too narrow to hold it. */
