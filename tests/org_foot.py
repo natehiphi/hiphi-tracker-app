@@ -49,6 +49,7 @@ with sync_playwright() as pw:
             if tag == 'phone' and name == 'Home':
                 ok(r['height'] <= 44, f'phone: no taller than two short lines ({r["height"]:.0f}px)')
                 ah = f.locator('address').bounding_box()['height']; ok(ah <= 20, f'phone: the address is on one line, not split ({ah:.0f}px)')
+                nd = f.locator('.of-name').evaluate('e => getComputedStyle(e, "::after").content'); ok(nd in ('none', 'normal'), f'phone: no dot left hanging after the name on its own line ({nd})')
                 ok(not f.evaluate('e => [...e.children].some(k => /^\\s*·/.test(k.textContent))') and f.evaluate('e => getComputedStyle(e).borderTopWidth') == '0px', 'phone: no rule above, and the dots are not text')
                 tap = f.locator('a').evaluate('a => { const b = a.getBoundingClientRect(), s = getComputedStyle(a, "::before"); return b.height - parseFloat(s.top) - parseFloat(s.bottom); }')
                 ok(tap >= 44, f'phone: the link keeps a 44px touch area without the height ({tap:.0f}px)')

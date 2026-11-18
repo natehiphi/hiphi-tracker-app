@@ -130,7 +130,7 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 /* On a phone the name has its own line and the address is never broken in two (Nate 17 Nov): the address moves as one piece, and
    breaks inside only on a screen too narrow to hold it. */
 .orgfoot address { display: inline-block; max-width: 100%; }
-@media (max-width: 639px) { .orgfoot .of-name { display: block; } .orgfoot .of-name::after { content: none; } }
+@media (max-width: 639px) { .orgfoot .of-name { display: block; } .orgfoot > .of-name:not(:last-child)::after { content: none; } }
 .orgfoot > :not(:last-child)::after { content: "\00a0·"; }
 .orgfoot .of-site { position: relative; color: inherit; font-weight: 400; }
 .orgfoot .of-site::before { content: ""; position: absolute; inset: -15px -10px; }
