@@ -31,7 +31,13 @@ with sync_playwright() as pw:
             ok(f.locator('.of-name').text_content() == 'Hawaiʻi Public Health Institute', f'{tag} {name}: the name')
             ok(f.locator('address').text_content() == '707 Richards Street, Suite 300, Honolulu, HI 96813' and f.locator('address').evaluate('a => getComputedStyle(a).fontStyle') == 'normal', f'{tag} {name}: the address, not italic')
             a = f.locator('a')
-            ok(a.count() == 1 and a.get_attribute('href') == 'https://www.hiphi.org/' and a.get_attribute('target') == '_blank' and 'noopener' in a.get_attribute('rel') and a.text_content() == 'hiphi.org', f'{tag} {name}: the hiphi.org link')
+            ok(a.count() == 1 and a.get_attribute('href') == 'https://www.hiphi.org/' and a.get_attribute('target') == '_blank' and 'noopener' in a.get_attribute('rel') and a.evaluate("a => [...a.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim()") == 'hiphi.org', f'{tag} {name}: the hiphi.org link (visible words exactly hiphi.org, text nodes only)')
+            ok(a.locator('.sr').count() == 1 and a.locator('.sr').text_content() == ' (opens in a new tab)', f'{tag} {name}: a .sr span holds "(opens in a new tab)"')
+            ok(a.locator('svg.ic').count() == 1 and a.locator('svg').count() == 1 and a.locator('svg').get_attribute('aria-hidden') == 'true', f'{tag} {name}: the link holds one svg icon, aria-hidden')
+            lb = a.evaluate("a => a.getClientRects().length")
+            ok(lb == 1, f'{tag} {name}: the link is one box ({lb} client rect(s)), so the arrow is on its line')
+            sv = a.locator('svg').bounding_box(); lr = a.evaluate("a => { const r = a.getClientRects()[0]; return [r.top, r.bottom]; }")
+            ok(lr[0] <= sv['y'] + sv['height'] / 2 <= lr[1], f'{tag} {name}: the arrow centre ({sv["y"] + sv["height"] / 2:.1f}) is inside the link line ({lr[0]:.1f}-{lr[1]:.1f})')
             fs = f.evaluate('e => parseFloat(getComputedStyle(e).fontSize)')
             ok(fs <= 13.5, f'{tag} {name}: small type ({fs}px)')
             col = f.evaluate('e => getComputedStyle(e).color'); bg = p.evaluate('getComputedStyle(document.body).backgroundColor')
@@ -72,6 +78,47 @@ with sync_playwright() as pw:
     ok(p.locator('.orgfoot').count() == 0, 'embed.html: no footer')
     c2 = b.new_context(viewport={'width': 390, 'height': 660}); p = c2.new_page(); p.goto(BASE + '?demo=1#/start/1'); p.wait_for_timeout(2500)
     ok(p.locator('.orgfoot').count() == 0, f'the first visit (#/start/1) has none ({p.url.split("#")[-1]})')
+    # R-406: the foot's lines at each width on Home. Lines are the distinct tops of the foot's parts (name, address, link), with tops within
+    # 4px counted as one line. Expected: three lines at 344-375 (link alone on the third), two at 384-430 (link on the address's line), one at 640.
+    EXPECT = {344: 3, 360: 3, 375: 3, 384: 2, 385: 2, 390: 2, 414: 2, 430: 2, 640: 1}
+    c3 = b.new_context(viewport={'width': 390, 'height': 844}); p = c3.new_page()
+    p.on('pageerror', lambda e: errors.append(str(e)[:160]))
+    p.add_init_script(SEED)
+    for wd in EXPECT:
+        p.set_viewport_size({'width': wd, 'height': 844})
+        p.goto(BASE + '?demo=1&codes=0#/'); p.wait_for_selector('main#main', timeout=30000)
+        p.evaluate("document.fonts.load('400 13px Lato').then(()=>1)"); p.evaluate("document.fonts.load('700 13px Lato').then(()=>1)")
+        p.wait_for_timeout(1500)
+        p.evaluate("document.fonts.ready.then(()=>1)")
+        f = p.locator('footer.orgfoot')
+        if f.count() != 1:
+            ok(False, f'{wd}px: one footer on Home ({f.count()})'); continue
+        info = f.evaluate("""e => {
+            const kids = [...e.children], tops = [];
+            const parts = kids.map(k => { const r = k.getClientRects(); return { cls: k.className || k.tagName, top: Math.round(r[0].top), bottom: Math.round(r[r.length - 1].bottom), left: r[0].left, right: r[r.length - 1].right }; });
+            for (const pt of parts) { const hit = tops.find(t => Math.abs(t.top - pt.top) <= 4); if (hit) hit.items.push(pt.cls); else tops.push({ top: pt.top, items: [pt.cls] }); }
+            return { lines: tops.length, tops: tops.map(t => [t.top, t.items]), footerWidth: e.getBoundingClientRect().width, parts };
+        }""")
+        lines = info['lines']
+        link = next(x for x in info['parts'] if 'of-site' in x['cls'])
+        addr = next((x for x in info['parts'] if 'of-addr' in x['cls']), None)
+        same = addr is not None and abs(addr['top'] - link['top']) <= 4
+        sw = p.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        # The focus ring is the page's :focus-visible outline, 2px wide at 2px offset: 4px out from the link's box; it must stay on screen.
+        fe = f.locator('a'); fe.focus(); p.wait_for_timeout(100)
+        vis = fe.evaluate('a => a.matches(":focus-visible")')
+        bb = fe.bounding_box()
+        left_edge = bb['x'] - 4; innerW = wd - (bb['x'] + bb['width'])
+        print(f'  {wd}px: lines={lines} tops={info["tops"]} link=({bb["x"]:.1f}..{bb["x"] + bb["width"]:.1f}) same-line-as-address={same} '
+              f'footer={info["footerWidth"]:.1f} spare-right={innerW - 4:.1f} spare-left={left_edge:.1f} focus-visible={vis} scrollWidth-ok={sw}')
+        ok(lines == EXPECT[wd], f'{wd}px: the foot is {EXPECT[wd]} line(s) on Home ({lines})')
+        if EXPECT[wd] == 3:
+            ok(not same and lines == 3, f'{wd}px: the link alone on the third line')
+        if EXPECT[wd] == 2:
+            ok(same, f'{wd}px: the link is on the address line')
+        ok(sw, f'{wd}px: no sideways scroll')
+        ok(left_edge >= 0 and innerW - 4 >= 0, f'{wd}px: the focus ring is on screen (left edge {left_edge:.1f}px, right edge {innerW - 4:.1f}px spare)')
+    c3.close()
     b.close()
 print('\n'.join(passes + fails)); print(f'\n{len(passes)} passed, {len(fails)} failed, {len(errors)} page errors'); [print('ERR', e) for e in errors[:5]]
 sys.exit(1 if fails or errors else 0)

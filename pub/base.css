@@ -134,6 +134,11 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 .orgfoot > :not(:last-child)::after { content: "\00a0·"; }
 .orgfoot .of-site { position: relative; color: inherit; font-weight: 400; }
 .orgfoot .of-site::before { content: ""; position: absolute; inset: -15px -10px; }
+/* R-406: the leaving-the-app arrow sits on the site name's line and never wraps off it. The address line is nearly full at 390px, so on a
+   phone the foot borrows 8px of the 16px side gutter each side to keep the link beside the address. */
+.orgfoot .of-site { white-space: nowrap; }
+.orgfoot .of-site .ic { width: 12px; height: 12px; margin-left: 3px; vertical-align: -2px; }
+@media (max-width: 639px) { .orgfoot { margin-inline: -8px; } }
 /* The space round it (Nate 17 Nov: "a lot of space between the bottom of the content and the footer and from the bottom of the footer
    to the bottom of the page"): the screen above gives up its own bottom padding, and the page ends 12px under the footer (above the tab
    bar on a phone), not 32 to 48. A page with the sticky action bar keeps its room for the bar. Browsers without :has keep the old room. */
