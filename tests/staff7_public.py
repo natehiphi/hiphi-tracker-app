@@ -225,6 +225,160 @@ with sync_playwright() as p:
     r = pg.evaluate(SEND, [B1, {'public_summary': 'Kevin, joins his own change.'}])
     ok(r['waiting'] and not r['refused'], "(a) the writer of a waiting change may send again: it joins")
 
+    # ---------------------------------------------------------------- part 1b (R-398): one bill's public words at #/public/<no>, on a fresh tab each
+    from urllib.parse import quote
+    def open_pub(p, who, no, q=''):
+        p.goto(f'{BASE}/staff7.html?demo=1&as={who}#/public/{quote(no)}{q}')
+        for _ in range(200):
+            try:
+                if p.evaluate(READY): break
+            except Exception:
+                pass
+            p.wait_for_timeout(200)
+        p.evaluate(INSTALL)
+        p.wait_for_selector('#pubRoot', timeout=15000)
+        p.wait_for_timeout(150)
+    PICK = """() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR'), num = b => b.bill_number;
+      const side = b => b.tracked !== false && d.isPublicSide(b.position);
+      const hidB = S.bills.filter(b => side(b) && !d.isLiveBill(b) && (S.assignments[b.id] || []).includes(kr.id) && !d.heldFor('bill', b.id));
+      if (hidB.length && d.barMet(hidB[0])) hidB[0].nickname = '';   // this tab only: the first one is made to miss its bar
+      const hid = hidB.filter(b => !d.barMet(b)).map(num);
+      const live = S.bills.filter(b => side(b) && d.isLiveBill(b) && !d.heldFor('bill', b.id)).map(num);
+      const mon = S.bills.filter(b => b.tracked !== false && b.position === 'monitor').map(num);
+      const seeded = (S.publicChanges || []).filter(x => x.kind === 'bill' && x.status === 'waiting' && x.proposed_by !== kr.id).map(x => num(S.bills.find(b => b.id === x.target_id)));
+      return { hid, live, mon, seeded }; }"""
+    pages = []
+    P1 = new_page(br); pages.append(P1); open_as(P1, 'KR'); pk2 = P1.evaluate(PICK)
+    ok(len(pk2['hid']) >= 1, f"(1b) practice data: KR leads a side bill with no public words and a bar not met ({len(pk2['hid'])})")
+    NO = pk2['hid'][0]
+    open_pub(P1, 'KR', NO)
+    ok(P1.evaluate("() => document.documentElement.dataset.mode") == 'public' and P1.locator('nav.bar').count() == 0 and P1.locator('.wl').count() == 0,
+       '(1b) #/public/<no> is in public mode: no app bar, no left column')
+    ok(P1.get_attribute('#pubGo', 'aria-disabled') == 'true' and 'still needed' in P1.inner_text('#pubLine'),
+       f"(1b) a side bill missing its things: the button is switched off and the line says what is still needed ({P1.inner_text('#pubLine')!r})")
+
+    def fill_bar(p, summary):
+        if not p.input_value('#pNick').strip(): p.fill('#pNick', 'Test nickname')
+        p.fill('#pSum', summary)
+        while p.locator('.pub-pt').count() < 3:
+            p.click('#pubAddPt')
+            i = p.locator('.pub-pt').count() - 1
+            p.fill(f'#pPt{i}', f'Talking point {i + 1} for the test.')
+    fill_bar(P1, 'First test summary for the bar.')
+    ok(P1.get_attribute('#pubGo', 'aria-disabled') == 'false' and P1.inner_text('#pubLine').startswith('Sending:'),
+       f"(1b) filled in, the button is on and the line starts 'Sending:' ({P1.inner_text('#pubLine')!r})")
+    P1.click('#pubGo'); P1.wait_for_timeout(200)
+    ok(P1.is_visible('#toastUndo') and P1.inner_text('#toastMsg') == f'Sent to {NT}. The public site has not changed.',
+       f"(1b) a press shows the toast at once, with Undo: {P1.inner_text('#toastMsg')!r}")
+    P1.click('#toastUndo'); P1.wait_for_timeout(10600)
+    ok(P1.evaluate("(no) => T.d.S.publicChanges.filter(x => x.kind === 'bill' && x.status === 'waiting' && (T.d.S.bills.find(b => b.id === x.target_id) || {}).bill_number === no).length", NO) == 0,
+       '(1b) Undo inside 10 seconds: nothing is sent, no waiting change')
+    before = P1.evaluate("(no) => { const b = T.d.S.bills.find(x => x.bill_number === no); return { sum: b.public_summary ?? null, pub: !!b.is_public }; }", NO)
+    P1.click('#pubGo'); P1.wait_for_timeout(10600)
+    got = P1.evaluate("""(no) => { const { d } = T, S = d.S, b = S.bills.find(x => x.bill_number === no), pcs = S.publicChanges.filter(x => x.kind === 'bill' && x.target_id === b.id && x.status === 'waiting');
+      return { n: pcs.length, sum: pcs[0] ? pcs[0].fields.public_summary : null, pub: b.public_summary ?? null, isPub: !!b.is_public, draft: !!d.draftWords(b.id) }; }""", NO)
+    ok(got['n'] == 1 and got['sum'] == 'First test summary for the bar.' and got['pub'] == before['sum'] and got['isPub'] == before['pub'] and not got['draft'],
+       f"(1b) after 10 seconds: one waiting change, the public words unchanged, the draft cleared ({got})")
+
+    # Leave public mode returns to the exact place the person came from
+    P2 = new_page(br); pages.append(P2); open_as(P2, 'KR')
+    P2.evaluate("() => { location.hash = '#/calendar'; }"); P2.wait_for_timeout(600)
+    P2.evaluate("(no) => { location.hash = '#/public/' + encodeURIComponent(no); }", NO); P2.wait_for_selector('#pubRoot', timeout=15000)
+    ok(P2.get_attribute('.pub-band .btn.quiet', 'href') == '#/calendar', '(1b) Leave public mode goes back to the page the person came from')
+    P2.click('.pub-band .btn.quiet'); P2.wait_for_timeout(500)
+    ok(P2.evaluate("() => location.hash") == '#/calendar' and P2.evaluate("() => document.documentElement.dataset.mode") is None and P2.locator('nav.bar').count() == 1,
+       '(1b) after Leave: the plum look is off and the app bar is back')
+
+    # arriving for the ask: the ask has the focus, the other parts are one folded line
+    P3 = new_page(br); pages.append(P3); open_as(P3, 'KR'); open_pub(P3, 'KR', NO, '?ask=1')
+    ok(P3.evaluate("() => document.activeElement && document.activeElement.id") == 'pAsk' and P3.is_hidden('#pubFields') and P3.is_visible('.pub-fold'),
+       "(1b) arriving for the ask: focus in the ask, the other parts folded into one line")
+    P3.click('#pubUnfold'); P3.wait_for_timeout(100)
+    ok(P3.is_visible('#pNick'), '(1b) "Change them" unfolds the other parts')
+
+    # a Monitor bill: the Monitor line and no talking points
+    if pk2['mon']:
+        P4 = new_page(br); pages.append(P4); open_as(P4, 'KR'); open_pub(P4, 'KR', pk2['mon'][0])
+        ok('Monitor bills need nothing here' in P4.inner_text('#pubBarBox') and P4.locator('#pubPtsLab').count() == 0,
+           '(1b) a Monitor bill: the Monitor line, and no talking points part')
+
+    # a second writer sees the other person's waiting change, and cannot change the words
+    if pk2['seeded']:
+        P5 = new_page(br); pages.append(P5); open_as(P5, 'KR'); open_pub(P5, 'KR', pk2['seeded'][0])
+        ok(P5.get_attribute('#pNick', 'readonly') is not None and 'has a change waiting on this bill' in P5.inner_text('#pubStatus'),
+           f"(1b) another writer: '<name> has a change waiting on this bill' and read-only fields ({P5.inner_text('#pubStatus')!r})")
+
+    # the words come down at once, and Undo puts them back
+    if pk2['live']:
+        P6 = new_page(br); pages.append(P6); open_as(P6, 'KR'); open_pub(P6, 'KR', pk2['live'][0])
+        P6.click('#pubDown'); P6.wait_for_timeout(200)
+        ok(P6.inner_text('#toastMsg') == "HIPHI's words are off the public site. Undo" and P6.evaluate("(no) => T.d.S.bills.find(x => x.bill_number === no).is_public === false", pk2['live'][0]),
+           "(1b) take HIPHI's words down: at once, with the toast")
+        P6.click('#toastUndo'); P6.wait_for_timeout(200)
+        ok(P6.evaluate("(no) => T.d.S.bills.find(x => x.bill_number === no).is_public === true", pk2['live'][0]), '(1b) Undo puts the words back')
+
+    # an admin's button says where the words go
+    P7 = new_page(br); pages.append(P7); open_as(P7, 'NT'); open_pub(P7, 'NT', NO)
+    ok(P7.inner_text('#pubGo') == 'Publish to the public site', f"(1b) as Nate the button reads 'Publish to the public site' ({P7.inner_text('#pubGo')!r})")
+
+    # typed words survive a reload
+    P8 = new_page(br); pages.append(P8); open_as(P8, 'KR'); open_pub(P8, 'KR', NO)
+    P8.fill('#pSum', 'Kept across a reload.')
+    P8.reload(); P8.wait_for_selector('#pubRoot', timeout=15000); P8.wait_for_timeout(150)
+    ok(P8.input_value('#pSum') == 'Kept across a reload.', '(1b) typed words survive a reload')
+
+    # layout: no sideways scroll at 1440, 1280 and 390; the preview's last line is reachable at 1280x800; the preview sits below the form at 390
+    for w, h in [(1440, 900), (1280, 800), (390, 844)]:
+        L = new_page(br); pages.append(L); L.set_viewport_size({'width': w, 'height': h}); open_as(L, 'KR'); open_pub(L, 'KR', NO)
+        sw = L.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        ok(sw <= 0, f'(1b) no sideways scroll at {w}x{h} ({sw}px over)')
+        if w == 1280:
+            r = L.evaluate("""() => { const c = document.getElementById('pubCard'); c.scrollTop = c.scrollHeight; const last = c.lastElementChild.getBoundingClientRect(), box = c.getBoundingClientRect(), dock = document.getElementById('pubDock').getBoundingClientRect();
+              return { lastBottom: last.bottom, boxBottom: box.bottom, dockTop: dock.top }; }""")
+            ok(r['lastBottom'] <= r['boxBottom'] + 1 and r['boxBottom'] <= r['dockTop'] + 1, f"(1b) the preview's last line is reachable at 1280x800 and the card clears the dock ({r})")
+        if w == 390:
+            r = L.evaluate("() => ({ form: document.querySelector('.pub-form').getBoundingClientRect().bottom, card: document.getElementById('pubCard').getBoundingClientRect().top, go: document.getElementById('pubGo').getBoundingClientRect().width, wrap: document.querySelector('.pub-dock .pub-wrap').getBoundingClientRect().width })")
+            ok(r['card'] >= r['form'] and r['go'] >= r['wrap'] - 40, f"(1b) at 390 the preview is below the form and the button takes the row ({r})")
+
+    # ---------------------------------------------------------------- the fix round (five faults)
+    # (1) words not yet public with the bar met: the button is on and the line names everything it sends, changed or not
+    P9 = new_page(br); pages.append(P9); open_as(P9, 'KR')
+    ready_no = P9.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isPublicSide(x.position) && !d.isLiveBill(x) && (S.assignments[x.id] || []).includes(kr.id) && !d.heldFor('bill', x.id));
+      b.nickname = 'Ready nickname'; b.public_summary = 'Ready summary.'; b.talking_points = ['One point for the test.', 'Two point for the test.', 'Three point for the test.'];
+      return b.bill_number; }""")
+    open_pub(P9, 'KR', ready_no)
+    ok(P9.get_attribute('#pubGo', 'aria-disabled') == 'false' and P9.inner_text('#pubLine') == 'Sending: the nickname, the summary and 3 talking points. Nate approves before the public sees them.',
+       f"(fix 1) words not public, bar met, nothing changed: the button is on and the line names what it sends ({P9.inner_text('#pubLine')!r})")
+    # (2) public words, nothing changed, nothing waiting: the line is never blank
+    P10 = new_page(br); pages.append(P10); open_as(P10, 'KR'); open_pub(P10, 'KR', pk2['live'][0])
+    ok(P10.inner_text('#pubLine') == 'These words are on the public site. Change anything to send it to Nate.',
+       f"(fix 2) public words, unchanged: the line says so ({P10.inner_text('#pubLine')!r})")
+    # (3) every text box grows to its words: nothing clipped, no inner scrollbar, on a phone with a long point
+    P11 = new_page(br); pages.append(P11); P11.set_viewport_size({'width': 390, 'height': 844}); open_as(P11, 'KR'); open_pub(P11, 'KR', NO)
+    P11.fill('#pPt0', 'A long point for the test that keeps going so that it wraps over several lines on a phone. ' * 3)
+    clip = P11.evaluate("() => [...document.querySelectorAll('#pubRoot textarea')].filter(t => t.scrollHeight > t.clientHeight + 1).length")
+    ok(clip == 0, f"(fix 3) every text box grows to fit its words, none clips ({clip} clipped)")
+    # (4) the page's bottom clears the dock: the last control scrolls clear of it, at 1440, 1280 and 390
+    for w, h in [(1440, 900), (1280, 800), (390, 844)]:
+        P12 = new_page(br); pages.append(P12); P12.set_viewport_size({'width': w, 'height': h}); open_as(P12, 'KR'); open_pub(P12, 'KR', NO)
+        r = P12.evaluate("""() => { const dock = document.getElementById('pubDock').getBoundingClientRect(), pad = parseFloat(getComputedStyle(document.getElementById('pubRoot')).paddingBottom);
+          window.scrollTo(0, document.documentElement.scrollHeight); const last = document.querySelector('.pub-form').lastElementChild.getBoundingClientRect();
+          const u = document.getElementById('pUntil'); u.scrollIntoView({ block: 'center' }); const ur = u.getBoundingClientRect(), d2 = document.getElementById('pubDock').getBoundingClientRect();
+          return { pad, need: dock.height + 24, lastClear: last.bottom <= dock.top + 1, untilClear: ur.bottom <= d2.top + 1 }; }""")
+        ok(r['pad'] >= r['need'] - 1 and r['lastClear'] and r['untilClear'],
+           f"(fix 4) at {w}x{h} the page clears the dock by its height plus 24px, and the last control and the ask date scroll clear ({r})")
+    # (5) phone: the line sits above the dock, and the second row holds Save for later and See the preview
+    P13 = new_page(br); pages.append(P13); P13.set_viewport_size({'width': 390, 'height': 844}); open_as(P13, 'KR'); open_pub(P13, 'KR', NO)
+    r = P13.evaluate("""() => { const q = id => document.getElementById(id).getBoundingClientRect(), line = q('pubLine'), go = q('pubGo'), sec = q('pubSecond'), prev = q('pubSeePrev');
+      return { lineText: document.getElementById('pubLine').innerText, lineAbove: line.bottom <= go.top + 1, secondBelow: sec.width > 0 && sec.top >= go.bottom - 1, prevSame: prev.width > 0 && Math.abs(prev.top - sec.top) < 2,
+               secondText: document.getElementById('pubSecond').innerText }; }""")
+    ok(r['lineText'] != '' and r['lineAbove'] and r['secondBelow'] and r['prevSame'] and r['secondText'] == 'Save for later',
+       f"(fix 5) phone dock: the line above the button, then Save for later and See the preview in the second row ({r})")
+
+    # the page stays free of errors on every new tab
+    ok(all(not p.errs for p in pages), f"(1b) no page errors on the public pages ({[e for p in pages for e in p.errs][:3]})")
+
     # ---------------------------------------------------------------- (h) no page errors
     ok(not pg.errs, f"(h) no page errors ({pg.errs[:3]})")
     br.close()

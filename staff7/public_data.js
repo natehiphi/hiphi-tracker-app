@@ -168,3 +168,27 @@ export function barRefusal(b) {
   if (!d.public_summary) return `${num} has no summary. It needs one.`;
   return `${num} now has ${d.points} ${plural(d.points, 'talking point', 'talking points')}. It needs ${BAR_POINTS}.`;
 }
+
+// ---------------------------------------------------------------------------------- the one-bill page's own words (R-398 part 1b, added with it)
+export const LEAVE_SHORT = 'Leave';
+export const BACK_HOME = 'Back to Home';
+export const NO_BILL = 'No bill by that number is in the tracker.';
+export const NICK_SHORT = 'A nickname needs at least 3 characters.';
+export const ASK_HEARING_LATE = 'The hearing is after this day, so the ask would come down before the hearing.';
+export const ASK_DOWN_TOAST = 'The ask is off the public site. Undo';
+export const DISCARD_TOAST = 'Changes discarded. Undo';
+export const ASK_FIELD = 'The ask';
+export const TAKE_BACK_BUTTON = 'Take back';
+export const REMOVE_POINT = 'Remove';
+export const SEE_PREVIEW = 'See the preview';
+export const FOLD_BUTTON = 'Change them';
+// "Nickname, summary and 3 talking points" for a side bill; "Nickname and summary" for a Monitor bill (design 5, arriving from the ask)
+export const foldLead = b => needsWords(b) ? 'Nickname, summary and 3 talking points' : 'Nickname and summary';
+export const pointLabel = n => `Talking point ${n}`;
+// "12 characters left": a count appears only near its limit (P-4)
+export const charsLeft = n => `${n} ${n === 1 ? 'character' : 'characters'} left`;
+// The position as the public site's bill chip words it (pub/kernel.js posInfo), with "this bill" as the approved preview shows it; '' when the bill has no side
+export const pubPositionWords = p => ({ strongly_support: 'HIPHI strongly supports this bill', support: 'HIPHI supports this bill', support_amend: 'HIPHI supports this bill with changes',
+  strongly_oppose: 'HIPHI strongly opposes this bill', oppose: 'HIPHI opposes this bill', neutral: 'HIPHI has comments on this bill' })[p] || '';
+export const SENT_ON_SITE = 'These words are on the public site. Change anything to send it to Nate.';
+export const NOTHING_TO_SEND = 'Nothing to send yet. Write a nickname, a summary or a talking point first.';

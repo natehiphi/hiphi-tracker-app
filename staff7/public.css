@@ -1,0 +1,135 @@
+/* Staff7 public mode, one bill (R-398 part 1b; design sections 3 and 5). Drawn only in public mode: the page's own <main> holds it, and tokens.css
+   :root[data-mode="public"] turns the window plum. Every colour, font and size is a token; the only motion is the app's toast fade (150 to 250 ms); nothing loops. */
+.pub { min-height: 100vh; padding-bottom: calc(var(--dock-h) + var(--s7)); }
+.pub .sr { position: absolute; width: var(--line); height: var(--line); overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pub :focus-visible { outline: var(--line2) solid var(--ring); outline-offset: var(--line2); border-radius: var(--r4); }
+.pub-wrap { width: min(var(--grid-max), 100% - var(--s7)); margin: 0 auto; box-sizing: border-box; }
+.pub-long { display: inline; }
+.pub-short { display: none; }
+.pub-link { color: var(--act); font-weight: 700; text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); }
+.pub-link:hover { color: var(--act-p); text-decoration-thickness: var(--line2); }
+
+:root[data-mode="public"] { scroll-padding-bottom: var(--dock-clear, var(--dock-h)); }   /* a control brought into view stops above the dock */
+:root[data-mode="public"] #app { margin-left: 0; }   /* the left rail's margin (app.css) does not apply: public mode has no rail */
+
+/* the standing band: the bill's number and name line up with the content column */
+.pub-band { background: var(--band); color: var(--band-ink); }
+.pub-band .pub-wrap { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); min-height: var(--hit-big); padding-top: var(--s3); padding-bottom: var(--s3); }
+.pub-band-words { margin: 0; min-width: 0; font: 400 var(--f16)/1.4 var(--body); color: var(--band-ink); }
+.pub-band-words b { font-weight: 700; }
+.pub-band-bill { margin-left: var(--s2); }
+.pub .pub-band .btn.quiet { flex: none; color: var(--band-ink); border-color: var(--band-ink); }
+.pub .pub-band .btn.quiet:hover { background: var(--band-hover); }
+.pub .pub-band :focus-visible { outline-color: var(--band-ink); }
+
+/* the grid: the form 560px, the preview takes the rest (at least 424px); one column under 1080px */
+.pub-grid { display: grid; grid-template-columns: var(--col-left) minmax(var(--preview-min), 1fr); gap: var(--grid-gap); align-items: start; padding-top: var(--s6); }
+.pub-grid > * { min-width: 0; }
+.pub-empty { padding-top: var(--s6); }
+.pub h1[tabindex="-1"]:focus { outline: none; }   /* the heading takes focus on arrival; it is not a stop in the tab order */
+.pub h1 { margin: var(--s1) 0 0; font: 600 var(--f28)/1.2 var(--head); color: var(--ink); overflow-wrap: anywhere; }
+.pub-num { margin: 0; font: 600 var(--f14)/1.4 var(--head); color: var(--muted); }
+.pub-pos { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s3); margin: var(--s3) 0 0; font-size: var(--f16); }
+.pub-pos span { font-weight: 700; }
+
+/* one status box: the only place the state is said */
+.pub-status { margin-top: var(--s5); padding: var(--s4); background: var(--surface); border: var(--line) solid var(--rule); border-radius: var(--r12); }
+.pub-st1, .pub-st2 { margin: 0; font-size: var(--f16); line-height: 1.5; }
+.pub-st2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); margin-top: var(--s3); }
+.pub-st2 svg { flex: none; }
+
+/* parts: a 24px gap between them, the label in Lato bold 16 with its help line under it */
+.pub-fields, .pub-fold, .pub-ask, .pub-down { margin-top: var(--s5); }
+.pub-fields[hidden], .pub-fold[hidden] { display: none; }
+.pub-fold p { margin: 0; font-size: var(--f16); }
+.pub-f { margin-top: var(--s5); }
+.pub-f:first-child { margin-top: 0; }
+.pub-lab { display: block; margin: 0; font: 700 var(--f16)/1.3 var(--body); color: var(--ink); }
+.pub-help { margin: var(--s1) 0 0; font-size: var(--f14); line-height: 1.5; color: var(--muted); }
+.pub-in { display: block; box-sizing: border-box; width: 100%; margin-top: var(--s2); padding: var(--s3) var(--s4); min-height: var(--hit-big);
+  font: 400 var(--f16)/1.5 var(--body); color: var(--ink); background: var(--surface); border: var(--line) solid var(--edge); border-radius: var(--r8); }
+textarea.pub-in { resize: none; overflow: hidden; min-height: var(--tile); }
+.pub-in.pub-chg { border: var(--line2) solid var(--new-edge); }
+.pub-in[aria-invalid="true"] { border-color: var(--ink); }
+.pub-in:read-only { background: var(--bg); color: var(--muted); }
+.pub-count { margin: var(--s1) 0 0; font-size: var(--f14); line-height: 1.4; color: var(--muted); text-align: right; }
+.pub-warn { margin: var(--s1) 0 0; font-size: var(--f14); line-height: 1.4; color: var(--ink); }
+.pub-warn[hidden], .pub-count[hidden] { display: none; }
+.pub-pt { margin-top: var(--s4); }
+.pub-pt > .pub-lab { font-size: var(--f14); }
+.pub-ptfoot { display: flex; justify-content: flex-end; margin-top: var(--s1); }
+.pub-ticks { list-style: none; margin: var(--s2) 0 0; padding: 0; display: block; }
+.pub-ticks li + li { margin-top: var(--s1); }
+.pub-ticks li { display: flex; align-items: center; gap: var(--s2); font-size: var(--f16); }
+.pub-tick { display: inline-flex; flex: none; color: var(--ink); }
+.pub-tick svg { width: var(--icon-s); height: var(--icon-s); }
+.pub-ticks li { text-align: left; }
+.pub-ticks li.is-todo .pub-tick { color: var(--muted); }
+.pub-ask .pub-hear { margin: 0 0 var(--s3); padding: var(--s3) var(--s4); background: var(--surface); border-radius: var(--r8); font-size: var(--f14); }
+.pub-until { margin-top: var(--s5); }
+.pub-date { font-family: var(--body); }
+.pub-down .pub-help { margin-top: var(--s2); }
+
+/* buttons: the filled one first; switched off it keeps its filled shape */
+.pub .btn.quiet { color: var(--ink); border-color: var(--edge); background: transparent; }
+.pub .btn.quiet:hover { background: var(--surface); }
+.pub .btn.quiet:active { background: var(--rule); }
+.pub .btn.filled { background: var(--act); color: var(--on-act); }
+.pub .btn.filled:hover { background: var(--act-p); }
+.pub .btn.filled.off, .pub .btn.filled[aria-disabled="true"] { background: var(--off-fill); color: var(--off-ink); border-color: transparent; cursor: not-allowed; }
+.pub .btn.filled.off:hover, .pub .btn.filled[aria-disabled="true"]:hover { background: var(--off-fill); }
+.pub .btn.text { color: var(--act); }
+.pub .btn.quiet.pub-go, .pub .btn.pub-go { min-height: var(--hit); }
+
+/* the preview: a cream card, the words as they will read; on a laptop it scrolls inside itself */
+.pub-side { position: sticky; top: var(--s5); }
+.pub-pv-h { margin: 0 0 var(--s3); font: 600 var(--f18)/1.3 var(--head); color: var(--ink); }
+.pub-card { max-height: calc(100vh - var(--dock-h) - var(--s8) - var(--s5)); overflow-y: auto; padding: var(--s5); background: var(--card); color: var(--card-ink); border-radius: var(--r12); box-shadow: var(--sheet); }
+.pub-card .pv-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--s1) var(--s3); font: 600 var(--f14)/1.4 var(--head); color: var(--card-muted); }
+.pub-card .pv-label { font-weight: 600; }
+.pub-card .pv-tag { display: inline-block; margin: var(--s3) 0 0; padding: var(--s1) var(--s3); border: var(--line) solid var(--card-edge); border-radius: var(--pill); font: 600 var(--f14)/1.3 var(--head); color: var(--card-muted); }
+.pub-card .pv-title { margin: var(--s3) 0; font: 600 var(--f22)/1.25 var(--head); color: var(--card-ink); overflow-wrap: anywhere; }
+.pub-card .pv-pos { display: inline-block; margin: 0 0 var(--s3); padding: var(--s1) var(--s3); border-radius: var(--pill); background: var(--card-pill); color: var(--card-pill-ink); font: 600 var(--f14)/1.3 var(--head); }
+.pub-card .pv-sum { margin: 0; font-size: var(--f16); line-height: 1.6; color: var(--card-ink); }
+.pub-card .pv-ask { margin: var(--s4) 0 0; padding: var(--s3) var(--s4); background: var(--card-wash); border-radius: var(--r8); font-size: var(--f16); line-height: 1.5; color: var(--card-ink); }
+.pub-card .pv-ask b { font-weight: 700; }
+.pub-card .pv-tp { margin-top: var(--s5); }
+.pub-card .pv-tp h4 { margin: 0 0 var(--s2); font: 600 var(--f16)/1.3 var(--head); color: var(--card-ink); }
+.pub-card .pv-tp ul { margin: 0; padding-left: var(--s5); font-size: var(--f16); line-height: 1.5; color: var(--card-ink); }
+.pub-card .pv-tp li + li { margin-top: var(--s2); }
+
+/* the docked row: about 80px, on the surface, with an edge line above it, never a fade */
+.pub-dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: var(--line) solid var(--edge); }
+.pub-dock .pub-wrap { display: flex; align-items: center; gap: var(--s3) var(--s4); min-height: var(--dock-h); box-sizing: border-box; padding-top: var(--s3); padding-bottom: var(--s3); }
+.pub-dock .btn { flex: none; min-height: var(--hit); }
+.pub-dock-line { flex: 1 1 auto; min-width: 0; margin: 0; font-size: var(--f14); line-height: 1.45; color: var(--ink); }
+#pubSeePrev { display: none; }
+
+/* the toast sits above the dock, at the right edge of the grid, in ink on plum */
+:root[data-mode="public"] .toast { left: auto; right: max(var(--s4), calc(50% - var(--grid-max) / 2)); bottom: calc(var(--dock-h) + var(--s3)); justify-content: flex-end; }
+:root[data-mode="public"] .toast .tin { background: var(--surface); color: var(--ink); border: var(--line) solid var(--edge); }
+
+@media (max-width: 1079px) {
+  .pub-grid { grid-template-columns: minmax(0, 1fr); }
+  .pub-side { position: static; }
+  .pub-card { max-height: none; }
+}
+
+@media (max-width: 899px) {
+  .pub-wrap { width: auto; margin: 0 var(--s4); }
+  .pub { padding-bottom: calc(var(--dock-h) * 2 + var(--s7)); }
+  .pub-long, .pub-band-bill { display: none; }
+  .pub-short { display: inline; }
+  .pub-band .pub-wrap { min-height: var(--hit); }
+  .pub-grid { padding-top: var(--s5); gap: var(--s6); }
+  .pub-dock .pub-wrap { flex-wrap: wrap; row-gap: var(--s2); padding-top: var(--s2); padding-bottom: var(--s2); }
+  .pub-dock-line { order: -1; flex: 1 1 100%; }
+  .pub-dock .pub-go { flex: 1 1 100%; }
+  #pubSecond { flex: 1 1 auto; }
+  #pubSeePrev { display: inline-flex; flex: 1 1 auto; }
+  :root[data-mode="public"] .toast { left: var(--s4); right: var(--s4); bottom: calc(var(--dock-h) * 2 + var(--s3)); justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pub *, :root[data-mode="public"] .toast.on { transition: none !important; animation: none !important; }
+}

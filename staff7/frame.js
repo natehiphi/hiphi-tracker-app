@@ -16,6 +16,7 @@ import { calendarModel } from './calendar.js';
 import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
 import { initWidth, handleHTML, syncHandle, dragging } from './width.js';
 import { hooks7 } from './sort_data.js';
+import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's public words (public mode)
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
@@ -109,6 +110,8 @@ function parse() {
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
+  // R-398 part 1b: #/public/<bill number> is one bill's public words; '#/public' and '#/public/change/<id>' are part 2 and show the missing sheet for now
+  if (a === 'public') return r.length && r[0] !== 'change' && id ? { r: 'publicbill', id, q } : { r: 'missing' };
   if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested') return id ? { r: a, id } : { r: 'missing' };
   if (a && Object.hasOwn(WILL, a)) return { r: 'door', door: a };
   return a ? { r: 'missing' } : { r: 'home' };
@@ -133,11 +136,28 @@ const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(
 
 // ---- draw ----
 let lastRoute = '', lastFam = '', first = true;
+// R-398 part 1b: the address the person was on before public mode; "Leave public mode" goes back to it (a bill's page when they came straight in)
+let lastPlain = '';
+// Public mode: the bill's public words with no app bar and no left column, the window plum (tokens.css). Only this route is drawn so.
+function drawPublic(rt) {
+  document.documentElement.dataset.mode = 'public';
+  document.body.classList.remove('isws', 'hasbar', 'nobar');
+  $('bar-slot').innerHTML = '';
+  const pg = publicBillPage({ id: rt.id, q: rt.q, back: lastPlain });
+  $('app').innerHTML = pg.html; pg.bind();
+  if (location.hash !== lastRoute) clearToast();   // a toast belongs to the page it was said on
+  lastRoute = location.hash; first = false; document.documentElement.dataset.ready = '1';
+}
 function render(opts = {}) {
   stopDone(); clearInterval(ctx.pollT);
   const keepScroll = opts.tick ? [...document.querySelectorAll('.wl, .paper')].map(e => [e, e.scrollTop]) : [], tpOpen = opts.tick && !!document.getElementById('tpList') && !document.getElementById('tpList').hidden;
   const wasOpen = findOpen(), ae = document.activeElement, had = ae && ae.id, hadHref = ae && ae.tagName === 'A' && ae.closest('#app') ? ae.getAttribute('href') : '';   // a row link has no id: it is found again by its address
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
+  // R-398 part 1b: public mode is drawn by drawPublic (no bar, no list, plum); any other address leaves it
+  const rt0 = parse();
+  if (rt0.r === 'publicbill') { drawPublic(rt0); return; }
+  delete document.documentElement.dataset.mode;
+  lastPlain = location.hash;
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
   let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null;
   { const fam = rt.r === 'calendar' ? 'c' : /^(issues|issue|bill)$/.test(rt.r) ? 'i' : ''; if (!fam || fam !== lastFam) issuesUi.pick = false; lastFam = fam; }   // the teammate picker is open only within one tab's routes   // the teammate picker is open only within the Issues routes

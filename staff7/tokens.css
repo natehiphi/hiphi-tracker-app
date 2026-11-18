@@ -31,3 +31,14 @@
   /* motion: 150 to 250 ms, nothing loops (S-17) */
   --track: -.02em; --ease: cubic-bezier(.2, .7, .2, 1); --t-fast: 150ms; --t-mid: 200ms;
 }
+/* R-398 public mode (part 1b): the plum look, on the whole window and only while the page is in public mode (frame.js sets data-mode="public" on #/public/<no>
+   and removes it everywhere else). The approved sample is staff7/looks/a3.html. Band, card and off-button colours, the new-edge pink and the grid sizes live here too. */
+:root[data-mode="public"] {
+  --bg: #2E1533; --ink: #FFF4E6; --muted: #E0CBDD; --rule: #5A3A61; --edge: #C79BB8; --act: #F6C9D4; --act-p: #EBB0BF; --on-act: #2E1533; --surface: #3C1F44; --ring: #FFF4E6;
+  --tint: #4A2A52;
+  --band: #F6C9D4; --band-ink: #2E1533; --band-hover: #EBB0BF;
+  --card: #FFFDF8; --card-ink: #1C1915; --card-muted: #5C554B; --card-edge: #8A8277; --card-pill: #EAE5D8; --card-pill-ink: #00698E; --card-wash: #F7F4EC;
+  --off-fill: #5A3A61; --off-ink: #E0CBDD;
+  --new-edge: #F6C9D4;
+  --grid-max: 1120px; --col-left: 560px; --grid-gap: 48px; --preview-min: 424px; --dock-h: 80px; --dock-gap: 24px;
+}
