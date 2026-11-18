@@ -32,8 +32,8 @@ shape**: everything used as body text passes AA, and most passes AAA.
 |---|---|---|---|
 | `--n900` on white | 14.72 | AAA | AAA |
 | `--n700` on white | 9.57 | AAA | AAA |
-| `--n500` on white | 5.22 | AA | AAA |
-| `--n500` on `--n50` | 4.85 | AA | AAA |
+| `--n500` on white | 6.26 | AA | AAA |
+| `--n500` on `--n50` | 5.82 | AA | AAA |
 | **`--n400` on white** | **3.47** | **fails** | AA |
 | `--p700` on white (links, actions) | 6.16 | AA | AAA |
 | `--p700` on `--p50` (selected tab) | 5.74 | AA | AAA |

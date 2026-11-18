@@ -11,7 +11,7 @@
   --o50: #FFF4EE; --o200: #FCD09D; --o400: #F68B2C; --o600: #AD560F; --o700: #984B0B;
   /* neutrals */
   --n0: #FFFFFF; --n50: #F4F7F9; --n100: #EAEFF2; --n200: #DBE3E7; --n300: #C2CCD1; --n400: #7D8C93;
-  --n500: #5F6F76; --n700: #344852; --n900: #142B35;
+  --n500: #52636B; --n700: #344852; --n900: #142B35;
   /* meaning */
   --ok-wash: #E6FAE9; --ok-text: #056639;
   --warn-wash: #FFF5E8; --warn-fill: #F4B223; --warn-text: #906106;
@@ -123,7 +123,7 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 /* The organisation's name, address and site at the end of every page (R-402). Discreet on purpose (Nate 17 Nov: "much more discreet
    and take up less vertical space on the phone"): the smallest size the pages already use (a sixth size on the bill page would break A-4), no rule above, no bold, one run of text that wraps where it must (two lines on
    a phone, one on a laptop). Each dot rides on the part before it behind a no-break space, so no line can start with one. --n500 on
-   the page is 4.8:1 (A-4). The link's 44px touch area is a pseudo-element, so it adds no height. The page's own bottom padding keeps
+   the page is 5.8:1 (A-4). The link's 44px touch area is a pseudo-element, so it adds no height. The page's own bottom padding keeps
    the tab bar off it. */
 .orgfoot { margin: 0; padding-top: var(--s8); text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
 .orgfoot address { display: inline; font-style: normal; }
