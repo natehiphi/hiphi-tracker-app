@@ -125,7 +125,7 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
    a phone, one on a laptop). Each dot rides on the part before it behind a no-break space, so no line can start with one. --n500 on
    the page is 4.8:1 (A-4). The link's 44px touch area is a pseudo-element, so it adds no height. The page's own bottom padding keeps
    the tab bar off it. */
-.orgfoot { margin: var(--s24) 0 0; text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
+.orgfoot { margin: var(--s16) 0 0; text-align: center; font-size: var(--t13); line-height: 1.4; color: var(--n500); }
 .orgfoot address { display: inline; font-style: normal; }
 /* On a phone the name has its own line and the address is never broken in two (Nate 17 Nov): the address moves as one piece, and
    breaks inside only on a screen too narrow to hold it. */
@@ -134,6 +134,13 @@ body.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); p
 .orgfoot > :not(:last-child)::after { content: "\00a0·"; }
 .orgfoot .of-site { position: relative; color: inherit; font-weight: 400; }
 .orgfoot .of-site::before { content: ""; position: absolute; inset: -15px -10px; }
+/* The space round it (Nate 17 Nov: "a lot of space between the bottom of the content and the footer and from the bottom of the footer
+   to the bottom of the page"): the screen above gives up its own bottom padding, and the page ends 12px under the footer (above the tab
+   bar on a phone), not 32 to 48. A page with the sticky action bar keeps its room for the bar. Browsers without :has keep the old room. */
+main#main > :has(+ .orgfoot) { padding-bottom: 0; margin-bottom: 0; }
+body:not(.hasbar) main:has(> .orgfoot) { padding-bottom: calc(var(--tabbar) + var(--safe-b) + var(--s12)); }
+body.notabs:not(.hasbar) main:has(> .orgfoot) { padding-bottom: calc(var(--s16) + var(--safe-b)); }
+@media (min-width: 900px) { body:not(.hasbar) main:has(> .orgfoot), body.notabs:not(.hasbar) main:has(> .orgfoot) { padding-bottom: var(--s24); } }
 .strong { font-weight: 700; color: var(--n900); }
 .sechead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s12); margin: var(--s32) 0 var(--s12); }
 .sechead h2 { font-size: var(--t18); }
