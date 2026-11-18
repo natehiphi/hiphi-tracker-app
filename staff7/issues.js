@@ -11,14 +11,14 @@ import { CHAMBER_NAME, isOneChamber } from '../stops.js';
 import { ic } from './icons7.js';
 import { esc, btn, plainBand, keepWords, keepWordsHTML, keepEcig } from './parts.js';
 import { billName, billNo, posWords, cmteWords, dayTime, first } from './steps.js';
-import { myIssueStandings, billsOfIssue, issueStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
+import { myIssueStandings, billsOfIssue, issueStanding, deadlineOf, isAmberRisk, amberWhy, riskDate, riskDays, riskWhy, isAlive } from './standing.js';
 import { withMe, sessionHTML } from './home.js';
 import { dateWords, whenWords, sessionDates, touchMap, nextStop, daysTo, dayName } from './words.js';
 import { pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
 import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
-import { deadlineCell, clearedOf, urgentBillOf, markHTML } from './bill_cell.js';
+import { deadlineCell, clearedOf, urgentBillOf, markHTML, signalOf } from './bill_cell.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { stoppedWords, stoppedWhy } from './issue_table.js';
 import { billsModel, mineCount, trackedBills, billsFor } from './bills.js';
@@ -65,7 +65,7 @@ export function setFor(who, me) {
   const rows = who.kind === 'all'
     ? (S.issues || []).filter(i => !i.archived_at).map(i => { const bills = billsOfIssue(i); return { issue: i, bills, standing: issueStanding(bills) }; }).filter(x => x.standing)
     : withMe(who.kind === 'person' ? who.person : me, myIssueStandings);
-  return rows.map(x => { const ds = x.bills.filter(isAtRisk).map(b => deadlineOf(b).days); return { ...x, days: ds.length ? Math.min(...ds) : null }; });
+  return rows.map(x => { const ds = x.bills.filter(isAmberRisk).map(riskDays); return { ...x, days: ds.length ? Math.min(...ds) : null }; });
 }
 const byName = (x, y) => eCig(x.issue.name).localeCompare(eCig(y.issue.name), 'en', { numeric: true });
 
@@ -97,6 +97,8 @@ function billState(b, nx) {
   if (!isAlive(b)) return { b, state: 'stopped' };
   const row = nx?.next?.row, c = deadlineCell(b, row), state = GROUP[c.key], own = stopOf(b).deadline;
   const r = { b, state, cell: c, row, unknown: c.key === 'unsure' };
+  // Nate, 18 Nov: an amber conference or vote bill (the same mark as signalOf) is At risk, whatever its cell says; its words say why
+  if (!['risk', 'late', 'hearing'].includes(c.key) && amberWhy(b) && ['risk', 'soon'].includes(signalOf(b, row))) return { ...r, state: 'risk', dl: { date: riskDate(b) }, at: riskDate(b), why: riskWhy(b) };
   if (c.key === 'risk') return { ...r, dl: deadlineOf(b), at: c.at };
   if (c.key === 'late') return { ...r, h: hearingAhead(b), at: String(own.date).slice(0, 10) };   // sorted among the at-risk by its own deadline
   if (c.key === 'hearing') return { ...r, h: hearingAhead(b), at: c.at };
@@ -127,6 +129,7 @@ const relWords = d => { const k = daysTo(d); return k <= 0 ? 'today' : k === 1 ?
 export const byWords = d => { const k = daysTo(d); return `by ${dateWords(d)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`; };
 function secondOf(st, nx, bills = [st.bill]) {
   const b = st.bill;
+  if (st.state === 'risk' && st.why) return { text: st.why };
   if (st.state === 'risk' && st.cell.key === 'late') return { text: `Hearing ${hearTxt(st.h.scheduled_at)} · after the deadline` };   // a hearing after the deadline: plain words, no amber (Nate, 18 Nov)
   if (st.state === 'risk') return { text: `Needs a hearing by ${dateWords(st.dl.date).split(',')[0]} · ${relWords(st.dl.date)}` };
   if (st.state === 'hearing') {
@@ -386,7 +389,7 @@ function weekOf(ses) {
   const byId = new Map(ses.bills.filter(x => isAlive(x.b)).map(x => [x.b.id, x.b])), seen = new Set(), bills = ses.bills.map(x => x.b);
   const hearings = (S.hearings || []).filter(h => h.status === 'scheduled' && byId.has(h.bill_id) && daysTo(ymdOf(h.scheduled_at)) >= 0 && daysTo(ymdOf(h.scheduled_at)) <= 6 && !seen.has(h.bill_id + '|' + h.scheduled_at) && seen.add(h.bill_id + '|' + h.scheduled_at))
     .map(h => ({ h, b: byId.get(h.bill_id) })).sort((x, y) => new Date(x.h.scheduled_at) - new Date(y.h.scheduled_at) || num(x.b).localeCompare(num(y.b), 'en', { numeric: true }));
-  const risk = bills.filter(b => isAlive(b) && isAtRisk(b)).sort((x, y) => deadlineOf(x).date.localeCompare(deadlineOf(y).date) || num(x).localeCompare(num(y), 'en', { numeric: true }));
+  const risk = bills.filter(b => isAlive(b) && isAmberRisk(b)).sort((x, y) => riskDate(x).localeCompare(riskDate(y)) || num(x).localeCompare(num(y), 'en', { numeric: true }));
   const moved = bills.filter(b => b.last_action_date && daysTo(b.last_action_date) >= -6 && daysTo(b.last_action_date) <= 0 && isMove(b))
     .sort((x, y) => String(y.last_action_date).localeCompare(String(x.last_action_date)) || num(x).localeCompare(num(y), 'en', { numeric: true }));
   return { hearings, risk, moved, alive: bills.filter(isAlive).length, total: bills.length };
@@ -414,14 +417,14 @@ function sessionSheet(who, set, me, ses) {
 
   // 3. the next deadline and the bills it touches, each once, with their state for it
   let next = '';
-  const touched = nx ? nx.touched.slice().sort((p, q) => (isAtRisk(q) - isAtRisk(p)) || byNo(p, q)) : [];
+  const touched = nx ? nx.touched.slice().sort((p, q) => (isAmberRisk(q) - isAmberRisk(p)) || byNo(p, q)) : [];
   if (nx) {
-    const state = b => isAtRisk(b) ? line('At risk · needs a hearing', 'risk', 'triangle-alert') : hearingAhead(b) ? line(`Hearing ${esc(tm(hearingAhead(b).scheduled_at))}`) : line(esc(placeLine(b)));
+    const state = b => isAmberRisk(b) ? line(`At risk · ${riskWhy(b) || 'needs a hearing'}`, 'risk', 'triangle-alert') : hearingAhead(b) ? line(`Hearing ${esc(tm(hearingAhead(b).scheduled_at))}`) : line(esc(placeLine(b)));
     next = `<h2 class="sh" id="sNext">Next deadline: ${esc(nx.row.label)} · ${esc(whenWords(nx.row.date))}</h2><p class="lead tight">${esc(nx.row.says)}</p>`
       + (touched.length ? `<ul class="srows3 brs" id="sTouch">${touched.map(b => brow(b, state(b))).join('')}</ul>` : `<p class="hint">It touches none of ${esc(whose)}.</p>`);
   }
   const inTouch = new Set(touched.map(b => b.id)), also = wk.risk.filter(b => !inTouch.has(b.id));
-  if (also.length) next += `<h2 class="sh" id="sAlso">Also at risk</h2><ul class="srows3 brs" id="sRisk">${also.map(b => brow(b, line(`Needs a hearing by ${esc(whenWords(deadlineOf(b).date))}`, 'risk', 'triangle-alert'))).join('')}</ul>`;
+  if (also.length) next += `<h2 class="sh" id="sAlso">Also at risk</h2><ul class="srows3 brs" id="sRisk">${also.map(b => brow(b, line(esc(riskWhy(b) || `Needs a hearing by ${whenWords(riskDate(b))}`), 'risk', 'triangle-alert'))).join('')}</ul>`;
 
   // 4. the hearings, under their days
   let hear = `<h2 class="sh" id="sHearH">Next 7 days</h2>`;
@@ -463,7 +466,7 @@ function weekHearings(rows) {
 function topicSheet(who, tp, rows, nx) {
   const t = tally(rows), whose = who.kind === 'mine' ? 'your issues' : who.kind === 'all' ? 'everyone’s issues' : `${first(who.person)}’s issues`, wk = weekHearings(rows);
   const bills = [...new Map(rows.flatMap(x => x.bills).map(b => [b.id, b])).values()];
-  const riskB = bills.filter(b => isAlive(b) && isAtRisk(b)).length, hn = wk.length, answer = `${riskB ? n(riskB, 'bill', 'bills') + ' at risk' : 'Nothing at risk'} · ${hn ? n(hn, 'hearing', 'hearings') : 'no hearings'} in the next 7 days`;
+  const riskB = bills.filter(b => isAlive(b) && isAmberRisk(b)).length, hn = wk.length, answer = `${riskB ? n(riskB, 'bill', 'bills') + ' at risk' : 'Nothing at risk'} · ${hn ? n(hn, 'hearing', 'hearings') : 'no hearings'} in the next 7 days`;
   const alive = rows.filter(x => x.k !== 'stopped').length;
   let h = `<div class="pn"><div class="ov"><div class="ovtop"><p class="ovdate" id="tKick">${esc(tp.name)} · ${esc(whose)}</p><h1 tabindex="-1">${esc(answer)}</h1><p class="ovsub" id="tSub">${esc(`${alive} of ${n(rows.length, 'issue', 'issues')} still alive · ${bills.filter(isAlive).length} of ${n(bills.length, 'bill', 'bills')}`)}</p></div><div class="ovrest">`;
   if (hn) h += `<h2 class="sh" id="tWeekH">Next 7 days</h2><ul class="trows" id="tWeek">${wk.map(e => {
@@ -474,7 +477,7 @@ function topicSheet(who, tp, rows, nx) {
   const r = nx && nx.next ? nx.next.row : null;
   if (r) {
     const mine = new Set(bills.map(b => b.id)), racing = (nx.touch.get(r.key) || []).filter(b => mine.has(b.id));
-    const risk = racing.filter(isAtRisk).length, heard = racing.filter(b => !isAtRisk(b) && hearingAhead(b)).length, rest = racing.filter(b => !isAtRisk(b) && !hearingAhead(b));
+    const risk = racing.filter(isAmberRisk).length, heard = racing.filter(b => !isAmberRisk(b) && hearingAhead(b)).length, rest = racing.filter(b => !isAmberRisk(b) && !hearingAhead(b));
     const wait = rest.filter(b => wantsHearingOf(b)).length, no = rest.length - wait, cl = bills.filter(b => clearedOf(b, r) === 'yes').length, total = racing.length + cl, d = daysTo(r.date);
     const parts = [risk && `${risk} at risk`, heard && `${heard} with a hearing set`, wait && `${wait} waiting for a hearing`, no && `${no} not asking for one`, cl && `${cl} cleared`].filter(Boolean);
     if (total) h += `<h2 class="sh" id="tDlH">${esc(dayName(r.date))}’s deadline</h2><p class="lead tight" id="tDl">${esc(`${r.label} · ${d <= 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days`}. `)}${esc(`${total === 1 ? 'The one bill it affects' : `Of the ${total} bills it affects`}: ${parts.join(', ')}.`)}</p>`;

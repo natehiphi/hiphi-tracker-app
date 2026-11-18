@@ -28,7 +28,7 @@ def settle(pg):
 # in the page) is k days ahead, and every other deadline key is 30 days further off, so a wrong key would give a wrong answer. A held hearing is one whose time has passed
 # (within 12 days) and that has no outcome. Everything is put back after each case.
 SYN = """async (cases) => {
-  const d = await import('/staff6/data.js'), m = await import('/staff6/model.js'), C = await import('/staff7/bill_cell.js'), S = d.S, DL = d.DEADLINES, day = 864e5, now = Date.now(), iso = t => new Date(t).toISOString();
+  const d = await import('/staff6/data.js'), m = await import('/staff6/model.js'), C = await import('/staff7/bill_cell.js'), SD = await import('/staff7/standing.js'), S = d.S, DL = d.DEADLINES, day = 864e5, now = Date.now(), iso = t => new Date(t).toISOString();
   const ymd = t => new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
   const saveDL = JSON.parse(JSON.stringify(DL)), out = []; let n = 0;
   const restore = () => { for (const k of Object.keys(DL)) delete DL[k]; for (const k of Object.keys(saveDL)) DL[k] = JSON.parse(JSON.stringify(saveDL[k])); };
@@ -51,7 +51,7 @@ SYN = """async (cases) => {
     // the upcoming deadline row the page would pass: 'own' = the one this bill races (it faces it); 'other' = a deadline it does not touch (a second-chamber gate its first-chamber bill has not reached); null = no row
     const dte = ymd(now + (c.dl ?? 30) * day), key0 = m.stopOf(b).deadlineKey;
     const row = c.row === 'own' ? { key: C.GATE(key0), date: dte } : c.row === 'other' ? { key: 'second_triple', date: dte } : (c.row || null);
-    let r; try { const st = m.stopOf(b); r = { name: c.name, sig: C.signalOf(b, row), key: st.deadlineKey, clr: C.clearedOf(b, row), phase: st.phase }; } catch (e) { r = { name: c.name, err: String(e) }; }
+    let r; try { const st = m.stopOf(b); r = { name: c.name, sig: C.signalOf(b, row), key: st.deadlineKey, clr: C.clearedOf(b, row), phase: st.phase, st2: SD.billStanding(b), amb: SD.isAmberRisk(b), iss: SD.issueStanding([b]) }; } catch (e) { r = { name: c.name, err: String(e) }; }
     for (const h of hs) S.hearings.splice(S.hearings.indexOf(h), 1);
     out.push(r);
   }
@@ -121,6 +121,14 @@ CASES = [
     dict(name='cleared_unknown_support', bill=dict(stage='second_lateral', referrals=['HLT'], origin_stops=0, chamber='S', position='support'), dl=5, row=FIRST, expect=''),
     # cleared: a bill that has passed the next deadline is never amber, whatever its position
     dict(name='cleared_oppose', bill=dict(stage='second_lateral', referrals=['HLT', 'WAM'], origin_stops=1, chamber='S', position='oppose'), dl=20, row=FIRST, expect='clear'),
+    # at risk (Nate, 18 Nov): the amber conference triangle and the amber hourglass count in billStanding and an issue's standing too (stand, iss)
+    dict(name='amb_conf_support_5', bill=dict(stage='conference', referrals=[], position='support'), dl=5, expect='risk', stand='risk', iss='risk'),
+    dict(name='amb_conf_oppose_5', bill=dict(stage='conference', referrals=[], position='oppose'), dl=5, expect='risk', stand='risk'),
+    dict(name='amb_conf_monitor_5', bill=dict(stage='conference', referrals=[], position='monitor'), dl=5, expect='', stand='moving'),
+    dict(name='amb_conf_support_10', bill=dict(stage='conference', referrals=[], position='support'), dl=10, expect='time', stand='moving'),
+    dict(name='amb_heard_support_2', bill=dict(position='support'), dl=2, hearings=[dict(at=-1)], expect='soon', stand='risk'),
+    dict(name='amb_heard_support_5', bill=dict(position='support'), dl=5, hearings=[dict(at=-1)], expect='heard', stand='moving'),
+    dict(name='amb_heard_monitor_2', bill=dict(position='monitor'), dl=2, hearings=[dict(at=-1)], expect='heard', stand='moving'),
 ]
 
 with sync_playwright() as p:
@@ -132,6 +140,8 @@ with sync_playwright() as p:
     bad = []
     for c, g in zip(CASES, got):
         want_ok = (g.get('sig') != 'dying') if c['expect'] == '!dying' else (g.get('sig') == c['expect'])
+        if 'stand' in c and g.get('st2') != c['stand']: want_ok = False; g['sig'] = f"{g.get('sig')} (billStanding {g.get('st2')})"
+        if 'iss' in c and g.get('iss') != c['iss']: want_ok = False; g['sig'] = f"{g.get('sig')} (issueStanding {g.get('iss')})"
         if g.get('err') or not want_ok:
             bad.append(f"{c['name']}: got '{g.get('sig', g.get('err'))}' want '{c['expect']}'")
     ok(not bad, f'signalOf: every row of the table gives its mark on made-up bills ({len(CASES)} cases) {bad[:6]}')
@@ -151,6 +161,26 @@ with sync_playwright() as p:
     ok(got_map.get('untouched_hearing_ahead') == 'hear' and got_map.get('untouched_heard_no_vote') == 'heard', 'untouched: a hearing ahead is still hear; heard with no vote is still heard, not clear')
     ok(got_map.get('no_row_untouched_support') == 'time', 'no row: an untouched support bill keeps its old answer (time)')
     ok(got_map.get('deferred_stage_dead') == '' and got_map.get('deferred_deadline_missed') == '', 'a dead deferred bill, and a deferred bill whose deadline has passed, show no mark')
+    ok(all(g.get('st2') == 'risk' for g in got if g['name'] in ('amb_conf_support_5', 'amb_conf_oppose_5', 'amb_heard_support_2')), 'at risk: an amber conference bill or an amber hourglass bill is billStanding risk')
+
+    # ---------------------------------------------------------------- (a2) isAmberRisk agrees with the amber marks on the practice bills
+    AGREE = """async () => { const d = await import('/staff6/data.js'), m = await import('/staff6/model.js'), C = await import('/staff7/bill_cell.js'), SD = await import('/staff7/standing.js'), P = await import('/staff7/place.js');
+      const bills = d.S.bills.filter(b => SD.isAlive(b) && b.tracked !== false && (!b.session_year || +b.session_year === +d.SESSION_YEAR));
+      const diff = [], why = {}; let agree = 0, other = 0;
+      for (const b of bills) {
+        const amb = SD.isAmberRisk(b), sig = C.signalOf(b, null), mk = ['risk', 'soon'].includes(sig);
+        if (amb === mk) { agree++; continue; }
+        const grp = m.POS_GROUP[b.position] || '', st = m.stopOf(b);
+        let r = 'other';
+        if (amb && !mk) r = grp !== 'support' ? 'position: the mark only asks support bills (isAtRisk counts neutral too)' : P.placeOf(b).key === 'not_referred' ? 'not referred: the mark says nothing' : st.hearingState === 'held' ? 'heard: the mark shows grey or the clear, the rule still counts the deadline' : 'other';
+        else if (!amb && mk) r = 'mark only';
+        why[r] = (why[r] || 0) + 1; if (r === 'other' || r === 'mark only') other++;
+        diff.push({ no: b.bill_number, pos: b.position, amb, sig, atRisk: SD.isAtRisk(b), r });
+      }
+      return { n: bills.length, agree, why, other, sample: diff.slice(0, 8) }; }"""
+    ag = pg.evaluate(AGREE)
+    print('AGREE', ag, flush=True)
+    ok(ag['n'] > 100 and ag['other'] == 0, f"isAmberRisk agrees with the amber marks on {ag['agree']} of {ag['n']} alive practice bills; the rest are explained ({ag['why']})")
     pg.context.close()
 
     # ---------------------------------------------------------------- (b) the real page, Everyone, at 1440 and 1280

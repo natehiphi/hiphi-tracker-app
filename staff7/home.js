@@ -8,7 +8,7 @@ import { attendees, roomName, sittingDraft } from '../staff6/model.js';
 import { ic } from './icons7.js';
 import { esc, btn, band, plainBand, fileRow, stepRow, toast } from './parts.js';
 import { stepsFor, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pastDue, cmteWords, hearingLine, billName, billNo, first, issueOf } from './steps.js';
-import { myIssueStandings, tally, needsHearing, deadlineOf, isAtRisk } from './standing.js';
+import { myIssueStandings, tally, needsHearing, deadlineOf, isAmberRisk, riskDate, riskWhy } from './standing.js';
 import { dateWords, sessionDates, touchMap } from './words.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -81,8 +81,8 @@ export function suggestedFor(me) {
 
 // The bills of the person's that are about to stop (standing.js: alive, want a hearing, none scheduled, 7 days or less), soonest first, and the steps that hold them.
 export function riskFor(me, steps) {
-  const bills = withMe(me, () => (S.bills || []).filter(b => b.tracked !== false && isMine(b) && isAtRisk(b)))
-    .sort((x, y) => deadlineOf(x).date.localeCompare(deadlineOf(y).date) || String(x.bill_number).localeCompare(String(y.bill_number), 'en', { numeric: true }));
+  const bills = withMe(me, () => (S.bills || []).filter(b => b.tracked !== false && isMine(b) && isAmberRisk(b)))
+    .sort((x, y) => riskDate(x).localeCompare(riskDate(y)) || String(x.bill_number).localeCompare(String(y.bill_number), 'en', { numeric: true }));
   const holds = s => (s.members ? s.members.map(x => x.bill) : [s.bill]).filter(b => bills.some(r => r.id === b.id));
   const held = steps.filter(s => s.kind === 'ask' && holds(s).length).sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity));
   const step = held[0] || null;
@@ -145,8 +145,10 @@ export function headline(m) {
   if (behind.length) return { calm: false, h1: `${hi} ${behind.length === 1 ? 'One step is' : `${behind.length} steps are`} past due.`, lead: 'First up: ', link: to(behind[0]) };
   if (rk.bills.length) {
     const k = rk.bills.length, st = rk.step, many = st?.members?.length > 1, vote = st?.ask?.decide, thing = vote ? 'a vote' : 'a hearing';
-    const by = st && st.at != null ? byWord(st.at) : dateWords(deadlineOf(rk.bill).date);
-    const text = many ? `Ask for ${vote ? 'votes' : 'hearings'} on ${st.members.length} bills by ${by}, or they stop for the year.` : `Ask for ${thing} on ${billName(rk.bill)} by ${by}, or it stops for the year.`;
+    const by = st && st.at != null ? byWord(st.at) : dateWords(riskDate(rk.bill));
+    // an amber conference or vote bill (Nate, 18 Nov) has no hearing to ask for: say what it needs, in its own words
+    const why = !st ? riskWhy(rk.bill) : '';
+    const text = many ? `Ask for ${vote ? 'votes' : 'hearings'} on ${st.members.length} bills by ${by}, or they stop for the year.` : why ? `${billName(rk.bill)}: ${why}, or it stops for the year.` : `Ask for ${thing} on ${billName(rk.bill)} by ${by}, or it stops for the year.`;
     return { calm: false, risk: true, h1: `${hi} ${k === 1 ? 'One bill is' : `${k} bills are`} at risk.`, lead: '', link: st ? { href: '#/do/' + enc(st.id), text } : null, plain: st ? '' : text };
   }
   if (n) return { calm: false, h1: `${hi} You’re on top of it.`, lead: 'First up: ', link: to(m.todo[0]) };

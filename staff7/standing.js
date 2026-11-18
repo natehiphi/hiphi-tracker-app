@@ -7,7 +7,8 @@
 //   Moving     alive and not at risk.
 //   An issue   is At risk when any one of its bills is; else Moving when any bill is alive; else Stopped. An issue with no bills this session has no standing (null).
 import { S, SESSION_YEAR, SESSION_OVER, myIssueIds } from '../staff6/data.js';
-import { diedish, wantsHearing, hearingAhead, stopOf, RISK_DAYS } from '../staff6/model.js';
+import { diedish, wantsHearing, hearingAhead, stopOf, RISK_DAYS, POS_GROUP } from '../staff6/model.js';
+import { daysTo, dateWords } from './words.js';
 
 export const isAlive = b => !!b && !diedish(b);
 // The date its hearing must happen by, while it still can: { label, date, days } from the Capitol's calendar, or null.
@@ -19,8 +20,29 @@ export function deadlineOf(b) {
 // A bill that still needs a hearing before its next deadline (what Your bills counts).
 export const needsHearing = b => !!deadlineOf(b);
 export const isAtRisk = b => { const d = deadlineOf(b); return !!d && d.days <= RISK_DAYS; };
+// Nate, 18 Nov: a bill with the amber conference triangle, or the amber hourglass, is at risk too. The same facts as bill_cell.js signalOf (which imports this file, so the
+// test is written out here, not imported back). 'conference': in conference, we support or oppose it, the conference deadline is 7 days or less. 'vote': heard, no vote, we
+// support it, its own deadline 3 days or less, no hearing ahead. '' otherwise. Not when the session is over.
+export function amberWhy(b) {
+  if (!b || SESSION_OVER || !isAlive(b)) return '';
+  const st = stopOf(b), grp = POS_GROUP[b.position] || '', live = !!st.deadline && !st.deadline.missed;
+  if (st.phase === 'conference' && (grp === 'support' || grp === 'oppose') && live && daysTo(st.deadline.date) <= 7) return 'conference';
+  if (st.phase === 'committee' && st.hearingState === 'held' && grp === 'support' && live && daysTo(st.deadline.date) <= 3 && !hearingAhead(b)) return 'vote';
+  return '';
+}
+export const isAmberRisk = b => isAtRisk(b) || !!amberWhy(b);
+// The date the bill's risk falls on (its hearing deadline, or the conference or vote deadline), or null
+export function riskDate(b) { const d = deadlineOf(b); return d ? d.date : isAmberRisk(b) ? stopOf(b).deadline.date : null; }
+export function riskDays(b) { const d = deadlineOf(b); return d ? d.days : isAmberRisk(b) ? daysTo(stopOf(b).deadline.date) : null; }
+// Why an amber bill (not one that needs a hearing) is at risk, in words: "House and Senate must agree by Mar 30" or "Vote needed by Mar 30"; '' otherwise
+export function riskWhy(b) {
+  if (isAtRisk(b)) return '';
+  const w = amberWhy(b); if (!w) return '';
+  const d = dateWords(stopOf(b).deadline.date).split(', ')[1] || '';
+  return w === 'conference' ? `House and Senate must agree by ${d}` : `Vote needed by ${d}`;
+}
 // 'risk' | 'moving' | 'stopped'
-export const billStanding = b => !isAlive(b) ? 'stopped' : isAtRisk(b) ? 'risk' : 'moving';
+export const billStanding = b => !isAlive(b) ? 'stopped' : isAmberRisk(b) ? 'risk' : 'moving';
 export function issueStanding(bills) {
   if (!bills.length) return null;
   const k = bills.map(billStanding);
