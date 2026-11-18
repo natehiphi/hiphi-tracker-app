@@ -201,7 +201,7 @@ export const HELD_COLS = {
 };
 const pcNorm = v => v == null ? null : typeof v === 'string' ? (v.trim() || null) : v;
 const pcSame = (a, b) => JSON.stringify(pcNorm(a)) === JSON.stringify(pcNorm(b));
-const isLiveBill = b => !!b && b.tracked !== false && !!b.is_public;
+export const isLiveBill = b => !!b && b.tracked !== false && !!b.is_public;
 // Which keys of `patch` the database would keep waiting for an admin (demo only; the live trigger decides for itself).
 function holdKeys(kind, row, patch) {
   if (S.me?.is_admin || !row) return [];
@@ -254,6 +254,188 @@ export function seedPublicChanges() {
   if (b) list.push({ id: 'pc-seed-1', kind: 'bill', target_id: b.id, fields: { public_summary: String(b.public_summary).replace(/\.\s*$/, '') + '. Ask your legislators to take a stand.' }, before: { public_summary: b.public_summary }, proposed_by: by.id, proposed_at: ago(5), status: 'waiting', decided_by: null, decided_at: null, note: null });
   const l = S.lists.find(x => !x.is_published && !x.archived_at);
   if (l) list.push({ id: 'pc-seed-2', kind: 'list', target_id: l.id, fields: { is_published: true }, before: { is_published: false }, proposed_by: by.id, proposed_at: ago(27), status: 'waiting', decided_by: null, decided_at: null, note: null });
+}
+// ---- Public mode (R-398, staff7's practice copy) ----
+// The rules of what the public site shows for a bill, and of who may change it: the pages in staff7 read these, and public_data.js words them.
+// The live branches throw until the switch (the database keeps these rules there, backend 197 and what follows it). PUBLIC_V7 is switched on only by
+// seedPublicV7, staff7's start-up, so staff6's own saves and holds keep working exactly as they did.
+let PUBLIC_V7 = false;
+export const publicV7On = () => PUBLIC_V7;
+export const PUBLIC_SIDES = ['strongly_support', 'support', 'support_amend', 'strongly_oppose', 'oppose', 'neutral'];   // Comments (neutral) counts as a side (Nate, 18 Nov); Monitor and no position do not
+export const isPublicSide = pos => PUBLIC_SIDES.includes(pos);
+export const BAR_POINTS = 3;
+const WORD_KEYS = ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until'];
+// The few sentences a refusal or a throw carries are written here, because the rules that return them live here; public_data.js re-exports them.
+export const NOT_TRACKED = 'This bill is no longer tracked.';
+export const CHANGED_SINCE = 'This changed since you opened it';
+export const WAIT_ON_BILL = w => `${w} has a change waiting on this bill`;
+export const DECIDED_BY = w => `Already decided by ${w}`;
+export const WORDS_HELD = "HIPHI's words are on the public site, so this bill needs a nickname, a summary and 3 talking points. Take the words down instead.";
+export const TAKE_BACK_POSITION = 'There is no take back for a position. Change the position back instead.';
+const liveNotYet = () => { if (!DEMO) throw new Error('Not on the live site yet'); };
+const pubNow = () => new Date().toISOString();
+const pubFirst = id => { const a = id ? advocate(id) : null; return a ? (a.full_name || '').split(' ')[0] || null : null; };
+const pubWho = id => pubFirst(id) || 'someone';
+export const soleAdmin = () => { const a = (S.advocates || []).filter(x => x.is_admin); return a.length === 1 ? a[0] : null; };
+const restoreObj = (o, copy) => { for (const k of Object.keys(o)) delete o[k]; Object.assign(o, copy); };
+// The bar (design 3, rule 5): a bill with a side, on the team's position or the public's, needs a nickname, a summary and three talking points.
+// Talking points are strings in the data, or {text} objects in some older rows; both count, and a blank one does not.
+export const needsWords = b => !!b && (isPublicSide(b.position) || isPublicSide(b.public_position));
+export const pubPoints = b => (Array.isArray(b?.talking_points) ? b.talking_points : []).map(x => String(x?.text ?? x ?? '').trim()).filter(Boolean);
+export const barDone = b => ({ nickname: !!String(b?.nickname ?? '').trim(), public_summary: !!String(b?.public_summary ?? '').trim(), points: pubPoints(b).length });
+export const barMet = b => { if (!needsWords(b)) return true; const d = barDone(b); return d.nickname && d.public_summary && d.points >= BAR_POINTS; };
+// The public site's position is the team's, unless the words are public and the team has moved on (design 7).
+export const publicPositionPending = b => isLiveBill(b) && (b.position ?? null) !== (b.public_position ?? null);
+// Words are trimmed; an empty talking-point list is null, as the data keeps it.
+const cleanWords = f => Object.fromEntries(Object.keys(f || {}).filter(k => WORD_KEYS.includes(k)).map(k => [k,
+  k === 'talking_points' ? ((p => p.length ? p : null)((Array.isArray(f[k]) ? f[k] : []).map(x => String(x?.text ?? x ?? '').trim()).filter(Boolean))) : (String(f[k] ?? '').trim() || null)]));
+// What the public site shows for a bill, as a page reads it: the words, the ask and both positions. An admin's page keeps a copy from when it opened;
+// approving is refused when this differs (design 10.3).
+export const publicStateOf = id => { const b = S.bills.find(x => x.id === id); return b ? { is_public: !!b.is_public, position: b.position ?? null, public_position: b.public_position ?? null, ...Object.fromEntries(WORD_KEYS.map(k => [k, b[k] ?? null])) } : null; };
+export const waitingPosition = id => (S.publicChanges || []).find(x => x.kind === 'position' && x.target_id === id && x.status === 'waiting') || null;
+// Our position (design 7, 10.2): a non-admin's change to the team's position, on a bill whose words are public, waits for an admin as a 'position' change.
+// The public keeps its position until an admin publishes it. Changing back to the public position withdraws the wait.
+function positionMovedV7(b) {
+  const me = S.me, now = pubNow(), list = S.publicChanges ||= [], w = waitingPosition(b.id);
+  if ((b.position ?? null) === (b.public_position ?? null)) { if (w) Object.assign(w, { status: 'withdrawn', decided_by: me.id, decided_at: now }); return; }
+  if (w) { w.fields = { public_position: b.position ?? null }; Object.assign(w, { proposed_by: me.id, proposed_at: now }); return; }
+  if (isPublicSide(b.position) && barMet(b)) list.unshift({ id: 'pc-' + Date.now() + '-' + list.length, kind: 'position', target_id: b.id, fields: { public_position: b.position ?? null }, before: { public_position: b.public_position ?? null },
+    proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
+}
+// A non-admin's words for a bill (design 10). Refused when someone else has a words change waiting on the bill; refused for a side bill whose bar
+// the words would not meet. An admin's words go live at once. A non-admin's words wait: the first send files a change, later sends join it, and the
+// bill's public words do not change until an admin approves.
+export function sendPublicWords(billId, fields) {
+  liveNotYet();
+  const b = S.bills.find(x => x.id === billId), me = S.me;
+  if (!b || !me || b.tracked === false) return { refused: NOT_TRACKED };
+  const w = heldFor('bill', billId);
+  if (w && w.proposed_by !== me.id) return { refused: WAIT_ON_BILL(pubWho(w.proposed_by)) };
+  const words = cleanWords(fields), next = { ...b, ...words };
+  if (!barMet(next)) return { refused: 'bar', bar: barDone(next) };
+  const now = pubNow();
+  if (me.is_admin) {
+    if (w) Object.assign(w, { status: 'withdrawn', decided_by: me.id, decided_at: now });   // an admin's own waiting change is superseded by what is published now
+    Object.assign(b, words, { is_public: true, public_position: b.position ?? null, public_published_at: now, public_published_by: me.id });
+    if ('talking_points' in words) b.talking_points_edited_at = now;
+    return { published: true };
+  }
+  const fieldsNow = { ...words, is_public: true };
+  const was = Object.fromEntries(Object.keys(fieldsNow).map(k => [k, k === 'is_public' ? !!b.is_public : b[k] ?? null]));
+  if (w) { w.fields = { ...w.fields, ...fieldsNow }; w.before = { ...was, ...w.before }; Object.assign(w, { proposed_at: now }); }
+  else (S.publicChanges ||= []).unshift({ id: 'pc-' + Date.now() + '-' + (S.publicChanges || []).length, kind: 'bill', target_id: billId, fields: fieldsNow, before: was, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
+  // A position the public was not shown because the bill lacked its three things goes to the admin with the words that complete it (design 7)
+  if (publicPositionPending(b) && isPublicSide(b.position) && !waitingPosition(billId)) S.publicChanges.unshift({ id: 'pc-' + Date.now() + '-p', kind: 'position', target_id: billId, fields: { public_position: b.position }, before: { public_position: b.public_position ?? null }, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
+  return { waiting: heldFor('bill', billId) };
+}
+// Unsent words, per person, on a bill: they stay until sent or discarded, so a typed word is never lost (design 5.6).
+export function saveDraftWords(billId, fields) {
+  const me = S.me; if (!me) return null;
+  const d = ((S.publicDrafts ||= {})[me.id] ||= {});
+  d[billId] = { ...cleanWords(fields), saved_at: pubNow() };
+  return d[billId];
+}
+export const draftWords = billId => S.publicDrafts?.[S.me?.id]?.[billId] || null;
+export function discardDraftWords(billId) {
+  const id = S.me?.id, d = S.publicDrafts?.[id];
+  if (!d || !(billId in d)) return () => {};
+  const prev = d[billId]; delete d[billId];
+  return () => { ((S.publicDrafts ||= {})[id] ||= {})[billId] = prev; };
+}
+// An admin's publish of our position: the public position becomes the team's. A waiting position change for the bill is approved with it.
+export function publishPosition(billId) {
+  liveNotYet();
+  const b = S.bills.find(x => x.id === billId), me = S.me;
+  if (!me?.is_admin) return { refused: 'Only an admin can publish a position' };
+  if (!b || b.tracked === false) return { refused: NOT_TRACKED };
+  const next = { ...b, public_position: b.position ?? null };
+  if (!barMet(next)) return { refused: 'bar', bar: barDone(next) };
+  const now = pubNow(), w = waitingPosition(billId);
+  b.public_position = b.position ?? null; b.public_published_at = now; b.public_published_by = me.id;
+  if (w) Object.assign(w, { status: 'approved', decided_by: me.id, decided_at: now, note: null });
+  return { published: true };
+}
+// Taking HIPHI's words down is at once, for anyone who may change them. Any waiting words change on the bill is withdrawn (taken_down), its words kept.
+// Returns the undo.
+export function takeDownWords(billId) {
+  liveNotYet();
+  const b = S.bills.find(x => x.id === billId); if (!b) return () => {};
+  const prevPublic = b.is_public, pcs = (S.publicChanges || []).filter(x => x.kind === 'bill' && x.target_id === billId && x.status === 'waiting'), copies = pcs.map(x => ({ ...x }));
+  b.is_public = false;
+  for (const x of pcs) Object.assign(x, { status: 'withdrawn', taken_down: true, decided_by: S.me?.id ?? null, decided_at: pubNow() });
+  return () => { b.is_public = prevPublic; pcs.forEach((x, i) => restoreObj(x, copies[i])); };
+}
+// Taking the ask down is at once: the public ask and its last day are cleared, and a waiting change loses the ask too. Returns the undo.
+export function takeDownAsk(billId) {
+  liveNotYet();
+  const b = S.bills.find(x => x.id === billId); if (!b) return () => {};
+  const prev = { public_action: b.public_action ?? null, public_action_until: b.public_action_until ?? null }, w = heldFor('bill', billId), wPrev = w ? { ...w.fields } : null;
+  b.public_action = null; b.public_action_until = null;
+  if (w) { delete w.fields.public_action; delete w.fields.public_action_until; }
+  return () => { Object.assign(b, prev); if (w) w.fields = wPrev; };
+}
+// The writer takes back their own waiting words change: it is withdrawn, its words kept on the record, and the public site is unchanged.
+export function takeBackChange(id) {
+  liveNotYet();
+  const me = S.me, pc = (S.publicChanges || []).find(x => x.id === id);
+  if (!pc) return { refused: 'This change is gone' };
+  if (pc.status !== 'waiting') return { refused: DECIDED_BY(pubWho(pc.decided_by)) };
+  if (pc.proposed_by !== me?.id) return { refused: `Only ${pubWho(pc.proposed_by)} can take this back` };
+  if (pc.kind === 'position') return { refused: TAKE_BACK_POSITION };
+  Object.assign(pc, { status: 'withdrawn', decided_by: me.id, decided_at: pubNow(), note: null });
+  return { taken: true };
+}
+// An admin's yes or no to a waiting change (design 8, 10). Refused when the admin never saw the current public state (seen), when already decided, when the
+// bill is untracked, or when an approval would leave a side bill without its bar. An ask whose last day has passed is not published; the rest is.
+export function decidePublicChangeV7(id, approve, note = '', seen) {
+  liveNotYet();
+  const pc = (S.publicChanges || []).find(x => x.id === id), me = S.me;
+  if (!pc) return { refused: 'This change is gone' };
+  if (!me?.is_admin) return { refused: 'Only an admin can decide a public change' };
+  if (pc.status !== 'waiting') return { refused: DECIDED_BY(pubWho(pc.decided_by)) };
+  const b = S.bills.find(x => x.id === pc.target_id);
+  if (!b || b.tracked === false) return { refused: NOT_TRACKED };
+  if (!seen || JSON.stringify(seen) !== JSON.stringify(publicStateOf(b.id))) return { refused: CHANGED_SINCE };
+  const now = pubNow(), text = (note || '').trim() || null;
+  if (!approve) { Object.assign(pc, { status: 'sent_back', decided_by: me.id, decided_at: now, note: text }); return { sent_back: true }; }
+  const fields = { ...pc.fields }, skipped = [];
+  if (pc.kind === 'bill' && fields.public_action_until && fields.public_action_until < hstToday()) {
+    for (const k of ['public_action', 'public_action_until']) if (k in fields) { delete fields[k]; skipped.push(k); }
+  }
+  const next = pc.kind === 'position' ? { ...b, public_position: fields.public_position ?? null } : { ...b, ...fields };
+  if (!barMet(next)) return { refused: 'bar', bar: barDone(next) };
+  if (pc.kind === 'bill') {
+    const wasPublic = !!b.is_public;
+    Object.assign(b, fields);
+    if (!wasPublic) b.public_position = b.position ?? null;
+    if ('talking_points' in fields) b.talking_points_edited_at = now;
+  } else b.public_position = fields.public_position ?? null;   // a position change sets the public position only, never the team's
+  b.public_published_at = now; b.public_published_by = me.id;
+  Object.assign(pc, { status: 'approved', decided_by: me.id, decided_at: now, note: text });
+  return { approved: true, skipped };
+}
+// Practice only (design 11): the two waiting changes from teammates, and a few of the lead's side bills with no public words. Called once from
+// staff7's start-up, after the person is known. It switches the public-mode rules on for this page. Never seeds twice, never over a restored practice copy.
+export function seedPublicV7() {
+  if (!DEMO) return;
+  PUBLIC_V7 = true;
+  if (S.publicSeededV7 || PRACTICE) { S.publicSeededV7 = true; return; }
+  S.publicSeededV7 = true;
+  const me = S.me, list = S.publicChanges ||= [], now = Date.now(), ago = h => new Date(now - h * 36e5).toISOString();
+  const by = ['KV', 'LR'].map(i => S.advocates.find(a => a.initials === i)).find(a => a && a.id !== me?.id) || S.advocates.find(a => a.id !== me?.id);
+  const live = S.bills.filter(b => b.tracked !== false && isLiveBill(b) && isPublicSide(b.position) && b.position === b.public_position && barMet(b));
+  const b1 = live[0], b2 = live.find(b => b !== b1);
+  if (b1) list.push({ id: 'pc-seed-1', kind: 'bill', target_id: b1.id, fields: { public_summary: String(b1.public_summary).replace(/\.\s*$/, '') + '. Ask your legislators to take a stand.' }, before: { public_summary: b1.public_summary ?? null },
+    proposed_by: by?.id ?? null, proposed_at: ago(5), status: 'waiting', decided_by: null, decided_at: null, note: null });
+  if (b2) {
+    b2.position = b2.position === 'oppose' ? 'support' : 'oppose'; b2.priority = priorityOf(b2.position);
+    list.push({ id: 'pc-seed-2', kind: 'position', target_id: b2.id, fields: { public_position: b2.position }, before: { public_position: b2.public_position ?? null },
+      proposed_by: by?.id ?? null, proposed_at: ago(3), status: 'waiting', decided_by: null, decided_at: null, note: null });
+  }
+  const kr = S.advocates.find(a => a.initials === 'KR');
+  const krSide = S.bills.filter(b => b.tracked !== false && kr && (S.assignments[b.id] || []).includes(kr.id) && isPublicSide(b.position));
+  let hidden = krSide.filter(b => !b.is_public).length;
+  for (const b of krSide) { if (hidden >= 3) break; if (!b.is_public || b === b1 || b === b2) continue; b.is_public = false; hidden++; }
 }
 export const DB = {
   async init() {
@@ -483,9 +665,14 @@ export const DB = {
     const b = S.bills.find(x => x.id === billId);
     const before = {};
     if (DEMO) {
+      // R-398: with public mode on (staff7 only), a save that would take a public side bill below its bar is refused before anything changes.
+      if (b && PUBLIC_V7 && isLiveBill(b) && barMet(b) && isLiveBill({ ...b, ...patch }) && !barMet({ ...b, ...patch })) throw new Error(WORDS_HELD);
+      const wasLive = isLiveBill(b);
       const held = holdKeys('bill', b, patch), rest = Object.fromEntries(Object.entries(patch).filter(([k]) => !held.includes(k) && !(k === 'talking_points_edited_at' && held.includes('talking_points'))));
       if (b) Object.assign(b, rest);
       if (held.length) fileHold('bill', b, held, patch);
+      // R-398: the public position follows the team's while the words are not public; once they are, only a non-admin's change waits (positionMovedV7).
+      if (b && 'position' in patch) { if (!wasLive) b.public_position = b.position ?? null; else if (PUBLIC_V7 && !S.me?.is_admin) positionMovedV7(b); }
       return held;
     }
     if (b) { for (const k of Object.keys(patch)) before[k] = b[k]; Object.assign(b, patch); }
@@ -1992,6 +2179,7 @@ export async function demoInit() {
     if (b.position === 'strongly_support' && ['conference', 'second_decking', 'second_floor', 'second_crossover', 'governor'].includes(b.stage)) { b.stage = 'enacted'; b.last_action = `Act ${n++}, on 07/01/2026`; }
     else { b.stage = 'dead'; b.died_deadline ||= 'Sine die'; } } }
   S.bills = sc.bills; S.hearings = sc.hearings; S.pulse = sc.pulse;
+  for (const b of S.bills) b.public_position = b.position ?? null;   // R-398: the public position starts as the team's
   S.committees = Object.fromEntries(snap.committees.map(c => [c.code, c]));
   // A testimony draft on the soonest upcoming hearing, so the drawer section
   // and the Desk link have something to show in the sandbox.
@@ -2205,6 +2393,8 @@ export async function demoInit() {
     S.legNotes = {}; S.convCache = {};
     S.noDraftSeeded = true;   // the kept drafts already have the "Make the draft now" hearings without a draft (app.js sandboxExtras)
     if (PRACTICE.partners) S.pDemo = PRACTICE.partners;   // R-328 B: the sample partner's groups, people and words as practised
+    if (PRACTICE.publicChanges) S.publicChanges = PRACTICE.publicChanges;   // R-398: waiting changes and each person's unsent words survive a person switch
+    if (PRACTICE.publicDrafts) S.publicDrafts = PRACTICE.publicDrafts;
   }
   if (DEMO) addEventListener('pagehide', savePractice);
   S.feed = DEMO_TL.filter(t => t.source === 'team');
@@ -2352,7 +2542,7 @@ function demoPartners() {
 // partner_ask_json, kept with the sample group (so a person switch keeps them). The practice copy sends nothing.
 // Today's date in Honolulu, or `days` from it; the next 4:30 pm there (109's next_daily_email: today's, or tomorrow's once
 // it has passed; Hawaiʻi keeps no daylight saving, so -10:00 always).
-const hstToday = (days = 0) => new Date(Date.now() + days * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
+export const hstToday = (days = 0) => new Date(Date.now() + days * 864e5).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
 const nextEmail = (t = Date.now()) => { const at = new Date(`${new Date(t).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' })}T16:30:00-10:00`).getTime(); return new Date(t < at ? at : at + 864e5).toISOString(); };
 // Two of Keiki Smiles Alliance's three live bills carry an ask: one Jess approved this morning, going out at 4:30 pm, and
 // one Nate took back yesterday before it went (Send again still works: its end date allows).
@@ -2403,14 +2593,14 @@ function demoAskOnApprove(d, x, p) {
 
 // R-316 W38: keep this tab's practice changes for the next load (a person switch reloads the page with &as=). The team's
 // columns on each bill, not the Capitol's; follows are filed under whoever is practising, as each person's own.
-const TEAM_COLS = ['tracked', 'position', 'priority', 'stage_override', 'internal_notes', 'is_public', 'public_summary', 'public_action', 'public_action_until', 'nickname'];
+const TEAM_COLS = ['tracked', 'position', 'priority', 'stage_override', 'internal_notes', 'is_public', 'public_summary', 'public_action', 'public_action_until', 'nickname', 'talking_points', 'public_position', 'public_published_at', 'public_published_by'];   // R-398: the public words and positions too
 export function savePractice() {
   if (!DEMO || S.practiceCleared || !S.bills || !S.me) return;
   const fb = S.followersBy ??= {}, me = S.me.id;
   for (const id of Object.keys(fb)) if (!S.follows?.has(id)) fb[id] = fb[id].filter(x => x !== me);
   for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
   const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
-    assignments: S.assignments, billCampaigns: S.billCampaigns, issueFollowers: S.issueFollowers || {}, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null,
+    assignments: S.assignments, billCampaigns: S.billCampaigns, issueFollowers: S.issueFollowers || {}, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null, publicChanges: S.publicChanges || null, publicDrafts: S.publicDrafts || null,
     bills: Object.fromEntries(S.bills.map(b => [b.id, Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null]))])) };
   try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
 }

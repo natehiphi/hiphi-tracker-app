@@ -1,5 +1,5 @@
 // Staff7's frame: boots the practice data, routes between Home, a step and its done moment, and draws the doors, the left list and the right sheet.
-import { S, DB, DEMO, hooks, savePractice, myIssueIds } from '../staff6/data.js';
+import { S, DB, DEMO, hooks, savePractice, myIssueIds, seedPublicV7 } from '../staff6/data.js';
 import { stepsFor, BUILT, hearingLine, left, memoKey } from './steps.js';
 import { withMe, homeModel, listsHTML, overviewParts, hearingSheet, waitingSheet, suggestedSheet, bindHome, bindWaiting } from './home.js';
 import { stepRow, dueStrip, band, plainBand, btn, esc, toast, clearToast, wireToast, toastHTML } from './parts.js';
@@ -213,7 +213,7 @@ async function start() {
   if (!DEMO) throw new Error('staff7 is practice-only');   // the second lock, before anything is loaded
   await DB.init(); await DB.loadAll();
   await DB.chairAsks().catch(() => {});   // as the current app's afterLoad: a teammate's recorded ask is known (the practice copy answers with none)
-  boot(); initWidth(ctx.me);   // the width this person left the list at, before the first draw so nothing jumps
+  boot(); seedPublicV7(); initWidth(ctx.me);   // R-398: public mode's practice rules and seeds, once the person is known (after as=); then the width this person left the list at, before the first draw so nothing jumps
   $('toast-slot').innerHTML = toastHTML; wireToast();
   window.addEventListener('hashchange', () => render()); PHONE.addEventListener('change', () => render());
   setInterval(tick, 60000);
