@@ -4,4 +4,4 @@
 export const ORG_NAME = 'Hawaiʻi Public Health Institute';
 export const ORG_ADDRESS = '707 Richards Street, Suite 300, Honolulu, HI 96813';
 export const ORG_SITE = 'https://www.hiphi.org/';
-export const orgFoot = () => `<footer class="orgfoot"><span class="of-name">${ORG_NAME}</span><address class="of-addr">${ORG_ADDRESS}</address><a class="of-site" href="${ORG_SITE}" target="_blank" rel="noopener">hiphi.org</a></footer>`;
+export const orgFoot = () => `<footer class="orgfoot"><span class="of-name">${ORG_NAME}</span> <address class="of-addr">${ORG_ADDRESS}</address> <a class="of-site" href="${ORG_SITE}" target="_blank" rel="noopener">hiphi.org</a></footer>`;

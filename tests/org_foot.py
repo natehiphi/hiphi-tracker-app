@@ -33,7 +33,7 @@ with sync_playwright() as pw:
             a = f.locator('a')
             ok(a.count() == 1 and a.get_attribute('href') == 'https://www.hiphi.org/' and a.get_attribute('target') == '_blank' and 'noopener' in a.get_attribute('rel') and a.text_content() == 'hiphi.org', f'{tag} {name}: the hiphi.org link')
             fs = f.evaluate('e => parseFloat(getComputedStyle(e).fontSize)')
-            ok(fs <= 13.5, f'{tag} {name}: small type ({fs}px)')
+            ok(fs <= 12.5, f'{tag} {name}: small type ({fs}px)')
             col = f.evaluate('e => getComputedStyle(e).color'); bg = p.evaluate('getComputedStyle(document.body).backgroundColor')
             l1, l2 = p.evaluate(f'({LUM})({col!r})'), p.evaluate(f'({LUM})({bg!r})')
             ratio = (max(l1, l2) + .05) / (min(l1, l2) + .05)
@@ -47,8 +47,10 @@ with sync_playwright() as pw:
                 t = tb.bounding_box(); ok(r['y'] + r['height'] <= t['y'] + 1, f'{tag} {name}: above the tab bar (footer ends {r["y"] + r["height"]:.0f}, bar starts {t["y"]:.0f})')
             ok(p.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'{tag} {name}: no sideways scroll')
             if tag == 'phone' and name == 'Home':
-                ys = f.evaluate('e => [...e.children].map(k => Math.round(k.getBoundingClientRect().top))')
-                ok(len(set(ys)) == 3, f'phone: the three parts stack ({ys})')
+                ok(r['height'] <= 44, f'phone: no taller than two short lines ({r["height"]:.0f}px)')
+                ok(not f.evaluate('e => [...e.children].some(k => /^\\s*·/.test(k.textContent))') and f.evaluate('e => getComputedStyle(e).borderTopWidth') == '0px', 'phone: no rule above, and the dots are not text')
+                tap = f.locator('a').evaluate('a => { const b = a.getBoundingClientRect(), s = getComputedStyle(a, "::before"); return b.height - parseFloat(s.top) - parseFloat(s.bottom); }')
+                ok(tap >= 44, f'phone: the link keeps a 44px touch area without the height ({tap:.0f}px)')
             if tag == 'laptop' and name == 'Home':
                 ys = f.evaluate('e => [...e.children].map(k => Math.round(k.getBoundingClientRect().top + k.getBoundingClientRect().height / 2))')
                 ok(max(ys) - min(ys) < 8, f'laptop: one line ({ys})')
