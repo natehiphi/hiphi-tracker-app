@@ -47,12 +47,15 @@ with sync_playwright() as pw:
                 t = tb.bounding_box(); ok(r['y'] + r['height'] <= t['y'] + 1, f'{tag} {name}: above the tab bar (footer ends {r["y"] + r["height"]:.0f}, bar starts {t["y"]:.0f})')
             ok(p.evaluate('document.documentElement.scrollWidth <= innerWidth'), f'{tag} {name}: no sideways scroll')
             if tag == 'phone' and name == 'Home':
-                ok(r['height'] <= 44, f'phone: no taller than two short lines ({r["height"]:.0f}px)')
+                ok(r['height'] <= 46, f'phone: no taller than two short lines and its 8px of room above ({r["height"]:.0f}px)')
                 ah = f.locator('address').bounding_box()['height']; ok(ah <= 20, f'phone: the address is on one line, not split ({ah:.0f}px)')
                 nd = f.locator('.of-name').evaluate('e => getComputedStyle(e, "::after").content'); ok(nd in ('none', 'normal'), f'phone: no dot left hanging after the name on its own line ({nd})')
                 ok(not f.evaluate('e => [...e.children].some(k => /^\\s*·/.test(k.textContent))') and f.evaluate('e => getComputedStyle(e).borderTopWidth') == '0px', 'phone: no rule above, and the dots are not text')
                 tap = f.locator('a').evaluate('a => { const b = a.getBoundingClientRect(), s = getComputedStyle(a, "::before"); return b.height - parseFloat(s.top) - parseFloat(s.bottom); }')
                 ok(tap >= 44, f'phone: the link keeps a 44px touch area without the height ({tap:.0f}px)')
+            if name == 'My issues':   # a page shorter than the window: the footer sits at the window's foot, not floating under the content
+                floor = p.locator('.tabs').bounding_box()['y'] if (tag != 'laptop' and p.locator('.tabs').is_visible()) else h
+                ok(floor - (r['y'] + r['height']) <= 26, f'{tag} {name}: on a short page the footer is at the bottom of the window ({floor - (r["y"] + r["height"]):.0f}px above it)')
             if tag == 'laptop' and name == 'Home':
                 ys = f.evaluate('e => [...e.children].map(k => Math.round(k.getBoundingClientRect().top + k.getBoundingClientRect().height / 2))')
                 ok(max(ys) - min(ys) < 8, f'laptop: one line ({ys})')
