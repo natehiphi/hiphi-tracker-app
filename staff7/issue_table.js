@@ -5,7 +5,7 @@ import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
 import { billName, billNo, posWords } from './steps.js';
 import { isAlive } from './standing.js';
-import { deadlineCell, headCell, CELL_ORDER } from './bill_cell.js';
+import { deadlineCell, headCell, CELL_ORDER, signalOf, markHTML } from './bill_cell.js';
 import { placeCell, stoppedLine } from './place.js';
 import { codesOf, cmteLabel, monD, ymdH } from './bill_words.js';
 import { cmteMarks } from './bill_tl.js';
@@ -56,7 +56,8 @@ const toldAbove = b => { const w = stoppedWhy(b); return !!w.cmte; };
 const stoppedShort = stoppedDate;
 const COLS = '<colgroup><col class="cn"><col class="cm"><col class="cw"><col class="cd"></colgroup>';   // widths in app.css: the number fits its words, the name takes the rest
 const COLS3 = '<colgroup><col class="cn"><col class="cm"><col class="cw"></colgroup>';
-const cellHTML = c => `<span class="dl${c.amber ? ' amber' : ''}${c.quiet ? ' quiet' : ''}">${c.icon ? ic(c.icon) : ''}<span>${esc(c.text)}</span></span>`;
+// the Next-date cell of the table: the one mark (bill_cell.js signalOf, the same answer as All bills and the Issues list), then the words; amber words only beside risk or soon
+const cellHTML = (b, row, c) => { const sig = signalOf(b, row), amber = sig === 'risk' || sig === 'soon'; return `<span class="dl${amber ? ' amber' : ''}${c.quiet && !amber ? ' quiet' : ''}">${markHTML(sig)}<span>${esc(c.text)}</span></span>`; };
 const nameCell = (b, issue) => `<span class="tn">${esc(eCig(billName(b)))}</span>${b.position && b.position !== issue.stance ? `<span class="tpos">Our position: ${esc(posWords(b))}</span>` : ''}`;
 
 // The alive bills, most urgent first: by the order of the cell's key, then by its date or time, then by bill number
@@ -73,16 +74,19 @@ export function billsHTML(issue, bills, row, who) {
   let h = '<h2 class="sh" id="tBillsH">Bills</h2>';
   if (alive.length) {
     h += `<table class="btab" id="tBills"><caption class="sr">Bills of this issue that are still alive, where each waits now, and how each stands against the next deadline</caption>${COLS}<thead><tr><th scope="col" colspan="2">Bill</th><th scope="col">Where it is</th><th scope="col" class="dh">${esc(headCell(row))}</th></tr></thead><tbody>`
-      + alive.map(({ b, c }) => { const pc = placeCell(b, null, { link: true }); return `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw"${pc.attr}>${pc.html}</td><td class="dc">${cellHTML(c)}</td></tr>`; }).join('') + '</tbody></table>';
+      + alive.map(({ b, c }) => { const pc = placeCell(b, null, { link: true }); return `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw"${pc.attr}>${pc.html}</td><td class="dc">${cellHTML(b, row, c)}</td></tr>`; }).join('') + '</tbody></table>';
   }
   if (dead.length) {
     const open = !alive.length || tui.open.has(issue.id), n = dead.length;
     const rows = `<table class="btab dead" id="tDead"${open ? '' : ' hidden'}><caption class="sr">Bills of this issue that stopped this year</caption>${COLS3}<thead class="sr"><tr><th scope="col">Bill</th><th scope="col">Name</th><th scope="col">What happened</th></tr></thead><tbody>`
-      + dead.map((b, i) => `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw quiet">${esc(!alive.length && i === 0 && toldAbove(b) ? stoppedShort(b) : stoppedWords(b))}</td></tr>`).join('') + '</tbody></table>';
+      + dead.map((b, i) => `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw quiet">${stoppedCell(b, row, !alive.length && i === 0 && toldAbove(b) ? stoppedShort(b) : stoppedWords(b))}</td></tr>`).join('') + '</tbody></table>';
     h += alive.length ? `<p class="ifold" id="tFold">${n} ${n === 1 ? 'bill' : 'bills'} stopped this year · ${btn(open ? 'Show fewer' : `Show ${n}`, { kind: 'text', id: 'tFoldBtn', attrs: `aria-expanded="${open}" aria-controls="tDead" data-shown="${n}"` })}</p>${rows}` : rows;
   }
   return h;
 }
+
+// a stopped bill in the folded list: its words, with its mark only when it has one (the deferred bill's dying mark until its deadline passes)
+const stoppedCell = (b, row, text) => { const sig = signalOf(b, row); return sig ? `<span class="dl">${markHTML(sig)}<span>${esc(text)}</span></span>` : esc(text); };
 
 export function bindTable(issue) {
   const bt = document.getElementById('tFoldBtn'); if (!bt) return;

@@ -1020,11 +1020,27 @@ li[hidden] { display: none; }
   .atab td.c-where, .atab td.c-next { display: inline; margin: 0; }
   .atab td.c-where .w1, .atab td.c-where .w2 { display: inline; }
   .atab td.c-where .w2::before { content: ' · '; }
-  .atab td.c-next:not(:empty)::before { content: ' · '; color: var(--muted); }
-  .atab td.c-where:empty, .atab td.c-next:empty { display: none; }
+  .atab td.c-next:has(.dl)::before { content: ' · '; color: var(--muted); }
+  .atab td.c-where:empty, .atab td.c-next:not(:has(.dt)):not(:has(.sgm:not(.sgm-none))) { display: none; }   /* a Next date cell is never empty: its mark slot is always there, so it is hidden when it has neither a mark nor words */
   .atab td.c-coal { color: var(--muted); }
   .atab td.c-lead .albl, .atab td.c-coal .albl { display: inline; }
   .atab td.c-lead { color: var(--ink); }
   .atab a.lk.bn { position: relative; }
   .atab a.lk.bn::after { content: ''; position: absolute; inset: calc(var(--s2) * -1) 0; }   /* the link's touch target grows to the hit size without changing the layout */
 }
+
+/* R-398 (Nate, 18 Nov): one mark per bill before its date, on All bills, the Issues list and the issue page's table. A fixed slot, so the dates share one left edge.
+   Status colour is on these marks only, from the tokens --sig-* (tokens.css); the date text is amber only beside an amber mark (risk, soon). */
+.sgm { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--sig-icon); height: var(--sig-icon); margin-top: calc((1lh - var(--sig-icon)) / 2); }
+.sgm > svg.ic, .atab .dl .sgm > svg.ic, .btab .dl .sgm > svg.ic { display: block; flex: none; width: var(--sig-icon); height: var(--sig-icon); margin: 0; }
+.sgm-risk, .sgm-soon { color: var(--sig-amber); }
+.sgm-dying { color: var(--sig-red); }
+.sgm-hear { color: var(--sig-blue); }
+.sgm-clear { color: var(--sig-green); }
+.sgm-heard, .sgm-time { color: var(--sig-grey); }
+/* the legend under the count on All bills: one line of text, only the marks in view */
+.sglegend { margin: 0 0 var(--s2); color: var(--muted); font-size: var(--f14); line-height: 1.35; }
+.sglegend[hidden] { display: none; }
+.sglegend .lgi { display: inline-flex; align-items: center; gap: var(--s1); white-space: nowrap; }
+.sglegend .sgm { margin-top: 0; }
+.sglegend .lgsep { white-space: pre; }

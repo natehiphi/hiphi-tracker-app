@@ -13,7 +13,7 @@ import { esc } from './parts.js';
 import { billName, billNo, posWords, first } from './steps.js';
 import { isAlive, deadlineOf } from './standing.js';
 import { leadIds } from './bill_words.js';
-import { deadlineCell } from './bill_cell.js';
+import { deadlineCell, signalOf, markHTML, SIGNAL, SIGNAL_ORDER } from './bill_cell.js';
 import { stoppedWhy, stoppedDateOf } from './issue_table.js';
 import { placeOf, cellOf, lineOf, placeLine, placeCompare } from './place.js';
 import { stoppedISO } from './bill.js';
@@ -54,17 +54,18 @@ export function billsFor(who, me) {
 export const mineCount = me => billsFor(MINE, me).bills.length;
 
 // ---------------------------------------------------------------------------------- one bill's cells, from the shared functions
-// Next date: { text, amber, icon, quiet, key (when, in ms, for sorting; null when the app has no date), stop (a stopped bill: the Capitol's date it stopped, YYYY-MM-DD) }
-// An alive bill: its hearing ("Hearing today 1:10 PM"), else the date its hearing must happen by ("by Mon, Mar 30 · 14 days"), always with the date, and in amber only when deadlineCell says it is at risk
-// (a hearing after its own deadline is the cell's other amber); a stopped bill: a quiet "Stopped Feb 11".
+// Next date: { text, sig (the mark: bill_cell.js signalOf), amber (risk or soon only), quiet, key (when, in ms, for sorting; null when the app has no date), stop (a stopped bill: the Capitol's date it stopped, YYYY-MM-DD) }
+// An alive bill: its hearing ("Hearing today 1:10 PM"), else the date its hearing must happen by ("by Mon, Mar 30 · 14 days"), always with the date. The mark comes first in the cell, from signalOf alone.
+// A stopped bill: a quiet "Stopped Feb 11" (a deferred bill keeps that, and carries the dying mark until its deadline passes).
 export function nextDateOf(b, row, w = null) {
-  if (!isAlive(b)) { const x = w || stoppedWhy(b); return { text: x.date ? stoppedDateOf(x) : '', amber: false, icon: '', quiet: true, key: null, stop: stoppedISO(b) }; }
+  const sig = signalOf(b, row), amber = sig === 'risk' || sig === 'soon';
+  if (!isAlive(b)) { const x = w || stoppedWhy(b); return { text: x.date ? stoppedDateOf(x) : '', sig, amber: false, quiet: true, key: null, stop: stoppedISO(b) }; }
   const c = deadlineCell(b, row), st = stopOf(b);
-  if (c.key === 'hearing' || c.key === 'late') { const h = hearingAhead(b); return { text: `${cap1(hearTxt(h.scheduled_at))}${c.key === 'late' ? ' · after the deadline' : ''}`, amber: c.amber, icon: c.key === 'late' ? 'triangle-alert' : '', quiet: false, key: new Date(h.scheduled_at).getTime(), stop: '' }; }
-  if (c.key === 'risk') { const d = String(deadlineOf(b).date).slice(0, 10); return { text: byWords(d), amber: true, icon: 'triangle-alert', quiet: false, key: ts(d), stop: '' }; }
+  if (c.key === 'hearing' || c.key === 'late') { const h = hearingAhead(b); return { text: `${cap1(hearTxt(h.scheduled_at))}${c.key === 'late' ? ' · after the deadline' : ''}`, sig, amber, quiet: false, key: new Date(h.scheduled_at).getTime(), stop: '' }; }
+  if (c.key === 'risk') { const d = String(deadlineOf(b).date).slice(0, 10); return { text: byWords(d), sig, amber, quiet: false, key: ts(d), stop: '' }; }
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
-  if (!dl) return { text: '', amber: false, icon: '', quiet: true, key: null, stop: '' };
-  return { text: byWords(String(dl.date).slice(0, 10)), amber: false, icon: '', quiet: c.key !== 'need', key: ts(dl.date), stop: '' };
+  if (!dl) return { text: '', sig, amber, quiet: true, key: null, stop: '' };
+  return { text: byWords(String(dl.date).slice(0, 10)), sig, amber, quiet: c.key !== 'need', key: ts(dl.date), stop: '' };
 }
 // Where it is: place.js, one line of text ("Waiting for a hearing · Senate Education (EDU)"); the table draws the same two lines (placeCell)
 export const whereOf = (b, w = null) => placeLine(b, w);
@@ -157,7 +158,11 @@ export function rowsFor(recs, f) {
 // ---------------------------------------------------------------------------------- drawing
 const titleOf = who => who.kind === 'mine' ? 'Your bills' : who.kind === 'all' ? 'All bills' : `${first(who.person)}’s bills`;
 const posCell = r => !r.pos ? '<span class="pnone">No position yet</span>' : r.pos === 'monitor' ? `<span class="pmon">${esc(posWords(r.b))}</span>` : `<b class="pside">${esc(posWords(r.b))}</b>`;
-const nextCell = r => !r.next.text ? '' : `<span class="dl${r.next.amber ? ' amber' : ''}${r.next.quiet ? ' quiet' : ''}">${r.next.icon ? ic(r.next.icon) : ''}<span>${esc(r.next.text)}</span></span>`;
+// the Next date cell: the mark first (always, so the dates share one left edge), then the words when there are any
+const nextCell = r => `<span class="dl${r.next.amber ? ' amber' : ''}${r.next.quiet && !r.next.amber ? ' quiet' : ''}">${markHTML(r.next.sig)}${r.next.text ? `<span class="dt">${esc(r.next.text)}</span>` : ''}</span>`;
+// the legend under the count: each mark in view, in SIGNAL_ORDER, as its icon and name, " · " between; nothing when no bill in view has a mark
+const legendOf = rows => { const have = new Set(rows.map(r => r.next.sig)); return SIGNAL_ORDER.filter(k => have.has(k)).map(k => `<span class="lgi"><span aria-hidden="true">${markHTML(k)}</span>${SIGNAL[k].name}</span>`).join('<span class="lgsep" aria-hidden="true"> · </span>'); };
+const legendTag = rows => { const h = legendOf(rows); return `<p class="sglegend" id="abLegend"${h ? '' : ' hidden'}>${h}</p>`; };
 function billCell(r, v, f) {
   const href = esc(billLink(v.who, f, r)), led = v.who.kind !== 'all' && r.lead && !r.lids.includes(v.pid) ? `<span class="ledby">Led by ${esc(first(r.lead))}</span>` : '';
   const iss = r.issue && !sameName(r.b, r.issue) ? `<a class="lk issl" href="${esc(issueHref(v.who, r.issue.id))}">${esc(eCig(r.issue.name))}</a>` : '';
@@ -206,7 +211,7 @@ function pageHTML(v, f, rows) {
     + `<div class="afilters${bui.filt ? ' open' : ''}" id="abFilters">${sel('abPos', 'Position', posOpts(), f.pos)}${sel('abCoal', 'Coalition', [['', 'Any coalition'], ...camps.map(c => [String(c.id), camName(c)])], f.coal)}${sel('abSt', 'Status', stOpts, f.st)}`
     + `<a class="lk clr" id="abClear" href="${esc(hrefOf(who, noFilter(f)))}"${any ? '' : ' hidden'}>Clear</a></div>`
     + `<div class="asortsel"><label class="vh" for="abSort">Sort by</label>${sel('abSort', 'Sort by', sortOpts, f.sort)}<button class="btn quiet" type="button" id="abRev" aria-label="${f.dir === 'desc' ? 'Descending, press for ascending' : 'Ascending, press for descending'}">${ic(f.dir === 'desc' ? 'chevron-down' : 'chevron-up')}</button></div></div>`
-    + picker + `<p class="acount" id="abCount" role="status">${esc(countLine(rows.length, v.recs.length))}</p><div id="abResult">${resultHTML(v, f, rows)}</div></div></div>`;   // the count is one element that stays, so a screen reader hears it change
+    + picker + `<p class="acount" id="abCount" role="status">${esc(countLine(rows.length, v.recs.length))}</p>${legendTag(rows)}<div id="abResult">${resultHTML(v, f, rows)}</div></div></div>`;   // the count is one element that stays, so a screen reader hears it change
 }
 
 // The view as the page draws it: { who, me, people, pid, bills, set, ses, row, issueOf, recs } (recs: one record per bill, with the cells' words)
@@ -246,6 +251,7 @@ function redraw(api, focus = '') {
   const rows = bui.cur.rows = rowsFor(v.recs, f);
   host.innerHTML = resultHTML(v, f, rows); fill(false);
   const c = $('abCount'); if (c) c.textContent = countLine(rows.length, v.recs.length);
+  const lg = $('abLegend'), lh = legendOf(rows); if (lg) { lg.innerHTML = lh; lg.hidden = !lh; }
   const s = $('abSort'); if (s) s.value = f.sort;
   const rv = $('abRev'); if (rv) { rv.innerHTML = ic(f.dir === 'desc' ? 'chevron-down' : 'chevron-up'); rv.setAttribute('aria-label', f.dir === 'desc' ? 'Descending, press for ascending' : 'Ascending, press for descending'); }
   say(api);

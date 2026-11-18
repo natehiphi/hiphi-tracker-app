@@ -18,7 +18,7 @@ import { pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
 import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
-import { deadlineCell, clearedOf } from './bill_cell.js';
+import { deadlineCell, clearedOf, urgentBillOf, markHTML } from './bill_cell.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { stoppedWords, stoppedWhy } from './issue_table.js';
 import { billsModel, mineCount, trackedBills, billsFor } from './bills.js';
@@ -127,8 +127,8 @@ const relWords = d => { const k = daysTo(d); return k <= 0 ? 'today' : k === 1 ?
 export const byWords = d => { const k = daysTo(d); return `by ${dateWords(d)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`; };
 function secondOf(st, nx, bills = [st.bill]) {
   const b = st.bill;
-  if (st.state === 'risk' && st.cell.key === 'late') return { text: `Hearing ${hearTxt(st.h.scheduled_at)} · after the deadline`, risk: true, icon: 'triangle-alert' };
-  if (st.state === 'risk') return { text: `Needs a hearing by ${dateWords(st.dl.date).split(',')[0]} · ${relWords(st.dl.date)}`, risk: true, icon: 'triangle-alert' };
+  if (st.state === 'risk' && st.cell.key === 'late') return { text: `Hearing ${hearTxt(st.h.scheduled_at)} · after the deadline` };   // a hearing after the deadline: plain words, no amber (Nate, 18 Nov)
+  if (st.state === 'risk') return { text: `Needs a hearing by ${dateWords(st.dl.date).split(',')[0]} · ${relWords(st.dl.date)}` };
   if (st.state === 'hearing') {
     const r = nx && nx.next ? nx.next.row : null, before = r && (nx.touch.get(r.key) || []).some(y => y.id === b.id) && ymdHST(st.h.scheduled_at) < r.date;
     return { text: `Hearing ${hearTxt(st.h.scheduled_at)}${before ? ` · before ${dayName(r.date)}’s deadline` : ''}` };
@@ -146,7 +146,11 @@ function secondOf(st, nx, bills = [st.bill]) {
 }
 // The issues of a set with their state: { issue, bills, standing, days, k (the group's key), st (issueState), second }
 export function statesFor(set, nx) {
-  return set.map(x => { const st = issueState(x.bills, nx); return { ...x, k: st.state, st, second: secondOf(st, nx, x.bills) }; });
+  // the row's mark is its most urgent bill's (bill_cell.js urgentOf); amber words only beside an amber mark (risk, soon)
+  // the amber words only when the mark is amber AND it is the bill the text describes (st.bill), so the text and the mark are about one bill
+  return set.map(x => { const st = issueState(x.bills, nx), row = nx && nx.next ? nx.next.row : null, u = urgentBillOf(x.bills, row), second = secondOf(st, nx, x.bills);
+    const amber = (u.key === 'risk' || u.key === 'soon') && u.b === st.bill;
+    return { ...x, k: st.state, st, second: { ...second, mark: u.key, risk: amber } }; });
 }
 const whenKey = x => x.k === 'risk' || x.k === 'hearing' || x.k === 'need' ? x.st.at : null;
 const inGroup = (rows, k) => rows.filter(x => x.k === k).sort((x, y) => { const a = whenKey(x), c = whenKey(y); return a == null ? byName(x, y) : (typeof a === 'string' ? a.localeCompare(c) : a - c) || byName(x, y); });
@@ -227,7 +231,7 @@ export function sessionOf(set) {
 // ---------------------------------------------------------------------------------- the left column
 // Look-only depends on the issue, not the view: the viewer's own issues keep their links to their steps, anyone else's say "Look only".
 const ownSet = me => new Set(withMe(me, () => [...myIssueIds()]).map(String));
-const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${s.icon ? ic(s.icon) : ''}<span>${s.html ? keepWordsHTML(s.html) : keepWords(esc(s.text))}</span></span>` : '';   // s.html: a line with a joint committee (its codes carry their full names)
+const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${markHTML(s.mark || '')}<span>${s.html ? keepWordsHTML(s.html) : keepWords(esc(s.text))}</span></span>` : '';   // s.html: a line with a joint committee (its codes carry their full names)
 const newHTML = text => `<span class="ir2 one" title="${esc(text)}"><span class="vh">New: </span><span>${keepWords(esc(text))}</span></span>`;
 // the lead's initials at the right of a row, on Everyone and on a teammate's list (there, only when the lead is someone else)
 function leadOf(i, who) {
