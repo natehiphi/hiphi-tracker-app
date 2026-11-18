@@ -1,7 +1,8 @@
 # Staff7's marks on the Next date (R-398, Nate's table of 18 Nov 2026), on the practice copy: bill_cell.js signalOf is the ONE answer, and every page draws it.
 #   (a) signalOf on SYNTHETIC bills, one case per row of the table, in the order the table tests them (first match wins): passed, floor, conference near and far and monitor,
 #       hearing ahead (every position), deferred with the deadline ahead and with the stage dead, heard held (support 2 days soon, support 10 days heard, monitor heard),
-#       needs a hearing (support at 5 days risk, at 20 days time, monitor and oppose none), not referred, cleared for oppose;
+#       needs a hearing (support at 5 days risk, at 20 days time, monitor and oppose none), not referred, cleared for oppose, and (Nate 18 Nov) a bill the upcoming
+#       deadline does not touch is in the clear for every position, a hearing ahead still beats it, heard-no-vote stays heard, and with no row nothing changes;
 #   (b) on the real page (All bills, Everyone): every Next date cell has exactly one mark, the legend lists exactly the marks in view and only those, a filter changes the legend,
 #       no page error, and no sideways scroll at 1440, 1280 and 390;
 #   (c) the marks use the page's own colour tokens only (no hex in the drawn marks).
@@ -47,7 +48,10 @@ SYN = """async (cases) => {
       else if (key === 'fiscal') DL.conference = [['House and Senate must agree', far], ['Fiscal', near]];
       else if (key && DL[key] !== undefined) DL[key] = [[key, near]];
     }
-    let r; try { const st = m.stopOf(b); r = { name: c.name, sig: C.signalOf(b, c.row || null), key: st.deadlineKey, clr: C.clearedOf(b, c.row || null), phase: st.phase }; } catch (e) { r = { name: c.name, err: String(e) }; }
+    // the upcoming deadline row the page would pass: 'own' = the one this bill races (it faces it); 'other' = a deadline it does not touch (a second-chamber gate its first-chamber bill has not reached); null = no row
+    const dte = ymd(now + (c.dl ?? 30) * day), key0 = m.stopOf(b).deadlineKey;
+    const row = c.row === 'own' ? { key: C.GATE(key0), date: dte } : c.row === 'other' ? { key: 'second_triple', date: dte } : (c.row || null);
+    let r; try { const st = m.stopOf(b); r = { name: c.name, sig: C.signalOf(b, row), key: st.deadlineKey, clr: C.clearedOf(b, row), phase: st.phase }; } catch (e) { r = { name: c.name, err: String(e) }; }
     for (const h of hs) S.hearings.splice(S.hearings.indexOf(h), 1);
     out.push(r);
   }
@@ -91,17 +95,29 @@ CASES = [
     dict(name='heard_support_10_days', bill=dict(position='support'), dl=10, hearings=[dict(at=-1)], expect='heard'),
     dict(name='heard_monitor_2_days', bill=dict(position='monitor'), dl=2, hearings=[dict(at=-1)], expect='heard'),
     # needs a hearing (bills we support only): amber at 7 days or less, grey clock further off; monitor, oppose and neutral have none
-    dict(name='needs_hearing_support_5_days', bill=dict(position='support'), dl=5, expect='risk'),
-    dict(name='needs_hearing_support_7_days', bill=dict(position='support'), dl=7, expect='risk'),
-    dict(name='needs_hearing_support_8_days', bill=dict(position='support'), dl=8, expect='time'),
-    dict(name='needs_hearing_support_20_days', bill=dict(position='support'), dl=20, expect='time'),
-    dict(name='needs_hearing_strongly_support', bill=dict(position='strongly_support'), dl=5, expect='risk'),
-    dict(name='needs_hearing_support_amend', bill=dict(position='support_amend'), dl=5, expect='risk'),
-    dict(name='needs_hearing_neutral', bill=dict(position='neutral'), dl=5, expect=''),
-    dict(name='needs_hearing_monitor', bill=dict(position='monitor'), dl=5, expect=''),
-    dict(name='needs_hearing_oppose', bill=dict(position='oppose'), dl=5, expect=''),
-    dict(name='needs_hearing_missed_deadline', bill=dict(position='support'), dl=-2, expect=''),
+    dict(name='needs_hearing_support_5_days', bill=dict(position='support'), dl=5, row='own', expect='risk'),
+    dict(name='needs_hearing_support_7_days', bill=dict(position='support'), dl=7, row='own', expect='risk'),
+    dict(name='needs_hearing_support_8_days', bill=dict(position='support'), dl=8, row='own', expect='time'),
+    dict(name='needs_hearing_support_20_days', bill=dict(position='support'), dl=20, row='own', expect='time'),
+    dict(name='needs_hearing_strongly_support', bill=dict(position='strongly_support'), dl=5, row='own', expect='risk'),
+    dict(name='needs_hearing_support_amend', bill=dict(position='support_amend'), dl=5, row='own', expect='risk'),
+    dict(name='needs_hearing_neutral', bill=dict(position='neutral'), dl=5, row='own', expect=''),
+    dict(name='needs_hearing_monitor', bill=dict(position='monitor'), dl=5, row='own', expect=''),
+    dict(name='needs_hearing_oppose', bill=dict(position='oppose'), dl=5, row='own', expect=''),
+    dict(name='needs_hearing_missed_deadline', bill=dict(position='support'), dl=-2, row='own', expect=''),
     dict(name='not_referred_support', bill=dict(referrals=[], committee=None), dl=5, expect=''),
+    # a bill the upcoming deadline does not touch (its own gate is another one; here the second chamber's first gate, which a first-chamber bill has not reached) is in the clear,
+    # whatever its position (Nate, 18 Nov); with no row (no upcoming deadline known) it keeps its old answer
+    dict(name='untouched_support', bill=dict(position='support'), dl=5, row='other', expect='clear'),
+    dict(name='untouched_monitor', bill=dict(position='monitor'), dl=5, row='other', expect='clear'),
+    dict(name='untouched_oppose', bill=dict(position='oppose'), dl=5, row='other', expect='clear'),
+    dict(name='untouched_neutral', bill=dict(position='neutral'), dl=5, row='other', expect='clear'),
+    dict(name='untouched_not_referred', bill=dict(referrals=[], committee=None), dl=5, row='other', expect='clear'),
+    dict(name='untouched_hearing_ahead', bill=dict(position='support'), dl=5, hearings=[dict(at=3)], row='other', expect='hear'),
+    dict(name='untouched_heard_no_vote', bill=dict(position='support'), dl=10, hearings=[dict(at=-1)], row='other', expect='heard'),
+    dict(name='untouched_deferred', bill=dict(last_action='Committee deferred the measure.'), dl=10, row='other', expect='dying'),   # the dying mark still comes first
+    dict(name='no_row_untouched_support', bill=dict(position='support'), dl=10, expect='time'),
+    dict(name='no_row_untouched_oppose', bill=dict(position='oppose'), dl=10, expect=''),
     dict(name='cleared_unknown_support', bill=dict(stage='second_lateral', referrals=['HLT'], origin_stops=0, chamber='S', position='support'), dl=5, row=FIRST, expect=''),
     # cleared: a bill that has passed the next deadline is never amber, whatever its position
     dict(name='cleared_oppose', bill=dict(stage='second_lateral', referrals=['HLT', 'WAM'], origin_stops=1, chamber='S', position='oppose'), dl=20, row=FIRST, expect='clear'),
@@ -131,6 +147,9 @@ with sync_playwright() as p:
     ok(got_map.get('needs_hearing_support_7_days') == 'risk' and got_map.get('needs_hearing_support_8_days') == 'time', 'needs a hearing: amber at 7 days, grey at 8')
     ok(got_map.get('conference_7_support') == 'risk' and got_map.get('conference_8_oppose') == 'time', 'conference: amber at 7 days, grey at 8')
     ok(got_map.get('hearing_after_deadline_support') == 'hear', 'a hearing after the deadline is the blue calendar, never amber')
+    ok(all(got_map.get(k) == 'clear' for k in ('untouched_support', 'untouched_monitor', 'untouched_oppose', 'untouched_not_referred')), 'untouched by the upcoming deadline (support, monitor, oppose, not referred): in the clear')
+    ok(got_map.get('untouched_hearing_ahead') == 'hear' and got_map.get('untouched_heard_no_vote') == 'heard', 'untouched: a hearing ahead is still hear; heard with no vote is still heard, not clear')
+    ok(got_map.get('no_row_untouched_support') == 'time', 'no row: an untouched support bill keeps its old answer (time)')
     ok(got_map.get('deferred_stage_dead') == '' and got_map.get('deferred_deadline_missed') == '', 'a dead deferred bill, and a deferred bill whose deadline has passed, show no mark')
     pg.context.close()
 
@@ -150,7 +169,16 @@ with sync_playwright() as p:
         leg = pg.evaluate("() => [...document.querySelectorAll('#abLegend .lgi')].map(e => e.textContent.trim())")
         names = pg.evaluate("() => ({ risk: 'At risk', soon: 'Vote needed soon', dying: 'Deferred', hear: 'Hearing set', heard: 'Heard, waiting for the vote', time: 'On time', clear: 'In the clear' })")
         want = [names[k] for k in ['risk', 'soon', 'dying', 'hear', 'heard', 'time', 'clear'] if k in present]
-        ok(leg == want and not pg.evaluate("() => document.getElementById('abLegend').hidden"), f'{w}: the legend lists exactly the marks in view, in order ({leg})')
+        # the clear mark names its deadline ("In the clear for Mar 19"): the legend's own deadline date is the one it must name
+        dl_date = re.search(r'^Deadline \w{3}, (\w{3} \d{1,2}) ·', leg_head := pg.evaluate("() => document.getElementById('abLegend').textContent.trim()"))
+        leg_n = [('In the clear' if x.startswith('In the clear') else x) for x in leg]
+        ok(leg_n == want and not pg.evaluate("() => document.getElementById('abLegend').hidden"), f'{w}: the legend lists exactly the marks in view, in order ({leg})')
+        ok(bool(dl_date) and leg_head.startswith('Deadline '), f'{w}: the legend starts with its deadline ("{leg_head[:48]}")')
+        if dl_date:
+            clr_names = pg.evaluate("() => [...document.querySelectorAll('#aTab .sgm-clear')].map(e => e.getAttribute('aria-label'))")
+            ok(clr_names and all(n == 'In the clear for ' + dl_date.group(1) for n in clr_names), f'{w}: every clear mark is named "In the clear for {dl_date.group(1)}" ({len(clr_names)})')
+            if w == 1440:
+                ok(len(clr_names) > 50, f'{w}: more than 50 bills are in the clear on practice data ({len(clr_names)}; it was 7 before R-398 Nate 18 Nov)')
         ok(pg.evaluate("() => document.querySelector('#abCount').nextElementSibling.id") == 'abLegend', f'{w}: the legend sits directly under the bill count')
         ok(pg.evaluate(NOSIDE), f'{w}: no sideways scroll on All bills')
         ok(not pg.errs, f'{w}: no page error ({pg.errs[:2]})')
@@ -161,7 +189,7 @@ with sync_playwright() as p:
             pg.evaluate("() => { location.hash = '#/issues/bills?who=all&st=stopped'; }"); pg.wait_for_timeout(500); settle(pg)
             leg2 = pg.evaluate("() => [...document.querySelectorAll('#abLegend .lgi')].map(e => e.textContent.trim())")
             seen2 = pg.evaluate("() => [...new Set([...document.querySelectorAll('#aTab .c-next .sgm')].map(e => [...e.classList].find(c => c.startsWith('sgm-'))).filter(k => k !== 'sgm-none'))].map(k => k.slice(4))")
-            ok(leg2 == [names[k] for k in ['risk', 'soon', 'dying', 'hear', 'heard', 'time', 'clear'] if k in seen2], f'a stopped view: the legend lists only the marks in that view ({leg2})')
+            ok([('In the clear' if x.startswith('In the clear') else x) for x in leg2] == [names[k] for k in ['risk', 'soon', 'dying', 'hear', 'heard', 'time', 'clear'] if k in seen2], f'a stopped view: the legend lists only the marks in that view ({leg2})')
         pg.context.close()
 
     # ---------------------------------------------------------------- (b) phone: no sideways scroll on All bills

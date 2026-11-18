@@ -71,7 +71,10 @@ export function headCell(row) {
 // ---------------------------------------------------------------------------------- the mark (R-398, Nate 18 Nov)
 // ONE answer per bill about the issue's next deadline, drawn as one small line icon before its date. signalOf(b, row) gives the key; markHTML(key) draws it; every page reads these, so no page decides a mark itself.
 // The tests run in this order and the first match wins (Nate's table of 18 Nov). Support = strongly_support, support, support_amend; oppose = oppose, strongly_oppose; anything else counts as neither.
-// Words: the accessible name, the hover title and the legend (Claude's draft, to be checked by Nate).
+// Nate, 18 Nov: "staff will most want to understand where the bill is in relation to the upcoming deadline". So a bill the upcoming deadline does not touch (its own deadline is another gate,
+// and the deadline does not stop it) is in the clear, the same as a bill that has cleared it, whatever its position. The clock now shows only for a bill that faces the upcoming deadline
+// more than 7 days off, and for conference. Without a row (no upcoming deadline known) nothing changes.
+// Words: the accessible name, the hover title and the legend (Claude's draft, to be checked by Nate). The clear mark names its deadline when the page knows it: "In the clear for Mar 19".
 export const SIGNAL = {
   risk: { icon: 'triangle-alert', name: 'At risk' },
   soon: { icon: 'hourglass', name: 'Vote needed soon' },
@@ -82,6 +85,13 @@ export const SIGNAL = {
   clear: { icon: 'check', name: 'In the clear' },
 };
 export const SIGNAL_ORDER = ['risk', 'soon', 'dying', 'hear', 'heard', 'time', 'clear'];   // most urgent first: the Issues list order
+// the words of one mark: 'clear' names the upcoming deadline when the page knows it ("In the clear for Mar 19"), else "In the clear"
+export const nameFor = (key, row = null) => key === 'clear' && row && row.date ? `In the clear for ${short(row.date)}` : (SIGNAL[key]?.name || '');
+// the legend's lead-in when the view has an upcoming deadline: "Deadline Thu, Mar 19 · 3 days:" (weekday, the day's count)
+export function legendHead(row) {
+  const k = daysTo(row.date);
+  return `Deadline ${dateWords(row.date)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}:`;
+}
 const SESSION_DONE = ['governor', 'enacted', 'ballot'];
 // the Capitol's own last action says deferred: the same test as place.js DEFERRED
 const DEFERRED = b => HELD_RE.test(b.last_action || '') && !/failed to pass/i.test(b.last_action || '');
@@ -104,6 +114,8 @@ export function signalOf(b, row) {
   if (clearedOf(b, row) === 'yes') return 'clear';
   if (hearingAhead(b)) return 'hear';
   if (st.hearingState === 'held') return grp === 'support' && live && daysTo(st.deadline.date) <= 3 ? 'soon' : 'heard';
+  // the upcoming deadline does not touch this bill (its own deadline is another gate): in the clear, whatever its position (Nate, 18 Nov)
+  if (row && clearedOf(b, row) === 'no' && GATE(st.deadlineKey) !== row.key) return 'clear';
   if (clearedOf(b, row) === 'unknown' || placeOf(b).key === 'not_referred') return '';
   if (grp !== 'support') return '';   // only the bills we support are asked for a hearing (wantsHearing would let in neutral)
   if (isAtRisk(b)) return 'risk';
@@ -116,8 +128,10 @@ export function urgentBillOf(bills, row) {
   return best;
 }
 export const urgentOf = (bills, row) => urgentBillOf(bills, row).key;
-// the mark as HTML: a 14px line icon in a fixed slot. '' gives an empty slot, so the dates share one left edge
-export function markHTML(key) {
+// the mark as HTML: a 14px line icon in a fixed slot. '' gives an empty slot, so the dates share one left edge. row: the upcoming deadline (names the clear mark), or null
+export function markHTML(key, row = null) {
   const s = SIGNAL[key];
-  return s ? `<span class="sgm sgm-${key}" role="img" aria-label="${s.name}" title="${s.name}">${ic(s.icon)}</span>` : '<span class="sgm sgm-none" aria-hidden="true"></span>';
+  if (!s) return '<span class="sgm sgm-none" aria-hidden="true"></span>';
+  const name = nameFor(key, row);
+  return `<span class="sgm sgm-${key}" role="img" aria-label="${name}" title="${name}">${ic(s.icon)}</span>`;
 }

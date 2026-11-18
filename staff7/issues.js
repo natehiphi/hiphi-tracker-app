@@ -150,7 +150,7 @@ export function statesFor(set, nx) {
   // the amber words only when the mark is amber AND it is the bill the text describes (st.bill), so the text and the mark are about one bill
   return set.map(x => { const st = issueState(x.bills, nx), row = nx && nx.next ? nx.next.row : null, u = urgentBillOf(x.bills, row), second = secondOf(st, nx, x.bills);
     const amber = (u.key === 'risk' || u.key === 'soon') && u.b === st.bill;
-    return { ...x, k: st.state, st, second: { ...second, mark: u.key, risk: amber } }; });
+    return { ...x, k: st.state, st, second: { ...second, mark: u.key, risk: amber, row } }; });
 }
 const whenKey = x => x.k === 'risk' || x.k === 'hearing' || x.k === 'need' ? x.st.at : null;
 const inGroup = (rows, k) => rows.filter(x => x.k === k).sort((x, y) => { const a = whenKey(x), c = whenKey(y); return a == null ? byName(x, y) : (typeof a === 'string' ? a.localeCompare(c) : a - c) || byName(x, y); });
@@ -231,7 +231,7 @@ export function sessionOf(set) {
 // ---------------------------------------------------------------------------------- the left column
 // Look-only depends on the issue, not the view: the viewer's own issues keep their links to their steps, anyone else's say "Look only".
 const ownSet = me => new Set(withMe(me, () => [...myIssueIds()]).map(String));
-const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${markHTML(s.mark || '')}<span>${s.html ? keepWordsHTML(s.html) : keepWords(esc(s.text))}</span></span>` : '';   // s.html: a line with a joint committee (its codes carry their full names)
+const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${markHTML(s.mark || '', s.row)}<span>${s.html ? keepWordsHTML(s.html) : keepWords(esc(s.text))}</span></span>` : '';   // s.html: a line with a joint committee (its codes carry their full names)
 const newHTML = text => `<span class="ir2 one" title="${esc(text)}"><span class="vh">New: </span><span>${keepWords(esc(text))}</span></span>`;
 // the lead's initials at the right of a row, on Everyone and on a teammate's list (there, only when the lead is someone else)
 function leadOf(i, who) {

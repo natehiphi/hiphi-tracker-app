@@ -13,7 +13,7 @@ import { esc } from './parts.js';
 import { billName, billNo, posWords, first } from './steps.js';
 import { isAlive, deadlineOf } from './standing.js';
 import { leadIds } from './bill_words.js';
-import { deadlineCell, signalOf, markHTML, SIGNAL, SIGNAL_ORDER } from './bill_cell.js';
+import { deadlineCell, signalOf, markHTML, nameFor, legendHead, SIGNAL_ORDER } from './bill_cell.js';
 import { stoppedWhy, stoppedDateOf } from './issue_table.js';
 import { placeOf, cellOf, lineOf, placeLine, placeCompare } from './place.js';
 import { stoppedISO } from './bill.js';
@@ -78,7 +78,7 @@ function recOf(b, v) {
   const cs = (S.billCampaigns?.[b.id] || []).map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean);
   const lead = lids.length ? S.advocates.find(a => a.id === lids[0]) : null, desc = trimDot(eCig(b.description || b.title)), w = alive ? null : stoppedWhy(b), next = nextDateOf(b, v.row, w), place = placeOf(b, w);
   const head = nick ? eCig(name) : no2;
-  return { b, no: num(b), alive, issue, lids, lead, leadName: lead ? first(lead) : '', leadMore: lids.length - 1, cs, camp: cs.length ? camName(cs[0]) : '', nick, head, no2, desc, name,
+  return { b, no: num(b), alive, issue, lids, lead, leadName: lead ? first(lead) : '', leadMore: lids.length - 1, cs, camp: cs.length ? camName(cs[0]) : '', nick, head, no2, desc, name, row: v.row || null,
     pos: b.position || '', posRank: POS_RANK(b), place, where: lineOf(place), cell: cellOf(place), next,
     hay: ` ${norm(`${nick ? name : ''} ${no2} ${desc}`)}`, compact: norm(no2).replace(/ /g, '') };
 }
@@ -159,10 +159,10 @@ export function rowsFor(recs, f) {
 const titleOf = who => who.kind === 'mine' ? 'Your bills' : who.kind === 'all' ? 'All bills' : `${first(who.person)}’s bills`;
 const posCell = r => !r.pos ? '<span class="pnone">No position yet</span>' : r.pos === 'monitor' ? `<span class="pmon">${esc(posWords(r.b))}</span>` : `<b class="pside">${esc(posWords(r.b))}</b>`;
 // the Next date cell: the mark first (always, so the dates share one left edge), then the words when there are any
-const nextCell = r => `<span class="dl${r.next.amber ? ' amber' : ''}${r.next.quiet && !r.next.amber ? ' quiet' : ''}">${markHTML(r.next.sig)}${r.next.text ? `<span class="dt">${esc(r.next.text)}</span>` : ''}</span>`;
-// the legend under the count: each mark in view, in SIGNAL_ORDER, as its icon and name, " · " between; nothing when no bill in view has a mark
-const legendOf = rows => { const have = new Set(rows.map(r => r.next.sig)); return SIGNAL_ORDER.filter(k => have.has(k)).map(k => `<span class="lgi"><span aria-hidden="true">${markHTML(k)}</span>${SIGNAL[k].name}</span>`).join('<span class="lgsep" aria-hidden="true"> · </span>'); };
-const legendTag = rows => { const h = legendOf(rows); return `<p class="sglegend" id="abLegend"${h ? '' : ' hidden'}>${h}</p>`; };
+const nextCell = r => `<span class="dl${r.next.amber ? ' amber' : ''}${r.next.quiet && !r.next.amber ? ' quiet' : ''}">${markHTML(r.next.sig, r.row)}${r.next.text ? `<span class="dt">${esc(r.next.text)}</span>` : ''}</span>`;
+// the legend under the count: when the view has an upcoming deadline, its date first (bold), then each mark in view, in SIGNAL_ORDER, as its icon and name, " · " between; nothing when no bill in view has a mark
+const legendOf = (rows, row) => { const have = new Set(rows.map(r => r.next.sig)), marks = SIGNAL_ORDER.filter(k => have.has(k)).map(k => `<span class="lgi"><span aria-hidden="true">${markHTML(k, row)}</span>${nameFor(k, row)}</span>`).join('<span class="lgsep" aria-hidden="true"> · </span>'); return marks && row ? `<b>${esc(legendHead(row))}</b> ${marks}` : marks; };
+const legendTag = (rows, row) => { const h = legendOf(rows, row); return `<p class="sglegend" id="abLegend"${h ? '' : ' hidden'}>${h}</p>`; };
 function billCell(r, v, f) {
   const href = esc(billLink(v.who, f, r)), led = v.who.kind !== 'all' && r.lead && !r.lids.includes(v.pid) ? `<span class="ledby">Led by ${esc(first(r.lead))}</span>` : '';
   const iss = r.issue && !sameName(r.b, r.issue) ? `<a class="lk issl" href="${esc(issueHref(v.who, r.issue.id))}">${esc(eCig(r.issue.name))}</a>` : '';
@@ -211,7 +211,7 @@ function pageHTML(v, f, rows) {
     + `<div class="afilters${bui.filt ? ' open' : ''}" id="abFilters">${sel('abPos', 'Position', posOpts(), f.pos)}${sel('abCoal', 'Coalition', [['', 'Any coalition'], ...camps.map(c => [String(c.id), camName(c)])], f.coal)}${sel('abSt', 'Status', stOpts, f.st)}`
     + `<a class="lk clr" id="abClear" href="${esc(hrefOf(who, noFilter(f)))}"${any ? '' : ' hidden'}>Clear</a></div>`
     + `<div class="asortsel"><label class="vh" for="abSort">Sort by</label>${sel('abSort', 'Sort by', sortOpts, f.sort)}<button class="btn quiet" type="button" id="abRev" aria-label="${f.dir === 'desc' ? 'Descending, press for ascending' : 'Ascending, press for descending'}">${ic(f.dir === 'desc' ? 'chevron-down' : 'chevron-up')}</button></div></div>`
-    + picker + `<p class="acount" id="abCount" role="status">${esc(countLine(rows.length, v.recs.length))}</p>${legendTag(rows)}<div id="abResult">${resultHTML(v, f, rows)}</div></div></div>`;   // the count is one element that stays, so a screen reader hears it change
+    + picker + `<p class="acount" id="abCount" role="status">${esc(countLine(rows.length, v.recs.length))}</p>${legendTag(rows, v.row)}<div id="abResult">${resultHTML(v, f, rows)}</div></div></div>`;   // the count is one element that stays, so a screen reader hears it change
 }
 
 // The view as the page draws it: { who, me, people, pid, bills, set, ses, row, issueOf, recs } (recs: one record per bill, with the cells' words)
@@ -251,7 +251,7 @@ function redraw(api, focus = '') {
   const rows = bui.cur.rows = rowsFor(v.recs, f);
   host.innerHTML = resultHTML(v, f, rows); fill(false);
   const c = $('abCount'); if (c) c.textContent = countLine(rows.length, v.recs.length);
-  const lg = $('abLegend'), lh = legendOf(rows); if (lg) { lg.innerHTML = lh; lg.hidden = !lh; }
+  const lg = $('abLegend'), lh = legendOf(rows, v.row); if (lg) { lg.innerHTML = lh; lg.hidden = !lh; }
   const s = $('abSort'); if (s) s.value = f.sort;
   const rv = $('abRev'); if (rv) { rv.innerHTML = ic(f.dir === 'desc' ? 'chevron-down' : 'chevron-up'); rv.setAttribute('aria-label', f.dir === 'desc' ? 'Descending, press for ascending' : 'Ascending, press for descending'); }
   say(api);

@@ -57,7 +57,7 @@ const stoppedShort = stoppedDate;
 const COLS = '<colgroup><col class="cn"><col class="cm"><col class="cw"><col class="cd"></colgroup>';   // widths in app.css: the number fits its words, the name takes the rest
 const COLS3 = '<colgroup><col class="cn"><col class="cm"><col class="cw"></colgroup>';
 // the Next-date cell of the table: the one mark (bill_cell.js signalOf, the same answer as All bills and the Issues list), then the words; amber words only beside risk or soon
-const cellHTML = (b, row, c) => { const sig = signalOf(b, row), amber = sig === 'risk' || sig === 'soon'; return `<span class="dl${amber ? ' amber' : ''}${c.quiet && !amber ? ' quiet' : ''}">${markHTML(sig)}<span>${esc(c.text)}</span></span>`; };
+const cellHTML = (b, row, c) => { const sig = signalOf(b, row), amber = sig === 'risk' || sig === 'soon'; return `<span class="dl${amber ? ' amber' : ''}${c.quiet && !amber ? ' quiet' : ''}">${markHTML(sig, row)}<span>${esc(c.text)}</span></span>`; };
 const nameCell = (b, issue) => `<span class="tn">${esc(eCig(billName(b)))}</span>${b.position && b.position !== issue.stance ? `<span class="tpos">Our position: ${esc(posWords(b))}</span>` : ''}`;
 
 // The alive bills, most urgent first: by the order of the cell's key, then by its date or time, then by bill number
@@ -86,7 +86,7 @@ export function billsHTML(issue, bills, row, who) {
 }
 
 // a stopped bill in the folded list: its words, with its mark only when it has one (the deferred bill's dying mark until its deadline passes)
-const stoppedCell = (b, row, text) => { const sig = signalOf(b, row); return sig ? `<span class="dl">${markHTML(sig)}<span>${esc(text)}</span></span>` : esc(text); };
+const stoppedCell = (b, row, text) => { const sig = signalOf(b, row); return sig ? `<span class="dl">${markHTML(sig, row)}<span>${esc(text)}</span></span>` : esc(text); };
 
 export function bindTable(issue) {
   const bt = document.getElementById('tFoldBtn'); if (!bt) return;
