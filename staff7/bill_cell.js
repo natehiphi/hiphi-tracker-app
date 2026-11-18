@@ -1,12 +1,9 @@
 // One answer per ALIVE bill about the issue's next deadline (R-398). The Issues list groups and the issue page's bills table both read deadlineCell, so the two can never disagree.
 // Imports only the data layer and staff7 leaf files (never issues.js), so no module cycle. Functions only: nothing here writes.
 import { stopOf, hearingAhead, wantsHearing } from '../staff6/model.js';
-import { CHAMBER_NAME, isOneChamber } from '../stops.js';
+import { isOneChamber } from '../stops.js';
 import { isAlive, isAtRisk, deadlineOf } from './standing.js';
 import { dateWords, daysTo } from './words.js';
-import { cmteLink, cmteLabel, codesOf } from './bill_words.js';
-import { whereWords } from '../staff6/steps.js';
-import { esc } from './parts.js';
 
 // ---------------------------------------------------------------------------------- has a bill passed a deadline?
 // Has this alive bill already passed the deadline of `row`? 'yes', 'no' (the deadline is not one of its steps, or it has not got there) or 'unknown' (the data cannot say).
@@ -66,30 +63,4 @@ export function headCell(row) {
   const k = daysTo(row.date);
   return `Deadline ${short(row.date)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`;
 }
-
-// ---------------------------------------------------------------------------------- the "Now waiting" column
-// Where the bill waits NOW, as HTML (every piece escaped): a committee is a link with its code after it, a joint stop names each committee joined by "with".
-const PHASES = { conference: 'Conference', governor: 'Governor', law: 'Signed into law', ballot: 'Going to the voters' };
-export function whereCell(b) {
-  const st = stopOf(b), ch = CHAMBER_NAME[st.chamber] || '';
-  if (!isAlive(b)) return 'Stopped this year';
-  if (st.phase === 'floor') return esc(ch ? `Floor vote, ${ch}` : 'Floor vote');
-  if (PHASES[st.phase]) return esc(PHASES[st.phase]);
-  if (st.phase !== 'committee') return esc(st.says || 'Not in a committee');
-  const codes = codesOf(st.committee);
-  if (codes.length) return codes.map(c => `${cmteLink(c, b)} (${esc(c)})`).join(' with ');
-  return esc(st.leg === 'second' && ch ? `Crossed to the ${ch} · no committee yet` : 'No committee yet');
-}
-
-// ---------------------------------------------------------------------------------- "Where it is", as plain words for one bill (the All bills table; the Issues list's own line is issues.js placeWords, which sums a joint stop up as "In 2 Senate committees")
-// An alive bill: its committees, each with its own code ("In Senate Education (EDU)", a joint stop "In House Water & Land (WAL) with House Public Safety (PBS)", at most `max` and then "and 1 more");
-// otherwise the phase in words ("In conference"). A stopped bill's words are issue_table.js stoppedReason.
-export const PHASE_WORDS = { floor: 'Ready for the floor vote', conference: 'In conference', governor: 'With the Governor', law: 'Signed into law', ballot: 'Going to the voters' };
-export function whereLine(b, max = 2) {
-  const st = stopOf(b);
-  if (st.phase === 'committee') {
-    const codes = codesOf(st.committee);
-    if (codes.length) { const names = codes.map(c => `${cmteLabel(c, b)} (${c})`); return `In ${names.slice(0, max).join(' with ')}${names.length > max ? ` and ${names.length - max} more` : ''}`; }
-  }
-  return PHASE_WORDS[st.phase] || whereWords(b, { deadline: false });
-}
+// Where a bill is, in words, is place.js (placeOf / placeHTML / placeLine): the one source every page reads.

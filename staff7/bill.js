@@ -1,24 +1,25 @@
 // Staff7's bill page (R-398). Part A: the band, HIPHI's position and who leads, where the bill stands (two plain lines), the path drawing and the bill's facts (what it does, issue, committees, companions,
 // sponsors). Everything here is worked out from data already in memory, and the words for dates and states come from the SAME helpers the Issues list uses (hearTxt, whenWords, deadlineOf, isAtRisk, clearedOf,
-// whereWords, testimonyDue, bill_words.js), so the list and this page never disagree. Looking never changes anything: only a bill on one of the viewer's own issues has a link to one of their steps.
+// place.js, testimonyDue, bill_words.js), so the list and this page never disagree. Looking never changes anything: only a bill on one of the viewer's own issues has a link to one of their steps.
 // Part B (Team notes, Past hearings, History) is bill_history.js, drawn after the facts; Part C (Change position or lead, Add a note) is bill_edit.js.
 import { S, capitolUrl } from '../staff6/data.js';
 import { hearingAhead, stopOf, roomName, companionsOf } from '../staff6/model.js';
-import { whereWords, whoseStep } from '../staff6/steps.js';
+import { whoseStep } from '../staff6/steps.js';
 import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
 import { billName, billNo, posWords, first, lateLine } from './steps.js';
 import { isAlive, deadlineOf, isAtRisk } from './standing.js';
-import { whenWords } from './words.js';
+import { whenWords, dateWords } from './words.js';
 import { norm } from './find.js';
-import { testimonyDue, letterState, testimonyShort, leadIds, http, draftFor, cmtesLinks, cleanCodes, ext } from './bill_words.js';
+import { cap, testimonyDue, letterState, testimonyShort, leadIds, http, draftFor, cmtesLinks, ext } from './bill_words.js';
 import { billTimeline } from './bill_tl.js';
 import { billTextUrl, afterHTML, moreAfterHTML, chairsHTML, askedWords, publicHTML, talkingHTML, bindMore } from './bill_more.js';
 import { partB, bindPartB } from './bill_history.js';
-import { stoppedWords, stoppedDate, stoppedReason } from './issue_table.js';
+import { stoppedWords } from './issue_table.js';
+import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { backHref } from './bills.js';
 import { editButton, editHTML, mayEdit, bindEdit } from './bill_edit.js';
-import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, sameName, whereShort, hearTxt, stepOn, clearedOf, clearedLabel, sitKeyOf, nextCtx, billHref } from './issues.js';
+import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, sameName, hearTxt, stepOn, clearedOf, clearedLabel, sitKeyOf, nextCtx, billHref } from './issues.js';
 
 const enc = encodeURIComponent;
 const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
@@ -28,7 +29,8 @@ export const bui = { all: new Set(), open: new Set(), edit: null, ctx: null, not
 
 // ---------------------------------------------------------------------------------- small parts
 const kv = rows => `<dl class="kv bfacts" id="bFacts">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
-const boldFirst = t => { const k = String(t).indexOf(' · '); return k < 0 ? `<b>${esc(t)}</b>` : `<b>${esc(t.slice(0, k))}</b>${esc(t.slice(k))}`; };
+// line 1 of the bill's place in bold, the rest as it is (the text is place.js placeLineHTML: already escaped)
+const boldFirst = h => { const k = String(h).indexOf(' · '); return k < 0 ? `<b>${h}</b>` : `<b>${h.slice(0, k)}</b>${h.slice(k)}`; };
 const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senate' : 'House';
 // the Capitol's own date a bill was stopped by (the m/d/yy at the end of died_deadline) as YYYY-MM-DD; '' when the data holds none
 export const stoppedISO = b => { const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || ''); if (!m) return ''; const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`; };
@@ -87,16 +89,16 @@ function testimonyState(h, b, st) {
 function statusLines(b, issue, who, open, own, nx, onIssue, others) {
   const alive = isAlive(b), step = own ? stepOn(open, b) : null, mine = mineBtn(step);
   if (!alive) {
-    const why = stoppedReason(b);   // the app's one wording for a stopped bill (issue_table.js): "Stopped Feb 11 · No hearing in House Health (HLT)"
-    const al = !issue ? '' : others.length ? others.map((o, k) => line(`${k ? '' : 'Still alive for this issue: '}<a class="lk" href="${billHref(who, o, issue.id)}">${esc(`${billNo(o)}, the ${chamberWord(o)} version`)}</a> · ${esc(whereShort(o))}`, { id: k ? '' : 'bAlive' })).join('')
+    const al = !issue ? '' : others.length ? others.map((o, k) => line(`${k ? '' : 'Still alive for this issue: '}<a class="lk" href="${billHref(who, o, issue.id)}">${esc(`${billNo(o)}, the ${chamberWord(o)} version`)}</a> · ${placeLineHTML(o)}`, { id: k ? '' : 'bAlive' })).join('')
       : line('No other bill on this issue is still moving.', { id: 'bAlive' });
-    return line(`<b>${esc(stoppedDate(b))}</b>${why ? ` · ${esc(why)}` : ''}`) + al;
+    return line(stoppedLineHTML(b, null, { link: true })) + al;   // place.js: "Stopped Feb 11 · No hearing, missed the deadline · House Health (HLT)"
   }
   const hs = aheadList(b), h = hearingAhead(b) ? hs[0] : null, out = [], row = nx && nx.next ? nx.next.row : null;
   if (h) {
     const room = roomName(h.room), notice = http(h.notice_url) ? ` · ${ext(h.notice_url, 'Agenda')}` : '', sit = sitHref(h, who, own, onIssue);
-    // "See the hearing" ends the hearing line (a link to the sitting in Calendar), unless the viewer has a step of their own to do
-    out.push(line(`<b>Hearing ${esc(hearTxt(h.scheduled_at))}</b> · ${cmtesLinks(h.committee, b)}${room ? ` · ${esc(room)}` : ''}${notice}${!step && sit ? ` · <a class="lk" href="${sit}">See the hearing</a>` : ''}`));
+    // the page LEADS with the bill's place (place.js, the same words as every table); the hearing's own line follows without the committee or the status. "See the hearing" ends it (a link to the sitting in Calendar), unless the viewer has a step of their own to do
+    out.push(line(boldFirst(placeLineHTML(b, null, { link: true }))));
+    out.push(line(`<b>${esc(cap(hearTxt(h.scheduled_at)))}</b>${room ? ` · ${esc(room)}` : ''}${notice}${!step && sit ? ` · <a class="lk" href="${sit}">See the hearing</a>` : ''}`));
     const due = testimonyDue(h), st = letterState(h, b), gone = due <= Date.now(), t = hearTxt(due), accepted = new Date(h.scheduled_at).getTime() > Date.now();
     const d = draftFor(h, b), doc = d && http(d.doc_url) ? ` · ${ext(d.doc_url, 'Open the testimony')}` : '';
     // the one amber on the page, in Calendar's own words and icon: testimony that was due, is not filed and is still accepted. Once it can no longer be filed it is a plain fact.
@@ -113,7 +115,8 @@ function statusLines(b, issue, who, open, own, nx, onIssue, others) {
   const dl = deadlineOf(b), cleared = !!row && clearedOf(b, row) === 'yes';
   if (dl) {
     const cm = stopOf(b).committee, risk = isAtRisk(b), said = cleared ? `${clearedLabel(row)}.` : '', chair = cm ? chairsHTML(cm) : '';
-    out.push(line(`<b>Needs a hearing by ${esc(whenWords(dl.date))}</b>${cm ? ` · in ${cmtesLinks(cm, b)}` : ''} · none is scheduled`));
+    out.push(line(boldFirst(placeLineHTML(b, null, { link: true }))));   // where it is, as every table says it
+    out.push(line(`<b>Needs a hearing by ${esc(whenWords(dl.date))}</b>`));
     const l2 = [risk ? esc('If it is not heard by then, it stops for the year.') : '', chair].filter(Boolean).join(' ');
     if (l2 || (risk && said)) out.push(line(`${l2}${risk && said ? ` <span class="m">${esc(said)}</span>` : ''}`));
     if (!risk && said) out.push(line(esc(said), { muted: true }));
@@ -121,11 +124,11 @@ function statusLines(b, issue, who, open, own, nx, onIssue, others) {
     if (l3) out.push(line(l3, { muted: true }));
     return out.join('') + mine;
   }
-  const where = cleanCodes(whereWords(b, { deadline: false }), b);
-  // in a committee with nothing scheduled and no deadline of its own to chase: say so, and the date the committee must hear it by when the Capitol's calendar gives one (never guessed)
+  const where = placeLineHTML(b, null, { link: true });   // place.js: "Waiting for a hearing · Senate Education (EDU)"
+  // in a committee with nothing scheduled and no deadline of its own to chase: the date the committee must hear it by when the Capitol's calendar gives one (never guessed)
   const cs = stopOf(b), cd = cs.deadline && !cs.deadline.missed ? cs.deadline : null;
-  const none = cs.phase === 'committee' && cs.committee ? line(`No hearing is scheduled in ${cmtesLinks(cs.committee, b)} yet${cd ? `, which must hear it by ${esc(whenWords(cd.date))}` : ''}`, { muted: true }) : '';
-  return (cleared ? line(`<b>${esc(clearedLabel(row))}</b> · ${esc(where)}`) : line(boldFirst(where))) + none + mine;
+  const none = cs.phase === 'committee' && cs.committee && cd ? line(`It must be heard by ${esc(dateWords(String(cd.date).slice(0, 10)))}.`, { muted: true }) : '';   // only what is new: the place line above already names the committee and says nothing is scheduled
+  return line(boldFirst(where)) + (cleared ? line(esc(`${clearedLabel(row)}.`), { muted: true }) : '') + none + mine;   // the place leads; "Cleared Thursday’s deadline." follows
 }
 
 // ---------------------------------------------------------------------------------- 4. the facts
@@ -135,8 +138,8 @@ function companionsHTML(b, who) {
   const idx = S.snapshot?.index || [];
   const li = c => {
     const t = c.replace(/^([A-Z]+)(\d)/, '$1 $2'), own = (S.bills || []).find(x => num(x) === c && (!x.session_year || !b.session_year || +x.session_year === +b.session_year));
-    if (own && own.tracked !== false) return `<li><a class="lk" href="${billHref(who, own, '')}">${esc(t)}</a> · ${esc(isAlive(own) ? whereShort(own) : stoppedWords(own))}</li>`;
-    if (own) return `<li>${esc(t)} · ${esc(isAlive(own) ? whereShort(own) : stoppedWords(own))}</li>`;
+    if (own && own.tracked !== false) return `<li><a class="lk" href="${billHref(who, own, '')}">${esc(t)}</a> · ${esc(isAlive(own) ? placeLine(own) : stoppedWords(own))}</li>`;
+    if (own) return `<li>${esc(t)} · ${esc(isAlive(own) ? placeLine(own) : stoppedWords(own))}</li>`;
     return idx.some(x => num(x) === c) ? `<li><a class="lk" href="#/search/other/${enc(c)}">${esc(t)}</a></li>` : `<li>${esc(t)}</li>`;
   };
   return `<ul class="blist">${nums.map(li).join('')}</ul>`;

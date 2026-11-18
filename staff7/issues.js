@@ -7,10 +7,9 @@
 // Stopped for Home. Nothing here restates the Capitol's deadlines: words.js and the data layer's stopOf do.
 import { S, advocate, myIssueIds, isMine, DEMO } from '../staff6/data.js';
 import { hearingAhead, wantsHearing as wantsHearingOf, plainAction, stopOf, billByRef, billRef, isCarry, introYear } from '../staff6/model.js';
-import { whereWords } from '../staff6/steps.js';
 import { CHAMBER_NAME, isOneChamber } from '../stops.js';
 import { ic } from './icons7.js';
-import { esc, btn, plainBand, keepWords, keepEcig } from './parts.js';
+import { esc, btn, plainBand, keepWords, keepWordsHTML, keepEcig } from './parts.js';
 import { billName, billNo, posWords, cmteWords, dayTime, first } from './steps.js';
 import { myIssueStandings, billsOfIssue, issueStanding, deadlineOf, isAtRisk, isAlive } from './standing.js';
 import { withMe, sessionHTML } from './home.js';
@@ -19,7 +18,8 @@ import { pathOf } from './path.js';
 import { boxHTML, issueHits, mark } from './find.js';
 import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words.js';
 import { billSheet, bindBill } from './bill.js';
-import { deadlineCell, clearedOf, PHASE_WORDS } from './bill_cell.js';
+import { deadlineCell, clearedOf } from './bill_cell.js';
+import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { stoppedWords, stoppedWhy } from './issue_table.js';
 import { billsModel, mineCount, trackedBills, billsFor } from './bills.js';
 import { entryRow, sortModel } from './sort.js';
@@ -123,15 +123,6 @@ const clockOf0 = t => new Date(t).toLocaleTimeString('en-US', { timeZone: 'Pacif
 export const clearedLabel = row => `Cleared ${dayName(row.date)}’s deadline`;
 export const hearTxt = t => { const d = daysTo(ymdHST(t)); return d === 0 ? `today ${clockOf0(t)}` : d === 1 ? `tomorrow ${clockOf0(t)}` : dayTime(t); };
 const relWords = d => { const k = daysTo(d); return k <= 0 ? 'today' : k === 1 ? 'tomorrow' : `in ${k} days`; };
-const COMMITTEE_PHASES = PHASE_WORDS;
-function placeWords(b) {
-  const st = stopOf(b);
-  if (st.phase === 'committee' && st.committee) {
-    const codes = String(st.committee).split('/').map(c => c.trim()).filter(Boolean);
-    return codes.length > 1 ? `In ${codes.length} ${CHAMBER_NAME[st.chamber] || ''} committees`.replace('  ', ' ') : `In ${cmteWords(codes[0])}`;
-  }
-  return COMMITTEE_PHASES[st.phase] || whereWords(b, { deadline: false });
-}
 // "by Mon, Mar 30 · 14 days" ("today", "tomorrow" for 0 and 1)
 export const byWords = d => { const k = daysTo(d); return `by ${dateWords(d)}${k < 0 ? '' : ` · ${k === 0 ? 'today' : k === 1 ? 'tomorrow' : `${k} days`}`}`; };
 function secondOf(st, nx, bills = [st.bill]) {
@@ -142,12 +133,12 @@ function secondOf(st, nx, bills = [st.bill]) {
     const r = nx && nx.next ? nx.next.row : null, before = r && (nx.touch.get(r.key) || []).some(y => y.id === b.id) && ymdHST(st.h.scheduled_at) < r.date;
     return { text: `Hearing ${hearTxt(st.h.scheduled_at)}${before ? ` · before ${dayName(r.date)}’s deadline` : ''}` };
   }
-  if (st.state === 'cleared') { const c = nextWhere(b); return { text: c ? `Next: ${cmteWords(c)}` : whereWords(b, { deadline: false }) }; }
-  if (st.state === 'need') { const d = st.cell.key === 'unsure' ? null : st.cell.key === 'until' ? stopOf(b).deadline?.date : st.dl?.date; return { text: d ? `${placeWords(b)} · ${byWords(d)}` : placeWords(b) }; }
-  if (st.state === 'past') return { text: placeWords(b) };
-  // Stopped: one bill says what the bill's own words say everywhere (stoppedWords: "Stopped Feb 11 · No hearing in House Health (HLT)"). Several bills keep one short line for the issue: the committee
+  if (st.state === 'cleared') return { text: placeLine(b), html: placeLineHTML(b, null, { group: false }) };
+  if (st.state === 'need') { const d = st.cell.key === 'unsure' ? null : st.cell.key === 'until' ? stopOf(b).deadline?.date : st.dl?.date; return { text: d ? `${placeLine(b)} · ${byWords(d)}` : placeLine(b), html: d ? `${placeLineHTML(b, null, { group: false })} · ${esc(byWords(d))}` : placeLineHTML(b, null, { group: false }) }; }
+  if (st.state === 'past') return { text: placeLine(b), html: placeLineHTML(b, null, { group: false }) };
+  // Stopped: one bill says what the bill's own words say everywhere (stoppedWords: "Stopped Feb 11 · No hearing, missed the deadline · House Health (HLT)"). Several bills keep one short line for the issue: the committee
   // with its code when every one of them stopped in the same one ("Stopped in House Health (HLT)"), else how many different committees they stopped in ("Stopped in 3 committees", the same shape as "In 2 Senate committees").
-  if (bills.length === 1) return { text: stoppedWords(bills[0]) };
+  if (bills.length === 1) return { text: stoppedWords(bills[0]), html: stoppedLineHTML(bills[0], null, { bold: false, group: false }) };
   const ws = bills.map(stoppedWhy), same = ws[0].name && ws.every(w => w.cmte === ws[0].cmte);
   if (same) return { text: `Stopped in ${ws[0].name}` };
   const k = new Set(ws.flatMap(w => w.codes)).size;
@@ -236,7 +227,7 @@ export function sessionOf(set) {
 // ---------------------------------------------------------------------------------- the left column
 // Look-only depends on the issue, not the view: the viewer's own issues keep their links to their steps, anyone else's say "Look only".
 const ownSet = me => new Set(withMe(me, () => [...myIssueIds()]).map(String));
-const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${s.icon ? ic(s.icon) : ''}<span>${keepWords(esc(s.text))}</span></span>` : '';
+const secHTML = s => s ? `<span class="ir2 one${s.risk ? ' risk' : ''}" title="${esc(s.text)}">${s.icon ? ic(s.icon) : ''}<span>${s.html ? keepWordsHTML(s.html) : keepWords(esc(s.text))}</span></span>` : '';   // s.html: a line with a joint committee (its codes carry their full names)
 const newHTML = text => `<span class="ir2 one" title="${esc(text)}"><span class="vh">New: </span><span>${keepWords(esc(text))}</span></span>`;
 // the lead's initials at the right of a row, on Everyone and on a teammate's list (there, only when the lead is someone else)
 function leadOf(i, who) {
@@ -359,18 +350,6 @@ function leadWords(b, issue, me) {
 export const posLine = (b, issue, me) => `${posWords(b)} · ${leadWords(b, issue, me)}`;
 // the step of the person's own that holds this bill, if any (a group ask holds several)
 export const stepOn = (open, b) => (open || []).find(s => (s.members ? s.members.some(x => x.bill.id === b.id) : s.bill?.id === b.id)) || null;
-// where an alive bill is, a few words: "in House Water & Land", "waiting for the floor vote"
-export function whereShort(b) {
-  if (!isAlive(b)) return 'did not advance';
-  const st = stopOf(b);
-  if (st.phase === 'committee') return st.committee ? `in ${cmteWords(String(st.committee).split('/')[0])}` : 'waiting for its committees';
-  if (st.phase === 'floor') return 'waiting for the floor vote';
-  if (st.phase === 'conference') return 'in conference';
-  if (st.phase === 'governor') return 'with the Governor';
-  if (st.phase === 'law') return 'signed into law';
-  if (st.phase === 'ballot') return 'going to the voters';
-  return whereWords(b, { deadline: false });
-}
 export const sameName = (b, issue) => !!issue && billName(b).trim().toLowerCase() === eCig(issue.name).trim().toLowerCase();
 
 // ---------------------------------------------------------------------------------- shared small helpers (an issue's own page is issue.js)
@@ -433,7 +412,7 @@ function sessionSheet(who, set, me, ses) {
   let next = '';
   const touched = nx ? nx.touched.slice().sort((p, q) => (isAtRisk(q) - isAtRisk(p)) || byNo(p, q)) : [];
   if (nx) {
-    const state = b => isAtRisk(b) ? line('At risk · needs a hearing', 'risk', 'triangle-alert') : hearingAhead(b) ? line(`Hearing ${esc(tm(hearingAhead(b).scheduled_at))}`) : line(esc(whereShort(b)));
+    const state = b => isAtRisk(b) ? line('At risk · needs a hearing', 'risk', 'triangle-alert') : hearingAhead(b) ? line(`Hearing ${esc(tm(hearingAhead(b).scheduled_at))}`) : line(esc(placeLine(b)));
     next = `<h2 class="sh" id="sNext">Next deadline: ${esc(nx.row.label)} · ${esc(whenWords(nx.row.date))}</h2><p class="lead tight">${esc(nx.row.says)}</p>`
       + (touched.length ? `<ul class="srows3 brs" id="sTouch">${touched.map(b => brow(b, state(b))).join('')}</ul>` : `<p class="hint">It touches none of ${esc(whose)}.</p>`);
   }

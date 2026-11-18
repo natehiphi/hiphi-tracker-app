@@ -17,7 +17,7 @@ NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && [...docume
 ROWS = """() => [...document.querySelectorAll('#aTab tbody tr')].map(tr => { const g = s => tr.querySelector(s), t = e => e ? e.innerText.replace(/\\s+/g, ' ').trim() : '', cs = getComputedStyle;
   const pe = g('.c-pos b') || g('.c-pos span');
   return { no: tr.dataset.no, stopped: tr.classList.contains('stopped'), nick: !!g('.bsub2'), bill: t(g('a.bn')), sub: t(g('.bsub2') || g('.bdesc')), issue: t(g('.issl')), issueHref: g('.issl') ? g('.issl').getAttribute('href') : '', led: t(g('.ledby')), href: g('a.bn').getAttribute('href'),
-    pos: t(g('.c-pos')), posBold: pe ? +cs(pe).fontWeight >= 700 : false, posMuted: pe ? cs(pe).color : '', lead: g('.c-lead') ? t(g('.c-lead')) : null, coal: t(g('.c-coal')), where: t(g('.c-where')), next: t(g('.c-next')), amber: !!g('.dl.amber'), icon: !!g('.c-next svg') }; })"""
+    pos: t(g('.c-pos')), posBold: pe ? +cs(pe).fontWeight >= 700 : false, posMuted: pe ? cs(pe).color : '', lead: g('.c-lead') ? t(g('.c-lead')) : null, coal: t(g('.c-coal')), w1: t(g('.c-where .w1')), w2: t(g('.c-where .w2')), wlabel: g('.c-where') ? (g('.c-where').getAttribute('aria-label') || '') : '', wicon: !!g('.c-where svg, .c-where img'), ccn: tr.querySelectorAll('.c-where .cc[title]').length, where: [t(g('.c-where .w1')), t(g('.c-where .w2'))].filter(Boolean).join(' · '), next: t(g('.c-next')), amber: !!g('.dl.amber'), icon: !!g('.c-next svg') }; })"""
 HEADS = "() => [...document.querySelectorAll('#aTab thead th')].map(th => ({ text: th.innerText.trim(), scope: th.getAttribute('scope'), sort: th.getAttribute('aria-sort'), id: th.querySelector('button').id }))"
 COUNT = "() => (document.getElementById('abCount') || {}).innerText || ''"
 H1 = "() => [...document.querySelectorAll('main h1')].find(h => h.getBoundingClientRect().width > 0)?.innerText.trim()"
@@ -44,6 +44,11 @@ def settle(pg):
 def table(pg, hash):
     pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(300); pg.wait_for_selector('#abResult'); settle(pg)
 def rows(pg): return pg.evaluate(ROWS)
+def stopped_one(r):
+    # a stopped bill on a page with one line: "Stopped Feb 11 · <line 1> · <committee>"; a bill the record cannot say more about is "Stopped Feb 11 · <committee>" (the word is not said twice)
+    rest = r['w2'] if r['w1'] == 'Stopped' else r['where']
+    head = r['next'] or 'Stopped'   # a stop date the app does not have: the Next date is empty and the one-line form says "Stopped" once
+    return f"{head} · {rest}" if rest else head
 def nrows(pg): return pg.evaluate("() => document.querySelectorAll('#aTab tbody tr').length")
 def intn(s): return int(re.sub(r'[^\d]', '', s) or 0)
 def snap(pg, name):
@@ -148,11 +153,14 @@ with sync_playwright() as p:
     ok(all(r['lead'] and (r['lead'] == 'No lead' or re.fullmatch(r'[A-Z][a-z]+( \+\d)?', r['lead'])) for r in rs), 'Lead is a first name (or "No lead")')
     ok(all(r['coal'] for r in rs), 'Coalition is a name or "No coalition"')
     # the Where it is words
-    ok(all(re.fullmatch(r'(No hearing in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*|Heard \w{3} \d+ in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*, held|Was in .+|)', r['where']) for r in rs if r['stopped']), 'a stopped bill\'s Where it is says "No hearing in ..." or "Heard ..., held"')
-    ok(all(re.fullmatch(r'(In .+ \([A-Z]+\)( with .+ \([A-Z]+\))?( and \d+ more)?|Ready for the floor vote|In conference|With the Governor|Signed into law|Going to the voters|.+)', r['where']) and '/' not in r['where'] for r in rs if not r['stopped']), 'an alive bill\'s Where it is names each committee with its own code')
-    ok(all(re.fullmatch(r'Stopped( \w{3} \d+)?', r['next']) for r in rs if r['stopped']) and all(not re.search(r'Stopped', r['where']) for r in rs), 'the stopped date is said once, in Next date ("Stopped Feb 11"), never in Where it is')
+    CM1 = r'[A-Z][\w&,\' -]+ \([A-Z]{2,4}\)'; CMJ = r'(House |Senate )?[A-Z]{2,4}(/[A-Z]{2,4})+'; CMT = f'(?:{CM1}|{CMJ})'
+    ok(all(re.fullmatch(rf'(No hearing(, missed the deadline)?|Deferred( \w{{3}} \d+)?|Heard \w{{3}} \d+, no vote recorded|Vetoed|Failed a floor vote|Stopped)( · {CMT})?', r['where']) for r in rs if r['stopped']), 'a stopped bill\'s Where it is is one of the design\'s stopped lines (No hearing, Deferred, Heard, no vote recorded, ...) and its committee')
+    ALIVE1 = r'(Not referred yet|Waiting for a hearing|Passed \d+ (of \d+ )?committees?|Crossed over, waiting for a hearing|Hearing scheduled|Decision making scheduled|Being heard today|Hearing held, no vote recorded|Passed committee, waiting for the floor vote|Back in the (House|Senate) to agree or disagree|In conference|With the Governor|Signed into law|Adopted|Going to the voters)'
+    ok(all(re.fullmatch(rf'{ALIVE1}( · {CMT})?', r['where']) for r in rs if not r['stopped']), 'an alive bill\'s Where it is is one of the design\'s lines; one committee by name and code, a joint stop by its codes joined with "/"')
+    ok(all(r['w1'] and not r['wicon'] for r in rs), 'every bill has a line 1 in Where it is, and no icon is in the cell')
+    ok(all(re.fullmatch(r'Stopped \w{3} \d+|', r['next']) for r in rs if r['stopped']) and all(not re.search(r'Stopped \w{3} \d', r['where']) for r in rs) and all(r['next'] != 'Stopped' for r in rs), 'the stopped date is said once, in Next date ("Stopped Feb 11"), never in Where it is; with no date known the Next date is empty (never a second "Stopped")')
     ok(all(not re.search(r'Committee deadline|before \w+’s deadline', r['next']) for r in rs), 'no "Committee deadline" line and no "before Thursday\'s deadline" tail in Next date')
-    ok(all(re.fullmatch(r'(Hearing .+|by \w{3}, \w{3} \d+( · (\d+ days?|today|tomorrow))?|Stopped( \w{3} \d+)?|)', r['next']) for r in rs), 'Next date is a hearing, a "by <date> · N days", "Stopped <date>", or empty')
+    ok(all(re.fullmatch(r'((Today|Tomorrow|\w{3}|\w{3}, \w{3} \d+,) \d+:\d\d [AP]M( · after the deadline)?|by \w{3}, \w{3} \d+( · (\d+ days?|today|tomorrow))?|Stopped( \w{3} \d+)?|)', r['next']) for r in rs) and not any('Hearing' in r['next'] for r in rs), 'Next date is a hearing time without the word "Hearing" ("Today 1:00 PM"), a "by <date> · N days", "Stopped <date>", or empty')
     snap(pg, 'everyone_top')
 
     # ---------------------------------------------------------------- ten bills across states: the table says what the shared functions say, and what the Issues list says
@@ -172,9 +180,9 @@ with sync_playwright() as p:
         good = r['where'] == c['where'] and r['next'] == c['next'] and r['amber'] == c['amber']
         st, k, it = c['issuesState'], c['cell'], c['issuesText']
         if st == 'risk': good = good and r['amber'] and re.fullmatch(r'by \w{3}, \w{3} \d+ · \d+ days?', r['next']) and it.startswith(('Needs a hearing by ', 'Hearing '))
-        elif st == 'hearing': good = good and not r['amber'] and r['next'].startswith('Hearing ') and it.startswith(r['next'])
+        elif st == 'hearing': good = good and not r['amber'] and re.match(r'(Today|Tomorrow|\w{3})', r['next']) and it.lower().startswith('hearing ' + r['next'].lower())
         elif st == 'need': good = good and not r['amber'] and (not ' · by ' in it or r['next'] == 'by ' + it.split(' · by ')[1])
-        elif st == 'stopped': good = good and (f"{r['next']} · {r['where']}" if r['where'] else r['next']) == it
+        elif st == 'stopped': good = good and stopped_one(r) == it
         else: good = good and not r['amber'] and (not ' · by ' in it or r['next'] == 'by ' + it.split(' · by ')[1])
         if not good: bad.append((c, r['where'], r['next'], r['amber']))
     ok(not bad, f'for {len(CMP)} bills in every state the table\'s Where it is and Next date are what the shared functions give, and agree with the Issues list\'s group and words {bad[:2]}')
@@ -191,9 +199,9 @@ with sync_playwright() as p:
 
     # ---------------------------------------------------------------- ONE wording for a stopped bill: table, Issues list, issue page, bill page
     W3 = {
-        'SB1525': 'No hearing in Senate Commerce and Consumer Protection (CPN)',
-        'HB1747': 'Heard Feb 3 in House Human Services & Homelessness (HSH), held',
-        'SB2345': 'No hearing in Senate Health and Human Services (HHS) with Senate Commerce and Consumer Protection (CPN)',
+        'SB1525': 'No hearing, missed the deadline · Senate Commerce and Consumer Protection (CPN)',
+        'HB1747': 'Deferred Feb 3 · House Human Services & Homelessness (HSH)',
+        'SB2345': 'No hearing, missed the deadline · Senate HHS/CPN',
     }
     IDS = model(pg, """const out = {}; for (const no of arg) { const b = S.bills.find(x => x.bill_number.replace(/\\s/g, '') === no), bi = (S.billIssues || []).find(x => x.bill_id === b.id); out[no] = { issue: bi ? bi.issue_id : '', n: (S.billIssues || []).filter(x => x.issue_id === (bi || {}).issue_id).length }; } return out;""", list(W3))
     for no, why in W3.items():
@@ -206,8 +214,8 @@ with sync_playwright() as p:
         pg.evaluate("h => { location.hash = h; }", f"#/issue/{IDS[no]['issue']}?who=all"); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(300)
         it = pg.evaluate("() => [...document.querySelectorAll('#tDead tbody tr td.tw, #tBills tbody tr td.tw')].map(t => t.innerText.replace(/\\s+/g, ' ').trim())")
         top = pg.evaluate("() => document.getElementById('iStat').innerText.replace(/\\s+/g, ' ')")
-        cm = re.sub(r'^(No hearing|Heard \w{3} \d+) in ', '', why).replace(', held', '')
-        ok(len(it) == 1 and it[0] == date and cm in top, f'{no}: the issue page\'s table says "{it[0] if it else None}" (the status line above already names the committee, with its code: {top[:150]!r})')
+        cm = why.split(' · ', 1)[1]
+        ok(len(it) == 1 and it[0] == date and why in top, f'{no}: the issue page\'s table says "{it[0] if it else None}" (the status line above already names the committee, with its code: {top[:150]!r})')
         pg.evaluate("h => { location.hash = h; }", f"#/bill/{no}?i={IDS[no]['issue']}&who=all"); pg.wait_for_selector('#bStat'); pg.wait_for_timeout(300)
         bl = pg.evaluate("() => document.querySelector('#bStat .bln').innerText.replace(/\\s+/g, ' ').trim()")
         ok(bl == line, f'{no}: the bill page\'s stopped line is "{bl}"')
@@ -229,20 +237,20 @@ with sync_playwright() as p:
     # an issue whose bills all stopped: the status line above names the last bill, with ITS date and reason; that bill is the first row of the folded list; every other row says the table's words in one line
     for iid, nm in ((SEV['diff']['id'], 'mixed'), ('88f6638b-924a-4232-89f4-6c7422c6428b', 'SNAP match for healthy local food'), ('18fc9d97-2d75-409d-bb69-7d07d2a45b72', 'A fee on sugary drinks'), ('748c47fe-be83-4b54-b9f5-b8b039a27f36', 'Higher tobacco taxes')):
         dead = DEAD(iid); top = pg.evaluate("() => document.getElementById('iStat').innerText.replace(/\\s+/g, ' ')")
-        mm = re.search(r'bill, ([A-Z]+ ?\d+),', top); named = mm.group(1).replace(' ', '') if mm else ''
+        mm = re.search(r'bill, ([A-Z]+ ?\d+) ·', top); named = mm.group(1).replace(' ', '') if mm else ''
         dm = re.search(r'on \w{3}, (\w{3} \d+) ·', top)
-        r0 = byno.get(named, {}); cm = re.sub(r'^(No hearing|Heard \w{3} \d+) in ', '', r0.get('where', '')).replace(', held', '')
+        r0 = byno.get(named, {}); cm = r0.get('where', '')
         ok(len(dead) >= 2 and named == dead[0][0] and dm and 'Stopped ' + dm.group(1) == r0.get('next') and dead[0][1] == r0.get('next') and cm and cm in top, f'{nm}: the headline names {named} with its own date ({dm.group(1) if dm else None}) and committee, and {named} is the first row, which says only its date ({dead[0]})')
         ok(all(t == f"{byno[n_]['next']} · {byno[n_]['where']}" for n_, t in dead[1:]), f'{nm}: every other stopped bill says "Stopped <date> · <why>" in the table\'s words, so each reason appears ({[n_ for n_, _ in dead]})')
     # joint referrals carry a code per committee, on the whole table
-    joints = [r for r in rs if r['stopped'] and ' with ' in r['where']]
-    ok(len(joints) > 100 and all(len(re.findall(r'\([A-Z]{2,4}\)', r['where'])) == r['where'].count(' with ') + 1 for r in joints), f'every joint referral names each committee with its own code ({len(joints)} bills)')
-    ok(all('/' not in r['where'] and not re.search(r'\([A-Z]+/[A-Z]+\)', r['where']) for r in rs), 'no code pair like (JDC/WAM) anywhere')
+    joints = [r for r in rs if r['stopped'] and '/' in r['w2']]
+    ok(len(joints) > 100 and all(re.fullmatch(r'(House |Senate )?[A-Z]{2,4}(/[A-Z]{2,4})+', r['w2']) and r['wlabel'].startswith(r['w1'] + '. ') and r['ccn'] == r['w2'].count('/') + 1 for r in joints), f'every joint referral is its codes joined with "/", the chamber said once, and the cell carries the full names ({len(joints)} bills)')
+    ok(all('(' not in r['w2'] or '/' not in r['w2'] for r in rs), 'no code pair like (JDC/WAM) anywhere')
     # the bill page says the table's words for at least six stopped bills, of every kind (never heard, heard and held, joint, a deadline in March, a bill with no stage data)
     SIX = ['SB1525', 'HB1747', 'SB2345', 'SB2699', 'HB1123', 'HB1532', 'SB1013', 'HB10', 'SB319']
     badp = []
     for no in SIX:
-        r = byno[no]; want = f"{r['next']} · {r['where']}" if r['where'] else r['next']
+        r = byno[no]; want = stopped_one(r)
         pg.evaluate("h => { location.hash = h; }", f"#/bill/{no}?who=all"); pg.wait_for_selector('#bStat'); pg.wait_for_timeout(200)
         got = pg.evaluate("() => document.querySelector('#bStat .bln').innerText.replace(/\\s+/g, ' ').trim()")
         if got != want: badp.append((no, got, want))
@@ -250,7 +258,7 @@ with sync_playwright() as p:
     # a bill's companion list says it the same way
     badc = []
     for no, comp in (('HB1021', 'SB1340'), ('HB1079', 'SB1398'), ('HB1075', 'SB1394'), ('HB108', 'SB464')):
-        r = byno[comp]; want = f"{r['next']} · {r['where']}"
+        r = byno[comp]; want = stopped_one(r)
         pg.evaluate("h => { location.hash = h; }", f"#/bill/{no}?who=all"); pg.wait_for_selector('#bStat'); pg.wait_for_timeout(200)
         li = pg.evaluate("(c) => [...document.querySelectorAll('.blist li')].map(l => l.innerText.replace(/\\s+/g, ' ').trim()).find(t => t.replace(' ', '').startsWith(c)) || ''", comp)
         if want not in li: badc.append((no, li, want))
@@ -258,7 +266,7 @@ with sync_playwright() as p:
     # Search says it the same way, for a bill and for its issue, and for an issue with bills in several committees
     pg.evaluate("h => { location.hash = h; }", "#/search?q=SB1525"); pg.wait_for_timeout(800)
     st = pg.evaluate("() => document.getElementById('app').innerText.replace(/\\s+/g, ' ')")
-    want = f"{byno['SB1525']['next']} · {byno['SB1525']['where']}"
+    want = stopped_one(byno['SB1525'])
     ok(st.count(want) == 2, f'Search: the bill and its issue both say "{want}" ({st.count(want)} times)')
     pg.evaluate("h => { location.hash = h; }", "#/search?q=" + SEV['diff_name'].replace(' ', '%20')); pg.wait_for_timeout(800)
     st = pg.evaluate("() => document.getElementById('app').innerText.replace(/\\s+/g, ' ')")
@@ -345,7 +353,7 @@ with sync_playwright() as p:
     ok([h['sort'] for h in h0] == [None, None, None, None, None, 'ascending'], f'the default sort is Next date, soonest first, and says so ({[h["sort"] for h in h0]})')
     r0 = rows(pg)
     dated = [r for r in r0 if not r['stopped'] and r['next']]
-    ok(r0[0]['next'].startswith('Hearing today') and [r['stopped'] for r in r0] == sorted(r['stopped'] for r in r0) and all(r['next'].startswith('Stopped') for r in r0 if r['stopped']), 'default order: dated bills soonest first, then alive bills with no date, then stopped bills')
+    ok(r0[0]['next'].startswith('Today') and [r['stopped'] for r in r0] == sorted(r['stopped'] for r in r0) and all(r['next'].startswith('Stopped') or r['next'] == '' for r in r0 if r['stopped']), 'default order: dated bills soonest first, then alive bills with no date, then stopped bills')
     stops = [r['next'] for r in r0 if r['stopped']]
     MON = {m: i for i, m in enumerate('Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec'.split())}
     sk = lambda t: (MON[t.split()[1]], int(t.split()[2])) if len(t.split()) == 3 else (0, 0)
@@ -362,6 +370,16 @@ with sync_playwright() as p:
     def in_order(vals, desc=False):
         # in the order of the same collator the page sorts with (numbers by value, case and accents ignored), read in the page
         return pg.evaluate("([v, d]) => { const c = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }); return v.every((x, i) => i === 0 || (d ? c.compare(v[i - 1], x) >= 0 : c.compare(v[i - 1], x) <= 0)); }", [vals, desc])
+    JOURNEY = [(r'Not referred yet', 1), (r'Waiting for a hearing', 2), (r'Passed \d+ (of \d+ )?committees?', 3), (r'Crossed over, waiting for a hearing', 4), (r'(Hearing scheduled|Decision making scheduled)', 5), (r'Being heard today', 6), (r'Hearing held, no vote recorded', 7),
+               (r'Passed committee, waiting for the floor vote', 8), (r'Back in the (House|Senate) to agree or disagree', 9), (r'In conference', 10), (r'With the Governor', 11), (r'(Signed into law|Adopted|Going to the voters)', 12), (r'No hearing', 13), (r'Deferred', 14),
+               (r'Heard \w{3} \d+, no vote recorded', 15), (r'Vetoed', 16), (r'Failed a floor vote', 17), (r'Stopped', 18)]
+    def JORD(r):
+        for rx, n_ in JOURNEY:
+            if re.match(rx + r'\b', r['w1']): return n_
+        return 99
+    def JOURNEY_OK(rs_, desc):
+        keys = [[JORD(r), r['w2'], r['no']] for r in rs_]
+        return all(k[0] < 99 for k in keys) and pg.evaluate("([k, d]) => { const c = new Intl.Collator('en', { numeric: true, sensitivity: 'base' }); const t = (x, y) => d * (x[0] - y[0]) || d * c.compare(x[1], y[1]) || c.compare(x[2], y[2]); return k.every((x, i) => i === 0 || t(k[i - 1], x) <= 0); }", [keys, -1 if desc else 1])
     POSR = ['Strongly support', 'Support', 'Support w/ amendments', 'Strongly oppose', 'Oppose', 'Comments (neutral)', 'Monitor', 'No position yet']
     def tie_ok(rs_, key):
         # a bill that stopped never comes before an alive bill of the same value
@@ -403,6 +421,8 @@ with sync_playwright() as p:
         elif k == 'pos':
             va, vd = [key(r) for r in a], [key(r) for r in d]
             ok(va == sorted(va) and vd == sorted(vd, reverse=True), 'Position: strongest first, then the other way round')
+        elif k == 'where':
+            ok(JOURNEY_OK(a, False) and JOURNEY_OK(d, True), 'Where it is: in the journey\'s order (not referred, waiting, passed some, crossed over, hearing, ... law, then the stopped ones: no hearing, deferred, heard, vetoed, failed, stopped), ties by committee then bill number; and the other way round')
         else:
             va, vd = [key(r) for r in a], [key(r) for r in d]
             ok(in_order(va) and in_order(vd, True), f'{lab}: in order, then in the other order')

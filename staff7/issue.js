@@ -9,12 +9,13 @@ import { esc, btn, toast } from './parts.js';
 import { billNo, first } from './steps.js';
 import { isAlive, billsOfIssue, deadlineOf } from './standing.js';
 import { dateWords, daysTo } from './words.js';
-import { testimonyDue, letterState, testimonyShort, cmtesLinks, cmteLink, ymdH } from './bill_words.js';
+import { testimonyDue, letterState, testimonyShort, cmtesLinks, ymdH } from './bill_words.js';
 import { chairsHTML, talkingHTML, bindMore } from './bill_more.js';
 import { eCig, iconOf, tint, issuesHref, stepOn, sessionOf, hearTxt, billHref } from './issues.js';
 import { stoppedISO } from './bill.js';
 import { pathOf } from './path.js';
-import { billsHTML, bindTable, sortedAlive, stoppedWhy, deadOrder, tui } from './issue_table.js';
+import { billsHTML, bindTable, sortedAlive, deadOrder, tui } from './issue_table.js';
+import { placeLineHTML } from './place.js';
 import { leadButton, leadForm, goalCell, pointsCell, mayEditIssue, bindEdit, eui } from './issue_edit.js';
 import { notesHTML, bindNotes, nui } from './issue_notes.js';
 import { shareUrl, onPublicSite } from './issue_data.js';
@@ -72,9 +73,8 @@ function lineFor({ b, c }, row, who, issue) {
 }
 function stoppedLines(issue, bills, who) {
   const dead = bills.slice(), last = deadOrder(dead)[0], iso = stoppedISO(last);   // the bill named is the one whose date and reason are said, and it is the first row of the folded list (issue_table.js deadOrder)
-  const lk = b => `<a class="lk" href="${esc(billHref(who, b, issue.id))}">${esc(billNo(b))}</a>`, w = stoppedWhy(last), cl = w.codes.map(c => `${cmteLink(c, last)} (${esc(c)})`).join(' with ');
-  const what = w.kind === 'held' ? `was heard on ${esc(w.heard)} and held in ${cl}` : w.kind === 'none' ? `had no hearing in ${cl}` : w.cmte ? `stopped in ${cl}` : 'did not advance';
-  let h = line(`<b>Stopped for this year${iso ? ` on ${esc(dateWords(iso))}` : ''}</b> · ${dead.length === 1 ? 'its only bill' : 'its last bill'}, ${lk(last)}, ${what}`);
+  const lk = b => `<a class="lk" href="${esc(billHref(who, b, issue.id))}">${esc(billNo(b))}</a>`;
+  let h = line(`<b>Stopped for this year${iso ? ` on ${esc(dateWords(iso))}` : ''}</b> · ${dead.length === 1 ? 'its only bill' : 'its last bill'}, ${lk(last)} · ${placeLineHTML(last, null, { bare: true })}`);   // (a bill that is only "Stopped" is not told again: the line has said it)
   const filed = dead.find(b => (S.drafts?.[b.id] || []).some(d => d.status === 'filed'));
   h += line(`${filed ? `We filed testimony on ${lk(filed)} · to` : 'To'} try again in 2027, someone must introduce a new bill`, { muted: true });
   return h;

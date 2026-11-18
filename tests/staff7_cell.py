@@ -13,7 +13,7 @@ WORDS = ['at risk', 'with a hearing', 'need a hearing', 'cleared the deadline', 
 PAGE = """() => ({ groups: [...document.querySelectorAll('section[aria-labelledby^="g-"]')].map(s => ({ h: s.querySelector('h3').innerText.trim(), n: +(s.querySelector('h3').innerText.match(/(\\d+)$/) || [0, -1])[1],
     rows: [...s.querySelectorAll('a.sr3')].map(a => (a.querySelector('.ir2')?.innerText || '').replace(/\\s+/g, ' ').trim()) })), summ: document.querySelector('#summ')?.innerText.trim() || '', text: document.body.innerText })"""
 # the model: deadlineCell over every alive tracked bill, with the page's own next-deadline row
-MODEL = """async () => { const d = await import('/staff6/data.js'), bc = await import('/staff7/bill_cell.js'), st = await import('/staff7/standing.js'), is = await import('/staff7/issues.js');
+MODEL = """async () => { const d = await import('/staff6/data.js'), bc = await import('/staff7/bill_cell.js'), pl = await import('/staff7/place.js'), st = await import('/staff7/standing.js'), is = await import('/staff7/issues.js');
   const S = d.S, set = is.setFor({ kind: 'all', code: 'all' }, S.me), ses = is.sessionOf(set), row = ses.next?.row || null;
   const seen = new Set(), out = { counts: {}, bad: [], amberNotRisk: [], amberCleared: [], heads: [bc.headCell(null), bc.headCell(row)], order: bc.CELL_ORDER, wheres: [] };
   for (const x of set) for (const b of x.bills) { if (seen.has(b.id) || !st.isAlive(b)) continue; seen.add(b.id);
@@ -21,7 +21,7 @@ MODEL = """async () => { const d = await import('/staff6/data.js'), bc = await i
     if (!bc.CELL_ORDER.includes(c.key) || typeof c.text !== 'string' || !c.text) out.bad.push(b.bill_number + ':' + c.key);
     if (c.amber && !(st.isAtRisk(b) || c.key === 'late')) out.amberNotRisk.push(b.bill_number);
     if (c.amber && is.clearedOf(b, row) === 'yes') out.amberCleared.push(b.bill_number);
-    if (out.wheres.length < 400) out.wheres.push(bc.whereCell(b)); }
+    if (out.wheres.length < 400) out.wheres.push(pl.placeHTML(b)); }
   out.n = seen.size; return out; }"""
 
 with sync_playwright() as p:
@@ -68,7 +68,7 @@ with sync_playwright() as p:
     ok(not m['amberCleared'], f'no bill that cleared the next deadline is amber ({m["amberCleared"][:3]})')
     ok(not m['amberNotRisk'], f'every amber bill is at risk or "late" ({m["amberNotRisk"][:3]})')
     ok(m['heads'][0] == 'Deadline' and re.fullmatch(r'Deadline \w{3} \d+ · (today|tomorrow|\d+ days)', m['heads'][1] or '') is not None, f'headCell: {m["heads"]}')
-    ok(all(isinstance(w, str) and w for w in m['wheres']), f'whereCell gives words for every bill (e.g. {m["wheres"][:2]})')
+    ok(all(isinstance(w, str) and w for w in m['wheres']), f'placeHTML (place.js, which replaced whereCell) gives words for every bill (e.g. {m["wheres"][:2]})')
     ok(not errs, f'no console errors {errs[:2]}')
     ok(not bad, f'no request leaves 127.0.0.1 {bad[:2]}')
     br.close()

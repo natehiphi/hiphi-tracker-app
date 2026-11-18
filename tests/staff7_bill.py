@@ -115,12 +115,12 @@ with sync_playwright() as p:
     ok(pos['lead'] and re.fullmatch(r'#/issues\?who=[A-Z]+', pos['lead']), f'{hb}: who leads is a link to that person\'s issues ({pos["lead"]})')
     st = pg.evaluate(STAT)
     exp = L['hearing']['text']
-    ok(len(st) in (2, 3) and st[0].startswith('Hearing ') and st[1].startswith('Testimony '), f'{hb}: the status is two plain lines, the hearing then the testimony ({st})')
-    ok(len(st) == 3 and st[2].startswith('After this: ') and (' which must hear it by ' in st[2] or ', which must hear it by ' in st[2] or st[2].endswith('floor vote')), f'{hb}: a muted third line says what comes after this committee ({st[2:]})')
-    ok(pg.locator('#bStat .bln.m').count() == 1 and pg.locator('#bStat .bln:nth-child(3) a[href^="#/search/committee/"]').count() == 1, f'{hb}: that line is muted and names the next committee as a link')
-    ok(exp.split(' · ')[0] in st[0], f'{hb}: the hearing time equals the Issues list ("{exp.split(" · ")[0]}" in "{st[0]}")')
-    sit = pg.evaluate("() => { const a = [...document.querySelectorAll('#bStat .bln:first-child .blt a')].pop(); const t = document.querySelector('#bStat .bln:first-child .blt').innerText.trim(); return a ? [a.innerText.trim(), a.getAttribute('href'), t.endsWith('See the hearing'), document.querySelectorAll('#bStat .bla').length] : null; }")
-    ok(sit and sit[0] == 'See the hearing' and sit[1].startswith('#/calendar/sitting/') and sit[2] and sit[3] == 0 and pg.locator('#bStat .bln:nth-child(2) a[href^="#/calendar"]').count() == 0 and pg.locator('#bStat .bmv').count() == 0, f'{hb}: with no step of mine, "See the hearing" ends the HEARING line inline (no far-right float), not the testimony line ({sit})')
+    ok(len(st) in (3, 4) and st[0].startswith(('Hearing scheduled', 'Decision making scheduled')) and re.match(r'^(Today|Tomorrow|\w{3}) \d+:\d\d [AP]M', st[1]) and st[2].startswith('Testimony ') and 'Hearing scheduled' not in st[1], f'{hb}: the status leads with where the bill is, then the hearing\'s time, then the testimony ({st})')
+    ok(len(st) == 4 and st[3].startswith('After this: ') and (' which must hear it by ' in st[3] or ', which must hear it by ' in st[3] or st[3].endswith('floor vote')), f'{hb}: a muted last line says what comes after this committee ({st[3:]})')
+    ok(pg.locator('#bStat .bln.m').count() == 1 and pg.locator('#bStat .bln:nth-child(4) a[href^="#/search/committee/"]').count() == 1, f'{hb}: that line is muted and names the next committee as a link')
+    ok(exp.split(' · ')[0].replace('Hearing ', '', 1).lower() in st[1].lower(), f'{hb}: the hearing time equals the Issues list ("{exp.split(" · ")[0]}" in "{st[1]}")')
+    sit = pg.evaluate("() => { const a = [...document.querySelectorAll('#bStat .bln:nth-child(2) .blt a')].pop(); const t = document.querySelector('#bStat .bln:nth-child(2) .blt').innerText.trim(); return a ? [a.innerText.trim(), a.getAttribute('href'), t.endsWith('See the hearing'), document.querySelectorAll('#bStat .bla').length] : null; }")
+    ok(sit and sit[0] == 'See the hearing' and sit[1].startswith('#/calendar/sitting/') and sit[2] and sit[3] == 0 and pg.locator('#bStat .bln:nth-child(3) a[href^="#/calendar"]').count() == 0 and pg.locator('#bStat .bmv').count() == 0, f'{hb}: with no step of mine, "See the hearing" ends the HEARING line inline (no far-right float), not the testimony line ({sit})')
     am = pg.evaluate(AMBER)
     due_late = hb in (C.get('late') or [])
     ok((len(am) > 0) == due_late and all(x == 'status' for x in am), f'{hb}: amber appears only for late testimony ({"late" if due_late else "not late"}; amber on {am[:3]})')
@@ -150,17 +150,17 @@ with sync_playwright() as p:
         ok('Agenda' in a and 'noopener' in a, f'{ag}: a hearing with a notice shows "Agenda" opening in a new tab ({a[:60]})')
     else: skip('no coming hearing in the practice copy has a notice_url: "Agenda" is checked on a synthetic one below')
     jt = pick('joint'); bill(pg, jt); jl = pg.evaluate(STAT)[0]; jn = pg.evaluate("() => document.querySelectorAll('#bStat .bln:first-child a[href^=\"#/search/committee/\"]').length")
-    ok(' with ' in jl and jn == 2, f'{jt}: a joint hearing names both committees, each a link ({jl})')
+    ok(re.search(r' (House|Senate) [A-Z]{2,4}/[A-Z]{2,4}', jl) and jn == 2, f'{jt}: a joint hearing names both committees, each a link ({jl})')
     lt = pick('late'); bill(pg, lt); ls = pg.evaluate(STAT); am = pg.evaluate(AMBER)
-    ok(re.match(r'^Late, still accepted until \d+:\d\d [AP]M( today)? · ', ls[1]) and am and all(x == 'status' for x in am) and pg.locator('#bStat b.riskt svg').count() == 1, f'{lt}: late testimony says it in Calendar\'s own words, in amber with its icon, and nowhere else is amber ({ls[1]})')
+    ok(re.match(r'^Late, still accepted until \d+:\d\d [AP]M( today)? · ', ls[2]) and am and all(x == 'status' for x in am) and pg.locator('#bStat b.riskt svg').count() == 1, f'{lt}: late testimony says it in Calendar\'s own words, in amber with its icon, and nowhere else is amber ({ls[2]})')
     nl = pick('notlate'); bill(pg, nl); ok(not pg.evaluate(AMBER) and pg.locator('.riskt').count() == 0, f'{nl}: testimony not yet due has no amber anywhere')
     snap(pg, 'late_testimony.png')
 
     # ============================================================ at risk, needs a hearing, cleared, stopped: the words equal the Issues list
     rk = L['risk']['bill']; go(pg, f'#/bill/{rk}?i={L["risk"]["issue"]}&who=all'); st = pg.evaluate(STAT); lead = L['risk']['text'].split(' · ')[0]
-    lm = re.match(r'^Needs a hearing by (\w{3}) · in (\d+) days?$', L['risk']['text'].strip()); pm = re.match(r'^Needs a hearing by (\w{3}), (\w{3} \d+) · (\d+) days? · in .+ · none is scheduled$', st[0])
-    ok(lm and pm and lm.group(1) == pm.group(1) and lm.group(2) == pm.group(3) and 'days left' not in st[0], f'{rk} (at risk): "{st[0]}" has the same weekday and days as the Issues list ("{L["risk"]["text"]}"), in the same date words')
-    ok(len(st) in (2, 3) and st[1].startswith('If it is not heard by then, it stops for the year.'), f'{rk} (at risk): the second line says what happens ({st[1:] })')
+    lm = re.match(r'^Needs a hearing by (\w{3}) · in (\d+) days?$', L['risk']['text'].strip()); pm = re.match(r'^Needs a hearing by (\w{3}), (\w{3} \d+) · (\d+) days?$', st[1]); lead_ok = re.match(r'^.+ \([A-Z]{2,4}\)$|^.+ [A-Z]{2,4}(/[A-Z]{2,4})*$', st[0]) and not re.search(r'none is scheduled|\bin (House|Senate)', ' '.join(st))
+    ok(lm and pm and lead_ok and lm.group(1) == pm.group(1) and lm.group(2) == pm.group(3) and 'days left' not in st[1], f'{rk} (at risk): the page leads with where it is ("{st[0]}"), then "{st[1]}", the same weekday and days as the Issues list ("{L["risk"]["text"]}"), in the same date words, with no committee or status said twice')
+    ok(len(st) in (3, 4) and st[2].startswith('If it is not heard by then, it stops for the year.'), f'{rk} (at risk): the line after says what happens ({st[2:] })')
     ok(pg.evaluate("() => !!document.querySelector('#bStat a[href^=\"#/search/committee/\"]')"), f'{rk} (at risk): the committee it is in is a link')
     snap(pg, 'at_risk_bill.png')
     if 'cleared' in L:
@@ -168,20 +168,20 @@ with sync_playwright() as p:
         want = t[6:] if t.startswith('Next: ') else t
         glab = pg.evaluate("async () => { const is = await import('/staff7/issues.js'); return is.clearedLabel(is.nextCtx().next.row); }")
         where = t[6:] if t.startswith('Next: ') else t
-        ok(glab.startswith('Cleared ') and st[0].startswith(glab + ' · ') and (t.startswith('Next: ') or st[0].endswith(' · ' + where)), f'{cb} (cleared): "{st[0]}" says the Issues group\'s own words ("{glab}") and the list\'s own line ("{t}")')
-        ok(len(st) == 1, f'{cb} (cleared, nothing later): one line')
+        ok(glab.startswith('Cleared ') and st[1] == glab + '.' and (t.startswith('Next: ') or st[0] == where), f'{cb} (cleared): the page leads with "{st[0]}" (the list\'s own line "{t}") and then says the Issues group\'s own words ("{glab}")')
+        ok(len(st) == 2, f'{cb} (cleared, nothing later): two lines')
         snap(pg, 'cleared_bill.png')
     else: skip('the Issues list has no issue in the "cleared" group today (the practice copy has none; the groups are risk, hearing, need, cleared, past, stopped), so the cleared words are not compared')
     cl2 = pick('cleared_later')
     if cl2:
-        bill(pg, cl2); st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by ') and any(re.match(r'^Cleared \w+’s deadline\.$', s) for s in st[1:]), f'{cl2}: a bill that cleared the next deadline but needs a hearing by a later one leads with the later need and says what it cleared ({st})')
+        bill(pg, cl2); st = pg.evaluate(STAT); ok(st[1].startswith('Needs a hearing by ') and any(re.match(r'^Cleared \w+’s deadline\.$', s) for s in st[2:]), f'{cl2}: a bill that cleared the next deadline but needs a hearing by a later one leads with the later need and says what it cleared ({st})')
     else: skip('no practice bill cleared the next deadline and needs a hearing by a later one')
     nd = pick('need')
-    bill(pg, nd); st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by ') and len(st) <= 3, f'{nd} (needs a hearing, not at risk): "{st[0]}"')
+    bill(pg, nd); st = pg.evaluate(STAT); ok(st[1].startswith('Needs a hearing by ') and len(st) <= 4, f'{nd} (needs a hearing, not at risk): "{st[0]}" then "{st[1]}"')
     sb = L['stopped']['bill']; go(pg, f'#/bill/{sb}?i={L["stopped"]["issue"]}&who=all'); st = pg.evaluate(STAT); t = L['stopped']['text']
     ok(len(st) in (1, 2) and re.match(r'^Stopped (\w{3} \d+(, \d{4})?)? ?· ', st[0]) and (len(st) == 1 or st[1].startswith('Still alive for this issue: ') or st[1].startswith('No other bill')), f'{sb} (stopped): "Stopped <date> · why", then at most the line about the issue ("{st[0]}"; the Issues list says "{t}")')
     dt = re.match(r'^Stopped (\w{3} \d+)', st[0]).group(1)
-    ok(st[0].count(dt) == 1 and ' on ' + dt not in st[0] and re.search(r'· (No hearing in|Heard \w{3} \d+ in) .+ \([A-Z]{2,4}\)', st[0]), f'{sb} (stopped): the date is said once, the why is the app\'s one wording with each committee\'s code ({st[0]}; the Issues list says "{t}")')
+    ok(st[0].count(dt) == 1 and ' on ' + dt not in st[0] and re.search(r'· (No hearing(, missed the deadline)?|Deferred \w{3} \d+|Heard \w{3} \d+, no vote recorded) · .+ (\([A-Z]{2,4}\)|[A-Z]{2,4}(/[A-Z]{2,4})+)$', st[0]), f'{sb} (stopped): the date is said once, the why is the app\'s one wording (place.js) with the committee\'s code ({st[0]}; the Issues list says "{t}")')
     ok(pg.locator('svg.trk.dead').count() >= 1 and not pg.evaluate(AMBER), f'{sb} (stopped): its path ends in a bar, no amber')
     snap(pg, 'stopped_bill.png')
     sn = pick('stopped_nodate')
@@ -199,9 +199,9 @@ with sync_playwright() as p:
     plain = pg.evaluate("""async () => { const d = await import('/staff6/data.js'), st = await import('/staff7/standing.js'), mo = await import('/staff6/model.js'), is = await import('/staff7/issues.js'), S = d.S, row = is.nextCtx().next.row;
       return S.bills.filter(b => b.tracked !== false && st.isAlive(b) && !mo.hearingAhead(b) && !st.deadlineOf(b) && is.clearedOf(b, row) !== 'yes').slice(0, 2).map(b => b.bill_number); }""")
     for nb in plain[:1]:
-        bill(pg, nb); st = pg.evaluate(STAT); ok(len(st) in (1, 2) and pg.locator('#bStat .blt > b').count() == 1 and (len(st) == 1 or st[1].startswith('No hearing is scheduled in ')), f'{nb}: alive with no hearing and no deadline: its first words bold, and at most the line saying no hearing is scheduled ({st})')
+        bill(pg, nb); st = pg.evaluate(STAT); ok(len(st) in (1, 2) and pg.locator('#bStat .blt > b').count() == 1 and (len(st) == 1 or re.match(r'^It must be heard by \w{3}, \w{3} \d+\.$', st[1])), f'{nb}: alive with no hearing and no deadline: its first words bold, and at most the date it must be heard by ({st})')
     # a hearing that was cancelled or deferred, with nothing new
-    ot = pick('otherstatus'); bill(pg, ot); st = pg.evaluate(STAT); ok(len(st) in (1, 2) and not st[0].startswith('Hearing ') and (len(st) == 1 or st[1].startswith('No hearing is scheduled in ')), f'{ot}: a cancelled hearing with nothing new is a line of where the bill is, and that no hearing is scheduled ({st})')
+    ot = pick('otherstatus'); bill(pg, ot); st = pg.evaluate(STAT); ok(len(st) in (1, 2) and not st[0].startswith('Hearing ') and (len(st) == 1 or re.match(r'^It must be heard by \w{3}, \w{3} \d+\.$', st[1])), f'{ot}: a cancelled hearing with nothing new is a line of where the bill is, and at most the date it must be heard by ({st})')
 
     # ============================================================ the facts
     bill(pg, 'HB1523', f'who=all'); pg.wait_for_selector('#bParts'); f = pg.evaluate(FACTS)
@@ -290,7 +290,7 @@ with sync_playwright() as p:
     ok(pg.locator('.bigpath svg.trk.row.dead, .bigpath svg.trk.row .tx').count() >= 1, 'HB10: the compact drawing is unchanged (it keeps its bar)')
     # F6, F9, F10, F11 on HB108 / HB1523
     bill(pg, 'HB108'); pg.wait_for_selector('#bParts'); st = pg.evaluate(STAT)
-    ok(len(st) >= 2 and re.match(r'^No hearing is scheduled in .+ yet(, which must hear it by \w{3}, \w{3} \d+ · \d+ days?)?$', st[1]) and pg.locator('#bStat .bln:nth-child(2).m a[href^="#/search/committee/"]').count() == 1, f'HB108: a bill in a committee with nothing scheduled and no needs-a-hearing state says so, with the committee as a link and the date it must be heard by when the calendar gives one ({st})')
+    ok(pg.locator('#bStat .bln:nth-child(1) a[href^="#/search/committee/"]').count() == 1 and not re.search(r'no hearing is scheduled|\bin (House|Senate)', ' '.join(st), re.I) and (len(st) == 1 or re.match(r'^It must be heard by \w{3}, \w{3} \d+\.$', st[1])), f'HB108: a bill in a committee with nothing scheduled and no needs-a-hearing state leads with where it is, the committee a link, and says only the date it must be heard by when the calendar gives one, never the committee again ({st})')
     bill(pg, 'SB11'); st = pg.evaluate(STAT); ok(not any(x.startswith('No hearing is scheduled') for x in st), 'SB11: a bill in the needs-a-hearing state does not get that line as well')
     bill(pg, 'HB1523'); pg.wait_for_selector('#bParts'); ok(pg.locator('#bHearOld').count() == 0, 'HB1523: a bill of this year has no note about earlier hearings')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'), b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.intro_year = 2025; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(250)
@@ -337,7 +337,7 @@ with sync_playwright() as p:
     pg.evaluate("""async hb => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === hb), hs = S.hearings.filter(h => h.bill_id === b.id && h.status === 'scheduled' && new Date(h.scheduled_at) > Date.now());
       const h = hs[0]; S.hearings.push({ ...h, id: 'synthetic-2', scheduled_at: new Date(new Date(h.scheduled_at).getTime() + 2 * 864e5).toISOString(), notice_url: 'https://example.com/notice' }); h.notice_url = 'https://example.com/agenda'; }""", hb)
     bill(pg, hb); st = pg.evaluate(STAT)
-    ok(len(st) >= 3 and st[2].startswith('Another hearing ') and pg.locator('#bStat a:has-text("Another hearing")').count() == 1 and 'Agenda' in st[0], f'{hb}: a second scheduled hearing adds a short third line, a link; the first one\'s Agenda shows (synthetic: {st[2][:60]})')
+    ok(len(st) >= 4 and st[3].startswith('Another hearing ') and pg.locator('#bStat a:has-text("Another hearing")').count() == 1 and 'Agenda' in st[1], f'{hb}: a second scheduled hearing adds a short line, a link; the first one\'s Agenda shows (synthetic: {st[3][:60]})')
     ok(pg.evaluate("() => { const a = [...document.querySelectorAll('#bStat a')].find(x => x.innerText.includes('Agenda')); return a && a.target === '_blank' && a.rel.includes('noopener'); }"), f'{hb}: the Agenda link opens in a new tab with rel=noopener')
     ok(not revisit(pg, [pg.evaluate("() => [...document.querySelectorAll('#bStat a')].find(x => x.innerText.includes('Another hearing')).getAttribute('href')")], 'two'), f'{hb}: the "Another hearing" link opens that sitting')
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.position = null; window.__staff7Render({}); }""")
@@ -382,19 +382,19 @@ with sync_playwright() as p:
     # ============================================================ SB11 as JM: needs a hearing, the chairs, who asked, the committees after this one
     pg, ctx = open_as(br, 'JM', 1440, 900, '#/bill/SB11'); errs, bad = ctx._errs, ctx._bad; pg.wait_for_selector('#bParts', timeout=20000)
     st = pg.evaluate(STAT)
-    ok(st[0].startswith('Needs a hearing by ') and st[1].startswith('If it is not heard by then, it stops for the year. Chairs: ') and ' and ' in st[1], f'SB11: line 2 says what happens, then "Chairs: A and B" for a joint committee ({st[1]})')
-    ch = pg.evaluate("() => [...document.querySelectorAll('#bStat .bln:nth-child(2) a')].map(a => [a.innerText.trim(), a.getAttribute('href')])")
-    ok(re.match(r'^If it is not heard by then, it stops for the year\. Chairs: (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\) and (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\)$', st[1]) and sum(1 for h in ch if h[1].startswith('#/search/person/')) == 2 and sum(1 for h in ch if h[1].startswith('tel:')) == 2, f'SB11: each chair is a link with room and a phone as a tel: link ({ch})')
+    ok(st[1].startswith('Needs a hearing by ') and st[2].startswith('If it is not heard by then, it stops for the year. Chairs: ') and ' and ' in st[2], f'SB11: line 3 says what happens, then "Chairs: A and B" for a joint committee ({st[2]})')
+    ch = pg.evaluate("() => [...document.querySelectorAll('#bStat .bln:nth-child(3) a')].map(a => [a.innerText.trim(), a.getAttribute('href')])")
+    ok(re.match(r'^If it is not heard by then, it stops for the year\. Chairs: (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\) and (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\)$', st[2]) and sum(1 for h in ch if h[1].startswith('#/search/person/')) == 2 and sum(1 for h in ch if h[1].startswith('tel:')) == 2, f'SB11: each chair is a link with room and a phone as a tel: link ({ch})')
     ok(not revisit(pg, [h[1] for h in ch if h[1].startswith('#/')], 'chair'), 'SB11: each chair\'s link opens the legislator\'s page'); go(pg, '#/bill/SB11'); pg.wait_for_selector('#bParts')
-    ok(len(st) >= 3 and re.match(r'^[12] more committees? after this one: .+', st[2]) and (' then ' in st[2]) and pg.locator('#bStat .bln:nth-child(3).m a[href^="#/search/committee/"]').count() >= 1, f'SB11: a muted line says how many committees come after this one, each a link ({st[2:]})')
+    ok(len(st) >= 4 and re.match(r'^[12] more committees? after this one: .+', st[3]) and (' then ' in st[3]) and pg.locator('#bStat .bln:nth-child(4).m a[href^="#/search/committee/"]').count() >= 1, f'SB11: a muted line says how many committees come after this one, each a link ({st[3:]})')
     ok(not any('asked the chair' in x for x in st), 'SB11: nobody has asked yet, so no "asked" sentence (the practice copy holds no chair ask for it)')
     # before the history has come nothing about asks is shown; after, the newest ask is told
     pg.evaluate("""async () => { const m = await import('/staff7/bill_data.js'), d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'SB11'), leg = S.legislators.find(l => String(l.id) === String(S.committeeMembers.find(c => c.committee === 'WAL' && c.role === 'chair').legislator_id));
       await d.DB.addLegNote(leg.id, b.id, 'Asked for a hearing on SB 11 (WAL).', { answer: 'asked', committee: 'WAL' }); S.convCache = {}; m.cache.delete(b.id); window.__staff7Render({ tick: true }); }""")
     pg.wait_for_selector('#bParts', timeout=10000); pg.wait_for_timeout(300); st = pg.evaluate(STAT)
-    ok(len(st) >= 3 and re.match(r'^\w+ asked the chairs’ offices on \w{3}, \w{3} \d+\. [12] more committees? after this one: ', st[2]), f'SB11: once an ask is on record the muted line says who asked and when, then the committees after ({st[2:]})')
+    ok(len(st) >= 4 and re.match(r'^\w+ asked the chairs’ offices on \w{3}, \w{3} \d+\. [12] more committees? after this one: ', st[3]), f'SB11: once an ask is on record the muted line says who asked and when, then the committees after ({st[3:]})')
     pg.evaluate("""async () => { const m = await import('/staff7/bill_data.js'), d = await import('/staff6/data.js'); m.cache.set(d.S.bills.find(x => x.bill_number === 'SB11').id, 'loading'); window.__staff7Render({ tick: true }); }"""); pg.wait_for_timeout(200)
-    st = pg.evaluate(STAT); ok(st[0].startswith('Needs a hearing by') and not any('asked the chair' in x for x in st) and len(pg.evaluate(STAT)) >= 2, 'SB11: while the history is still loading nothing about asks is shown, and the top of the page is drawn')
+    st = pg.evaluate(STAT); ok(st[1].startswith('Needs a hearing by') and not any('asked the chair' in x for x in st) and len(pg.evaluate(STAT)) >= 2, 'SB11: while the history is still loading nothing about asks is shown, and the top of the page is drawn')
     ok(pg.evaluate(NOSIDE), 'SB11: no sideways scroll')
     snap(pg, 'needs_hearing_bill.png')
     ok(not errs and not bad, f'SB11: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')

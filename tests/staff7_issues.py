@@ -362,6 +362,9 @@ with sync_playwright() as p:
     TOPICS = "() => [...document.querySelectorAll('#topics a.sr3')].map(a => ({ key: a.getAttribute('href').split('/topic/')[1].split('?')[0], name: a.querySelector('b').innerText.trim(), line: a.querySelector('.ir2').innerText.replace(/\\s*\\n\\s*/g, ' ').trim(), amber: !!a.querySelector('.ir2 .tr.risk'), href: a.getAttribute('href') }))"
     AMBER = "() => { const e = document.createElement('i'); e.style.color = 'var(--amber)'; document.body.appendChild(e); const c = getComputedStyle(e).color; e.remove(); const r = document.querySelector('.ir2.risk, .ir2 .tr.risk'); return r ? [getComputedStyle(r).color, c] : [c, c]; }"
     HEADWORDS = ('At risk', 'Cleared', 'Waiting', 'Hearing scheduled', 'Needs a hearing', 'Past committees', 'Stopped this year ·')
+    CM1 = r'[A-Z][\w&,\' -]+ \([A-Z]{2,4}\)'; CMT = rf'(?:{CM1}|(?:House |Senate )?[A-Z]{{2,4}}(?:/[A-Z]{{2,4}})+)'   # one committee by name and code, or a joint stop by its codes
+    PLACE1 = r'(Not referred yet|Waiting for a hearing|Passed \d+ (of \d+ )?committees?|Crossed over, waiting for a hearing|Hearing scheduled|Decision making scheduled|Being heard today|Hearing held, no vote recorded|Passed committee, waiting for the floor vote|Back in the (House|Senate) to agree or disagree|In conference|With the Governor|Signed into law|Adopted|Going to the voters)'
+    STOP1 = r'(No hearing(, missed the deadline)?|Deferred( \w{3} \d+)?|Heard \w{3} \d+, no vote recorded|Vetoed|Failed a floor vote)'
     def sec_ok(r, x, nextDay):
         t = r['sec']; k = x['state']
         if k == 'risk': return r['amber'] and (re.fullmatch(r'Needs a hearing by \w{3} · (today|tomorrow|in \d+ days)', t) is not None or re.fullmatch(r'Hearing .+ · after the deadline', t) is not None)
@@ -371,9 +374,9 @@ with sync_playwright() as p:
             base = 'Hearing ' + x['hearTxt']; tail = f' · before {nextDay}’s deadline'
             return t == base + tail if all(x['before']) else t == base if not any(x['before']) else t in (base, base + tail)
         if k == 'cleared': return t.startswith('Next: ') or (bool(t) and not t.startswith('Cleared'))
-        if k == 'need': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^In (\d+ (House|Senate) committees|(House|Senate) .+?)( · by \w{3}, \w{3} \d+ · (\d+ days|today|tomorrow))?$', t) is not None
-        if k == 'past': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.search(r'^(In (\d+ (House|Senate) committees|(House|Senate) .+)|Ready for|In conference|With the|Signed|Going)', t) is not None and ' · by ' not in t
-        return re.fullmatch(r'Stopped( \w{3} \d+ · (No hearing in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*|Heard \w{3} \d+ in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*, held|Was in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*)| in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*| in \d+ committees)?', t) is not None   # exactly: one bill's own line (a code per committee); "Stopped in <names with codes>"; "Stopped in N committees"; a bare "Stopped" (no stage data)
+        if k == 'need': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.fullmatch(rf'{PLACE1}( · {CMT})?( · by \w{{3}}, \w{{3}} \d+ · (\d+ days|today|tomorrow))?', t) is not None
+        if k == 'past': return bool(t) and not t.startswith(('Hearing', 'Needs')) and re.fullmatch(rf'{PLACE1}( · {CMT})?', t) is not None and ' · by ' not in t
+        return re.fullmatch(rf'Stopped( \w{{3}} \d+)?( · {STOP1})?( · {CMT})?|Stopped in .+ \([A-Z]+\)( with .+ \([A-Z]+\))*|Stopped in \d+ committees', t) is not None   # exactly: one bill's own line (place.js: its date, its state, its committee); "Stopped in <names with codes>"; "Stopped in N committees"; a bare "Stopped" (no stage data)
     def stats_sentence(sx, key, rows, bills):
         # the topic page's deadline sentence, from the data: the next deadline against the topic's alive bills
         nr = sx['nextKey']; info = sx['info']; racing = [b for b in sx['racingNext'] if b in bills]; clr = [b for b in bills if b in set(sx['clearedBills'])]

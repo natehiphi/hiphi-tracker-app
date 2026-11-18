@@ -52,7 +52,8 @@ export const RETIRED = { WTL: { name: 'Water and Land', chamber: 'Senate' }, HRE
 const known = c => !!S.committees?.[c] || !!RETIRED[c] || cmteWords(c) !== c;
 export const cmteLabel = (c, b) => RETIRED[c] && !S.committees?.[c] ? `${RETIRED[c].chamber} ${RETIRED[c].name}` : known(c) ? cmteWords(c) : (chamberOfCode(b, c) ? `${chamberOfCode(b, c)} committee` : 'A committee');
 export const cmtesText = (codes, b) => codesOf(codes).map(c => cmteLabel(c, b)).join(' with ');
-export const cmteLink = (c, b, cls = '') => S.committees?.[c] ? `<a class="lk${cls}" href="#/search/committee/${enc(c)}">${esc(cmteLabel(c, b))}</a>` : esc(cmteLabel(c, b));
+// text: the words of the link when they are not the committee's name (place.js says "Senate Education (EDU)" or a code of a joint stop)
+export const cmteLink = (c, b, cls = '', text = null) => { const t = text ?? cmteLabel(c, b); return S.committees?.[c] ? `<a class="lk${cls}" href="#/search/committee/${enc(c)}">${esc(t)}</a>` : esc(t); };
 // a committee or a joint pair: "House Health with House Human Services", each one a link
 export const cmtesLinks = (codes, b) => codesOf(codes).map(c => cmteLink(c, b)).join(' with ');
 // the Capitol's codes inside a sentence, in words ("HB", "SB" and the like stay); a code that is nobody's committee here ("CR 229") is left alone

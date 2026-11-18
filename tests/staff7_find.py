@@ -233,7 +233,8 @@ with sync_playwright() as p:
     pg.go_back(); pg.wait_for_timeout(700)
     pg.click('#findIn'); pg.keyboard.press('ArrowUp'); ok(pg.evaluate("() => document.getElementById(document.getElementById('findIn').getAttribute('aria-activedescendant')).closest('#ialso') !== null"), 'Arrow Up from the first row wraps to the last Also found row')
     pg.click('#alsoLink'); pg.wait_for_timeout(300)
-    ok(pg.evaluate("() => document.activeElement.id") == 'alsoH' and pg.evaluate("() => { const r = document.getElementById('alsoH').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; }"), 'the link scrolls to the Also found section and focuses it')
+    # top >= -1, not >= 0: the heading is scrolled to the top edge and a scroll position rounds to a sub-pixel (-0.5), so one pixel of slack
+    ok(pg.evaluate("() => document.activeElement.id") == 'alsoH' and pg.evaluate("() => { const r = document.getElementById('alsoH').getBoundingClientRect(); return r.top >= -1 && r.top < innerHeight; }"), 'the link scrolls to the Also found section and focuses it')
     snap(pg, 'issues-also.png')
     # a view that is not Everyone: the issues outside it are in Also found
     # Back from an opened issue restores the words

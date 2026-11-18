@@ -5,8 +5,9 @@ import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
 import { billName, billNo, posWords } from './steps.js';
 import { isAlive } from './standing.js';
-import { deadlineCell, whereCell, headCell, CELL_ORDER } from './bill_cell.js';
-import { codesOf, cmteLabel, monD } from './bill_words.js';
+import { deadlineCell, headCell, CELL_ORDER } from './bill_cell.js';
+import { placeCell, stoppedLine } from './place.js';
+import { codesOf, cmteLabel, monD, ymdH } from './bill_words.js';
 import { cmteMarks } from './bill_tl.js';
 import { stoppedISO } from './bill.js';
 import { pathOf } from './path.js';
@@ -16,40 +17,42 @@ export const tui = { open: new Set() };   // issues whose stopped list is open, 
 const num = b => String(b.bill_number).replace(/\s/g, '');
 const byNum = (x, y) => num(x).localeCompare(num(y), 'en', { numeric: true });
 
-// ONE wording for a stopped bill, everywhere in the app (the All bills table, the Issues list, the issue page's table and the bill page); this is the only place it is made.
-//   never heard      "No hearing in House Health (HLT)"
-//   heard, then held "Heard Feb 6 in House Health (HLT), held"
-//   joint referral   each committee with its own code: "No hearing in Senate Judiciary (JDC) with Senate Ways and Means (WAM)"
-//   the date         said once and quietly: "Stopped Feb 11" (stoppedDate); a page with one line for both says "Stopped Feb 11 · No hearing in House Health (HLT)" (stoppedWords)
-// stoppedWhy(b) -> { date: 'Feb 11' or '', why: the reason in those words or '', kind: 'none' | 'held' | '' , heard: 'Feb 6' (kind held), cmte: 'HLT/HSH' (the committee codes it stopped in) or '', codes: ['HLT', 'HSH'], name: 'House Health (HLT) with House Human Services & Homelessness (HSH)' }
+// The FACTS about a stopped bill, everywhere in the app (the All bills table, the Issues list, the issue page's table and the bill page); the WORDS for them are place.js (placeOf), the one source of a bill's place.
+//   the date         said once and quietly: "Stopped Feb 11" (stoppedDate); a page with one line for both says "Stopped Feb 11 · No hearing, missed the deadline · House Health (HLT)" (stoppedWords)
+// stoppedWhy(b) -> { date: 'Feb 11' or '', kind: 'none' | 'held' | '' , heard: 'Feb 6' (kind held), cmte: 'HLT/HSH' (the committee codes it stopped in) or '', codes: ['HLT', 'HSH'], name: 'House Health (HLT) with House Human Services & Homelessness (HSH)' }
 // WHAT IT TRUSTS: the date is the Capitol's own deadline date it missed (died_deadline, bill.js stoppedISO); the committee is the one cmteMarks marks as where it stopped, which is only
 // set when the data names it (died_at_stage); "heard ... and held" only when a past hearing of that committee is on record; the stage says the rest (a lateral deadline is missed by a bill
-// that never reached its second committee; a first-committee or decking deadline by one that was never heard). When the record cannot tell which, why is '' and the line says only where it stopped.
+// that never reached its second committee; a first-committee or decking deadline by one that was never heard). When the record cannot tell which, kind is '' and the page says only where it stopped.
 export const cmteNames = (codes, b) => codes.map(c => `${cmteLabel(c, b)} (${c})`).join(' with ');
+// The Capitol's last action can say a hearing never took place: "This measure has been deleted from the meeting scheduled on Wednesday 02-25-26 2:00PM". That hearing is not a hearing held.
+// Only when the action names a date (MM-DD-YY) and it is the hearing's own Honolulu day; an action with no date ignores nothing.
+export function deletedFrom(b, h) {
+  const a = String(b.last_action || ''); if (!/deleted from the meeting/i.test(a)) return false;
+  const m = /\b(\d{1,2})-(\d{1,2})-(\d{2,4})\b/.exec(a); if (!m) return false;
+  const y = +m[3] < 100 ? 2000 + +m[3] : +m[3];
+  return ymdH(h.scheduled_at) === `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`;
+}
 export function stoppedWhy(b) {
   const iso = stoppedISO(b), date = iso ? monD(`${iso}T12:00:00-10:00`) : '';
   const { refs, marks } = cmteMarks(b), at = refs.filter((_, i) => marks[i] === 'now'), codes = [...new Set(at.flatMap(codesOf))];
-  if (!codes.length) return { date, why: '', kind: '', cmte: '', codes: [], name: '' };
+  if (!codes.length) return { date, kind: '', cmte: '', codes: [], name: '' };
   const cmte = codes.join('/'), name = cmteNames(codes, b), stage = String(b.died_at_stage || '');
-  const heard = (S.hearings || []).filter(h => h.bill_id === b.id && h.status === 'scheduled' && new Date(h.scheduled_at).getTime() < Date.now() && codesOf(h.committee).some(c => codes.includes(c)))
+  const heard = (S.hearings || []).filter(h => h.bill_id === b.id && h.status === 'scheduled' && new Date(h.scheduled_at).getTime() < Date.now() && codesOf(h.committee).some(c => codes.includes(c)) && !deletedFrom(b, h))
     .sort((p, q) => String(q.scheduled_at).localeCompare(String(p.scheduled_at)))[0];
   const passed = heard && ['passed', 'passed_amended'].includes((S.outcomes?.[heard.id] || {}).outcome);
-  if (heard) return passed ? { date, why: '', kind: '', cmte, codes, name } : { date, why: `Heard ${monD(heard.scheduled_at)} in ${name}, held`, kind: 'held', heard: monD(heard.scheduled_at), cmte, codes, name };
-  if (/_(triple|lateral|decking)$/.test(stage)) return { date, why: `No hearing in ${name}`, kind: 'none', cmte, codes, name };
-  return { date, why: '', kind: '', cmte, codes, name };
+  if (heard) return passed ? { date, kind: '', cmte, codes, name } : { date, kind: 'held', heard: monD(heard.scheduled_at), cmte, codes, name };
+  if (/_(triple|lateral|decking)$/.test(stage)) return { date, kind: 'none', cmte, codes, name };
+  return { date, kind: '', cmte, codes, name };
 }
-// the reason alone; when the record cannot tell why, where it was last ("Was in House Health (HLT)")
-// (the -Of forms take what stoppedWhy answered, so a table that needs the reason and the date works the bill out once)
-export const stoppedReasonOf = w => w.why || (w.name ? `Was in ${w.name}` : '');
+// (the -Of form takes what stoppedWhy answered, so a table that needs the date and more works the bill out once)
 export const stoppedDateOf = w => `Stopped${w.date ? ` ${w.date}` : ''}`;
-export const stoppedReason = b => stoppedReasonOf(stoppedWhy(b));
 // "Stopped Feb 11" (just "Stopped" when the Capitol's date is not known)
 export const stoppedDate = b => stoppedDateOf(stoppedWhy(b));
-// both in one line, for a page that has one line to say it in
-export const stoppedWords = b => { const w = stoppedWhy(b), r = stoppedReasonOf(w); return `${stoppedDateOf(w)}${r ? ` · ${r}` : ''}`; };
+// both in one line, for a page that has one line to say it in: "Stopped Feb 11 · No hearing, missed the deadline · House Health (HLT)"
+export const stoppedWords = b => stoppedLine(b);
 
 // With no bill alive the status line at the top tells why the issue's last bill stopped (issue.js stoppedLines); that bill's row then says only when
-const toldAbove = b => { const w = stoppedWhy(b); return !!(w.why || w.cmte); };
+const toldAbove = b => { const w = stoppedWhy(b); return !!w.cmte; };
 const stoppedShort = stoppedDate;
 const COLS = '<colgroup><col class="cn"><col class="cm"><col class="cw"><col class="cd"></colgroup>';   // widths in app.css: the number fits its words, the name takes the rest
 const COLS3 = '<colgroup><col class="cn"><col class="cm"><col class="cw"></colgroup>';
@@ -69,8 +72,8 @@ export function billsHTML(issue, bills, row, who) {
   const alive = sortedAlive(bills, row), dead = deadOrder(bills), link = b => `<a class="lk" href="${esc(billHref(who, b, issue.id))}">${esc(billNo(b))}</a>`;
   let h = '<h2 class="sh" id="tBillsH">Bills</h2>';
   if (alive.length) {
-    h += `<table class="btab" id="tBills"><caption class="sr">Bills of this issue that are still alive, where each waits now, and how each stands against the next deadline</caption>${COLS}<thead><tr><th scope="col" colspan="2">Bill</th><th scope="col">Now waiting</th><th scope="col" class="dh">${esc(headCell(row))}</th></tr></thead><tbody>`
-      + alive.map(({ b, c }) => `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw">${whereCell(b)}</td><td class="dc">${cellHTML(c)}</td></tr>`).join('') + '</tbody></table>';
+    h += `<table class="btab" id="tBills"><caption class="sr">Bills of this issue that are still alive, where each waits now, and how each stands against the next deadline</caption>${COLS}<thead><tr><th scope="col" colspan="2">Bill</th><th scope="col">Where it is</th><th scope="col" class="dh">${esc(headCell(row))}</th></tr></thead><tbody>`
+      + alive.map(({ b, c }) => { const pc = placeCell(b, null, { link: true }); return `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw"${pc.attr}>${pc.html}</td><td class="dc">${cellHTML(c)}</td></tr>`; }).join('') + '</tbody></table>';
   }
   if (dead.length) {
     const open = !alive.length || tui.open.has(issue.id), n = dead.length;

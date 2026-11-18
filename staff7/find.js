@@ -11,11 +11,12 @@
 import { S, DB, DEMO, advocate, capitolUrl, myIssueIds, isMine } from '../staff6/data.js';
 import { hearingAhead, billRef, billByRef, stopOf, titleCaseTitle } from '../staff6/model.js';
 import { ic } from './icons7.js';
-import { esc, plainBand, keepWords, keepEcig, KEEP_ECIG } from './parts.js';
+import { cap } from './bill_words.js';
+import { esc, plainBand, keepWords, keepWordsHTML, keepEcig, KEEP_ECIG } from './parts.js';
 import { billName, billNo, cmteWords, first, issueOf } from './steps.js';
 import { billsOfIssue, isAlive } from './standing.js';
-import { stoppedWords } from './issue_table.js';
-import { eCig, issueHref, billHref, hearTxt, posLine, whereShort, tint, iconOf, catsOf, statesFor, nextCtx, sitKeyOf, ui as issuesUi, bindFolds } from './issues.js';
+import { placeLine, placeLineHTML, stoppedLine as stoppedWords, stoppedLineHTML } from './place.js';
+import { eCig, issueHref, billHref, hearTxt, posLine, tint, iconOf, catsOf, statesFor, nextCtx, sitKeyOf, ui as issuesUi, bindFolds } from './issues.js';
 
 const enc = encodeURIComponent;
 const $ = id => document.getElementById(id);
@@ -115,9 +116,9 @@ function secondOf(id) {
   const ix = getIdx();
   if (!ix.second) {
     ix.second = new Map();
-    try { for (const x of statesFor((S.issues || []).filter(i => !i.archived_at).map(i => ({ issue: i, bills: billsOfIssue(i) })).filter(x => x.bills.length), nextCtx())) ix.second.set(String(x.issue.id), x.second?.text || ''); } catch { /* the line is left out */ }
+    try { for (const x of statesFor((S.issues || []).filter(i => !i.archived_at).map(i => ({ issue: i, bills: billsOfIssue(i) })).filter(x => x.bills.length), nextCtx())) ix.second.set(String(x.issue.id), x.second || null); } catch { /* the line is left out */ }
   }
-  return ix.second.get(String(id)) || '';
+  return ix.second.get(String(id)) || null;
 }
 // The issues of a list that match the words (Issues narrows its own list with this)
 export function issueHits(list, q) { const ws = matchWords(q), ix = getIdx(); return list.filter(i => { const e = ix.issueBy.get(String(i.id)); return e && has(e.hay, ws); }); }
@@ -126,9 +127,13 @@ export function issueHits(list, q) { const ws = matchWords(q), ix = getIdx(); re
 const F = { who: { code: '' }, open: false, active: -1, hl: true, seq: 0, timer: 0, other: null, busy: false, text: '', sel: [0, 0], env: null, saved: new Map(), back: false, keepY: null, wantY: null, suppress: false };
 const tile = (icon, style = '', plain = false) => `<span class="imark${plain ? ' plain' : ''}"${style ? ` style="${style}"` : ''} aria-hidden="true">${ic(icon)}</span>`;
 const issueLead = i => { const a = person(i.owner_id); return a ? leadPhrase(a) : 'No lead yet'; };
-// where a bill stands, in the words the issue rows use ("Stopped Feb 11 · No hearing in House Health (HLT)"), and "Hearing" written the same way everywhere
-const whereOf = b => isAlive(b) ? whereShort(b) : stoppedWords(b);   // a stopped bill in the app's one wording (issue_table.js)
-const hearOf = b => { const h = isAlive(b) ? hearingAhead(b) : null; return h ? `Hearing ${hearTxt(h.scheduled_at)}` : whereOf(b); };
+// where a bill stands: place.js, the same words as the All bills table, the Issues list and the bill page ("Hearing scheduled · House Health (HLT)", "Stopped Feb 11 · No hearing, missed the deadline · House Health (HLT)")
+const whereOf = b => isAlive(b) ? placeLine(b) : stoppedWords(b);
+const whereHTML = b => isAlive(b) ? placeLineHTML(b, null, { group: false }) : stoppedLineHTML(b, null, { bold: false, group: false });   // the same words as HTML: a joint committee's codes carry their full names
+// a bill with a hearing ahead says when too, in the words of the All bills table's Next date ("Hearing scheduled · House Higher Education (HED) · Wed 2:30 PM")
+const whenOf = b => { const h = isAlive(b) ? hearingAhead(b) : null; return h ? cap(hearTxt(h.scheduled_at)) : ''; };
+const hearOf = b => [whereOf(b), whenOf(b)].filter(Boolean).join(' · ');
+const hearHTML = b => [whereHTML(b), esc(whenOf(b))].filter(Boolean).join(' · ');
 const roleWord = l => (l.chamber === 'S' ? 'Senator' : 'Representative');
 const chairsOf = id => (S.committeeMembers || []).filter(m => String(m.legislator_id) === String(id) && m.role === 'chair').map(m => cmteWords(m.committee));
 const issueOfBill = (b, iss) => iss.find(i => String(i.id) === String(issueOf(b)?.id)) || iss[0] || null;
@@ -141,12 +146,12 @@ const whyOf = (e, ws) => { const p = e.parts.find(x => ws.some(alts => alts.some
 function toItem(e, recent, ws, nm) {
   const why = !recent && ws && ws.length && nm === false && e.parts ? whyOf(e, ws) : '';
   if (e.kind === 'issue') {
-    const i = e.i, st = recent ? '' : secondOf(i.id);
-    return { kind: 'issue', key: 'i' + i.id, name: e.name, no: '', why, tile: tile(iconOf(i), tint(i)), path: issueHref(F.who, i.id), sub: recent ? `Issue · ${topicName(i)}` : `Issue · ${billsOfIssue(i).length ? `${issueLead(i)}${st ? ` · ${st}` : ''}` : 'No bill on it this session'}` };
+    const i = e.i, sc = recent ? null : secondOf(i.id), st = sc ? sc.text || '' : '';
+    return { kind: 'issue', key: 'i' + i.id, name: e.name, no: '', why, tile: tile(iconOf(i), tint(i)), path: issueHref(F.who, i.id), sub: recent ? `Issue · ${topicName(i)}` : `Issue · ${billsOfIssue(i).length ? `${issueLead(i)}${st ? ` · ${st}` : ''}` : 'No bill on it this session'}`, subHTML: recent || !billsOfIssue(i).length || !sc?.html ? '' : `Issue · ${esc(issueLead(i))} · ${sc.html}` };
   }
   if (e.kind === 'bill') {
     const b = e.b, is = issueOfBill(b, e.iss);
-    return { kind: 'bill', key: 'b' + b.id, name: e.name, no: billNo(b), why, tile: tile(is ? iconOf(is) : 'file-text', is ? tint(is) : '', !is), path: billHref(F.who, b, is?.id, 'search'), sub: `Bill · ${hearOf(b)}${recent || !is ? '' : ` · ${posLine(b, is, S.me)}`}` };
+    return { kind: 'bill', key: 'b' + b.id, name: e.name, no: billNo(b), why, tile: tile(is ? iconOf(is) : 'file-text', is ? tint(is) : '', !is), path: billHref(F.who, b, is?.id, 'search'), sub: `Bill · ${hearOf(b)}${recent || !is ? '' : ` · ${posLine(b, is, S.me)}`}`, subHTML: `Bill · ${hearHTML(b)}${recent || !is ? '' : ` · ${esc(posLine(b, is, S.me))}`}` };
   }
   if (e.kind === 'cmte') return { kind: 'cmte', key: 'c' + e.code, name: e.name, no: '', why, tile: tile('landmark', '', true), path: `#/search/committee/${enc(e.code)}`, search: true, sub: why || !e.c.chair ? 'Committee' : `Committee · Chair ${e.c.chair}` };
   if (e.kind === 'leg') {
@@ -163,7 +168,7 @@ const hrefOf = (it, q) => (it.search ? it.path + (q ? `?q=${enc(q)}${ALLQ ? `&al
 function rowHTML(it, q, { ix = -1, plain = false, cur = '', pre = 'fo', nomark = false } = {}) {
   const mq = nomark ? '' : q, on = cur && cur === it.path;
   return `<a class="sr3 ir fit${on ? ' sel' : ''}"${plain ? '' : ` role="option" id="${pre}-${ix}" tabindex="-1" aria-selected="false"`}${on ? ' aria-current="true"' : ''} data-k="${it.kind}" href="${esc(hrefOf(it, q))}">${it.tile}`
-    + `<span class="sv"><span class="fn"><span class="fnt"><b>${mark(it.name, mq, SEEN)}</b></span>${it.no ? ` <span class="no">${markNo(it.no, mq)}</span>` : ''}</span><span class="ir2">${it.why ? `<span class="why">${markNo(it.why, mq)}</span> · ` : ''}${keepWords(esc(it.sub))}</span></span>${it.tag ? `<span class="ftag">${esc(it.tag)}</span>` : ''}</a>`;
+    + `<span class="sv"><span class="fn"><span class="fnt"><b>${mark(it.name, mq, SEEN)}</b></span>${it.no ? ` <span class="no">${markNo(it.no, mq)}</span>` : ''}</span><span class="ir2">${it.why ? `<span class="why">${markNo(it.why, mq)}</span> · ` : ''}${it.subHTML ? keepWordsHTML(it.subHTML) : keepWords(esc(it.sub))}</span></span>${it.tag ? `<span class="ftag">${esc(it.tag)}</span>` : ''}</a>`;
 }
 
 // ---------------------------------------------------------------------------------- results
@@ -489,7 +494,7 @@ function committeeSheet(code, q) {
   const sits = [...seen.values()].sort((a, b) => new Date(a.h.scheduled_at) - new Date(b.h.scheduled_at));
   let h = `<div class="pn" data-sheet="committee">${plainBand(cmteWords(code), 'Committee')}<div class="pbody">`;
   h += kv([['Chair', chairs.length ? chairs.map(lk).join(', ') : 'None listed'], ['Vice chair', vices.length ? vices.map(lk).join(', ') : 'None listed']]);
-  h += `<h2 class="sh">Our bills in this committee</h2>` + (mine.length ? `<ul class="srows3 fsheet">${mine.map(x => { const it = toItem(x.e), hr = isAlive(x.e.b) ? hearingAhead(x.e.b) : null; return `<li>${rowHTML({ ...it, sub: `Bill · ${x.p.line}${hr ? ` · Hearing ${hearTxt(hr.scheduled_at)}` : ''}` }, q, { plain: true, nomark: true })}</li>`; }).join('')}</ul>` : '<p class="hint" id="cNoBills">None of our bills is in this committee right now.</p>');
+  h += `<h2 class="sh">Our bills in this committee</h2>` + (mine.length ? `<ul class="srows3 fsheet">${mine.map(x => { const it = toItem(x.e), hr = isAlive(x.e.b) ? hearingAhead(x.e.b) : null; return `<li>${rowHTML({ ...it, subHTML: '', sub: `Bill · ${x.p.line}${hr ? ` · Hearing ${hearTxt(hr.scheduled_at)}` : ''}` }, q, { plain: true, nomark: true })}</li>`; }).join('')}</ul>` : '<p class="hint" id="cNoBills">None of our bills is in this committee right now.</p>');
   h += `<h2 class="sh">Coming hearings</h2>` + (sits.length ? `<ul class="fhear">${sits.map(s => {
     const ours = [...s.bills].filter(id => inCal.has(id)).length, txt = `Hearing ${hearTxt(s.h.scheduled_at)}${ours ? ` · ${n(ours, 'bill', 'bills')} of ours` : ''}`;
     return `<li>${ours ? `<a class="lk" href="#/calendar/sitting/${enc(s.k)}?who=all">${esc(txt)}</a>` : esc(txt)}</li>`; }).join('')}</ul>` : '<p class="hint" id="cNoHear">No hearing is scheduled.</p>');

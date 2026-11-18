@@ -25,7 +25,7 @@
   --sheet: 0 1px 2px rgba(60, 45, 20, .06), 0 12px 32px rgba(60, 45, 20, .08);
   --float: 0 8px 32px rgba(28, 25, 21, .22);
   /* the All bills table: each column's share of the width (six columns in Everyone, five in Mine and a teammate's view) */
-  --ab6-bill: 24%; --ab6-pos: 11%; --ab6-lead: 8%; --ab6-coal: 15%; --ab6-where: 24%; --ab6-next: 18%; --ab5-bill: 27%; --ab5-pos: 11%; --ab5-coal: 17%; --ab5-where: 26%; --ab5-next: 19%; --ab-find: calc(var(--s8) * 4); --ab-segs: calc(var(--s8) * 4 + var(--s5));
+  --ab6-bill: 22%; --ab6-pos: 10%; --ab6-lead: 8%; --ab6-coal: 14%; --ab6-where: 30%; --ab6-next: 16%; --ab5-bill: 25%; --ab5-pos: 10%; --ab5-coal: 16%; --ab5-where: 30%; --ab5-next: 19%; --ab-find: calc(var(--s8) * 4); --ab-segs: calc(var(--s8) * 4 + var(--s5));
   /* motion: 150 to 250 ms, nothing loops (S-17) */
   --track: -.02em; --ease: cubic-bezier(.2, .7, .2, 1); --t-fast: 150ms; --t-mid: 200ms;
 }

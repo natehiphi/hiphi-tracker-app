@@ -72,7 +72,7 @@ with sync_playwright() as p:
     # the table
     ok(pg.locator('#tBills caption.sr').count() == 1, 'the table has a caption for a screen reader')
     th = pg.evaluate("() => [...document.querySelectorAll('#tBills thead th')].map(t => [t.getAttribute('scope'), t.innerText.trim(), Math.round(t.getBoundingClientRect().height), parseInt(getComputedStyle(t).fontWeight)])")
-    ok([t[1] for t in th][:2] == ['Bill', 'Now waiting'] and th[2][1].startswith('Deadline') and all(t[0] == 'col' for t in th), f'real column headings: {[t[1] for t in th]}')
+    ok([t[1] for t in th][:2] == ['Bill', 'Where it is'] and th[2][1].startswith('Deadline') and all(t[0] == 'col' for t in th), f'real column headings: {[t[1] for t in th]}')
     ok(th[2][2] < 32 and all(t[3] == 500 for t in th), f'the deadline heading is on one line ({th[2][2]}px) and the headings are weight 500')
     rows = pg.evaluate("() => [...document.querySelectorAll('#tBills tbody tr')].map(r => ({ n: r.querySelector('th[scope=row]').innerText.trim(), href: r.querySelector('th a')?.getAttribute('href'), dl: r.querySelector('td.dc').innerText.trim(), amber: !!r.querySelector('td.dc .amber'), quiet: !!r.querySelector('td.dc .quiet'), where: r.querySelector('td.tw').innerText.trim(), h: Math.round(r.querySelector('th a').getBoundingClientRect().height) }))")
     ok(len(rows) >= 1 and all(re.match(r'^[HS]B \d+$', r['n']) and r['href'].startswith('#/bill/') and 'i=' in r['href'] for r in rows), f'each alive bill is a row, its number a link to its page with the issue ({[r["n"] for r in rows]})')

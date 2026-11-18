@@ -21,6 +21,8 @@ export const statusMark = (words, { icon = '', tone = '' } = {}) => `<span class
 // breaks before a separator and never ends on one. Takes text that is already escaped; only what is drawn changes, never the words. ("kd" has a rule only at 900px and up: a phone draws it as plain text.)
 const KEEP_DAYS = /· (?:in )?\d+ days?\b|· \S+|(?:in )?\d+ days?\b/g;
 export const keepWords = html => String(html).replace(KEEP_DAYS, m => `<span class="kd">${m}</span>`);
+// the same for a line that already holds tags (a joint committee's codes): only the text between the tags is touched
+export const keepWordsHTML = html => String(html).replace(/(<[^>]*>)|([^<]+)/g, (m, tag, txt) => tag ? tag : keepWords(txt));
 // "e-cigarette" never breaks after "e-": on plain escaped text (a marked name is done inside mark(), on the text before any tag exists)
 export const KEEP_ECIG = /\be-cigarettes?\b/gi;
 export const keepEcig = html => String(html).replace(KEEP_ECIG, m => `<span class="kd">${m}</span>`);

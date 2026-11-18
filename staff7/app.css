@@ -832,6 +832,9 @@ li[hidden] { display: none; }
 .btab col.cn { width: var(--col-no); } .btab col.cw { width: var(--col-where); } .btab col.cd { width: var(--col-dl); } .btab.dead col.cw { width: var(--col-where-wide); }   /* the number fits its words; the name gets the rest */
 .btab tbody th a.lk { display: inline-flex; align-items: center; min-height: var(--hit); font-family: var(--head); }
 .btab td.tw { overflow-wrap: break-word; }
+.btab td.tw .w1, .atab td.c-where .w1 { display: block; color: var(--ink); font-weight: 400; }   /* where it is (place.js): line 1 the state, normal weight and ink; line 2 the committee, muted */
+.btab td.tw .w2, .atab td.c-where .w2 { display: block; color: var(--muted); }
+.btab td.tw .cc, .atab td.c-where .cc { cursor: help; }
 .btab td.dc, .btab thead th.dh { padding-right: 0; }
 .btab .tn { display: block; }
 .btab .tpos { display: block; color: var(--muted); font-size: var(--f14); }
@@ -853,6 +856,8 @@ li[hidden] { display: none; }
   .btab td.dc { grid-column: 1 / -1; padding-top: var(--s1); }
   .btab td.tw { grid-column: 1 / -1; width: auto; color: var(--muted); padding-top: var(--s1); }
   .btab td.tw::before { content: "Now waiting: "; }
+  .btab td.tw .w1, .btab td.tw .w2 { display: inline; color: inherit; }
+  .btab td.tw .w2::before { content: ' · '; }
   .btab td.dc { order: 2; } .btab td.tw { order: 3; }
   .btab thead th.dh { white-space: normal; }
 }
@@ -1013,6 +1018,8 @@ li[hidden] { display: none; }
   .atab td:empty, .atab td:has(> .mu:only-child) { display: none; }
   .atab td.c-pos, .atab td.c-lead { display: inline-block; margin-right: var(--s3); }
   .atab td.c-where, .atab td.c-next { display: inline; margin: 0; }
+  .atab td.c-where .w1, .atab td.c-where .w2 { display: inline; }
+  .atab td.c-where .w2::before { content: ' · '; }
   .atab td.c-next:not(:empty)::before { content: ' · '; color: var(--muted); }
   .atab td.c-where:empty, .atab td.c-next:empty { display: none; }
   .atab td.c-coal { color: var(--muted); }

@@ -3,7 +3,7 @@
 // Everyone is every tracked bill. Six columns in Everyone (Bill, Position, Lead, Coalition, Where it is, Next date), five in Mine and a teammate's view (Lead is the person, so it is left out; a bill led by
 // someone else says "Led by Kris" under its name). Position is bold text; the issue is a small link under the bill only when its name differs from the bill's.
 // THE WORDS come from the app's own functions, so this table and the other pages never disagree: the deadline a bill is judged against is the one the Issues list uses for the same view (sessionOf(set).next),
-// always passed to deadlineCell (a bill that cleared it is never amber); where an alive bill is, whereLine (bill_cell.js); a stopped bill, issue_table.js stoppedReason and stoppedDate; Next date, nextDateOf below.
+// always passed to deadlineCell (a bill that cleared it is never amber); where a bill is, place.js (placeOf: two lines, line 1 its state, line 2 its committee; the same words on every page); a stopped bill's date, issue_table.js stoppedDate; Next date, nextDateOf below.
 // STATE lives in the address (?who= pos coal st q sort dir), so a reload and Back keep the view; a key, a choice or a sort changes the address with replaceState and draws only the table (focus never moves).
 // Nothing here writes anything.
 import { S, POSITIONS, SESSION_YEAR } from '../staff6/data.js';
@@ -13,8 +13,9 @@ import { esc } from './parts.js';
 import { billName, billNo, posWords, first } from './steps.js';
 import { isAlive, deadlineOf } from './standing.js';
 import { leadIds } from './bill_words.js';
-import { deadlineCell, whereLine } from './bill_cell.js';
-import { stoppedWhy, stoppedReasonOf, stoppedDateOf } from './issue_table.js';
+import { deadlineCell } from './bill_cell.js';
+import { stoppedWhy, stoppedDateOf } from './issue_table.js';
+import { placeOf, cellOf, lineOf, placeLine, placeCompare } from './place.js';
 import { stoppedISO } from './bill.js';
 import { norm, matchWords } from './find.js';
 import { whoOf, setFor, sessionOf, eCig, hearTxt, byWords, sameName, issueHref, billHref, ui as issuesUi } from './issues.js';
@@ -57,26 +58,27 @@ export const mineCount = me => billsFor(MINE, me).bills.length;
 // An alive bill: its hearing ("Hearing today 1:10 PM"), else the date its hearing must happen by ("by Mon, Mar 30 · 14 days"), always with the date, and in amber only when deadlineCell says it is at risk
 // (a hearing after its own deadline is the cell's other amber); a stopped bill: a quiet "Stopped Feb 11".
 export function nextDateOf(b, row, w = null) {
-  if (!isAlive(b)) { const x = w || stoppedWhy(b); return { text: stoppedDateOf(x), amber: false, icon: '', quiet: true, key: null, stop: stoppedISO(b) }; }
+  if (!isAlive(b)) { const x = w || stoppedWhy(b); return { text: x.date ? stoppedDateOf(x) : '', amber: false, icon: '', quiet: true, key: null, stop: stoppedISO(b) }; }
   const c = deadlineCell(b, row), st = stopOf(b);
-  if (c.key === 'hearing' || c.key === 'late') { const h = hearingAhead(b); return { text: `Hearing ${hearTxt(h.scheduled_at)}${c.key === 'late' ? ' · after the deadline' : ''}`, amber: c.amber, icon: c.key === 'late' ? 'triangle-alert' : '', quiet: false, key: new Date(h.scheduled_at).getTime(), stop: '' }; }
+  if (c.key === 'hearing' || c.key === 'late') { const h = hearingAhead(b); return { text: `${cap1(hearTxt(h.scheduled_at))}${c.key === 'late' ? ' · after the deadline' : ''}`, amber: c.amber, icon: c.key === 'late' ? 'triangle-alert' : '', quiet: false, key: new Date(h.scheduled_at).getTime(), stop: '' }; }
   if (c.key === 'risk') { const d = String(deadlineOf(b).date).slice(0, 10); return { text: byWords(d), amber: true, icon: 'triangle-alert', quiet: false, key: ts(d), stop: '' }; }
   const dl = st.deadline && !st.deadline.missed ? st.deadline : null;
   if (!dl) return { text: '', amber: false, icon: '', quiet: true, key: null, stop: '' };
   return { text: byWords(String(dl.date).slice(0, 10)), amber: false, icon: '', quiet: c.key !== 'need', key: ts(dl.date), stop: '' };
 }
-// Where it is: an alive bill's committees (each with its code), the phase in words otherwise; a stopped bill's reason in the app's one wording
-export const whereOf = (b, w = null) => isAlive(b) ? whereLine(b) : stoppedReasonOf(w || stoppedWhy(b));
+// Where it is: place.js, one line of text ("Waiting for a hearing · Senate Education (EDU)"); the table draws the same two lines (placeCell)
+export const whereOf = (b, w = null) => placeLine(b, w);
 const POS_RANK = b => { const i = POSITIONS.findIndex(p => p[0] === b.position); return !b.position || i < 1 ? 99 : b.position === 'monitor' ? 90 : i; };
+const cap1 = t => t.charAt(0).toUpperCase() + t.slice(1);
 const trimDot = t => String(t || '').replace(/\s+/g, ' ').trim().replace(/\.$/, '');
 
 function recOf(b, v) {
   const issue = v.issueOf.get(b.id) || null, alive = isAlive(b), lids = leadIds(b, issue), name = billName(b), no2 = billNo(b), nick = !!String(b.nickname || '').trim();
   const cs = (S.billCampaigns?.[b.id] || []).map(id => (S.campaigns || []).find(c => c.id === id)).filter(Boolean);
-  const lead = lids.length ? S.advocates.find(a => a.id === lids[0]) : null, desc = trimDot(eCig(b.description || b.title)), w = alive ? null : stoppedWhy(b), next = nextDateOf(b, v.row, w);
+  const lead = lids.length ? S.advocates.find(a => a.id === lids[0]) : null, desc = trimDot(eCig(b.description || b.title)), w = alive ? null : stoppedWhy(b), next = nextDateOf(b, v.row, w), place = placeOf(b, w);
   const head = nick ? eCig(name) : no2;
   return { b, no: num(b), alive, issue, lids, lead, leadName: lead ? first(lead) : '', leadMore: lids.length - 1, cs, camp: cs.length ? camName(cs[0]) : '', nick, head, no2, desc, name,
-    pos: b.position || '', posRank: POS_RANK(b), where: whereOf(b, w), next,
+    pos: b.position || '', posRank: POS_RANK(b), place, where: lineOf(place), cell: cellOf(place), next,
     hay: ` ${norm(`${nick ? name : ''} ${no2} ${desc}`)}`, compact: norm(no2).replace(/ /g, '') };
 }
 
@@ -133,7 +135,8 @@ const PRIMARY = {
   pos: (x, y, d) => d * (x.posRank - y.posRank),
   lead: (x, y, d) => emptyLast(x.leadName, y.leadName, d, txt),
   coal: (x, y, d) => emptyLast(x.camp, y.camp, d, txt),
-  where: (x, y, d) => d * txt(x.where, y.where),
+  // Where it is: the journey order (place.js), ties by the committee's text; the bill number is the last tie (sortRecs)
+  where: (x, y, d) => d * placeCompare(x.place, y.place),
   // Next date: bills with a date (soonest first), then alive bills with none, then stopped bills (most recently stopped first). Descending turns each group round, the groups stay where they are (alive before stopped).
   next: (x, y, d) => { const g = r => r.alive ? (r.next.key == null ? 1 : 0) : 2; return g(x) - g(y) || (g(x) === 0 ? d * (x.next.key - y.next.key) : g(x) === 2 ? d * String(y.next.stop).localeCompare(String(x.next.stop)) : 0); },
 };
@@ -165,7 +168,7 @@ function rowHTML(r, v, f) {
   const coal = r.cs.length ? `${esc(r.camp)}${r.cs.length > 1 ? ` <span class="more1">+${r.cs.length - 1}</span>` : ''}` : '';
   return `<tr role="row" class="${r.alive ? '' : 'stopped'}" data-no="${esc(r.no)}"><th scope="row" role="rowheader" class="c-bill">${billCell(r, v, f)}</th><td role="cell" class="c-pos">${posCell(r)}</td>`
     + (v.who.kind === 'all' ? `<td role="cell" class="c-lead">${r.lead ? lab('Lead', `${esc(r.leadName)}${r.leadMore > 0 ? ` <span class="more1">+${r.leadMore}</span>` : ''}`) : '<span class="mu">No lead</span>'}</td>` : '')
-    + `<td role="cell" class="c-coal">${coal ? lab('Coalition', coal) : '<span class="mu">No coalition</span>'}</td><td role="cell" class="c-where">${esc(r.where)}</td><td role="cell" class="c-next">${nextCell(r)}</td></tr>`;
+    + `<td role="cell" class="c-coal">${coal ? lab('Coalition', coal) : '<span class="mu">No coalition</span>'}</td><td role="cell" class="c-where"${r.cell.attr}>${r.cell.html}</td><td role="cell" class="c-next">${nextCell(r)}</td></tr>`;
 }
 function headHTML(v, f) {
   return `<tr role="row">${columnsFor(v.who).map(([k, l]) => { const on = f.sort === k;
