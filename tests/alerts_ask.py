@@ -209,7 +209,7 @@ with sync_playwright() as pw:
     p.goto(BASE + '?demo=1&codes=0#/profile'); p.wait_for_timeout(1200)
     ok('(808) ••• 0166' in text(p) and p.locator('#pf-email a[href="#/signin"]').count() == 1, 'the profile: texts on (the number masked), and email still offered')
     p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_timeout(1200)
-    ok('If you add your mobile number' in text(p) and 'never see your text-alert number' in text(p) and 'left out of HIPHI' in text(p), 'the privacy page names numbers')
+    ok('If you add your email or number' in text(p) and 'never see your text-alert number' in text(p) and 'left out of HIPHI' in text(p), 'the privacy page names numbers')
     c.close()
 
     # ---- 7. an iPhone SE: the box and Text me on the first screen ----

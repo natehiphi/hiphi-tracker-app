@@ -1,4 +1,6 @@
-# The privacy page, whole and short (J2-3, R-180 wave 2; backend 157-160).
+# The sixteen-card privacy page, whole and short (J2-3, R-180 wave 2; backend 157-160).
+# R-401 (17 Nov 2026): the simpler six-card page is everyone's now (tests/privacy_simple.py); this test opens the old page with
+# ?pv=1 and so guards the fallback, the one easy revert.
 # python3 tests/privacy_page.py [base_url]   (sandbox)
 # Checks: it opens with "What we have on you, in short", the whole page in short (R-212 #52): eight lines, each led by its bold
 # words (Just looking, A mobile number, Your email, Your story, Testimony, Your address, Never sold, Delete it), so the story,
@@ -27,7 +29,7 @@ with sync_playwright() as pw:
     for W, H, codes in ((390, 844, '&codes=0'), (1440, 900, '&codes')):
         c = b.new_context(viewport={'width': W, 'height': H}); p = c.new_page(); tag = f'@{W}{" codes" if codes == "&codes" else ""}'
         p.on('pageerror', lambda e: errors.append(str(e)[:160])); p.on('console', lambda m: errors.append(m.text[:160]) if m.type == 'error' and 'favicon' not in m.text else None)
-        p.goto(BASE + f'?demo=1{codes}#/privacy'); p.wait_for_selector('.yu-pv', timeout=30000); p.wait_for_timeout(500)
+        p.goto(BASE + f'?demo=1{codes}&pv=1#/privacy'); p.wait_for_selector('.yu-pv', timeout=30000); p.wait_for_timeout(500)
         heads = [h.strip() for h in p.locator('.yu-pv h2, .yu-pv .rc-ft').all_text_contents()]
         ok(heads[0] == 'What we have on you, in short', f'{tag}: it opens with "What we have on you, in short" ({heads[0]!r})')
         first = p.locator('.yu-pv .yu-short')

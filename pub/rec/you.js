@@ -161,11 +161,12 @@ export function privacyRec({ rows, updated, policy, a11y, previews = {} }) {
     <p class="mr-ext"><a class="btn text" href="${esc(policy)}" target="_blank" rel="noopener">${icon('external-link')}<span>HIPHI’s website privacy policy</span></a></p>
   </div>`;
 }
-// ---- The simpler privacy page (R-401), only with ?pv=2 ----
+// ---- The simpler privacy page (R-401), everyone's since 17 Nov 2026 ----
 // Six cards instead of sixteen, five lines in short instead of seven. Every old section still appears word for word, under
-// its own small heading inside the card that takes it in, so nothing is lost (tests/privacy_simple.py checks it). Without
-// pv=2 none of this runs and the page is today's. It lives on the calm look only: ?rec=0 ignores pv=2.
-export const PV2 = () => REC() && new URLSearchParams(location.search).get('pv') === '2';
+// its own small heading inside the card that takes it in, so nothing is lost (tests/privacy_simple.py checks it). It is the
+// page everyone gets on the calm look; ?pv=1 brings back the sixteen-card page (one easy revert, and the comparison the
+// test needs). ?rec=0 still shows the oldest page: PV2 lives on the calm look only.
+export const PV2 = () => REC() && new URLSearchParams(location.search).get('pv') !== '1';
 export const accessPage = () => PV2() && /[?&]part=access\b/.test(location.hash);
 const group = (rows, keys, { lead = '', head = true } = {}) => lead + keys.map(k => { const r = rows.find(x => x[0] === k); if (!r) return '';
   return (head ? `<h3 class="yu-sub">${r[1]}</h3>` : '') + body(r[2]); }).join('');
@@ -205,7 +206,7 @@ export function privacyRec2({ rows: rows0, story, testimony, mail, policy, a11y 
     <p class="mr-ext"><a class="btn text" href="${esc(policy)}" target="_blank" rel="noopener">${icon('external-link')}<span>HIPHI’s website privacy policy</span></a></p>
   </div>`;
 }
-const PV2_UPDATED = 'Updated 17 November 2026.';   // change it with any sentence on the pv=2 page (R-401)
+const PV2_UPDATED = 'Updated 17 November 2026.';   // change it with any sentence on the simpler privacy page (R-401)
 // "Privacy and accessibility" and the old #/privacy?part=access open the page; the second opens the Accessibility card.
 export function wirePrivacyRec() {
   const root = document.querySelector('#main .yu-pv'); if (!root) return;

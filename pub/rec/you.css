@@ -141,7 +141,7 @@ body.rec .yu-pv .rc-fp { white-space: nowrap; overflow: hidden; text-overflow: e
 @media (max-width: 599px) {   /* a phone has room for two lines, so fewer previews stop mid-word */
   body.rec .yu-pv .rc-fp { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 }
-/* pv=2 (R-401): an old section's title inside a card is a quiet label above its text, with clear space between groups */
+/* the simpler privacy page (R-401): an old section's title inside a card is a quiet label above its text, with clear space between groups */
 body.rec .yu-pv .rc-fin > h3.yu-sub { margin-top: var(--s16); font: 700 var(--t14)/1.35 var(--font); color: var(--n900); }
 body.rec .yu-pv .rc-fin > h3.yu-sub:first-child { margin-top: 0; }
 body.rec .yu-pv .rc-fin > h3.yu-sub + * { margin-top: var(--s4); }

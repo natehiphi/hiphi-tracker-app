@@ -67,7 +67,7 @@ with sync_playwright() as pw:
     p.fill('#mr-al-phone', '808 555 0155'); p.click('#mr-al-send'); p.wait_for_timeout(1200)
     # D1-4 (R-180): the page heads "Alerts almost set" with the alerts step's words, not "Text alerts are on" over "We'll text you first".
     ok(p.inner_text('h1') == 'Alerts almost set' and 'We’ll text (808) 555-0155 to confirm it’s your number.' in text(p) and 'YES' not in text(p), 'codes off: the number kept, "Almost set", "confirm it’s your number", no YES')
-    p.goto(BASE + '?demo=1&codes=0#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
+    p.goto(BASE + '?demo=1&codes=0&pv=1#/privacy'); p.wait_for_selector('.yu-pv', timeout=60000)   # R-401: pv=1 is the sixteen-card page
     ok('Our first text confirms the number is yours' in text(p) and 'YES' not in text(p) and re.search(r'Updated \d+ October 2026', text(p)), 'codes off: the privacy page says the first text confirms the number, dated 5 October')
     c.close()
     c, p = ctx(b)
@@ -131,7 +131,7 @@ with sync_playwright() as pw:
     shot(p, 'B5_signin_code')
     p.type('#mr-pi-code', '654321'); p.wait_for_selector('#mr-pi-h', timeout=5000); p.wait_for_timeout(500)
     ok('Code accepted' in text(p) and 'you stay signed out' in text(p), 'the sandbox: "Code accepted", and it says you stay signed out there')
-    p.goto(BASE + '?demo=1&codes#/privacy'); p.wait_for_selector('.mr-facts', timeout=60000)
+    p.goto(BASE + '?demo=1&codes&pv=1#/privacy'); p.wait_for_selector('.yu-pv', timeout=60000)
     t = text(p)
     ok('6-digit code' in t and 'signs you in, the way an email does' in t and 'never your number' in t and re.search(r'Updated \d+ October 2026', t), 'codes on: the privacy page says the number signs people in, staff never see it')
     c.close()
