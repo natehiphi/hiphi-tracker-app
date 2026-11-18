@@ -161,6 +161,45 @@ export function privacyRec({ rows, updated, policy, a11y, previews = {} }) {
     <p class="mr-ext"><a class="btn text" href="${esc(policy)}" target="_blank" rel="noopener">${icon('external-link')}<span>HIPHI’s website privacy policy</span></a></p>
   </div>`;
 }
+// ---- The simpler privacy page (R-401), only with ?pv=2 ----
+// Six cards instead of sixteen, five lines in short instead of seven. Every old section still appears word for word, under
+// its own small heading inside the card that takes it in, so nothing is lost (tests/privacy_simple.py checks it). Without
+// pv=2 none of this runs and the page is today's. It lives on the calm look only: ?rec=0 ignores pv=2.
+export const PV2 = () => REC() && new URLSearchParams(location.search).get('pv') === '2';
+export const accessPage = () => PV2() && /[?&]part=access\b/.test(location.hash);
+const group = (rows, keys, { lead = '', head = true } = {}) => lead + keys.map(k => { const r = rows.find(x => x[0] === k); if (!r) return '';
+  return (head ? `<h3 class="yu-sub">${r[1]}</h3>` : '') + body(r[2]); }).join('');
+export function privacyRec2({ rows, story, testimony, mail, updated, policy, a11y }) {
+  if (accessPage()) return `<div class="mr mr-privacy rc yu yu-pv">
+    ${backFrom('#/more', 'You')}
+    ${recHead({ title: 'Accessibility' })}
+    <div class="rc-card yu-acc" id="mr-access">${a11y}</div>
+  </div>`;
+  const short = ['<b>Just looking:</b> we don’t know who you are.',
+    '<b>If you add your email or number:</b> we keep it with what you follow. Staff see what you follow, never your number.',
+    '<b>Your address:</b> used once to find your districts, never kept.',
+    '<b>Testimony is public:</b> the Capitol posts your name and letter.',
+    `<b>Never sold.</b> Delete your account any time under You, or email ${mail} to have everything removed.`];
+  const storyBody = story.replace(/^<b>[^<]*<\/b>\s*/, '').replace(/^./, c => c.toUpperCase());
+  const texts = group(rows, ['message-square'], { head: false }) + '<p>Reply HELP for help. <a href="text-terms.html">Text terms</a></p>';
+  const folds = [
+    ['privacy-texts', 'Text messages', 'What we text, how often, and how to stop', texts, true],
+    ['privacy-keep', 'What we keep', 'On this device, and with your account', group(rows, ['lock', 'user', 'list-checks', 'map-pin'])],
+    ['privacy-who', 'Who sees it', 'What staff see, and who we share with', group(rows, ['clipboard-list', 'users', 'shield-check'], { lead: `<h3 class="yu-sub">Your story</h3><p>${storyBody}</p>` })],
+    ['privacy-public', 'What becomes public', 'Testimony at the Capitol, and our copies', group(rows, ['notebook-pen'], { lead: `<p>${testimony}</p>`, head: false })],
+    ['privacy-delete', 'Keeping and deleting', 'How long we keep things, and how to remove them', group(rows, ['clock', 'trash-2'])],
+    ['privacy-tech', 'The technical details', 'Counts, error reports, backups and the services we use', group(rows, ['chart-column', 'circle-alert', 'archive', 'building'])]];
+  return `<div class="mr mr-privacy rc yu yu-pv">
+    ${backFrom('#/more', 'You')}
+    ${recHead({ title: 'Privacy', lede: 'What we keep, who sees it, and how to remove it.' })}
+    <section class="rc-card yu-short" aria-labelledby="mr-pv-0"><h2 class="rc-h2" id="mr-pv-0">In short</h2>${shortList(short)}</section>
+    ${recFolds(folds.map(([n, t, pv, inner, open]) => recFold(n, t, pv, inner, { open })))}
+    <p class="small muted yu-upd">${esc(PV2_UPDATED)}</p>
+    <p class="small muted">Hawaiʻi Public Health Institute (HIPHI) runs this tracker.</p>
+    <p class="mr-ext"><a class="btn text" href="${esc(policy)}" target="_blank" rel="noopener">${icon('external-link')}<span>HIPHI’s website privacy policy</span></a></p>
+  </div>`;
+}
+const PV2_UPDATED = 'Updated 17 November 2026.';   // change it with any sentence on the pv=2 page (R-401)
 // "Privacy and accessibility" and the old #/privacy?part=access open the page; the second opens the Accessibility card.
 export function wirePrivacyRec() {
   const root = document.querySelector('#main .yu-pv'); if (!root) return;

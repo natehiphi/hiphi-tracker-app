@@ -40,7 +40,7 @@ import { titleLabel } from './titles.js';
 // The calm redesign (R-303), only with ?rec=1: You, Your alerts and Privacy are drawn by pub/rec/; taking REC() out of the
 // branches below brings today's pages back.
 import { REC } from './rec/kit.js';
-import { youCss, youWait, youView, wireYou, backFrom, privacyRec, wirePrivacyRec } from './rec/you.js';
+import { youCss, youWait, youView, wireYou, backFrom, privacyRec, wirePrivacyRec, privacyRec2, PV2, accessPage } from './rec/you.js';
 import { recAlertsView, wireRecAlerts, yoursNow } from './rec/alerts.js';
 // A partner group's card (R-328): "Your group" for a signed-in person on one, under their own card; nothing for anyone else.
 import { youCard } from './partners.js';
@@ -716,11 +716,13 @@ const MAIL = `<a href="mailto:${EMAIL}">${EMAIL}</a>`;
 // public". Deleting here cannot take testimony off the Capitol's site, and deleting an account leaves texts (text_signups,
 // backend 159), so the last line says both. About 180 words, so "Delete it" starts near the first phone screen's foot.
 const STORY_LINE = who => `<b>Your story:</b> once you add your ${who}, staff can read it. It goes into your letters, and a letter you send is public. HIPHI itself quotes it only if you say yes.`;
+// The testimony sentence is one string because the pv=2 page (R-401) shows it too, in "What becomes public".
+const TESTIMONY = 'the Capitol posts your name and letter for anyone to read, and it stays there if you delete your account here. Our copies are only for you, not HIPHI staff.';
 const shortLines = (contact, story) => [
   '<b>Just looking:</b> we don’t know who you are. What you follow stays on this device.',
   ...contact,
   story,
-  '<b>Testimony:</b> the Capitol posts your name and letter for anyone to read, and it stays there if you delete your account here. Our copies are only for you, not HIPHI staff.',
+  `<b>Testimony:</b> ${TESTIMONY}`,
   '<b>Your address:</b> used only to find your districts, never kept. Staff see just your districts.',
   '<b>Never sold:</b> we don’t sell your information or give it to other groups.',
   `<b>Delete it:</b> any time, from your profile under More. Texts are separate: reply STOP. To have everything we hold removed, email ${MAIL}. We answer within 10 business days.`];
@@ -831,6 +833,8 @@ const YOU_WORDS = [['use Alerts in your profile, under More', 'use Your alerts, 
 const youWords = s => YOU_WORDS.reduce((x, [a, b]) => x.replaceAll(a, b), s);
 function privacyView() {
   const rows = codesOn() ? PRIVACY.map(([ic, t, p]) => PRIVACY_CODES[ic] ? [ic, ...PRIVACY_CODES[ic]] : [ic, t, p]) : PRIVACY;
+  if (PV2()) return privacyRec2({ rows: rows.map(([ic, t, p]) => [ic, t, Array.isArray(p) ? p.map(youWords) : youWords(p)]), story: STORY_LINE(codesOn() ? 'email or number' : 'email'),
+    testimony: TESTIMONY[0].toUpperCase() + TESTIMONY.slice(1), mail: MAIL, policy: HIPHI.privacy, a11y: ACCESS() });
   if (REC()) return privacyRec({ rows: rows.map(([ic, t, p]) => [ic, t, Array.isArray(p) ? p.map(youWords) : youWords(p)]), updated: codesOn() ? PRIVACY_CODES_UPDATED : PRIVACY_UPDATED, policy: HIPHI.privacy, a11y: ACCESS(), previews: PREVIEWS });
   return `<div class="mr mr-privacy">
     <header class="pagehead"><h1 class="hero">Privacy</h1><p class="lede">What we keep, who sees it, and how to remove it.</p></header>
@@ -857,7 +861,7 @@ const TITLES = { more: 'More', help: 'Help', signin: 'Add your email', privacy: 
 // Under ?rec=1 the tab is "You", the alerts page of someone with a profile is "Your alerts", and the email page is named
 // for what a person without a profile came to do (R-303).
 const REC_TITLES = { more: 'You', alerts: () => yoursNow() ? 'Your alerts' : 'Get alerts', signin: () => siHead() };
-const titleOf = name => { const r = REC() && REC_TITLES[name]; return r ? (typeof r === 'function' ? r() : r) : TITLES[name]; };
+const titleOf = name => { if (name === 'privacy' && accessPage()) return 'Accessibility'; const r = REC() && REC_TITLES[name]; return r ? (typeof r === 'function' ? r() : r) : TITLES[name]; };
 export default {
   tab: 'more',
   title: route => (route.name === 'help' && TALK ? TALK.title(route) : route.name === 'signin' && byNumber() ? 'Sign in' : titleOf(route.name)) || 'More',
