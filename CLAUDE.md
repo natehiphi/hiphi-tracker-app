@@ -47,8 +47,10 @@ found because sessions start in the backend repo) walks the whole checklist.
 - **Bill names:** lead with `bills.nickname` (about 40 characters, e.g. "Disposable e-cigarette ban"; all 248
   position bills have one, monitor-only bills have none), then the plain summary, and ALWAYS show the bill
   number. Staff edit a nickname in a bill's Public section in either staff app. As of 9/19 **every bill on the
-  public page has a plain summary** — all 248 position bills and all 486 monitor bills (backend 3.1y). Monitor
-  bills have no nickname and should not: a nickname is for a bill the team is campaigning on.
+  public page has a plain summary** — all 248 position bills and all 486 monitor bills (backend 3.1y). Since
+  R-398 (Nate, 18 Nov 2026): a bill we take a side on (any position but Monitor, Comments counts) needs a
+  summary, a nickname and 3 talking points before HIPHI's words show on the public site; Monitor bills need
+  nothing but should have a nickname and summary. Staff write talking points; Claude does not draft them.
 - Mobile and desktop are both first-class. Nate rejected "a wide mobile version" twice. Judge every screen at
   390×844, 320×640, 1440×900, 1280×800 and 1024×768: two columns with a side panel that stays in view, tables
   for collections, a readable column for forms and focused tasks, label-sized buttons beside each other, actions
