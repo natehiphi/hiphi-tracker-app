@@ -2,17 +2,32 @@
 // segmented row, from the data layer's own POSITIONS) and the lead (a select), Save and Cancel. (2) "Add a note for the team" above the notes: a note is a message in the bill's team conversation.
 // Everything is written through the data layer (DB.updateBill, DB.setOwner, DB.addActivity, DB.sendMessage, DB.deleteMessage, the same calls staff6's own bill page makes), so the same code works live
 // later; on the practice copy those change memory only. What is open or typed lives in bill.js's `bui`, so the minute's redraw (and a redraw after a save) keeps it.
-import { S, DB, DEMO, DEMO_TL, POSITIONS } from '../staff6/data.js';
+import { S, DB, DEMO, DEMO_TL, POSITIONS, isLiveBill, publicPositionPending, barMet } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { esc, btn, toast } from './parts.js';
 import { first } from './steps.js';
 import { refreshTimeline } from './bill_data.js';
 import { redrawKeep } from './find.js';
 import { bui } from './bill.js';
+import { positionSaveNote, positionStillSays, positionSavedNote, publicKeeps, PUBLISH_CHANGE, SEE_IT, WRITE_THEM, missingLine, waitingState } from './public_data.js';
 
 const $ = id => document.getElementById(id);
 const OPTS = [...POSITIONS.filter(p => p[0]), ['', 'No position yet']];   // the data layer's own list and labels; clearing is allowed (staff6's picker has "No position")
 const posLabel = v => (OPTS.find(o => o[0] === v) || [])[1] || 'No position yet';
+// R-398 part 3 (design 7): the public site's position, in the words the picker uses; what the public site still says
+const labelOf = v => v ? (POSITIONS.find(p => p[0] === v) || [, v])[1] : 'No position yet';
+const enc = encodeURIComponent, normNo = s => String(s ?? '').replace(/\s/g, '').toUpperCase();
+// The team's position differs from the public site's while the bill's words are public: the words say so before saving, and after it the line under the position says so
+const pubDiff = (b, pos) => isLiveBill(b) && (pos || null) !== (b.public_position ?? null);
+// "The public site still says Support · Waiting on Nate to publish · See it" (a non-admin with the three things), "· needs a nickname · Write them" (without them), "· Publish the change" (an admin)
+export function posAfterHTML(b, me) {
+  if (!publicPositionPending(b)) return '';
+  const no = normNo(b.bill_number), link = (href, text) => `<a class="lk" href="${href}">${esc(text)}</a>`;
+  const miss = missingLine(b), rest = me?.is_admin ? link(`#/public/change/${enc('position-' + no)}`, PUBLISH_CHANGE)
+    : (barMet(b) || !miss) ? `${esc(waitingState())} · ${link(`#/public/${enc(no)}`, SEE_IT)}`
+    : `${esc(miss.replace(/^Needs /, 'needs '))} · ${link(`#/public/${enc(no)}`, WRITE_THEM)}`;
+  return `<p class="bposafter" id="bPosAfter"><span class="bpg" aria-hidden="true">${ic('globe')}</span><span>${esc(positionStillSays(labelOf(b.public_position)))} · ${rest}</span></p>`;
+}
 // Who may change them (Nate): the bill's assigned lead, the owner of the bill's issue, or an admin. Not a follower or a helper. (Staff6's own bill page lets any team member.)
 export const mayEdit = (b, issue, me) => !!me && ((S.assignments?.[b.id] || []).includes(me.id) || (!!issue && issue.owner_id === me.id) || !!me.is_admin);
 // The lead the form edits is the bill's REAL assignment, never the issue owner who stands in for it on the page
@@ -31,6 +46,7 @@ export function editHTML(b, issue, me) {
   const sel = `<option value=""${e.lead === '' ? ' selected' : ''}>${esc(none)}</option>${people.map(a => `<option value="${esc(a.id)}"${e.lead === a.id ? ' selected' : ''}>${esc(first(a))}</option>`).join('')}`;
   return `<form class="bedit" id="bEdit" novalidate><fieldset class="bef"><legend class="fl">Position</legend><div class="bseg">${radios}</div></fieldset>`
     + `<div class="bef"><label class="fl" for="bLeadSel">Lead</label><select class="field bsel" id="bLeadSel">${sel}</select></div>`
+    + `<p class="hint bposn" id="bPosSave"${pubDiff(b, e.pos) ? '' : ' hidden'}>${esc(positionSaveNote(labelOf(b.public_position)))}</p>`
     + `<div class="beact">${btn('Save', { kind: 'filled', id: 'bSave', disabled: !dirty(b) || e.busy, loading: !!e.busy }).replace('type="button"', 'type="submit"')}${btn('Cancel', { kind: 'text', id: 'bCancel' })}${b.is_public ? '<span class="hint">The position shows on the public site.</span>' : ''}</div>`
     + `<p class="hint berr" id="bEditErr" role="alert"${e.err ? '' : ' hidden'}>${esc(e.err === 'held' ? 'We could not save the lead. The position still waits for an admin’s yes.' : 'We could not save that. Try again.')}</p></form>`;
 }
@@ -68,7 +84,9 @@ async function save() {
   };
   // Undo is offered only when something was saved, and not for a lead change that replaced SEVERAL assigned leads: setOwner leaves one, so the list could not be put back exactly. None is offered rather than a wrong one.
   const canUndo = (posDone || leadChanged) && !(leadChanged && prev.leads.length > 1);
+  const pubPending = posDone && !held.includes('position') && isLiveBill(b) && publicPositionPending(b);   // the public site keeps its position until it is published
   if (!posDone && !leadChanged) toast('Saved. The position waits for an admin’s yes.');
+  else if (pubPending) toast(leadChanged ? `${said}. ${publicKeeps(labelOf(b.public_position), !!S.me?.is_admin)}` : positionSavedNote(labelOf(b.public_position), !!S.me?.is_admin), canUndo ? { undo } : {});
   else toast(held.includes('position') ? `${said}. The position waits for an admin’s yes.` : said, canUndo ? { undo } : {});
 }
 
@@ -100,7 +118,7 @@ export function bindEdit() {
   $('bEditGo')?.addEventListener('click', openEdit);
   const f = $('bEdit');
   if (f) {
-    const { b } = bui.ctx, e = bui.edit, sync = () => { const s = $('bSave'); if (s && !e.busy) s.disabled = !dirty(b); };
+    const { b } = bui.ctx, e = bui.edit, sync = () => { const s = $('bSave'); if (s && !e.busy) s.disabled = !dirty(b); const pn = $('bPosSave'); if (pn) pn.hidden = !pubDiff(b, e.pos); };
     f.addEventListener('change', ev => { if (ev.target.name === 'bpos') e.pos = ev.target.value; else if (ev.target.id === 'bLeadSel') e.lead = ev.target.value; sync(); });
     f.addEventListener('submit', ev => { ev.preventDefault(); save(); });
     f.addEventListener('keydown', ev => { if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeEdit(); } });

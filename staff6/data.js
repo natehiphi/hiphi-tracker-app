@@ -666,7 +666,9 @@ export const DB = {
     const before = {};
     if (DEMO) {
       // R-398: with public mode on (staff7 only), a save that would take a public side bill below its bar is refused before anything changes.
-      if (b && PUBLIC_V7 && isLiveBill(b) && barMet(b) && isLiveBill({ ...b, ...patch }) && !barMet({ ...b, ...patch })) throw new Error(WORDS_HELD);
+      // The bar is judged on what the public sees (public_position), so a public Monitor bill given a side for the team still saves (design 7).
+      const pubView = x => ({ ...x, position: b.public_position ?? null });
+      if (b && PUBLIC_V7 && isLiveBill(b) && barMet(pubView(b)) && isLiveBill({ ...b, ...patch }) && !barMet(pubView({ ...b, ...patch }))) throw new Error(WORDS_HELD);
       const wasLive = isLiveBill(b);
       const held = holdKeys('bill', b, patch), rest = Object.fromEntries(Object.entries(patch).filter(([k]) => !held.includes(k) && !(k === 'talking_points_edited_at' && held.includes('talking_points'))));
       if (b) Object.assign(b, rest);

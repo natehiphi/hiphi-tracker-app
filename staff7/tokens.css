@@ -9,6 +9,8 @@
   --body: 'Lato', system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* colour: neutrals, one action colour, status only by exception (S-13) */
   --bg: #F3EFE6; --ink: #1C1915; --muted: #5C554B; --rule: #E3DED3; --edge: #8A8277;
+  /* R-398: the door into public mode on a calm page, a plum disc with a pink globe (design 3) */
+  --pub-disc: #2E1533; --pub-globe: #F6C9D4;
   --act: #00698E; --act-p: #005674; --on-act: #FFFFFF; --ring: #00698E;
   --surface: #FFFFFF; --tint: #EAE5D8; --wash: #F7F4EC; --wash-calm: #F6F3EC; --letter-bg: #FCFAF6;
   --amber: #7A4A00; --wash-amber: #FBEFD9; --late: #B3261E; --wash-flag: #F8E7DC;

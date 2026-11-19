@@ -1,6 +1,6 @@
 // The bill page's smaller parts (R-398), apart from bill.js so that file stays about the page itself: who the chair is and whether anyone asked, what comes after this committee, the public site's row,
 // the talking points, and the closed "More from the Capitol’s page" section. Everything is read from data already in memory (the history only when it has landed); nothing here writes.
-import { S, SESSION_YEAR, capitolUrl } from '../staff6/data.js';
+import { S, SESSION_YEAR, capitolUrl, isLiveBill, heldFor, waitingPosition } from '../staff6/data.js';
 import { stopOf, chairIdsOf, titleCaseTitle, sharePageUrl } from '../staff6/model.js';
 import { ic } from './icons7.js';
 import { esc, btn, toast } from './parts.js';
@@ -11,6 +11,7 @@ import { cmteMarks } from './bill_tl.js';
 import { known, followersOf } from './bill_data.js';
 import { bui } from './bill.js';
 import { eCig } from './issues.js';
+import { nowLine, waitingLine, DOOR_TEXT } from './public_data.js';
 
 const enc = encodeURIComponent;
 const num = b => String(b.bill_number).replace(/\s/g, '');
@@ -60,14 +61,19 @@ export function askedWords(b, code) {
 }
 
 // ---------------------------------------------------------------------------------- the facts
-// Whether the bill is on the public site, and what shows there: read only
+// The row "On the public site" (R-398 design 4): what is there now, the follows and the ask with the share link (only when it is public), a waiting change if any,
+// and the door into public mode, "Change what the public sees" (public.js's own address for the bill). Read only: nothing here writes.
 export function publicHTML(b) {
-  if (!b.is_public) return 'No';
-  const f = followersOf(b), act = String(b.public_action || '').replace(/\s+/g, ' ').trim(), until = String(b.public_action_until || '').slice(0, 10);
-  const parts = [esc(b.public_summary && String(b.public_summary).trim() ? 'Yes, with this summary' : 'Yes')];
-  if (f != null) parts.push(esc(`${n(f, 'person follows', 'people follow')} it`));
-  parts.push(act ? `Ask: ${esc(eCig(act))}${until ? ` until ${esc(dateY(until))}` : ''}` : 'no ask is set');
-  return parts.join(' · ') + ` · ${btn('Copy the share link', { kind: 'text', attrs: `data-bshare="${esc(b.id)}"` })}`;
+  const live = isLiveBill(b), f = followersOf(b), act = String(b.public_action || '').replace(/\s+/g, ' ').trim(), until = String(b.public_action_until || '').slice(0, 10);
+  const pc = heldFor('bill', b.id) || waitingPosition(b.id), no = String(b.bill_number).replace(/\s/g, '').toUpperCase();
+  const lines = [`<span class="pbl">${esc(nowLine(b))}</span>`];
+  if (live) {
+    const meta = [f != null ? esc(n(f, 'person follows', 'people follow') + ' it') : '', act ? `Ask: ${esc(eCig(act))}${until ? ` until ${esc(dateY(until))}` : ''}` : 'no ask is set'].filter(Boolean).join(' · ');
+    lines.push(`<span class="pbl m">${meta} · ${btn('Copy the share link', { kind: 'text', attrs: `data-bshare="${esc(b.id)}"` })}</span>`);
+  }
+  if (pc) lines.push(`<span class="pbl">${esc(waitingLine(pc))}</span>`);
+  if (b.tracked !== false) lines.push(`<a class="pdoor" href="#/public/${enc(no)}"><span class="pdisc" aria-hidden="true">${ic('globe')}</span><span>${esc(DOOR_TEXT)}</span></a>`);
+  return lines.join('');
 }
 export async function copyShare(b) {
   const url = sharePageUrl(b);

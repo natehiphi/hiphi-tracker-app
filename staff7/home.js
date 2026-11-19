@@ -1,15 +1,18 @@
 // Staff7 Home (R-398, Nate 14 Nov): a to-do list on the left, and on the right, until a row is clicked, a calm overview of the person's situation.
 // This module works out what Home holds (To do, Waiting on others, Suggested) and draws the left lists, the overview and the three small read-only sheets
 // (a hearing today, a letter with someone else, a suggested step). Nothing here writes anything, and nothing leaves the app.
-import { S, advocate, isMine, DEADLINES, DEMO } from '../staff6/data.js';
+import { S, advocate, isMine, DEADLINES, DEMO, myPublicChanges } from '../staff6/data.js';
 import { work } from '../staff6/today.js';
 import { billStep } from '../staff6/steps.js';
-import { attendees, roomName, sittingDraft } from '../staff6/model.js';
+import { attendees, roomName, sittingDraft, hearingAhead } from '../staff6/model.js';
 import { ic } from './icons7.js';
 import { esc, btn, band, plainBand, fileRow, stepRow, toast } from './parts.js';
 import { stepsFor, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pastDue, cmteWords, hearingLine, billName, billNo, first, issueOf } from './steps.js';
 import { myIssueStandings, tally, needsHearing, deadlineOf, isAmberRisk, riskDate, riskWhy } from './standing.js';
 import { dateWords, sessionDates, touchMap } from './words.js';
+import { testimonyDue } from './bill_words.js';
+import { waitingRows, toWriteRows } from './public_list.js';
+import { HOME_APPROVE, HOME_PUBLISH, HOME_FIX, HOME_WRITE_ROW, homeWrite, homeNeedsYou, waitingState, HOME_SENT_BACK_NOTE } from './public_data.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
 const DAY = 864e5;
@@ -62,7 +65,49 @@ export function waitingFor(me) {
 const waitWho = w => w.who ? `Waiting on ${w.who} ${w.second ? 'for a second look' : 'to approve'}` : w.second ? 'Waiting for a second look' : 'Waiting for an approver';
 const waitNeed = w => w.at == null ? '' : new Date(w.at).getTime() > Date.now() ? `needed in ${left(w.at)}` : `needed ${left(w.at)} ago`;
 export const waitText = w => `${waitWho(w)}${w.at != null ? ` · ${waitNeed(w)}` : ''}`;
-const waitHTML = w => `${esc(waitWho(w))}${w.at != null ? ` <span class="sep" aria-hidden="true">·</span> <span class="wneed${soonSoon(w.at) ? ' soon' : ''}">${soonSoon(w.at) ? ic('clock') : ''}${esc(waitNeed(w))}</span>` : ''}`;
+const waitHTML = w => w.kind === 'public' ? esc(w.line) : `${esc(waitWho(w))}${w.at != null ? ` <span class="sep" aria-hidden="true">·</span> <span class="wneed${soonSoon(w.at) ? ' soon' : ''}">${soonSoon(w.at) ? ic('clock') : ''}${esc(waitNeed(w))}</span>` : ''}`;
+
+// ---------------------------------------------------------------------------------- public mode's steps (R-398 design 6)
+// An admin's waiting changes (Approve) and own unpublished position (Publish); a writer's sent-back changes (Fix public words, with Nate's note) and their waiting changes
+// (Waiting on others). Each opens the page that does the job. The lead's grouped nudge (Write public words) is in suggestedFor.
+const normNo = s => String(s ?? '').replace(/\s/g, '').toUpperCase();
+// What a change is about: its bill (and its number), or its issue or list (a name, no number)
+function nameOfChange(pc) {
+  if (pc.kind === 'bill' || pc.kind === 'position') { const b = (S.bills || []).find(x => x.id === pc.target_id) || null; return { b, name: b ? billName(b) : 'A bill', no: b ? billNo(b) : '' }; }
+  const row = pc.kind === 'issue' ? (S.issues || []).find(x => x.id === pc.target_id) : (S.lists || []).find(x => x.id === pc.target_id);
+  return { b: null, name: row ? (row.name || row.title || '') : '', no: '' };
+}
+const firstName = id => String(advocate(id)?.full_name || '').split(' ')[0] || 'Nate';
+// the To do rows that public mode adds, each with the time it sorts by: the bill's testimony deadline when it has a hearing, else none (after the dated steps)
+export function publicSteps(me) {
+  const out = [], admin = !!me?.is_admin;
+  withMe(me, () => {
+    if (admin) {
+      for (const pc of waitingRows(me)) {
+        const t = nameOfChange(pc), h = t.b ? hearingAhead(t.b) : null;
+        out.push({ type: 'public', t: h ? testimonyDue(h) : null, p: { verb: HOME_APPROVE, name: t.name, no: t.no, icon: 'globe', href: `#/public/change/${enc(pc.id)}`, lines: [] } });
+      }
+      for (const x of toWriteRows(me).filter(r => r.own)) {
+        const h = hearingAhead(x.b), no = normNo(x.b.bill_number);
+        out.push({ type: 'public', t: h ? testimonyDue(h) : null, p: { verb: HOME_PUBLISH, name: billName(x.b), no: billNo(x.b), icon: 'globe', href: `#/public/change/${enc('position-' + no)}`, lines: [] } });
+      }
+    }
+    // a sent-back change that has no newer change waiting on the same thing
+    for (const pc of myPublicChanges().filter(x => x.status === 'sent_back')) {
+      if ((S.publicChanges || []).some(x => x.status === 'waiting' && x.kind === pc.kind && x.target_id === pc.target_id)) continue;
+      const t = nameOfChange(pc), who = firstName(pc.decided_by);
+      out.push({ type: 'public', t: null, p: { verb: HOME_FIX, name: t.name, no: t.no, icon: 'undo-2', href: t.b ? `#/public/${enc(normNo(t.b.bill_number))}` : '#/public', lines: [HOME_SENT_BACK_NOTE(who, pc.note)] } });
+    }
+  });
+  return out;
+}
+// the writer's changes that wait on Nate: "<bill> · Waiting on Nate to publish" under Waiting on others
+function publicWaits(me) {
+  return withMe(me, () => myPublicChanges().filter(x => x.status === 'waiting').map(pc => {
+    const t = nameOfChange(pc);
+    return { id: 'pw-' + pc.id, kind: 'public', b: t.b, name: t.name, no: t.no, who: '', second: false, at: null, with: [], line: waitingState(), href: t.b ? `#/public/${enc(normNo(t.b.bill_number))}` : '#/public' };
+  }));
+}
 
 // Steps that have no page in the new app yet: follow-ups, replies and the public ask. Each says what it is; the current app does it for now.
 export function suggestedFor(me) {
@@ -74,9 +119,13 @@ export function suggestedFor(me) {
     }
     else if (it.kind === 'followup') { const p = it.p || {}, nm = p.name || p.email || 'a supporter'; out.push({ id: it.key, kind: 'followup', verb: `Follow up with ${nm}`, b: null, text: it.f?.what ? String(it.f.what) : 'You said you would follow up.', at: it.at }); }
     else if (it.kind === 'reply' && it.b) out.push({ id: it.key, kind: 'reply', verb: `Reply to ${it.from || 'a teammate'}`, b: it.b, text: `${it.from || 'A teammate'} asked: ${it.q || ''}` });
-    else if (it.kind === 'rally' && it.b) out.push({ id: it.key, kind: 'rally', verb: 'Write the public ask', b: it.b, h: it.h, at: it.at, text: `${billName(it.b)} has a hearing${it.h ? ` ${dayTime(it.h.scheduled_at)}` : ''}. The public ask asks supporters to testify or show up.` });
+    else if (it.kind === 'rally' && it.b) out.push({ id: it.key, kind: 'rally', verb: 'Write the public ask', b: it.b, h: it.h, at: it.at, href: `#/public/${enc(normNo(it.b.bill_number))}?ask=1`, text: `${billName(it.b)} has a hearing${it.h ? ` ${dayTime(it.h.scheduled_at)}` : ''}. The public ask asks supporters to testify or show up.` });
   } });
-  return out.map(x => ({ ...x, name: x.b ? billName(x.b) : '', no: x.b ? billNo(x.b) : '' }));
+  const rows = out.map(x => ({ ...x, name: x.b ? billName(x.b) : '', no: x.b ? billNo(x.b) : '' }));
+  // one grouped step for a lead (design 6): the bills with a side that the public does not see, not counting an admin's own (those are To do steps); none when the count is 0
+  const nWrite = withMe(me, () => toWriteRows(me).filter(r => !r.own).length);
+  if (nWrite) rows.push({ id: 'public-write', kind: 'publicwrite', verb: HOME_WRITE_ROW, b: null, name: `${nWrite} of your bills`, no: '', icon: 'globe', href: '#/public', text: homeWrite(nWrite) });
+  return rows;
 }
 
 // The bills of the person's that are about to stop (standing.js: alive, want a hearing, none scheduled, 7 days or less), soonest first, and the steps that hold them.
@@ -92,14 +141,16 @@ export function riskFor(me, steps) {
 
 // Everything Home draws, for one person. `open` is their steps not yet finished in this visit.
 export function homeModel(me, open) {
-  const steps = open || stepsFor(me), hs = hearingsToday(me);
+  const steps = open || stepsFor(me), hs = hearingsToday(me), pub = publicSteps(me);
   const pd = x => x.type === 'step' && pastDue(x.s) ? 1 : 0;
-  const todo = [...homeRows(steps).map(s => ({ type: 'step', s, t: s.at })), ...hs.map(hr => ({ type: 'hearing', hr, t: hr.at }))].sort((x, y) => (pd(y) - pd(x)) || (x.t ?? Infinity) - (y.t ?? Infinity));
-  return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: waitingFor(me), suggested: suggestedFor(me), risk: riskFor(me, steps) };
+  const todo = [...homeRows(steps).map(s => ({ type: 'step', s, t: s.at })), ...hs.map(hr => ({ type: 'hearing', hr, t: hr.at })), ...pub].sort((x, y) => (pd(y) - pd(x)) || (x.t ?? Infinity) - (y.t ?? Infinity));
+  return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: [...waitingFor(me), ...publicWaits(me)], suggested: suggestedFor(me), risk: riskFor(me, steps) };
 }
 
 // ---------------------------------------------------------------------------------- the left lists
+const pubRow = (p, cur) => { const sel = cur === p.href; return `<li><a class="sr3${sel ? ' sel' : ''}"${sel ? ' aria-current="true"' : ''} href="${esc(p.href)}">${ic(p.icon)}<span class="sv"><b>${esc(p.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${esc(p.name)}${p.no ? `&nbsp;<span class="no">${esc(p.no)}</span>` : ''}${p.lines.map(l => `<span class="pnote">${esc(l)}</span>`).join('')}</span></a></li>`; };
 const todoRow = (x, cur, m) => {
+  if (x.type === 'public') return pubRow(x.p, cur);
   if (x.type === 'step') return stepRow(x.s, cur === '#/do/' + enc(x.s.id), { risk: m.risk.ids.has(x.s.id) });
   const { hr } = x, href = `#/hearing/${enc(hr.id)}`, sel = cur === href;
   return `<li><a class="sr3${sel ? ' sel' : ''}"${sel ? ' aria-current="true"' : ''} href="${href}">${ic('calendar')}<span class="sv"><b>Hearing today</b> <span class="sep" aria-hidden="true">·</span> ${esc(hr.name)}&nbsp;<span class="no">${esc(hr.no)}</span></span><span class="stm">${esc(clock(hr.at))}</span></a></li>`;
@@ -120,9 +171,9 @@ export function listsHTML(m, cur) {
   else if (none) h += `<p class="calmnote">All clear</p>`;
   h += '</section>';
   if (m.waiting.length) h += `<section aria-labelledby="hw" class="qsec"><h2 class="lh" id="hw">Waiting on others</h2><ul class="srows3">${m.waiting.map(w =>
-    quietRow(`#/waiting/${enc(w.id)}`, cur === `#/waiting/${enc(w.id)}`, 'hourglass', `<b>${esc(w.name)}</b>`, w.no, waitHTML(w))).join('')}</ul></section>`;
+    quietRow(w.href || `#/waiting/${enc(w.id)}`, cur === (w.href || `#/waiting/${enc(w.id)}`), 'hourglass', `<b>${esc(w.name)}</b>`, w.no, waitHTML(w))).join('')}</ul></section>`;
   if (m.suggested.length) h += `<section aria-labelledby="hg" class="qsec"><h2 class="lh" id="hg">Suggested</h2><p class="qline">${toggle('suggBtn', 'suggList', suggOpen, `${m.suggested.length} suggested ${m.suggested.length === 1 ? 'step' : 'steps'}`)}</p><ul class="srows3" id="suggList"${suggOpen ? '' : ' hidden'}>${m.suggested.map(x =>
-    quietRow(`#/suggested/${enc(x.id)}`, cur === `#/suggested/${enc(x.id)}`, 'lightbulb', `<b>${esc(x.verb)}</b>${x.name ? ` <span class="sep" aria-hidden="true">·</span> ${esc(x.name)}` : ''}`, x.no, '')).join('')}</ul></section>`;
+    quietRow(x.href || `#/suggested/${enc(x.id)}`, cur === (x.href || `#/suggested/${enc(x.id)}`), x.icon || 'lightbulb', `<b>${esc(x.verb)}</b>${x.name ? ` <span class="sep" aria-hidden="true">·</span> ${esc(x.name)}` : ''}`, x.no, '')).join('')}</ul></section>`;
   return h;
 }
 // The two collapsibles open and close in place: nothing is drawn again, so nothing typed on the page is lost. A person's collapse is kept by the minute's redraw.
@@ -140,7 +191,7 @@ const SUN = '<svg class="calm-pic" viewBox="0 0 96 48" fill="none" stroke="curre
 // The answer to "am I on top of it?": a line, and a second line that says what is first (a link to it). Past due outranks a bill about to stop, which outranks everything else.
 export function headline(m) {
   const hi = `Good ${PART()}, ${esc(first(m.me))}.`, n = m.todo.length;
-  const to = x => x.type === 'step' ? { href: '#/do/' + enc(x.s.id), text: `${x.s.verb} · ${x.s.name}` } : { href: '#/hearing/' + enc(x.hr.id), text: `Hearing today · ${x.hr.name}` };
+  const to = x => x.type === 'step' ? { href: '#/do/' + enc(x.s.id), text: `${x.s.verb} · ${x.s.name}` } : x.type === 'public' ? { href: x.p.href, text: `${x.p.verb} · ${x.p.name}` } : { href: '#/hearing/' + enc(x.hr.id), text: `Hearing today · ${x.hr.name}` };
   const behind = m.todo.filter(x => x.type === 'step' && pastDue(x.s)), rk = m.risk;
   if (behind.length) return { calm: false, h1: `${hi} ${behind.length === 1 ? 'One step is' : `${behind.length} steps are`} past due.`, lead: 'First up: ', link: to(behind[0]) };
   if (rk.bills.length) {
@@ -151,6 +202,8 @@ export function headline(m) {
     const text = many ? `Ask for ${vote ? 'votes' : 'hearings'} on ${st.members.length} bills by ${by}, or they stop for the year.` : why ? `${billName(rk.bill)}: ${why}, or it stops for the year.` : `Ask for ${thing} on ${billName(rk.bill)} by ${by}, or it stops for the year.`;
     return { calm: false, risk: true, h1: `${hi} ${k === 1 ? 'One bill is' : `${k} bills are`} at risk.`, lead: '', link: st ? { href: '#/do/' + enc(st.id), text } : null, plain: st ? '' : text };
   }
+  const pubN = m.todo.filter(x => x.type === 'public').length;   // a public change waits for this person: never "on top of it"
+  if (pubN) return { calm: false, h1: `${hi} ${homeNeedsYou(pubN)}`, lead: 'First up: ', link: to(m.todo[0]) };
   if (n) return { calm: false, h1: `${hi} You’re on top of it.`, lead: 'First up: ', link: to(m.todo[0]) };
   // a calm day: the next later step, named, so the line never repeats the next-hearing fact; no later step, no line
   const nx = [...m.later].sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity))[0];
@@ -226,6 +279,7 @@ export function waitingSheet(m, id) {
 }
 export function suggestedSheet(m, id, as) {
   const x = m.suggested.find(y => y.id === id); if (!x) return '';
+  if (x.kind === 'rally') return `<div class="pn">${x.b ? band(issueOf(x.b), x.verb, x.name, x.no) : plainBand(x.verb, '')}<div class="pbody"><p class="lead">${esc(x.text)}</p><p class="lead">${btn('Write the public ask', { kind: 'filled', href: x.href })}</p></div></div>`;
   const href = `index.html?demo=1${as ? `&as=${encodeURIComponent(as)}` : ''}`;   // the current staff app's practice copy, in this tab
   return `<div class="pn">${x.b ? band(issueOf(x.b), x.verb, x.name, x.no) : plainBand(x.verb, '')}<div class="pbody"><p class="lead">${esc(x.text)}</p>`
     + `<p class="lead tight">This step does not have a page in the new app yet.</p><p class="lead">${btn('For now, do this in the current staff app', { kind: 'text', href })}</p></div></div>`;

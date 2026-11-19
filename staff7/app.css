@@ -1044,3 +1044,19 @@ li[hidden] { display: none; }
 .sglegend .lgi { display: inline-flex; align-items: center; gap: var(--s1); white-space: nowrap; }
 .sglegend .sgm { margin-top: 0; }
 .sglegend .lgsep { white-space: pre; }
+
+/* R-398 part 3 (18 Nov build): the calm pages' public-site lines and doors (tokens only). The door's disc is the calm ink, not the plum of public mode (tokens.css has plum only on data-mode="public"). */
+.pnote { display: block; margin-top: var(--s1); color: var(--muted); font-size: var(--f14); line-height: 1.35; }
+.bill .pbl { display: block; }
+.bill .pbl.m { color: var(--muted); font-size: var(--f14); }
+.pdoor { display: inline-flex; align-items: center; gap: var(--s2); margin-top: var(--s2); min-height: var(--hit); color: var(--act); font-weight: 700; text-decoration: none; }
+.pdoor:hover, .pdoor:focus-visible { text-decoration: underline; }
+.pdisc { display: inline-grid; place-items: center; flex: none; width: var(--icon-m); height: var(--icon-m); border-radius: 50%; background: var(--pub-disc); color: var(--pub-globe); }
+.pdisc svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.bill > .bposafter { max-width: var(--bill-w); width: 100%; }
+.bposafter { display: flex; align-items: baseline; gap: var(--s2); margin: 0 0 var(--s4); font-size: var(--f16); }
+.bposl + .bposafter { margin-top: calc(var(--s4) * -1 + var(--s2)); }
+.bposafter .bpg { display: inline-flex; align-self: center; color: var(--act); }
+.bposafter .bpg svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.bposafter .lk { font-weight: 700; }
+.bposn[hidden] { display: none; }

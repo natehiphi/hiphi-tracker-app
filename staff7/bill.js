@@ -18,7 +18,7 @@ import { partB, bindPartB } from './bill_history.js';
 import { stoppedWords } from './issue_table.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { backHref } from './bills.js';
-import { editButton, editHTML, mayEdit, bindEdit } from './bill_edit.js';
+import { editButton, editHTML, mayEdit, bindEdit, posAfterHTML } from './bill_edit.js';
 import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, sameName, hearTxt, stepOn, clearedOf, clearedLabel, sitKeyOf, nextCtx, billHref } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -58,7 +58,7 @@ function leadHTML(b, issue, me) {
 function positionHTML(b, issue, me, can) {
   if (can && bui.edit && bui.edit.id === b.id) return editHTML(b, issue, me);   // the edit block stands in the position line's place
   const pos = b.position ? `<span class="bpos-k">HIPHI’s position</span> <b class="bpos">${esc(posWords(b))}</b>` : '<b class="bpos">No position yet</b>';
-  return `<p class="bposl" id="bPos">${pos}<span class="bsep" aria-hidden="true">·</span><span id="bLead">${leadHTML(b, issue, me)}</span>${can ? editButton() : ''}</p>`;
+  return `<p class="bposl" id="bPos">${pos}<span class="bsep" aria-hidden="true">·</span><span id="bLead">${leadHTML(b, issue, me)}</span>${can ? editButton() : ''}</p>${posAfterHTML(b, me)}`;   // R-398 part 3: what the public site still says, under the position
 }
 
 // ---------------------------------------------------------------------------------- 2. where it stands

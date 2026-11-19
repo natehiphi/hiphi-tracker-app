@@ -58,7 +58,8 @@ with sync_playwright() as p:
             # To do: only the four urgent kinds (+ Did we file?), the hearings of today
             ok(m['todoUrgent'] and m['laterAllCalm'] and m['hearingsOk'], f'{tag} {who}: To do holds only urgent steps and hearings today; every later step is not urgent')
             todo_n = pg.evaluate("() => document.querySelectorAll('#hs + ul.srows3 > li').length") if m['todoSteps'] or m['hearings'] else 0
-            ok(todo_n == len(m['todoSteps']) + len(m['hearings']), f'{tag} {who}: the To do list draws every urgent step and hearing today ({todo_n} = {len(m["todoSteps"])} + {len(m["hearings"])})')
+            pub_n = pg.evaluate("() => document.querySelectorAll('#hs + ul.srows3 > li a.sr3[href^=\"#/public/\"]').length")   # R-398 part 3: public changes to approve, publish or fix are To do rows too
+            ok(todo_n - pub_n == len(m['todoSteps']) + len(m['hearings']), f'{tag} {who}: the To do list draws every urgent step and hearing today ({todo_n - pub_n} = {len(m["todoSteps"])} + {len(m["hearings"])}, and {pub_n} public change rows)')
             # the later line: later + To do steps = all steps, and opening it shows exactly the later rows
             ok(len(m['todoSteps']) + len(m['laterIds']) == m['all'] and set(m['todoSteps']).isdisjoint(m['laterIds']), f'{tag} {who}: To do steps + later steps = all steps ({len(m["todoSteps"])} + {len(m["laterIds"])} = {m["all"]})')
             if m['laterIds']:

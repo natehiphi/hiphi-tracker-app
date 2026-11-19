@@ -233,3 +233,15 @@ export const WITHDRAWN_POSITION = 'Taken back: the position was changed back';
 export const LIST_WAITING_HELP = 'Approving puts a change on the public site.';
 export const LIST_TO_WRITE_HELP = "Bills we take a side on that the public site does not show HIPHI's words for.";
 export const LIST_YOURS_HELP = 'The last 30 days';
+
+// ---------------------------------------------------------------------------------- part 3 (R-398, 18 Nov build): the doors from the calm pages (Home, the bill page, the position form)
+export const PUBLISH_CHANGE = 'Publish the change';
+export const SEE_IT = 'See it';
+export const WRITE_THEM = 'Write them';
+// The toast after a position is saved on the bill page: the words, and Undo beside them (the toast draws the button). An admin's is "until you publish it."
+export const publicKeeps = (label, admin) => `The public site keeps ${label} until ${admin ? 'you' : (adminFirst() || 'an admin')} publish${admin ? '' : 'es'} it.`;
+export const positionSavedNote = (label, admin) => `Saved. ${publicKeeps(label, admin)}`;
+// Home's first line when public changes wait for the person (an admin's to approve or publish, a writer's to fix)
+export const homeNeedsYou = n => n === 1 ? 'One public change needs you.' : `${n} public changes need you.`;
+export const HOME_WRITE_ROW = 'Write public words';
+export const HOME_SENT_BACK_NOTE = (who, note) => note ? `${who}: ${note}` : `Sent back by ${who}`;

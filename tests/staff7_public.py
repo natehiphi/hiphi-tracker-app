@@ -514,6 +514,183 @@ with sync_playwright() as p:
     ok(all('fonts.g' in u for u in ext), f"(p11) nothing leaves the page but fonts ({sorted(set(ext))[:4]})")
     ok(all(not p.errs for p in pages), f"(p11) no page errors on the part 2 tabs ({[e for p in pages for e in p.errs][:3]})")
 
+    # ---------------------------------------------------------------- part 3 (R-398, 18 Nov build): the doors from the calm pages (Home, the bill page, the position form)
+    # One tab carries the practice state from one person to the next (&as=), so each step below reads what the step before left.
+    from urllib.parse import quote
+    Q = new_page(br); pages.append(Q)
+    NOSCROLL_LINKS = "() => [...document.querySelectorAll('.paper a[href]')].map(a => a.getAttribute('href')).filter(h => /index\\.html|staff6/.test(h))"
+    OVH1 = "() => document.querySelector('.ovtop h1')?.innerText || ''"
+    BILLDD = "(no) => { const r = [...document.querySelectorAll('#bFacts > div')].find(d => d.querySelector('dt')?.innerText === 'On the public site'); return r ? r.querySelector('dd').innerText.replace(/\\n/g, ' | ') : null; }"
+    def sugg_rows(pg):
+        return pg.evaluate("""() => { const b = document.getElementById('suggBtn'); if (b && b.getAttribute('aria-expanded') !== 'true') b.click();
+            return [...document.querySelectorAll('#suggList a')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\s+/g, ' ').trim()]); }""")
+
+    def open_s7(p, who, h):   # any staff7 address (Home, a bill page): waits for the practice data, not for a public page
+        p.goto(f'{BASE}/staff7.html?demo=1&as={who}{h}')
+        for _ in range(200):
+            try:
+                if p.evaluate(READY): break
+            except Exception:
+                pass
+            p.wait_for_timeout(200)
+        p.evaluate(INSTALL)
+        p.wait_for_selector('.paper', timeout=15000)
+        p.wait_for_timeout(300)
+    # (q1) as Kris: a side bill's words wait for Nate (a change for the Home door)
+    open_s7(Q, 'KR', '#/')
+    W1 = Q.evaluate("""() => { const { d } = T, S = d.S, b = S.bills.find(x => x.tracked !== false && d.isPublicSide(x.position) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id));
+      const r = d.sendPublicWords(b.id, { nickname: 'Home door test', public_summary: 'A summary for the Home test.', talking_points: ['One point.', 'Two point.', 'Three point.'] });
+      const pc = d.heldFor('bill', b.id);
+      return { id: b.id, no: b.bill_number.replace(/\s/g, '').toUpperCase(), waiting: !!r.waiting, refused: r.refused || null, pc: pc ? pc.id : null }; }""")
+    ok(W1['waiting'] and not W1['refused'] and W1['pc'], f"(q1) as Kris, a side bill's words wait for Nate ({W1['no']})")
+    ok(not any('index.html' in (h or '') or 'staff6' in (h or '') for h in Q.evaluate(NOSCROLL_LINKS)), '(q1) as Kris, no link on Home points at index.html or staff6')
+
+    # (q2) Home as Nate: one "Approve a public change" step per waiting change, each opening its change; the first line never says "on top of it"
+    open_s7(Q, 'NT', '#/')
+    WAIT = Q.evaluate("() => T.d.S.publicChanges.filter(x => x.status === 'waiting').map(x => x.id)")
+    rows = Q.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3[href^=\"#/public/change/\"]')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\s+/g, ' ').trim()])")
+    ok(len(WAIT) >= 1 and sorted(h for h, _ in rows) == sorted('#/public/change/' + i for i in WAIT) and all(t.startswith('Approve a public change · ') for _, t in rows),
+       f"(q2) as Nate, Home has one 'Approve a public change' step per waiting change ({len(rows)} rows, {len(WAIT)} waiting)")
+    h1 = Q.evaluate(OVH1)
+    ok('on top of it' not in h1 and 'need you' in h1, f"(q2) as Nate, the first line says a change needs him, not 'on top of it' ({h1!r})")
+    ok(any(t.startswith('Approve a public change') and W1['no'] in t.replace(' ', '').upper() for _, t in rows), f"(q2) the step for Kris's change names the bill ({W1['no']})")
+    Q.click(f'#hs + ul a.sr3[href="#/public/change/{W1["pc"]}"]'); Q.wait_for_timeout(400)
+    ok(Q.evaluate("() => location.hash") == f'#/public/change/{W1["pc"]}' and Q.evaluate("() => document.documentElement.dataset.mode") == 'public' and Q.inner_text('h1') == 'Approve a public change',
+       f"(q2) the step opens its change page in public mode ({Q.inner_text('h1')!r})")
+
+    # (q3) as Kris: Suggested holds one grouped step, "Write public words · N of your bills", N = counts().toWrite; it opens Bills to write with N rows
+    open_s7(Q, 'KR', '#/')
+    CNT = Q.evaluate("async () => (await import('/staff7/public_list.js')).counts(T.d.S.me).toWrite")
+    grp = [t for h, t in sugg_rows(Q) if h == '#/public']
+    ok(grp == ([f'Write public words · {CNT} of your bills'] if CNT else []), f"(q3) as Kris, Suggested's grouped step counts counts().toWrite ({CNT}): {grp}")
+    ok(not any('index.html' in (h or '') or 'staff6' in (h or '') for h in Q.evaluate(NOSCROLL_LINKS)), '(q3) as Kris, Home links to nothing in index.html or staff6')
+    if CNT:
+        Q.click('#suggList a[href="#/public"]'); Q.wait_for_timeout(400)
+        nrows = Q.evaluate("() => { const s = [...document.querySelectorAll('.pl-sec')].find(x => x.querySelector('h2')?.textContent === 'Bills to write'); return s ? s.querySelectorAll('li.pl-row').length : 0; }")
+        ok(Q.evaluate("() => location.hash") == '#/public' and nrows == CNT, f"(q3) the step opens #/public with Bills to write at {CNT} rows ({nrows})")
+    # the rally step (public mode at the ask): found in the practice data, not named in advance
+    RALLY = Q.evaluate("""async () => { const h = await import('/staff7/home.js'), out = [];
+      for (const a of T.d.S.advocates) { const r = h.suggestedFor(a).find(x => x.kind === 'rally'); if (r) out.push({ ini: a.initials, href: r.href }); } return out; }""")
+    if RALLY:
+        open_s7(Q, RALLY[0]['ini'], '#/'); sugg_rows(Q)
+        ok(RALLY[0]['href'].endswith('?ask=1') and RALLY[0]['href'].startswith('#/public/') and Q.locator(f'#suggList a[href="{RALLY[0]["href"]}"]').count() == 1,
+           f"(q3) the rally step's link is public mode at the ask ({RALLY[0]['href']})")
+        Q.click(f'#suggList a[href="{RALLY[0]["href"]}"]'); Q.wait_for_timeout(400)
+        ok(Q.evaluate("() => document.documentElement.dataset.mode") == 'public' and Q.evaluate("() => location.hash") == RALLY[0]['href'], '(q3) the rally step opens public mode')
+    else:
+        print('SKIP (q3) no rally step in the practice data today', flush=True)
+
+    # (q4) as Kevin: a side bill's words wait, Nate sends them back with a note; Kevin's Home has "Fix public words" with the note under it
+    open_s7(Q, 'KV', '#/')
+    W2 = Q.evaluate("""(skip) => { const { d } = T, S = d.S, b = S.bills.find(x => x.tracked !== false && x.id !== skip && d.isPublicSide(x.position) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id));
+      d.sendPublicWords(b.id, { nickname: 'Fix test', public_summary: 'Kevin summary for the fix test.', talking_points: ['A point.', 'B point.', 'C point.'] });
+      const pc = d.heldFor('bill', b.id);
+      return { id: b.id, no: b.bill_number.replace(/\\s/g, '').toUpperCase(), pc: pc ? pc.id : null }; }""", W1['id'])
+    ok(W2['pc'] is not None, f"(q4) as Kevin, a side bill's words wait ({W2['no']})")
+    open_s7(Q, 'NT', '#/')
+    SB = Q.evaluate("""([pc, id]) => { const { d } = T; const r = d.decidePublicChangeV7(pc, false, 'Point two says more than the bill does.', d.publicStateOf(id));
+      return { sent: !!r.sent_back, status: T.d.S.publicChanges.find(x => x.id === pc).status }; }""", [W2['pc'], W2['id']])
+    ok(SB['sent'] and SB['status'] == 'sent_back', f"(q4) as Nate, the change is sent back ({SB})")
+    open_s7(Q, 'KV', '#/')
+    FIX = Q.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\n/g, ' / ')]).filter(x => x[1].startsWith('Fix public words'))")
+    ok(len(FIX) == 1 and FIX[0][0] == f'#/public/{W2["no"]}' and 'Nate: Point two says more than the bill does.' in FIX[0][1],
+       f"(q4) as Kevin, Home has 'Fix public words' with Nate's note, opening the bill's public words ({FIX})")
+    if FIX:
+        Q.click(f'#hs + ul a.sr3[href="#/public/{W2["no"]}"]'); Q.wait_for_timeout(400)
+        ok(Q.evaluate("() => document.documentElement.dataset.mode") == 'public' and Q.evaluate("() => location.hash") == f'#/public/{W2["no"]}', "(q4) the Fix step opens the bill's public words in public mode")
+
+    # (q5) the bill page's row "On the public site": what is there, a waiting change if any, and the door
+    open_s7(Q, 'KR', f'#/bill/{quote(W1["no"])}')
+    row = Q.evaluate(BILLDD, W1['no'])
+    ok(row and row.startswith('Now on the public site: ') and 'Waiting on Nate to publish' in row and Q.locator('#bFacts a.pdoor').get_attribute('href') == f'#/public/{W1["no"]}'
+       and Q.locator('#bFacts a.pdoor').inner_text().strip() == 'Change what the public sees' and Q.locator('#bFacts .pdisc svg').count() == 1,
+       f"(q5) a bill whose words wait: the row says what is there, the wait, and the door ({row!r})")
+    LIVE = Q.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isLiveBill(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id) && (S.assignments[x.id] || []).includes(kr.id));
+      return b ? b.bill_number.replace(/\\s/g, '').toUpperCase() : null; }""")
+    if LIVE:
+        open_s7(Q, 'KR', f'#/bill/{quote(LIVE)}')
+        row = Q.evaluate(BILLDD, LIVE)
+        ok(row and row.startswith("Now on the public site: HIPHI's words") and 'Waiting on' not in row and Q.locator('#bFacts a.pdoor').get_attribute('href') == f'#/public/{LIVE}',
+           f"(q5) a bill whose HIPHI words are public, nothing waiting: the row says so, and the door opens its public words ({(row or '')[:90]!r})")
+    else:
+        print('SKIP (q5) no live bill this lead holds today', flush=True)
+
+    # (q6) as Kris, our position on a public side bill that meets the bar: the before line, the after line, the toast, nothing public changes
+    P6 = Q.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isLiveBill(x) && d.isPublicSide(x.position) && x.position === x.public_position && d.barMet(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id) && (S.assignments[x.id] || []).includes(kr.id));
+      if (!b) return null; return { id: b.id, no: b.bill_number.replace(/\\s/g, '').toUpperCase(), was: b.position, pub: b.public_position, nw: b.position === 'oppose' ? 'support' : 'oppose', before: d.publicStateOf(b.id) }; }""")
+    if P6 is None:
+        ok(False, '(q6) practice data: Kris leads a live side bill that meets the bar and is not waiting')
+    else:
+        open_s7(Q, 'KR', f'#/bill/{quote(P6["no"])}')
+        Q.click('#bEditGo'); Q.wait_for_timeout(150); Q.click(f'#bp-{P6["nw"]}'); Q.wait_for_timeout(150)
+        pre = Q.evaluate("() => ({ txt: document.getElementById('bPosSave').innerText, hidden: document.getElementById('bPosSave').hidden, above: document.getElementById('bPosSave').getBoundingClientRect().bottom <= document.getElementById('bSave').getBoundingClientRect().top + 1 })")
+        ok(pre['txt'] == f"The team sees this at once. The public site keeps {LBL[P6['pub']]} until it is published in public mode." and not pre['hidden'] and pre['above'],
+           f"(q6) before saving, above Save: the team sees it at once, the public keeps Support ({pre['txt'][:60]!r})")
+        Q.click('#bSave'); Q.wait_for_timeout(500)
+        st = Q.evaluate("(id) => { const { d } = T, S = d.S, b = S.bills.find(x => x.id === id), pc = d.waitingPosition(id); return { team: b.position, pub: b.public_position, words: d.publicStateOf(id), pcs: pc ? pc.status : null, f: pc ? pc.fields : null }; }", P6['id'])
+        same = all(st['words'][k] == P6['before'][k] for k in ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until', 'is_public', 'public_position'])
+        ok(st['team'] == P6['nw'] and st['pub'] == P6['pub'] and same and st['pcs'] == 'waiting' and st['f'] == {'public_position': P6['nw']},
+           f"(q6) after saving: the team's position moved, every public word and the public position did not, and one change waits ({st})")
+        line = Q.inner_text('#bPosAfter').strip()
+        ok(line == f"The public site still says {LBL[P6['pub']]} · Waiting on Nate to publish · See it" and Q.get_attribute('#bPosAfter a', 'href') == f'#/public/{P6["no"]}',
+           f"(q6) after saving, under the position: 'The public site still says Support' with the Nate tail and See it ({line!r})")
+        ok(Q.inner_text('#toastMsg') == f"Saved. The public site keeps {LBL[P6['pub']]} until Nate publishes it.", f"(q6) the toast ({Q.inner_text('#toastMsg')!r})")
+        # (q7) changing it back: the line goes, and the change is withdrawn
+        Q.click('#bEditGo'); Q.wait_for_timeout(150); Q.click(f'#bp-{P6["was"]}'); Q.wait_for_timeout(150); Q.click('#bSave'); Q.wait_for_timeout(500)
+        back = Q.evaluate("(id) => ({ line: !!document.getElementById('bPosAfter'), pc: (T.d.S.publicChanges.find(x => x.kind === 'position' && x.target_id === id) || {}).status })", P6['id'])
+        ok(back['line'] is False and back['pc'] == 'withdrawn', f"(q7) changing the position back removes the line and withdraws the change ({back})")
+
+    # (q6b) as Kris, a live side bill whose bar is not met: "needs a nickname · Write them", no change waits (this tab only: its nickname is cleared)
+    P6b = Q.evaluate("""(skip) => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && x.id !== skip && d.isLiveBill(x) && d.isPublicSide(x.position) && x.position === x.public_position && d.barMet(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id) && (S.assignments[x.id] || []).includes(kr.id));
+      if (!b) return null; b.nickname = ''; return { id: b.id, no: b.bill_number.replace(/\\s/g, '').toUpperCase(), was: b.position, pub: b.public_position, nw: b.position === 'oppose' ? 'support' : 'oppose', before: d.publicStateOf(b.id) }; }""", P6['id'] if P6 else '')
+    if P6b is None:
+        print('SKIP (q6b) no second live side bill for Kris', flush=True)
+    else:
+        go_hash(Q, f'#/bill/{quote(P6b["no"])}')
+        Q.click('#bEditGo'); Q.wait_for_timeout(150); Q.click(f'#bp-{P6b["nw"]}'); Q.wait_for_timeout(150); Q.click('#bSave'); Q.wait_for_timeout(500)
+        line = Q.inner_text('#bPosAfter').strip() if Q.locator('#bPosAfter').count() else ''
+        none = Q.evaluate("(id) => (T.d.S.publicChanges || []).filter(x => x.kind === 'position' && x.target_id === id && x.status === 'waiting').length", P6b['id'])
+        ok(line == f"The public site still says {LBL[P6b['pub']]} · needs a nickname · Write them" and Q.get_attribute('#bPosAfter a', 'href') == f'#/public/{P6b["no"]}' and none == 0,
+           f"(q6b) a bill that does not meet the bar: the tail says what is missing, and nothing waits ({line!r}, {none})")
+        Q.click('#bEditGo'); Q.wait_for_timeout(150); Q.click(f'#bp-{P6b["was"]}'); Q.wait_for_timeout(150); Q.click('#bSave'); Q.wait_for_timeout(500)
+        ok(Q.locator('#bPosAfter').count() == 0, '(q6b) changing it back removes the line')
+
+    # (q8) as Nate, an admin's own position on a public bill: the line says "Publish the change", the public keeps its position, and Home offers "Publish a public change"
+    P8 = Q.evaluate("""(skip) => { const { d } = T, S = d.S, b = S.bills.find(x => x.tracked !== false && x.id !== skip && d.isLiveBill(x) && d.isPublicSide(x.position) && x.position === x.public_position && d.barMet(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id));
+      if (!b) return null; return { id: b.id, no: b.bill_number.replace(/\\s/g, '').toUpperCase(), was: b.position, pub: b.public_position, nw: b.position === 'oppose' ? 'support' : 'oppose', before: d.publicStateOf(b.id) }; }""", P6['id'] if P6 else '')
+    if P8 is None:
+        print('SKIP (q8) no live side bill for the admin', flush=True)
+    else:
+        open_s7(Q, 'NT', f'#/bill/{quote(P8["no"])}')
+        Q.click('#bEditGo'); Q.wait_for_timeout(150); Q.click(f'#bp-{P8["nw"]}'); Q.wait_for_timeout(150); Q.click('#bSave'); Q.wait_for_timeout(500)
+        line = Q.inner_text('#bPosAfter').strip() if Q.locator('#bPosAfter').count() else ''
+        st = Q.evaluate("(id) => { const { d } = T, b = T.d.S.bills.find(x => x.id === id); return { team: b.position, pub: b.public_position, words: d.publicStateOf(id) }; }", P8['id'])
+        ok(line == f"The public site still says {LBL[P8['pub']]} · Publish the change" and Q.get_attribute('#bPosAfter a', 'href') == f'#/public/change/position-{P8["no"]}' and st['pub'] == P8['pub'] and st['team'] == P8['nw'],
+           f"(q8) as Nate, the line says 'Publish the change', and the public position is not moved ({line!r})")
+        ok(Q.inner_text('#toastMsg') == f"Saved. The public site keeps {LBL[P8['pub']]} until you publish it.", f"(q8) as Nate, the toast says 'until you publish it' ({Q.inner_text('#toastMsg')!r})")
+        open_s7(Q, 'NT', '#/')
+        own = Q.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\s+/g, ' ').trim()]).filter(x => x[1].startsWith('Publish a public change'))")
+        ok(any(h == f'#/public/change/position-{P8["no"]}' for h, _ in own), f"(q8) Home has 'Publish a public change' for it, opening the change ({own})")
+        Q.click(f'#hs + ul a.sr3[href="#/public/change/position-{P8["no"]}"]'); Q.wait_for_timeout(400)
+        ok(Q.inner_text('h1') == 'Publish a public change', f"(q8) it opens the change page ({Q.inner_text('h1')!r})")
+        # restore the practice position (this tab only)
+        Q.evaluate("([id, w]) => { const b = T.d.S.bills.find(x => x.id === id); b.position = w; }", [P8['id'], P8['was']])
+
+    # (q9) no sideways scroll on Home and on a bill page at 1440, 1280 and 390; nothing leaves the page but fonts; no page errors
+    ext9 = []
+    for w9, h9 in [(1440, 900), (1280, 800), (390, 844)]:
+        for route in ['#/', f'#/bill/{quote(W1["no"])}']:
+            L = new_page(br); pages.append(L); L.set_viewport_size({'width': w9, 'height': h9})
+            L.route(lambda u: '127.0.0.1' not in u and 'localhost' not in u, lambda rt: (ext9.append(rt.request.url), rt.continue_() if 'fonts.g' in rt.request.url else rt.abort()))
+            open_s7(L, 'KR', route); L.wait_for_timeout(300)
+            sw = L.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+            ok(sw <= 0, f"(q9) {route} at {w9}x{h9}: no sideways scroll ({sw}px over)")
+    ok(all('fonts.g' in u for u in ext9), f"(q9) nothing leaves the page but fonts ({sorted(set(ext9))[:3]})")
+    ok(not Q.errs and all(not p.errs for p in pages), f"(q9) no page errors on the part 3 tabs ({[e for p in pages for e in p.errs][:3]})")
+
     # ---------------------------------------------------------------- (h) no page errors
     ok(not pg.errs, f"(h) no page errors ({pg.errs[:3]})")
     br.close()

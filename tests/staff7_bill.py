@@ -73,6 +73,8 @@ def open_as(br, who, w, h, hash=''):
 def other_pos(pg):   # click a position that is not the checked one
     cur = pg.evaluate("() => document.querySelector('#bEdit input:checked')?.value"); pg.click('#bp-' + ('neutral' if cur != 'neutral' else 'monitor'))
 def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(450)
+# R-398 part 3: is the bill on this page one whose HIPHI words are public (the position save then says what the public site keeps)?
+def live_now(pg): return pg.evaluate("async () => { const d = await import('/staff6/data.js'), n = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0].replace(/\\s/g, ''); const b = d.S.bills.find(x => x.bill_number.replace(/\\s/g, '') === n); return !!b && d.isLiveBill(b); }")
 def snap(pg, name, tall=False):
     if not SHOTS: return
     if tall:
@@ -209,17 +211,17 @@ with sync_playwright() as p:
     ok('Version' not in f['What it does'] and 'Read the bill' not in f['What it does'] and 'Capitol' not in f['What it does'] and pg.locator('#bFacts a[target=_blank]').count() == 0, f'HB1523: What it does is the plain summary only ({f["What it does"][:60]})')
     ok(pg.locator('.bcms').count() == 0 and not any(k.endswith('referral') or k == 'Referral' or k == 'Issue' for k in f), 'HB1523: the referral rows and the Issue row are gone from the facts')
     # the public site row: read only, the follower count, the ask, the share link
-    ok(re.match(r'^Yes, with this summary · \d+ (person follows|people follow) it · no ask is set · Copy the share link$', f['On the public site']) and pg.locator('#bFacts dd input, #bFacts dd textarea, #bFacts dd select').count() == 0, f'HB1523: "On the public site" reads {f["On the public site"]}')
+    ok(re.match(r"^Now on the public site: HIPHI's words( · published [^·]+ by \w+)? \d+ (person follows|people follow) it · no ask is set · Copy the share link Change what the public sees$", f['On the public site']) and pg.locator('#bFacts dd input, #bFacts dd textarea, #bFacts dd select').count() == 0, f'HB1523: "On the public site" says what is there, the follows and the share link, then the door (R-398 part 3) ({f["On the public site"]})')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__pc = d.S.pubCounts; d.S.pubCounts = undefined; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(300)
     ok('38 people follow it' in pg.evaluate(FACTS)['On the public site'], f'HB1523: with no counts in the app, the practice sample in demo/bill_team.json says 38 people follow it ({pg.evaluate(FACTS)["On the public site"]})')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.S.pubCounts = window.__pc; const b = d.S.bills.find(x => x.bill_number === 'HB1523'); window.__pa = [b.public_action, b.public_action_until]; b.public_action = 'Call the chair, vape free'; b.public_action_until = '2026-03-20'; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(300)
-    ok(re.search(r' · Ask: Call the chair, e-cigarette free until Fri, Mar 20 · Copy the share link$', pg.evaluate(FACTS)['On the public site']) and 'vape' not in pg.evaluate(FACTS)['On the public site'], f'HB1523: a set ask shows its words (e-cigarette, never vape) and the day it runs until ({pg.evaluate(FACTS)["On the public site"][-70:]})')
+    ok(re.search(r' · Ask: Call the chair, e-cigarette free until Fri, Mar 20 · Copy the share link Change what the public sees$', pg.evaluate(FACTS)['On the public site']) and 'vape' not in pg.evaluate(FACTS)['On the public site'], f'HB1523: a set ask shows its words (e-cigarette, never vape) and the day it runs until ({pg.evaluate(FACTS)["On the public site"][-70:]})')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); const b = d.S.bills.find(x => x.bill_number === 'HB1523'); b.public_action = window.__pa[0]; b.public_action_until = window.__pa[1]; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async t => { window.__cp = t; } }, configurable: true }); window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(300)
     pg.click('button[data-bshare]'); pg.wait_for_timeout(300)
     ok(re.search(r'/b/(demo/)?HB1523$', pg.evaluate('window.__cp') or '') and 'Link copied' in pg.inner_text('#toast .tin'), f'HB1523: "Copy the share link" copies the public tracker\'s address for the bill and says "Link copied" ({pg.evaluate("window.__cp")})')
     ok(pg.locator('button[data-bshare]').evaluate("e => e.classList.contains('text')") and pg.locator('button[data-bshare]').inner_text() == 'Copy the share link', 'the share link is a text button')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__pub = d.S.bills.find(x => x.bill_number === 'HB1523').is_public; d.S.bills.find(x => x.bill_number === 'HB1523').is_public = false; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(300)
-    ok(pg.evaluate(FACTS)['On the public site'] == 'No' and pg.locator('button[data-bshare]').count() == 0, 'a bill that is not public says "No" and has no share link')
+    ok(pg.evaluate(FACTS)['On the public site'].startswith("Now on the public site: the Legislature's title only") and pg.locator('button[data-bshare]').count() == 0 and pg.locator('#bFacts a.pdoor').count() == 1, 'a bill that is not public says the Legislature\'s title only, has no share link, and keeps the door (R-398 part 3)')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.S.bills.find(x => x.bill_number === 'HB1523').is_public = window.__pub; window.__staff7Render({ tick: true }); }"); pg.wait_for_timeout(300)
     # talking points: Show N opens them in place, Show fewer closes, kept across the minute's redraw; a bill with none has no row
     tk = pg.evaluate("() => { const b = document.querySelector('button[data-btalk]'); return [b.innerText, b.getAttribute('aria-expanded'), document.getElementById('bTalk').hidden, document.querySelectorAll('#bTalk li').length]; }")
@@ -595,7 +597,9 @@ with sync_playwright() as p:
     pg.click('#bEditGo'); pg.click('#bp-support_amend'); pg.click('#bSave'); pg.wait_for_timeout(500)
     ok(pg.inner_text('#bPos').replace('\n', ' ') == 'HIPHI’s position Support w/ amendments · You lead Change position or lead' and pg.locator('#bEdit').count() == 0 and pg.evaluate("() => document.activeElement.id") == 'bEditGo', f'position only: the page shows the new position and the same lead ({pg.inner_text("#bPos").replace(chr(10), " ")})')
     r = pg.evaluate(LISTROW); ok(r[0].startswith('Nate changed the position: Support to Support w/ amendments') and pg.evaluate(OURS) == n0 + 1, f'position only: "What we did" has the new row on top ({r[0]})')
-    ok(pg.inner_text('#toast .tin').replace('\n', ' ').startswith('Position: Support w/ amendments') and 'Lead' not in pg.inner_text('#toast .tin') and pg.locator('#toastUndo').is_visible(), 'position only: the toast says what changed, "Position: Support w/ amendments", with Undo')
+    # R-398 part 3: on a live bill the public site still says its old position, so the toast says so (design 7); a bill that is not public keeps the old words
+    want = 'Saved. The public site keeps Support until you publish it.' if live_now(pg) else 'Position: Support w/ amendments'   # this section is Nate's (an admin): his own words
+    ok(pg.inner_text('#toast .tin').replace('\n', ' ').startswith(want) and 'Lead' not in pg.inner_text('#toast .tin') and pg.locator('#toastUndo').is_visible(), f'position only: the toast says what changed ("{want}"), with Undo')
     snap(pg, 'c_saved_toast.png')
     pg.click('#toastUndo'); pg.wait_for_timeout(500)
     ok('Support' in pg.inner_text('#bPos') and 'amendments' not in pg.inner_text('#bPos') and pg.evaluate(OURS) == n0 and not pg.evaluate(LISTROW)[0].startswith('Nate changed'), 'position only: Undo puts the position back and takes the row out of the history')
@@ -794,7 +798,7 @@ with sync_playwright() as p:
     sel = pg.evaluate("() => ({ v: document.getElementById('bLeadSel').value, o: document.querySelector('#bLeadSel option').innerText })")
     ok(sel['v'] == '' and sel['o'].endswith(', who leads the issue') and pg.evaluate("() => document.getElementById('bSave').disabled"), f'{fbn}: with nobody assigned, the select shows the empty choice "{sel["o"]}" and Save is disabled (no change)')
     other_pos(pg); pg.click('#bSave'); pg.wait_for_timeout(500)
-    ok(pg.evaluate(ASG, fbn) == [] and pg.inner_text('#bLead').strip() == lead0 and pg.evaluate(OURS) == n0 + 1 and 'Position:' in pg.inner_text('#toast .tin'), f'{fbn}: a position-only save writes no assignment and no lead row (assignments {pg.evaluate(ASG, fbn)})')
+    ok(pg.evaluate(ASG, fbn) == [] and pg.inner_text('#bLead').strip() == lead0 and pg.evaluate(OURS) == n0 + 1 and ('Position:' in pg.inner_text('#toast .tin') or 'The public site keeps' in pg.inner_text('#toast .tin')), f'{fbn}: a position-only save writes no assignment and no lead row (assignments {pg.evaluate(ASG, fbn)})')
     pg.click('#toastUndo'); pg.wait_for_timeout(400); ok(pg.evaluate(ASG, fbn) == [] and pg.evaluate(OURS) == n0, f'{fbn}: Undo leaves the assignments empty')
     other = [i for i in ('KR', 'JM', 'JS', 'KV') if i != fbi][0]
     pg.click('#bEditGo'); pg.select_option('#bLeadSel', value=W2['ids'][other]); pg.click('#bSave'); pg.wait_for_timeout(500)
@@ -828,7 +832,7 @@ with sync_playwright() as p:
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); window.__kU = d.DB.updateBill; d.DB.updateBill = async (id, p) => { await new Promise(r => setTimeout(r, 900)); return window.__kU(id, p); }; }")
     pg.click('#bEditGo'); other_pos(pg); pg.click('#bSave'); pg.wait_for_timeout(100)
     go(pg, '#/bill/HB2300?who=all'); pg.wait_for_selector('#bParts'); pg.click('#bNoteOpen'); pg.focus('#bNoteIn'); pg.wait_for_timeout(1200)
-    ok(pg.evaluate("() => document.querySelector('main h1').innerText") != '' and pg.evaluate("() => document.activeElement.id") == 'bNoteIn' and pg.locator('#bEdit').count() == 0 and 'Position:' in pg.inner_text('#toast .tin'), 'a save that finishes on another bill\'s page does not redraw it or take its focus (it still says what it saved)')
+    ok(pg.evaluate("() => document.querySelector('main h1').innerText") != '' and pg.evaluate("() => document.activeElement.id") == 'bNoteIn' and pg.locator('#bEdit').count() == 0 and ('Position:' in pg.inner_text('#toast .tin') or 'The public site keeps' in pg.inner_text('#toast .tin')), 'a save that finishes on another bill\'s page does not redraw it or take its focus (it still says what it saved)')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.DB.updateBill = window.__kU; }")
     # --- D14: focus after a note and after a failed one
     pg.fill('#bNoteIn', 'A second note'); pg.click('#bNoteGo'); pg.wait_for_timeout(500)
