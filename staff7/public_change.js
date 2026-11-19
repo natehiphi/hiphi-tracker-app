@@ -80,7 +80,7 @@ function mergedBill(m) {
   let M = { ...B };
   for (const p of m.parts) {
     if (p.kind === 'words') { const F = fieldsOf(p.pc); for (const k of WORD_KEYS) if (k in p.pc.fields) M[k] = F[k]; }
-    if (p.kind === 'position') M.public_position = p.pc ? p.pc.fields.public_position ?? null : B.position ?? null;
+    if (p.kind === 'position') M.public_position = p.pc ? p.pc.fields.position ?? null : B.position ?? null;
   }
   return M;
 }
@@ -215,7 +215,7 @@ function wordsBody(m, p, who, own) {
 // A position: the cards, then the two lines (the team's and the words' check), then the talking points once (design 7, 8).
 function positionBody(m, p) {
   const B = m.bill, live = isLiveBill(B), own = !p.pc || p.pc.proposed_by === S.me?.id, who = p.pc ? firstOf(p.pc.proposed_by) : '';
-  const was = live ? B.public_position ?? null : null, now = p.pc ? p.pc.fields.public_position ?? null : B.position ?? null;
+  const was = live ? B.public_position ?? null : null, now = p.pc ? p.pc.fields.position ?? null : B.position ?? null;
   const L = live ? `<span class="pc-big">${esc(posWord(was))}</span>` : none(LEG_TITLE_ONLY);
   const R = `<span class="pc-big">${esc(posWord(now))}</span>`;
   let out = pair(POSITION_LABEL, L, R, who, own, ' pc-bigw');
@@ -252,7 +252,7 @@ function previewHTML(m) {
   let W = { ...(live ? publicWordsOf(B) : EMPTY), talking_points: [...(live ? publicWordsOf(B).talking_points : [])] }, pos = live ? B.public_position ?? null : B.position ?? null;
   for (const p of m.parts) {
     if (p.kind === 'words') { const F = fieldsOf(p.pc); for (const k of WORD_KEYS) if (k in p.pc.fields) W[k] = F[k]; }
-    if (p.kind === 'position') pos = p.pc ? p.pc.fields.public_position ?? null : B.position ?? null;
+    if (p.kind === 'position') pos = p.pc ? p.pc.fields.position ?? null : B.position ?? null;
   }
   const ask = W.public_action && !(W.public_action_until && W.public_action_until < hstToday()) ? W.public_action : '';
   const hasWords = m.parts.some(p => p.kind === 'words');   // a position-only change leaves the talking points to the left column (fix 9)
@@ -340,19 +340,19 @@ function settle(key, quiet = false) {
 addEventListener('pagehide', () => { if (!pendings.size) return; [...pendings.keys()].forEach(k => settle(k, true)); savePractice(); });   // a decision still counting down is sent now, so leaving never cancels it (design 3.6)
 
 // Runs the decision. Returns a refusal in plain words, '' when it went, or a promise of either (an issue or a list).
-function decide(m, kind, note) {
+async function decide(m, kind, note) {
   const approve = kind !== 'back';
   if (m.item) return DB.decidePublicChange(m.parts[0].pc.id, approve, note).then(() => '', e => (e && e.message) || 'It did not go.');
   const B = m.bill;
   let seenNow = m.seen;
   for (const p of m.parts) {
     if (p.pc) {
-      const r = decidePublicChangeV7(p.pc.id, approve, note, seenNow);
+      const r = await decidePublicChangeV7(p.pc.id, approve, note, seenNow);
       if (r.refused) return refusal(r.refused, B, p);
       if (approve) seenNow = publicStateOf(B.id);   // the position is judged on the words as they now are
     } else if (approve) {   // an admin's own unpublished position
       if (!same(publicStateOf(B.id), seenNow)) return CHANGED_SINCE;
-      const r = publishPosition(B.id);
+      const r = await publishPosition(B.id);
       if (r.refused) return refusal(r.refused, B, p);
     }
   }
@@ -361,7 +361,7 @@ function decide(m, kind, note) {
 function refusal(r, B, p) {
   if (r !== 'bar') return r;
   const fresh = S.bills.find(x => x.id === B.id) || B;
-  return barRefusal(p.kind === 'position' ? { ...fresh, public_position: p.pc ? p.pc.fields.public_position : fresh.position } : { ...fresh, ...p.pc.fields });
+  return barRefusal(p.kind === 'position' ? { ...fresh, public_position: p.pc ? p.pc.fields.position : fresh.position } : { ...fresh, ...p.pc.fields });
 }
 
 // ---------------------------------------------------------------------------------- drawing helpers

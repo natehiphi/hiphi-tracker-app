@@ -18,9 +18,11 @@ const issueOf = b => { const x = (S.billIssues || []).find(y => y.bill_id === b.
 const norm = v => Array.isArray(v) ? v.map(x => String(x?.text ?? x ?? '').trim()).filter(Boolean).join('\n') : String(v ?? '').trim();
 
 // The bill's words that a change holds and that differ from what the public site shows (what the change says it changes).
-const changedKeys = pc => Object.keys(pc.fields || {}).filter(k => k !== 'is_public' && k in CHANGE_NAMES && norm(pc.fields[k]) !== norm(pc.before?.[k]));
+// Only the public word keys (never is_public, and never the position a bill-kind change may carry in before.position, which is not a word).
+const WORD_KEYS = ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until'];
+const changedKeys = pc => Object.keys(pc.fields || {}).filter(k => WORD_KEYS.includes(k) && k in CHANGE_NAMES && norm(pc.fields[k]) !== norm(pc.before?.[k]));
 function changeWords(pc, b) {
-  if (pc.kind === 'position') return positionChange(pc.before?.public_position ?? b?.public_position ?? null, pc.fields?.public_position ?? null);
+  if (pc.kind === 'position') return positionChange(pc.before?.position ?? b?.public_position ?? null, pc.fields?.position ?? null);
   if (pc.kind === 'issue' || pc.kind === 'list') return whatChanged(Object.keys(pc.fields || {}).map(k => OTHER_LABELS[k] || k));
   if (isFirstWords(pc)) return firstWordsOf(pc);   // fix 8: a bill's first public words are named once, by what was sent
   return whatChanged(changedKeys(pc).map(k => CHANGE_NAMES[k]));
@@ -157,10 +159,11 @@ function prepDraft(pc, force) {
   if (!b || (!force && draftWords(b.id))) return;
   saveDraftWords(b.id, wordsOf(b, pc));
 }
-function takeBack(id) {
+async function takeBack(id) {
   const pc = (S.publicChanges || []).find(x => x.id === id); if (!pc) return;
   prepDraft(pc, true);   // the words it held are kept for the writer, before the change is withdrawn
-  const r = takeBackChange(id);
+  let r;
+  try { r = await takeBackChange(id); } catch (e) { r = { refused: (e && e.message) || 'It did not go.' }; }
   if (r.refused) toast(r.refused, { ms: 6000 });
   else toast(TAKEN_BACK_HELP, { ms: 6000 });
   window.__staff7Render?.({});

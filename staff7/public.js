@@ -258,10 +258,11 @@ function press() {
   paint('pubGo');
 }
 // Sends the words now: refused in plain words, or the draft is discarded and the page drawn from the bill again.
-function finish(bid, fields) {
+async function finish(bid, fields) {
   if (pending && pending.bid === bid) pending = null;
   const B = S.bills.find(x => x.id === bid);
-  const r = sendPublicWords(bid, fields);
+  let r;
+  try { r = await sendPublicWords(bid, fields); } catch (e) { r = { refused: (e && e.message) || 'It did not go.' }; }
   if (r.refused) toast(r.refused === 'bar' ? barRefusal({ ...B, ...fields }) : r.refused, { ms: 6000 });
   else discardDraftWords(bid);
   if (view?.bill?.id === bid && $('pubRoot')) { reopen(); paint('pubGo'); }
@@ -274,9 +275,10 @@ function discard() {
   toast(DISCARD_TOAST, { undo: () => { undo(); reopen(); paint('pubH1'); }, ms: TEN });
   reopen(); paint('pubH1');
 }
-function takeBack() {
+async function takeBack() {
   const w = view.mine; if (!w) return;
-  const r = takeBackChange(w.id);
+  let r;
+  try { r = await takeBackChange(w.id); } catch (e) { r = { refused: (e && e.message) || 'It did not go.' }; }
   if (r.refused) { toast(r.refused, { ms: 6000 }); return paint('pubTake'); }
   saveDraftWords(view.bill.id, cleanOf(words(publicWords(view.bill), w.fields)));   // the words it held are kept here
   toast(TAKEN_BACK_HELP, { ms: 6000 });

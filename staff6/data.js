@@ -272,7 +272,61 @@ export const WAIT_ON_BILL = w => `${w} has a change waiting on this bill`;
 export const DECIDED_BY = w => `Already decided by ${w}`;
 export const WORDS_HELD = "HIPHI's words are on the public site, so this bill needs a nickname, a summary and 3 talking points. Take the words down instead.";
 export const TAKE_BACK_POSITION = 'There is no take back for a position. Change the position back instead.';
-const liveNotYet = () => { if (!DEMO) throw new Error('Not on the live site yet'); };
+// Live (R-398): the database keeps the public rules (backend 204); the screen re-reads what a save touched.
+const PUB_BILL_COLS = 'position,public_position,is_public,tracked,nickname,public_summary,talking_points,public_action,public_action_until,talking_points_edited_at';
+const PUB_TOUCH = ['position', 'tracked', 'is_public', 'nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until'];
+async function pubReload(billId) {
+  if (DEMO) return;
+  try {
+    const { data, error } = await S.supa.from('bills').select(PUB_BILL_COLS).eq('id', billId).maybeSingle();
+    if (error) throw error;
+    const b = S.bills.find(x => x.id === billId);
+    if (data && b) Object.assign(b, data);
+  } catch (e) { console.warn('bill re-read:', e?.message || e); }
+  try { await DB.publicChanges(); } catch (e) { console.warn('public_changes re-read:', e?.message || e); }
+}
+// A database refusal, in the same return shapes the practice copy gives.
+function pubRefusal(e, next) {
+  const m = String(e?.message || '');
+  if (m === WORDS_HELD) return { refused: 'bar', bar: barDone(next) };
+  if (/has a change waiting on this bill/.test(m)) return { refused: m };
+  if (/changed since you opened it/.test(m)) return { refused: CHANGED_SINCE };
+  if (/no longer tracked/.test(m)) return { refused: NOT_TRACKED };
+  if (/already decided/.test(m)) return { refused: 'This change was already decided.' };
+  return { refused: 'It did not save: ' + (m || 'no answer from the database') };
+}
+// A take-down shows at once and is written 10 seconds later, so the toast's Undo has its time (design rule 6).
+const pubPending = new Map();   // job -> the write to run now
+let pubHooked = false;
+function pubTakeDownLater(billId, patch, restoreLocal) {
+  if (!pubHooked && typeof window !== 'undefined') { pubHooked = true; window.addEventListener('pagehide', () => { for (const run of [...pubPending.values()]) run(); }); }
+  const job = {};
+  const run = async () => {
+    if (!pubPending.delete(job)) return;
+    clearTimeout(job.timer);
+    try {
+      const { error } = await S.supa.from('bills').update(patch).eq('id', billId);
+      if (error) throw error;
+      await pubReload(billId);
+    } catch (e) { restoreLocal(); console.warn('take-down did not save:', e?.message || e); }
+  };
+  job.timer = setTimeout(run, 10000);
+  pubPending.set(job, run);
+  return job;
+}
+// True when the write was still waiting (the local copy may be put back); false when it has already gone.
+function pubCancelTakeDown(job) { if (!pubPending.delete(job)) return false; clearTimeout(job.timer); return true; }
+// Unsent words: live, mirrored to this browser so a reload keeps them (design 5.6). Practice keeps them in memory only.
+const PUB_DRAFTS_KEY = 'hiphi.publicDrafts.v1';
+let pubDraftsLoaded = false;
+function pubLoadDrafts() {
+  if (DEMO || pubDraftsLoaded) return; pubDraftsLoaded = true;
+  try { const saved = JSON.parse(localStorage.getItem(PUB_DRAFTS_KEY) || 'null') || {}; S.publicDrafts = Object.assign(saved, S.publicDrafts || {}); } catch { /* blocked or unreadable: drafts this visit only */ }
+}
+function pubSaveDrafts() {
+  if (DEMO) return;
+  try { localStorage.setItem(PUB_DRAFTS_KEY, JSON.stringify(S.publicDrafts || {})); } catch { /* blocked or full: drafts this visit only */ }
+}
 const pubNow = () => new Date().toISOString();
 const pubFirst = id => { const a = id ? advocate(id) : null; return a ? (a.full_name || '').split(' ')[0] || null : null; };
 const pubWho = id => pubFirst(id) || 'someone';
@@ -298,15 +352,30 @@ export const waitingPosition = id => (S.publicChanges || []).find(x => x.kind ==
 function positionMovedV7(b) {
   const me = S.me, now = pubNow(), list = S.publicChanges ||= [], w = waitingPosition(b.id);
   if ((b.position ?? null) === (b.public_position ?? null)) { if (w) Object.assign(w, { status: 'withdrawn', decided_by: me.id, decided_at: now }); return; }
-  if (w) { w.fields = { public_position: b.position ?? null }; Object.assign(w, { proposed_by: me.id, proposed_at: now }); return; }
-  if (isPublicSide(b.position) && barMet(b)) list.unshift({ id: 'pc-' + Date.now() + '-' + list.length, kind: 'position', target_id: b.id, fields: { public_position: b.position ?? null }, before: { public_position: b.public_position ?? null },
+  if (w) { w.fields = { position: b.position ?? null }; Object.assign(w, { proposed_by: me.id, proposed_at: now }); return; }
+  if (isPublicSide(b.position) && barMet(b)) list.unshift({ id: 'pc-' + Date.now() + '-' + list.length, kind: 'position', target_id: b.id, fields: { position: b.position ?? null }, before: { position: b.public_position ?? null },
     proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
 }
 // A non-admin's words for a bill (design 10). Refused when someone else has a words change waiting on the bill; refused for a side bill whose bar
 // the words would not meet. An admin's words go live at once. A non-admin's words wait: the first send files a change, later sends join it, and the
 // bill's public words do not change until an admin approves.
+async function sendPublicWordsLive(billId, fields) {
+  const b = S.bills.find(x => x.id === billId), me = S.me;
+  if (!b || !me || b.tracked === false) return { refused: NOT_TRACKED };
+  const w = heldFor('bill', billId);
+  if (w && w.proposed_by !== me.id) return { refused: WAIT_ON_BILL(pubWho(w.proposed_by)) };
+  const words = cleanWords(fields), next = { ...b, ...words };
+  if (!barMet(next)) return { refused: 'bar', bar: barDone(next) };
+  // The database holds a non-admin's words as a waiting change and publishes an admin's (and sets public_position).
+  const { error } = await S.supa.from('bills').update({ ...words, is_public: true }).eq('id', billId);
+  if (error) return pubRefusal(error, next);
+  await pubReload(billId);
+  // As in practice, an admin's send publishes the team's position too; the database does that itself only when the words first go up.
+  if (me.is_admin && publicPositionPending(b)) { const p = await S.supa.rpc('publish_position', { p_bill: billId, p_expected: b.position ?? null }); if (p.error) return pubRefusal(p.error, next); await pubReload(billId); }
+  return me.is_admin ? { published: true } : { waiting: heldFor('bill', billId) };
+}
 export function sendPublicWords(billId, fields) {
-  liveNotYet();
+  if (!DEMO) return sendPublicWordsLive(billId, fields);
   const b = S.bills.find(x => x.id === billId), me = S.me;
   if (!b || !me || b.tracked === false) return { refused: NOT_TRACKED };
   const w = heldFor('bill', billId);
@@ -331,26 +400,40 @@ export function sendPublicWords(billId, fields) {
     else (S.publicChanges ||= []).unshift({ id: 'pc-' + Date.now() + '-' + (S.publicChanges || []).length, kind: 'bill', target_id: billId, fields: fieldsNow, before: was, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
   }
   // A position the public was not shown because the bill lacked its three things goes to the admin with the words that complete it (design 7)
-  if (publicPositionPending(b) && isPublicSide(b.position) && !waitingPosition(billId)) S.publicChanges.unshift({ id: 'pc-' + Date.now() + '-p', kind: 'position', target_id: billId, fields: { public_position: b.position }, before: { public_position: b.public_position ?? null }, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
+  if (publicPositionPending(b) && isPublicSide(b.position) && !waitingPosition(billId)) S.publicChanges.unshift({ id: 'pc-' + Date.now() + '-p', kind: 'position', target_id: billId, fields: { position: b.position }, before: { position: b.public_position ?? null }, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
   return { waiting: heldFor('bill', billId) };
 }
 // Unsent words, per person, on a bill: they stay until sent or discarded, so a typed word is never lost (design 5.6).
 export function saveDraftWords(billId, fields) {
   const me = S.me; if (!me) return null;
+  pubLoadDrafts();
   const d = ((S.publicDrafts ||= {})[me.id] ||= {});
   d[billId] = { ...cleanWords(fields), saved_at: pubNow() };
+  pubSaveDrafts();
   return d[billId];
 }
-export const draftWords = billId => S.publicDrafts?.[S.me?.id]?.[billId] || null;
+export const draftWords = billId => { pubLoadDrafts(); return S.publicDrafts?.[S.me?.id]?.[billId] || null; };
 export function discardDraftWords(billId) {
+  pubLoadDrafts();
   const id = S.me?.id, d = S.publicDrafts?.[id];
   if (!d || !(billId in d)) return () => {};
-  const prev = d[billId]; delete d[billId];
-  return () => { ((S.publicDrafts ||= {})[id] ||= {})[billId] = prev; };
+  const prev = d[billId]; delete d[billId]; pubSaveDrafts();
+  return () => { ((S.publicDrafts ||= {})[id] ||= {})[billId] = prev; pubSaveDrafts(); };
 }
 // An admin's publish of our position: the public position becomes the team's. A waiting position change for the bill is approved with it.
+async function publishPositionLive(billId) {
+  const b = S.bills.find(x => x.id === billId), me = S.me;
+  if (!me?.is_admin) return { refused: 'Only an admin can publish a position' };
+  if (!b || b.tracked === false) return { refused: NOT_TRACKED };
+  const next = { ...b, public_position: b.position ?? null };
+  if (!barMet(next)) return { refused: 'bar', bar: barDone(next) };
+  const { error } = await S.supa.rpc('publish_position', { p_bill: billId, p_expected: b.position ?? null });
+  if (error) return pubRefusal(error, next);
+  await pubReload(billId);
+  return { published: true };
+}
 export function publishPosition(billId) {
-  liveNotYet();
+  if (!DEMO) return publishPositionLive(billId);
   const b = S.bills.find(x => x.id === billId), me = S.me;
   if (!me?.is_admin) return { refused: 'Only an admin can publish a position' };
   if (!b || b.tracked === false) return { refused: NOT_TRACKED };
@@ -363,8 +446,17 @@ export function publishPosition(billId) {
 }
 // Taking HIPHI's words down is at once, for anyone who may change them. Any waiting words change on the bill is withdrawn (taken_down), its words kept.
 // Returns the undo.
+function takeDownWordsLive(billId) {
+  const b = S.bills.find(x => x.id === billId); if (!b) return () => {};
+  const prevPublic = b.is_public, pcs = (S.publicChanges || []).filter(x => x.kind === 'bill' && x.target_id === billId && x.status === 'waiting'), copies = pcs.map(x => ({ ...x }));
+  const restore = () => { b.is_public = prevPublic; pcs.forEach((x, i) => restoreObj(x, copies[i])); };
+  b.is_public = false;
+  for (const x of pcs) Object.assign(x, { status: 'withdrawn', taken_down: true, decided_by: S.me?.id ?? null, decided_at: pubNow() });
+  const job = pubTakeDownLater(billId, { is_public: false }, restore);
+  return () => { if (pubCancelTakeDown(job)) restore(); };
+}
 export function takeDownWords(billId) {
-  liveNotYet();
+  if (!DEMO) return takeDownWordsLive(billId);
   const b = S.bills.find(x => x.id === billId); if (!b) return () => {};
   const prevPublic = b.is_public, pcs = (S.publicChanges || []).filter(x => x.kind === 'bill' && x.target_id === billId && x.status === 'waiting'), copies = pcs.map(x => ({ ...x }));
   b.is_public = false;
@@ -372,8 +464,17 @@ export function takeDownWords(billId) {
   return () => { b.is_public = prevPublic; pcs.forEach((x, i) => restoreObj(x, copies[i])); };
 }
 // Taking the ask down is at once: the public ask and its last day are cleared, and a waiting change loses the ask too. Returns the undo.
+function takeDownAskLive(billId) {
+  const b = S.bills.find(x => x.id === billId); if (!b) return () => {};
+  const prev = { public_action: b.public_action ?? null, public_action_until: b.public_action_until ?? null }, w = heldFor('bill', billId), wPrev = w ? { ...w.fields } : null;
+  const restore = () => { Object.assign(b, prev); if (w) w.fields = wPrev; };
+  b.public_action = null; b.public_action_until = null;
+  if (w) { delete w.fields.public_action; delete w.fields.public_action_until; }
+  const job = pubTakeDownLater(billId, { public_action: null, public_action_until: null }, restore);
+  return () => { if (pubCancelTakeDown(job)) restore(); };
+}
 export function takeDownAsk(billId) {
-  liveNotYet();
+  if (!DEMO) return takeDownAskLive(billId);
   const b = S.bills.find(x => x.id === billId); if (!b) return () => {};
   const prev = { public_action: b.public_action ?? null, public_action_until: b.public_action_until ?? null }, w = heldFor('bill', billId), wPrev = w ? { ...w.fields } : null;
   b.public_action = null; b.public_action_until = null;
@@ -390,8 +491,19 @@ export const positionIsMine = (b, me) => {
 // The words the public site holds for one field, as a send compares them (a blank is null, the points as a list).
 const sitWord = (b, k) => k === 'talking_points' ? (pubPoints(b).length ? pubPoints(b) : null) : (String(b[k] ?? '').trim() || null);
 // The writer takes back their own waiting words change: it is withdrawn, its words kept on the record, and the public site is unchanged.
+async function takeBackChangeLive(id) {
+  const me = S.me, pc = (S.publicChanges || []).find(x => x.id === id);
+  if (!pc) return { refused: 'This change is gone' };
+  if (pc.status !== 'waiting') return { refused: DECIDED_BY(pubWho(pc.decided_by)) };
+  if (pc.proposed_by !== me?.id) return { refused: `Only ${pubWho(pc.proposed_by)} can take this back` };
+  if (pc.kind === 'position') return { refused: TAKE_BACK_POSITION };
+  const { error } = await S.supa.rpc('withdraw_public_change', { p_id: id });
+  if (error) return pubRefusal(error, undefined);
+  await pubReload(pc.target_id);
+  return { taken: true };
+}
 export function takeBackChange(id) {
-  liveNotYet();
+  if (!DEMO) return takeBackChangeLive(id);
   const me = S.me, pc = (S.publicChanges || []).find(x => x.id === id);
   if (!pc) return { refused: 'This change is gone' };
   if (pc.status !== 'waiting') return { refused: DECIDED_BY(pubWho(pc.decided_by)) };
@@ -402,8 +514,23 @@ export function takeBackChange(id) {
 }
 // An admin's yes or no to a waiting change (design 8, 10). Refused when the admin never saw the current public state (seen), when already decided, when the
 // bill is untracked, or when an approval would leave a side bill without its bar. An ask whose last day has passed is not published; the rest is.
+// Live: the database's own stale check refuses a change the admin has not seen ("This changed since you opened it"), so `seen` is not compared here.
+async function decidePublicChangeLive(id, approve, note) {
+  const pc = (S.publicChanges || []).find(x => x.id === id);
+  if (!pc) return { refused: 'This change is gone' };
+  const b = S.bills.find(x => x.id === pc.target_id) || {};
+  const fields = { ...pc.fields }, skipped = [];
+  if (approve && pc.kind === 'bill' && fields.public_action_until && fields.public_action_until < hstToday()) {
+    for (const k of ['public_action', 'public_action_until']) if (k in fields) { delete fields[k]; skipped.push(k); }
+  }
+  const next = pc.kind === 'position' ? { ...b, public_position: fields.position ?? null } : { ...b, ...fields };
+  const { error } = await S.supa.rpc('decide_public_change', { p_id: id, p_approve: !!approve, p_note: (note || '').trim() || null });
+  if (error) return pubRefusal(error, next);
+  await pubReload(pc.target_id);
+  return approve ? { approved: true, skipped } : { sent_back: true };
+}
 export function decidePublicChangeV7(id, approve, note = '', seen) {
-  liveNotYet();
+  if (!DEMO) return decidePublicChangeLive(id, approve, note);
   const pc = (S.publicChanges || []).find(x => x.id === id), me = S.me;
   if (!pc) return { refused: 'This change is gone' };
   if (!me?.is_admin) return { refused: 'Only an admin can decide a public change' };
@@ -417,14 +544,14 @@ export function decidePublicChangeV7(id, approve, note = '', seen) {
   if (pc.kind === 'bill' && fields.public_action_until && fields.public_action_until < hstToday()) {
     for (const k of ['public_action', 'public_action_until']) if (k in fields) { delete fields[k]; skipped.push(k); }
   }
-  const next = pc.kind === 'position' ? { ...b, public_position: fields.public_position ?? null } : { ...b, ...fields };
+  const next = pc.kind === 'position' ? { ...b, public_position: fields.position ?? null } : { ...b, ...fields };
   if (!barMet(next)) return { refused: 'bar', bar: barDone(next) };
   if (pc.kind === 'bill') {
     const wasPublic = !!b.is_public;
     Object.assign(b, fields);
     if (!wasPublic) b.public_position = b.position ?? null;
     if ('talking_points' in fields) b.talking_points_edited_at = now;
-  } else b.public_position = fields.public_position ?? null;   // a position change sets the public position only, never the team's
+  } else b.public_position = fields.position ?? null;   // a position change sets the public position only, never the team's
   b.public_published_at = now; b.public_published_by = me.id;
   Object.assign(pc, { status: 'approved', decided_by: me.id, decided_at: now, note: text });
   return { approved: true, skipped };
@@ -432,7 +559,7 @@ export function decidePublicChangeV7(id, approve, note = '', seen) {
 // Practice only (design 11): the two waiting changes from teammates, and a few of the lead's side bills with no public words. Called once from
 // staff7's start-up, after the person is known. It switches the public-mode rules on for this page. Never seeds twice, never over a restored practice copy.
 export function seedPublicV7() {
-  if (!DEMO) return;
+  if (!DEMO) { PUBLIC_V7 = true; return; }
   PUBLIC_V7 = true;
   if (S.publicSeededV7 || PRACTICE) { S.publicSeededV7 = true; return; }
   S.publicSeededV7 = true;
@@ -444,7 +571,7 @@ export function seedPublicV7() {
     proposed_by: by?.id ?? null, proposed_at: ago(5), status: 'waiting', decided_by: null, decided_at: null, note: null });
   if (b2) {
     b2.position = b2.position === 'oppose' ? 'support' : 'oppose'; b2.priority = priorityOf(b2.position);
-    list.push({ id: 'pc-seed-2', kind: 'position', target_id: b2.id, fields: { public_position: b2.position }, before: { public_position: b2.public_position ?? null },
+    list.push({ id: 'pc-seed-2', kind: 'position', target_id: b2.id, fields: { position: b2.position }, before: { position: b2.public_position ?? null },
       proposed_by: by?.id ?? null, proposed_at: ago(3), status: 'waiting', decided_by: null, decided_at: null, note: null });
   }
   const kr = S.advocates.find(a => a.initials === 'KR');
@@ -696,7 +823,9 @@ export const DB = {
     }
     if (b) { for (const k of Object.keys(patch)) before[k] = b[k]; Object.assign(b, patch); }
     const { error } = await S.supa.from('bills').update(patch).eq('id', billId);
-    if (error) { if (b) Object.assign(b, before); throw error; }
+    if (error) { if (b) Object.assign(b, before); if (error.message === WORDS_HELD) throw new Error(WORDS_HELD); throw error; }
+    // R-398: the database may have set the public position or filed a waiting change; the screen re-reads what it touched.
+    if (PUBLIC_V7 && PUB_TOUCH.some(k => k in patch)) await pubReload(billId);
     return afterHold('bill', b, patch, before);
   },
   // Saving a bill's team fields without erasing a teammate (R-152 B). The Public tab used to send all its fields, changed or
@@ -1078,6 +1207,7 @@ export const DB = {
     if (error) throw error;
     const { data } = await S.supa.from('bills').select('*').eq('id', row.id).single();
     if (data) S.bills = S.bills.filter(x => x.id !== data.id).concat(data).sort((a, b2) => a.bill_number.localeCompare(b2.bill_number));
+    if (PUBLIC_V7) await pubReload(row.id);   // a side bill without its three things comes back with is_public false
     if (campaignId) S.billCampaigns[row.id] = [campaignId];
     if (leadId) S.assignments[row.id] = [leadId];
     if (issueId && !(S.billIssues || []).some(x => x.bill_id === row.id && x.issue_id === issueId)) (S.billIssues ||= []).push({ bill_id: row.id, issue_id: issueId, added_via: issueVia });

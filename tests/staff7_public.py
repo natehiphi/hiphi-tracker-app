@@ -5,7 +5,8 @@
 #   (c) take back; take down; (d) our position: a non-admin's change waits as a 'position' change and leaves the public position alone; changing back withdraws it;
 #   (e) an admin's approve changes the words; a stale approve is refused; a send back keeps its note; an ask past its last day is skipped; the bar holds after
 #       publishing; approving a position sets the public position only; an admin's own publish is at once; an admin is refused while another's change waits;
-#   (f) the reload that &as= causes keeps the waiting changes, and another writer is refused after it; (g) the wording functions give the design's strings; (h) no page errors.
+#   (f) the reload that &as= causes keeps the waiting changes, and another writer is refused after it; (g) the wording functions give the design's strings; (h) no page errors;
+#   live shape: the live site's calls and keys, read from the files (no browser).
 #   python3 tests/staff7_public.py [base]     base defaults to http://127.0.0.1:8851
 import re, sys
 from playwright.sync_api import sync_playwright
@@ -119,7 +120,7 @@ with sync_playwright() as p:
         return { old, nw, pub0, mid, back: pc2 ? pc2.status : null, pubAfter: b.public_position, teamAfter: b.position }; }""", A['pos'])
     m = r['mid']
     ok(m['team'] == r['nw'] and m['pub'] == r['pub0'], "(d) a non-admin's position change: the team sees it at once, the public position is unchanged")
-    ok(m['kind'] == 'position' and m['status'] == 'waiting' and m['f'] == {'public_position': r['nw']}, "(d) it files one waiting change of kind position, holding the public position only")
+    ok(m['kind'] == 'position' and m['status'] == 'waiting' and m['f'] == {'position': r['nw']}, "(d) it files one waiting change of kind position, holding the public position only")
     ok(m['line'] == f"HIPHI's position: {LBL[r['nw']]} for the team · {LBL[r['pub0']]} on the public site", f"(g) our position, the two differing: {m['line']!r}")
     ok(r['back'] == 'withdrawn' and r['teamAfter'] == r['old'] and r['pubAfter'] == r['pub0'], '(d) changing back to the public position withdraws the change')
 
@@ -632,7 +633,7 @@ with sync_playwright() as p:
         Q.click('#bSave'); Q.wait_for_timeout(500)
         st = Q.evaluate("(id) => { const { d } = T, S = d.S, b = S.bills.find(x => x.id === id), pc = d.waitingPosition(id); return { team: b.position, pub: b.public_position, words: d.publicStateOf(id), pcs: pc ? pc.status : null, f: pc ? pc.fields : null }; }", P6['id'])
         same = all(st['words'][k] == P6['before'][k] for k in ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until', 'is_public', 'public_position'])
-        ok(st['team'] == P6['nw'] and st['pub'] == P6['pub'] and same and st['pcs'] == 'waiting' and st['f'] == {'public_position': P6['nw']},
+        ok(st['team'] == P6['nw'] and st['pub'] == P6['pub'] and same and st['pcs'] == 'waiting' and st['f'] == {'position': P6['nw']},
            f"(q6) after saving: the team's position moved, every public word and the public position did not, and one change waits ({st})")
         line = Q.inner_text('#bPosAfter').strip()
         ok(line == f"The public site still says {LBL[P6['pub']]} · Waiting on Nate to publish · See it" and Q.get_attribute('#bPosAfter a', 'href') == f'#/public/{P6["no"]}',
@@ -811,6 +812,35 @@ with sync_playwright() as p:
 
     # ---------------------------------------------------------------- (h) no page errors
     ok(not pg.errs, f"(h) no page errors ({pg.errs[:3]})")
+
+    # ---------------------------------------------------------------- live shape (reads the files; no browser)
+    # On the live site the public functions return promises, and a waiting position change keeps the position under the key `position` (migration 204).
+    import os
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    def read_text(path):
+        with open(path, encoding='utf-8') as fh: return fh.read()
+    data_js = read_text(os.path.join(ROOT, 'staff6', 'data.js'))
+    staff7_js = {n: read_text(os.path.join(ROOT, 'staff7', n)) for n in sorted(os.listdir(os.path.join(ROOT, 'staff7'))) if n.endswith('.js')}
+    # (a) the rpc calls the live functions make, with their parameter names
+    for rpc_name, params in [('publish_position', ['p_bill', 'p_expected']), ('decide_public_change', ['p_id', 'p_approve', 'p_note']), ('withdraw_public_change', ['p_id'])]:
+        mm = re.search(r"rpc\(\s*'" + rpc_name + r"'\s*,\s*\{([^}]*)\}", data_js, re.S)
+        ok(bool(mm) and all(re.search(r'\b' + q + r'\s*:', mm.group(1)) for q in params),
+           f"live shape (a) data.js calls rpc '{rpc_name}' with {', '.join(params)}")
+    # (b) no staff7 file, and not data.js, reads a position change's key under the old name
+    bad = ['fields.public_position', 'before.public_position', 'fields: { public_position']
+    hits = [(n, b) for n, src in staff7_js.items() for b in bad if b in src]
+    ok(not hits, f"live shape (b) no staff7 file reads a position change as public_position ({hits[:3]})")
+    # (c) the migration's shape, when the backend repo is next to this one (skipped, not failed, when it is not there)
+    mig_paths = [os.path.normpath(os.path.join(ROOT, '..', 'backend', 'migrations', '204_public_position.sql')), '/Users/natehix/hiphi/backend/migrations/204_public_position.sql']
+    mig = next((x for x in mig_paths if os.path.exists(x)), None)
+    if mig is None:
+        print('SKIP (c) migration 204_public_position.sql not found; the migration shape is not checked', flush=True)
+    else:
+        sql = read_text(mig)
+        for label, needle in [("the position change's key is jsonb_build_object('position', new.\"position\")", "jsonb_build_object('position', new.\"position\")"),
+                              ('publish_position(p_bill uuid, p_expected position_t)', 'create or replace function publish_position(p_bill uuid, p_expected position_t)'),
+                              ('decide_public_change(p_id uuid, p_approve boolean, p_note text', 'decide_public_change(p_id uuid, p_approve boolean, p_note text')]:
+            ok(needle in sql, f"live shape (c) migration 204 has {label}")
     br.close()
     passed = sum(res); failed = len(res) - passed
     print(f'{passed} passed, {failed} failed', flush=True)
