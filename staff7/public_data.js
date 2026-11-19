@@ -192,3 +192,44 @@ export const pubPositionWords = p => ({ strongly_support: 'HIPHI strongly suppor
   strongly_oppose: 'HIPHI strongly opposes this bill', oppose: 'HIPHI opposes this bill', neutral: 'HIPHI has comments on this bill' })[p] || '';
 export const SENT_ON_SITE = 'These words are on the public site. Change anything to send it to Nate.';
 export const NOTHING_TO_SEND = 'Nothing to send yet. Write a nickname, a summary or a talking point first.';
+
+// ---------------------------------------------------------------------------------- part 2 (R-398): the admin's page for a waiting change, and Public words
+export const sentThis = (who, t) => `${who} sent this ${hst(t)}`;
+export const changedOurs = (who, t) => `${who} changed our position ${hst(t)}`;
+export const sentAt = t => `sent ${hst(t)}`;
+export const hearingDay = t => `Hearing ${new Date(t).toLocaleDateString('en-US', { timeZone: 'Pacific/Honolulu', weekday: 'short' })}`;
+export const YOU_CHANGED_POS = 'You changed our position';
+export const changeHead = (who, own) => own ? 'Your change' : `${who}’s change`;
+export const partName = (who, what, own) => own ? `Your change to ${what}` : `${who}’s change to ${what}`;
+export const CHANGE_NOW_HEAD = 'On the public site now';
+export const LEG_TITLE_ONLY = "The Legislature's title only";
+export const NOTHING_THERE = 'Nothing there yet';
+export const TAKEN_OUT = 'Taken out';
+export const NO_LAST_DAY = 'No last day';
+export const NO_WORD_CHANGE = 'The words are the same as the public site.';
+export const POINTS_NOW = 'Talking points now on the public site';
+export const POSITION_LABEL = 'Position';
+export const AFTER_PUBLISH = 'After you publish';
+export const PUBLISH_IN_10 = 'On the public site 10 seconds after you publish.';
+export const SEND_BACK_IN_10 = 'Sent back 10 seconds after you press it.';
+export const CANCEL = 'Cancel';
+export const CHANGED_HELP = 'This changed since you opened it. The page shows it as it is now; check it, then decide.';
+export const ASK_EXPIRED_CHANGE = "The ask's last day has passed, so the ask will not be published. The rest will.";
+export const ONLY_ADMIN = 'Only an admin decides a public change.';
+export const BILL_WORDS_LINK = "See the bill's public words";
+export const BACK_PUBLIC = 'Back to Public words';
+export const PUBLIC_WORDS_HEAD = 'Public words';
+export const GONE_CHANGE = 'That change is no longer here.';
+export const YES_WORD = 'Yes', NO_WORD = 'No';
+export const CHANGE_NAMES = { nickname: 'Nickname', public_summary: 'Summary', talking_points: 'Talking points', public_action: 'The ask', public_action_until: "The ask's last day" };
+export const OTHER_LABELS = { name: 'Name', title: 'Title', description: 'Description', category: 'Category', recommended: 'Recommended', outlook: 'Outlook', stance: 'Stance',
+  first_visit: 'First visit', icon: 'Icon', is_published: 'On the public site', slug: 'Web address' };
+export const whatChanged = names => join(names);   // "Summary and nickname", "Nickname, summary and the ask"
+export const posWord = v => posName(v);
+export const positionChange = (from, to) => `Position, ${posName(from)} to ${posName(to)}`;
+export const waitingState = () => `Waiting on ${adminOr()} to publish`;
+export const APPROVED_STATE = 'Approved';
+export const WITHDRAWN_POSITION = 'Taken back: the position was changed back';
+export const LIST_WAITING_HELP = 'Approving puts a change on the public site.';
+export const LIST_TO_WRITE_HELP = "Bills we take a side on that the public site does not show HIPHI's words for.";
+export const LIST_YOURS_HELP = 'The last 30 days';

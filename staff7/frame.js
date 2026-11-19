@@ -17,6 +17,8 @@ import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js'
 import { initWidth, handleHTML, syncHandle, dragging } from './width.js';
 import { hooks7 } from './sort_data.js';
 import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's public words (public mode)
+import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
+import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
@@ -110,8 +112,13 @@ function parse() {
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
-  // R-398 part 1b: #/public/<bill number> is one bill's public words; '#/public' and '#/public/change/<id>' are part 2 and show the missing sheet for now
-  if (a === 'public') return r.length && r[0] !== 'change' && id ? { r: 'publicbill', id, q } : { r: 'missing' };
+  // R-398: #/public is Public words (part 2); #/public/change/<id> is one waiting change (part 2); #/public/<bill number> is one bill's public words (part 1b)
+  if (a === 'public') {
+    const rest = r.filter(x => x !== '');
+    if (!rest.length) return { r: 'publiclist', q };
+    if (rest[0] === 'change') { let cid = ''; try { cid = decodeURIComponent(rest.slice(1).join('/')); } catch { cid = '�'; } return cid ? { r: 'publicchange', id: cid, q } : { r: 'missing' }; }
+    return id ? { r: 'publicbill', id, q } : { r: 'missing' };
+  }
   if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested') return id ? { r: a, id } : { r: 'missing' };
   if (a && Object.hasOwn(WILL, a)) return { r: 'door', door: a };
   return a ? { r: 'missing' } : { r: 'home' };
@@ -143,7 +150,9 @@ function drawPublic(rt) {
   document.documentElement.dataset.mode = 'public';
   document.body.classList.remove('isws', 'hasbar', 'nobar');
   $('bar-slot').innerHTML = '';
-  const pg = publicBillPage({ id: rt.id, q: rt.q, back: lastPlain });
+  const pg = rt.r === 'publiclist' ? publicListPage({ q: rt.q, back: lastPlain })
+    : rt.r === 'publicchange' ? publicChangePage({ id: rt.id, q: rt.q, back: lastPlain })
+    : publicBillPage({ id: rt.id, q: rt.q, back: lastPlain });
   $('app').innerHTML = pg.html; pg.bind();
   if (location.hash !== lastRoute) clearToast();   // a toast belongs to the page it was said on
   lastRoute = location.hash; first = false; document.documentElement.dataset.ready = '1';
@@ -155,7 +164,7 @@ function render(opts = {}) {
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
   // R-398 part 1b: public mode is drawn by drawPublic (no bar, no list, plum); any other address leaves it
   const rt0 = parse();
-  if (rt0.r === 'publicbill') { drawPublic(rt0); return; }
+  if (rt0.r === 'publicbill' || rt0.r === 'publicchange' || rt0.r === 'publiclist') { drawPublic(rt0); return; }
   delete document.documentElement.dataset.mode;
   lastPlain = location.hash;
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;

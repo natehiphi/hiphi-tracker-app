@@ -379,6 +379,141 @@ with sync_playwright() as p:
     # the page stays free of errors on every new tab
     ok(all(not p.errs for p in pages), f"(1b) no page errors on the public pages ({[e for p in pages for e in p.errs][:3]})")
 
+    # ---------------------------------------------------------------- part 2 (R-398): the admin's page for one waiting change, and Public words (#/public)
+    # Each scenario is a fresh tab with the practice seeds (two waiting changes: pc-seed-1 a words change, pc-seed-2 a position change).
+    def open_at(p, who, h):
+        p.goto(f'{BASE}/staff7.html?demo=1&as={who}{h}')
+        for _ in range(200):
+            try:
+                if p.evaluate(READY): break
+            except Exception:
+                pass
+            p.wait_for_timeout(200)
+        p.evaluate(INSTALL)
+        p.wait_for_selector('#pubRoot', timeout=15000)
+        p.wait_for_timeout(200)
+    def go_hash(p, h):
+        p.evaluate("(h) => { location.hash = h; }", h); p.wait_for_timeout(500)
+    CHG_TEXT = "() => { const b = document.querySelector('.pl-page, .pc-form'); return b ? b.innerText : ''; }"
+    SEEDS = """() => { const S = T.d.S; return { w: S.publicChanges.find(x => x.id === 'pc-seed-1'), p: S.publicChanges.find(x => x.id === 'pc-seed-2') }; }"""
+
+    # (p1) as Nate, Public words lists the two waiting changes first, each row a link to its page
+    P20 = new_page(br); pages.append(P20); open_at(P20, 'NT', '#/public')
+    secs = P20.evaluate("""() => [...document.querySelectorAll('.pl-sec')].map(s => [s.querySelector('h2').textContent, [...s.querySelectorAll('a.pl-link')].map(a => a.getAttribute('href'))])""")
+    ok(secs and secs[0][0] == 'Waiting for you' and sorted(secs[0][1]) == ['#/public/change/pc-seed-1', '#/public/change/pc-seed-2'],
+       f"(p1) as Nate, #/public lists the two waiting changes first ({secs})")
+    ok(P20.evaluate("() => document.documentElement.dataset.mode") == 'public' and P20.locator('nav.bar').count() == 0 and P20.locator('.wl').count() == 0,
+       '(p1) #/public is in public mode: plum, no app bar, no left column')
+
+    # (p2) one change: the two cards, the words marked (only the changed words), and the preview tagged "After you approve"
+    P21 = new_page(br); pages.append(P21); open_at(P21, 'NT', '#/public/change/pc-seed-1')
+    r = P21.evaluate("""() => { const ins = [...document.querySelectorAll('.pc-card.is-new .pc-ins')].map(e => e.textContent).join(''), del = [...document.querySelectorAll('.pc-card.is-now .pc-del')].map(e => e.textContent).join('');
+      const cards = [...document.querySelectorAll('.pc-card-h')].map(e => e.textContent), tag = document.querySelector('.pub-card .pv-tag');
+      return { ins, del, cards, tag: tag ? tag.textContent : null, mode: document.documentElement.dataset.mode, hasTwoCards: document.querySelectorAll('.pc-cards').length }; }""")
+    ok(r['ins'].strip() == 'Ask your legislators to take a stand.' and r['del'] == '' and "On the public site now" in r['cards'] and "Kevin’s change" in r['cards'],
+       f"(p2) the change's new words are underlined, the old words are not struck (only the added sentence) ({r['ins']!r} / {r['del']!r})")
+    ok(r['tag'] == 'After you approve' and r['mode'] == 'public' and r['hasTwoCards'] >= 1, f"(p2) the preview is tagged 'After you approve' and the window is plum ({r['tag']!r})")
+
+    # (p3) Approve: the toast at once, the page moves to the next waiting change; after 10 seconds the public words are the change's
+    P22 = new_page(br); pages.append(P22); open_at(P22, 'NT', '#/public/change/pc-seed-1')
+    sd = P22.evaluate(SEEDS)
+    P22.click('#pcGo'); P22.wait_for_timeout(300)
+    ok(P22.inner_text('#toastMsg') == 'Approved. On the public site in 10 seconds.' and P22.is_visible('#toastUndo'),
+       f"(p3) Approve shows the toast at once, with Undo ({P22.inner_text('#toastMsg')!r})")
+    ok(P22.evaluate("() => location.hash") == '#/public/change/pc-seed-2', f"(p3) Approve moves to the next waiting change ({P22.evaluate('() => location.hash')})")
+    ok(P22.evaluate("(id) => T.d.S.publicChanges.find(x => x.id === id).status", 'pc-seed-1') == 'waiting', '(p3) the decision waits its 10 seconds')
+    P22.wait_for_timeout(10600)
+    got = P22.evaluate("""(id) => { const { d } = T, S = d.S, pc = S.publicChanges.find(x => x.id === id), b = S.bills.find(x => x.id === pc.target_id);
+      return { status: pc.status, sum: b.public_summary, want: pc.fields.public_summary, decided: pc.decided_by === S.me.id }; }""", 'pc-seed-1')
+    ok(got['status'] == 'approved' and got['sum'] == got['want'] and got['decided'], f"(p3) after 10 seconds the bill's public words are the change's ({got['status']})")
+
+    # (p4) Undo inside the 10 seconds: the change stays waiting, nothing changed, and Undo returns to the change
+    P23 = new_page(br); pages.append(P23); open_at(P23, 'NT', '#/public/change/pc-seed-2')
+    before = P23.evaluate("(id) => { const { d } = T, S = d.S, pc = S.publicChanges.find(x => x.id === id), b = S.bills.find(x => x.id === pc.target_id); return { pos: b.position, pub: b.public_position ?? null }; }", 'pc-seed-2')
+    P23.click('#pcGo'); P23.wait_for_timeout(300)
+    P23.click('#toastUndo'); P23.wait_for_timeout(400)
+    ok(P23.evaluate("() => location.hash") == '#/public/change/pc-seed-2' and P23.locator('#pcGo').count() == 1,
+       f"(p4) Undo returns to the change ({P23.evaluate('() => location.hash')})")
+    P23.wait_for_timeout(10400)
+    got = P23.evaluate("""(id) => { const { d } = T, S = d.S, pc = S.publicChanges.find(x => x.id === id), b = S.bills.find(x => x.id === pc.target_id);
+      return { status: pc.status, pub: b.public_position ?? null, pos: b.position }; }""", 'pc-seed-2')
+    ok(got['status'] == 'waiting' and got['pub'] == before['pub'], f"(p4) Undo inside 10 seconds: the change still waits and the public position is unchanged ({got})")
+
+    # (p5) Send back with a note: the note opens in place; as Kevin the note shows in Your changes
+    P24 = new_page(br); pages.append(P24); open_at(P24, 'NT', '#/public/change/pc-seed-1')
+    P24.click('#pcSendOpen'); P24.wait_for_timeout(200)
+    ok(P24.is_visible('#pcNote') and 'Kevin hears it with your note. The public keeps the earlier words.' in P24.inner_text('.pc-note'),
+       "(p5) Send back opens the note in place, with the line 'Kevin hears it with your note'")
+    P24.fill('#pcNote', 'Keep it to one sentence.')
+    P24.click('#pcSendBack'); P24.wait_for_timeout(300)
+    ok(P24.inner_text('#toastMsg') == 'Sent back.', f"(p5) Send back shows the toast at once ({P24.inner_text('#toastMsg')!r})")
+    P24.wait_for_timeout(10400)
+    open_at(P24, 'KV', '#/public')
+    rowsKV = P24.evaluate("() => [...document.querySelectorAll('.pl-sec')].map(s => s.innerText).join(' | ')")
+    ok('Sent back by Nate: Keep it to one sentence.' in rowsKV, f"(p5) as Kevin, Your changes shows 'Sent back by Nate: <note>' ({rowsKV[-160:]!r})")
+
+    # (p6) a stale approve is refused in plain words and changes nothing; the page is drawn again with what the public site has now
+    P25 = new_page(br); pages.append(P25); open_at(P25, 'NT', '#/public/change/pc-seed-1')
+    P25.evaluate("""() => { const { d } = T, S = d.S, pc = S.publicChanges.find(x => x.id === 'pc-seed-1'), b = S.bills.find(x => x.id === pc.target_id); b.public_summary = 'Changed by someone else while the page was open.'; }""")
+    P25.click('#pcGo'); P25.wait_for_timeout(300)
+    ok('This changed since you opened it' in P25.inner_text('#pcStatus') and P25.evaluate("() => location.hash") == '#/public/change/pc-seed-1',
+       f"(p6) a stale approve says 'This changed since you opened it' and stays ({P25.inner_text('#pcStatus')[:60]!r})")
+    P25.wait_for_timeout(10400)
+    got = P25.evaluate("""() => { const { d } = T, S = d.S, pc = S.publicChanges.find(x => x.id === 'pc-seed-1'), b = S.bills.find(x => x.id === pc.target_id); return { status: pc.status, sum: b.public_summary }; }""")
+    ok(got['status'] == 'waiting' and got['sum'] == 'Changed by someone else while the page was open.', f"(p6) nothing is published by the stale approve ({got})")
+
+    # (p7) a decided change's address says 'Already decided by'
+    P26 = new_page(br); pages.append(P26); open_at(P26, 'NT', '#/public')
+    P26.evaluate("""() => { const S = T.d.S, pc = S.publicChanges.find(x => x.id === 'pc-seed-1'); pc.status = 'approved'; pc.decided_by = S.me.id; }""")
+    go_hash(P26, '#/public/change/pc-seed-1')
+    ok(f'Already decided by {NT}' in P26.inner_text('#pubRoot') and P26.locator('#pcGo').count() == 0,
+       f"(p7) a decided change says 'Already decided by {NT}' and offers no button")
+
+    # (p8) a non-admin who opens the address is told that only an admin decides; a lead's list shows what they write for
+    P27 = new_page(br); pages.append(P27); open_at(P27, 'KR', '#/public/change/pc-seed-1')
+    ok('Only an admin decides a public change.' in P27.inner_text('#pubRoot') and P27.locator('#pcGo').count() == 0,
+       "(p8) as Kris, the change page says only an admin decides, with no button")
+    P28 = new_page(br); pages.append(P28); open_at(P28, 'KR', '#/public')
+    rowsKR = P28.evaluate("""() => { const s = [...document.querySelectorAll('.pl-sec')].find(x => x.querySelector('h2').textContent === 'Bills to write'); return s ? s.querySelectorAll('li.pl-row').length : 0; }""")
+    cnt = P28.evaluate("async () => { const L = await import('/staff7/public_list.js'); return L.counts(T.d.S.me).toWrite; }")
+    ok(rowsKR >= 1 and rowsKR == cnt, f"(p8) as Kris, Bills to write has one row per bill counts() gives ({rowsKR} rows, counts {cnt})")
+    ok(P28.evaluate("() => document.documentElement.dataset.mode") == 'public', '(p8) as Kris, #/public is in public mode')
+
+    # (p9) Take back from Your changes: the row says Taken back, and the words are kept for the writer
+    P29 = new_page(br); pages.append(P29); open_at(P29, 'KR', '#/public')
+    bidKR = P29.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isPublicSide(x.position) && !d.isLiveBill(x) && (S.assignments[x.id] || []).includes(kr.id) && !d.heldFor('bill', x.id));
+      const r = d.sendPublicWords(b.id, { nickname: 'Take back test', public_summary: 'Take back test summary.', talking_points: ['One point.', 'Two point.', 'Three point.'], public_action: '', public_action_until: '' });
+      return r.waiting ? b.id : null; }""")
+    P29.evaluate("() => window.__staff7Render({})"); P29.wait_for_timeout(300)   # redraw the list: the same address does not
+    ok(bidKR is not None and 'Waiting on Nate to publish' in P29.inner_text('#pubRoot'), "(p9) as Kris, a sent change shows 'Waiting on Nate to publish' in Your changes")
+    P29.click('button.pl-take'); P29.wait_for_timeout(400)
+    ok('Taken back' in P29.inner_text('#pubRoot') and P29.evaluate("(id) => T.d.S.bills.find(x => x.id === id).is_public === false", bidKR),
+       "(p9) Take back: the row says Taken back, and the public site is unchanged")
+    ok(P29.evaluate("(id) => !!T.d.draftWords(id)", bidKR), "(p9) the words it held are kept for the writer")
+
+    # (p10) an admin's own unpublished position: 'Publish a public change', and its one button
+    P30 = new_page(br); pages.append(P30); open_at(P30, 'NT', '#/public')
+    own = P30.evaluate("""() => { const { d } = T, S = d.S, b = S.bills.find(x => x.tracked !== false && d.isLiveBill(x) && d.isPublicSide(x.public_position) && d.barMet(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id));
+      b.position = b.public_position === 'support' ? 'oppose' : 'support'; return b.bill_number; }""")
+    go_hash(P30, '#/public/change/position-' + own.replace(' ', '%20'))
+    ok(P30.inner_text('h1') == 'Publish a public change' and P30.inner_text('#pcGo') == 'Publish to the public site' and P30.locator('#pcSendOpen').count() == 0,
+       f"(p10) an admin's own unpublished position: 'Publish a public change' and only 'Publish to the public site' ({P30.inner_text('h1')!r})")
+
+    # (p11) plum at both routes; no sideways scroll at 1440, 1280 and 390; no page errors; nothing leaves the page but fonts
+    ext = []
+    PX = {}
+    for w, h in [(1440, 900), (1280, 800), (390, 844)]:
+        for route in ['#/public', '#/public/change/pc-seed-1']:
+            L = new_page(br); pages.append(L); L.set_viewport_size({'width': w, 'height': h})
+            L.route(lambda u: '127.0.0.1' not in u and 'localhost' not in u, lambda rt: (ext.append(rt.request.url), rt.continue_() if 'fonts.g' in rt.request.url else rt.abort()))
+            open_at(L, 'NT', route)
+            sw = L.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+            ok(sw <= 0 and L.evaluate("() => document.documentElement.dataset.mode") == 'public', f"(p11) {route} at {w}x{h}: plum and no sideways scroll ({sw}px over)")
+            PX[(w, route)] = L
+    ok(all('fonts.g' in u for u in ext), f"(p11) nothing leaves the page but fonts ({sorted(set(ext))[:4]})")
+    ok(all(not p.errs for p in pages), f"(p11) no page errors on the part 2 tabs ({[e for p in pages for e in p.errs][:3]})")
+
     # ---------------------------------------------------------------- (h) no page errors
     ok(not pg.errs, f"(h) no page errors ({pg.errs[:3]})")
     br.close()
