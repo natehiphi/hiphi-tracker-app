@@ -206,8 +206,9 @@ export function headline(m) {
     return { calm: false, risk: true, h1: `${hi} ${k === 1 ? 'One bill is' : `${k} bills are`} at risk.`, lead: '', link: st ? { href: '#/do/' + enc(st.id), text } : null, plain: st ? '' : text };
   }
   const pubN = m.todo.filter(x => x.type === 'public').length;   // a public change waits for this person: never "on top of it"
-  // the first public change is the one named (fix 6): the line and First up name the same kind of job
-  if (pubN) return { calm: false, h1: `${hi} ${homeNeedsYou(pubN)}`, lead: 'First up: ', link: to(m.todo.find(x => x.type === 'public')) };
+  // First up is always the To do list's first row (a testimony due in an hour never drops behind a public change); the line
+  // names public changes only when one is that first row, else it counts the steps, so the two never disagree (review fix 6)
+  if (pubN) return { calm: false, h1: `${hi} ${m.todo[0].type === 'public' ? homeNeedsYou(pubN) : `${n === 1 ? 'One step needs' : `${n} steps need`} you.`}`, lead: 'First up: ', link: to(m.todo[0]) };
   if (n) return { calm: false, h1: `${hi} You’re on top of it.`, lead: 'First up: ', link: to(m.todo[0]) };
   // a calm day: the next later step, named, so the line never repeats the next-hearing fact; no later step, no line
   const nx = [...m.later].sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity))[0];

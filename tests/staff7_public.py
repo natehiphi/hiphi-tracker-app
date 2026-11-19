@@ -762,8 +762,9 @@ with sync_playwright() as p:
     # (fix 6) as Nate, Home's first line and its First up link name the same kind of job
     open_s7(FR, 'NT', '#/')
     ov6 = FR.evaluate("() => ({ h1: document.querySelector('.ovtop h1')?.innerText || '', link: document.querySelector('.ovlink')?.innerText || '' })")
-    ok('on top of it' not in ov6['h1'] and ('need you' not in ov6['h1'] or ov6['link'].startswith(('Approve a public change', 'Publish a public change'))),
-       f"(fix 6) as Nate, the first line and First up name the same kind of job ({ov6})")
+    first6 = FR.evaluate("() => (document.querySelector('.srows3:not(.ovl) li a b')?.innerText || '')")
+    ok('on top of it' not in ov6['h1'] and ('public change' not in ov6['h1'] or ov6['link'].startswith(('Approve a public change', 'Publish a public change'))) and bool(first6) and ov6['link'].startswith(first6),
+       f"(fix 6) as Nate, the first line and First up name the same kind of job, and First up is the To do list's first row ({ov6}, first row {first6!r})")
     # (fix 7) as Nate on a bill with Kevin's words change waiting: 'Waiting for you to approve · Open it', read-only fields, 'After you approve'
     FR7 = new_page(br); pages.append(FR7)
     open_s7(FR7, 'NT', '#/')
