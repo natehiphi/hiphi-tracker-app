@@ -11,7 +11,7 @@ import { cmteMarks } from './bill_tl.js';
 import { known, followersOf } from './bill_data.js';
 import { bui } from './bill.js';
 import { eCig } from './issues.js';
-import { nowLine, waitingLine, DOOR_TEXT } from './public_data.js';
+import { nowLine, waitingLine, DOOR_TEXT, WAITING_FOR_YOU, OPEN_IT } from './public_data.js';
 
 const enc = encodeURIComponent;
 const num = b => String(b.bill_number).replace(/\s/g, '');
@@ -71,7 +71,9 @@ export function publicHTML(b) {
     const meta = [f != null ? esc(n(f, 'person follows', 'people follow') + ' it') : '', act ? `Ask: ${esc(eCig(act))}${until ? ` until ${esc(dateY(until))}` : ''}` : 'no ask is set'].filter(Boolean).join(' · ');
     lines.push(`<span class="pbl m">${meta} · ${btn('Copy the share link', { kind: 'text', attrs: `data-bshare="${esc(b.id)}"` })}</span>`);
   }
-  if (pc) lines.push(`<span class="pbl">${esc(waitingLine(pc))}</span>`);
+  // an admin sees someone else's change here as waiting for them, with the link to decide it (fix 7); anyone else sees the wait
+  if (pc && S.me?.is_admin && pc.proposed_by !== S.me.id) lines.push(`<span class="pbl">${esc(WAITING_FOR_YOU)} · <a class="lk" href="#/public/change/${enc(pc.id)}">${esc(OPEN_IT)}</a></span>`);
+  else if (pc) lines.push(`<span class="pbl">${esc(waitingLine(pc))}</span>`);
   if (b.tracked !== false) lines.push(`<a class="pdoor" href="#/public/${enc(no)}"><span class="pdisc" aria-hidden="true">${ic('globe')}</span><span>${esc(DOOR_TEXT)}</span></a>`);
   return lines.join('');
 }

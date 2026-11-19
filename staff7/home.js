@@ -11,8 +11,8 @@ import { stepsFor, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pas
 import { myIssueStandings, tally, needsHearing, deadlineOf, isAmberRisk, riskDate, riskWhy } from './standing.js';
 import { dateWords, sessionDates, touchMap } from './words.js';
 import { testimonyDue } from './bill_words.js';
-import { waitingRows, toWriteRows } from './public_list.js';
-import { HOME_APPROVE, HOME_PUBLISH, HOME_FIX, HOME_WRITE_ROW, homeWrite, homeNeedsYou, waitingState, HOME_SENT_BACK_NOTE } from './public_data.js';
+import { waitingRows, toWriteRows, mineRows } from './public_list.js';
+import { HOME_APPROVE, HOME_PUBLISH, HOME_FIX, HOME_WRITE_ROW, HOME_SEND_ROW, homeWrite, homeNeedsYou, waitingState, HOME_SENT_BACK_NOTE, missingLine } from './public_data.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
 const DAY = 864e5;
@@ -83,8 +83,9 @@ export function publicSteps(me) {
   const out = [], admin = !!me?.is_admin;
   withMe(me, () => {
     if (admin) {
-      for (const pc of waitingRows(me)) {
-        const t = nameOfChange(pc), h = t.b ? hearingAhead(t.b) : null;
+      // one step per bill (fix 3): a bill's words and position changes are one Approve step, opening the bill's first waiting change
+      for (const g of waitingRows(me)) {
+        const pc = g.pc, t = nameOfChange(pc), h = t.b ? hearingAhead(t.b) : null;
         out.push({ type: 'public', t: h ? testimonyDue(h) : null, p: { verb: HOME_APPROVE, name: t.name, no: t.no, icon: 'globe', href: `#/public/change/${enc(pc.id)}`, lines: [] } });
       }
       for (const x of toWriteRows(me).filter(r => r.own)) {
@@ -103,7 +104,7 @@ export function publicSteps(me) {
 }
 // the writer's changes that wait on Nate: "<bill> · Waiting on Nate to publish" under Waiting on others
 function publicWaits(me) {
-  return withMe(me, () => myPublicChanges().filter(x => x.status === 'waiting').map(pc => {
+  return withMe(me, () => mineRows().filter(r => r.pc.status === 'waiting').map(({ pc }) => {   // one row per bill (fix 3)
     const t = nameOfChange(pc);
     return { id: 'pw-' + pc.id, kind: 'public', b: t.b, name: t.name, no: t.no, who: '', second: false, at: null, with: [], line: waitingState(), href: t.b ? `#/public/${enc(normNo(t.b.bill_number))}` : '#/public' };
   }));
@@ -123,8 +124,10 @@ export function suggestedFor(me) {
   } });
   const rows = out.map(x => ({ ...x, name: x.b ? billName(x.b) : '', no: x.b ? billNo(x.b) : '' }));
   // one grouped step for a lead (design 6): the bills with a side that the public does not see, not counting an admin's own (those are To do steps); none when the count is 0
-  const nWrite = withMe(me, () => toWriteRows(me).filter(r => !r.own).length);
-  if (nWrite) rows.push({ id: 'public-write', kind: 'publicwrite', verb: HOME_WRITE_ROW, b: null, name: `${nWrite} of your bills`, no: '', icon: 'globe', href: '#/public', text: homeWrite(nWrite) });
+  const counted = withMe(me, () => toWriteRows(me).filter(r => !r.own)), nWrite = counted.length;
+  // "Send public words" when every bill counted is ready to send, else "Write public words" (fix 10)
+  const allReady = counted.every(r => !missingLine(r.b));
+  if (nWrite) rows.push({ id: 'public-write', kind: 'publicwrite', verb: allReady ? HOME_SEND_ROW : HOME_WRITE_ROW, b: null, name: `${nWrite} of your bills`, no: '', icon: 'globe', href: '#/public', text: homeWrite(nWrite) });
   return rows;
 }
 
@@ -203,7 +206,8 @@ export function headline(m) {
     return { calm: false, risk: true, h1: `${hi} ${k === 1 ? 'One bill is' : `${k} bills are`} at risk.`, lead: '', link: st ? { href: '#/do/' + enc(st.id), text } : null, plain: st ? '' : text };
   }
   const pubN = m.todo.filter(x => x.type === 'public').length;   // a public change waits for this person: never "on top of it"
-  if (pubN) return { calm: false, h1: `${hi} ${homeNeedsYou(pubN)}`, lead: 'First up: ', link: to(m.todo[0]) };
+  // the first public change is the one named (fix 6): the line and First up name the same kind of job
+  if (pubN) return { calm: false, h1: `${hi} ${homeNeedsYou(pubN)}`, lead: 'First up: ', link: to(m.todo.find(x => x.type === 'public')) };
   if (n) return { calm: false, h1: `${hi} You’re on top of it.`, lead: 'First up: ', link: to(m.todo[0]) };
   // a calm day: the next later step, named, so the line never repeats the next-hearing fact; no later step, no line
   const nx = [...m.later].sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity))[0];

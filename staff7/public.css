@@ -201,3 +201,9 @@ a.pl-link:focus-visible { border-radius: var(--r4); }
   .pl-take { flex: 1 1 100%; }
   #pcSendOpen, #pcSendBack, #pcCancel { flex: 1 1 auto; }
 }
+
+/* first words on the change page: each field label sits with its own value (review fix) */
+.pc-first { margin-top: var(--s5); }
+.pc-kv { margin-top: var(--s4); }
+.pc-kv .pc-card-h { margin: 0 0 var(--s1); }
+.pc-kv .pc-card-b, .pc-kv .pc-card-b p, .pc-kv .pc-card-b ul { margin-top: 0; margin-bottom: 0; }

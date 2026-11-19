@@ -3,7 +3,7 @@
 // Approve, Send back and Publish toast at once and move on to the next waiting change (or Home); the decision itself runs 10 seconds later, unless Undo returns to the
 // change (design 3.6). Before the toast, the page checks that what it was opened on is still what the public site shows (design 10.3): if not, it is drawn again and
 // says so. The rules (who decides, the bar, a stale approve, a decided change) are the data layer's; the words are public_data.js's.
-import { S, DB, advocate, isLiveBill, heldFor, waitingPosition, waitingChanges, pubPoints, isPublicSide, hstToday, savePractice } from '../staff6/data.js';
+import { S, DB, advocate, isLiveBill, heldFor, waitingPosition, waitingChanges, pubPoints, isPublicSide, hstToday, savePractice, positionIsMine } from '../staff6/data.js';
 import { hearingAhead } from '../staff6/model.js';
 import { testimonyDue, dateY } from './bill_words.js';
 import { billName, billNo } from './steps.js';
@@ -13,7 +13,8 @@ import { decidePublicChangeV7, publicStateOf, publishPosition, barMet, publicPos
   ON_SITE_AFTER_APPROVE, PUBLISH_IN_10, SEND_BACK_IN_10, CANCEL, APPROVED_TOAST, SENT_BACK_TOAST, WORDS_ON_SITE_TOAST, barRefusal, hearingLine, pubPositionWords,
   ASK_LABEL, POINTS_LABEL, POINTS_NOW, POSITION_LABEL, CHANGE_NOW_HEAD, changeHead, partName, LEG_TITLE_ONLY, NOTHING_THERE, TAKEN_OUT, NO_LAST_DAY, NO_WORD_CHANGE,
   sentThis, changedOurs, ownSaved, positionCheck, teamAlreadySees, posWord, CHANGE_NAMES, OTHER_LABELS, ASK_EXPIRED_CHANGE, CHANGED_HELP, ONLY_ADMIN, BILL_WORDS_LINK,
-  BACK_PUBLIC, GONE_CHANGE, DECIDED_BY, CHANGED_SINCE, NOT_TRACKED, TAKEN_BACK_HELP, waitingLine, pointLabel, YES_WORD, NO_WORD, YOU_CHANGED_POS } from './public_data.js';
+  BACK_PUBLIC, GONE_CHANGE, DECIDED_BY, CHANGED_SINCE, NOT_TRACKED, TAKEN_BACK_HELP, waitingLine, pointLabel, YES_WORD, NO_WORD, YOU_CHANGED_POS,
+  NOW_LEGISLATURE, isFirstWords } from './public_data.js';
 
 const TEN = 10000, enc = encodeURIComponent, $ = id => document.getElementById(id);
 const POS = 'position-', WORD_KEYS = ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until'];
@@ -58,7 +59,7 @@ function build(id) {
   const words = heldFor('bill', bill.id), pos = waitingPosition(bill.id);
   if (words) m.parts.push({ kind: 'words', pc: words });
   if (pos) m.parts.push({ kind: 'position', pc: pos });
-  else if (m.admin && publicPositionPending(bill)) m.parts.push({ kind: 'position', pc: null });   // an admin's own unpublished position
+  else if (positionIsMine(bill, me)) m.parts.push({ kind: 'position', pc: null });   // an admin's own unpublished position (fix 1: not a teammate's)
   if (!m.parts.length) { m.gone = GONE_CHANGE; return m; }
   m.own = m.parts.every(p => !p.pc || p.pc.proposed_by === me.id);
   m.seen = publicStateOf(bill.id);
@@ -187,7 +188,19 @@ function datePair(label, a, b, live, who, own) {
   return pair(label, L, R, who, own);
 }
 
+// A bill's first words (fix 8): the public site shows only the Legislature's title, so the words are named once, not as before and after cards.
+function firstBody(p, who, own) {
+  const F = fieldsOf(p.pc), rows = [];
+  if (F.nickname) rows.push([CHANGE_NAMES.nickname, esc(F.nickname)]);
+  if (F.public_summary) rows.push([CHANGE_NAMES.public_summary, esc(F.public_summary)]);
+  if (F.talking_points.length) rows.push([CHANGE_NAMES.talking_points, `<ul>${F.talking_points.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`]);
+  if (F.public_action) rows.push([CHANGE_NAMES.public_action, esc(F.public_action)]);
+  if (F.public_action_until) rows.push([CHANGE_NAMES.public_action_until, esc(dateY(F.public_action_until))]);
+  return `<p class="pc-line">${esc(NOW_LEGISLATURE)}</p><div class="pc-first"><h3 class="pc-lab">${esc(changeHead(who, own))}</h3>`
+    + rows.map(([k, v]) => `<div class="pc-kv"><p class="pc-card-h">${k}</p><div class="pc-card-b">${v}</div></div>`).join('') + `</div>`;
+}
 function wordsBody(m, p, who, own) {
+  if (isFirstWords(p.pc)) return firstBody(p, who, own);
   const B = m.bill, live = isLiveBill(B), F = fieldsOf(p.pc), base = live ? publicWordsOf(B) : EMPTY, has = k => k in p.pc.fields, out = [];
   for (const k of ['nickname', 'public_summary']) if (has(k) && txt(base[k]) !== F[k]) out.push(textPair(CHANGE_NAMES[k], txt(base[k]), F[k], live, who, own));
   if (has('talking_points')) {
@@ -208,7 +221,7 @@ function positionBody(m, p) {
   let out = pair(POSITION_LABEL, L, R, who, own, ' pc-bigw');
   out += `<p class="pc-line">${esc(teamAlreadySees(posWord(B.position)))}</p>`;
   if (live) out += `<p class="pc-line">${esc(positionCheck(posWord(was)))}</p>`;
-  if (!m.parts.some(q => q.kind === 'words' && 'talking_points' in q.pc.fields)) out += pointsNow(B);
+  if (!m.parts.some(q => q.kind === 'words' && 'talking_points' in q.pc.fields)) out += pointsNow(B);   // the talking points, once: here, not in the preview (fix 9)
   return out;
 }
 function pointsNow(B) {
@@ -242,6 +255,7 @@ function previewHTML(m) {
     if (p.kind === 'position') pos = p.pc ? p.pc.fields.public_position ?? null : B.position ?? null;
   }
   const ask = W.public_action && !(W.public_action_until && W.public_action_until < hstToday()) ? W.public_action : '';
+  const hasWords = m.parts.some(p => p.kind === 'words');   // a position-only change leaves the talking points to the left column (fix 9)
   const pp = pubPositionWords(pos);
   return `<div class="pv-head"><span>${esc(billNo(B))}</span><span class="pv-label">${esc(PREVIEW_TAG)}</span></div>`
     + `<p class="pv-tag">${esc(m.own ? AFTER_PUBLISH : AFTER_APPROVE)}</p>`
@@ -249,7 +263,7 @@ function previewHTML(m) {
     + (pp ? `<p class="pv-pos">${esc(pp)}</p>` : '')
     + (W.public_summary ? `<p class="pv-sum">${esc(W.public_summary)}</p>` : '')
     + (ask ? `<p class="pv-ask"><b>${esc(ASK_LABEL)}</b> ${esc(ask)}</p>` : '')
-    + (W.talking_points.length ? `<div class="pv-tp"><h4>${esc(POINTS_LABEL)}</h4><ul>${W.talking_points.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+    + (hasWords && W.talking_points.length ? `<div class="pv-tp"><h4>${esc(POINTS_LABEL)}</h4><ul>${W.talking_points.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
 }
 
 // The send back note, in place (design 8): it opens under the cards, and the dock turns to Send back and Cancel.

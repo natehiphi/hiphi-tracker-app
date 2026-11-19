@@ -3,7 +3,7 @@
 // words, the bar, a waiting change, taking down) are the data layer's, reached through public_data.js; every word on the page is public_data.js's.
 // Typed words are kept as this person's draft on every change, so nothing typed is lost. The main button shows its toast at once and sends only after 10 seconds,
 // unless Undo is pressed (design 3.6); leaving the page does not cancel it.
-import { S, advocate, isLiveBill, pubPoints, heldFor, hstToday, savePractice } from '../staff6/data.js';
+import { S, advocate, isLiveBill, pubPoints, heldFor, waitingPosition, publicPositionPending, hstToday, savePractice } from '../staff6/data.js';
 import { hearingAhead } from '../staff6/model.js';
 import { testimonyDue } from './bill_words.js';
 import { billName, billNo } from './steps.js';
@@ -14,7 +14,8 @@ import { bar, needsWords, barMet, sendPublicWords, discardDraftWords, draftWords
   TAKE_WORDS_DOWN, TAKE_WORDS_DOWN_HELP, WORDS_DOWN_TOAST, TAKE_ASK_DOWN, ASK_DOWN_TOAST, SHOW_ASK_THROUGH, ASK_THROUGH_HELP, ASK_LABEL, ASK_FIELD, ASK_HELP,
   ASK_EXPIRED, ASK_HEARING_LATE, NICKNAME_LABEL, NICKNAME_HELP, NICK_SHORT, SUMMARY_LABEL, SUMMARY_HELP, POINTS_LABEL, POINTS_HELP, ADD_POINT, REMOVE_POINT,
   pointLabel, charsLeft, CHANGE_ON_BILL, TAKE_BACK_BUTTON, SEE_PREVIEW, FOLD_BUTTON, foldLead, pubPositionWords, hearingLine, barRefusal, MONITOR_LINE, BAR_LABEL,
-  nowLine, waitingLine, sentBackLine, TAKEN_BACK_HELP, publicPositionLine, dockLine, sendLabel, adminFirst, sentToast, WORDS_ON_SITE_TOAST, SENT_ON_SITE, NOTHING_TO_SEND } from './public_data.js';
+  nowLine, waitingLine, sentBackLine, TAKEN_BACK_HELP, publicPositionLine, dockLine, sendLabel, adminFirst, sentToast, WORDS_ON_SITE_TOAST, SENT_ON_SITE, NOTHING_TO_SEND,
+  AFTER_APPROVE, WAITING_FOR_YOU, OPEN_IT, OPEN_CHANGE_LINE } from './public_data.js';
 
 const TEN = 10000, MAX_POINTS = 5, LIMIT = { nickname: 40, public_summary: 280, public_action: 280, point: 200 };
 const WORDS = ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until'];
@@ -40,16 +41,21 @@ const cleanOf = f => ({ nickname: String(f.nickname ?? '').trim(), public_summar
 
 let view = null, pending = null;   // view: the page as it is drawn (route id, bill, the form's fields, what it opened with); pending: the 10-second send
 
-const waitingSentBack = id => (S.publicChanges || []).filter(x => x.kind === 'bill' && x.target_id === id && x.status === 'sent_back').sort((a, b) => String(b.decided_at).localeCompare(String(a.decided_at)))[0] || null;
+// The latest change of a bill's that Nate sent back: its words or its position (fix 2).
+const waitingSentBack = id => (S.publicChanges || []).filter(x => (x.kind === 'bill' || x.kind === 'position') && x.target_id === id && x.status === 'sent_back').sort((a, b) => String(b.decided_at).localeCompare(String(a.decided_at)))[0] || null;
 // The page's state for one bill, read fresh from the data: a waiting change by someone else makes the page read-only (design 10.2).
 function openView(id, { unfolded = true, arrival = false, back = '' } = {}) {
   const me = S.me, B0 = S.bills.find(x => normNo(x.bill_number) === normNo(id)) || null;
-  const v = { id, back, unfolded, arrival, bill: null, gone: !!B0, name: '', readOnly: false, other: '', mine: null, sentBack: null, saved: null, fields: null };
+  const v = { id, back, unfolded, arrival, bill: null, gone: !!B0, name: '', readOnly: false, other: '', mine: null, posMine: null, awaiting: null, sentBack: null, saved: null, fields: null };
   if (!B0 || B0.tracked === false || !me) return v;
   v.bill = B0; v.name = billName(B0);
-  const w = heldFor('bill', B0.id), base = words(publicWords(B0), null);
-  if (w && w.proposed_by !== me.id) { v.readOnly = true; v.other = firstName(w.proposed_by); v.saved = words(base, w.fields); v.fields = v.saved; return v; }
-  if (w) v.mine = w; else { const sb = waitingSentBack(B0.id); if (sb && sb.proposed_by === me.id) v.sentBack = sb; }
+  const w = heldFor('bill', B0.id), pw = waitingPosition(B0.id), base = words(publicWords(B0), null);
+  // an admin's page for a change someone else sent says so, with its link; the admin decides it on that page (fix 7)
+  if (me.is_admin && pw && pw.proposed_by !== me.id) v.awaiting = pw;
+  if (w && w.proposed_by !== me.id) { v.readOnly = true; v.other = firstName(w.proposed_by); v.awaiting = me.is_admin ? w : null; v.saved = words(base, w.fields); v.fields = v.saved; return v; }
+  if (w) v.mine = w;
+  if (pw && pw.proposed_by === me.id) v.posMine = pw;
+  if (!w && !v.posMine) { const sb = waitingSentBack(B0.id); if (sb && sb.proposed_by === me.id) v.sentBack = sb; }
   v.saved = w ? words(base, w.fields) : base;
   const draft = draftWords(B0.id);
   v.fields = draft ? words(v.saved, draft) : words(v.saved, null);
@@ -64,16 +70,26 @@ function state() {
   // the words that are there at all: what a send of words not yet public carries (all of them, changed or not)
   const filled = WORDS.filter(k => Array.isArray(CF[k]) ? CF[k].length > 0 : CF[k] !== '');
   const nickShort = CF.nickname.length > 0 && CF.nickname.length < 3;
-  // Words not yet public go whenever the bar is met (changed or not); public words go only once something changed (design 5)
-  const sendKeys = live ? changed : filled;
-  const canSend = !v.readOnly && !pending && !nickShort && barMet(M) && sendKeys.length > 0;
+  // the team's position the public does not see yet, and not already sent (fix 2); a position sent by this person is shown as waiting
+  const posWait = waitingPosition(B.id), posPend = publicPositionPending(B) && !posWait, sentPos = !!posWait && posWait.proposed_by === S.me?.id;
+  // Public words go once something changed; words not yet public go whenever the bar is met, changed or not, but not again while our words change waits (fix 5)
+  const sendKeys = live || v.mine ? changed : filled;
+  const keys = posPend ? [...sendKeys, 'position'] : sendKeys;
+  const canSend = !v.readOnly && !pending && !nickShort && barMet(M) && (changed.length > 0 || (!live && !v.mine && filled.length > 0) || posPend);
   let line;
-  if (v.readOnly) line = WAIT_ON_BILL(v.other);
+  if (v.readOnly) line = v.awaiting ? OPEN_CHANGE_LINE : WAIT_ON_BILL(v.other);
   else if (nickShort) line = NICK_SHORT;
-  else line = dockLine({ me: S.me, b: M, changedKeys: sendKeys, sent: !!v.mine })
+  else line = dockLine({ me: S.me, b: M, changedKeys: keys, sent: !!v.mine || sentPos })
     || (live && !S.me?.is_admin ? SENT_ON_SITE : NOTHING_TO_SEND);   // the line is never blank
   const second = v.readOnly ? '' : !live ? SAVE_LATER : changed.length ? DISCARD : '';
   return { M, CF, CS, live, changed, nickShort, canSend, line, second };
+}
+// The preview's tag: "After you approve" for a change of someone else's, else "Not on the public site yet" when what it shows is not what the public sees (fix 7, design 3.3).
+function previewTag(s) {
+  const v = view, B = v.bill, pub = cleanOf(publicWords(B));
+  if (v.awaiting) return AFTER_APPROVE;
+  const wordsDiffer = WORDS.some(k => JSON.stringify(s.CF[k]) !== JSON.stringify(pub[k])), posDiffer = isLiveBill(B) && (B.position ?? null) !== (B.public_position ?? null);
+  return !isLiveBill(B) || wordsDiffer || posDiffer ? NOT_ON_SITE_YET : '';
 }
 
 // ---------------------------------------------------------------------------------- the page
@@ -119,9 +135,13 @@ function formHTML() {
     + (s.live && B.public_action ? `<div class="pub-f">${btn(TAKE_ASK_DOWN, { kind: 'quiet', id: 'pubAskDown' })}</div>` : '') + `</div>`;
   const down = s.live ? `<div class="pub-f pub-down">${btn(TAKE_WORDS_DOWN, { kind: 'quiet', id: 'pubDown' })}<p class="pub-help">${esc(TAKE_WORDS_DOWN_HELP)}</p></div>` : '';
   const st = [`<p class="pub-st1">${esc(nowLine(B))}</p>`];
-  if (v.readOnly) st.push(`<p class="pub-st2">${esc(WAIT_ON_BILL(v.other))}</p>`);
-  else if (v.mine) st.push(`<p class="pub-st2"><span>${esc(waitingLine(v.mine))}</span>${btn(TAKE_BACK_BUTTON, { kind: 'quiet', id: 'pubTake' })}</p>`);
-  else if (v.sentBack) st.push(`<p class="pub-st2">${ic('undo-2')}<span>${esc(sentBackLine(v.sentBack))}</span></p>`);
+  if (v.awaiting) st.push(`<p class="pub-st2"><span>${esc(WAITING_FOR_YOU)} · <a class="pub-link" href="#/public/change/${enc(v.awaiting.id)}">${esc(OPEN_IT)}</a></span></p>`);
+  else if (v.readOnly) st.push(`<p class="pub-st2">${esc(WAIT_ON_BILL(v.other))}</p>`);
+  else {
+    if (v.mine) st.push(`<p class="pub-st2"><span>${esc(waitingLine(v.mine))}</span>${btn(TAKE_BACK_BUTTON, { kind: 'quiet', id: 'pubTake' })}</p>`);
+    if (v.posMine) st.push(`<p class="pub-st2"><span>${esc(waitingLine(v.posMine))}</span></p>`);
+    if (v.sentBack) st.push(`<p class="pub-st2">${ic('undo-2')}<span>${esc(sentBackLine(v.sentBack))}</span></p>`);
+  }
   const status = `<div class="pub-status" role="status" id="pubStatus">${st.join('')}</div>`;
   const pos = `<p class="pub-pos"><span>${esc(publicPositionLine(B))}</span><a class="pub-link" href="#/bill/${enc(normNo(B.bill_number))}">${esc(CHANGE_ON_BILL)}</a></p>`;
   return `<section class="pub-form"><p class="pub-num">${esc(billNo(B))}</p><h1 id="pubH1" tabindex="-1">${esc(v.name)}</h1>${pos}${status}${fold}${fields}${ask}${down}</section>`;
@@ -136,10 +156,10 @@ function barInner(M) {
 }
 
 // The preview: a picture of the public page, from the words as they are written now (design 3.3).
-function previewInner(M) {
-  const B = view.bill, live = isLiveBill(B), pos = pubPositionWords(M.position), pts = M.talking_points.filter(Boolean);
+function previewInner(M, tag) {
+  const B = view.bill, pos = pubPositionWords(M.position), pts = M.talking_points.filter(Boolean);
   return `<div class="pv-head"><span>${esc(billNo(B))}</span><span class="pv-label">${esc(PREVIEW_TAG)}</span></div>`
-    + (live ? '' : `<p class="pv-tag">${esc(NOT_ON_SITE_YET)}</p>`)
+    + (tag ? `<p class="pv-tag">${esc(tag)}</p>` : '')
     + `<h3 class="pv-title">${esc(M.nickname || billName(B))}</h3>`
     + (pos ? `<p class="pv-pos">${esc(pos)}</p>` : '')
     + (M.public_summary ? `<p class="pv-sum">${esc(M.public_summary)}</p>` : '')
@@ -176,7 +196,7 @@ function refresh() {
   warn('wNick', s.nickShort ? NICK_SHORT : ''); warn('wUntil', untilWarn());
   const nick = $('pNick'); if (nick) nick.setAttribute('aria-invalid', s.nickShort ? 'true' : 'false');
   const box = $('pubBarBox'); if (box) box.innerHTML = barInner(s.M);
-  const card = $('pubCard'); if (card) card.innerHTML = previewInner(s.M);
+  const card = $('pubCard'); if (card) card.innerHTML = previewInner(s.M, previewTag(s));
   const dock = $('pubDockIn'); if (dock) dock.innerHTML = dockInner(s);
   growAll();   // last: the changed edge (2px) is on, so each box is measured as it will be drawn
   fitDock();   // after the dock is drawn, so its height is the real one

@@ -4,7 +4,7 @@
 // kept; this file only words them. It imports from the data layer and draws nothing. Times are Pacific/Honolulu, as the rest of the app's.
 import { S, POSITIONS, advocate, isLiveBill, needsWords, barDone, barMet, isPublicSide, PUBLIC_SIDES, BAR_POINTS, soleAdmin, hstToday } from '../staff6/data.js';
 export { NOT_TRACKED, CHANGED_SINCE, WAIT_ON_BILL, DECIDED_BY, WORDS_HELD, TAKE_BACK_POSITION, publicStateOf, publicPositionPending, needsWords, barMet, barDone, draftWords,
-  saveDraftWords, discardDraftWords, sendPublicWords, decidePublicChangeV7, takeBackChange, takeDownWords, takeDownAsk, publishPosition, seedPublicV7, publicV7On } from '../staff6/data.js';
+  saveDraftWords, discardDraftWords, sendPublicWords, decidePublicChangeV7, takeBackChange, takeDownWords, takeDownAsk, publishPosition, seedPublicV7, publicV7On, positionIsMine } from '../staff6/data.js';
 
 // ---------------------------------------------------------------------------------- sides and who may publish
 export const SIDES = PUBLIC_SIDES;   // Strongly support, Support, Support with amendments, Oppose, Strongly oppose, Comments (neutral); Monitor and no position are not sides
@@ -56,6 +56,22 @@ export function nowLine(b) {
   return `Now on the public site: HIPHI's words${by && at ? ` · published ${at} by ${by}` : ''}`;
 }
 export const waitingLine = pc => `Waiting on ${adminOr()} to publish · sent ${hst(pc.proposed_at)}`;
+// An admin's view of a change someone else sent (fix 7): the status line and its link, once; the dock says the rest.
+export const WAITING_FOR_YOU = 'Waiting for you to approve';
+export const OPEN_IT = 'Open it';
+export const OPEN_CHANGE_LINE = 'Open the change to approve or send it back.';
+// The first words of a bill (fix 8): the parts sent, in the order the form has them.
+export function firstWordsOf(pc) {
+  const f = pc.fields || {}, parts = [], pts = (Array.isArray(f.talking_points) ? f.talking_points : []).map(x => String(x?.text ?? x ?? '').trim()).filter(Boolean);
+  if (String(f.nickname ?? '').trim()) parts.push('nickname');
+  if (String(f.public_summary ?? '').trim()) parts.push('summary');
+  if (pts.length) parts.push(`${pts.length} talking ${plural(pts.length, 'point', 'points')}`);
+  if (String(f.public_action ?? '').trim() || String(f.public_action_until ?? '').trim()) parts.push('the ask');
+  return `First words: ${join(parts)}`;
+}
+// A bill's change is its first words when the bill had no public words before it (before.is_public is false).
+export const isFirstWords = pc => pc.kind === 'bill' && pc.before?.is_public === false;
+export const FIRST_WORDS_NOW = NOW_LEGISLATURE;
 export const TAKEN_BACK = 'Taken back';
 export const TAKEN_BACK_HELP = 'Taken back. Your words are kept here. The public site is unchanged.';
 export function sentBackLine(pc) {
@@ -74,6 +90,7 @@ export function publicPositionLine(b) {
 
 // ---------------------------------------------------------------------------------- the dock (design 5)
 // What the words in the dock are about, named in the order the fields come: "the nickname and 3 talking points", "the ask", "the ask's last day", "our position".
+// Our position, when it is in the list, comes first: "our position, and the ask" (fix 2).
 const listWhat = (keys, b) => {
   const parts = [];
   if (keys.includes('nickname')) parts.push('the nickname');
@@ -81,8 +98,9 @@ const listWhat = (keys, b) => {
   if (keys.includes('talking_points')) { const n = barDone(b).points; parts.push(`${n} talking ${plural(n, 'point', 'points')}`); }
   if (keys.includes('public_action')) parts.push('the ask');
   else if (keys.includes('public_action_until')) parts.push("the ask's last day");
-  if (keys.includes('position')) parts.push('our position');
-  return join(parts);
+  const rest = join(parts);
+  if (!keys.includes('position')) return rest;
+  return rest ? `our position, and ${rest}` : 'our position';
 };
 export const ON_SITE_NOTHING_NEW = 'These words are on the public site. Nothing new to publish.';
 // One line that always says what the press will do. changedKeys: the fields that differ from what the public has; sent: a words change of this person's waits.
@@ -91,6 +109,7 @@ export function dockLine({ me, b, changedKeys = [], sent = false }) {
   const admin = !!me?.is_admin, what = changedKeys.length ? listWhat(changedKeys, b) : '';
   if (admin) return what ? `Publishing: ${what}. On the public site in 10 seconds.` : isLiveBill(b) ? ON_SITE_NOTHING_NEW : '';
   if (!changedKeys.length) return sent ? `Sent to ${adminOr()}. Change anything and it joins your change.` : '';
+  if (changedKeys.includes('position')) return `Sending: ${what}. ${adminOr()} approves before the public sees it.`;
   return isLiveBill(b)
     ? `Sending: ${what}. The public keeps the earlier words until ${adminOr()} approves.`
     : `Sending: ${what}. ${adminOr()} approves before the public sees them.`;
@@ -148,6 +167,7 @@ export const HOME_APPROVE = 'Approve a public change';
 export const HOME_PUBLISH = 'Publish a public change';
 export const HOME_FIX = 'Fix public words';
 export const homeWrite = n => `Write public words · ${n} of your bills`;
+export const HOME_SEND_ROW = 'Send public words';   // the grouped step when every bill in the count is ready to send (fix 10)
 
 // The position's words on the bill page and the admin's page (design 7, 8).
 export const positionSaveNote = label => `The team sees this at once. The public site keeps ${label} until it is published in public mode.`;
@@ -226,7 +246,7 @@ export const OTHER_LABELS = { name: 'Name', title: 'Title', description: 'Descri
   first_visit: 'First visit', icon: 'Icon', is_published: 'On the public site', slug: 'Web address' };
 export const whatChanged = names => join(names);   // "Summary and nickname", "Nickname, summary and the ask"
 export const posWord = v => posName(v);
-export const positionChange = (from, to) => `Position, ${posName(from)} to ${posName(to)}`;
+export const positionChange = (from, to) => `Position: ${posName(from)} to ${posName(to)}`;
 export const waitingState = () => `Waiting on ${adminOr()} to publish`;
 export const APPROVED_STATE = 'Approved';
 export const WITHDRAWN_POSITION = 'Taken back: the position was changed back';

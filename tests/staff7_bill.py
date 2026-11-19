@@ -580,7 +580,8 @@ with sync_playwright() as p:
     ownw = pg.evaluate("async () => { const d = await import('/staff6/data.js'), S = d.S, b = S.bills.find(x => x.bill_number === 'HB2300'), i = S.issues.find(i => S.billIssues.some(x => x.bill_id === b.id && x.issue_id === i.id)); const o = S.advocates.find(a => a.id === i.owner_id); return o ? o.full_name.split(' ')[0] + ', who leads the issue' : 'Nobody'; }")
     ok(lab['opts'][0] == ownw and 'Nate' in lab['opts'] and 'Kris' in lab['opts'] and len(lab['opts']) == 1 + pg.evaluate("async () => (await import('/staff6/data.js')).S.advocates.filter(a => a.is_active !== false).length"), f'the lead select has Nobody and every active teammate by first name ({lab["opts"]})')
     ok(lab['save'] and 'filled' in lab['savecls'], 'Save is a filled button and is disabled until something changes')
-    ok(pg.inner_text('.beact .hint') == 'The position shows on the public site.' if pg.evaluate("async () => (await import('/staff6/data.js')).S.bills.find(b => b.bill_number === 'HB2300').is_public") else pg.locator('.beact .hint').count() == 0, 'the public hint matches whether HB2300 is public')
+    pub23 = pg.evaluate("async () => (await import('/staff6/data.js')).S.bills.find(b => b.bill_number === 'HB2300').is_public")
+    ok((pg.locator('.beact .hint').count() == 0) if pub23 else (pg.inner_text('.beact .hint') == "The public site shows HIPHI’s position once its words are published."), 'the old position hint shows only for a bill with no public words (R-398 fix 4: the public-mode line replaces it)')
     snap(pg, 'c_editing.png')
     pg.click('#bp-oppose'); pg.wait_for_timeout(100); ok(not pg.evaluate("() => document.getElementById('bSave').disabled"), 'Save is enabled once a choice differs')
     pg.click('#bp-support'); pg.wait_for_timeout(100); ok(pg.evaluate("() => document.getElementById('bSave').disabled"), 'putting the choice back disables Save again')
@@ -650,14 +651,14 @@ with sync_playwright() as p:
     pg.click('#bEditGo'); pg.select_option('#bLeadSel', label='Nobody'); pg.click('#bSave'); pg.wait_for_timeout(500)
     ok(pg.inner_text('#bLead').strip() == 'Nobody leads it yet' and pg.evaluate(LISTROW)[0].startswith('Nate took the lead off ') and pg.evaluate(OURS) == n1 + 1, f'{nb}: choosing Nobody says "Nobody leads it yet" and the history reads "{pg.evaluate(LISTROW)[0]}" (it was "{who0}")')
     pg.click('#toastUndo'); pg.wait_for_timeout(500); ok(pg.inner_text('#bLead').strip() == who0 and pg.evaluate(OURS) == n1, f'{nb}: Undo puts the lead back')
-    # the public hint only on a public bill
+    # the old position hint only on a bill with no public words: a public-mode bill shows the new line instead (R-398 fix 4)
     pb = WHO['pub']; pv = WHO['priv'] or [WHO['lead']['bill'], WHO['lead']['ini']]   # every tracked practice bill with a lead is public: the private one is made so in the page
-    for (num, ini), want in ((pb, True), (pv, False)):
+    for (num, ini), want in ((pb, False), (pv, True)):
         pgx, cx = open_as(br, ini, 1440, 900, f'#/bill/{num}'); pgx.wait_for_selector('#bParts')
-        if not want: pgx.evaluate("async n => { const d = await import('/staff6/data.js'); d.S.bills.find(b => b.bill_number === n).is_public = false; window.__staff7Render({ tick: true }); }", num)
+        if want: pgx.evaluate("async n => { const d = await import('/staff6/data.js'); d.S.bills.find(b => b.bill_number === n).is_public = false; window.__staff7Render({ tick: true }); }", num)
         pgx.click('#bEditGo'); pgx.wait_for_timeout(150)
-        has = pgx.locator('.beact .hint').count() == 1 and pgx.inner_text('.beact .hint') == 'The position shows on the public site.'
-        ok(has == want, f'{num}: the public hint is {"there" if want else "not there"} on a {"public" if want else "private"} bill')
+        has = pgx.locator('.beact .hint').count() == 1 and pgx.inner_text('.beact .hint') == "The public site shows HIPHI’s position once its words are published."
+        ok(has == want, f'{num}: the old position hint is {"there" if want else "not there"} on a {"private" if want else "public"} bill (fix 4)')
         pgx.context.close()
     # --- add a note
     bill(pg, 'HB2300', ''); pg.wait_for_selector('#bParts'); nn = pg.evaluate("() => document.querySelectorAll('#bl-notes > li').length"); n2 = pg.evaluate(OURS)

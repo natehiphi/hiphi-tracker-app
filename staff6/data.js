@@ -321,9 +321,15 @@ export function sendPublicWords(billId, fields) {
     return { published: true };
   }
   const fieldsNow = { ...words, is_public: true };
+  // Words the public already holds are not a change: a position-only send files no words change (fix 2). Words not yet public always file.
+  const differs = WORD_KEYS.some(k => k in words && JSON.stringify(words[k] ?? null) !== JSON.stringify(sitWord(b, k)));
   const was = Object.fromEntries(Object.keys(fieldsNow).map(k => [k, k === 'is_public' ? !!b.is_public : b[k] ?? null]));
-  if (w) { w.fields = { ...w.fields, ...fieldsNow }; w.before = { ...was, ...w.before }; Object.assign(w, { proposed_at: now }); }
-  else (S.publicChanges ||= []).unshift({ id: 'pc-' + Date.now() + '-' + (S.publicChanges || []).length, kind: 'bill', target_id: billId, fields: fieldsNow, before: was, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
+  // a live bill's send with no word changed and no position to send files nothing (the bar still judges it, as before)
+  const posOnly = isLiveBill(b) && !differs && !w && publicPositionPending(b);
+  if (!posOnly) {
+    if (w) { w.fields = { ...w.fields, ...fieldsNow }; w.before = { ...was, ...w.before }; Object.assign(w, { proposed_at: now }); }
+    else (S.publicChanges ||= []).unshift({ id: 'pc-' + Date.now() + '-' + (S.publicChanges || []).length, kind: 'bill', target_id: billId, fields: fieldsNow, before: was, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
+  }
   // A position the public was not shown because the bill lacked its three things goes to the admin with the words that complete it (design 7)
   if (publicPositionPending(b) && isPublicSide(b.position) && !waitingPosition(billId)) S.publicChanges.unshift({ id: 'pc-' + Date.now() + '-p', kind: 'position', target_id: billId, fields: { public_position: b.position }, before: { public_position: b.public_position ?? null }, proposed_by: me.id, proposed_at: now, status: 'waiting', decided_by: null, decided_at: null, note: null });
   return { waiting: heldFor('bill', billId) };
@@ -374,6 +380,15 @@ export function takeDownAsk(billId) {
   if (w) { delete w.fields.public_action; delete w.fields.public_action_until; }
   return () => { Object.assign(b, prev); if (w) w.fields = wPrev; };
 }
+// Whose an unpublished position is (fix 1): an admin's own only when the team's position was last changed by that admin, or when it is unknown and no one
+// else's position change for the bill is on record. A teammate's sent-back position stays that teammate's Fix step.
+export const positionIsMine = (b, me) => {
+  if (!me?.is_admin || !publicPositionPending(b)) return false;
+  if (b.position_changed_by != null) return b.position_changed_by === me.id;
+  return !(S.publicChanges || []).some(x => x.kind === 'position' && x.target_id === b.id && x.proposed_by !== me.id);
+};
+// The words the public site holds for one field, as a send compares them (a blank is null, the points as a list).
+const sitWord = (b, k) => k === 'talking_points' ? (pubPoints(b).length ? pubPoints(b) : null) : (String(b[k] ?? '').trim() || null);
 // The writer takes back their own waiting words change: it is withdrawn, its words kept on the record, and the public site is unchanged.
 export function takeBackChange(id) {
   liveNotYet();
@@ -671,10 +686,12 @@ export const DB = {
       if (b && PUBLIC_V7 && isLiveBill(b) && barMet(pubView(b)) && isLiveBill({ ...b, ...patch }) && !barMet(pubView({ ...b, ...patch }))) throw new Error(WORDS_HELD);
       const wasLive = isLiveBill(b);
       const held = holdKeys('bill', b, patch), rest = Object.fromEntries(Object.entries(patch).filter(([k]) => !held.includes(k) && !(k === 'talking_points_edited_at' && held.includes('talking_points'))));
+      const prevPos = b?.position ?? null;
       if (b) Object.assign(b, rest);
       if (held.length) fileHold('bill', b, held, patch);
       // R-398: the public position follows the team's while the words are not public; once they are, only a non-admin's change waits (positionMovedV7).
-      if (b && 'position' in patch) { if (!wasLive) b.public_position = b.position ?? null; else if (PUBLIC_V7 && !S.me?.is_admin) positionMovedV7(b); }
+      // Who changed the team's position is kept (fix 1): the admin's own unpublished position is only the admin's when it is theirs (positionIsMine).
+      if (b && 'position' in patch) { if ((patch.position ?? null) !== prevPos) b.position_changed_by = S.me?.id ?? null; if (!wasLive) b.public_position = b.position ?? null; else if (PUBLIC_V7 && !S.me?.is_admin) positionMovedV7(b); }
       return held;
     }
     if (b) { for (const k of Object.keys(patch)) before[k] = b[k]; Object.assign(b, patch); }
@@ -2603,7 +2620,7 @@ export function savePractice() {
   for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
   const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
     assignments: S.assignments, billCampaigns: S.billCampaigns, issueFollowers: S.issueFollowers || {}, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null, publicChanges: S.publicChanges || null, publicDrafts: S.publicDrafts || null,
-    bills: Object.fromEntries(S.bills.map(b => [b.id, Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null]))])) };
+    bills: Object.fromEntries(S.bills.map(b => [b.id, { ...Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null])), position_changed_by: b.position_changed_by ?? null }])) };
   try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
 }
 // Start over: the practice day as it began, in this tab. What was there is put aside first, so the toast after the reload

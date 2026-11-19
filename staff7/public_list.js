@@ -1,7 +1,7 @@
 // Staff7's "Public words" list (R-398 part 2, design section 9), at #/public: what waits for an admin, the bills the person still has to write for, and their own
 // changes from the last 30 days. Public mode (frame.js). Each row opens the page that does the job. counts(me) gives Home the numbers the rows show (design 6), so
 // they always match. The only press here is Take back, which keeps the words on the bill for the writer first (the public site is unchanged).
-import { S, isLiveBill, heldFor, waitingPosition, waitingChanges, myPublicChanges, publicPositionPending, isPublicSide, pubPoints, advocate } from '../staff6/data.js';
+import { S, isLiveBill, heldFor, waitingPosition, waitingChanges, myPublicChanges, publicPositionPending, isPublicSide, pubPoints, advocate, positionIsMine } from '../staff6/data.js';
 import { hearingAhead } from '../staff6/model.js';
 import { leadIds } from './bill_words.js';
 import { billName, billNo } from './steps.js';
@@ -9,7 +9,7 @@ import { esc, personMark, toast } from './parts.js';
 import { ic } from './icons7.js';
 import { missingLine, readyLine, sentBackLine, saveDraftWords, draftWords, takeBackChange, TAKEN_BACK_HELP, TAKE_BACK_BUTTON, BAND, LEAVE_PUBLIC, LEAVE_SHORT,
   waitingState, APPROVED_STATE, WITHDRAWN_POSITION, positionChange, whatChanged, CHANGE_NAMES, OTHER_LABELS, sentAt, hearingDay, NOTHING_WAITS, LIST_WAITING, LIST_TO_WRITE,
-  LIST_YOURS, LIST_WAITING_HELP, LIST_TO_WRITE_HELP, LIST_YOURS_HELP, PUBLIC_WORDS_HEAD, TAKEN_BACK } from './public_data.js';
+  LIST_YOURS, LIST_WAITING_HELP, LIST_TO_WRITE_HELP, LIST_YOURS_HELP, PUBLIC_WORDS_HEAD, TAKEN_BACK, firstWordsOf, isFirstWords } from './public_data.js';
 
 const enc = encodeURIComponent, $ = id => document.getElementById(id);
 const normNo = s => String(s ?? '').replace(/\s/g, '').toUpperCase();
@@ -22,8 +22,11 @@ const changedKeys = pc => Object.keys(pc.fields || {}).filter(k => k !== 'is_pub
 function changeWords(pc, b) {
   if (pc.kind === 'position') return positionChange(pc.before?.public_position ?? b?.public_position ?? null, pc.fields?.public_position ?? null);
   if (pc.kind === 'issue' || pc.kind === 'list') return whatChanged(Object.keys(pc.fields || {}).map(k => OTHER_LABELS[k] || k));
+  if (isFirstWords(pc)) return firstWordsOf(pc);   // fix 8: a bill's first public words are named once, by what was sent
   return whatChanged(changedKeys(pc).map(k => CHANGE_NAMES[k]));
 }
+// One row can hold a bill's words and its position (fix 3): what changed, both parts, joined.
+const changeWordsOf = (parts, b) => parts.map(pc => changeWords(pc, b)).filter(Boolean).join(' and ');
 // What a change is about: its bill (number and name), or its issue or list.
 function targetOf(pc) {
   if (pc.kind === 'bill' || pc.kind === 'position') { const b = S.bills.find(x => x.id === pc.target_id) || null; return { bill: b, name: b ? billName(b) : 'A bill', no: b ? billNo(b) : '' }; }
@@ -32,28 +35,49 @@ function targetOf(pc) {
 }
 
 // ---------------------------------------------------------------------------------- the rows, and the numbers Home shows
-// Waiting for you (an admin's): every change waiting for a decision, in the order the database lists them.
-export const waitingRows = (me = S.me) => me?.is_admin ? waitingChanges() : [];
+// One row per bill for the waiting changes (fix 3): a bill's words change and its position change are one row, one step. Each row is { pc, parts }: pc is the
+// row's change (the newest of its parts, the link), parts the waiting changes it holds.
+const billKey = pc => (pc.kind === 'bill' || pc.kind === 'position') ? 'b:' + pc.target_id : 'x:' + pc.id;
+export function groupWaiting(list) {
+  const seen = new Map();
+  for (const pc of list) { const k = billKey(pc); if (seen.has(k)) seen.get(k).parts.push(pc); else seen.set(k, { pc, parts: [pc] }); }
+  return [...seen.values()];
+}
+// Waiting for you (an admin's): one row per waiting bill or item, in the order the database lists them.
+export const waitingRows = (me = S.me) => me?.is_admin ? groupWaiting(waitingChanges()) : [];
 // Bills to write: a side bill whose words, or whose new position, the public site does not show, with no change waiting on it. Its lead, or whoever
 // changed the position, writes it; an admin also has his own unpublished position here (design 9). own: the admin's own position (publish it).
+// A bill with a sent back change of the person's is already a Fix step on To do, so it is not counted here (fix 10).
 export function toWriteRows(me = S.me) {
   const moved = new Set(myPublicChanges().filter(x => x.kind === 'position').map(x => x.target_id)), out = [];
   for (const b of S.bills) {
     if (b.tracked === false || !isPublicSide(b.position)) continue;
     if (heldFor('bill', b.id) || waitingPosition(b.id)) continue;   // a waiting change has its own page
+    if (myPublicChanges().some(x => x.status === 'sent_back' && x.target_id === b.id)) continue;   // its Fix step is on To do
     const posPending = publicPositionPending(b);
-    if (me?.is_admin && posPending) { out.push({ b, own: true }); continue; }
+    if (posPending && positionIsMine(b, me)) { out.push({ b, own: true }); continue; }
+    if (posPending && (me?.is_admin || (S.publicChanges || []).some(x => x.kind === 'position' && x.target_id === b.id && x.status === 'sent_back'))) continue;   // a teammate's position is theirs to fix
     const lead = leadIds(b, issueOf(b)).includes(me?.id);
     if ((lead || moved.has(b.id)) && (!isLiveBill(b) || posPending)) out.push({ b, own: false });
   }
   return out;
 }
-// Your changes: the signed-in person's changes from the last 30 days (myPublicChanges).
-const mineRows = () => myPublicChanges();
+// Your changes: the signed-in person's changes from the last 30 days, one row per bill for the waiting ones (fix 3).
+export const mineRows = () => {
+  const out = [], seen = new Map();
+  for (const pc of myPublicChanges()) {
+    if (pc.status === 'waiting' && (pc.kind === 'bill' || pc.kind === 'position')) {
+      const k = 'b:' + pc.target_id;
+      if (seen.has(k)) { seen.get(k).parts.push(pc); continue; }
+      const row = { pc, parts: [pc] }; seen.set(k, row); out.push(row);
+    } else out.push({ pc, parts: [pc] });
+  }
+  return out;
+};
 
 // Home's counts (design 6): waiting for an admin, bills to write, and the person's own changes that wait on Nate or were sent back.
 export function counts(me = S.me) {
-  return { waitingForMe: waitingRows(me).length, toWrite: toWriteRows(me).length, mine: mineRows().filter(x => x.status === 'waiting' || x.status === 'sent_back').length };
+  return { waitingForMe: waitingRows(me).length, toWrite: toWriteRows(me).length, mine: mineRows().filter(r => r.pc.status === 'waiting' || r.pc.status === 'sent_back').length };
 }
 
 // ---------------------------------------------------------------------------------- the HTML
@@ -61,9 +85,9 @@ const chev = `<span class="pl-chev" aria-hidden="true">${ic('chevron-right')}</s
 const section = (title, help, rows) => `<section class="pl-sec" aria-labelledby="pl-${esc(title.replace(/\W+/g, '-').toLowerCase())}"><h2 id="pl-${esc(title.replace(/\W+/g, '-').toLowerCase())}">${esc(title)}</h2>`
   + `<p class="pub-help pl-help">${esc(help)}</p><ul class="pl-rows">${rows.join('')}</ul></section>`;
 
-function waitingRow(pc) {
+function waitingRow({ pc, parts }) {
   const t = targetOf(pc), h = t.bill ? hearingAhead(t.bill) : null, who = advocate(pc.proposed_by);
-  const meta = [changeWords(pc, t.bill), sentAt(pc.proposed_at), h ? hearingDay(h.scheduled_at) : ''].filter(Boolean).join(' · ');
+  const meta = [changeWordsOf(parts, t.bill), sentAt(pc.proposed_at), h ? hearingDay(h.scheduled_at) : ''].filter(Boolean).join(' · ');
   return `<li class="pl-row"><a class="pl-link" href="#/public/change/${enc(pc.id)}"><span class="pl-body"><span class="pl-title"><span class="pl-name">${esc(t.name)}</span>${t.no ? `<span class="pl-no">${esc(t.no)}</span>` : ''}</span>`
     + `<span class="pl-meta">${personMark(who?.initials || '', { small: true })}<span>${esc(firstOf(pc.proposed_by))} · ${esc(meta)}</span></span></span>${chev}</a></li>`;
 }
@@ -79,12 +103,14 @@ function writeRow({ b, own }) {
 const POS = b => 'position-' + normNo(b.bill_number);
 
 // The change's words in the row, and what its state is in the row's own text. A sent back or taken back row opens the bill's public words with the person's words there.
-function mineRow(pc) {
-  const t = targetOf(pc), what = changeWords(pc, t.bill), when = sentAt(pc.proposed_at);
+// A row with a words change still waiting has Take back; a position change cannot be taken back (change the position back instead).
+function mineRow({ pc, parts }) {
+  const t = targetOf(pc), what = changeWordsOf(parts, t.bill), when = sentAt(pc.proposed_at);
   let state = '', link = '', act = '';
   if (pc.status === 'waiting') {
     state = waitingState();
-    if (pc.kind === 'bill') act = `<button class="btn quiet pl-take" type="button" data-take="${esc(pc.id)}">${esc(TAKE_BACK_BUTTON)}</button>`;
+    const words = parts.find(x => x.kind === 'bill' && x.status === 'waiting');
+    if (words) act = `<button class="btn quiet pl-take" type="button" data-take="${esc(words.id)}">${esc(TAKE_BACK_BUTTON)}</button>`;
   } else if (pc.status === 'sent_back') { state = sentBackLine(pc); link = t.bill ? `#/public/${enc(normNo(t.bill.bill_number))}` : ''; }
   else if (pc.status === 'approved') state = APPROVED_STATE;
   else { state = pc.kind === 'position' ? WITHDRAWN_POSITION : TAKEN_BACK; link = t.bill ? `#/public/${enc(normNo(t.bill.bill_number))}` : ''; }

@@ -549,8 +549,9 @@ with sync_playwright() as p:
     open_s7(Q, 'NT', '#/')
     WAIT = Q.evaluate("() => T.d.S.publicChanges.filter(x => x.status === 'waiting').map(x => x.id)")
     rows = Q.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3[href^=\"#/public/change/\"]')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\s+/g, ' ').trim()])")
-    ok(len(WAIT) >= 1 and sorted(h for h, _ in rows) == sorted('#/public/change/' + i for i in WAIT) and all(t.startswith('Approve a public change · ') for _, t in rows),
-       f"(q2) as Nate, Home has one 'Approve a public change' step per waiting change ({len(rows)} rows, {len(WAIT)} waiting)")
+    WAITB = Q.evaluate("() => new Set(T.d.S.publicChanges.filter(x => x.status === 'waiting').map(x => x.kind === 'bill' || x.kind === 'position' ? x.target_id : x.id)).size")
+    ok(len(WAIT) >= 1 and len(rows) == WAITB and all(t.startswith('Approve a public change · ') for _, t in rows),
+       f"(q2) as Nate, Home has one 'Approve a public change' step per bill with a waiting change ({len(rows)} rows, {WAITB} bills, {len(WAIT)} changes)")   # fix 3: one per bill
     h1 = Q.evaluate(OVH1)
     ok('on top of it' not in h1 and 'need you' in h1, f"(q2) as Nate, the first line says a change needs him, not 'on top of it' ({h1!r})")
     ok(any(t.startswith('Approve a public change') and W1['no'] in t.replace(' ', '').upper() for _, t in rows), f"(q2) the step for Kris's change names the bill ({W1['no']})")
@@ -562,7 +563,7 @@ with sync_playwright() as p:
     open_s7(Q, 'KR', '#/')
     CNT = Q.evaluate("async () => (await import('/staff7/public_list.js')).counts(T.d.S.me).toWrite")
     grp = [t for h, t in sugg_rows(Q) if h == '#/public']
-    ok(grp == ([f'Write public words · {CNT} of your bills'] if CNT else []), f"(q3) as Kris, Suggested's grouped step counts counts().toWrite ({CNT}): {grp}")
+    ok((not CNT and grp == []) or (CNT and grp in ([f'Write public words · {CNT} of your bills'], [f'Send public words · {CNT} of your bills'])), f"(q3) as Kris, Suggested's grouped step counts counts().toWrite ({CNT}), Send when all are ready, else Write (fix 10): {grp}")
     ok(not any('index.html' in (h or '') or 'staff6' in (h or '') for h in Q.evaluate(NOSCROLL_LINKS)), '(q3) as Kris, Home links to nothing in index.html or staff6')
     if CNT:
         Q.click('#suggList a[href="#/public"]'); Q.wait_for_timeout(400)
@@ -690,6 +691,122 @@ with sync_playwright() as p:
             ok(sw <= 0, f"(q9) {route} at {w9}x{h9}: no sideways scroll ({sw}px over)")
     ok(all('fonts.g' in u for u in ext9), f"(q9) nothing leaves the page but fonts ({sorted(set(ext9))[:3]})")
     ok(not Q.errs and all(not p.errs for p in pages), f"(q9) no page errors on the part 3 tabs ({[e for p in pages for e in p.errs][:3]})")
+
+    # ---------------------------------------------------------------- the fix round (R-398, 18 Nov): one check per fault, on fresh tabs
+    def NOSP(t): return re.sub(r'\s+', '', t).upper()
+    def hasNo(t, no): return re.search(re.escape(no) + r'(?!\d)', NOSP(t)) is not None
+    FR = new_page(br); pages.append(FR)
+    # (fix 1) Nate sends back a teammate's position change (pc-seed-2): it stays Kevin's Fix step; nobody else is asked to publish it
+    open_s7(FR, 'NT', '#/')
+    f1 = FR.evaluate("""() => { const { d } = T, S = d.S, p = S.publicChanges.find(x => x.id === 'pc-seed-2'), b = S.bills.find(x => x.id === p.target_id);
+      const r = d.decidePublicChangeV7('pc-seed-2', false, 'Keep the talking points to the bill.', d.publicStateOf(b.id));
+      return { id: b.id, no: b.bill_number.replace(/\\s/g, '').toUpperCase(), sent: !!r.sent_back, status: p.status, pub: b.public_position ?? null, team: b.position ?? null }; }""")
+    ok(f1['sent'] and f1['status'] == 'sent_back' and f1['pub'] != f1['team'], f"(fix 1) Nate sends back the seeded position change; the team's and the public's positions still differ ({f1['status']})")
+    open_s7(FR, 'NT', '#/')
+    H1 = FR.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3')].map(a => [a.getAttribute('href'), a.innerText.replace(/\\s+/g, ' ').trim()])")
+    ok(not any(t.startswith('Publish a public change') and hasNo(t, f1['no']) for h, t in H1), f"(fix 1) as Nate, Home has no 'Publish a public change' for the sent back bill ({f1['no']})")
+    open_at(FR, 'NT', '#/public')
+    R1 = FR.evaluate("() => [...document.querySelectorAll('li.pl-row')].map(li => li.innerText.replace(/\\s+/g, ' ').trim())")
+    ok(not any(hasNo(r, f1['no']) and 'Ready to publish' in r for r in R1), f"(fix 1) as Nate, #/public shows no 'Ready to publish' row for it")
+    open_s7(FR, 'KV', '#/')
+    FX1 = FR.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3')].map(a => a.innerText.replace(/\\s+/g, ' ').trim())")
+    kvWrite = FR.evaluate("async (id) => (await import('/staff7/public_list.js')).toWriteRows(T.d.S.me).some(r => r.b.id === id)", f1['id'])
+    ok(sum(1 for t in FX1 if t.startswith('Fix public words') and hasNo(t, f1['no'])) == 1 and not kvWrite, f"(fix 1) as Kevin, his Fix public words step is there and no Bills to write row ({kvWrite})")
+    # (fix 2) as Kevin after the send back: the status box says 'Sent back by Nate: <note>' and the dock says what the press sends
+    open_pub(FR, 'KV', f1['no'])
+    s2 = FR.evaluate("() => ({ st: document.getElementById('pubStatus').innerText, line: document.getElementById('pubLine').innerText, go: document.getElementById('pubGo').getAttribute('aria-disabled'), icons: document.querySelectorAll('#pubStatus svg').length })")
+    ok('Sent back by Nate: Keep the talking points to the bill.' in s2['st'] and s2['icons'] >= 1 and s2['line'].startswith('Sending: our position') and s2['go'] == 'false',
+       f"(fix 2) as Kevin, the sent back line with its icon, and the dock starts 'Sending: our position' with the button on ({s2})")
+    # (fix 3) Kevin changes the team's position and then sends words on the same bill: Nate has one Approve step for the bill
+    open_s7(FR, 'KV', '#/')
+    f3 = FR.evaluate("""(skip) => { const { d } = T, S = d.S, b = S.bills.find(x => x.tracked !== false && x.id !== skip && d.isLiveBill(x) && d.isPublicSide(x.position) && x.position === x.public_position && d.barMet(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id));
+      return b ? { id: b.id, no: b.bill_number.replace(/\\s/g, '').toUpperCase(), to: b.position === 'oppose' ? 'support' : 'oppose' } : null; }""", f1['id'])
+    if f3:
+        FR.evaluate("""async ([id, to]) => { const { d } = T; await d.DB.updateBill(id, { position: to }); d.sendPublicWords(id, { public_summary: 'Fix three summary for the test.' }); }""", [f3['id'], f3['to']])
+        n3 = FR.evaluate("(id) => T.d.S.publicChanges.filter(x => x.target_id === id && x.status === 'waiting').length", f3['id'])
+        open_s7(FR, 'NT', '#/')
+        A3 = FR.evaluate("() => [...document.querySelectorAll('#hs + ul a.sr3[href^=\"#/public/change/\"]')].map(a => a.innerText.replace(/\\s+/g, ' ').trim())")
+        ok(n3 == 2 and sum(1 for t in A3 if hasNo(t, f3['no'])) == 1, f"(fix 3) a bill with a position and a words change waiting has one Approve step for Nate ({n3} changes, {[t for t in A3 if hasNo(t, f3['no'])]})")
+    else:
+        ok(False, '(fix 3) practice data: a live side bill for the one-step check')
+    # (fix 4) as Kris, another position on a public side bill: the new line shows and the old one does not
+    FR4 = new_page(br); pages.append(FR4)
+    open_s7(FR4, 'KR', '#/')
+    f4 = FR4.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isLiveBill(x) && d.isPublicSide(x.position) && x.position === x.public_position && d.barMet(x) && !d.heldFor('bill', x.id) && !d.waitingPosition(x.id) && (S.assignments[x.id] || []).includes(kr.id));
+      if (!b) return null; const nw = ['support', 'oppose', 'neutral'].find(p => p !== b.position && p !== b.public_position);
+      return { no: b.bill_number.replace(/\\s/g, '').toUpperCase(), pub: b.public_position, nw }; }""")
+    if f4:
+        open_s7(FR4, 'KR', f"#/bill/{quote(f4['no'])}")
+        FR4.click('#bEditGo'); FR4.wait_for_timeout(150); FR4.click(f"#bp-{f4['nw']}"); FR4.wait_for_timeout(150)
+        txt4 = FR4.inner_text('#bEdit')
+        want4 = f"The team sees this at once. The public site keeps {LBL[f4['pub']]} until it is published in public mode."
+        ok(want4 in txt4 and 'The position shows on the public site' not in txt4, f"(fix 4) on a public side bill, the new line shows and the old line does not ({want4[:40]!r})")
+    else:
+        ok(False, '(fix 4) practice data: Kris leads a live side bill that meets the bar')
+    # (fix 5) as Kris: words for a bill not yet public, sent; after 10 seconds and a reload the button is off and the line says it was sent
+    FR5 = new_page(br); pages.append(FR5)
+    open_s7(FR5, 'KR', '#/')
+    n5 = FR5.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isPublicSide(x.position) && !d.isLiveBill(x) && (S.assignments[x.id] || []).includes(kr.id) && !d.heldFor('bill', x.id));
+      if (!b) return null; b.nickname = 'Fix five nickname'; b.public_summary = 'Fix five summary.'; b.talking_points = ['One five point.', 'Two five point.', 'Three five point.'];
+      return b.bill_number.replace(/\\s/g, '').toUpperCase(); }""")
+    if n5:
+        open_pub(FR5, 'KR', n5)
+        FR5.click('#pubGo'); FR5.wait_for_timeout(10600)
+        FR5.reload(); FR5.wait_for_selector('#pubRoot', timeout=15000); FR5.wait_for_timeout(200)
+        s5 = FR5.evaluate("() => ({ go: document.getElementById('pubGo').getAttribute('aria-disabled'), line: document.getElementById('pubLine').innerText })")
+        ok(s5['go'] == 'true' and s5['line'] == 'Sent to Nate. Change anything and it joins your change.', f"(fix 5) words sent for a bill not yet public: after a reload the button is off and the line says it was sent ({s5})")
+    else:
+        ok(False, '(fix 5) practice data: a side bill Kris leads with no public words')
+    # (fix 6) as Nate, Home's first line and its First up link name the same kind of job
+    open_s7(FR, 'NT', '#/')
+    ov6 = FR.evaluate("() => ({ h1: document.querySelector('.ovtop h1')?.innerText || '', link: document.querySelector('.ovlink')?.innerText || '' })")
+    ok('on top of it' not in ov6['h1'] and ('need you' not in ov6['h1'] or ov6['link'].startswith(('Approve a public change', 'Publish a public change'))),
+       f"(fix 6) as Nate, the first line and First up name the same kind of job ({ov6})")
+    # (fix 7) as Nate on a bill with Kevin's words change waiting: 'Waiting for you to approve · Open it', read-only fields, 'After you approve'
+    FR7 = new_page(br); pages.append(FR7)
+    open_s7(FR7, 'NT', '#/')
+    no7 = FR7.evaluate("() => { const pc = T.d.S.publicChanges.find(x => x.id === 'pc-seed-1'); return pc ? T.d.S.bills.find(b => b.id === pc.target_id).bill_number.replace(/\\s/g, '').toUpperCase() : null; }")
+    open_pub(FR7, 'NT', no7)
+    s7 = FR7.evaluate("() => ({ st: document.getElementById('pubStatus').innerText, href: document.querySelector('#pubStatus a') ? document.querySelector('#pubStatus a').getAttribute('href') : null, line: document.getElementById('pubLine').innerText, tag: document.querySelector('.pub-card .pv-tag')?.innerText || null, ro: document.getElementById('pNick').hasAttribute('readonly') })")
+    ok('Waiting for you to approve · Open it' in s7['st'] and s7['href'] == '#/public/change/pc-seed-1' and s7['line'] == 'Open the change to approve or send it back.' and s7['tag'] == 'After you approve' and s7['ro'],
+       f"(fix 7) as Nate, 'Waiting for you to approve · Open it' links to the change, read-only, tagged 'After you approve' ({s7})")
+    open_s7(FR7, 'NT', f'#/bill/{quote(no7)}')
+    row7 = FR7.evaluate(BILLDD, no7) or ''
+    ok('Waiting for you to approve' in row7 and 'Open it' in row7, f"(fix 7) the bill page row says it too ({row7[-70:]!r})")
+    # (fix 8) as Kris, a bill's first words: Nate's row starts 'First words:' and the change page shows the words once, with no before and after cards
+    FR8 = new_page(br); pages.append(FR8)
+    open_s7(FR8, 'KR', '#/')
+    f8 = FR8.evaluate("""() => { const { d } = T, S = d.S, kr = S.advocates.find(a => a.initials === 'KR');
+      const b = S.bills.find(x => x.tracked !== false && d.isPublicSide(x.position) && !d.isLiveBill(x) && (S.assignments[x.id] || []).includes(kr.id) && !d.heldFor('bill', x.id));
+      if (!b) return null; d.sendPublicWords(b.id, { nickname: 'First words test', public_summary: 'First words summary for the test.', talking_points: ['One first point.', 'Two first point.', 'Three first point.'] });
+      const pc = d.heldFor('bill', b.id); return { no: b.bill_number.replace(/\\s/g, '').toUpperCase(), id: pc ? pc.id : null }; }""")
+    if f8 and f8['id']:
+        open_at(FR8, 'NT', '#/public')
+        R8 = FR8.evaluate("() => [...document.querySelectorAll('li.pl-row')].map(li => li.innerText.replace(/\\s+/g, ' ').trim())")
+        ok(any(hasNo(r, f8['no']) and 'First words:' in r for r in R8), f"(fix 8) as Nate, the row for a first words change says 'First words:' ({[r for r in R8 if hasNo(r, f8['no'])][:1]})")
+        open_at(FR8, 'NT', f"#/public/change/{f8['id']}")
+        pg8 = FR8.evaluate("() => ({ now: document.querySelectorAll('.pc-card.is-now').length, txt: document.getElementById('pubRoot').innerText })")
+        ok(pg8['now'] == 0 and 'On the public site now' not in pg8['txt'] and "Now on the public site: the Legislature's title only" in pg8['txt'], "(fix 8) the first words page: one line for the title only, and the words once (no before and after cards)")
+    else:
+        ok(False, '(fix 8) practice data: a side bill Kris leads with no public words')
+    # (fix 9) the talking points of a position change appear once (the left column, not the preview)
+    FR9 = new_page(br); pages.append(FR9)
+    open_at(FR9, 'NT', '#/public/change/pc-seed-2')
+    c9 = FR9.evaluate("""() => { const { d } = T, S = d.S, p = S.publicChanges.find(x => x.id === 'pc-seed-2'), b = S.bills.find(x => x.id === p.target_id), pt = d.pubPoints(b)[0] || '';
+      const t = document.getElementById('pubRoot').innerText; return { pt, n: pt ? t.split(pt).length - 1 : -1 }; }""")
+    ok(c9['n'] == 1, f"(fix 9) a position change's talking points appear in one place only ({c9['n']})")
+    # (fix 10) "Position: <from> to <to>" in the lists; the grouped step is Send when every bill is ready, else Write, and counts() matches
+    open_at(FR9, 'NT', '#/public')
+    R10 = FR9.evaluate("() => [...document.querySelectorAll('li.pl-row')].map(li => li.innerText.replace(/\\s+/g, ' ').trim())")
+    ok(any('Position: ' in r for r in R10) and not any('Position, ' in r for r in R10), f"(fix 10) the position row reads 'Position: <from> to <to>' ({[r for r in R10 if 'Position' in r][:1]})")
+    open_s7(FR9, 'KR', '#/')
+    g10 = [t for h, t in sugg_rows(FR9) if h == '#/public']
+    e10 = FR9.evaluate("""async () => { const L = await import('/staff7/public_list.js'), P = await import('/staff7/public_data.js'), rows = L.toWriteRows(T.d.S.me).filter(r => !r.own);
+      return { n: rows.length, verb: rows.length && rows.every(r => !P.missingLine(r.b)) ? 'Send' : 'Write' }; }""")
+    ok((not g10 and e10['n'] == 0) or (len(g10) == 1 and g10[0] == f"{e10['verb']} public words · {e10['n']} of your bills"), f"(fix 10) Suggested's grouped step reads {e10['verb']!r} when every bill is ready ({g10}, counts {e10['n']})")
+    ok(all(not p.errs for p in pages), f"(fix round) no page errors on the fix round's tabs ({[e for p in pages for e in p.errs][:3]})")
 
     # ---------------------------------------------------------------- (h) no page errors
     ok(not pg.errs, f"(h) no page errors ({pg.errs[:3]})")

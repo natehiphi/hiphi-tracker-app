@@ -17,7 +17,8 @@ const posLabel = v => (OPTS.find(o => o[0] === v) || [])[1] || 'No position yet'
 // R-398 part 3 (design 7): the public site's position, in the words the picker uses; what the public site still says
 const labelOf = v => v ? (POSITIONS.find(p => p[0] === v) || [, v])[1] : 'No position yet';
 const enc = encodeURIComponent, normNo = s => String(s ?? '').replace(/\s/g, '').toUpperCase();
-// The team's position differs from the public site's while the bill's words are public: the words say so before saving, and after it the line under the position says so
+// The team's position differs from the public site's while the bill's words are public: the words say so before saving, and after it the line under the position says so.
+// Only one of the two lines shows: the old "shows on the public site" line is for a bill with no public words (fix 4)
 const pubDiff = (b, pos) => isLiveBill(b) && (pos || null) !== (b.public_position ?? null);
 // "The public site still says Support · Waiting on Nate to publish · See it" (a non-admin with the three things), "· needs a nickname · Write them" (without them), "· Publish the change" (an admin)
 export function posAfterHTML(b, me) {
@@ -47,7 +48,7 @@ export function editHTML(b, issue, me) {
   return `<form class="bedit" id="bEdit" novalidate><fieldset class="bef"><legend class="fl">Position</legend><div class="bseg">${radios}</div></fieldset>`
     + `<div class="bef"><label class="fl" for="bLeadSel">Lead</label><select class="field bsel" id="bLeadSel">${sel}</select></div>`
     + `<p class="hint bposn" id="bPosSave"${pubDiff(b, e.pos) ? '' : ' hidden'}>${esc(positionSaveNote(labelOf(b.public_position)))}</p>`
-    + `<div class="beact">${btn('Save', { kind: 'filled', id: 'bSave', disabled: !dirty(b) || e.busy, loading: !!e.busy }).replace('type="button"', 'type="submit"')}${btn('Cancel', { kind: 'text', id: 'bCancel' })}${b.is_public ? '<span class="hint">The position shows on the public site.</span>' : ''}</div>`
+    + `<div class="beact">${btn('Save', { kind: 'filled', id: 'bSave', disabled: !dirty(b) || e.busy, loading: !!e.busy }).replace('type="button"', 'type="submit"')}${btn('Cancel', { kind: 'text', id: 'bCancel' })}${b.is_public ? '' : '<span class="hint">The public site shows HIPHI&rsquo;s position once its words are published.</span>'}</div>`
     + `<p class="hint berr" id="bEditErr" role="alert"${e.err ? '' : ' hidden'}>${esc(e.err === 'held' ? 'We could not save the lead. The position still waits for an admin’s yes.' : 'We could not save that. Try again.')}</p></form>`;
 }
 const openEdit = () => {
