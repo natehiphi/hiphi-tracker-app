@@ -58,7 +58,7 @@ const stand = (a, kind, id) => ({ ...replyStand(a), id, kind });
 const strip = (title, lines) => `<div class="strip calm">${ic('clock')}<strong>${esc(title)}</strong>${lines.filter(Boolean).map(l => `<span class="hl">${esc(l)}</span>`).join('')}</div>`;
 function clockStrip(a) {
   const d = dlOf(a);
-  return strip('Follow up today', [d ? `Needs a hearing by ${dayWords(String(d.date).slice(0, 10))}, in ${d.days} ${d.days === 1 ? 'day' : 'days'}.${a.noticeDay ? ` The committee must announce the hearing by ${dayWords(a.noticeDay)}.` : ''}` : a.noticeDay ? `The committee must announce the hearing by ${dayWords(a.noticeDay)}.` : '']);
+  return strip(a.callStep && callPhone(a) ? 'Call today' : 'Follow up today', [d ? `Needs a hearing by ${dayWords(String(d.date).slice(0, 10))}, in ${d.days} ${d.days === 1 ? 'day' : 'days'}.${a.noticeDay ? ` The committee must announce the hearing by ${dayWords(a.noticeDay)}.` : ''}` : a.noticeDay ? `The committee must announce the hearing by ${dayWords(a.noticeDay)}.` : '']);
 }
 const callPhone = a => { const c = followTargets(a).find(x => phoneOf(x)); return c ? phoneOf(c) : ''; };
 const telOf = p => 'tel:' + String(p).replace(/[^\d+]/g, '');
