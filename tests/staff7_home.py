@@ -144,20 +144,20 @@ with sync_playwright() as p:
 
         # ---- KV: Waiting on others, read-only sheet; Suggested expanded, its sheet ----
         pg, errs, bad = open_as(br, 'KV', w, h)
-        wr = pg.locator('#hw ~ ul a.sr3').first; wt = wr.inner_text().replace('\n', ' ')
-        ok(re.search(r'Waiting on \w+( or \w+|, \w+ or \d+ more)? (to approve|for a second look)\s+·\s+needed (in|[\w ]+ ago)', wt) and pg.evaluate("getComputedStyle(document.querySelector('#hw ~ ul .q2')).color") == 'rgb(92, 85, 75)', f'{tag} KV: a waiting row says who has it and when it is due, in the muted colour ({wt!r})')
+        wr = pg.locator('#hw ~ ul a.sr3[href^="#/waiting/"]').first; wt = wr.inner_text().replace('\n', ' ')
+        ok(re.search(r'Waiting on \w+( or \w+|, \w+ or \d+ more)? (to approve|for a second look)\s+·\s+needed (in|[\w ]+ ago)', wt) and wr.evaluate("e => getComputedStyle(e.querySelector('.q2')).color") == 'rgb(92, 85, 75)', f'{tag} KV: a waiting row says who has it and when it is due, in the muted colour ({wt!r})')
         wr.click(); pg.wait_for_timeout(300); t = pg.locator('.paper').inner_text()
         ok('Waiting on ' in t and '· needed ' in t and pg.locator('#openDoc').count() == 1 and pg.locator('.btn.filled').count() == 0 and pg.locator('a.sr3[aria-current]').count() == 1, f'{tag} KV: the waiting sheet says the same, with the testimony as a quiet row and no filled button')
         pg.click('#openDoc'); pg.wait_for_timeout(300)
         ok('does not open' in pg.locator('#toast').inner_text() and len(pg.context.pages) == 1 and not bad, f'{tag} KV: in the practice copy the testimony opens nothing')
-        pg.goto(f'{BASE}/staff7.html?demo=1&as=KV'); pg.wait_for_selector('.paper'); pg.wait_for_timeout(400)
+        pg.goto(f'{BASE}/staff7.html?demo=1&as=KR'); pg.wait_for_selector('.paper'); pg.wait_for_timeout(400)   # Kevin's one suggestion was the follow-up that linked to the old app; that is Waiting on others now (piece 5), so Kris, who has a reply to answer, shows the same sheet
         pg.click('#suggBtn'); pg.wait_for_timeout(250)
-        ok(pg.locator('#suggBtn').get_attribute('aria-expanded') == 'true' and pg.locator('#suggList a.sr3').count() == 1, f'{tag} KV: Suggested opens in place')
+        ok(pg.locator('#suggBtn').get_attribute('aria-expanded') == 'true' and pg.locator('#suggList a.sr3').count() >= 1, f'{tag} KR: Suggested opens in place')
         snap(pg, 'home_KV_suggested_open', tag)
-        pg.click('#suggList a.sr3'); pg.wait_for_timeout(300); t = pg.locator('.paper').inner_text()
+        pg.click('#suggList a.sr3:has-text("Reply to")'); pg.wait_for_timeout(300); t = pg.locator('.paper').inner_text()
         lk = pg.locator('.paper a:has-text("For now, do this in the current staff app")')
-        ok(lk.count() == 1 and lk.get_attribute('href').startswith('index.html?demo=1') and 'does not have a page in the new app yet' in t and pg.locator('.btn.filled').count() == 0, f'{tag} KV: a suggested step says what it is and offers "For now, do this in the current staff app" as a quiet link ({lk.get_attribute("href")})')
-        ok(pg.locator('#suggList').is_visible() and pg.locator('a.sr3[aria-current]').count() == 1, f'{tag} KV: its row stays marked inside the open Suggested list')
+        ok(lk.count() == 1 and lk.get_attribute('href').startswith('index.html?demo=1') and 'does not have a page in the new app yet' in t and pg.locator('.btn.filled').count() == 0, f'{tag} KR: a suggested step says what it is and offers "For now, do this in the current staff app" as a quiet link ({lk.get_attribute("href")})')
+        ok(pg.locator('#suggList').is_visible() and pg.locator('a.sr3[aria-current]').count() == 1, f'{tag} KR: its row stays marked inside the open Suggested list')
         pg.context.close()
 
         # ---- a step from To do, and Back to overview ----
@@ -288,7 +288,7 @@ with sync_playwright() as p:
         pg.context.close()
 
         # ---- the phone: the greeting, then the lists, then the facts and the session ----
-    pg, errs, bad = open_as(br, 'KV', 390, 844)
+    pg, errs, bad = open_as(br, 'KR', 390, 844)   # Kris has all three lists (To do, Waiting, Suggested); Kevin's suggestion became a waiting ask in piece 5
     g = pg.evaluate("() => { const t = e => document.querySelector(e).getBoundingClientRect().top; return [t('main h1'), t('.ovsub'), t('#hs'), t('#hw'), t('#hg'), t('.facts'), t('.sess'), document.documentElement.scrollWidth, innerWidth, document.querySelector('.ovdate').getBoundingClientRect().left, document.querySelector('#hs').getBoundingClientRect().left]; }")
     ok(g[0] < g[1] < g[2] < g[3] < g[4] < g[5] < g[6] and g[7] <= g[8] and g[9] >= 0 and g[10] >= 0 and pg.locator('.back').count() == 0, f'phone: the greeting and its line, then To do, Waiting on others, Suggested, then the facts and the session ({[round(x) for x in g[:7]]})')
     ok(g[2] < 400 and not pg.locator('.ovr').is_visible(), f'phone: the To do list starts within the first screen ({g[2]:.0f}px) and the Overview row is not drawn (the greeting is the overview)')

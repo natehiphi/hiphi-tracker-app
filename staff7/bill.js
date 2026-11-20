@@ -15,6 +15,7 @@ import { cap, testimonyDue, letterState, testimonyShort, leadIds, http, draftFor
 import { billTimeline } from './bill_tl.js';
 import { billTextUrl, afterHTML, moreAfterHTML, chairsHTML, askedWords, publicHTML, talkingHTML, bindMore } from './bill_more.js';
 import { partB, bindPartB } from './bill_history.js';
+import { chairLineHTML, bindChairLine } from './bill_chair.js';
 import { stoppedWords } from './issue_table.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { backHref } from './bills.js';
@@ -189,6 +190,7 @@ export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   out += positionHTML(b, issue, me, can);
   if (!onIssue) out += '<p class="hint bnoiss" id="bNoIssue">On no issue yet</p>';
   out += `<div class="bstat" id="bStat">${statusLines(b, issue, who, open, own, nx, onIssue, others)}</div>`;
+  out += chairLineHTML(b);   // R-398 piece 5: where the ask to the chair stands, with the button that records the chair's reply
   out += `<div class="bigpath">${billTimeline(b)}</div>`;
   out += factsHTML(b, who);
   out += partB(b);
@@ -203,5 +205,5 @@ export function bindBill() {
     bt.setAttribute('aria-expanded', String(on)); bt.textContent = on ? 'Show fewer' : 'Show all'; bt.setAttribute('aria-label', `${on ? 'Show fewer' : 'Show all'} introducers`);
     dd?.querySelector('[data-bs="short"]')?.toggleAttribute('hidden', on); dd?.querySelector('[data-bs="long"]')?.toggleAttribute('hidden', !on);
   }));
-  bindEdit(); bindPartB(); bindMore();
+  bindEdit(); bindPartB(); bindMore(); bindChairLine();
 }

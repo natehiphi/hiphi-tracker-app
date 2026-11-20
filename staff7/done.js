@@ -16,7 +16,8 @@ export function doneSheet(ctx, id, fresh) {
   const f = ctx.finished[id]; if (!f) return '';
   const s = f.step, open = ctx.open(), nx = homeRows(open)[0] || laterRows(open)[0];
   let title, sub;
-  if (f.kind === 'filed') { title = 'Filed.'; sub = `Nothing else needs you on ${s.name}.`; }
+  if (f.words) { title = f.words.title; sub = f.words.sub; }   // a chair's reply or a given ask (do_reply.js): its own words
+  else if (f.kind === 'filed') { title = 'Filed.'; sub = `Nothing else needs you on ${s.name}.`; }
   else if (f.kind === 'asked') { title = 'Asked.'; sub = `Nothing else needs you on ${s.bills?.length > 1 ? `these ${s.bills.length} bills` : s.name} until ${(s.ask?.m?.n || 1) > 1 ? 'the chairs answer' : 'the chair answers'}.`; }
   else if (f.kind === 'recorded') { title = 'Recorded.'; sub = f.answer === 'yes' ? `Noted on ${s.name}: the testimony was filed.` : `Noted on ${s.name}: the testimony was not filed.`; }
   else {

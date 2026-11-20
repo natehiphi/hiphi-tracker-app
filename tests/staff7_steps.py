@@ -285,8 +285,9 @@ with sync_playwright() as p:
             if who == 'KR': snap(pg, 'F1b_file_late_KR', tag)
             pg.context.close()
         # ---- asks ----
+        # (SB 2175 is no longer Kevin's open ask step: the practice copy holds his ask for it, ask_data.js, waiting on House Health, so HB1563 stands in for him)
         # one bill's own ask page (the asks of a committee and deadline are one step now: staff7_home.py checks that page); HB1732 is in one for NT, so SB2615 stands in
-        for who, start, num in (('NT', '#/do/ask-SB2615-2026', 'SB2615'), ('KV', '#/do/ask-SB2175-2026', 'SB2175'), ('JM', '#/do/ask-SB11-2026', 'SB11'), ('KR', '#/do/ask-HB1991-2026', 'HB1991')):
+        for who, start, num in (('NT', '#/do/ask-SB2615-2026', 'SB2615'), ('KV', '#/do/ask-HB1563-2026', 'HB1563'), ('JM', '#/do/ask-SB11-2026', 'SB11'), ('KR', '#/do/ask-HB1991-2026', 'HB1991')):
             pg, errs, bad, href = open_step(who, w, h, start); pages = len(pg.context.pages)
             st = pg.locator('.strip').inner_text(); handed = who == 'KR'
             ok(pg.evaluate(H1) == 'Ask for a hearing' and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and pg.evaluate(INVIEW, '#mailBtn') and 'being built' not in pg.locator('.paper').inner_text(), f'{tag}: B1 {who} {num}: ask opens with one filled button in view')

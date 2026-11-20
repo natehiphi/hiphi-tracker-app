@@ -11,6 +11,7 @@ import { stepsFor, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pas
 import { myIssueStandings, tally, needsHearing, deadlineOf, isAmberRisk, riskDate, riskWhy } from './standing.js';
 import { dateWords, sessionDates, touchMap } from './words.js';
 import { testimonyDue } from './bill_words.js';
+import { waitingAsks } from './ask_data.js';   // R-398 piece 5: an ask to a chair waits under Waiting on others
 import { waitingRows, toWriteRows, mineRows } from './public_list.js';
 import { HOME_APPROVE, HOME_PUBLISH, HOME_FIX, HOME_WRITE_ROW, HOME_SEND_ROW, homeWrite, homeNeedsYou, waitingState, HOME_SENT_BACK_NOTE, missingLine } from './public_data.js';
 
@@ -65,7 +66,7 @@ export function waitingFor(me) {
 const waitWho = w => w.who ? `Waiting on ${w.who} ${w.second ? 'for a second look' : 'to approve'}` : w.second ? 'Waiting for a second look' : 'Waiting for an approver';
 const waitNeed = w => w.at == null ? '' : new Date(w.at).getTime() > Date.now() ? `needed in ${left(w.at)}` : `needed ${left(w.at)} ago`;
 export const waitText = w => `${waitWho(w)}${w.at != null ? ` · ${waitNeed(w)}` : ''}`;
-const waitHTML = w => w.kind === 'public' ? esc(w.line) : `${esc(waitWho(w))}${w.at != null ? ` <span class="sep" aria-hidden="true">·</span> <span class="wneed${soonSoon(w.at) ? ' soon' : ''}">${soonSoon(w.at) ? ic('clock') : ''}${esc(waitNeed(w))}</span>` : ''}`;
+const waitHTML = w => w.kind === 'public' || w.kind === 'ask' ? esc(w.line) : `${esc(waitWho(w))}${w.at != null ? ` <span class="sep" aria-hidden="true">·</span> <span class="wneed${soonSoon(w.at) ? ' soon' : ''}">${soonSoon(w.at) ? ic('clock') : ''}${esc(waitNeed(w))}</span>` : ''}`;
 
 // ---------------------------------------------------------------------------------- public mode's steps (R-398 design 6)
 // An admin's waiting changes (Approve) and own unpublished position (Publish); a writer's sent-back changes (Fix public words, with Nate's note) and their waiting changes
@@ -114,11 +115,8 @@ function publicWaits(me) {
 export function suggestedFor(me) {
   const out = [];
   withMe(me, () => { for (const it of work(me).own) {
-    if (it.kind === 'followask' && it.b) {
-      const m = it.s?.ask?.m, who = m?.who || 'The chair', many = (m?.n || 1) > 1 || / and /.test(who);   // two chairs have not answered: "have", "the chairs"
-      out.push({ id: it.key, kind: 'followask', verb: `Follow up with the chair${many ? 's' : ''}`, b: it.b, text: `${who} ${many ? 'have' : 'has'} not answered your ask for a hearing yet. A short second note often gets it scheduled.` });
-    }
-    else if (it.kind === 'followup') { const p = it.p || {}, nm = p.name || p.email || 'a supporter'; out.push({ id: it.key, kind: 'followup', verb: `Follow up with ${nm}`, b: null, text: it.f?.what ? String(it.f.what) : 'You said you would follow up.', at: it.at }); }
+    // an ask the chair has not answered is Waiting on others now (ask_data.js, do_reply.js); the follow-up is its own step (piece 5 part 2)
+    if (it.kind === 'followup') { const p = it.p || {}, nm = p.name || p.email || 'a supporter'; out.push({ id: it.key, kind: 'followup', verb: `Follow up with ${nm}`, b: null, text: it.f?.what ? String(it.f.what) : 'You said you would follow up.', at: it.at }); }
     else if (it.kind === 'reply' && it.b) out.push({ id: it.key, kind: 'reply', verb: `Reply to ${it.from || 'a teammate'}`, b: it.b, text: `${it.from || 'A teammate'} asked: ${it.q || ''}` });
     else if (it.kind === 'rally' && it.b) out.push({ id: it.key, kind: 'rally', verb: 'Write the public ask', b: it.b, h: it.h, at: it.at, href: `#/public/${enc(normNo(it.b.bill_number))}?ask=1`, text: `${billName(it.b)} has a hearing${it.h ? ` ${dayTime(it.h.scheduled_at)}` : ''}. The public ask asks supporters to testify or show up.` });
   } });
@@ -147,7 +145,7 @@ export function homeModel(me, open) {
   const steps = open || stepsFor(me), hs = hearingsToday(me), pub = publicSteps(me);
   const pd = x => x.type === 'step' && pastDue(x.s) ? 1 : 0;
   const todo = [...homeRows(steps).map(s => ({ type: 'step', s, t: s.at })), ...hs.map(hr => ({ type: 'hearing', hr, t: hr.at })), ...pub].sort((x, y) => (pd(y) - pd(x)) || (x.t ?? Infinity) - (y.t ?? Infinity));
-  return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: [...waitingFor(me), ...publicWaits(me)], suggested: suggestedFor(me), risk: riskFor(me, steps) };
+  return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: [...waitingAsks(me), ...waitingFor(me), ...publicWaits(me)], suggested: suggestedFor(me), risk: riskFor(me, steps) };
 }
 
 // ---------------------------------------------------------------------------------- the left lists
