@@ -81,7 +81,7 @@ with sync_playwright() as p:
         t6.t6Fresh(); const w = t6.work(a), own = w.own;
         // deliberate differences (R-398, 14 Nov): the current app caps the ask rows at 3 (the rest are w.asks) and lists each bill; staff7 lists every ask, one step per committee and deadline, so compare per bill
         const ref = [...own.filter(i => KIND[i.kind]).map(i => KIND[i.kind] + '|' + i.b.bill_number + '|' + iso(i.at)), ...w.asks.map(r => 'ask|' + r.b.bill_number + '|' + iso(r.by))].sort();
-        const mine7 = s7.stepsFor(a).filter(s => !s.orphan).flatMap(s => s.members ? s.members.map(m => 'ask|' + m.bill.bill_number + '|' + iso(m.at)) : [s.kind + '|' + s.bill.bill_number + '|' + iso(s.at)]).sort();
+        const mine7 = s7.stepsFor(a).filter(s => !s.orphan && s.kind !== 'chairfu' && s.kind !== 'decide').flatMap(s => s.members ? s.members.map(m => 'ask|' + m.bill.bill_number + '|' + iso(m.at)) : [s.kind + '|' + s.bill.bill_number + '|' + iso(s.at)]).sort();
         out[a.initials] = { same: JSON.stringify(ref) === JSON.stringify(mine7), n: mine7.length, ref, mine7 };
         left[a.initials] = own.filter(i => !KIND[i.kind]).map(i => i.kind + ':' + (i.b?.bill_number || '')); }
       return { out, left }; }""" % PRE)

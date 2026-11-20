@@ -36,3 +36,13 @@
 /* the bill page's line: where the ask stands, and the quiet button that records the chair's reply */
 .chln { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s4); margin: var(--s2) 0 var(--s4); }
 .chln .chl { margin: 0; }
+/* Follow up with the chair (piece 5, part 2): the office phone under To, the footer on a phone, the last-chance links on the done page */
+.mline.phone { margin-top: calc(var(--s2) * -1); font-size: var(--f14); color: var(--muted); }
+.dlinks { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s3); margin: var(--s4) 0 0; }
+@media (max-width: 599px) { #fuFoot .fnote { display: none; } }   /* a phone's footer holds the filled button and The chair replied only */
+/* on a phone the footer is docked as on a laptop (the drawing at 390): the filled button and The chair replied, side by side no more than the width allows */
+@media (max-width: 899px) {
+  .paper:has(#fuFoot) { overflow: clip; }   /* hidden made the paper a scroller that never scrolls, so the footer could not stick to the screen */
+  #fuFoot { position: sticky; bottom: 0; z-index: 1; background: var(--surface); margin: var(--s4) calc(var(--px) * -1) 0; padding: var(--s3) var(--px); border-top: var(--line) solid var(--rule); }
+}
+@media (max-width: 599px) { #fuFoot > #mailBtn, #fuFoot > #replied { flex: 1 1 100%; } }

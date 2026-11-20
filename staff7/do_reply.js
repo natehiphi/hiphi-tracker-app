@@ -63,7 +63,7 @@ export function replySheet(key) {
 const chairOf = c => cmteWords((S.committeeMembers || []).find(m => String(m.legislator_id) === c.id && m.role === 'chair')?.committee);
 const didWords = (c, changing) => changing ? `Change ${esc(c.who)}’s answer` : `Did ${esc(c.who)} reply?`;
 // The email as the app writes it for this ask (what you changed before sending is not kept on the ask)
-function emailHTML(a) {
+export function emailHTML(a) {
   const m = mailFor({ bill: a.b, ask: { code: a.code, m: chairMail(a.code), st: { deadline: a.deadline } } });
   if (!m) return '<p>No email is kept for this ask.</p>';
   return `<p><span class="ml">To</span> <b>${esc(m.to.split(',').join(', '))}</b></p><p><span class="ml">Subject</span> <b>${esc(m.subject)}</b></p><pre>${esc(m.body)}</pre><p class="hint">This is the app’s own wording. Changes you made before you sent it are not kept here.</p>`;
@@ -100,9 +100,17 @@ export async function doReply(ctx, key, chairId, answer, seen) {
       location.hash = '#/done/' + enc(id);
       return;
     }
-    const undo = async () => { try { await undoRecord(u); ctx.rerender(); toast('Put back.', { ms: 4000 }); } catch (e) { toast((e && e.message) || 'It could not be undone.'); } };
+    const undo = async () => { try { await undoRecord(u);
+      if (location.hash.startsWith('#/do/dc-')) { location.hash = '#/ask/' + enc(key); addEventListener('hashchange', () => toast('Put back.', { ms: 4000 }), { once: true }); return; }   // the step the no made is gone: back to the sheet
+      ctx.rerender(); toast('Put back.', { ms: 4000 }); } catch (e) { toast((e && e.message) || 'It could not be undone.'); } };
+    const said = answer === 'said_no' ? `Recorded: ${c.who} said no.${clashWords}` : `Saved. We remind you again on ${dayWords(now.clockOn)}.${clashWords}`;
+    if (answer === 'said_no' && now.decide && now.holder === S.me?.id) {   // a no is the step Decide what next, for the one who holds the ask (do_followup.js); the toast keeps Undo
+      location.hash = '#/do/dc-' + enc(key);
+      addEventListener('hashchange', () => toast(said, { undo, ms: 10000 }), { once: true });   // said after the page is drawn, which clears an older toast
+      return;
+    }
     ctx.rerender();
-    toast(answer === 'said_no' ? `Recorded: ${c.who} said no.${clashWords}` : `Saved. We remind you again on ${dayWords(now.clockOn)}.${clashWords}`, { undo, ms: 10000 });
+    toast(said, { undo, ms: 10000 });
   } finally { ctx.busy.delete(id); }
 }
 const names = l => l.length < 3 ? l.join(' and ') : `${l.slice(0, -1).join(', ')} and ${l.at(-1)}`;

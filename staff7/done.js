@@ -10,7 +10,7 @@ export const undoLeft = f => f.noUndo ? 0 : Math.max(0, UNDO_MS - (Date.now() - 
 
 // Filing, asking and the missed answers keep no timed Undo: a text link under the words puts the step back for as long as the page is there.
 // A No to "Did we file?" is a line on the bill's timeline the app cannot take off again, so it has no link.
-export const reverseWords = f => f.noUndo ? '' : f.kind === 'filed' ? 'I have not filed it yet' : f.kind === 'asked' ? 'I have not sent it yet' : f.kind === 'recorded' && f.answer === 'yes' ? 'Change my answer' : '';
+export const reverseWords = f => f.noUndo ? '' : f.words?.reverse ? f.words.reverse : f.kind === 'filed' ? 'I have not filed it yet' : f.kind === 'asked' ? 'I have not sent it yet' : f.kind === 'recorded' && f.answer === 'yes' ? 'Change my answer' : '';
 
 export function doneSheet(ctx, id, fresh) {
   const f = ctx.finished[id]; if (!f) return '';
@@ -36,7 +36,8 @@ export function doneSheet(ctx, id, fresh) {
     + (f.kind === 'filed' || (f.kind === 'recorded' && f.answer === 'yes') ? `<p class="told">The admins were told. If you take this back, the bill’s timeline still shows it.</p>` : '')
     + (week.length && inWeek(s) ? `<div class="segs" role="img" aria-label="${doneN} of ${week.length} done this week">${segs}</div><p class="left">${doneN} of ${week.length} done this week</p>` : '')
     + (reverseWords(f) ? `<p class="undo" id="undoLine">${btn(reverseWords(f), { kind: 'text', id: 'undoBtn' })}</p>`
-      : ['filed', 'asked', 'recorded'].includes(f.kind) ? '' : undoLeft(f) > 0 ? `<p class="undo" id="undoLine">${btn('Undo', { kind: 'text', id: 'undoBtn' })} for 10 seconds</p>` : '')
+      : ['filed', 'asked', 'recorded', 'followed'].includes(f.kind) ? '' : undoLeft(f) > 0 ? `<p class="undo" id="undoLine">${btn('Undo', { kind: 'text', id: 'undoBtn' })} for 10 seconds</p>` : '')
+    + (f.words?.extra || '')
     + `<div class="actions">${nx ? `${btn(`Next step: ${nx.verb}`, { kind: 'filled', href: '#/do/' + encodeURIComponent(nx.id), big: true })}<p class="nxname">${esc(nx.name)}<span class="no">${esc(nx.no)}</span></p>` : btn('Back to Home', { kind: 'text', href: '#/' })}</div></div></div>`;
 }
 
