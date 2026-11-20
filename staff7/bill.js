@@ -13,6 +13,7 @@ import { whenWords, dateWords } from './words.js';
 import { norm } from './find.js';
 import { cap, testimonyDue, letterState, testimonyShort, leadIds, http, draftFor, cmtesLinks, ext } from './bill_words.js';
 import { billTimeline } from './bill_tl.js';
+import { isNoLead } from './team_data.js';   // R-398 piece 6: the Team door on a bill nobody leads
 import { billTextUrl, afterHTML, moreAfterHTML, chairsHTML, askedWords, publicHTML, talkingHTML, bindMore } from './bill_more.js';
 import { partB, bindPartB } from './bill_history.js';
 import { stoppedWords } from './issue_table.js';
@@ -49,6 +50,7 @@ function backOf(issue, b, who, from, bq = '') {
 // ---------------------------------------------------------------------------------- 1. the position and who leads
 const person = id => S.advocates.find(a => a.id === id);
 function leadHTML(b, issue, me) {
+  if (isNoLead(b)) return 'Nobody leads this bill.';   // R-398 piece 6: the same rule as Team's "No lead yet" (team_data.js)
   const ids = leadIds(b, issue);
   if (!ids.length) return 'Nobody leads it yet';
   const names = ids.map(id => id === me?.id ? 'You' : (() => { const a = person(id); return a?.initials ? `<a class="lk" href="#/issues?who=${enc(a.initials)}">${esc(first(a))}</a>` : esc(first(a)); })());
@@ -58,7 +60,7 @@ function leadHTML(b, issue, me) {
 function positionHTML(b, issue, me, can) {
   if (can && bui.edit && bui.edit.id === b.id) return editHTML(b, issue, me);   // the edit block stands in the position line's place
   const pos = b.position ? `<span class="bpos-k">HIPHI’s position</span> <b class="bpos">${esc(posWords(b))}</b>` : '<b class="bpos">No position yet</b>';
-  return `<p class="bposl" id="bPos">${pos}<span class="bsep" aria-hidden="true">·</span><span id="bLead">${leadHTML(b, issue, me)}</span>${can ? editButton() : ''}</p>${posAfterHTML(b, me)}`;   // R-398 part 3: what the public site still says, under the position
+  return `<p class="bposl" id="bPos">${pos}<span class="bsep" aria-hidden="true">·</span><span id="bLead">${leadHTML(b, issue, me)}</span>${can ? editButton(isNoLead(b)) : ''}</p>${isNoLead(b) ? `<p class="tdoor"><a class="btn quiet" href="#/team/bill/${enc(b.id)}">Take it</a><a class="btn quiet" href="#/team/give/${enc(b.id)}">Give to…</a></p>` : ''}${posAfterHTML(b, me)}`;   // R-398 part 3: what the public site still says, under the position
 }
 
 // ---------------------------------------------------------------------------------- 2. where it stands

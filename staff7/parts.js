@@ -12,7 +12,7 @@ export function btn(label, { kind = 'quiet', id = '', href = '', big = false, di
 }
 
 // Person mark: a person's initials in a circle.
-export const personMark = (initials, { small = false } = {}) => `<span class="person${small ? ' sm' : ''}" aria-hidden="true">${esc(initials)}</span>`;
+export const personMark = (initials, { small = false } = {}) => `<span class="person${small ? ' sm' : ''}${String(initials).length > 2 ? ' p3' : ''}" aria-hidden="true">${esc(initials)}</span>`;   // p3: three letters (JMM) shrink to fit (team.css)
 
 // Status mark: a dot or icon AND words, never colour alone.
 export const statusMark = (words, { icon = '', tone = '' } = {}) => `<span class="stmark${tone ? ' ' + tone : ''}">${icon ? ic(icon) : ''}<span>${esc(words)}</span></span>`;

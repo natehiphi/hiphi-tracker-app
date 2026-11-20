@@ -38,7 +38,7 @@ const dirty = b => { const e = bui.edit; return !!e && (e.pos !== (b.position ||
 const here = b => !!bui.ctx && bui.ctx.b.id === b.id;   // a save that finishes after the person went to another bill must not draw or focus that page
 
 // ---------------------------------------------------------------------------------- 1. position and lead
-export const editButton = () => btn('Change position or lead', { kind: 'text', id: 'bEditGo', attrs: 'aria-expanded="false" aria-controls="bEdit"' });
+export const editButton = (noLead = false) => btn(noLead ? 'Change position' : 'Change position or lead', { kind: 'text', id: 'bEditGo', attrs: 'aria-expanded="false" aria-controls="bEdit"' });   // with the Team door showing, the lead is changed there (Take it, Give to…)
 export function editHTML(b, issue, me) {
   const e = bui.edit, owner = issue && issue.owner_id ? S.advocates.find(a => a.id === issue.owner_id && a.is_active !== false) : null;
   const people = S.advocates.filter(a => a.is_active !== false || a.id === e.lead).slice().sort((x, y) => (y.id === me?.id) - (x.id === me?.id) || first(x).localeCompare(first(y), 'en'));
