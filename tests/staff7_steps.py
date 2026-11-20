@@ -81,7 +81,7 @@ with sync_playwright() as p:
         t6.t6Fresh(); const w = t6.work(a), own = w.own;
         // deliberate differences (R-398, 14 Nov): the current app caps the ask rows at 3 (the rest are w.asks) and lists each bill; staff7 lists every ask, one step per committee and deadline, so compare per bill
         const ref = [...own.filter(i => KIND[i.kind]).map(i => KIND[i.kind] + '|' + i.b.bill_number + '|' + iso(i.at)), ...w.asks.map(r => 'ask|' + r.b.bill_number + '|' + iso(r.by))].sort();
-        const mine7 = s7.stepsFor(a).filter(s => !s.orphan).flatMap(s => s.members ? s.members.map(m => 'ask|' + m.bill.bill_number + '|' + iso(m.at)) : [s.kind + '|' + s.bill.bill_number + '|' + iso(s.at)]).sort();
+        const mine7 = s7.stepsFor(a).filter(s => !s.orphan && s.kind !== 'chairfu' && s.kind !== 'decide').flatMap(s => s.members ? s.members.map(m => 'ask|' + m.bill.bill_number + '|' + iso(m.at)) : [s.kind + '|' + s.bill.bill_number + '|' + iso(s.at)]).sort();
         out[a.initials] = { same: JSON.stringify(ref) === JSON.stringify(mine7), n: mine7.length, ref, mine7 };
         left[a.initials] = own.filter(i => !KIND[i.kind]).map(i => i.kind + ':' + (i.b?.bill_number || '')); }
       return { out, left }; }""" % PRE)
@@ -285,8 +285,9 @@ with sync_playwright() as p:
             if who == 'KR': snap(pg, 'F1b_file_late_KR', tag)
             pg.context.close()
         # ---- asks ----
+        # (SB 2175 is no longer Kevin's open ask step: the practice copy holds his ask for it, ask_data.js, waiting on House Health, so HB1563 stands in for him)
         # one bill's own ask page (the asks of a committee and deadline are one step now: staff7_home.py checks that page); HB1732 is in one for NT, so SB2615 stands in
-        for who, start, num in (('NT', '#/do/ask-SB2615-2026', 'SB2615'), ('KV', '#/do/ask-SB2175-2026', 'SB2175'), ('JM', '#/do/ask-SB11-2026', 'SB11'), ('KR', '#/do/ask-HB1991-2026', 'HB1991')):
+        for who, start, num in (('NT', '#/do/ask-SB2615-2026', 'SB2615'), ('KV', '#/do/ask-HB1563-2026', 'HB1563'), ('JM', '#/do/ask-SB11-2026', 'SB11'), ('KR', '#/do/ask-HB1991-2026', 'HB1991')):
             pg, errs, bad, href = open_step(who, w, h, start); pages = len(pg.context.pages)
             st = pg.locator('.strip').inner_text(); handed = who == 'KR'
             ok(pg.evaluate(H1) == 'Ask for a hearing' and pg.evaluate(FILLED) == 1 and pg.evaluate(NOSIDE) and pg.evaluate(INVIEW, '#mailBtn') and 'being built' not in pg.locator('.paper').inner_text(), f'{tag}: B1 {who} {num}: ask opens with one filled button in view')

@@ -7,6 +7,9 @@ import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
 import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
 import { fileSheet, bindFile, fileStep, undoFile } from './do_file.js';
 import { askSheet, bindAsk, askStep, undoAsk } from './do_ask.js';
+import { replySheet, bindReply, giveSheet, bindGive, undoRecord } from './do_reply.js';   // R-398 piece 5: the chair's reply, and giving an ask to someone
+import { seedAsks } from './ask_data.js';
+import { followSheet, bindFollow, decideSheet, bindDecide, viceSheet, bindVice } from './do_followup.js';   // R-398 piece 5 part 2: Follow up with the chair, Decide what next, Ask the vice chair
 import { missedSheet, bindMissed, notFiledStep } from './do_missed.js';
 import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
@@ -71,9 +74,10 @@ const ctx = { me: null, notes: mk(), stage: Object.assign(mk(), saved.stage), ma
       else if (f.kind === 'sent') await undoSend(f.undo);
       else if (f.kind === 'filed' || f.kind === 'recorded') await undoFile(f.undo);   // a No is never undone: done.js offers no link for it
       else if (f.kind === 'asked') await undoAsk(f.undo);
+      else if (f.kind === 'replied' || f.kind === 'gave' || f.kind === 'followed') await undoRecord(f.undo);
       else await undoApprove(f.undo);
     } catch (e) { f.noUndo = true; toast((e && e.message) || 'It could not be undone.'); render({ focus: 'main h1' }); return; }
-    delete ctx.finished[id]; ctx.setStage(memoKey(f.step), 1); location.hash = '#/do/' + encodeURIComponent(id);
+    delete ctx.finished[id]; ctx.setStage(memoKey(f.step), 1); location.hash = f.back || '#/do/' + encodeURIComponent(id);
     const words = f.kind === 'filed' || f.kind === 'recorded' ? 'Put back. The timeline still shows it was marked filed.' : f.kind === 'asked' ? 'Put back. The ask is not recorded.' : 'Undone. Nothing was sent.';
     addEventListener('hashchange', () => toast(words, { ms: 5000 }), { once: true }); } };   // after the page is drawn, which clears the old toast
 const freshDraft = f => (S.drafts[f.billId] || []).find(d => d.id === f.draftId);
@@ -122,7 +126,8 @@ function parse() {
     if (rest[0] === 'change') { let cid = ''; try { cid = decodeURIComponent(rest.slice(1).join('/')); } catch { cid = '�'; } return cid ? { r: 'publicchange', id: cid, q } : { r: 'missing' }; }
     return id ? { r: 'publicbill', id, q } : { r: 'missing' };
   }
-  if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested') return id ? { r: a, id } : { r: 'missing' };
+  if (a === 'do' || a === 'done' || a === 'hearing' || a === 'waiting' || a === 'suggested' || a === 'ask' || a === 'give') return id ? { r: a, id } : { r: 'missing' };
+  if (a === 'vice') return id ? { r: 'vice', id, q } : { r: 'missing' };   // Ask the vice chair (do_followup.js): #/vice/<ask key>?to=<legislator id>
   if (a && Object.hasOwn(WILL, a)) return { r: 'door', door: a };
   return a ? { r: 'missing' } : { r: 'home' };
 }
@@ -142,7 +147,7 @@ const missingSheet = () => `<div class="pn">${plainBand('That step is done or no
 const peopleSheet = () => `<div class="pn">${plainBand(`No practice person ${ctx.unknown}.`, 'Pick one of these.')}<div class="pbody"><ul class="people">${people.map(a => `<li><a class="btn quiet" href="?demo=1&as=${encodeURIComponent(a.initials)}">${esc(a.full_name)} · ${esc(a.initials)}</a></li>`).join('')}</ul></div></div>`;
 const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(s, ctx), () => bindWrite(s, ctx)]
   : s.kind === 'approve' || s.kind === 'second' ? [approveSheet(s, ctx), () => bindApprove(s, ctx)]
-  : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
+  : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'chairfu' ? [followSheet(s, ctx), () => bindFollow(s, ctx)] : s.kind === 'decide' ? [decideSheet(s), () => bindDecide(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
 
 // ---- draw ----
 let lastRoute = '', lastFam = '', first = true;
@@ -182,6 +187,9 @@ function render(opts = {}) {
     if (!s) sheet = missingSheet(); else [sheet, bindFn] = sheetFor(s);
   } else if (rt.r === 'hearing') { sheet = hearingSheet(m, rt.id) || missingSheet(); label = 'Hearing today'; }
   else if (rt.r === 'waiting') { sheet = waitingSheet(m, rt.id) || missingSheet(); bindFn = bindWaiting; label = 'Waiting on others'; }
+  else if (rt.r === 'ask') { sheet = replySheet(rt.id) || missingSheet(); bindFn = () => bindReply(rt.id, ctx); label = 'Did the chair reply?'; }
+  else if (rt.r === 'vice') { sheet = viceSheet(rt.id, ctx, rt.q) || missingSheet(); bindFn = () => bindVice(rt.id, ctx, rt.q); label = 'Ask the vice chair'; }
+  else if (rt.r === 'give') { sheet = giveSheet(rt.id) || missingSheet(); bindFn = () => bindGive(rt.id, ctx); label = 'Give this ask'; }
   else if (rt.r === 'suggested') { sheet = suggestedSheet(m, rt.id, new URLSearchParams(location.search).get('as')) || missingSheet(); label = 'Suggested step'; }
   else if (rt.r === 'done') {
     sheet = doneSheet(ctx, rt.id, freshDraft) || missingSheet(); bindFn = () => bindDone(ctx, rt.id);
@@ -203,7 +211,7 @@ function render(opts = {}) {
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
   const solo = !!im?.solo;   // a page with no list beside it (All bills)
   const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
-  const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to ${im.backLabel || 'Issues'}</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
+  const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to ${im.backLabel || 'Issues'}</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested', 'ask', 'give', 'vice'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
@@ -249,6 +257,7 @@ async function start() {
   if (!DEMO) throw new Error('staff7 is practice-only');   // the second lock, before anything is loaded
   await DB.init(); await DB.loadAll();
   await DB.chairAsks().catch(() => {});   // as the current app's afterLoad: a teammate's recorded ask is known (the practice copy answers with none)
+  seedAsks();   // R-398 piece 5: the practice copy's chair ask (Kevin, SB 2175)
   boot(); seedPublicV7(); initWidth(ctx.me);   // R-398: public mode's practice rules and seeds, once the person is known (after as=); then the width this person left the list at, before the first draw so nothing jumps
   $('toast-slot').innerHTML = toastHTML; wireToast();
   window.addEventListener('hashchange', () => render()); PHONE.addEventListener('change', () => render());

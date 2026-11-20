@@ -32,14 +32,14 @@ const nb = s => esc(s).replace(/\S*-\S*/g, '<span class="nb">$&</span>');
 const tight = s => nb(String(s).replace(/ (\S+)$/, '\u00a0$1'));
 
 // Row: one step in the left list. The open one is the white pill with the teal bar (S-20).
-const KIND_ICON = { write: 'pencil', resubmit: 'undo-2', approve: 'badge-check', second: 'badge-check', file: 'file-text', ask: 'mail', missed: 'circle-help', stale: 'triangle-alert' };
+const KIND_ICON = { write: 'pencil', resubmit: 'undo-2', approve: 'badge-check', second: 'badge-check', file: 'file-text', ask: 'mail', chairfu: 'mail', decide: 'mail', missed: 'circle-help', stale: 'triangle-alert' };
 // `opts.risk`: a bill on this row is about to stop (a small amber triangle, with words for a screen reader, before the time). `opts.quiet`: a later step, a step quieter than To do.
 export function stepRow(s, open, opts = {}) {
   const t = s.at == null ? '' : left(s.at), late = pastDue(s), amber = !opts.quiet && !late && soonSoon(s.at);
   const risk = opts.risk ? `<span class="rmark">${ic('triangle-alert')}<span class="sr">A bill is about to stop. </span></span>` : '';
   const tm = s.kind === 'missed' || (s.at == null && !late) ? '' : late ? `<span class="stm past">${risk}${ic('circle-alert')}<span>Past due</span></span>`
     : amber ? `<span class="stm soon">${risk}${ic('clock')}${esc(t)}</span>` : `<span class="stm">${risk}${esc(t)}</span>`;
-  const mark = !tm && risk ? `<span class="stm">${risk}</span>` : tm;
+  const mark = s.mark ? `<span class="stm">${risk}${ic('clock')}${esc(s.mark)}</span>` : !tm && risk ? `<span class="stm">${risk}</span>` : tm;   // a step with no time of its own says when it is for ("Today")
   return `<li><a class="sr3${opts.quiet ? ' lt' : ''}${open ? ' sel' : ''}"${open ? ' aria-current="true"' : ''} href="#/do/${encodeURIComponent(s.id)}">${ic(KIND_ICON[s.kind])}<span class="sv"><b>${esc(s.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${tight(s.name)}&nbsp;<span class="no">${esc(s.no)}</span></span>${mark}</a></li>`;
 }
 
