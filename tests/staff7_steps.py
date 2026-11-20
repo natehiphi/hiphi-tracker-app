@@ -226,7 +226,7 @@ with sync_playwright() as p:
         ok('Not built yet' in pg.locator('.paper').inner_text() and pg.evaluate(FILLED) == 1 and [a.strip() for a in pg.locator('.bi').all_inner_texts()] == ['Home', 'Issues', 'Calendar', 'Search', 'Explore'], f'{tag}: a door not built yet is a calm sheet that says so; five doors')
         for hsh in ('#/do/%', '#/constructor', '#/__proto__', '#/done/zzz', '#/do/ask-HB1-2026', '#/done/__proto__', '#/done/constructor', '#/done/toString', '#/do/__proto__', '#/do/toString'):
             pg.evaluate(f"location.hash = '{hsh}'"); pg.wait_for_timeout(300)
-            ok('no longer yours' in pg.evaluate(H1) and pg.locator('.sheet-error, .pn a:has-text("Back to Home")').count() >= 1, f'{tag}: D1 {hsh} shows the "not here" sheet')
+            ok('no longer yours' in pg.evaluate(H1) and pg.locator('.sheet-error, #tbBack:has-text("Back to")').count() >= 1, f'{tag}: D1 {hsh} shows the "not here" sheet')
         ok(not errs, f'{tag}: no errors on the router run {errs[:2]}')
         pg.context.close()
 

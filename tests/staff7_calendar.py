@@ -73,7 +73,7 @@ def open_as(br, who, w, h, hash='#/calendar'):
     pg.goto(f'{BASE}/staff7.html?demo=1' + (f'&as={who}' if who != 'default' else '') + hash); pg.wait_for_selector('.paper', timeout=60000)
     pg.evaluate("Promise.all([document.fonts.load('600 16px Poppins'), document.fonts.load('400 16px Lato'), document.fonts.load('700 16px Lato'), document.fonts.load('500 16px Poppins')])"); pg.wait_for_timeout(500)
     return pg, errs, bad
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(350)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_timeout(350)
 def snap(pg, name, tag):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'{name}_{tag}.png'))
 def body(pg): return pg.evaluate("() => document.body.innerText")
@@ -114,7 +114,7 @@ SHEET = """() => { const q = s => document.querySelector(s), t = s => q(s)?.inne
     cm: [...document.querySelectorAll('.cm')].map(c => ({ name: c.querySelector('.cmn').innerText.trim(), rows: [...c.querySelectorAll('.cmr li')].map(li => [li.querySelector('.cmrole').innerText.trim(), li.querySelector('.cmwho').innerText.trim(), li.querySelector('a')?.getAttribute('href') || '', li.querySelector('a')?.getAttribute('target') || '']), members: [...c.querySelectorAll('.cmem a')].map(a => [a.innerText.trim(), a.getAttribute('href')]) })),
     cmSum: [...document.querySelectorAll('.fbtn[data-fold="cmte"] .fs')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()),
     prev: q('#dayPrev') ? [q('#dayPrev').tagName, q('#dayPrev').getAttribute('aria-disabled'), q('#dayPrev').getAttribute('aria-label'), q('#dayPrev').getAttribute('href')] : null, next: q('#dayNext') ? [q('#dayNext').tagName, q('#dayNext').getAttribute('aria-disabled'), q('#dayNext').getAttribute('aria-label'), q('#dayNext').getAttribute('href')] : null,
-    close: q('#calClose') ? [q('#calClose').getAttribute('aria-label'), q('#calClose').getAttribute('href')] : null, whole: q('#dayWeek')?.getAttribute('href') || '', back: !!q('#backWeek'),
+    close: q('#tbClose') ? [q('#tbClose').getAttribute('aria-label'), q('#tbBack').getAttribute('href')] : null, whole: q('#dayWeek')?.getAttribute('href') || '', back: !!q('#backWeek'),
     side: document.documentElement.scrollWidth <= innerWidth && [...document.querySelectorAll('.paper, .sheetp, .dayp')].every(p => p.scrollWidth <= p.clientWidth), pageScroll: document.documentElement.scrollHeight <= innerHeight, sheetOverflow: q('.sheetp') ? getComputedStyle(q('.sheetp')).overflowY : '' }; }"""
 LINKS = """async key => { const d = await import('/staff6/data.js'), m = await import('/staff6/model.js'); const S = d.S, out = [];
   const sk = h => String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean).sort().join('/') + '|' + new Date(h.scheduled_at).toISOString(), http = u => /^https?:\\/\\//i.test(String(u || '').trim());
@@ -316,13 +316,13 @@ with sync_playwright() as p:
         # a picked hearing: the page opens beside its day, and the header is the same row, in the same place
         pg.click(f'.cgrid a[data-sit="{KEYS["AGR"]}"]'); pg.wait_for_timeout(300)
         bp = {s: box(s) for s in ROW}; hdp = box('.wl'); ppp = box('.paper')
-        ok(all(near(bp[s][k], T0[s][k], 1) for s in ROW for k in ('x', 'y', 'width', 'height')) and near(ppp['y'], hdp['y'] + hdp['height'], 1.5) and hdp['height'] <= 96.5, f'{tag}: a sitting picked in Week: the header is the same row, the title and every control exactly where they were (header {hdp["height"]})')
-        ok(pg.locator('#calClose').get_attribute('aria-label') == 'Close' and pg.locator('#backWeek').count() == 0 and pg.locator('.wl [data-sit]').count() == 0 and 'Agriculture' in pg.evaluate(H1), f'{tag}: a sitting picked in the grid opens its page beside its day, with Close')
+        ok(all(near(bp[s][k], T0[s][k], 1) for s in ROW for k in ('x', 'y', 'width', 'height')) and 0 <= ppp['y'] - (hdp['y'] + hdp['height']) <= 60 and hdp['height'] <= 96.5, f'{tag}: a sitting picked in Week: the header is the same row (R-398: the Back and Close row sits between it and the page), the title and every control exactly where they were (header {hdp["height"]})')
+        ok(pg.locator('#tbClose').get_attribute('aria-label') == 'Close' and pg.locator('#backWeek').count() == 0 and pg.locator('.wl [data-sit]').count() == 0 and 'Agriculture' in pg.evaluate(H1), f'{tag}: a sitting picked in the grid opens its page beside its day, with Close')
         snap(pg, 'cal_sitting_JM_crafted', tag)
-        pg.click('#calClose'); pg.wait_for_timeout(300); ok(pg.locator('.cgrid').count() == 1 and 'view=' not in pg.url, f'{tag}: Close returns to the grid')
-        pg.click('.cgrid a[data-dl]'); pg.wait_for_timeout(300); ok(pg.locator('#calClose').count() == 1 and pg.evaluate(H1) == 'First committee deadline', f'{tag}: a deadline picked in the grid has the same Close')
+        pg.click('#tbClose'); pg.wait_for_timeout(300); ok(pg.locator('.cgrid').count() == 1 and 'view=' not in pg.url, f'{tag}: Close returns to the grid')
+        pg.click('.cgrid a[data-dl]'); pg.wait_for_timeout(300); ok(pg.locator('#tbClose').count() == 1 and pg.evaluate(H1) == 'First committee deadline', f'{tag}: a deadline picked in the grid has the same Close')
         pg.go_back(); pg.wait_for_timeout(300); ok(pg.locator('.cgrid').count() == 1, f'{tag}: Back from it returns to the grid')
-        pg.click('.cgrid a[data-td]'); pg.wait_for_timeout(300); ok(pg.locator('.kick').first.inner_text().startswith('Testimony ·') and pg.locator('#calClose').count() == 1, f'{tag}: a testimony chip opens the sitting with its testimony line, and the same Close')
+        pg.click('.cgrid a[data-td]'); pg.wait_for_timeout(300); ok(pg.locator('.kick').first.inner_text().startswith('Testimony ·') and pg.locator('#tbClose').count() == 1, f'{tag}: a testimony chip opens the sitting with its testimony line, and the same Close')
         # an empty week says it once; with something, only the days with nothing say so
         dl = pg.evaluate("async () => { const w = await import('/staff7/words.js'); const r = w.sessionDates(null).find(r => r.date > '2026-03-30'); return [r.date, r.label]; }")
         import datetime as dt
@@ -403,11 +403,11 @@ with sync_playwright() as p:
     first = pg.locator('.wl a[data-sit]').first
     if first.count():
         first.click(); pg.wait_for_timeout(350)
-        ok(pg.locator('.back.backhome').inner_text().strip() == 'Back to Calendar' and not pg.locator('.wl').is_visible() and 'view=week' not in pg.url, 'phone: a picked sitting opens with "Back to Calendar", the list hidden')
+        ok(pg.locator('.back').inner_text().strip() == 'Back to Calendar' and not pg.locator('.wl').is_visible() and 'view=week' not in pg.url, 'phone: a picked sitting opens with "Back to Calendar", the list hidden')
         ok(pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'phone: sitting: no sideways scroll, 44px ({pg.evaluate(SMALL)[:2]})'); snap(pg, 'cal_phone_sitting', '390x844')
-        pg.click('.back.backhome'); pg.wait_for_timeout(350); ok(pg.locator('.wl').is_visible(), 'phone: Back to Calendar returns to the list')
+        pg.click('.back'); pg.wait_for_timeout(350); ok(pg.locator('.wl').is_visible(), 'phone: Back to Calendar returns to the list')
     go(pg, '#/calendar'); pg.locator('.wl a[data-dl]').first.click(); pg.wait_for_timeout(350)
-    ok(pg.locator('.back.backhome').inner_text().strip() == 'Back to Calendar' and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), 'phone: a deadline\'s page has the same way back, no sideways scroll'); snap(pg, 'cal_phone_deadline', '390x844')
+    ok(pg.locator('.back').inner_text().strip() == 'Back to Calendar' and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), 'phone: a deadline\'s page has the same way back, no sideways scroll'); snap(pg, 'cal_phone_deadline', '390x844')
     ok(not errs and not bad, f'phone: no console error ({errs[:1]})'); pg.context.close()
 
     # ================= the Week grid is the default; List is ?view=list; the phone is the List whatever the address says =================
@@ -473,7 +473,7 @@ with sync_playwright() as p:
             if not I['kick'].startswith('Hearing ·'): P.append(f'kicker {I["kick"]}')
             if n_ == 0:   # the first of each view also checks Whole week; the others check Close
                 pg.click('#dayWeek')
-            else: pg.click('#calClose')
+            else: pg.click('#tbClose')
             pg.wait_for_timeout(250)
             if not (pg.locator('.cgrid').count() == 1 and pg.locator('.split').count() == 0 and (not vq or vq in pg.url) and 'sitting' not in pg.url): P.append(f'did not return to the grid {pg.url}')
             ok(not P, f'{lab}: hearing {key[:40]} picked in the grid ({n_ + 1}/{len(keys)}) {P[:4]}')
@@ -485,14 +485,14 @@ with sync_playwright() as p:
     for i in range(n_td):
         c = pg.locator('.cgrid a[data-td]').nth(i); col = c.evaluate("a => a.closest('section').getAttribute('aria-labelledby')"); key = c.get_attribute('data-td'); c.click(); pg.wait_for_timeout(250); I = pg.evaluate(SHEET)
         if not (I['dayCol'] == col and I['cols'] == 1 and I['marked'] == [['', key, '']] and I['kick'].startswith('Testimony ·') and I['rdy'].startswith('Are we ready?') and I['close']): P.append((i, I['dayCol'], col, I['marked'], I['kick']))
-        pg.click('#calClose'); pg.wait_for_timeout(200)
+        pg.click('#tbClose'); pg.wait_for_timeout(200)
     ok(n_td >= 1 and not P, f'KR: every testimony time of the week ({n_td}) opens the hearing sheet beside its day, marked, with its testimony line {P[:2]}')
     P = []
     for i in range(dls_):
         c = pg.locator('.cgrid a[data-dl]').nth(i); col = c.evaluate("a => a.closest('section').getAttribute('aria-labelledby')"); key = c.get_attribute('data-dl'); c.click(); pg.wait_for_timeout(250); I = pg.evaluate(SHEET)
         dv = pg.evaluate("d => new Date(d + 'T12:00:00-10:00').toLocaleDateString('en-US', {timeZone: 'Pacific/Honolulu', weekday: 'short', month: 'short', day: 'numeric'})", day_of(col))
         if not (I['dayCol'] == col and I['marked'] == [['', '', key]] and dv in pg.locator('.sheetp .facts').inner_text() and I['close'] and not I['folds'] and I['kick'] == 'Capitol deadline' and I['filled'] == 0 and I['side']): P.append((i, I['dayCol'], col, I['marked'], I['kick'], I['folds']))
-        pg.click('#calClose'); pg.wait_for_timeout(200)
+        pg.click('#tbClose'); pg.wait_for_timeout(200)
     ok(not P, f'KR: every deadline of the week ({dls_}) opens its sheet on the day paper of its date, marked, no folds, no filled button {P[:2]}')
     # the arrows: earlier and later land on a day that has something; disabled at the ends
     days = pg.evaluate("() => [...document.querySelectorAll('.cgrid .cgcol')].map(c => [c.getAttribute('aria-labelledby'), c.querySelectorAll('.cgc').length])"); have = [d for d, k in days if k]; P = []
@@ -508,7 +508,7 @@ with sync_playwright() as p:
                 pg.click('#dayPrev' if nm == 'prev' else '#dayNext'); pg.wait_for_timeout(250); J = pg.evaluate(SHEET)
                 if J['dayCol'] != tgt or J['cols'] != 1 or not J['marked']: P.append((d, nm, J['dayCol'], tgt))
                 pg.go_back(); pg.wait_for_timeout(250)
-        pg.click('#calClose'); pg.wait_for_timeout(200)
+        pg.click('#tbClose'); pg.wait_for_timeout(200)
     ok(len(have) >= 2 and not P, f'KR: Earlier and Later land on the nearest day with something, disabled at the ends ({len(have)} days) {P[:3]}')
     ok(not errs and not bad, f'KR: testimony, deadlines, arrows: no console error ({errs[:1]} {bad[:1]})'); pg.context.close()
 
@@ -519,7 +519,7 @@ with sync_playwright() as p:
         for key in keys:
             pg.locator(f'.cgrid a[data-sit="{key}"]').first.click(); pg.wait_for_timeout(250)
             if pg.locator('.fbtn').count() == 1: both = key; break
-            pg.click('#calClose'); pg.wait_for_timeout(200)
+            pg.click('#tbClose'); pg.wait_for_timeout(200)
         ok(both is not None, f'{tag}: a hearing with the committee fold is in the week')
         I = pg.evaluate(SHEET); ok(all(f[1] == 'true' and f[2] for f in I['folds']) and I['side'], f'{tag}: in the Week view the committee fold starts open (the sheet has two columns) ({I["folds"]})')
         pg.click('.fbtn[data-fold="cmte"]'); pg.wait_for_timeout(150); ok(pg.locator('.fbtn[data-fold="cmte"]').get_attribute('aria-expanded') == 'false' and not pg.locator('#fold-cmte').is_visible(), f'{tag}: a fold closes when pressed')
@@ -527,7 +527,7 @@ with sync_playwright() as p:
         pg.click('.fbtn[data-fold="cmte"]'); snap(pg, 'cal_hearing_week', tag)
         # the List, same hearing: the left column stays, no X, the sheet is narrower (two columns at 1280 now that the list is 340 wide, R-398 list width), folds follow its width
         pg.context.close(); pg, errs, bad = open_as(br, 'KR', w, h, '#/calendar/sitting/' + both.replace('|', '%7C').replace(':', '%3A').replace('/', '%2F') + '?view=list'); I = pg.evaluate(SHEET)   # a fresh page: the defaults, not the fold pressed above
-        ok(pg.locator('.wl #weekRow').count() == 1 and I['close'] is None and I['split'] == 0 and I['bills'] >= 1 and I['side'] and I['filled'] <= 1, f'{tag}: the List keeps its left column and has no Close; the same sheet opens on the right')
+        ok(pg.locator('.wl #weekRow').count() == 1 and I['close'] is not None and I['split'] == 0 and I['bills'] >= 1 and I['side'] and I['filled'] <= 1, f'{tag}: the List keeps its left column and the page has the frame\'s Back and Close; the same sheet opens on the right')
         cols = pg.evaluate("() => getComputedStyle(document.querySelector('.cols')).gridTemplateColumns.split(' ').length")
         ok(all((f[1] == 'true') == (cols == 2) for f in I['folds'] if f[0] == 'cmte') and (w != 1280 or cols == 2), f'{tag}: in the List the folds follow the sheet\'s width ({cols} column(s); {I["folds"]})'); snap(pg, 'cal_hearing_list', tag)
         ok(not errs and not bad, f'{tag}: folds and list: no console error ({errs[:1]} {bad[:1]})'); pg.context.close()

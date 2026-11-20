@@ -35,7 +35,7 @@ const TRI = () => ic('triangle-alert');
 // ---------------------------------------------------------------------------------- the band and the position line
 function bandHTML(issue, bills, who, back, backLabel) {
   const alive = bills.filter(isAlive), sub = !bills.length ? 'No bill on it this session' : !alive.length ? (bills.length === 1 ? 'Its bill stopped this year' : `None of its ${bills.length} bills is alive`) : alive.length === bills.length ? n(bills.length, 'bill', 'bills') : `${alive.length} of ${bills.length} bills alive`;
-  return `<div class="hband bb" style="${tint(issue)}"><span class="imark big iss" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht"><a class="crumb back2" id="iBack" href="${esc(back || issuesHref(who))}">${ic('chevron-left')}Back to ${esc(backLabel || 'Issues')}</a><p class="kindl">Issue</p><h1 tabindex="-1">${esc(eCig(issue.name))}</h1><p class="bsub"><span class="bno">${esc(sub)}</span></p></div></div>`;
+  return `<div class="hband bb" style="${tint(issue)}"><span class="imark big iss" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht"><p class="kindl">Issue</p><h1 tabindex="-1">${esc(eCig(issue.name))}</h1><p class="bsub"><span class="bno">${esc(sub)}</span></p></div></div>`;
 }
 function leadWords(issue, me) {
   if (!live(issue.owner_id)) return 'Nobody leads yet';

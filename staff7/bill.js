@@ -39,14 +39,18 @@ const chamberWord = b => /^S/i.test(String(b.bill_number || '').trim()) ? 'Senat
 export const stoppedISO = b => { const m = /(\d+)\/(\d+)\/(\d+)\s*$/.exec(b.died_deadline || ''); if (!m) return ''; const y = +m[3] < 100 ? 2000 + +m[3] : +m[3]; return `${y}-${String(m[1]).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}`; };
 // ---------------------------------------------------------------------------------- back
 // "Back to <issue>", or where the person came from (the address carries from=calendar or from=search)
+// R-398 (Nate 20 Nov): the page no longer draws its own Back; the frame draws one top row (Back and Close). The bill only says where it would go when it was
+// opened straight from a link (the natural parent): the screen it came from (from=...), else its issue, else Issues. Read by frame.js after the page is drawn.
+export const billParent = { h: '#/issues', name: 'Issues' };
 function backOf(issue, b, who, from, bq = '') {
-  let href, label;
-  if (from === 'bills') { href = backHref(bq); label = 'Back to All bills'; }
-  else if (from === 'calendar') { href = `#/calendar${who.code ? `?who=${enc(who.code)}` : ''}`; label = 'Back to Calendar'; }
-  else if (from === 'search') { href = '#/search'; label = 'Back to Search'; }
-  else if (issue) { href = issueHref(who, issue.id); label = `Back to ${sameName(b, issue) ? 'the issue' : esc(eCig(issue.name))}`; }   // a bill the team tracks that is on no issue has no issue to go back to
-  else { href = issuesHref(noTopic(who)); label = 'Back to Issues'; }
-  return `<a class="crumb back2" id="bBack" href="${esc(href)}">${ic('chevron-left')}${label}</a>`;
+  let h, name;
+  if (from === 'bills') { h = backHref(bq); name = 'All bills'; }
+  else if (from === 'calendar') { h = `#/calendar${who.code ? `?who=${enc(who.code)}` : ''}`; name = 'Calendar'; }
+  else if (from === 'search') { h = '#/search'; name = 'Search'; }
+  else if (issue) { h = issueHref(who, issue.id); name = sameName(b, issue) ? 'the issue' : eCig(issue.name); }   // a bill the team tracks that is on no issue has no issue to go back to
+  else { h = issuesHref(noTopic(who)); name = 'Issues'; }
+  billParent.h = h; billParent.name = name;
+  return '';
 }
 
 // ---------------------------------------------------------------------------------- 1. the position and who leads
@@ -186,8 +190,8 @@ export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   // Opened from an issue (the address says ?i=<that issue>): the issue is the whole, the bill a part of it. The mark is smaller and only outlined, the number is the small line above the title, and Back is the trail
   // "Issues › <issue name>". Without ?i= (or from Calendar or Search) the page is as it was.
   const fi = !!issue && !from && (new URLSearchParams((location.hash.split('?')[1] || '')).get('i') || '') === String(issue.id);
-  const trail = `<span class="crumb back2 trail" id="bBack"><a class="lk" href="${esc(issuesHref(noTopic(who)))}">Issues</a><span aria-hidden="true">${ic('chevron-right')}</span><a class="lk" href="${esc(issueHref(who, issue?.id))}">${esc(eCig(issue?.name))}</a></span>`;
-  let out = `<div class="pn"><div class="hband bb${fi ? ' fromissue' : ''}" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big${fi ? ' out' : ''}" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${fi ? trail : backOf(issue, b, who, from, x.bq)}${fi ? `<p class="kindl no">${esc(billNo(b))}</p>` : ''}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b, fi)}</div></div><div class="pbody bill">`;
+  billParent.h = issueHref(who, issue?.id); billParent.name = eCig(issue?.name);   // the natural parent of a bill opened from its issue
+  let out = `<div class="pn"><div class="hband bb${fi ? ' fromissue' : ''}" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big${fi ? ' out' : ''}" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${fi ? '' : backOf(issue, b, who, from, x.bq)}${fi ? `<p class="kindl no">${esc(billNo(b))}</p>` : ''}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b, fi)}</div></div><div class="pbody bill">`;
   const can = mayEdit(b, issue, me); if (!(can && bui.edit && bui.edit.id === b.id)) bui.edit = null;   // an edit open on another bill, or one this person may not make, is dropped
   bui.ctx = { b, issue, me };
   out += positionHTML(b, issue, me, can);

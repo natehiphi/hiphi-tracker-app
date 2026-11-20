@@ -29,7 +29,7 @@ def open_as(br, who, w, h, hash='', store=None):
     pg.goto(f'{BASE}/staff7.html?demo=1&as={who}' + hash); pg.wait_for_selector('.paper', timeout=60000)
     pg.evaluate("Promise.all([document.fonts.load('600 16px Poppins'), document.fonts.load('400 16px Lato'), document.fonts.load('700 16px Lato'), document.fonts.load('500 16px Poppins')])"); pg.wait_for_timeout(500)
     return pg
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_selector('.paper'); pg.wait_for_timeout(600)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_selector('.paper'); pg.wait_for_timeout(600)
 def snap(pg, name):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
 WL = "() => document.getElementById('wl') ? Math.round(document.getElementById('wl').getBoundingClientRect().width) : null"

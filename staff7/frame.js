@@ -13,8 +13,9 @@ import { followSheet, bindFollow, decideSheet, bindDecide, viceSheet, bindVice }
 import { missedSheet, bindMissed, notFiledStep } from './do_missed.js';
 import { doneSheet, bindDone, stopDone, UNDO_MS } from './done.js';
 import { ic } from './icons7.js';
-import { issuesModel, ui as issuesUi } from './issues.js';
+import { issuesModel, ui as issuesUi, eCig } from './issues.js';
 import { issuePage } from './issue.js';
+import { billParent } from './bill.js';
 import { calendarModel } from './calendar.js';
 import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
 import { initWidth, handleHTML, syncHandle, dragging } from './width.js';
@@ -80,6 +81,8 @@ const ctx = { me: null, notes: mk(), stage: Object.assign(mk(), saved.stage), ma
     delete ctx.finished[id]; ctx.setStage(memoKey(f.step), 1); location.hash = f.back || '#/do/' + encodeURIComponent(id);
     const words = f.kind === 'filed' || f.kind === 'recorded' ? 'Put back. The timeline still shows it was marked filed.' : f.kind === 'asked' ? 'Put back. The ask is not recorded.' : 'Undone. Nothing was sent.';
     addEventListener('hashchange', () => toast(words, { ms: 5000 }), { once: true }); } };   // after the page is drawn, which clears the old toast
+// S-11: the words being written for a step are kept through Back, Close and a reload; a finished send clears them when its done page is left (Undo, from the done page, keeps them)
+const clearMail = s => { let n = 0; for (const k of Object.keys(ctx.mail)) if (k === s.id || k.startsWith(s.id + '@') || k === memoKey(s) || (s.askKey && k === 'vice:' + s.askKey)) { delete ctx.mail[k]; n++; } if (n) keep(); };
 const freshDraft = f => (S.drafts[f.billId] || []).find(d => d.id === f.draftId);
 const hides = (f, s) => !!f && f.step.kind === s.kind && (f.status == null || freshDraft(f)?.status === f.status);   // a finished step stays hidden only while its draft is in the state that finished it
 const held = () => Object.values(ctx.finished).some(f => f.kind === 'back' && f.timer);
@@ -143,38 +146,135 @@ function doorSheet(k) {
   return `<div class="pn">${plainBand(name, WILL[k])}<div class="pbody"><p class="lead"><span class="stmark">${ic('clock')}<span>Not built yet</span></span></p><p class="lead">This place is coming. Your steps are on Home.</p><div class="sfoot plain">${btn('Back to Home', { kind: 'filled', href: '#/' })}</div></div></div>`;
 }
 const unbuiltSheet = s => `<div class="pn">${band(s.issue, s.verb, s.name, s.no)}<div class="pbody">${dueStrip(s, { hearing: hearingLine(s.hearing) })}<p class="lead">This step’s page is being built.</p></div></div>`;
-const missingSheet = () => `<div class="pn">${plainBand('That step is done or no longer yours.', '')}<div class="pbody"><p class="lead"><a class="btn text" href="#/">Back to Home</a></p></div></div>`;
+const missingSheet = () => `<div class="pn">${plainBand('That step is done or no longer yours.', '')}<div class="pbody"></div></div>`;
 const peopleSheet = () => `<div class="pn">${plainBand(`No practice person ${ctx.unknown}.`, 'Pick one of these.')}<div class="pbody"><ul class="people">${people.map(a => `<li><a class="btn quiet" href="?demo=1&as=${encodeURIComponent(a.initials)}">${esc(a.full_name)} · ${esc(a.initials)}</a></li>`).join('')}</ul></div></div>`;
 const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(s, ctx), () => bindWrite(s, ctx)]
   : s.kind === 'approve' || s.kind === 'second' ? [approveSheet(s, ctx), () => bindApprove(s, ctx)]
   : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'chairfu' ? [followSheet(s, ctx), () => bindFollow(s, ctx)] : s.kind === 'decide' ? [decideSheet(s), () => bindDecide(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
 
+// ---- the trail (R-398, Nate 20 Nov): where the person has been this session, so Back and Close go to the screen they came from ----
+// Each page the person opens is one entry; its place in the browser's own history is written to history.state (t7), so Back (the link, the X, Escape)
+// is history.go(-n) when the screen before is a real entry, and the browser's Back button, Forward and a reload all agree with it. A page opened
+// straight from a link has nothing before it: Back and Close then go to its natural parent and replace it, so nothing loops.
+const TK = 'hiphi7_trail', CAP = 60;
+const trail = (() => {
+  try { const t = JSON.parse(sessionStorage.getItem(TK)), nav = performance.getEntriesByType?.('navigation')[0];
+    if (t && Array.isArray(t.s) && Number.isInteger(t.i) && Number.isInteger(t.o) && nav && nav.type !== 'navigate') return t; } catch { /* a fresh trail */ }   // a page opened by address starts a new trail; a reload keeps it
+  return { s: [], i: -1, o: 0 };   // s: [{ h, name, fam }]; i: the entry shown; o: how many oldest entries were dropped (history.state counts from the first ever)
+})();
+const saveTrail = () => { try { sessionStorage.setItem(TK, JSON.stringify(trail)); } catch { /* the trail still works in memory */ } };
+let replacing = false, leftFrom = '', here = { tgt: null, opened: false };
+function track(h, name, fam) {
+  const st = history.state, k = st && Number.isInteger(st.t7) ? st.t7 - trail.o : -1;
+  if (k >= 0 && k < trail.s.length) { trail.i = k; trail.s[k] = { h, name, fam }; }   // an entry we know: Back, Forward or a reload
+  else if (replacing && trail.i >= 0) { trail.s[trail.i] = { h, name, fam }; trail.s.length = trail.i + 1; }   // Close on a page with nothing before it: the parent takes its place
+  else if (trail.i >= 0 && trail.s[trail.i].h === h) trail.s[trail.i] = { h, name, fam };   // drawn again, same page
+  else { trail.s.length = trail.i + 1; trail.s.push({ h, name, fam }); trail.i = trail.s.length - 1; if (trail.s.length > CAP) { trail.s.shift(); trail.o++; trail.i--; } }
+  replacing = false; saveTrail();
+}
+// the entry's place is written to the browser's history state at the END of a draw, after find.js has written its own state
+const stamp = () => { if (trail.i < 0) return; try { history.replaceState({ ...(history.state || {}), t7: trail.o + trail.i }, ''); } catch { /* the address stays as it is */ } };
+// the path of a flow that ends in a "done" page: Back from the done page skips the steps that made it (the step is finished and gone)
+const FLOW = /^#\/(do|done|give|vice)\/|^#\/team\/(step|give|done)\/|^#\/team\/many\/(give|done)/;
+const isDoneLike = h => /^#\/done\/|^#\/team\/done\/|^#\/team\/many\/done/.test(h);
+// where Back and Close go: the screen before in the trail (skipping this page's own family or flow), else the page's natural parent
+function targetOf(h, fam, nat) {
+  let j = trail.i - 1;
+  while (j >= 0 && ((fam && trail.s[j].fam === fam) || (isDoneLike(h) && FLOW.test(trail.s[j].h)))) j--;
+  return j >= 0 ? { h: trail.s[j].h, name: trail.s[j].name, steps: trail.i - j } : { h: nat.h, name: nat.name, steps: 0 };
+}
+function leave() {
+  const t = here.tgt; if (!t) return;
+  leftFrom = location.hash;
+  if (t.steps > 0) history.go(-t.steps); else { replacing = true; location.replace(t.h); }
+}
+const topRow = t => `<div class="toprow"><a class="back" id="tbBack" href="${esc(t.h)}">${ic('chevron-left')}Back to ${esc(t.name)}</a><button class="xbtn" id="tbClose" type="button" aria-label="Close">${ic('x')}</button></div>`;
+// the name an entry is called when a later page says "Back to ..."
+function nameOf(rt, im, label) {
+  const id = String(rt.id || '');
+  switch (rt.r) {
+    case 'home': return 'Home';
+    case 'do': return id === 'leads' ? 'Lead changes' : 'the step';
+    case 'hearing': return 'the hearing';
+    case 'waiting': return 'Waiting on others';
+    case 'suggested': return 'the suggestion';
+    case 'done': return 'the finished step';
+    case 'ask': return 'the reply';
+    case 'give': return 'Give this ask';
+    case 'vice': return 'the ask';
+    case 'issues': return !id ? 'Issues' : id === 'session' ? 'the session' : id === 'bills' ? 'All bills' : /^new(\/|$)/.test(id) ? 'New bills' : /^topic\//.test(id) ? 'the topic' : 'Issues';
+    case 'issue': return (im?.pageIssue && eCig(im.pageIssue.name)) || 'the issue';
+    case 'bill': return 'the bill';
+    case 'calendar': return 'Calendar';
+    case 'search': return !id ? 'Search' : 'the search result';
+    case 'team': return !id ? 'Team' : id === 'many' ? 'the list' : id.startsWith('step/') ? 'the step' : id.startsWith('bill/') ? 'the bill' : 'Team';
+    case 'publicbill': return 'the public words';
+    case 'publiclist': return 'Public words';
+    case 'publicchange': return 'the change';
+    case 'door': return label;
+    default: return 'the page';
+  }
+}
+function naturalOf(rt, im) {
+  const id = String(rt.id || '');
+  if (rt.r === 'give') return { h: '#/ask/' + encodeURIComponent(id), name: 'the reply' };
+  if (rt.r === 'publicbill') return { h: '#/bill/' + encodeURIComponent(id), name: 'the bill' };
+  if (rt.r === 'publicchange') return { h: '#/public', name: 'Public words' };
+  if (im?.back) return { h: im.back, name: im.backLabel || 'Issues' };
+  return { h: '#/', name: 'Home' };
+}
+// Escape: a panel that is open closes first (its button gets the focus back), else an opened page closes. A text field keeps its own Escape.
+const PANELS = '#whoMate, #abFilt, #tpBtn, #seeMail';
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
+  const a = document.activeElement;
+  if (a && (/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.isContentEditable)) return;
+  const p = [...document.querySelectorAll(PANELS)].find(b => b.getAttribute('aria-expanded') === 'true' && b.getBoundingClientRect().width > 0 && (() => { const c = document.getElementById(b.getAttribute('aria-controls')); return !c || (!c.hidden && c.getClientRects().length > 0); })());
+  if (p) { e.preventDefault(); p.click(); p.focus({ preventScroll: true }); return; }
+  if (here.opened) { e.preventDefault(); leave(); }
+});
+addEventListener('click', e => {
+  const x = e.target.closest?.('[data-closes]');   // a panel's own X: closes it and gives the focus back to the button that opened it
+  if (x) { const b = document.getElementById(x.dataset.closes); if (b && b.getAttribute('aria-expanded') === 'true') { e.preventDefault(); b.click(); b.focus({ preventScroll: true }); } return; }
+  const el = e.target.closest?.('#tbBack, #tbClose'); if (!el || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault(); leave();
+});
+
 // ---- draw ----
 let lastRoute = '', lastFam = '', first = true;
-// R-398 part 1b: the address the person was on before public mode; "Leave public mode" goes back to it (a bill's page when they came straight in)
-let lastPlain = '';
 // Public mode: the bill's public words with no app bar and no left column, the window plum (tokens.css). Only this route is drawn so.
-function drawPublic(rt) {
+// It has the same top row as every opened page (Back to where the person came from, and Close), drawn into the plum band in place of "Leave public mode".
+function drawPublic(rt, opts = {}) {
   document.documentElement.dataset.mode = 'public';
   document.body.classList.remove('isws', 'hasbar', 'nobar');
   $('bar-slot').innerHTML = '';
-  const pg = rt.r === 'publiclist' ? publicListPage({ q: rt.q, back: lastPlain })
-    : rt.r === 'publicchange' ? publicChangePage({ id: rt.id, q: rt.q, back: lastPlain })
-    : publicBillPage({ id: rt.id, q: rt.q, back: lastPlain });
-  $('app').innerHTML = pg.html; pg.bind();
+  if (!opts.tick) track(location.hash, nameOf(rt, null, ''), '');
+  const tgt = targetOf(location.hash, '', naturalOf(rt, null)); here = { tgt, opened: true };
+  const pg = rt.r === 'publiclist' ? publicListPage({ q: rt.q, back: tgt.h })
+    : rt.r === 'publicchange' ? publicChangePage({ id: rt.id, q: rt.q, back: tgt.h })
+    : publicBillPage({ id: rt.id, q: rt.q, back: tgt.h });
+  $('app').innerHTML = pg.html;
+  const w = document.querySelector('#app .pub-band .pub-wrap');
+  if (w) {
+    w.querySelector(':scope > a.btn')?.remove();
+    w.insertAdjacentHTML('afterbegin', `<a class="btn quiet pub-back" id="tbBack" href="${esc(tgt.h)}">${ic('chevron-left')}<span class="pub-long">Back to ${esc(tgt.name)}</span><span class="pub-short">Back</span></a>`);
+    w.insertAdjacentHTML('beforeend', `<button class="btn quiet pub-x" id="tbClose" type="button" aria-label="Close">${ic('x')}</button>`);
+  }
+  pg.bind();
   if (location.hash !== lastRoute) clearToast();   // a toast belongs to the page it was said on
-  lastRoute = location.hash; first = false; document.documentElement.dataset.ready = '1';
+  if (leftFrom && !opts.tick) { const o = [...document.querySelectorAll('#app a[href]')].find(a => a.getAttribute('href') === leftFrom && a.getBoundingClientRect().width > 0); if (o) o.focus({ preventScroll: true }); }
+  leftFrom = ''; stamp(); lastRoute = location.hash; first = false; document.documentElement.dataset.ready = '1';
 }
 function render(opts = {}) {
   stopDone(); clearInterval(ctx.pollT);
+  if (!opts.tick && lastRoute.startsWith('#/done/') && location.hash !== lastRoute) { let id = ''; try { id = decodeURIComponent(lastRoute.slice(7)); } catch { /* none */ } const f = ctx.finished[id]; if (f && f.step) clearMail(f.step); }
   const keepScroll = opts.tick ? [...document.querySelectorAll('.wl, .paper')].map(e => [e, e.scrollTop]) : [], tpOpen = opts.tick && !!document.getElementById('tpList') && !document.getElementById('tpList').hidden;
   const wasOpen = findOpen(), ae = document.activeElement, had = ae && ae.id, hadHref = ae && ae.tagName === 'A' && ae.closest('#app') ? ae.getAttribute('href') : '';   // a row link has no id: it is found again by its address
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
   // R-398 part 1b: public mode is drawn by drawPublic (no bar, no list, plum); any other address leaves it
   const rt0 = parse();
-  if (rt0.r === 'publicbill' || rt0.r === 'publicchange' || rt0.r === 'publiclist') { drawPublic(rt0); return; }
+  if (rt0.r === 'publicbill' || rt0.r === 'publicchange' || rt0.r === 'publiclist') { drawPublic(rt0, opts); return; }
   delete document.documentElement.dataset.mode;
-  lastPlain = location.hash;
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
   let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null;
   { const fam = rt.r === 'calendar' ? 'c' : /^(issues|issue|bill)$/.test(rt.r) ? 'i' : ''; if (!fam || fam !== lastFam) issuesUi.pick = false; lastFam = fam; }   // the teammate picker is open only within one tab's routes   // the teammate picker is open only within the Issues routes
@@ -211,16 +311,23 @@ function render(opts = {}) {
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
   const solo = !!im?.solo;   // a page with no list beside it (All bills)
   const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
-  const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to ${im.backLabel || 'Issues'}</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested', 'ask', 'give', 'vice'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
+  // R-398: the one top row. Home and the door landings (the lists) have none; every page opened from them has Back and Close.
+  const fam = rt.r === 'issues' && /^new(\/|$)/.test(String(rt.id || '')) ? 'sort' : '';
+  const opened = !onHome && !one && (!im || rt.r === 'bill' || (!!im.back && (im.picked || im.solo || fam === 'sort' || /^topic\//.test(String(rt.id || '')))));
+  if (!opts.tick) track(location.hash, nameOf(rt, im, label), fam);
+  const nat = naturalOf(rt, im && rt.r === 'bill' && !im.back ? { ...im, back: billParent.h, backLabel: billParent.name } : im);
+  const tgt = opened ? targetOf(location.hash, fam, nat) : null; here = { tgt, opened };
+  const row = opened ? topRow(tgt) : '', rowInList = opened && phone && im && !im.picked && !solo && !im.listOnly;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
-  const lists = one || solo ? '' : `<div class="wl" id="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
+  const lists = one || solo ? '' : `<div class="wl" id="wl">${rowInList ? row : ''}${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
   const grip = phone || one || solo || im?.wide || im?.fixedList ? '' : handleHTML();   // the width handle sits between the list and the page; not on a phone, not where there is no list beside the page, not above Calendar's Week grid
   // on a phone the greeting comes first, then the lists, then the facts and the session: the thing to do is never below a screen of overview
   $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
-    : `<div class="${cls}">${lists}${grip}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
+    : `<div class="${cls}">${lists}${grip}<div class="wp">${opened && !rowInList ? row : ''}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
+  if (opened) document.querySelectorAll('#app [data-notfound] .pbody p.lead > a.btn.text').forEach(a => { if (/^Back to/.test(a.textContent.trim())) { const p = a.parentElement; a.remove(); if (!p.textContent.trim()) p.remove(); } });
   bindHome(); bindFn && bindFn({ sync: () => { lastRoute = location.hash; }, tick: !!opts.tick });   // sync: a page that changes its own address (replaceState) tells the frame, so the next minute's redraw does not take it for a new page
   if (!opts.tick) noteOpened(rt);
   bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}), keep: () => render({ tick: true }) });
@@ -233,10 +340,14 @@ function render(opts = {}) {
   if (location.hash !== lastRoute) clearToast();   // a toast belongs to the page it was said on
   const key = location.hash, vis = sel => [...document.querySelectorAll(sel)].find(e => e.getBoundingClientRect().width > 0);
   const target = (opts.focus && vis(opts.focus)) || (opts.tick && had && document.getElementById(had)) || (opts.tick && hadHref && [...document.querySelectorAll('#app a[href]')].find(a => a.getAttribute('href') === hadHref && a.getBoundingClientRect().width > 0));
-  if (target) target.focus({ preventScroll: true });
+  const opener = !opts.tick && leftFrom && [...document.querySelectorAll('#app a[href]')].find(a => a.getAttribute('href') === leftFrom && a.getBoundingClientRect().width > 0);   // after Back or Close: the row that opened the page, if it is on the screen
+  if (opener) { opener.focus({ preventScroll: true }); opener.scrollIntoView({ block: 'nearest' }); }
+  else if (target) target.focus({ preventScroll: true });
   else if (!first && (key !== lastRoute || !document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); if (key !== lastRoute) window.scrollTo(0, 0); }
   if (!opts.tick && (!document.activeElement || document.activeElement === document.body)) { const h1 = vis('main h1'); h1 && h1.focus({ preventScroll: true }); }   // focus never drops to the page body
   if (rt.r === 'search' && !phone && !opts.tick && !im.picked) $('findIn')?.focus({ preventScroll: true });   // the Search door opens with the cursor in the box (on a phone it would raise the keyboard)
+  if (!opts.tick) leftFrom = '';
+  stamp();
   first = false; lastRoute = key; document.documentElement.dataset.ready = '1';
 }
 
@@ -248,6 +359,7 @@ function tick() {
   render({ tick: true });
 }
 window.__staff7Tick = tick;
+window.__staff7TrailReset = () => { trail.s = []; trail.i = -1; trail.o = 0; saveTrail(); try { history.replaceState(null, ''); } catch { /* none */ } };   // the tests make the next address a page opened by address, with nothing before it
 window.__staff7Render = o => render(o);   // the tests force a redraw even while a field has the focus   // the tests call the minute's redraw directly
 hooks7.draw = o => render(o);   // a read that the person is waiting on (the next bills, an introducers list): drawn at once, scroll and focus kept
 hooks7.render = o => o && o.tick ? tick() : render(o);   // Sort new bills: a queue that lands after the page is drawn draws it again the way the minute's tick does (never over a field being typed in)

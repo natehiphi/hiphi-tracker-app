@@ -88,7 +88,7 @@ def open_as(br, who, w, h, hash=''):
     pg.goto(f'{BASE}/staff7.html?demo=1' + (f'&as={who}' if who != 'default' else '') + hash); pg.wait_for_selector('.paper', timeout=60000)
     pg.evaluate("Promise.all([document.fonts.load('600 16px Poppins'), document.fonts.load('400 16px Lato'), document.fonts.load('700 16px Lato'), document.fonts.load('500 16px Poppins')])"); pg.wait_for_timeout(500)
     return pg, errs, bad
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(350)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_timeout(350)
 def snap(pg, name, tag):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'{name}_{tag}.png'))
 def steplinks(pg): return pg.evaluate("() => document.querySelectorAll('a[href^=\"#/do/\"]').length")
@@ -209,8 +209,8 @@ with sync_playwright() as p:
         snap(pg, 'issue_page_atrisk_JM', tag)
         pg.locator('#tBills tbody th a').first.click(); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(350)
         ok('#/bill/' in pg.url and pg.locator('main h1').inner_text().strip() and pg.locator(f'a.sr3[href^="#/issue/{rid}"]').get_attribute('aria-current') == 'true', f'{tag} JM: a bill opens from the issue\'s table; the issue is still marked open in the list ({pg.locator("main h1").inner_text().strip()[:30]})')
-        pg.locator('#bBack a').nth(1).click(); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(300)
-        ok(f'#/issue/{rid}' in pg.url and 'who=' not in pg.url, f'{tag} JM: the bill\'s trail goes back to its issue')
+        pg.locator('#tbBack').click(); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(300)
+        ok(f'#/issue/{rid}' in pg.url and 'who=' not in pg.url, f'{tag} JM: the bill\'s Back (R-398: it names the screen before) goes back to its issue')
         ok(not errs and not bad, f'{tag} JM: no console error, nothing left the machine')
         pg.context.close()
         # fix 3 and 5 across every issue: a stopped bill's "Still alive" leads with number and chamber; no row repeats its issue's name; no m/d/yy anywhere
@@ -620,7 +620,7 @@ with sync_playwright() as p:
     ok(pg.locator('.wl').is_hidden() and pg.locator('.back').inner_text().strip() == 'Back to Issues' and pg.evaluate(NOSIDE) and not pg.evaluate(SMALL), f'phone: an issue shows alone with "Back to Issues", no sideways scroll ({pg.evaluate(SMALL)[:2]})')
     snap(pg, 'issue_page_phone', '390x844')
     pg.locator('#tBills tbody th a').first.click(); pg.wait_for_selector('#bParts'); pg.wait_for_timeout(300)
-    backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2, #bBack a')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
+    backs = pg.evaluate("() => [...document.querySelectorAll('.back, .crumb.back2, #tbBack a')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.innerText.trim())")
     ok('#/bill/' in pg.url and 'i=' in pg.url and pg.evaluate(NOSIDE) and len(backs) >= 1, f'phone: a bill opened from the issue\'s table fits and says where it goes back to ({backs})')
     pg.evaluate("() => history.back()"); pg.wait_for_selector('#iStat'); pg.wait_for_timeout(300)
     ok(f'#/issue/{INFO["JM"]}' in pg.url and pg.locator('.back').inner_text().strip() == 'Back to Issues', 'phone: back from the bill is the issue, which has Back to Issues')

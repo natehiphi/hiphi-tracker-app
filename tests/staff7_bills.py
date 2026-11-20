@@ -42,7 +42,7 @@ def settle(pg):
     # the table has drawn every row (it draws the first ones at once and the rest in chunks)
     pg.wait_for_function("() => { const t = document.getElementById('aTab'); return !t || t.dataset.all === '1'; }", timeout=30000); pg.wait_for_timeout(120)
 def table(pg, hash):
-    pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(300); pg.wait_for_selector('#abResult'); settle(pg)
+    pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_timeout(300); pg.wait_for_selector('#abResult'); settle(pg)
 def rows(pg): return pg.evaluate(ROWS)
 def stopped_one(r):
     # a stopped bill on a page with one line: "Stopped Feb 11 · <line 1> · <committee>"; a bill the record cannot say more about is "Stopped Feb 11 · <committee>" (the word is not said twice)
@@ -465,10 +465,10 @@ with sync_playwright() as p:
     ok([r['no'] for r in rows(pg)][:12] == before and pg.evaluate(COUNT) == cnt and pg.input_value('#abPos') == 'with' and pg.input_value('#abSt') == 'alive' and pg.input_value('#abFind') == 'a' and heads_sort() == {'Where it is': 'descending'}, 'reload keeps the view, the filters and the sort')
     first = rows(pg)[0]
     pg.click('#aTab tbody tr:first-child a.bn'); pg.wait_for_selector('#bStat'); pg.wait_for_timeout(300)
-    ok('from=bills' in pg.url and 'bq=' in pg.url and pg.locator('#bBack').inner_text().strip() == 'Back to All bills', f'the bill\'s address carries from=bills and the table\'s query ({pg.locator("#bBack").inner_text().strip()!r})')
+    ok('from=bills' in pg.url and 'bq=' in pg.url and pg.locator('#tbBack').inner_text().strip() == 'Back to All bills', f'the bill\'s address carries from=bills and the table\'s query ({pg.locator("#tbBack").inner_text().strip()!r})')
     pg.go_back(); pg.wait_for_selector('#aTab'); settle(pg)
     ok(pg.url == url and [r['no'] for r in rows(pg)][:12] == before and pg.input_value('#abSt') == 'alive' and heads_sort() == {'Where it is': 'descending'}, 'the browser\'s Back from a bill returns to the same table')
-    pg.click('#aTab tbody tr:first-child a.bn'); pg.wait_for_selector('#bStat'); pg.click('#bBack'); pg.wait_for_selector('#aTab'); settle(pg)
+    pg.click('#aTab tbody tr:first-child a.bn'); pg.wait_for_selector('#bStat'); pg.click('#tbBack'); pg.wait_for_selector('#aTab'); settle(pg)
     ok(pg.url == url and [r['no'] for r in rows(pg)][:12] == before and pg.evaluate(COUNT) == cnt, '"Back to All bills" on the bill page returns to the table with its query')
     ok(pg.evaluate("() => history.length") <= hist0 + 2, 'typing and choosing did not pile up history steps')
     # Back keeps the place in a long table

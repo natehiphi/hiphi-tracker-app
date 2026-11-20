@@ -293,7 +293,7 @@ with sync_playwright() as p:
     ok(g[0] < g[1] < g[2] < g[3] < g[4] < g[5] < g[6] and g[7] <= g[8] and g[9] >= 0 and g[10] >= 0 and pg.locator('.back').count() == 0, f'phone: the greeting and its line, then To do, Waiting on others, Suggested, then the facts and the session ({[round(x) for x in g[:7]]})')
     ok(g[2] < 400 and not pg.locator('.ovr').is_visible(), f'phone: the To do list starts within the first screen ({g[2]:.0f}px) and the Overview row is not drawn (the greeting is the overview)')
     pg.click('#hs ~ ul a.sr3'); pg.wait_for_selector('#sendBtn'); pg.wait_for_timeout(300)
-    ok(pg.locator('.back').inner_text().strip() == 'Back to overview', 'phone: the link above a step says "Back to overview"')
+    ok(pg.locator('.back').inner_text().strip() == 'Back to Home', 'phone: the link above a step says "Back to Home" (R-398: it names the screen the person came from)')
     pg.click('.back'); pg.wait_for_timeout(300)
     ok(pg.locator('.ovtop').count() == 1 and not pg.evaluate(SMALL), 'phone: Back to overview returns to the overview, targets 44px')
     snap(pg, 'home_KV', 'phone_390x844'); pg.context.close()

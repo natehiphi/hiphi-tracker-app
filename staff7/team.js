@@ -91,7 +91,7 @@ function giveSheet(x, me) {
     return `<li><button class="grow${on ? ' on' : ''}" type="button" role="radio" aria-checked="${on}" data-id="${esc(a.id)}" data-name="${esc(giveName(a))}">${personMark(a.initials, { small: true })}<span class="gn"><b>${esc(giveName(a))}</b> <span class="gl">${esc(leadsWords(a))}</span>${lead ? `<span class="gflag">${ic('flag')}leads this issue</span>` : ''}</span><span class="gtick">${ic(on ? 'check' : 'chevron-right')}</span></button></li>`; }).join('');
   const p = list.find(a => a.id === ui.give.pick);
   return `<div class="pn">${bandNoDup(i, x.name, x.no, '', x.name)}<div class="pbody"><h2 class="gq" id="gq">Who should lead ${esc(x.name)}?</h2><ul class="gpick" role="radiogroup" aria-labelledby="gq">${rows}</ul>`
-    + `<div class="sfoot">${btn(p ? `Give to ${giveName(p)}` : 'Give to…', { kind: 'filled', id: 'giveBtn', disabled: !p })}${btn('Back', { kind: 'text', href: `#/team/bill/${enc(x.id)}` })}</div></div></div>`;
+    + `<div class="sfoot">${btn(p ? `Give to ${giveName(p)}` : 'Give to…', { kind: 'filled', id: 'giveBtn', disabled: !p })}</div></div></div>`;
 }
 
 function doneSheet(d, nextHref) {
@@ -100,9 +100,9 @@ function doneSheet(d, nextHref) {
   const sub = d.kind === 'give' ? `${look} ${pn(d.to)} is told.` : d.kind === 'step' ? `${look} ${d.holder ? `${pn(d.holder)} is told.` : 'Nothing else needs you.'}` : `${look} Nothing else needs you.`;
   const slack = messageBoxHTML(leadMessages([d.rec]));   // team_data.js: the same words everywhere
   return `<div class="pn"><div class="done enter tdone"><div class="dtile">${ic('check')}</div><h1 tabindex="-1">${esc(title)}</h1><p class="sub">${esc(sub)}</p>${slack}`
-    + `<div class="actions">${nextHref ? btn('Next bill with no lead', { kind: 'quiet', href: nextHref }) : btn('Back to Team', { kind: 'text', href: '#/team' })}</div></div></div>`;
+    + `${nextHref ? `<div class="actions">${btn('Next bill with no lead', { kind: 'quiet', href: nextHref })}</div>` : ''}</div></div>`;
 }
-const missing = (words, sub) => `<div class="pn">${plainBand(words, sub)}<div class="pbody"><p class="lead">${btn('Back to Team', { kind: 'text', href: '#/team' })}</p></div></div>`;
+const missing = (words, sub) => `<div class="pn">${plainBand(words, sub)}</div>`;
 
 // ---------------------------------------------------------------------------------- the model (frame.js reads: col, sheet, picked, back, backLabel, label, bind, listOnly)
 export function teamModel({ me, rt, open, phone }) {

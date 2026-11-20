@@ -53,7 +53,7 @@ def open_as(br, who, w, h, hash='', ctx=None):
     pg.goto(f'{BASE}/staff7.html?demo=1' + (f'&as={who}' if who != 'default' else '') + hash); pg.wait_for_selector('.paper', timeout=60000)
     pg.evaluate("Promise.all([document.fonts.load('600 16px Poppins'), document.fonts.load('400 16px Lato'), document.fonts.load('700 16px Lato'), document.fonts.load('500 16px Poppins')])"); pg.wait_for_timeout(500)
     return pg, ctx
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(450)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_timeout(450)
 def snap(pg, name):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
 def settle(pg):   # the other bills have been asked for and answered
@@ -431,7 +431,7 @@ with sync_playwright() as p:
     noi = pg.evaluate("async () => { const d = await import('/staff6/data.js'), S = d.S; const act = new Set(S.issues.filter(i => !i.archived_at).map(i => i.id)); const w = new Set(S.billIssues.filter(x => act.has(x.issue_id)).map(x => x.bill_id)); return S.bills.filter(b => b.tracked !== false && !w.has(b.id)).slice(0, 3).map(b => b.bill_number); }")
     for num in noi:
         go(pg, '#/search?q=' + num); settle(pg); pg.click(f'#slist a[data-k=bill][href^="#/bill/{num}"]'); pg.wait_for_timeout(500)
-        ok(pg.evaluate('location.hash').startswith(f'#/bill/{num}') and pg.locator('[data-notfound]').count() == 0 and pg.locator('a.back2:has-text("Back to Search")').count() == 1 and pg.locator('#bNoIssue').inner_text() == 'On no issue yet', f'{num}: one of our bills that is on no issue still opens its bill page (no dead end; it came from Search, so Back goes to Search)')
+        ok(pg.evaluate('location.hash').startswith(f'#/bill/{num}') and pg.locator('[data-notfound]').count() == 0 and pg.locator('#tbBack:has-text("Back to Search")').count() == 1 and pg.locator('#bNoIssue').inner_text() == 'On no issue yet', f'{num}: one of our bills that is on no issue still opens its bill page (no dead end; it came from Search, so Back goes to Search)')
     sit = None
     for code, _ in [(c, 0) for c in pg.evaluate("async () => Object.keys((await import('/staff6/data.js')).S.committees)")]:
         go(pg, f'#/search/committee/{code}'); s = pg.locator('.paper a[href^="#/calendar/sitting/"]')
@@ -451,7 +451,7 @@ with sync_playwright() as p:
     snap(pg, 'search-other.png')
     # --- not found
     for h, what in (('#/search/committee/ZZZ', 'committee'), ('#/search/person/99999999', 'person'), ('#/search/other/XX0000', 'other'), ('#/search/other/HB1562', 'tracked as other'), ('#/search/bogus', 'part'), ('#/search/person/%E0%A4%A', 'bad encoding')):
-        go(pg, h); ok(pg.locator('[data-notfound]').count() == 1 and 'We could not find' in pg.evaluate(H1) and pg.locator('.paper a:has-text("Back to Search")').count() == 1, f'{h}: the calm "not found" sheet ({pg.evaluate(H1)})')
+        go(pg, h); ok(pg.locator('[data-notfound]').count() == 1 and 'We could not find' in pg.evaluate(H1) and pg.locator('#tbBack:has-text("Back to Search")').count() == 1, f'{h}: the calm "not found" sheet ({pg.evaluate(H1)})')
     ok(not errs and not bad, f'Search: no console error and nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.close()
 

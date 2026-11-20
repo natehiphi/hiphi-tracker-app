@@ -54,6 +54,17 @@ svg.ic { width: var(--icon); height: var(--icon); fill: none; stroke: currentCol
 /* ---------- the page: the left is the list, the right is the thing picked from it (S-20) ---------- */
 .back { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); color: var(--act); text-decoration: none; font-weight: 700; margin: 0 0 var(--s2) calc(var(--s2) * -1); padding: 0 var(--s2); }
 .back:hover { text-decoration: underline; text-underline-offset: var(--s1); }
+/* R-398 (Nate 20 Nov): every opened page has one top row, "Back to <where you came from>" on the left and a Close X on the right, at every width */
+.toprow { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: var(--hit); margin: 0 0 var(--s2); }
+.toprow .back { margin: 0; min-width: 0; }
+.xbtn { display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--hit); height: var(--hit); padding: 0; border-radius: var(--r8); border: var(--line) solid transparent; background: none; color: var(--ink); cursor: pointer; transition: background var(--t-fast) var(--ease); }
+.xbtn:hover { background: var(--tint); }
+.xbtn:active { background: var(--rule); }
+.xbtn.sm { width: var(--hit); height: var(--hit); }
+.panx { display: flex; justify-content: flex-end; margin: 0 0 var(--s1); }
+@media (max-width: 899px) { .ws .wp > .toprow, .ws .wl > .toprow { position: sticky; top: 0; z-index: 15; background: var(--bg); } }
+.pub .pub-band .btn.quiet.pub-x { padding: 0; width: var(--hit); flex: none; }
+.pub .pub-band .btn.quiet.pub-back { flex: none; padding: 0 var(--s3); }
 .paper { background: var(--surface); border-radius: var(--r16); box-shadow: var(--sheet); container-type: inline-size; overflow: hidden; }
 
 /* the left column */
@@ -197,8 +208,11 @@ body.nobar main { padding-bottom: 0; }
   }
   .ws .wp { height: 100vh; padding: var(--s5) var(--s5) var(--s5) var(--s2); max-width: none; margin: 0; min-width: 0; }
   .ws.one .wp { padding-left: var(--s2); }
-  .ws .backhome { display: none; }
-  .paper { height: 100%; overflow-y: auto; position: relative; }
+  .ws .wp { display: flex; flex-direction: column; }
+  .ws .wp:has(> .toprow) { padding-top: var(--s2); }
+  .toprow { margin-bottom: var(--s1); }
+  .ws .wp > .toprow { padding-left: var(--s4); }   /* the list's width handle lies over the page's left edge: nothing clickable under it */
+  .paper { flex: 1 1 0; min-height: 0; overflow-y: auto; position: relative; }
   .pn { --px: var(--s6); }
   .pbody { padding: var(--s6) var(--px) 0; }
   .stgrid { flex: 1; display: grid; grid-template-columns: minmax(0, var(--letter-w)); gap: var(--s7); align-content: start; }
@@ -810,6 +824,8 @@ li[hidden] { display: none; }
 @media (max-width: 640px) {
   .hband.bb { align-items: flex-start; }
   .hband.bb .imark { margin-top: var(--s6); }
+  .hband.bb .imark:not(.iss) { margin-top: 0; }   /* R-398: the bill's band no longer holds its own Back above the title (the frame's top row is above the page) */
+  .hband.bb .imark.out { margin-top: var(--s3); }
   .hband.bb .bsub .bls { gap: 0 var(--s4); margin-left: calc((var(--person) + var(--s4)) * -1); flex-basis: calc(100% + var(--person) + var(--s4)); }   /* the links hang under the icon, so both fit on one line */
 }
 
@@ -882,14 +898,11 @@ li[hidden] { display: none; }
 .crumb.trail a.lk { display: inline-flex; align-items: center; min-height: var(--hit); text-decoration: none; }
 .crumb.trail a.lk:hover { text-decoration: underline; text-underline-offset: var(--s1); }
 .crumb.trail svg.ic { width: var(--icon-s); height: var(--icon-s); vertical-align: middle; color: var(--muted); }
-@media (max-width: 899px) { .hband.bb .crumb.back2#iBack { display: none; } }   /* on a phone the frame already draws "Back to Issues" above the page */
 
 /* Sort new bills (sort.js, R-398): the list rows, the page for the picked bill, the four fields and the three buttons. */
 .wl .nbt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }   /* line 1: two lines; sort.js cuts it at a word before this ever has to */
 .sr3.ir.sortrow .ir2 { flex-wrap: wrap; }
 .sr3.ir.sortrow .ir2 + .ir2 { margin-top: 0; }
-.sortback { display: none; }
-@media (max-width: 899px) { .ws .sortback { display: inline-flex; } }
 .sortempty { margin-top: var(--s4); }
 .sortmsg { font: 600 var(--f18)/1.3 var(--head); margin: 0; }
 .sortempty .hint { margin-top: var(--s2); }

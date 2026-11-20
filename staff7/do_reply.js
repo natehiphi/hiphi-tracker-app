@@ -59,7 +59,7 @@ export function replySheet(key) {
   h += `<div id="opts" data-chair="${esc(cur?.id || '')}" data-seen="${cur?.at || 0}">${OPTS.map(([k, t, s]) => `<button class="cch${none ? ' off' : ''}" type="button" data-ans="${k}"${none ? ' aria-disabled="true" aria-describedby="pickFirst"' : ''}><span class="cct"><b>${esc(t)}</b><span>${esc(s)}</span></span>${ic('chevron-right')}</button>`).join('')}</div>`;
   h += '<p class="errt" id="rpErr" role="alert" hidden></p></div></div>';
   h += `<div class="cfoot">${btn('Give this ask to…', { kind: 'text', href: '#/give/' + enc(key), id: 'giveLink' })}${btn('See the email you sent', { kind: 'text', id: 'seeMail', attrs: 'aria-expanded="false" aria-controls="mailSee"' })}</div>`;
-  return h + `<div class="cmail" id="mailSee" hidden>${emailHTML(a)}</div></div></div>`;
+  return h + `<div class="cmail" id="mailSee" hidden><p class="panx"><button class="xbtn sm" type="button" data-closes="seeMail" aria-label="Close the email">${ic('x')}</button></p>${emailHTML(a)}</div></div></div>`;
 }
 const chairOf = c => cmteWords((S.committeeMembers || []).find(m => String(m.legislator_id) === c.id && m.role === 'chair')?.committee);
 const didWords = (c, changing) => changing ? `Change ${esc(c.who)}’s answer` : `Did ${esc(c.who)} reply?`;
@@ -129,7 +129,7 @@ export function giveSheet(key) {
   const card = (x, lead) => `<button class="cch${lead ? ' lead' : ''}" type="button" data-to="${esc(x.id)}">${personMark(x.initials, { small: true })}<span class="cct"><b>${esc(first(x))}</b>${lead ? `<span>${esc(sub(x.id))}</span>` : ''}</span></button>`;
   return '<div class="pn">' + band(issue, 'Give this ask', billName(b), billNo(b)) + '<div class="pbody">' + strip(a)
     + `<div class="stgrid"><div class="stmain"><h2 class="sh">Who should take this ask over?</h2><p class="hint">Asked of ${esc(whoWords(a))}.</p><div class="cwho">${leads.map(x => card(x, true)).join('')}${rest.map(x => card(x, false)).join('')}</div>`
-    + `<p class="errt" id="gvErr" role="alert" hidden></p></div></div><div class="cfoot">${btn('Back to the reply', { kind: 'text', href: '#/ask/' + enc(key) })}</div></div></div>`;
+    + `<p class="errt" id="gvErr" role="alert" hidden></p></div></div></div></div>`;
 }
 export function bindGive(key, ctx) {
   const err = document.getElementById('gvErr');

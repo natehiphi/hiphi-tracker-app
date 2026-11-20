@@ -60,7 +60,7 @@ function emptyActions(me, mode) {
 }
 function listHTML(me, mode, list, open) {
   const admin = D.isAdmin(me), rows = list.rows, N = rows.length;
-  let h = `<header class="ihead"><a class="back sortback" href="#/issues">${ic('chevron-left')}Back to Issues</a><div class="ihl"><h2 class="ihd" id="ihd">New bills</h2></div>`;
+  let h = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">New bills</h2></div>`;
   if (admin) h += `<div class="segs3" role="group" aria-label="Which new bills"><a class="seg" id="modeMatch" href="${hashFor('', 'matching')}"${mode === 'matching' ? ' aria-current="true"' : ''}>Matching words</a><a class="seg" id="modeAll" href="${hashFor('', 'all')}"${mode === 'all' ? ' aria-current="true"' : ''}>All new bills</a></div>`;
   h += '</header>';
   const tot = D.totalAll(), qn = rows.filter(m => m.q).length, c = D.countOf(me);
@@ -129,7 +129,7 @@ function decideHTML(m, me) {
 }
 function pageHTML(m, me, list, mode) {
   const r = m.r, no = D.spaced(m.no), back = hashFor('', mode);
-  return `<div class="pn"><div class="hband bb fromissue" style="--ic:var(--edge)"><span class="imark big out" aria-hidden="true">${ic('file-text')}</span><div class="ht"><span class="crumb back2 trail" id="sBack"><a class="lk" href="#/issues">Issues</a><span aria-hidden="true">${ic('chevron-right')}</span><a class="lk" href="${back}">New bills</a></span>`
+  return `<div class="pn"><div class="hband bb fromissue" style="--ic:var(--edge)"><span class="imark big out" aria-hidden="true">${ic('file-text')}</span><div class="ht">`
     + `<p class="bline"><span class="bno">${esc(no)}</span><span class="bsep" aria-hidden="true">·</span>${ext(capitolUrl(r), 'The Capitol’s page')}<span class="bsep" aria-hidden="true">·</span>${ext(billTextUrl(r), 'Read the bill')}</p>`
     + `<h1 tabindex="-1">${esc(D.capTitle(r.title))}</h1></div></div><div class="pbody bill">${factsHTML(m, list, mode)}${decideHTML(m, me)}</div></div>`;
 }
@@ -147,14 +147,14 @@ export function sortModel({ me, rt }) {
   const base = { who: { ...MINE, show: '', topic: '' }, set: [], ses: null, label: 'New bills', back: '#/issues', backLabel: 'Issues', notFound: false, pageIssue: null };
   if (!D.ready(me, mode)) {
     cur = null; const bad = D.failed(me, mode);
-    const col = `<header class="ihead"><a class="back sortback" href="#/issues">${ic('chevron-left')}Back to Issues</a><div class="ihl"><h2 class="ihd" id="ihd">New bills</h2></div></header>${bad ? '<p class="calmnote" role="alert">We could not load the new bills.</p><p><button class="btn quiet" type="button" id="sortRetry">Try again</button></p>' : '<p class="summ" id="sortSum" aria-busy="true">Loading the new bills…</p>'}`;
+    const col = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">New bills</h2></div></header>${bad ? '<p class="calmnote" role="alert">We could not load the new bills.</p><p><button class="btn quiet" type="button" id="sortRetry">Try again</button></p>' : '<p class="summ" id="sortSum" aria-busy="true">Loading the new bills…</p>'}`;
     return { ...base, col, sheet: waitPage(bad ? 'We could not load the new bills' : 'Loading the new bills', bad ? 'Nothing was changed. Try again.' : 'One moment.'), picked: false, bind: () => bindWait(me, mode) };
   }
   const list = D.listFor(me, mode), rows = list.rows;
   if (list.capped && rows.length < D.LOW) D.refill(me, mode);   // the server's list stopped at 400 and the rows are running low: read the next ones
   if (!rows.length && D.more(me, mode)) {
     cur = null;
-    const col = `<header class="ihead"><a class="back sortback" href="#/issues">${ic('chevron-left')}Back to Issues</a><div class="ihl"><h2 class="ihd" id="ihd">New bills</h2></div></header><p class="summ" id="sortSum" aria-busy="true">Loading more new bills…</p>${justSorted(true)}`;
+    const col = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">New bills</h2></div></header><p class="summ" id="sortSum" aria-busy="true">Loading more new bills…</p>${justSorted(true)}`;
     return { ...base, col, sheet: waitPage('Loading more new bills', 'One moment.'), picked: false, bind: () => bindSort() };
   }
   const found = rows.find(x => x.no === want), m = found || (want ? rows[0] : rows.find(x => x.id === D.U.sel) || rows[0]) || null;

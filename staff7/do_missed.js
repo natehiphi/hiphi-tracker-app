@@ -13,7 +13,7 @@ export function missedSheet(s, ctx) {
   h += `<div class="stgrid"><div class="stmain">${d ? `<p class="lead tight">${ok ? 'The testimony was approved. Nothing says it was filed.' : 'The testimony was never approved, so it cannot be marked filed here.'}</p>` : '<p class="lead tight">Nothing says testimony was made for this hearing.</p>'}${approvedLine(s)}${letterRow(s, ctx)}</div></div>`;
   h += d ? `<div class="sfoot" id="msFoot">${ok ? btn('Yes, filed', { kind: 'filled', id: 'yesBtn' }) : ''}${btn('No, it was not filed', { kind: ok ? 'quiet' : 'filled', id: 'noBtn' })}${ok ? '' : btn('It went in anyway', { kind: 'quiet', id: 'anyway' })}`
       + `<span class="fnote">It is noted on the bill for the team. No cannot be changed afterwards.</span></div>`
-    : '<div class="sfoot plain"><a class="btn text" href="#/">Back to Home</a></div>';
+    : '';   // the top row has Back and Close
   return h + '<p class="errt" id="msErr" role="alert" hidden></p></div></div>';
 }
 

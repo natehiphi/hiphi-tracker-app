@@ -36,9 +36,9 @@ function rowHTML(u) {
 }
 
 export function leadsPage(me) {
-  if (!me?.is_admin) return { html: `<div class="pn">${plainBand('That step is done or no longer yours.', '')}<div class="pbody"><p class="lead"><a class="btn text" href="#/">Back to Home</a></p></div></div>`, bind: null };
+  if (!me?.is_admin) return { html: `<div class="pn">${plainBand('That step is done or no longer yours.', '')}</div>`, bind: null };
   const us = units(), note = ui.note;
-  if (!us.length) return { html: `<div class="pn"><div class="done enter tdone"><div class="dtile">${ic('check')}</div><h1 tabindex="-1">All lead changes are looked over.</h1><p class="sub">Nothing else needs you here.</p>${note}<div class="actions">${btn('Back to Home', { kind: 'quiet', href: '#/' })}</div></div></div>`, bind: bindAll(me) };
+  if (!us.length) return { html: `<div class="pn"><div class="done enter tdone"><div class="dtile">${ic('check')}</div><h1 tabindex="-1">All lead changes are looked over.</h1><p class="sub">Nothing else needs you here.</p>${note}</div></div>`, bind: bindAll(me) };
   return { html: `<div class="pn lcn">${plainBand('Lead changes', '')}<div class="pbody"><p class="lead mid">These already count. Approve them, or put one back.</p>${note}<ul class="lcs">${us.map(rowHTML).join('')}</ul>`
     + `<div class="sfoot lcfoot">${btn(`Approve all ${us.length}`, { kind: 'filled', id: 'lcAll' })}</div></div></div>`, bind: bindAll(me) };
 }

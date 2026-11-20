@@ -66,7 +66,7 @@ const giveLink = (a, id) => btn('Give this ask to…', { kind: 'text', id, href:
 const foot = (a, id, stage, canMail, own) => a.callStep && own && stage !== 2 ? `<div class="sfoot" id="fuFoot">${btn(`Call the office: ${callPhone(a)}`, { kind: 'filled', id: 'callBtn', href: telOf(callPhone(a)), icon: 'phone' })}${btn('The chair replied', { kind: 'quiet', id: 'replied', href: '#/ask/' + enc(a.key) })}<span class="fnote">${giveLink(a, 'giveLink')}</span></div>`
   : !canMail ? `<div class="sfoot" id="fuFoot">${btn('Open in my mail app', { kind: 'filled', id: 'mailBtn', disabled: true })}<span class="fnote">No email is listed for them yet.</span></div>`
   : stage === 2 ? `<div class="sfoot" id="fuFoot" role="group" aria-labelledby="fq"><p class="fq" id="fq">Did you send it?</p>${btn('Yes, sent', { kind: 'filled', id: 'yesBtn' })}${btn('Not yet', { kind: 'quiet', id: 'notYet' })}</div>`
-  : `<div class="sfoot" id="fuFoot">${btn('Open in my mail app', { kind: 'filled', id: 'mailBtn' })}${own ? btn('The chair replied', { kind: 'quiet', id: 'replied', href: '#/ask/' + enc(a.key) }) : btn('Back', { kind: 'quiet', id: 'backTo', href: '#/do/dc-' + enc(a.key) })}`
+  : `<div class="sfoot" id="fuFoot">${btn('Open in my mail app', { kind: 'filled', id: 'mailBtn' })}${own ? btn('The chair replied', { kind: 'quiet', id: 'replied', href: '#/ask/' + enc(a.key) }) : ''}`
     + `<span class="fnote">It opens your own mail. You send it from there.${own ? ` ${giveLink(a, 'giveLink')}` : ''}</span></div>`;
 
 function emailBlock(m, dr, phones, plural) {
@@ -81,7 +81,7 @@ const phoneWords = ts => { const ps = ts.map(c => [c.who, phoneOf(c)]).filter(x 
 // The step can come back (Call the chair's office after a follow-up) under the same id: its footer stage and typed email are kept per follow-up, so the second time starts fresh.
 const skey = (s, a) => a.followedAt ? `${s.id}@${a.followedAt}` : s.id;
 export function followSheet(s, ctx) {
-  const a = askById(s.askKey); if (!a || a.ended || !a.due) return `<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That step is done or no longer yours.</h1></div></div><div class="pbody"><p class="lead"><a class="btn text" href="#/">Back to Home</a></p></div></div>`;
+  const a = askById(s.askKey); if (!a || a.ended || !a.due) return `<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That step is done or no longer yours.</h1></div></div></div>`;
   const m = followMail(a), sk = skey(s, a), dr = ctx.mail[sk] || { subject: m.subject, body: m.body }, ts = followTargets(a), yes = !a.quiet.length;
   const since = Math.max(...ts.map(c => c.at));
   const lead = yes ? `${names(ts.map(c => c.who))} said yes, but no hearing is set yet. A short note often gets the date set.`
@@ -174,7 +174,7 @@ export function bindVice(key, ctx, q) {
 const decideStrip = a => { const d = dlOf(a); return d ? `<div class="strip calm">${ic('clock')}<strong>Needs a hearing by ${esc(dayWords(String(d.date).slice(0, 10)))}</strong><span>in ${d.days} ${d.days === 1 ? 'day' : 'days'}</span></div>` : ''; };
 const choice = (act, title, sub, data = '') => `<button class="cch" type="button" data-act="${act}"${data}><span class="cct"><b>${esc(title)}</b><span>${esc(sub)}</span></span>${ic('chevron-right')}</button>`;
 export function decideSheet(s) {
-  const a = askById(s.askKey); if (!a || a.ended || !a.decide) return `<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That step is done or no longer yours.</h1></div></div><div class="pbody"><p class="lead"><a class="btn text" href="#/">Back to Home</a></p></div></div>`;
+  const a = askById(s.askKey); if (!a || a.ended || !a.decide) return `<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That step is done or no longer yours.</h1></div></div></div>`;
   const vices = viceIdsOf(a.code).filter(id => !a.chairs.some(c => c.id === String(id))).slice(0, 2), comp = companionAhead(a.b);
   let h = '<div class="pn">' + band(s.issue, 'The chair said no', s.name, s.no) + '<div class="pbody">' + decideStrip(a) + '<div class="stgrid"><div class="stmain">';
   h += `<h2 class="sh">What next?</h2><div id="opts">`;
@@ -183,7 +183,7 @@ export function decideSheet(s) {
   h += choice('public', 'Ask partners and the public', 'Opens public mode for this bill');
   h += choice('leave', 'Leave it for now', 'The bill stays on your list. You still hear if it is at risk or does not advance.');
   h += '</div></div></div>';
-  return h + `<div class="cfoot">${btn('See the email you sent', { kind: 'text', id: 'seeMail', attrs: 'aria-expanded="false" aria-controls="mailSee"' })}</div><div class="cmail" id="mailSee" hidden>${emailHTML(a)}</div></div></div>`;
+  return h + `<div class="cfoot">${btn('See the email you sent', { kind: 'text', id: 'seeMail', attrs: 'aria-expanded="false" aria-controls="mailSee"' })}</div><div class="cmail" id="mailSee" hidden><p class="panx"><button class="xbtn sm" type="button" data-closes="seeMail" aria-label="Close the email">${ic('x')}</button></p>${emailHTML(a)}</div></div></div>`;
 }
 export function bindDecide(s, ctx) {
   const key = s.askKey, sm = document.getElementById('seeMail'), box = document.getElementById('mailSee');

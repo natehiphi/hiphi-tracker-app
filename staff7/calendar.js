@@ -210,7 +210,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
     const arrow = (z, label, icon, aid) => z ? `<a class="dpa" id="${aid}" aria-label="${label}, ${esc(dateWords(z.d))}" href="${go(z)}">${icon === 'chevron-left' ? ic(icon) : ''}<span>${esc(wd(z))}</span>${icon === 'chevron-right' ? ic(icon) : ''}</a>` : `<span class="dpa off" id="${aid}" role="link" aria-disabled="true" aria-label="${label}">${ic(icon)}</span>`;
     return `<aside class="dayp" aria-label="The day"><p class="dpk">Calendar</p><h2 class="dph" id="dayH">${esc(dateWords(x.d))}${x.d === today ? ' · today' : ''}</h2>`
       + `<div class="dpn">${arrow(prev, 'Earlier day', 'chevron-left', 'dayPrev')}${arrow(next, 'Later day', 'chevron-right', 'dayNext')}<a class="btn text" id="dayWeek" href="${gridHref}">Whole week</a></div>${colHTML(x, pk, true)}</aside>`; };
-  const closeX = () => grid && pickDay ? `<a class="xclose" id="calClose" aria-label="Close" href="${gridHref}">${ic('x')}</a>` : '';
+  const closeX = () => '';   // R-398 (Nate 20 Nov): the frame's top row has the Close X (and Back to Calendar) on every opened page
   const fact = (icon, html) => `<span class="fact">${ic(icon)}${html}</span>`;
   const band = (kicker, h1, facts) => `<div class="hband neutral cal"><div class="ht">${kicker}<h1 tabindex="-1">${esc(h1)}</h1><div class="facts">${facts}</div></div>${closeX()}</div>`;
   const rel = day => { const k = daysTo(day); return k < 0 ? `was ${dateWords(day)}` : k === 0 ? 'today' : k === 1 ? 'tomorrow' : `in ${k} days`; };

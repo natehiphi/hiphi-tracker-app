@@ -80,7 +80,7 @@ function giveSheet(me, rows) {
     return `<li><button class="grow${on ? ' on' : ''}" type="button" role="radio" aria-checked="${on}" data-id="${esc(a.id)}" data-name="${esc(nameOf(a))}">${personMark(a.initials, { small: true })}<span class="gn"><b>${esc(pn(a))}</b> <span class="gl">${esc(leadsWords(a))}</span>${c ? `<span class="gflag">${ic('flag')}leads the issue for ${c} of these</span>` : ''}</span><span class="gtick">${ic(on ? 'check' : 'chevron-right')}</span></button></li>`; }).join('');
   const p = all.find(a => a.id === ui.pick), N = rows.length;
   return `<div class="pn mn">${band(`Who should lead ${N === 1 ? 'this bill' : `these ${N} bills`}?`, namesLine(rows), false)}<div class="pbody mbody"><ul class="gpick mgive" role="radiogroup" aria-label="Who should lead these bills">${lis}</ul>`
-    + `<div class="sfoot mfoot">${btn(p ? `Give ${N} to ${nameOf(p)}` : `Give ${N} to…`, { kind: 'filled', id: 'mGiveGo', disabled: !p })}${btn('Back', { kind: 'text', href: '#/team/many' })}</div></div></div>`;
+    + `<div class="sfoot mfoot">${btn(p ? `Give ${N} to ${nameOf(p)}` : `Give ${N} to…`, { kind: 'filled', id: 'mGiveGo', disabled: !p })}</div></div></div>`;
 }
 
 // ---------------------------------------------------------------------------------- done
@@ -89,9 +89,9 @@ function doneSheet(me, base, d) {
   const give = d.kind === 'give', title = give ? `${pn(d.to)} leads ${d.n} more ${d.n === 1 ? 'bill' : 'bills'} now.` : `You lead ${d.n} more ${d.n === 1 ? 'bill' : 'bills'} now.`;
   const sub = give ? `${pn(d.to)} gets one message listing ${d.n === 1 ? 'it' : 'them'}. ${look}` : `${look} Nothing else needs you.`;
   const box = messageBoxHTML(leadMessages(d.recs));   // team_data.js: the same words everywhere
-  return `<div class="pn mn">${band('Team', bandSub(base.length, ui.who), true, false)}<div class="done enter tdone"><div class="dtile">${ic('check')}</div><h1 class="dh" tabindex="-1">${esc(title)}</h1><p class="sub">${esc(sub)}</p>${box}<div class="actions">${btn('Back to the list', { kind: 'quiet', href: '#/team/many' })}</div></div></div>`;
+  return `<div class="pn mn">${band('Team', bandSub(base.length, ui.who), true, false)}<div class="done enter tdone"><div class="dtile">${ic('check')}</div><h1 class="dh" tabindex="-1">${esc(title)}</h1><p class="sub">${esc(sub)}</p>${box}</div></div>`;
 }
-const missing = `<div class="pn mn"><div class="done"><h1 tabindex="-1">That change is not on this page any more.</h1><div class="actions">${btn('Back to the list', { kind: 'quiet', href: '#/team/many' })}</div></div></div>`;
+const missing = `<div class="pn mn"><div class="done"><h1 tabindex="-1">That change is not on this page any more.</h1></div></div>`;
 
 // ---------------------------------------------------------------------------------- the model (frame.js: a page with no list beside it, `solo`)
 export function manyModel({ me, rt }) {
@@ -104,7 +104,7 @@ export function manyModel({ me, rt }) {
     if (!t.length) sheet = listSheet(me, base, rows); else { sheet = giveSheet(me, t); label = 'Give bills'; }
   } else if (sub === 'done') { const d = ui.done[key]; sheet = d ? doneSheet(me, base, d) : missing; label = 'Done'; }
   else sheet = listSheet(me, base, rows);
-  return { col: '', sheet, label, picked: false, solo: true, back: '', backLabel: 'Team', bind: () => bind({ me, rows, sub }) };
+  return { col: '', sheet, label, picked: true, solo: true, back: sub === 'give' || sub === 'done' ? '#/team/many' : '#/team', backLabel: sub === 'give' || sub === 'done' ? 'the list' : 'Team', bind: () => bind({ me, rows, sub }) };
 }
 
 // ---------------------------------------------------------------------------------- what the controls do

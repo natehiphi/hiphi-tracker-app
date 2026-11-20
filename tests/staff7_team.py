@@ -53,7 +53,7 @@ def open_as(br, who, w, h, hash='#/team', seed=False):
     info = pg.evaluate(SEED) if seed else None
     if seed: pg.wait_for_timeout(300)
     return pg, info
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(350)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_timeout(350)
 def snap(pg, name):
     pg.wait_for_timeout(350); pg.evaluate("() => { const l = document.querySelector('.wl'); if (l) l.scrollTop = 0; }")
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
@@ -172,7 +172,7 @@ with sync_playwright() as p:
     names = pg.evaluate("() => [...document.querySelectorAll('.grow')].map(g => ({ n: g.querySelector('b').innerText, t: g.innerText.replace(/\\s+/g, ' ').trim(), on: g.getAttribute('aria-checked'), flag: !!g.querySelector('.gflag') }))")
     ok(names[0]['n'] == bx['leadName'] and names[0]['on'] == 'true' and names[0]['flag'] and 'leads this issue' in names[0]['t'], f'4 give: the issue lead is first, preselected, flagged ({names[0]})')
     ok(all(r['n'] != 'Kris' for r in names) and all(r['n'] != 'Saya' for r in names) and all(r['on'] == 'false' for r in names[1:]) and all('leads' in r['t'] and ('bill' in r['t']) for r in names), f'4 give: the viewer and the turned-off teammate are left out ({[r["n"] for r in names]})')
-    ok(pg.locator('.sfoot .btn').all_inner_texts() == [f'Give to {bx["leadName"]}', 'Back'] and pg.evaluate(FILLED) == 1, f'4 give: filled "Give to {bx["leadName"]}" and a Back link')
+    ok(pg.locator('.sfoot .btn').all_inner_texts() == [f'Give to {bx["leadName"]}'] and pg.locator('#tbBack').count() == 1 and pg.locator('#tbClose').count() == 1 and pg.evaluate(FILLED) == 1, f'4 give: filled "Give to {bx["leadName"]}"; Back and Close are the frame row (R-398)')
     ok(pg.locator('.gq').inner_text().startswith('Who should lead '), '4 give: "Who should lead <nickname>?"')
     jm = pg.evaluate("() => { const m = [...document.querySelectorAll('.grow .person')].find(x => x.innerText.trim() === 'JMM'); return m ? m.scrollWidth <= m.clientWidth : null; }")
     ok(jm is not False, f'4 give: three-letter initials fit the mark (JMM {"fits" if jm else "not in the list"})')
@@ -295,7 +295,7 @@ with sync_playwright() as p:
     st = pg.evaluate(GRPS); to = st['recs'][0]['to'] if st['recs'] else None
     ok(len(st['recs']) == 5 and len({r['group'] for r in st['recs']}) == 1 and all(r['to'] == to and r['from'] == [] and r['by'] == me and r['approved_by'] is None for r in st['recs']) and all(st['asg'][r['bill_id']] == [to] for r in st['recs']), '9 give: one record for each of 5 bills, one group, the bills go to the pick')
     t = pg.inner_text('.paper')
-    ok(f'{top} leads 5 more bills now.' in t and f'{top} gets one message listing them.' in t and 'will look over the change.' in t and 'On the practice copy nothing is sent.' in t and pg.locator('.done .btn', has_text='Back to the list').count() == 1 and pg.evaluate(FILLED) == 0, f'9 done: words and "Back to the list" ({t[:120]})')
+    ok(f'{top} leads 5 more bills now.' in t and f'{top} gets one message listing them.' in t and 'will look over the change.' in t and 'On the practice copy nothing is sent.' in t and pg.locator('#tbBack', has_text='Back to the list').count() == 1 and pg.evaluate(FILLED) == 0, f'9 done: words and "Back to the list" ({t[:120]})')
     ok(f'{N - 5} bills have no lead.' in pg.inner_text('.tmband') and pg.evaluate("() => document.getElementById('toastMsg').innerText") == f'5 bills given to {top}.', '9 done: the band count dropped by 5, the toast says "5 bills given to ' + top + '."')
     snap(pg, 'team_1440_many_done.png')
     pg.click('#toastUndo'); pg.wait_for_timeout(400); st2 = pg.evaluate(GRPS)
@@ -385,7 +385,7 @@ with sync_playwright() as p:
     pg.click('#toastUndo'); pg.wait_for_timeout(300)
     st = pg.evaluate(S3); ok(next(r for r in st['recs'] if r['id'] == info['C'])['put_back_at'] is None and pg.locator('.lcr').count() == 2, '10 put back: its Undo brings the change back')
     pg.click('#lcAll'); pg.wait_for_timeout(300)
-    st = pg.evaluate(S3); ok(all(r['approved_at'] or r['put_back_at'] for r in st['recs']) and 'All lead changes are looked over.' in pg.inner_text('.paper') and pg.locator('.done .btn', has_text='Back to Home').count() == 1 and pg.evaluate(H1S) == 1, '10 approve all: every record is looked over; the done state "All lead changes are looked over." and Back to Home')
+    st = pg.evaluate(S3); ok(all(r['approved_at'] or r['put_back_at'] for r in st['recs']) and 'All lead changes are looked over.' in pg.inner_text('.paper') and pg.locator('#tbBack', has_text='Back to Home').count() == 1 and pg.evaluate(H1S) == 1, '10 approve all: every record is looked over; the done state "All lead changes are looked over." and Back to Home')
     go(pg, '#/'); ok(pg.evaluate(HOMEROW) == [], '10 home: the step is gone when nothing is left')
     pg.close()
     # the Home line (KR, seeded with the Team page's own seeds)
@@ -467,7 +467,7 @@ with sync_playwright() as p:
         gaps = []
         pg, info = open_as(br, 'KR', w, h, hash='#/team/bill/' + 'x', seed=True)
         bid = pg.evaluate("async () => (await import('/staff7/team_data.js')).noLeadBills()[0].id")
-        GAP = "() => { const a = document.querySelector('.tdone').querySelector('.actions').getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }"
+        GAP = "() => { const a = (document.querySelector('.tdone .actions') || [...document.querySelector('.tdone').children].filter(e => e.getBoundingClientRect().height > 0).pop()).getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }"
         go(pg, '#/team/bill/' + bid); pg.click('#takeIt'); pg.wait_for_timeout(500); gaps.append(pg.evaluate(GAP))
         pg.click('#toastUndo'); pg.wait_for_timeout(300)
         go(pg, '#/team/many'); pg.evaluate(TICK, 2); pg.click('#mTake'); pg.wait_for_timeout(500); gaps.append(pg.evaluate(GAP)); pg.click('#toastUndo'); pg.wait_for_timeout(300)
@@ -478,11 +478,11 @@ with sync_playwright() as p:
     ok(fb[0] == 'sticky' and (fb[1] == fb[2] if fb[3] else fb[1] <= fb[2] - fb[4]), f'11 phone: "Approve all N" is docked at the bottom of the window when the app bar is hidden (body.nobar), above the bar otherwise ({fb})')
     snap(pg, 'team_390_leads.png')
     pg.click('#lcAll'); pg.wait_for_timeout(400)
-    g = pg.evaluate("() => { const a = document.querySelector('.tdone .actions').getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }")
+    g = pg.evaluate("() => { const a = (document.querySelector('.tdone .actions') || [...document.querySelector('.tdone').children].filter(e => e.getBoundingClientRect().height > 0).pop()).getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }")
     ok(g >= 24, f'11 toast 390: Lead changes done keeps {g}px clear of the toast')
     pg.close()
     pg, _ = open_as(br, 'NT', 1280, 800, hash='#/'); pg.evaluate(SEED3); pg.wait_for_timeout(200); go(pg, '#/do/leads'); pg.click('#lcAll'); pg.wait_for_timeout(400)
-    g = pg.evaluate("() => { const a = document.querySelector('.tdone .actions').getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }")
+    g = pg.evaluate("() => { const a = (document.querySelector('.tdone .actions') || [...document.querySelector('.tdone').children].filter(e => e.getBoundingClientRect().height > 0).pop()).getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }")
     ok(g >= 24, f'11 toast 1280: Lead changes done keeps {g}px clear of the toast'); pg.close()
     # 8. phone: Many at once rows
     pg, info = open_as(br, 'KR', 390, 844, hash='#/team/many', seed=True)

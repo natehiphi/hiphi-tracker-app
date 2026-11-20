@@ -103,7 +103,7 @@ function pageHTML() {
   const leave = v.back || (B ? `#/bill/${enc(normNo(B.bill_number))}` : '#/');
   const band = `<header class="pub-band"><div class="pub-wrap"><p class="pub-band-words"><b>${esc(BAND)}</b>${B ? `<span class="pub-band-bill">${esc(billNo(B))} · ${esc(v.name)}</span>` : ''}</p>`
     + `<a class="btn quiet" href="${esc(leave)}"><span class="pub-long">${esc(LEAVE_PUBLIC)}</span><span class="pub-short">${esc(LEAVE_SHORT)}</span></a></div></header>`;
-  if (!B) return `<div class="pub" id="pubRoot">${band}<div class="pub-wrap pub-empty"><h1 id="pubH1" tabindex="-1">${esc(v.gone ? NOT_TRACKED : NO_BILL)}</h1><p><a class="pub-link" href="#/">${esc(BACK_HOME)}</a></p></div></div>`;
+  if (!B) return `<div class="pub" id="pubRoot">${band}<div class="pub-wrap pub-empty"><h1 id="pubH1" tabindex="-1">${esc(v.gone ? NOT_TRACKED : NO_BILL)}</h1></div></div>`;
   return `<div class="pub" id="pubRoot">${band}<div class="pub-wrap pub-grid">${formHTML()}`
     + `<section class="pub-side"><h2 class="pub-pv-h">${esc(PREVIEW_HEAD)}</h2><div class="pub-card" id="pubCard" tabindex="0" role="region" aria-label="${esc(PREVIEW_HEAD)}"></div></section></div>`
     + `<footer class="pub-dock" id="pubDock"><div class="pub-wrap" id="pubDockIn"></div></footer></div>`;

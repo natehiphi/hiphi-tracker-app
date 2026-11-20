@@ -41,7 +41,7 @@ def open_as(br, who, w, h, hash=''):
     pg.goto(f'{BASE}/staff7.html?demo=1&as={who}' + hash); pg.wait_for_selector('.paper', timeout=60000)
     pg.evaluate("Promise.all([document.fonts.load('600 16px Poppins'), document.fonts.load('400 16px Lato'), document.fonts.load('700 16px Lato'), document.fonts.load('500 16px Poppins')])"); pg.wait_for_timeout(500)
     return pg, ctx
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_selector('.paper h1'); pg.wait_for_timeout(700)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_selector('.paper h1'); pg.wait_for_timeout(700)
 def snap(pg, name, tall=False):
     if not SHOTS: return
     if tall:
@@ -115,12 +115,12 @@ with sync_playwright() as p:
     # the bill page opened from the issue
     href = pg.evaluate("() => document.querySelector('#tBills tbody th a').getAttribute('href')")
     go(pg, href)
-    bb = pg.evaluate("() => { const m = document.querySelector('.hband .imark'), r = m.getBoundingClientRect(), cs = getComputedStyle(m); return { w: Math.round(r.width), bg: cs.backgroundColor, bw: cs.borderTopWidth, trail: document.getElementById('bBack').innerText.replace(/\\s+/g, ' ').trim(), links: document.querySelectorAll('#bBack a').length, no: document.querySelector('.hband .kindl')?.innerText.trim(), h1: document.querySelector('h1').innerText.trim() }; }")
+    bb = pg.evaluate("() => { const m = document.querySelector('.hband .imark'), r = m.getBoundingClientRect(), cs = getComputedStyle(m); return { w: Math.round(r.width), bg: cs.backgroundColor, bw: cs.borderTopWidth, trail: document.getElementById('tbBack').innerText.replace(/\\s+/g, ' ').trim(), links: document.querySelectorAll('#tbBack a').length, no: document.querySelector('.hband .kindl')?.innerText.trim(), h1: document.querySelector('h1').innerText.trim() }; }")
     ok(bb['w'] < 60 and bb['bg'] == 'rgba(0, 0, 0, 0)' and bb['bw'] in ('1px', '1.5px', '2px'), f'from an issue the bill page\'s mark is smaller and outlined ({bb["w"]}px, {bb["bg"]}, {bb["bw"]})')
-    ok(bb['trail'].startswith('Issues') and m['name'] in bb['trail'] and bb['links'] == 2 and re.match(r'^[HS]B \d+$', bb['no'] or ''), f'the trail is "Issues > issue" and the number sits above the title ({bb["trail"]}; {bb["no"]})')
+    ok(bb['trail'].startswith('Back to ') and m['name'] in bb['trail'] and bb['links'] == 0 and re.match(r'^[HS]B \d+$', bb['no'] or ''), f'R-398: the frame\'s Back names the issue (no trail of its own) and the number sits above the title ({bb["trail"]}; {bb["no"]})')
     snap(pg, 'F_bill_from_issue.png')
     go(pg, href.split('?')[0])
-    ok(pg.evaluate("() => document.getElementById('bBack').classList.contains('trail')") is False and pg.evaluate("() => document.querySelector('.hband .imark').getBoundingClientRect().width") >= 40 and 'out' not in (pg.evaluate("() => document.querySelector('.hband .imark').className")), 'without ?i= the bill page is as it was')
+    ok(pg.evaluate("() => document.getElementById('tbBack').classList.contains('trail')") is False and pg.evaluate("() => document.querySelector('.hband .imark').getBoundingClientRect().width") >= 40 and 'out' not in (pg.evaluate("() => document.querySelector('.hband .imark').className")), 'without ?i= the bill page is as it was')
     ok(not errs and not bad, f'no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.context.close()
 

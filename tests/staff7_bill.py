@@ -72,7 +72,7 @@ def open_as(br, who, w, h, hash=''):
     return pg, ctx
 def other_pos(pg):   # click a position that is not the checked one
     cur = pg.evaluate("() => document.querySelector('#bEdit input:checked')?.value"); pg.click('#bp-' + ('neutral' if cur != 'neutral' else 'monitor'))
-def go(pg, hash): pg.evaluate("h => { location.hash = h; }", hash); pg.wait_for_timeout(450)
+def go(pg, hash): pg.evaluate("h => { window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = h; }", hash); pg.wait_for_timeout(450)
 # R-398 part 3: is the bill on this page one whose HIPHI words are public (the position save then says what the public site keeps)?
 def live_now(pg): return pg.evaluate("async () => { const d = await import('/staff6/data.js'), n = decodeURIComponent(location.hash.split('/')[2] || '').split('?')[0].replace(/\\s/g, ''); const b = d.S.bills.find(x => x.bill_number.replace(/\\s/g, '') === n); return !!b && d.isLiveBill(b); }")
 def snap(pg, name, tall=False):
@@ -236,7 +236,7 @@ with sync_playwright() as p:
     ok('Talking points' not in pg.evaluate(FACTS) and 'On the public site' in pg.evaluate(FACTS), 'a bill with no talking points has no Talking points row')
     pg.evaluate("async () => { const d = await import('/staff6/data.js'); d.S.bills.find(x => x.bill_number === 'HB1523').talking_points = window.__tp; }")
     ni = pick('noissue'); bill(pg, ni); fi = pg.evaluate(FACTS)
-    ok('Issue' not in fi and pg.inner_text('#bNoIssue') == 'On no issue yet' and real_page(pg) and pg.locator('#bBack').inner_text().strip() == 'Back to Issues' and pg.evaluate("() => document.getElementById('bNoIssue').getBoundingClientRect().top >= document.getElementById('bPos').getBoundingClientRect().bottom && getComputedStyle(document.getElementById('bNoIssue')).fontSize"), f'{ni}: a bill on no issue says "On no issue yet" as a small muted line under the position line and goes back to Issues')
+    ok('Issue' not in fi and pg.inner_text('#bNoIssue') == 'On no issue yet' and real_page(pg) and pg.locator('#tbBack').inner_text().strip() == 'Back to Issues' and pg.evaluate("() => document.getElementById('bNoIssue').getBoundingClientRect().top >= document.getElementById('bPos').getBoundingClientRect().bottom && getComputedStyle(document.getElementById('bNoIssue')).fontSize"), f'{ni}: a bill on no issue says "On no issue yet" as a small muted line under the position line and goes back to Issues')
     bill(pg, 'HB1523'); ok(pg.locator('#bNoIssue').count() == 0, 'HB1523: a bill on an issue has no "On no issue yet" line')
     nb = pick('nobodyleads'); bill(pg, nb); ok(pg.inner_text('#bLead').strip() == 'Nobody leads it yet', f'{nb}: nobody leads says "Nobody leads it yet" ({pg.inner_text("#bLead").strip()})')
     # the timeline: groups, codes, names, marks
@@ -365,19 +365,19 @@ with sync_playwright() as p:
     me_lead = pg.evaluate("async () => { const d = await import('/staff6/data.js'), S = d.S, me = S.advocates.find(a => a.initials === 'JM'); const b = S.bills.find(x => (S.assignments[x.id] || []).includes(me.id) && x.tracked !== false); return b && b.bill_number; }")
     if me_lead: bill(pg, me_lead, ''); ok(pg.inner_text('#bLead').strip() == 'You lead', f'{me_lead}: a bill I lead says "You lead"')
     # back links: where you came from
-    bill(pg, hb, f'i={hi}&from=calendar'); a = pg.evaluate("() => { const a = document.getElementById('bBack'); return [a.innerText.trim(), a.getAttribute('href')]; }")
+    bill(pg, hb, f'i={hi}&from=calendar'); a = pg.evaluate("() => { const a = document.getElementById('tbBack'); return [a.innerText.trim(), a.getAttribute('href')]; }")
     ok(a[0] == 'Back to Calendar' and a[1] == '#/calendar', f'a bill opened from Calendar goes back to Calendar ({a})')
-    bill(pg, hb, 'from=search'); a = pg.evaluate("() => { const a = document.getElementById('bBack'); return [a.innerText.trim(), a.getAttribute('href')]; }")
+    bill(pg, hb, 'from=search'); a = pg.evaluate("() => { const a = document.getElementById('tbBack'); return [a.innerText.trim(), a.getAttribute('href')]; }")
     ok(a[0] == 'Back to Search' and a[1] == '#/search', f'a bill opened from Search goes back to Search ({a})')
-    bill(pg, hb, f'i={hi}'); a = pg.evaluate("() => document.getElementById('bBack').innerText.trim()"); ok((a.startswith('Back to ') or a.startswith('Issues')) and 'Calendar' not in a and 'Search' not in a, f'a bill opened from the Issues list goes back to its issue ({a})')
-    bill(pg, hb, 'from=bogus'); ok(pg.evaluate("() => document.getElementById('bBack').getAttribute('href')").startswith('#/issue'), 'an unknown from= is ignored')
+    bill(pg, hb, f'i={hi}'); a = pg.evaluate("() => document.getElementById('tbBack').innerText.trim()"); ok((a.startswith('Back to ') or a.startswith('Issues')) and 'Calendar' not in a and 'Search' not in a, f'a bill opened from the Issues list goes back to its issue ({a})')
+    bill(pg, hb, 'from=bogus'); ok(pg.evaluate("() => document.getElementById('tbBack').getAttribute('href')").startswith('#/issue'), 'an unknown from= is ignored')
     go(pg, '#/calendar?who=all'); pg.wait_for_timeout(300); go(pg, pg.evaluate("() => document.querySelector('a.cgc.sit').getAttribute('href')")); pg.wait_for_timeout(300)
     cb = pg.evaluate("() => [...document.querySelectorAll('.paper a[href^=\"#/bill/\"]')].map(a => a.getAttribute('href'))")
     ok(cb and all('from=calendar' in h for h in cb), f'Calendar\'s links to a bill carry from=calendar ({len(cb)} links)')
     go(pg, '#/search?q=cross'); pg.wait_for_timeout(700)
     sb_ = pg.evaluate("() => [...document.querySelectorAll('#slist a[data-k=bill]')].map(a => a.getAttribute('href'))")
     ok(sb_ and all('from=search' in h for h in sb_), f'Search\'s links to a bill carry from=search ({len(sb_)} links)')
-    pg.click('#slist a[data-k=bill] >> nth=0'); pg.wait_for_timeout(500); ok(pg.inner_text('#bBack').strip() == 'Back to Search', 'a bill picked in Search says Back to Search')
+    pg.click('#slist a[data-k=bill] >> nth=0'); pg.wait_for_timeout(500); ok(pg.inner_text('#tbBack').strip() == 'Back to Search', 'a bill picked in Search says Back to Search')
     ok(not errs and not bad, f'JM: no console error, nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.context.close()
 
