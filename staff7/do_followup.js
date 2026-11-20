@@ -60,10 +60,14 @@ function clockStrip(a) {
   const d = dlOf(a);
   return strip('Follow up today', [d ? `Needs a hearing by ${dayWords(String(d.date).slice(0, 10))}, in ${d.days} ${d.days === 1 ? 'day' : 'days'}.${a.noticeDay ? ` The committee must announce the hearing by ${dayWords(a.noticeDay)}.` : ''}` : a.noticeDay ? `The committee must announce the hearing by ${dayWords(a.noticeDay)}.` : '']);
 }
-const foot = (a, id, stage, canMail, own) => !canMail ? `<div class="sfoot" id="fuFoot">${btn('Open in my mail app', { kind: 'filled', id: 'mailBtn', disabled: true })}<span class="fnote">No email is listed for them yet.</span></div>`
+const callPhone = a => { const c = followTargets(a).find(x => phoneOf(x)); return c ? phoneOf(c) : ''; };
+const telOf = p => 'tel:' + String(p).replace(/[^\d+]/g, '');
+const giveLink = (a, id) => btn('Give this ask to…', { kind: 'text', id, href: '#/give/' + enc(a.key) });
+const foot = (a, id, stage, canMail, own) => a.callStep && own && stage !== 2 ? `<div class="sfoot" id="fuFoot">${btn(`Call the office: ${callPhone(a)}`, { kind: 'filled', id: 'callBtn', href: telOf(callPhone(a)), icon: 'phone' })}${btn('The chair replied', { kind: 'quiet', id: 'replied', href: '#/ask/' + enc(a.key) })}<span class="fnote">${giveLink(a, 'giveLink')}</span></div>`
+  : !canMail ? `<div class="sfoot" id="fuFoot">${btn('Open in my mail app', { kind: 'filled', id: 'mailBtn', disabled: true })}<span class="fnote">No email is listed for them yet.</span></div>`
   : stage === 2 ? `<div class="sfoot" id="fuFoot" role="group" aria-labelledby="fq"><p class="fq" id="fq">Did you send it?</p>${btn('Yes, sent', { kind: 'filled', id: 'yesBtn' })}${btn('Not yet', { kind: 'quiet', id: 'notYet' })}</div>`
   : `<div class="sfoot" id="fuFoot">${btn('Open in my mail app', { kind: 'filled', id: 'mailBtn' })}${own ? btn('The chair replied', { kind: 'quiet', id: 'replied', href: '#/ask/' + enc(a.key) }) : btn('Back', { kind: 'quiet', id: 'backTo', href: '#/do/dc-' + enc(a.key) })}`
-    + `<span class="fnote">It opens your own mail. You send it from there.${own ? ` ${btn('Give this ask to…', { kind: 'text', id: 'giveLink', href: '#/give/' + enc(a.key) })}` : ''}</span></div>`;
+    + `<span class="fnote">It opens your own mail. You send it from there.${own ? ` ${giveLink(a, 'giveLink')}` : ''}</span></div>`;
 
 function emailBlock(m, dr, phones, plural) {
   return `<h2 class="sh">${plural}</h2><p class="mline"><span class="ml">To</span><b>${esc(m.to.split(',').join(', '))}</b></p>`
@@ -74,17 +78,25 @@ function emailBlock(m, dr, phones, plural) {
 const phoneWords = ts => { const ps = ts.map(c => [c.who, phoneOf(c)]).filter(x => x[1]); return !ps.length ? '' : ps.length === 1 && ts.length === 1 ? `Or call the office: ${ps[0][1]}` : `Or call the offices: ${ps.map(([w, p]) => `${w} ${p}`).join(', ')}`; };
 
 // ---------------------------------------------------------------------------------- Follow up with the chair
+// The step can come back (Call the chair's office after a follow-up) under the same id: its footer stage and typed email are kept per follow-up, so the second time starts fresh.
+const skey = (s, a) => a.followedAt ? `${s.id}@${a.followedAt}` : s.id;
 export function followSheet(s, ctx) {
   const a = askById(s.askKey); if (!a || a.ended || !a.due) return `<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That step is done or no longer yours.</h1></div></div><div class="pbody"><p class="lead"><a class="btn text" href="#/">Back to Home</a></p></div></div>`;
-  const m = followMail(a), dr = ctx.mail[s.id] || { subject: m.subject, body: m.body }, ts = followTargets(a), yes = !a.quiet.length;
+  const m = followMail(a), sk = skey(s, a), dr = ctx.mail[sk] || { subject: m.subject, body: m.body }, ts = followTargets(a), yes = !a.quiet.length;
   const since = Math.max(...ts.map(c => c.at));
   const lead = yes ? `${names(ts.map(c => c.who))} said yes, but no hearing is set yet. A short note often gets the date set.`
     : `${names(ts.map(c => c.who))} ${ts.length > 1 ? 'have' : 'has'} not answered since ${dayWords(since)}. A short second note often gets it scheduled.`;
   let h = '<div class="pn">' + band(s.issue, s.verb, s.name, s.no) + '<div class="pbody">' + clockStrip(a) + '<div class="stgrid"><div class="stmain">';
   if (a.holder !== a.asker) h += `<p class="lead tight">${esc(first((S.advocates || []).find(x => x.id === a.asker)))} asked ${esc(a.cmte)} first. This ask is yours now.</p>`;
-  h += `<p class="lead">${esc(lead)}</p>` + emailBlock(m, dr, phoneWords(ts), `Your follow-up to the chair${ts.length > 1 ? 's' : ''}`);
+  if (a.callStep) {   // the last chance: the phone first, the public next, the email below as the other way
+    h += `<p class="lead">${esc(`The committee must announce the hearing by ${dayWords(a.noticeDay)}${a.noticeDay === ymd(Date.now()) ? ', which is today' : ''}, and ${names(ts.map(c => c.who))} ${yes ? 'has set no hearing yet' : 'has not answered your follow-up'}. A call to the office is the quickest way to get an answer.`)}</p>`
+      + `<h2 class="sh">Call the office</h2>${ts.filter(c => phoneOf(c)).map(c => `<p class="mline phoneln"><span class="ml">${esc(c.who)}</span><a class="lk" href="${esc(telOf(phoneOf(c)))}"><b>${esc(phoneOf(c))}</b></a></p>`).join('')}`
+      + `<p class="fpub">${btn('Ask partners and the public', { kind: 'text', id: 'askPublic', href: '#/public/' + enc(String(a.b.bill_number).replace(/\s/g, '').toUpperCase()) })}</p>`
+      + (m.to ? emailBlock(m, dr, '', 'Or email them again') + `<p class="fmail">${btn('Open in my mail app', { kind: 'quiet', id: 'mailBtn' })}</p>` : '');
+  } else h += `<p class="lead">${esc(lead)}</p>` + emailBlock(m, dr, phoneWords(ts), `Your follow-up to the chair${ts.length > 1 ? 's' : ''}`);
+  h += `<p class="fgive">${giveLink(a, 'giveLinkBody')}</p>`;   // on a phone the footer's note is hidden, so the link is at the end of the page
   h += '</div></div>';
-  return h + `<div id="fuSlot" class="fslot">${foot(a, s.id, ctx.stage[s.id], !!m.to, true)}</div><p class="errt" id="fuErr" role="alert" hidden></p></div></div>`;
+  return h + `<div id="fuSlot" class="fslot">${foot(a, sk, ctx.stage[sk], !!m.to, true)}</div><p class="errt" id="fuErr" role="alert" hidden></p></div></div>`;
 }
 
 // the same wiring for the follow-up and the vice chair's email: typing is kept, Open in my mail app asks Did you send it?, Yes, sent records
@@ -99,11 +111,11 @@ function bindMail({ ctx, id, a, mail, own, record, finish }) {
   const wire = focus => {
     err.hidden = true;
     const mb = document.getElementById('mailBtn'), yes = document.getElementById('yesBtn'), no = document.getElementById('notYet');
-    if (mb && !mb.disabled) mb.addEventListener('click', () => {
+    if (mb && !mb.disabled && !mb.dataset.w) { mb.dataset.w = '1'; mb.addEventListener('click', () => {
       if (DEMO) { ctx.setStage(id, 2); draw('#yesBtn'); toast('In the practice copy your mail app does not open.'); return; }
       const x = document.createElement('a'); x.href = linkOf(m, cur()); x.target = '_blank'; x.rel = 'noopener'; x.click();   // a new tab or the mail app: this tab is never replaced
       ctx.setStage(id, 2); draw('#yesBtn');
-    });
+    }); }
     if (no) no.addEventListener('click', () => { ctx.setStage(id, 1); draw('#mailBtn'); });
     if (yes) yes.addEventListener('click', async () => {
       if (ctx.busy.has(id)) return; ctx.busy.add(id); err.hidden = true; yes.disabled = true; yes.classList.add('is-loading'); yes.setAttribute('aria-busy', 'true'); yes.textContent = 'Saving';
@@ -120,14 +132,18 @@ function bindMail({ ctx, id, a, mail, own, record, finish }) {
 
 export function bindFollow(s, ctx) {
   const key = s.askKey, get = () => askById(key);
-  bindMail({ ctx, id: s.id, a: get, own: true, mail: () => followMail(get()), record: a => recordFollow(a), finish: (u, was) => {
+  bindMail({ ctx, id: skey(s, get()), a: get, own: true, mail: () => followMail(get()), record: a => recordFollow(a), finish: (u, was) => {
     const now = get(), day = ymd(Date.now());
     const phones = followTargets(was).filter(c => phoneOf(c));
     const last = !!now && now.noMore;   // the announce day is the next thing: no reminder will come before it (build choice a)
-    const sub = last ? `The committee must announce the hearing by ${dayWords(now.noticeDay)}${now.noticeDay === day ? ', which is today' : ''}. If there is still no reply, call the office or ask partners and the public.`
+    const ph = phones.length ? phoneOf(phones[0]) : '';
+    const again = last && now.callOn > day ? ` If there is no reply by ${dayWords(now.callOn)}, we put ${ph ? "Call the chair's office" : 'Follow up with the chair'} in your To do.` : ' If there is still no reply, call the office or ask partners and the public.';
+    const sub = last ? `The committee must announce the hearing by ${dayWords(now.noticeDay)}${now.noticeDay === day ? ', which is today' : ''}.${again}`
       : `We remind you again on ${dayWords(now?.remindOn || was.clockOn)} if there is still no reply. Nothing else needs you on ${billName(was.b)} until then.`;
-    const extra = last ? `<p class="dlinks">${phones.length ? `<a class="btn quiet" id="callOffice" href="tel:${esc(phoneOf(phones[0]).replace(/[^\d+]/g, ''))}">${ic('phone')}Call the office: ${esc(phoneOf(phones[0]))}</a>` : ''}<a class="btn quiet" id="askPublic" href="#/public/${enc(String(was.b.bill_number).replace(/\s/g, '').toUpperCase())}">Ask partners and the public</a></p>` : '';
-    ctx.finished[s.id] = { step: stand(was, 'chairfu', s.id), at: Date.now(), kind: 'followed', billId: was.b.id, status: 'fu', undo: u, back: '#/do/' + enc(s.id), words: { title: 'Followed up.', sub, extra, reverse: 'I have not sent it yet' } };
+    const pub = `#/public/${enc(String(was.b.bill_number).replace(/\s/g, '').toUpperCase())}`;
+    // one filled button in view: the call when a phone is listed (the public link is then a text link), else the public ask
+    const extra = last ? `<p class="dlinks">${ph ? btn(`Call the office: ${ph}`, { kind: 'filled', id: 'callOffice', href: telOf(ph), icon: 'phone', big: true }) + btn('Ask partners and the public', { kind: 'text', id: 'askPublic', href: pub }) : btn('Ask partners and the public', { kind: 'filled', id: 'askPublic', href: pub, big: true })}</p>` : '';
+    ctx.finished[s.id] = { step: stand(was, 'chairfu', s.id), at: Date.now(), kind: 'followed', billId: was.b.id, status: 'fu', undo: u, back: '#/do/' + enc(s.id), words: { title: 'Followed up.', sub, extra, last, reverse: 'I have not sent it yet' } };
     location.hash = '#/done/' + enc(s.id);
   } });
 }

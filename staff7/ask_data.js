@@ -116,8 +116,14 @@ export function describe(key, b, code, rows, now = Date.now()) {
   const followRow = (newestQuiet || chairs.slice().sort((x, y) => x.at - y.at).at(-1))?.row, followedAt = followRow && isFollowRow(followRow) ? stamp(followRow) : 0;
   // no reminder is left before the committee must announce: only a call or the public can still help (build choice a)
   const noMore = !ended && !saidNo && !!noticeDay && noticeDay >= today && (!remindOn || remindOn > noticeDay);
+  // the last chance: a follow-up went out and no reminder can come before the announce day, so on the working day before it (or on the announce day itself when the follow-up was sent that day or the working day before it: a word today cannot be answered by today's step) the holder
+  // gets the step again as "Call the chair's office" (with a phone listed), unless a word since then has answered it. It ends with the ask like every step (S-10).
+  const callOn = noMore && followedAt && noticeDay ? (shiftWork(noticeDay, -1) <= clockDay ? noticeDay : shiftWork(noticeDay, -1)) : '';
+  const callDue = !!callOn && today >= callOn && clockDay < callOn;
+  const hasPhone = (quiet.length ? quiet : yes).some(c => phoneOf(c));
+  if (callDue) due = true;
   return { key, b, code, cmte: cmteWords(code), chairs, earlier, all: all2, quiet, yes, noes, answer, saidNo, asker: asked.advocate_id, holder, askedAt: stamp(asked), lastAt: stamp(newest), lastBy: newest.advocate_id,
-    clockDay, clockOn, noticeDay, noticeOn, remindOn, due, ended, deadline: st?.deadline || null, followedAt, noMore,
+    clockDay, clockOn, noticeDay, noticeOn, remindOn, due, callOn, callDue, callStep: callDue && hasPhone, ended, deadline: st?.deadline || null, followedAt, noMore,
     decided, decide: saidNo && !decided && !ended, noAt, workQuiet: workBetween(clockDay, today) };
 }
 
@@ -145,12 +151,12 @@ const names = l => l.length < 3 ? l.join(' and ') : `${l.slice(0, -1).join(', ')
 export const whoWords = a => names(a.chairs.map(c => c.who));
 const you = id => id === S.me?.id ? 'You' : first(person(id));
 export const askedSentence = a => `${you(a.asker)} asked ${a.all && codesOf(a.code).length > 1 ? 'both committees' : a.cmte} for a hearing on ${dayWords(a.askedAt)}.`;
-// "no reply yet", "will schedule", "said no", "left a message": where the ask stands, in a few words
+// "no reply yet", "will schedule", "said no": where the ask stands, in a few words
 export function stateWords(a) {
   if (a.saidNo) return `${names(a.noes.map(c => c.who))} said no`;
   if (a.answer === 'will_schedule') return `${names(a.yes.map(c => c.who))} will schedule it`;
   if (a.yes.length) return `${names(a.yes.map(c => c.who))} will schedule it · waiting on ${names(a.quiet.map(c => c.who))}`;
-  return a.followedAt ? 'followed up, no reply yet' : a.answer === 'left_message' ? 'left a message, no answer yet' : 'no reply yet';
+  return a.followedAt ? 'followed up, no reply yet' : 'no reply yet';
 }
 // The Home row's second line: "Waiting on Rep. Takayama · asked Thu, Mar 12 · no reply yet"; after a follow-up: "Waiting on Rep. Takayama · followed up today · next reminder Thu, Mar 19"
 const sayWhen = t => ymd(t) === ymd(Date.now()) ? 'today' : dayWords(t);
@@ -161,7 +167,7 @@ export function waitLine(a, me = S.me) {
   const fu = a.followedAt ? `followed up ${sayWhen(a.followedAt)}` : '';
   if (a.answer === 'will_schedule') { const y = `${names(a.yes.map(c => c.who))} will schedule it`; return a.followedAt ? `${y} · ${fu}${nextWords(a) ? ` · ${nextWords(a)}` : ''}` : `${y}${a.remindOn ? ` · follow up if none is set by ${dayWords(a.remindOn)}` : ''}`; }
   if (a.yes.length) return `${names(a.yes.map(c => c.who))} will schedule it · ${mine ? 'waiting' : `${first(person(a.holder))} waits`} on ${names(a.quiet.map(c => c.who))}`;
-  return `${hold} ${whoWords(a)} · ${fu ? `${fu} · ${nextWords(a)}` : `asked ${dayWords(a.askedAt)} · ${a.answer === 'left_message' ? 'left a message' : 'no reply yet'}`}`;
+  return `${hold} ${whoWords(a)} · ${fu ? `${fu} · ${nextWords(a)}` : `asked ${dayWords(a.askedAt)} · no reply yet`}`;
 }
 // The bill page's line: "You asked House Health for a hearing on Thu, Mar 12 · no reply yet"
 export const billLine = a => `${askedSentence(a).replace(/\.$/, '')} · ${stateWords(a)}`;
@@ -181,7 +187,7 @@ const stepOf = (a, kind, verb, id) => ({ id, kind, bill: a.b, hearing: null, dra
 export function chairSteps(me) {
   if (!me) return [];
   return allAsks().filter(a => !a.ended && a.holder === me.id && a.b.tracked !== false && (a.decide || a.due))
-    .sort((x, y) => x.askedAt - y.askedAt).map(a => a.decide ? stepOf(a, 'decide', 'Decide what next', 'dc-' + a.key) : stepOf(a, 'chairfu', 'Follow up with the chair', 'fu-' + a.key));
+    .sort((x, y) => x.askedAt - y.askedAt).map(a => a.decide ? stepOf(a, 'decide', 'Decide what next', 'dc-' + a.key) : stepOf(a, 'chairfu', a.callStep ? "Call the chair's office" : 'Follow up with the chair', 'fu-' + a.key));
 }
 export const phoneOf = c => String((legById(c.id) || {}).phone || '').trim();
 // who a follow-up goes to: the chairs who have not answered; when all of them said yes, those (no hearing is set)

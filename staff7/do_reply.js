@@ -12,12 +12,12 @@ const enc = encodeURIComponent;
 const person = id => (S.advocates || []).find(a => a.id === id);
 const you = id => id === S.me?.id ? 'you' : first(person(id));
 const OPTS = [['will_schedule', 'Will schedule', 'Nothing more needs you until the hearing is set'], ['said_no', 'Said no', 'See what you can still do'],
-  ['left_message', 'No answer yet', `We called or left a message. We remind you again in ${WAIT_DAYS} working days`]];
+  ['left_message', 'No answer yet', `We remind you again in ${WAIT_DAYS} working days`]];
 const pick = { key: '', id: '' };   // which chair the radio choice is on, kept in this visit
 
 // the same words staff6/chairask.js writes into the note, so the old app reads a reply recorded here
 const sentence = (answer, who, b, code) => answer === 'will_schedule' ? `${who} will schedule a hearing on ${b.bill_number} (${code}).`
-  : answer === 'said_no' ? `${who} said no to a hearing on ${b.bill_number} (${code}).` : `Left a message for ${who} about a hearing on ${b.bill_number} (${code}).`;
+  : answer === 'said_no' ? `${who} said no to a hearing on ${b.bill_number} (${code}).` : `No reply yet from ${who} about a hearing on ${b.bill_number} (${code}); reminder restarted.`;
 const when = t => ymd(t) === ymd(Date.now()) ? 'today' : dayWords(t);
 export const stepOf = a => ({ id: 'ask:' + a.key, kind: 'reply', bill: a.b, name: billName(a.b), no: billNo(a.b), at: null });   // the done page's stand-in for a step
 
@@ -41,21 +41,22 @@ const strip = a => { const d = a.deadline && !a.deadline.missed ? a.deadline : n
   return d ? `<div class="strip calm">${ic('clock')}<strong>Needs a hearing by ${esc(dayWords(String(d.date).slice(0, 10)))}</strong><span>in ${d.days} ${d.days === 1 ? 'day' : 'days'}</span></div>` : ''; };
 const chairLine = c => c.answer === 'will_schedule' ? `<p class="cans">${ic('check')}<span><b>${esc(c.who)} will schedule it</b> <span class="m">· recorded ${esc(when(c.at))} by ${esc(you(c.by))}</span></span></p>`
   : c.answer === 'said_no' ? `<p class="cans no">${ic('circle-x')}<span><b>${esc(c.who)} said no</b> <span class="m">· recorded ${esc(when(c.at))} by ${esc(you(c.by))}</span></span></p>`
-  : c.answer === 'left_message' ? `<p class="cans no">${ic('phone')}<span><b>No answer from ${esc(c.who)} yet</b> <span class="m">· ${esc(you(c.by))} left a message ${esc(when(c.at))}</span></span></p>` : '';
+  : c.answer === 'left_message' ? `<p class="cans no">${ic('phone')}<span><b>No reply yet from ${esc(c.who)}</b> <span class="m">· reminder restarted ${esc(when(c.at))} by ${esc(you(c.by))}</span></span></p>` : '';
 
 export function replySheet(key) {
   const a = askById(key); if (!a || a.ended) return '';
   const b = a.b, held = a.holder !== a.asker ? ` ${a.holder === S.me?.id ? 'You have' : `${esc(first(person(a.holder)))} has`} this ask now.` : '';
   const cands = a.quiet.length ? a.quiet : a.chairs, answered = a.chairs.filter(c => !a.quiet.includes(c));
-  if (pick.key !== key || !cands.some(c => c.id === pick.id)) { pick.key = key; pick.id = cands[0].id; }
-  const cur = cands.find(c => c.id === pick.id), changing = !a.quiet.length || answered.includes(cur);
+  if (pick.key !== key || !cands.some(c => c.id === pick.id)) { pick.key = key; pick.id = cands.length > 1 ? '' : cands[0].id; }   // two chairs: nobody is chosen until the person picks
+  const cur = cands.find(c => c.id === pick.id), none = !cur, changing = !none && (!a.quiet.length || answered.includes(cur));
   let h = '<div class="pn">' + band(issueOf(b), 'Did the chair reply?', billName(b), billNo(b)) + '<div class="pbody">' + strip(a);
   h += '<div class="stgrid"><div class="stmain">';
   h += `<p class="lead tight">${esc(askedSentence(a))}${held}</p>`;
   h += answered.map(chairLine).join('') + (a.quiet.length ? a.quiet.filter(c => c.answer === 'left_message').map(chairLine).join('') : '');
   if (cands.length > 1) h += `<h2 class="sh" id="whoH">Who replied?</h2><div role="radiogroup" aria-labelledby="whoH">${cands.map(c => `<label class="cch cr"><input type="radio" name="chairpick" value="${esc(c.id)}"${c.id === pick.id ? ' checked' : ''}><span class="cct"><b>${esc(c.who)}</b><span>${esc(chairOf(c))}</span></span></label>`).join('')}</div>`;
-  if (!(a.chairs.length === 1 && a.quiet.length)) h += `<h2 class="sh" id="didH">${didWords(cur, changing)}</h2>`;   // a lone chair who has not answered needs no heading
-  h += `<div id="opts" data-chair="${esc(cur.id)}" data-seen="${cur.at}">${OPTS.map(([k, t, s]) => `<button class="cch" type="button" data-ans="${k}"><span class="cct"><b>${esc(t)}</b><span>${esc(s)}</span></span>${ic('chevron-right')}</button>`).join('')}</div>`;
+  if (none) h += `<h2 class="sh" id="didH">What did they say?</h2><p class="hint" id="pickFirst">Pick who replied first</p>`;
+  else if (!(a.chairs.length === 1 && a.quiet.length)) h += `<h2 class="sh" id="didH">${didWords(cur, changing)}</h2>`;   // a lone chair who has not answered needs no heading
+  h += `<div id="opts" data-chair="${esc(cur?.id || '')}" data-seen="${cur?.at || 0}">${OPTS.map(([k, t, s]) => `<button class="cch${none ? ' off' : ''}" type="button" data-ans="${k}"${none ? ' aria-disabled="true" aria-describedby="pickFirst"' : ''}><span class="cct"><b>${esc(t)}</b><span>${esc(s)}</span></span>${ic('chevron-right')}</button>`).join('')}</div>`;
   h += '<p class="errt" id="rpErr" role="alert" hidden></p></div></div>';
   h += `<div class="cfoot">${btn('Give this ask to…', { kind: 'text', href: '#/give/' + enc(key), id: 'giveLink' })}${btn('See the email you sent', { kind: 'text', id: 'seeMail', attrs: 'aria-expanded="false" aria-controls="mailSee"' })}</div>`;
   return h + `<div class="cmail" id="mailSee" hidden>${emailHTML(a)}</div></div></div>`;
@@ -75,6 +76,7 @@ export function bindReply(key, ctx) {
   const sm = document.getElementById('seeMail'), box = document.getElementById('mailSee');
   sm.addEventListener('click', () => { const on = box.hidden; box.hidden = !on; sm.setAttribute('aria-expanded', String(on)); });
   opts.querySelectorAll('[data-ans]').forEach(bt => bt.addEventListener('click', async () => {
+    if (bt.getAttribute('aria-disabled') === 'true' || !opts.dataset.chair) return;
     err.hidden = true; opts.querySelectorAll('button').forEach(x => x.disabled = true); bt.classList.add('is-loading');
     try { await doReply(ctx, key, opts.dataset.chair, bt.dataset.ans, +opts.dataset.seen); }
     catch (e) { opts.querySelectorAll('button').forEach(x => x.disabled = false); bt.classList.remove('is-loading'); err.textContent = (e && e.message) || 'It did not save. Try again.'; err.hidden = false; }
@@ -126,7 +128,7 @@ export function giveSheet(key) {
   const leads = people.filter(x => sub(x.id)).sort((x, y) => (bill.has(y.id) ? 1 : 0) - (bill.has(x.id) ? 1 : 0)), rest = people.filter(x => !sub(x.id));
   const card = (x, lead) => `<button class="cch${lead ? ' lead' : ''}" type="button" data-to="${esc(x.id)}">${personMark(x.initials, { small: true })}<span class="cct"><b>${esc(first(x))}</b>${lead ? `<span>${esc(sub(x.id))}</span>` : ''}</span></button>`;
   return '<div class="pn">' + band(issue, 'Give this ask', billName(b), billNo(b)) + '<div class="pbody">' + strip(a)
-    + `<div class="stgrid"><div class="stmain"><h2 class="sh">Who should wait on ${esc(whoWords(a))}?</h2><div class="cwho">${leads.map(x => card(x, true)).join('')}${rest.map(x => card(x, false)).join('')}</div>`
+    + `<div class="stgrid"><div class="stmain"><h2 class="sh">Who should take this ask over?</h2><p class="hint">Asked of ${esc(whoWords(a))}.</p><div class="cwho">${leads.map(x => card(x, true)).join('')}${rest.map(x => card(x, false)).join('')}</div>`
     + `<p class="errt" id="gvErr" role="alert" hidden></p></div></div><div class="cfoot">${btn('Back to the reply', { kind: 'text', href: '#/ask/' + enc(key) })}</div></div></div>`;
 }
 export function bindGive(key, ctx) {
