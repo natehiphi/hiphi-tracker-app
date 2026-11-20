@@ -474,8 +474,8 @@ with sync_playwright() as p:
         ok(all(g >= 24 for g in gaps), f'11 toast {w}: at least 24px between the done block and the toast ({gaps})')
         pg.close()
     pg, _ = open_as(br, 'NT', 390, 844, hash='#/'); pg.evaluate(SEED3); pg.wait_for_timeout(200); go(pg, '#/do/leads')
-    fb = pg.evaluate("() => { const f = document.querySelector('.lcfoot'), r = f.getBoundingClientRect(); return [getComputedStyle(f).position, Math.round(r.bottom), innerHeight]; }")
-    ok(fb[0] == 'sticky' and fb[1] <= fb[2] - 60, f'11 phone: "Approve all N" is docked above the app bar on Lead changes ({fb})')
+    fb = pg.evaluate("() => { const f = document.querySelector('.lcfoot'), r = f.getBoundingClientRect(), bar = document.querySelector('.bar'), bh = bar && getComputedStyle(bar).display !== 'none' ? Math.round(bar.getBoundingClientRect().height) : 0; return [getComputedStyle(f).position, Math.round(r.bottom), innerHeight, document.body.classList.contains('nobar'), bh]; }")
+    ok(fb[0] == 'sticky' and (fb[1] == fb[2] if fb[3] else fb[1] <= fb[2] - fb[4]), f'11 phone: "Approve all N" is docked at the bottom of the window when the app bar is hidden (body.nobar), above the bar otherwise ({fb})')
     snap(pg, 'team_390_leads.png')
     pg.click('#lcAll'); pg.wait_for_timeout(400)
     g = pg.evaluate("() => { const a = document.querySelector('.tdone .actions').getBoundingClientRect(), t = document.querySelector('#toast .tin').getBoundingClientRect(); return Math.round(t.top - a.bottom); }")
@@ -492,6 +492,117 @@ with sync_playwright() as p:
     ok(fh <= 2, f'11 phone: the filters take at most two lines ({fh})')
     snap(pg, 'team_390_many.png')
     pg.close()
+    # ============ 12. the live path (backend 205), without a database: the flag is switched on in the page and S.supa is a recorder ============
+    # In the practice copy the live branches never run; this turns them on the way staff7's live start-up will, so the calls, their arguments and the error words are proved. Real database calls wait for 205 to be applied.
+    STUB = """async () => { const d = await import('/staff6/data.js'); window.__calls = []; window.__fail = null; window.__rows = []; window.__from = [];
+      d.leadsLiveSet(true);
+      const q = table => { const rec = { table, ops: [] }; window.__from.push(rec); const c = { select: (...a) => { rec.ops.push(['select', ...a]); return c; }, is: (...a) => { rec.ops.push(['is', ...a]); return c; }, order: (...a) => { rec.ops.push(['order', ...a]); return c; }, range: async () => ({ data: window.__rows, error: null }) }; return c; };
+      d.S.supa = { rpc: async (name, args) => { window.__calls.push([name, JSON.parse(JSON.stringify(args))]); return window.__fail ? { data: null, error: { message: window.__fail } } : { data: null, error: null }; }, from: q }; }"""
+    CALLS = "() => window.__calls"
+    TOAST = "() => document.getElementById('toastMsg').innerText"
+    UUID = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    import re
+    pg, info = open_as(br, 'KR', 1280, 800, hash='#/team/many', seed=True)
+    me = info['me']; ids5 = info['leadIds']
+    pg.evaluate(STUB)
+    # take: one id, no group
+    go(pg, '#/team/bill/' + ids5[0]); txt = pg.locator('#takeIt').inner_text(); pg.click('#takeIt'); pg.wait_for_timeout(500)
+    cl = pg.evaluate(CALLS); st = pg.evaluate(STATE)
+    ok(len(cl) == 1 and cl[0][0] == 'set_bill_leads' and cl[0][1] == {'p_bill_ids': [ids5[0]], 'p_to': me, 'p_group': None}, f'12 live take: one set_bill_leads call with one id, the viewer and no group ({cl})')
+    ok(pg.evaluate('location.hash').startswith('#/team/done/') and st['asg'][ids5[0]] == [me] and st['lc'] == 0, '12 live take: the done page, the bill is the viewer\'s, and the page writes no record of its own (the database keeps them)')
+    pg.click('#toastUndo'); pg.wait_for_timeout(500)
+    cl = pg.evaluate(CALLS); st = pg.evaluate(STATE)
+    ok(len(cl) == 2 and cl[1] == ['set_bill_leads', {'p_bill_ids': [ids5[0]], 'p_to': None, 'p_group': None}] and st['asg'][ids5[0]] == [], f'12 live Undo of a take: set_bill_leads back to the earlier lead (nobody), same group (none) ({cl[1:]})')
+    # a refused call: the words show, the button comes back, nothing changes
+    pg.evaluate("() => { window.__fail = 'That person is not on the team.'; window.__calls = []; }")
+    go(pg, '#/team/bill/' + ids5[1]); pg.click('#takeIt'); pg.wait_for_timeout(500)
+    ok(pg.evaluate(TOAST) == 'That person is not on the team.' and pg.evaluate('location.hash') == '#/team/bill/' + ids5[1] and pg.locator('#takeIt').inner_text() == txt and not pg.locator('#takeIt').is_disabled()
+       and pg.evaluate(STATE)['asg'][ids5[1]] == [], '12 live take refused: the database\'s words in a toast, the page stays, Take it is back, no lead set')
+    pg.evaluate("() => { window.__fail = null; window.__calls = []; }")
+    # Give 5 (Many at once): one call, 5 ids, one group; Undo: one call in the same group
+    go(pg, '#/team/many'); pg.select_option('#mWho', 'nolead'); pg.wait_for_timeout(250)
+    pg.evaluate(TICK, 5); pg.click('#mGive'); pg.wait_for_timeout(400); pg.locator('.grow').first.click(); pg.click('#mGiveGo'); pg.wait_for_timeout(600)
+    cl = pg.evaluate(CALLS); a = cl[0][1] if cl else {}
+    ok(len(cl) == 1 and cl[0][0] == 'set_bill_leads' and len(a['p_bill_ids']) == 5 and len(set(a['p_bill_ids'])) == 5 and a['p_to'] and re.match(UUID, a['p_group'] or ''), f'12 live Give 5: one call, 5 ids, one group id ({[(c[0], len(c[1]["p_bill_ids"]), c[1]["p_group"]) for c in cl]})')
+    pg.click('#toastUndo'); pg.wait_for_timeout(600)
+    cl = pg.evaluate(CALLS)
+    ok(len(cl) == 2 and cl[1][0] == 'set_bill_leads' and sorted(cl[1][1]['p_bill_ids']) == sorted(a['p_bill_ids']) and cl[1][1]['p_to'] is None and cl[1][1]['p_group'] == a['p_group'], '12 live Undo of Give 5: back to nobody in one call, in the same group')
+    # 300 ids: two calls of 150 sharing one group
+    r = pg.evaluate("""async (me) => { const d = await import('/staff6/data.js'); window.__calls = []; const ids = Array.from({ length: 300 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+      const out = await d.setLeads(ids, me); return { group: out.group, n: out.recs.length, calls: window.__calls.map(c => [c[0], c[1].p_bill_ids.length, c[1].p_group, c[1].p_to]) }; }""", me)
+    ok(len(r['calls']) == 2 and [c[1] for c in r['calls']] == [150, 150] and r['calls'][0][2] == r['calls'][1][2] == r['group'] and re.match(UUID, r['group']) and r['n'] == 300 and all(c[0] == 'set_bill_leads' and c[3] == me for c in r['calls']), f'12 live 300 ids: two calls of 150 sharing one group ({r["calls"]})')
+    r = pg.evaluate("""async (me) => { const d = await import('/staff6/data.js'); window.__calls = []; window.__fail = 'Pick at least one bill.'; const ids = Array.from({ length: 200 }, (_, i) => `00000000-0000-4000-9000-${String(i).padStart(12, '0')}`);
+      window.__fail = null; let n = 0; d.S.supa.rpc = async (name, args) => { window.__calls.push([name, args]); return ++n === 2 ? { error: { message: 'boom' } } : { error: null }; };
+      const out = await d.setLeads(ids, me); return { refused: out.refused, done: out.recs.length, set: ids.filter(i => (d.S.assignments[i] || [])[0] === me).length }; }""", me)
+    ok(r['done'] == 150 and r['set'] == 150 and r['refused'] == 'It did not save: boom 150 of 200 bills were changed.', f'12 live, the second of two calls fails: the 150 that went are kept and said, the rest are not changed ({r})')
+    pg.close()
+    # the admin's calls, and the records read
+    pg, _ = open_as(br, 'NT', 1280, 800, hash='#/'); pg.evaluate(SEED3); pg.wait_for_timeout(300)
+    pg.evaluate(STUB); go(pg, '#/do/leads')
+    pend = pg.evaluate("async () => { const d = await import('/staff6/data.js'); return d.S.leadChanges.filter(r => !r.approved_at && !r.put_back_at).map(r => r.id); }")
+    pg.evaluate("() => { window.__fail = 'Only an admin approves a lead change.'; }"); pg.click('#lcAll'); pg.wait_for_timeout(500)
+    ok(pg.evaluate(TOAST) == 'Only an admin approves a lead change.' and pg.locator('.lcr').count() == 4 and pg.locator('#lcAll').inner_text() == 'Approve all 4' and not pg.locator('#lcAll').is_disabled(), '12 live Approve all refused: the database\'s words, the rows stay, the button is back')
+    pg.evaluate("() => { window.__fail = 'boom'; }"); pg.click('#lcAll'); pg.wait_for_timeout(500)
+    ok(pg.evaluate(TOAST) == 'It did not save: boom', '12 live: a message the app does not know gets "It did not save: " in front')
+    pg.evaluate("() => { window.__fail = null; window.__calls = []; }"); pg.click('#lcAll'); pg.wait_for_timeout(500)
+    cl = pg.evaluate(CALLS); done = pg.evaluate("async () => { const d = await import('/staff6/data.js'); return d.S.leadChanges.filter(r => r.approved_at).length; }")
+    ok(len(cl) == 1 and cl[0][0] == 'approve_lead_changes' and sorted(cl[0][1]['p_ids']) == sorted(pend) and list(cl[0][1]) == ['p_ids'] and len(pend) == 8 and done == 8, f'12 live Approve all: one approve_lead_changes call with all {len(pend)} ids (4 rows, one of them a group of 5) ({[(c[0], len(c[1]["p_ids"])) for c in cl]})')
+    ok(pg.locator('#toastUndo').is_hidden() and 'Approved 4 lead changes.' in pg.evaluate(TOAST), '12 live Approve: no Undo (the database has no un-approve)')
+    pg.close()
+    pg, _ = open_as(br, 'NT', 1280, 800, hash='#/'); pg.evaluate(SEED3); pg.wait_for_timeout(300)
+    pg.evaluate(STUB); go(pg, '#/do/leads')
+    unit = pg.evaluate("async () => { const d = await import('/staff6/data.js'), tm = await import('/staff7/team_data.js'); const u = tm.pendingUnits().sort((x, y) => (y.unusual - x.unusual) || y.at - x.at)[0]; return { ids: u.recs.map(r => r.id), bills: u.recs.map(r => r.bill_id), from: u.recs.map(r => r.from), to: u.recs.map(r => r.to) }; }")
+    SAME = 'The lead changed again since. Put back the newer change first.'
+    pg.evaluate("m => { window.__fail = m; window.__calls = []; }", SAME); pg.locator('.lcr').first.locator('[data-back]').click(); pg.wait_for_timeout(500)
+    cl = pg.evaluate(CALLS)
+    ok(pg.evaluate(TOAST) == SAME and pg.locator('.lcr').count() == 4 and len(cl) == 1 and cl[0] == ['put_back_lead_change', {'p_ids': unit['ids']}], f'12 live Put back refused: put_back_lead_change with the change\'s ids, and the database\'s words on the page ({cl})')
+    pg.evaluate("() => { window.__fail = null; window.__calls = []; }"); pg.locator('.lcr').first.locator('[data-back]').click(); pg.wait_for_timeout(500)
+    cl = pg.evaluate(CALLS); st = pg.evaluate("async b => { const d = await import('/staff6/data.js'); return b.map(i => d.S.assignments[i]); }", unit['bills'])
+    ok(len(cl) == 1 and cl[0][0] == 'put_back_lead_change' and cl[0][1]['p_ids'] == unit['ids'] and st == unit['from'] and pg.locator('.lcr').count() == 3, '12 live Put back: one call, the bill goes back to who led it, the row leaves')
+    ok(pg.locator('#toastUndo').is_hidden() and pg.evaluate(TOAST) == 'Put back.', '12 live Put back: no Undo, and the done words say Slack sends the message' if 'Slack sends this' in pg.inner_text('.slackbox') else '12 live Put back: no Undo')
+    # the records the database holds, read into the page's own shape
+    pg.evaluate("() => { window.__rows = [{ id: 'x1', bill_id: 'b1', from_ids: ['a'], to_id: 't', changed_by: 'c', changed_at: '2026-11-19T01:02:03Z', group_id: 'g', approved_by: null, approved_at: null, put_back_by: null, put_back_at: null }]; }")
+    lr = pg.evaluate("async () => { const d = await import('/staff6/data.js'); const out = await d.loadLeadChanges(); return { out, recs: d.S.leadChanges, ops: window.__from.at(-1) }; }")
+    ok(lr['recs'] == [{'id': 'x1', 'bill_id': 'b1', 'from': ['a'], 'to': 't', 'by': 'c', 'at': '2026-11-19T01:02:03Z', 'group': 'g', 'approved_by': None, 'approved_at': None, 'put_back_by': None, 'put_back_at': None}]
+       and lr['ops']['table'] == 'lead_changes' and ['is', 'approved_at', None] in lr['ops']['ops'] and ['is', 'put_back_at', None] in lr['ops']['ops'] and ['order', 'changed_at', {'ascending': False}] in lr['ops']['ops'], f'12 live loadLeadChanges: reads lead_changes where nobody decided, newest first, into the practice records\' shape ({lr["ops"]["ops"]})')
+    pg.close()
+    # flag off: the practice copy and today's staff6 path are unchanged
+    pg, info = open_as(br, 'KR', 1280, 800, hash='#/team', seed=True)
+    off = pg.evaluate("""async (id) => { const d = await import('/staff6/data.js'); window.__n = 0; d.S.supa = { rpc: async () => { window.__n++; return { error: null }; }, from: () => { window.__n++; throw new Error('no'); } };
+      const r = d.setLeads([id], d.S.me.id, null, { skipSame: false }); return { on: d.leadsLiveOn(), sync: !r.then, n: r.recs.length, lc: d.S.leadChanges.length, calls: window.__n, asg: d.S.assignments[id] }; }""", info['leadIds'][0])
+    ok(off['on'] is False and off['sync'] and off['n'] == 1 and off['lc'] == 1 and off['calls'] == 0 and off['asg'] == [info['me']], f'12 flag off: the practice copy answers at once, writes its own record, and makes no database call ({off})')
+    pg.close()
+    # source checks (no browser): staff6's setOwner is untouched, staff7 writes no lead itself, and the calls match migration 205
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    def read_text(path):
+        with open(path, encoding='utf-8') as fh: return fh.read()
+    data_js = read_text(os.path.join(ROOT, 'staff6', 'data.js'))
+    so = data_js[data_js.index('async setOwner('):data_js.index('async bulkUpdate(')]
+    ok("S.supa.from('bill_assignments').upsert(" in so and ".from('bill_assignments').delete().eq('bill_id', billId).neq('advocate_id', advocateId)" in so and not re.search(r'LEADS_V7|leadsLive|set_bill_leads|rpc\(', so), '12 flag off: staff6 setOwner still writes bill_assignments directly and never reads the lead switch')
+    ok(data_js.count("rpc('set_bill_leads'") == 1 and data_js.count("rpc('approve_lead_changes'") == 1 and data_js.count("rpc('put_back_lead_change'") == 1, '12 live shape: each of the three calls is made in one place')
+    s7 = {n: read_text(os.path.join(ROOT, 'staff7', n)) for n in ('team.js', 'team_many.js', 'do_leads.js', 'team_data.js')}
+    bad = [(n, m.group(0)) for n, src in s7.items() for m in re.finditer(r'S\.assignments\??\.?\[[^\]]*\]\s*=[^=]|leadChanges\s*\.\s*(?:push|splice)|\.(?:approved_at|put_back_at)\s*=[^=]', src)]
+    ok(not bad, f'12 staff7 writes no lead or record itself, only through the data layer ({bad[:3]})')
+    for rpc_name, params in [('set_bill_leads', ['p_bill_ids', 'p_to', 'p_group']), ('approve_lead_changes', ['p_ids']), ('put_back_lead_change', ['p_ids'])]:
+        mm = re.search(r"rpc\(\s*'" + rpc_name + r"'\s*,\s*\{([^}]*)\}", data_js, re.S)
+        ok(bool(mm) and sorted(re.findall(r'(\w+)\s*:', mm.group(1))) == sorted(params), f"12 live shape (a) data.js calls rpc '{rpc_name}' with exactly {', '.join(params)}")
+    mig_paths = [os.path.normpath(os.path.join(ROOT, '..', 'backend', 'migrations', '205_lead_changes.sql')), '/Users/natehix/hiphi/backend/migrations/205_lead_changes.sql']
+    mig = next((x for x in mig_paths if os.path.exists(x)), None)
+    if mig is None:
+        print('SKIP 12 live shape (c) migration 205_lead_changes.sql not found; the migration shape is not checked', flush=True)
+    else:
+        sql = read_text(mig)
+        for label, needle in [('set_bill_leads(p_bill_ids uuid[], p_to uuid, p_group uuid default null) returns uuid', 'function set_bill_leads(p_bill_ids uuid[], p_to uuid, p_group uuid default null) returns uuid'),
+                              ('approve_lead_changes(p_ids uuid[]) returns int', 'function approve_lead_changes(p_ids uuid[]) returns int'), ('put_back_lead_change(p_ids uuid[]) returns int', 'function put_back_lead_change(p_ids uuid[]) returns int'),
+                              ('grant execute on the three to authenticated', 'grant execute on function set_bill_leads(uuid[], uuid, uuid), approve_lead_changes(uuid[]), put_back_lead_change(uuid[]) to authenticated')]:
+            ok(needle in sql, f'12 live shape (c) migration 205 has {label}')
+        cols = re.search(r'create table if not exists lead_changes \((.*?)\n\);', sql, re.S).group(1)
+        read = re.search(r"LEAD_COLS = '([^']*)'", data_js).group(1).split(',')
+        ok(all(re.search(r'^\s*' + c + r'\s', cols, re.M) for c in read), f'12 live shape (c) every column loadLeadChanges reads is a column of lead_changes ({read})')
+        ok(re.search(r"is\('approved_at', null\)\.is\('put_back_at', null\)", data_js) and 'approved_at timestamptz' in cols and 'put_back_at timestamptz' in cols, '12 live shape (c) the pending filter uses columns that exist')
+        words = re.search(r'const LEAD_WORDS = \[(.*?)\];', data_js, re.S).group(1)
+        ws = re.findall(r"'((?:[^'\\]|\\.)*)'", words)
+        ok(len(ws) == 7 and all(("raise exception '" + w + "'") in sql for w in ws), f'12 live shape (c) every sentence the app lets through is one 205 raises ({len(ws)})')
     br.close()
 
 print(f'{sum(res)} passed, {len(res) - sum(res)} failed')

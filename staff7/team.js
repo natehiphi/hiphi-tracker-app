@@ -1,7 +1,7 @@
 // Staff7 Team, view "One at a time" (R-398 piece 6): the left list holds other people's steps that are late or due today, and the bills nobody leads; the right sheet does one thing with the one picked
 // (tell the holder, take the step, take the bill, give it to a teammate). Everyone on staff can open it. Practice copy only: nothing is sent; a take or give is a record in memory (team_data.js).
 // The page's addresses: #/team (the first row opens), #/team/step/<step id>, #/team/bill/<bill id>, #/team/give/<bill id>, #/team/done/<record id>, #/team/many (the other view, built in a later part).
-import { S, advocate } from '../staff6/data.js';
+import { S, advocate, setLeads, undoLeadChanges, leadsLiveOn } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { btn, band, plainBand, personMark, esc, toast } from './parts.js';
 import { hooks7 } from './sort_data.js';
@@ -9,10 +9,14 @@ import { left } from './steps.js';
 import { hearTxt } from './issues.js';   // the shared relative-day words ("today 1:10 PM")
 import { manyModel } from './team_many.js';
 import {
-  lateSteps, noLeadBills, lateWords, whatWords, messageWords, billFacts, leadMessages, messageBoxHTML, pn, overseer, sameNick, people, leadsWords, setLead, undoLead, tell, untell, told, clockWords, stepIsLate, stepIsTeamLate, LATE_CAP, LEAD_CAP,
+  lateSteps, noLeadBills, lateWords, whatWords, messageWords, billFacts, leadMessages, messageBoxHTML, pn, overseer, sameNick, people, leadsWords, whileSaving, tell, untell, told, clockWords, stepIsLate, stepIsTeamLate, LATE_CAP, LEAD_CAP,
 } from './team_data.js';
 
 const enc = encodeURIComponent, UNDO_MS = 10000;
+// Live, the database merges a change made again by the same person within 10 seconds into the first (so a quick Undo leaves no record): the toast's Undo ends before that window does
+const undoMs = () => leadsLiveOn() ? 8000 : UNDO_MS;
+const fail = words => toast(words, { ms: 6000 });   // a refused live call, in the database's plain words
+const one = (billId, toId) => setLeads([billId], toId, null, { skipSame: false });
 export const ui = { moreLate: false, moreLead: false, give: { bill: '', pick: '' }, done: Object.create(null) };
 const billHref = b => `#/bill/${enc(String(b.bill_number).replace(/\s/g, ''))}`;
 const draw = o => hooks7.draw && hooks7.draw(o || {});
@@ -139,12 +143,14 @@ function afterDone(rec, d) {
   ui.done[rec.id] = d;
   const title = d.kind === 'give' ? `${pn(d.to)} leads ${d.bill.name} now.` : d.kind === 'step' ? `You have ${d.verb} on ${d.bill.name} now.` : `You lead ${d.bill.name} now.`;
   location.hash = `#/team/done/${enc(rec.id)}`;
-  addEventListener('hashchange', () => toast(title, { undo: () => undoMove(rec), ms: UNDO_MS }), { once: true });   // after the page is drawn, which clears the old toast
+  addEventListener('hashchange', () => toast(title, { undo: () => undoMove(rec), ms: undoMs() }), { once: true });   // after the page is drawn, which clears the old toast
 }
-function undoMove(rec) {
+async function undoMove(rec) {
   const d = ui.done[rec.id]; if (!d) return;
+  const r = await undoLeadChanges([rec]);
+  if (r.refused) return fail(r.refused);
   if (d.msgId) S.messages[d.bill.b.id] = (S.messages[d.bill.b.id] || []).filter(m => m.id !== d.msgId);
-  undoLead(rec); delete ui.done[rec.id];
+  delete ui.done[rec.id];
   addEventListener('hashchange', () => toast('Put back. Nothing was changed.', { ms: 5000 }), { once: true });
   go(d.kind === 'step' ? `#/team/step/${enc(d.stepId)}` : `#/team/bill/${enc(d.bill.id)}`);
 }
@@ -160,26 +166,35 @@ function bind({ me, rows, leads, kind, key, rtId }) {
   if (stepR) {
     on('tellBtn', () => { if (told.has(stepR.id)) return; tell(stepR, me); draw({ focus: '#untellBtn' }); });   // once per step: a second click finds it told already
     on('untellBtn', () => { untell(stepR.id); draw({ focus: '#tellBtn' }); });
-    on('takeStep', () => {
+    on('takeStep', async () => {
       const s = stepR.step, bill = { b: s.bill, id: s.bill.id, name: s.name }, from = [...(S.assignments?.[s.bill.id] || [])].map(advocate).filter(Boolean);
-      const rec = setLead(s.bill.id, me.id);
+      const r = await whileSaving(document.getElementById('takeStep'), 'Taking', one(s.bill.id, me.id));
+      if (r.refused) return fail(r.refused);
+      const rec = r.recs[0];
       let msgId = null;
-      if (stepR.holder) { const m = { id: 'tm-' + Date.now().toString(36), bill_id: s.bill.id, advocate_id: me.id, body: `@${pn(stepR.holder)} ${pn(me)} took ${s.verb} for ${s.name}.`, created_at: new Date().toISOString(), to: stepR.holder.id };
+      // live, the database tells the old lead itself (Slack); this in-memory note is the practice copy's
+      if (stepR.holder && !leadsLiveOn()) { const m = { id: 'tm-' + Date.now().toString(36), bill_id: s.bill.id, advocate_id: me.id, body: `@${pn(stepR.holder)} ${pn(me)} took ${s.verb} for ${s.name}.`, created_at: new Date().toISOString(), to: stepR.holder.id };
         (S.messages ??= {})[m.bill_id] ??= []; S.messages[m.bill_id].push(m); msgId = m.id; }
       afterDone(rec, { kind: 'step', rec, bill, from, to: me, verb: s.verb, holder: stepR.holder, stepId: stepR.id, msgId });
     });
   }
   if (billX) {
-    on('takeIt', () => { const rec = setLead(billX.id, me.id); afterDone(rec, { kind: 'take', rec, bill: billX, from: [], to: me }); });
+    on('takeIt', async () => {
+      const r = await whileSaving(document.getElementById('takeIt'), 'Taking', one(billX.id, me.id));
+      if (r.refused) return fail(r.refused);
+      const rec = r.recs[0]; afterDone(rec, { kind: 'take', rec, bill: billX, from: [], to: me });
+    });
     document.querySelectorAll('.grow').forEach(g => g.addEventListener('click', () => {
       ui.give.pick = g.dataset.id;
       document.querySelectorAll('.grow').forEach(o => { const act = o === g; o.classList.toggle('on', act); o.setAttribute('aria-checked', String(act)); o.querySelector('.gtick').innerHTML = ic(act ? 'check' : 'chevron-right'); });
       const gb = document.getElementById('giveBtn'); gb.disabled = false; gb.textContent = `Give to ${g.dataset.name}`;
     }));
-    on('giveBtn', () => {
+    on('giveBtn', async () => {
       const to = advocate(ui.give.pick); if (!to) return;
       const from = [...(S.assignments?.[billX.id] || [])].map(advocate).filter(a => a && a.id !== to.id);
-      const rec = setLead(billX.id, to.id); afterDone(rec, { kind: 'give', rec, bill: billX, from, to });
+      const r = await whileSaving(document.getElementById('giveBtn'), 'Giving', one(billX.id, to.id));
+      if (r.refused) return fail(r.refused);
+      const rec = r.recs[0]; afterDone(rec, { kind: 'give', rec, bill: billX, from, to });
     });
   }
 }

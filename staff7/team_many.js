@@ -1,14 +1,16 @@
 // Staff7 Team, view "Many at once" (R-398 piece 6, part 2): bills only, a full-width table with filters and tick boxes, and "Give N to…" / "Take N" for the ticked ones. One change is one group:
 // each bill gets its own record in S.leadChanges, all with one `group` id, and one Undo puts every bill back. Practice copy: nothing is sent; the done page shows the words (team_message.png).
 // Addresses: #/team/many (the table), #/team/many/give (who should lead the ticked bills), #/team/many/done/<group>. The filters and the ticks are kept for the visit, across the tab switch.
-import { S, advocate, POSITIONS } from '../staff6/data.js';
+import { S, advocate, POSITIONS, setLeads, undoLeadChanges, leadGroupId, leadsLiveOn } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { btn, personMark, esc, toast } from './parts.js';
 import { hooks7 } from './sort_data.js';
 import { posWords } from './steps.js';
-import { noLeadBills, ledBills, leadsOf, leadsWords, rowOf, sortRows, people, setLeads, undoLeads, overseer, sameNick, pn, leadMessages, messageBoxHTML } from './team_data.js';
+import { noLeadBills, ledBills, leadsOf, leadsWords, rowOf, sortRows, people, whileSaving, overseer, sameNick, pn, leadMessages, messageBoxHTML } from './team_data.js';
 
 const enc = encodeURIComponent, UNDO_MS = 10000, CAP = 11;
+const undoMs = () => leadsLiveOn() ? 8000 : UNDO_MS;   // live: inside the database's 10-second merge of a change made again by the same person
+const fail = words => toast(words, { ms: 6000 });
 export const ui = { who: 'nolead', issue: '', pos: '', all: false, ticked: new Set(), pick: '', pickFor: '', done: Object.create(null) };
 const draw = o => hooks7.draw && hooks7.draw(o || {});
 const go = h => { if (location.hash === h) draw({ focus: 'main h1' }); else location.hash = h; };
@@ -106,20 +108,24 @@ export function manyModel({ me, rt }) {
 }
 
 // ---------------------------------------------------------------------------------- what the controls do
-function apply(me, rows, to) {   // to: an advocate (give) or me (take); returns after drawing the done page
+async function apply(me, rows, to, btnEl) {   // to: an advocate (give) or me (take); returns after drawing the done page
   const picked = rows.filter(r => ui.ticked.has(r.id)), chosen = to.id === me.id ? picked.filter(r => !mine(r, me)) : picked;
   const old = new Map(); for (const r of chosen) for (const id of S.assignments?.[r.id] || []) if (id !== to.id && id !== me.id) (old.get(id) || old.set(id, []).get(id)).push(r);
-  const { group, recs } = setLeads(chosen.map(r => r.id), to.id);
+  const res = await whileSaving(btnEl, to.id === me.id ? 'Taking' : 'Giving', setLeads(chosen.map(r => r.id), to.id, leadGroupId()));
+  const { group, recs } = res;
+  if (res.refused) { fail(res.refused); if (recs.length) draw({}); return; }   // some of the bills may have changed before the one that failed: the page shows them as they are now
   if (!recs.length) return;
   const d = { kind: to.id === me.id ? 'take' : 'give', to, n: recs.length, rows: chosen, recs, old };
   ui.done[group] = d; ui.ticked.clear();
   const title = d.kind === 'give' ? `${bills(d.n).replace(/^1 bill$/, '1 bill')} given to ${pn(to)}.` : `You lead ${d.n} more ${d.n === 1 ? 'bill' : 'bills'} now.`;
   location.hash = `#/team/many/done/${enc(group)}`;
-  addEventListener('hashchange', () => toast(title, { undo: () => undo(group), ms: UNDO_MS }), { once: true });   // after the page is drawn, which clears the old toast
+  addEventListener('hashchange', () => toast(title, { undo: () => undo(group), ms: undoMs() }), { once: true });   // after the page is drawn, which clears the old toast
 }
-function undo(group) {
+async function undo(group) {
   const d = ui.done[group]; if (!d) return;
-  undoLeads(d.recs); delete ui.done[group];
+  const r = await undoLeadChanges(d.recs);
+  if (r.refused) return fail(r.refused);
+  delete ui.done[group];
   addEventListener('hashchange', () => toast('Put back. Nothing was changed.', { ms: 5000 }), { once: true });
   go('#/team/many');
 }
@@ -137,7 +143,7 @@ function bind({ me, rows, sub }) {
   };
   const wireFoot = () => {
     on('mGive', () => go('#/team/many/give'));
-    on('mTake', () => apply(me, rows, me));
+    on('mTake', () => apply(me, rows, me, document.getElementById('mTake')));
     on('mClear', () => { ui.ticked.clear(); sync(); document.getElementById('mAll')?.focus(); });
   };
   document.querySelectorAll('.mchk').forEach(c => c.addEventListener('change', () => { if (c.checked) ui.ticked.add(c.dataset.id); else ui.ticked.delete(c.dataset.id); sync(); }));
@@ -148,5 +154,5 @@ function bind({ me, rows, sub }) {
     document.querySelectorAll('.grow').forEach(o => { const act = o === g; o.classList.toggle('on', act); o.setAttribute('aria-checked', String(act)); o.querySelector('.gtick').innerHTML = ic(act ? 'check' : 'chevron-right'); });
     const gb = document.getElementById('mGiveGo'); gb.disabled = false; gb.textContent = `Give ${rows.filter(r => ui.ticked.has(r.id)).length} to ${g.dataset.name}`;
   }));
-  on('mGiveGo', () => { const to = advocate(ui.pick); if (to) apply(me, rows, to); });
+  on('mGiveGo', () => { const to = advocate(ui.pick); if (to) apply(me, rows, to, document.getElementById('mGiveGo')); });
 }

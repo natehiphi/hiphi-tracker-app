@@ -1,12 +1,12 @@
 // The admin's step: "Look over N lead changes" (R-398 piece 6, part 3), page #/do/leads. Every take or give already counts; an admin looks at each one and approves it, or puts it back
 // (the earlier lead returns, both people are told). A group (many bills at once) is one row. Rows: a bill taken from, or given away from, an existing lead first; within a group, newest first.
 // Practice copy: nothing is sent; the words are shown (team_message.png). Admins only.
-import { S, advocate } from '../staff6/data.js';
+import { S, advocate, leadsLiveOn } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { btn, plainBand, personMark, esc, toast } from './parts.js';
 import { hooks7 } from './sort_data.js';
 import { billName, billNo, dayTime } from './steps.js';
-import { pendingUnits, approveRecs, unapproveRecs, putBackRecs, unputBackRecs, putBackMessages, messageBoxHTML, pn } from './team_data.js';
+import { pendingUnits, approveRecs, unapproveRecs, putBackRecs, unputBackRecs, putBackMessages, messageBoxHTML, whileSaving, pn } from './team_data.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
 const ymd = t => new Date(t).toLocaleDateString('en-CA', HST), clock = t => new Date(t).toLocaleTimeString('en-US', { ...HST, hour: 'numeric', minute: '2-digit' });
@@ -46,15 +46,23 @@ export function leadsPage(me) {
 function bindAll(me) {
   return () => {
     const find = k => pendingUnits().find(u => u.key === k);
-    const approve = (us, words) => { const recs = us.flatMap(u => u.recs); approveRecs(recs, me); ui.note = ''; toast(words, { undo: () => { unapproveRecs(recs); draw({ focus: 'main h1' }); }, ms: 10000 }); draw({ focus: 'main h1' }); };
+    // Live, the database has no un-approve, so an approval offers no Undo there; the practice copy keeps its Undo
+    const fail = words => toast(words, { ms: 6000 });
+    const approve = async (us, words, el, busyWords) => {
+      const recs = us.flatMap(u => u.recs), r = await whileSaving(el, busyWords, approveRecs(recs, me));
+      if (r.refused) return fail(r.refused);
+      ui.note = ''; toast(words, { undo: leadsLiveOn() ? null : () => { unapproveRecs(recs); draw({ focus: 'main h1' }); }, ms: 10000 }); draw({ focus: 'main h1' });
+    };
     document.querySelectorAll('[data-see]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.see; ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k); draw({ focus: `[data-see="${k}"]` }); }));
-    document.querySelectorAll('[data-ok]').forEach(b => b.addEventListener('click', () => { const u = find(b.dataset.ok); if (u) approve([u], u.recs.length > 1 ? `Approved ${u.recs.length} bills.` : 'Approved.'); }));
-    document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => {
+    document.querySelectorAll('[data-ok]').forEach(b => b.addEventListener('click', () => { const u = find(b.dataset.ok); if (u) approve([u], u.recs.length > 1 ? `Approved ${u.recs.length} bills.` : 'Approved.', b, 'Approving'); }));
+    document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', async () => {
       const u = find(b.dataset.back); if (!u) return; const recs = u.recs, msgs = putBackMessages(recs, me);
-      putBackRecs(recs, me); ui.note = messageBoxHTML(msgs);
-      toast(recs.length > 1 ? `Put back ${recs.length} bills.` : 'Put back.', { undo: () => { unputBackRecs(recs); ui.note = ''; draw({ focus: 'main h1' }); }, ms: 10000 });
+      const r = await whileSaving(b, 'Putting back', putBackRecs(recs, me));   // live: all of them or none (one transaction); "The lead changed again since..." is shown as the database says it
+      if (r.refused) return fail(r.refused);
+      ui.note = messageBoxHTML(msgs);
+      toast(recs.length > 1 ? `Put back ${recs.length} bills.` : 'Put back.', { undo: leadsLiveOn() ? null : () => { unputBackRecs(recs); ui.note = ''; draw({ focus: 'main h1' }); }, ms: 10000 });
       draw({ focus: 'main h1' });
     }));
-    document.getElementById('lcAll')?.addEventListener('click', () => { const us = units(); if (us.length) approve(us, `Approved ${us.length} lead ${us.length === 1 ? 'change' : 'changes'}.`); });
+    document.getElementById('lcAll')?.addEventListener('click', () => { const us = units(); if (us.length) approve(us, `Approved ${us.length} lead ${us.length === 1 ? 'change' : 'changes'}.`, document.getElementById('lcAll'), 'Approving'); });
   };
 }

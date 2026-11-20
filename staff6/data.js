@@ -556,10 +556,113 @@ export function decidePublicChangeV7(id, approve, note = '', seen) {
   Object.assign(pc, { status: 'approved', decided_by: me.id, decided_at: now, note: text });
   return { approved: true, skipped };
 }
+// ---- Lead changes (R-398 piece 6; backend 205) ----
+// Who leads a bill. staff7's take, give, Approve, Approve all and Put back all come through here. Practice (the default): the same in-memory records as ever
+// (S.assignments, S.leadChanges). Live: the database's functions set_bill_leads, approve_lead_changes and put_back_lead_change, and the table lead_changes.
+// LEADS_V7 is its own switch, not PUBLIC_V7: PUBLIC_V7 is on in the practice copy too (its rules run there), while this one must be off there so the practice copy keeps
+// its in-memory records, and a test can turn it on in the page and stub S.supa. seedPublicV7 turns it on for a live staff7 and nowhere else; staff6's own setOwner never reads it,
+// so the current app writes bill_assignments directly exactly as before (205's trigger records that too).
+let LEADS_V7 = false;
+export const leadsLiveOn = () => LEADS_V7;
+export const leadsLiveSet = on => { LEADS_V7 = !!on; };   // seedPublicV7 and the tests
+const LEAD_CHUNK = 150, LEAD_COLS = 'id,bill_id,from_ids,to_id,changed_by,changed_at,group_id,approved_by,approved_at,put_back_by,put_back_at';
+let leadSeq = 0;
+// the database's plain sentences (205's raise exception) pass through; anything else gets a lead-in
+const LEAD_WORDS = ['Only the team can change who leads a bill.', 'Pick at least one bill.', 'That person is not on the team.', 'Only an admin approves a lead change.', 'Only an admin puts a lead change back.',
+  'This lead change was already put back.', 'The lead changed again since. Put back the newer change first.'];
+const leadWords = e => { const m = String(e?.message || e || '').trim(); return LEAD_WORDS.includes(m) ? m : 'It did not save: ' + (m || 'no answer from the database'); };
+export const leadGroupId = () => LEADS_V7 && globalThis.crypto?.randomUUID ? crypto.randomUUID() : `g-${Date.now().toString(36)}-${++leadSeq}`;
+const fromRow = r => ({ id: r.id, bill_id: r.bill_id, from: r.from_ids || [], to: r.to_id ?? null, by: r.changed_by ?? null, at: r.changed_at, group: r.group_id ?? null,
+  approved_by: r.approved_by ?? null, approved_at: r.approved_at ?? null, put_back_by: r.put_back_by ?? null, put_back_at: r.put_back_at ?? null });
+// The changes nobody has decided yet, newest first, into S.leadChanges (an admin's Home counts them). Live only; returns { n } or { refused }.
+export async function loadLeadChanges() {
+  if (!LEADS_V7) return { n: (S.leadChanges || []).length };
+  try {
+    const { data, error } = await allRows(o => S.supa.from('lead_changes').select(LEAD_COLS, o).is('approved_at', null).is('put_back_at', null).order('changed_at', { ascending: false }).order('id'));
+    if (error) throw error;
+    S.leadChanges = (data || []).map(fromRow);
+    return { n: S.leadChanges.length };
+  } catch (e) { console.warn('lead_changes:', e?.message || e); S.leadChanges ??= []; return { refused: leadWords(e) }; }
+}
+// Set the lead of many bills to one person (toId null: nobody). groupId ties them together (several bills get one when none is given). A bill the person already leads alone is left as it is (skipSame).
+// Practice: returns { group, recs } now. Live: a promise of { group, recs } (calls of up to 150 bills sharing the group), or { refused, group, recs } when one failed: recs are the bills that did change.
+// A record: { id, bill_id, from, to, by, at, group, approved_by, approved_at }. Practice records go into S.leadChanges; live ones do not (the database keeps them, and an admin's own is approved at once).
+export function setLeads(billIds, toId, groupId = null, { skipSame = true } = {}) {
+  const ids = [...new Set(billIds)].filter(id => { const cur = S.assignments?.[id] || []; return !(skipSame && toId && cur.length === 1 && cur[0] === toId); });
+  const rec = id => ({ id: `lc-${Date.now().toString(36)}-${++leadSeq}`, bill_id: id, from: [...(S.assignments?.[id] || [])], to: toId ?? null, by: S.me?.id || null, at: new Date().toISOString(), group: null, approved_by: null, approved_at: null });
+  if (!LEADS_V7) {
+    S.leadChanges ??= []; S.assignments ??= {};
+    const recs = ids.map(id => { const r = rec(id); r.group = groupId; S.assignments[id] = toId ? [toId] : []; S.leadChanges.push(r); return r; });
+    return { group: groupId, recs };
+  }
+  return sendLeads(ids, toId, groupId, rec);
+}
+async function sendLeads(ids, toId, groupId, rec) {
+  const group = groupId ?? (ids.length > 1 ? leadGroupId() : null), recs = [];
+  if (!ids.length) return { group, recs };
+  for (let i = 0; i < ids.length; i += LEAD_CHUNK) {
+    const part = ids.slice(i, i + LEAD_CHUNK), made = part.map(rec);
+    try {
+      const { error } = await S.supa.rpc('set_bill_leads', { p_bill_ids: part, p_to: toId ?? null, p_group: group });
+      if (error) throw error;
+    } catch (e) {
+      const words = leadWords(e);
+      return { refused: recs.length ? `${words} ${recs.length} of ${ids.length} bills were changed.` : words, group, recs };
+    }
+    S.assignments ??= {}; made.forEach(r => { r.group = group; S.assignments[r.bill_id] = toId ? [toId] : []; });
+    recs.push(...made);
+  }
+  return { group, recs };
+}
+// Undo: put each bill back with who led it before. Practice: the records are taken out of S.leadChanges, as if never made. Live: set_bill_leads back to the earlier lead, in the same group
+// (the database merges a change made again by the same person within 10 seconds into the first, so a quick Undo leaves no record). One call per earlier lead; a bill that had two leads goes back to the first.
+export function undoLeadChanges(recs) {
+  if (!LEADS_V7) {
+    let any = false;
+    for (const rec of recs) {
+      const i = (S.leadChanges || []).findIndex(r => r.id === rec.id); if (i < 0) continue;
+      S.leadChanges.splice(i, 1); any = true;
+      if (S.assignments) S.assignments[rec.bill_id] = [...rec.from];
+    }
+    return { ok: any || !recs.length };
+  }
+  return (async () => {
+    const by = new Map(); for (const r of recs) { const k = r.from?.[0] ?? ''; (by.get(k) || by.set(k, []).get(k)).push(r); }
+    for (const [k, rs] of by) {
+      const r = await sendLeads(rs.map(x => x.bill_id), k || null, rs[0].group ?? null, id => ({ bill_id: id }));
+      if (r.refused) return { refused: r.refused };
+    }
+    return { ok: true };
+  })();
+}
+// An admin's yes (ids are lead_changes ids). Returns { n } or { refused }. Live: it cannot be taken back (the database has no un-approve), so the page offers no Undo then.
+export function approveLeadChanges(ids, me = S.me) {
+  const mark = () => { const at = new Date().toISOString(); (S.leadChanges || []).forEach(r => { if (ids.includes(r.id)) { r.approved_by = me?.id || null; r.approved_at = at; } }); return { n: ids.length }; };
+  if (!LEADS_V7) return mark();
+  return (async () => {
+    try { const { error } = await S.supa.rpc('approve_lead_changes', { p_ids: ids }); if (error) throw error; } catch (e) { return { refused: leadWords(e) }; }
+    return mark();
+  })();
+}
+export function unapproveLeadChanges(ids) { (S.leadChanges || []).forEach(r => { if (ids.includes(r.id)) { r.approved_by = null; r.approved_at = null; } }); }   // practice only
+// An admin's no: each bill goes back to who led it before, and the record stays, marked put back. Returns { n } or { refused } (live: all or none, in one transaction).
+export function putBackLeadChanges(ids, me = S.me) {
+  const mark = () => {
+    const at = new Date().toISOString(); let n = 0;
+    for (const r of S.leadChanges || []) if (ids.includes(r.id)) { if (S.assignments) S.assignments[r.bill_id] = [...(r.from || [])]; r.put_back_at = at; r.put_back_by = me?.id || null; n++; }
+    return { n };
+  };
+  if (!LEADS_V7) return mark();
+  return (async () => {
+    try { const { error } = await S.supa.rpc('put_back_lead_change', { p_ids: ids }); if (error) throw error; } catch (e) { return { refused: leadWords(e) }; }
+    return mark();
+  })();
+}
+export function unputBackLeadChanges(ids) { for (const r of S.leadChanges || []) if (ids.includes(r.id)) { if (S.assignments) S.assignments[r.bill_id] = [r.to]; r.put_back_at = null; r.put_back_by = null; } }   // practice only
 // Practice only (design 11): the two waiting changes from teammates, and a few of the lead's side bills with no public words. Called once from
 // staff7's start-up, after the person is known. It switches the public-mode rules on for this page. Never seeds twice, never over a restored practice copy.
 export function seedPublicV7() {
-  if (!DEMO) { PUBLIC_V7 = true; return; }
+  if (!DEMO) { PUBLIC_V7 = true; LEADS_V7 = true; S.leadsReady = loadLeadChanges(); return; }   // R-398 piece 6: the lead changes' live calls (205); staff7's start can await S.leadsReady before its first draw
   PUBLIC_V7 = true;
   if (S.publicSeededV7 || PRACTICE) { S.publicSeededV7 = true; return; }
   S.publicSeededV7 = true;

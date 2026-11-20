@@ -1,7 +1,7 @@
 // Staff7 Team, the data (R-398 piece 6): the two lists on #/team, one bill's facts for the sheet, and the one function that changes a lead.
-// Pure functions over the data layer's own facts: nothing here draws. The only writes are setLead / undoLead (S.assignments and the S.leadChanges record, in memory: this is the practice copy) and tell / untell
-// (a message on the bill, in memory). The live app's table, trigger and message are the database piece that waits for Nate's yes (R-398-team-build.md).
-import { S, advocate, SESSION_YEAR } from '../staff6/data.js';
+// Pure functions over the data layer's own facts: nothing here draws. The only write here is tell / untell (a message on the bill, in memory).
+// Who leads a bill is changed by the data layer (staff6/data.js setLeads and after: in memory on the practice copy, the database's 205 functions live); setLead and the others below are thin wrappers over it.
+import { S, advocate, SESSION_YEAR, leadsLiveOn, leadGroupId, setLeads as dataSetLeads, undoLeadChanges, approveLeadChanges, unapproveLeadChanges, putBackLeadChanges, unputBackLeadChanges } from '../staff6/data.js';
 import { t6Fresh } from '../staff6/today.js';
 import { hearingAhead, stopOf } from '../staff6/model.js';
 import { stepsFor, pastDue, billName, billNo, posWords, left, cmteWords } from './steps.js';
@@ -121,31 +121,30 @@ export function overseer(me) {
 }
 
 // ---------------------------------------------------------------------------------- the record, and the one function that changes a lead
-// Every take or give is one record: who, which bill, who led before, who leads now, when. `group` and `approved_*` are for the admin's step and the many-at-once view (later parts).
-let seq = 0;
+// Every take or give is one record: who, which bill, who led before, who leads now, when. `group` and `approved_*` are for the admin's step and the many-at-once view.
+// Nothing here writes S.assignments or S.leadChanges: the data layer does (staff6/data.js setLeads and the calls after it), in memory on the practice copy and through the database's functions live (backend 205).
+// These are the practice-copy shapes the tests and older callers use: in the practice copy they answer at once; live they return promises. The pages call the data layer's functions and read { refused }.
 export function setLead(billId, toId, { group = null } = {}) {
-  S.leadChanges ??= [];
-  const from = [...(S.assignments?.[billId] || [])];
-  S.assignments ??= {}; S.assignments[billId] = [toId];   // the practice copy: the same shape DB.setOwner keeps in memory (staff6/data.js)
-  const rec = { id: `lc-${Date.now().toString(36)}-${++seq}`, bill_id: billId, from, to: toId, by: S.me?.id || null, at: new Date().toISOString(), group, approved_by: null, approved_at: null };
-  S.leadChanges.push(rec);
-  return rec;
+  const r = setLeads_(billId, toId, group);
+  return r && typeof r.then === 'function' ? r.then(x => x.recs[0]) : r.recs[0];
 }
+const setLeads_ = (billId, toId, group) => dataSetLeads([billId], toId, group, { skipSame: false });
 // Many bills at once: one record for each bill that changes, all sharing one `group` id. A bill the person already leads alone is left as it is. Returns { group, recs }.
-export function setLeads(billIds, toId) {
-  const group = `g-${Date.now().toString(36)}-${++seq}`, recs = [];
-  for (const id of billIds) { const cur = S.assignments?.[id] || []; if (cur.length === 1 && cur[0] === toId) continue; recs.push(setLead(id, toId, { group })); }
-  return { group, recs };
+export const setLeads = (billIds, toId) => dataSetLeads(billIds, toId, leadGroupId());
+// A button while a live call is out (the busy look as the other staff7 pages: disabled, is-loading, aria-busy, its words changed). The practice copy answers at once, so it is left as it is.
+// Takes the call's result (a value, or a promise); returns it, and puts the button back whether it went or not.
+export async function whileSaving(el, words, result) {
+  if (!result || typeof result.then !== 'function') return result;
+  const was = el ? el.textContent : '';
+  if (el) { el.disabled = true; el.classList.add('is-loading'); el.setAttribute('aria-busy', 'true'); el.textContent = words; }
+  try { return await result; }
+  finally { if (el) { el.disabled = false; el.classList.remove('is-loading'); el.removeAttribute('aria-busy'); el.textContent = was; } }
 }
-export const undoLeads = recs => recs.forEach(undoLead);
-export function undoLead(rec) {
-  const i = (S.leadChanges || []).findIndex(r => r.id === rec.id); if (i < 0) return false;
-  S.leadChanges.splice(i, 1);
-  if (S.assignments) S.assignments[rec.bill_id] = [...rec.from];
-  return true;
-}
+export const undoLeads = recs => undoLeadChanges(recs);
+export const undoLead = rec => { const r = undoLeadChanges([rec]); return r && typeof r.then === 'function' ? r : !!r.ok; };
 
 // ---------------------------------------------------------------------------------- Tell: a message on the bill that names the person who holds the step. Once per step.
+let seq = 0;   // makes the practice message ids
 export const told = new Map();   // step id -> { at, msgId, billId, to }   (this visit only; undone, it is forgotten)
 export function tell(r, me = S.me) {
   if (!r.holder || told.has(r.id)) return null;
@@ -192,7 +191,7 @@ export function putBackMessages(recs, by) {
   }
   return out;
 }
-export const messageBoxHTML = msgs => msgs.length ? `<div class="slackbox">${msgs.map(m => `<p class="sl">In Slack, to ${esc(pn(m.who))}</p><p>${esc(m.text)}</p>`).join('')}<p class="sl note">On the practice copy nothing is sent.</p></div>` : '';
+export const messageBoxHTML = msgs => msgs.length ? `<div class="slackbox">${msgs.map(m => `<p class="sl">In Slack, to ${esc(pn(m.who))}</p><p>${esc(m.text)}</p>`).join('')}<p class="sl note">${leadsLiveOn() ? 'Slack sends this within about five minutes, to a teammate who has Slack messages on.' : 'On the practice copy nothing is sent.'}</p></div>` : '';
 
 // ---------------------------------------------------------------------------------- the admin's lead changes (do_leads.js, and the Home step)
 // A change waits for a look while it has no approved_at and was not put back. A group is one change. Changes count before they are looked at; nothing is held.
@@ -203,13 +202,10 @@ export function pendingUnits() {
   return [...by].map(([key, recs]) => ({ key, recs, at: Math.max(...recs.map(r => new Date(r.at).getTime())),
     unusual: recs.some(r => (r.from || []).some(id => id !== r.to)) }));   // taken or given away from an existing lead
 }
-export const approveRecs = (recs, me) => { const at = new Date().toISOString(); recs.forEach(r => { r.approved_by = me?.id || null; r.approved_at = at; }); };
-export const unapproveRecs = recs => recs.forEach(r => { r.approved_by = null; r.approved_at = null; });
-export function putBackRecs(recs, me) {   // restores each bill's earlier lead and marks the record put back (the record stays, so there is a trail)
-  const at = new Date().toISOString();
-  recs.forEach(r => { if (S.assignments) S.assignments[r.bill_id] = [...(r.from || [])]; r.put_back_at = at; r.put_back_by = me?.id || null; });
-}
-export const unputBackRecs = recs => recs.forEach(r => { if (S.assignments) S.assignments[r.bill_id] = [r.to]; r.put_back_at = null; r.put_back_by = null; });
+export const approveRecs = (recs, me) => approveLeadChanges(recs.map(r => r.id), me);
+export const unapproveRecs = recs => unapproveLeadChanges(recs.map(r => r.id));
+export const putBackRecs = (recs, me) => putBackLeadChanges(recs.map(r => r.id), me);   // restores each bill's earlier lead and marks the record put back (the record stays, so there is a trail)
+export const unputBackRecs = recs => unputBackLeadChanges(recs.map(r => r.id));
 
 // The two counts the Home line says ("Team: 4 late steps · 40 bills with no lead"): the Team page's own functions. Working out every person's steps is the slow part, so Home asks through a short memory
 // (3 seconds, and any change of a lead or of who is active asks again at once).
