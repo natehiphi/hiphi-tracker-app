@@ -41,7 +41,7 @@ def open_as(br, who, w, h, hash=''):
     return pg, errs, bad
 def snap(pg, name, tag):
     if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'{name}_{tag}.png'))
-def step_rows(pg): return pg.evaluate("() => [...document.querySelectorAll('a.sr3[href^=\"#/do/\"]')].map(a => a.getAttribute('href'))")
+def step_rows(pg): return pg.evaluate("() => [...document.querySelectorAll('a.sr3[href^=\"#/do/\"]')].map(a => a.getAttribute('href')).filter(h => h !== '#/do/leads')")   # the admin's lead-changes row (piece 6) is not a testimony or ask step
 
 PEOPLE = ['default', 'KV', 'KR', 'JS', 'JM', 'LR', 'SY', 'NT', 'MR', 'JMM', 'PH']
 with sync_playwright() as p:
@@ -58,7 +58,7 @@ with sync_playwright() as p:
             # To do: only the four urgent kinds (+ Did we file?), the hearings of today
             ok(m['todoUrgent'] and m['laterAllCalm'] and m['hearingsOk'], f'{tag} {who}: To do holds only urgent steps and hearings today; every later step is not urgent')
             todo_n = pg.evaluate("() => document.querySelectorAll('#hs + ul.srows3 > li').length") if m['todoSteps'] or m['hearings'] else 0
-            pub_n = pg.evaluate("() => document.querySelectorAll('#hs + ul.srows3 > li a.sr3[href^=\"#/public/\"]').length")   # R-398 part 3: public changes to approve, publish or fix are To do rows too
+            pub_n = pg.evaluate("() => document.querySelectorAll('#hs + ul.srows3 > li a.sr3[href^=\"#/public/\"], #hs + ul.srows3 > li a.sr3[href=\"#/do/leads\"]').length")   # R-398 part 3: public changes to approve, publish or fix are To do rows too; so is the admin's "Look over N lead changes" (piece 6, #/do/leads)
             ok(todo_n - pub_n == len(m['todoSteps']) + len(m['hearings']), f'{tag} {who}: the To do list draws every urgent step and hearing today ({todo_n - pub_n} = {len(m["todoSteps"])} + {len(m["hearings"])}, and {pub_n} public change rows)')
             # the later line: later + To do steps = all steps, and opening it shows exactly the later rows
             ok(len(m['todoSteps']) + len(m['laterIds']) == m['all'] and set(m['todoSteps']).isdisjoint(m['laterIds']), f'{tag} {who}: To do steps + later steps = all steps ({len(m["todoSteps"])} + {len(m["laterIds"])} = {m["all"]})')

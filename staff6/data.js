@@ -2533,9 +2533,11 @@ export async function demoInit() {
   sc.tl = sc.tl.filter(e => !leak(e)); sc.since = sc.since.filter(e => !leak(e));
   S.compStage = sc.compStage; DEMO_TL = sc.tl;
   await seedV6(byIni);   // R-336 V33: Patti, Julie and the chair asks (Staff v6's practice copy only)
+  S.leadChanges = await seedLeadChanges(byIni);   // R-398 piece 6: four practice lead changes, so an admin's Home shows "Look over 4 lead changes"
   // R-316 W38: what was changed in this tab before a person switch (savePractice), back on top of the seeds.
   if (PRACTICE) {
-    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes', 'legProfiles', 'issueFollowers']) if (PRACTICE[k]) S[k] = PRACTICE[k];   // R-368: issue follows   // R-335: legislators' profiles (a store from before has none)
+    for (const k of ['drafts', 'todos', 'attend', 'messages', 'followersBy', 'assignments', 'billCampaigns', 'demoNotes', 'legProfiles', 'issueFollowers', 'leadChanges']) if (PRACTICE[k]) S[k] = PRACTICE[k];   // R-398: lead changes too; a store from before has none, so the seeds would not match its assignments
+    if (!PRACTICE.leadChanges) S.leadChanges = [];   // R-368: issue follows   // R-335: legislators' profiles (a store from before has none)
     for (const b of S.bills) Object.assign(b, PRACTICE.bills?.[b.id] || {});
     DEMO_TL = [...(PRACTICE.tl || []), ...DEMO_TL.filter(t => t.source === 'auto')].sort((x, y) => String(y.occurred_at).localeCompare(String(x.occurred_at)));
     S.follows = new Set(Object.entries(S.followersBy).filter(([, ids]) => ids.includes(S.me.id)).map(([id]) => id));
@@ -2742,6 +2744,18 @@ function demoAskOnApprove(d, x, p) {
 
 // R-316 W38: keep this tab's practice changes for the next load (a person switch reloads the page with &as=). The team's
 // columns on each bill, not the Capitol's; follows are filed under whoever is practising, as each person's own.
+// R-398 piece 6: the four lead changes of the Team drawings: Kris gave 5 nobody-led bills to Lauren (one group, today), Patrick gave a bill to May Rose (yesterday), Rick gave one to Kevin (Friday),
+// Kris took one nobody-led bill (today). Each is a bill the receiver already leads in this data, so the records agree with S.assignments and no one's steps move.
+async function seedLeadChanges(by) {
+  const M = await import('./model.js'), now = Date.now(), at = h => new Date(now - h * 36e5).toISOString(), used = new Set();
+  const led = (i, n) => S.bills.filter(b => b.tracked !== false && b.position && b.position !== 'monitor' && !M.diedish(b) && (S.assignments[b.id] || [])[0] === by[i] && !used.has(b.id))
+    .sort((x, y) => String(y.bill_number).localeCompare(String(x.bill_number), 'en', { numeric: true })).slice(0, n).map(b => (used.add(b.id), b));
+  const rec = (b, from, to, who, ago, group) => ({ id: `lc-seed-${b.id}`, bill_id: b.id, from: from ? [by[from]] : [], to: by[to], by: by[who], at: at(ago), group, approved_by: null, approved_at: null });
+  if (!['KR', 'LR', 'PT', 'MR', 'RK', 'KV'].every(i => by[i])) return [];
+  const g = led('LR', 5), mr = led('MR', 1), kv = led('KV', 1), kr = led('KR', 1);
+  if (g.length < 5 || !mr.length || !kv.length || !kr.length) return [];
+  return [...g.map((b, i) => rec(b, '', 'LR', 'KR', 0.2 + i / 600, 'g-seed-1')), rec(mr[0], 'PT', 'MR', 'PT', 26), rec(kv[0], 'RK', 'KV', 'RK', 72), rec(kr[0], '', 'KR', 'KR', 0.5)];
+}
 const TEAM_COLS = ['tracked', 'position', 'priority', 'stage_override', 'internal_notes', 'is_public', 'public_summary', 'public_action', 'public_action_until', 'nickname', 'talking_points', 'public_position', 'public_published_at', 'public_published_by'];   // R-398: the public words and positions too
 export function savePractice() {
   if (!DEMO || S.practiceCleared || !S.bills || !S.me) return;
@@ -2749,7 +2763,7 @@ export function savePractice() {
   for (const id of Object.keys(fb)) if (!S.follows?.has(id)) fb[id] = fb[id].filter(x => x !== me);
   for (const id of S.follows || []) if (!(fb[id] ??= []).includes(me)) fb[id].push(me);
   const p = { v: PRACTICE_V, asof: DEMO_ASOF, clock: Date.now(), drafts: S.drafts, todos: S.todos, attend: S.attend, messages: S.messages, followersBy: fb,
-    assignments: S.assignments, billCampaigns: S.billCampaigns, issueFollowers: S.issueFollowers || {}, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null, publicChanges: S.publicChanges || null, publicDrafts: S.publicDrafts || null,
+    assignments: S.assignments, leadChanges: S.leadChanges || [], billCampaigns: S.billCampaigns, issueFollowers: S.issueFollowers || {}, demoNotes: S.demoNotes || [], tl: DEMO_TL.filter(t => t.source !== 'auto'), partners: S.pDemo || null, legProfiles: S.legProfiles || null, publicChanges: S.publicChanges || null, publicDrafts: S.publicDrafts || null,
     bills: Object.fromEntries(S.bills.map(b => [b.id, { ...Object.fromEntries(TEAM_COLS.map(k => [k, b[k] ?? null])), position_changed_by: b.position_changed_by ?? null }])) };
   try { sessionStorage.setItem(PRACTICE_KEY, JSON.stringify(p)); } catch { /* a full or blocked store: the next load starts fresh */ }
 }

@@ -13,6 +13,8 @@ import { dateWords, sessionDates, touchMap } from './words.js';
 import { testimonyDue } from './bill_words.js';
 import { waitingAsks } from './ask_data.js';   // R-398 piece 5: an ask to a chair waits under Waiting on others
 import { waitingRows, toWriteRows, mineRows } from './public_list.js';
+import { stepCount } from './do_leads.js';   // R-398 piece 6: the admin's "Look over N lead changes"
+import { teamCounts } from './team_data.js';   // R-398 piece 6: the Team line under First up
 import { HOME_APPROVE, HOME_PUBLISH, HOME_FIX, HOME_WRITE_ROW, HOME_SEND_ROW, homeWrite, homeNeedsYou, waitingState, HOME_SENT_BACK_NOTE, missingLine } from './public_data.js';
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -143,8 +145,8 @@ export function riskFor(me, steps) {
 // Everything Home draws, for one person. `open` is their steps not yet finished in this visit.
 export function homeModel(me, open) {
   const steps = open || stepsFor(me), hs = hearingsToday(me), pub = publicSteps(me);
-  const pd = x => x.type === 'step' && pastDue(x.s) ? 1 : 0;
-  const todo = [...homeRows(steps).map(s => ({ type: 'step', s, t: s.at })), ...hs.map(hr => ({ type: 'hearing', hr, t: hr.at })), ...pub].sort((x, y) => (pd(y) - pd(x)) || (x.t ?? Infinity) - (y.t ?? Infinity));
+  const nLead = me?.is_admin ? stepCount() : 0, pd = x => x.type === 'step' && pastDue(x.s) ? 1 : 0;
+  const todo = [...homeRows(steps).map(s => ({ type: 'step', s, t: s.at })), ...hs.map(hr => ({ type: 'hearing', hr, t: hr.at })), ...pub, ...(nLead ? [{ type: 'leads', n: nLead, t: null }] : [])].sort((x, y) => (pd(y) - pd(x)) || (x.t ?? Infinity) - (y.t ?? Infinity));
   return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: [...waitingAsks(me), ...waitingFor(me), ...publicWaits(me)], suggested: suggestedFor(me), risk: riskFor(me, steps) };
 }
 
@@ -152,6 +154,7 @@ export function homeModel(me, open) {
 const pubRow = (p, cur) => { const sel = cur === p.href; return `<li><a class="sr3${sel ? ' sel' : ''}"${sel ? ' aria-current="true"' : ''} href="${esc(p.href)}">${ic(p.icon)}<span class="sv"><b>${esc(p.verb)}</b> <span class="sep" aria-hidden="true">·</span> ${esc(p.name)}${p.no ? `&nbsp;<span class="no">${esc(p.no)}</span>` : ''}${p.lines.map(l => `<span class="pnote">${esc(l)}</span>`).join('')}</span></a></li>`; };
 const todoRow = (x, cur, m) => {
   if (x.type === 'public') return pubRow(x.p, cur);
+  if (x.type === 'leads') return `<li><a class="sr3${cur === '#/do/leads' ? ' sel' : ''}"${cur === '#/do/leads' ? ' aria-current="true"' : ''} href="#/do/leads">${ic('users')}<span class="sv"><b>Look over ${x.n} lead ${x.n === 1 ? 'change' : 'changes'}</b></span><span class="stm">today</span></a></li>`;
   if (x.type === 'step') return stepRow(x.s, cur === '#/do/' + enc(x.s.id), { risk: m.risk.ids.has(x.s.id) });
   const { hr } = x, href = `#/hearing/${enc(hr.id)}`, sel = cur === href;
   return `<li><a class="sr3${sel ? ' sel' : ''}"${sel ? ' aria-current="true"' : ''} href="${href}">${ic('calendar')}<span class="sv"><b>Hearing today</b> <span class="sep" aria-hidden="true">·</span> ${esc(hr.name)}&nbsp;<span class="no">${esc(hr.no)}</span></span><span class="stm">${esc(clock(hr.at))}</span></a></li>`;
@@ -192,7 +195,7 @@ const SUN = '<svg class="calm-pic" viewBox="0 0 96 48" fill="none" stroke="curre
 // The answer to "am I on top of it?": a line, and a second line that says what is first (a link to it). Past due outranks a bill about to stop, which outranks everything else.
 export function headline(m) {
   const hi = `Good ${PART()}, ${esc(first(m.me))}.`, n = m.todo.length;
-  const to = x => x.type === 'step' ? { href: '#/do/' + enc(x.s.id), text: `${x.s.verb} · ${x.s.name}` } : x.type === 'public' ? { href: x.p.href, text: `${x.p.verb} · ${x.p.name}` } : { href: '#/hearing/' + enc(x.hr.id), text: `Hearing today · ${x.hr.name}` };
+  const to = x => x.type === 'step' ? { href: '#/do/' + enc(x.s.id), text: `${x.s.verb} · ${x.s.name}` } : x.type === 'public' ? { href: x.p.href, text: `${x.p.verb} · ${x.p.name}` } : x.type === 'leads' ? { href: '#/do/leads', text: `Look over ${x.n} lead ${x.n === 1 ? 'change' : 'changes'}` } : { href: '#/hearing/' + enc(x.hr.id), text: `Hearing today · ${x.hr.name}` };
   const behind = m.todo.filter(x => x.type === 'step' && pastDue(x.s)), rk = m.risk;
   if (behind.length) return { calm: false, h1: `${hi} ${behind.length === 1 ? 'One step is' : `${behind.length} steps are`} past due.`, lead: 'First up: ', link: to(behind[0]) };
   if (rk.bills.length) {
@@ -251,7 +254,10 @@ export function overviewParts(m) {
   const parts = bits.map(([c, t], i) => `<span${c ? ` class="${c}"` : ''}>${t}${i < bits.length - 1 ? '<span class="dotsep" aria-hidden="true"> ·</span>' : ''}</span>`);
   const f3 = parts.length ? fact('#/issues', 'Your issues', parts.join(' '), false, '', ' iss') : fact('#/issues', 'Your issues', 'None followed yet', true, '');
   const sub = hl.link ? `<p class="ovsub">${esc(hl.lead)}<a class="ovlink" href="${hl.link.href}">${esc(hl.link.text)}</a></p>` : hl.plain ? `<p class="ovsub">${esc(hl.plain)}</p>` : '';
-  const top = `<div class="ovtop"><p class="ovdate">${esc(day)}</p><div class="ovhd">${hl.calm ? SUN : ''}<div><h1 tabindex="-1">${hl.h1}</h1>${sub}</div></div></div>`;
+  const tc = [], { late, noLead: nl } = teamCounts(me);   // the Team page's own counts
+  if (late) tc.push(`${late} late or due today`); if (nl) tc.push(`${nl} ${nl === 1 ? 'bill' : 'bills'} with no lead`);
+  const team = tc.length ? `<p class="ovteam"><a class="ovlink" href="#/team">Team: ${tc.join(' · ')}</a></p>` : '';
+  const top = `<div class="ovtop"><p class="ovdate">${esc(day)}</p><div class="ovhd">${hl.calm ? SUN : ''}<div><h1 tabindex="-1">${hl.h1}</h1>${sub}${team}</div></div></div>`;
   const rest = `<div class="ovrest"><div class="facts">${f1}${f2}${f3}</div>${sessionHTML(soon, touchMap(withMe(me, () => (S.bills || []).filter(b => b.tracked !== false && isMine(b)))))}</div>`;
   return { top, rest };
 }

@@ -1,0 +1,135 @@
+/* Staff7 Team (R-398 piece 6): the two lists on the left, the sheet on the right. Tokens only; the rows, band, strip, kv and buttons are app.css's. */
+.tmt { font: 600 var(--f22)/1.2 var(--head); margin: 0 0 var(--s3); letter-spacing: var(--track); }
+.tmsw { margin-top: 0; }
+.tmsw .seg { text-decoration: none; }
+.tmh { font: 600 var(--f22)/1.3 var(--head); letter-spacing: var(--track); margin: var(--s4) 0 var(--s2); text-wrap: balance; }
+.tr { align-items: flex-start; }
+.tr .person, .tr .imark { margin-top: var(--s1); }
+.tr .sv .t2 { display: block; color: var(--muted); font-size: var(--f14); margin-top: 0; }
+.tr .nobw { color: var(--muted); }
+.person.nob { background: none; border: var(--line2) dashed var(--edge); box-sizing: border-box; }
+.tr .stm { margin-top: var(--s1); white-space: nowrap; }
+.tr .stm svg.ic { color: var(--amber); }
+.tfoot { color: var(--muted); font-size: var(--f14); margin: var(--s5) 0 0; }
+.tfoot .btn.text { min-height: var(--hit); padding: 0 var(--s1); }
+/* three-letter initials (JMM) shrink to stay inside the mark */
+.person.p3 { font-size: calc(var(--f14) * .8); letter-spacing: -.02em; }
+.mute { color: var(--muted); }
+.tmsg { display: flex; gap: var(--s3); align-items: flex-start; max-width: var(--letter-w); margin: var(--s2) 0 var(--s5); }
+.tmsg p { margin: var(--s1) 0 0; }
+.tmsg .tsub { color: var(--muted); font-size: var(--f14); }
+.tnob { margin-top: var(--s2); }
+.toldmark { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); font-weight: 700; color: var(--done); }
+.toldmark .btn.text { color: var(--act); }
+.toldmark svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.sfoot .fnote { flex-basis: 100%; margin: 0; font-size: var(--f14); }
+.tnl { font: 600 var(--f18)/1.3 var(--head); margin: var(--s5) 0 var(--s2); }
+.gq { font: 600 var(--f18)/1.3 var(--head); margin: 0 0 var(--s3); }
+.gpick { list-style: none; margin: 0 0 var(--s5); padding: 0; display: grid; gap: var(--s1); max-width: var(--letter-w); }
+.grow { display: flex; align-items: center; gap: var(--s3); width: 100%; min-height: var(--hit); padding: var(--s1) var(--s3); border: var(--line) solid var(--rule); border-radius: var(--r8); background: var(--surface); color: var(--ink); font: 400 var(--f16)/1.3 var(--body); text-align: left; cursor: pointer; transition: background var(--t-fast) var(--ease); }
+.grow:hover { background: var(--wash); }
+.grow:active { background: var(--tint); }
+.grow.on { border: var(--line2) solid var(--act); background: var(--wash); }
+.grow .gn { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s2); }
+.grow .gn b { font-family: var(--head); font-weight: 600; }
+.grow .gl { color: var(--muted); font-size: var(--f14); }
+.grow .gflag { display: inline-flex; align-items: center; gap: var(--s1); font-size: var(--f14); font-weight: 700; color: var(--ink); }
+.grow .gflag svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.grow .gtick { display: inline-flex; color: var(--muted); flex: none; }
+.grow.on .gtick { color: var(--act); }
+.grow .gtick svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.slackbox { text-align: left; max-width: var(--letter-w); margin: var(--s4) 0 0; padding: var(--s4); background: var(--wash); border-radius: var(--r12); }
+.slackbox p { margin: 0 0 var(--s2); }
+.slackbox .sl { font: 700 var(--f14)/1.3 var(--body); color: var(--muted); }
+.slackbox .sl.note { font-weight: 400; margin: var(--s2) 0 0; }
+.btn:disabled { opacity: .5; cursor: default; }
+.pn .pbody > .sfoot { margin-top: auto; }
+.tr .imark svg.ic { color: var(--on-act); }
+
+/* the Team page's list column matches the drawings at laptop widths (about 410px); a width the person dragged elsewhere does not apply here */
+@media (min-width: 1280px) { .ws.teamws { --lw: clamp(var(--list-lo), 410px, min(var(--list-hi), var(--list-share))); } }
+
+/* Many at once: a band with the switch, the filters, the table, the foot bar */
+.tmband { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); flex-wrap: wrap; background: var(--wash); padding: var(--s5) var(--px) var(--s4); }
+.tmband h1, .tmband .tmtl { font: 600 var(--f28)/1.2 var(--head); letter-spacing: var(--track); margin: 0; }
+.tmband .tmsub { margin: var(--s2) 0 0; font-size: var(--f18); }
+.tmband .tmsw { margin: 0; width: auto; }
+.tmband .tmsw .seg { padding: 0 var(--s5); }
+.mn .mbody { padding-top: var(--s4); }
+.mtool { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s5); }
+.mf { display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--f14); }
+.mf select.field { width: auto; field-sizing: content; padding-right: var(--s1); min-height: var(--hit); padding: 0 var(--s2); font-size: var(--f14); color: var(--act); font-weight: 700; border-color: transparent; background-color: transparent; }
+.mf select.field:hover { background-color: var(--tint); }
+.mall { margin-left: auto; display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); cursor: pointer; }
+.mall input, .mchk { width: var(--s5); height: var(--s5); accent-color: var(--act); margin: 0; cursor: pointer; }
+.mh { font: 600 var(--f18)/1.3 var(--head); margin: var(--s2) 0 var(--s2); }
+.mtab { width: 100%; border-collapse: collapse; }
+.mtab th { text-align: left; font: 700 var(--f14)/1.3 var(--body); color: var(--muted); padding: var(--s2) var(--s3) var(--s2) 0; border-bottom: var(--line) solid var(--rule); }
+.mtab td { padding: var(--s2) var(--s3) var(--s2) 0; border-bottom: var(--line) solid var(--rule); vertical-align: middle; }
+.mtab .mt { width: var(--s7); }
+.mtab .mtick { display: flex; align-items: center; justify-content: flex-start; min-width: var(--hit); min-height: var(--hit); cursor: pointer; }
+.mtab tr.on td { background: color-mix(in srgb, var(--act) 8%, var(--surface)); }
+.mtab .mi, .mtab .mp { color: var(--ink); }
+.mtab .mw { color: var(--muted); font-size: var(--f14); }
+.mtab .mi { color: var(--muted); }
+.mmore { margin: var(--s2) 0 var(--s4); color: var(--muted); font-size: var(--f14); }
+.mmore .btn.text { min-height: var(--hit); padding: 0 var(--s1); }
+.mfoot { align-items: center; }
+.mpick { color: var(--muted); }
+.mfoot .mpick { margin-right: var(--s1); }
+.mgive { margin-top: var(--s2); }
+.tmband .tmbt { min-width: 0; }
+.mn .done .dh { font: 600 var(--f28)/1.2 var(--head); }
+@media (max-width: 899px) {
+  .tmband .tmsw { width: 100%; }
+  .mn { padding-bottom: var(--bar-h); }
+  .mtab thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .mtab, .mtab tbody { display: block; }
+  .mtab tr { display: grid; grid-template-columns: var(--hit) minmax(0, 1fr); column-gap: var(--s2); padding: var(--s2) 0; border-bottom: var(--line) solid var(--rule); }
+  .mtab td { display: block; border: 0; padding: 0; background: none !important; }
+  .mtab tr.on { background: color-mix(in srgb, var(--act) 8%, var(--surface)); }
+  .mtab .mt { grid-row: 1 / span 4; width: auto; }
+  .mtab .mt, .mtab .mb, .mtab .mi, .mtab .mp, .mtab .mw { grid-column: auto; }
+  .mtab .mb, .mtab .mi, .mtab .mp, .mtab .mw { grid-column: 2; }
+  .mtab .mp { font-size: var(--f14); }
+  .paper:has(.mn) { overflow: visible; container-type: normal; }   /* so the foot bar can stick to the bottom of the window */
+  .mfoot { position: sticky; bottom: var(--bar-h); z-index: 20; margin: var(--s4) calc(var(--px) * -1) 0; padding: var(--s3) var(--s4); background: var(--surface); border-top: var(--line) solid var(--rule); box-shadow: var(--sh1); flex-wrap: wrap; gap: var(--s2) var(--s3); }
+  .mfoot .mpick { flex-basis: 100%; }
+  .mfoot .btn { padding: 0 var(--s4); }
+}
+
+/* the admin's lead changes (do_leads.js) */
+.lcs { list-style: none; margin: 0 0 var(--s5); padding: 0; max-width: var(--letter-w); }
+.lcr { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) 0; border-bottom: var(--line) solid var(--rule); }
+.lcr .person { align-self: flex-start; margin-top: var(--s1); }
+.lct { flex: 1; min-width: 0; }
+.lct p { margin: 0; }
+.lct .lc2 { color: var(--muted); font-size: var(--f14); }
+.lct .lc2 .btn.text { min-height: var(--hit); padding: 0 var(--s1); }
+.lcl { margin: var(--s1) 0 0; padding-left: var(--s5); font-size: var(--f14); }
+.lca { display: flex; gap: var(--s2); flex: none; }
+.ovteam { margin: var(--s1) 0 0; font-size: var(--f16); }
+.ovteam .ovlink { font-weight: 400; }
+@media (max-width: 899px) { .lcr { flex-wrap: wrap; } .lca { flex-basis: 100%; padding-left: calc(var(--person-s) + var(--s3)); } .mtool { gap: 0 var(--s4); } }
+.tdoor { display: flex; flex-wrap: wrap; gap: var(--s3); margin: 0 0 var(--s5); }   /* the bill page's Take it / Give to… row: the usual gap between buttons and space below */
+
+/* fix round: the toast keeps clear of the done block; plain give rows; docked bars and the table on a phone */
+.tdone { padding-bottom: calc(var(--s8) * 2 + var(--s6)); }
+.gpick { gap: 0; }
+.grow { border: 0; border-bottom: var(--line) solid var(--rule); border-radius: 0; background: transparent; }
+.grow:hover { background: var(--wash); }
+.grow.on { outline: var(--line2) solid var(--act); outline-offset: calc(var(--line2) * -1); border-bottom-color: transparent; border-radius: var(--r8); background: var(--wash); }
+@media (max-width: 899px) {
+  .tdone { padding-bottom: calc(var(--s8) * 2 + var(--bar-h)); }
+  .paper:has(.lcn) { overflow: visible; container-type: normal; }
+  .lcn { padding-bottom: var(--bar-h); }
+  .lcfoot { position: sticky; bottom: var(--bar-h); z-index: 20; margin: var(--s4) calc(var(--px) * -1) 0; padding: var(--s3) var(--s4); background: var(--surface); border-top: var(--line) solid var(--rule); box-shadow: var(--sh1); }
+  body.nobar .lcfoot { bottom: 0; }   /* a phone step page hides the app bar, so the foot docks at the very bottom */
+  body.nobar .lcn { padding-bottom: 0; }
+  .mtab tr { grid-template-columns: var(--hit) max-content minmax(0, 1fr); }
+  .mtab .mb, .mtab .mi { grid-column: 2 / -1; }
+  .mtab .mp { grid-column: 2; grid-row: 3; font-size: var(--f14); color: var(--muted); }
+  .mtab .mw { grid-column: 3; grid-row: 3; font-size: var(--f14); }
+  .mtab .mw::before { content: "· "; }
+  .mtab .mt { grid-row: 1 / span 3; }
+}

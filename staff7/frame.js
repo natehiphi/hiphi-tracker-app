@@ -22,6 +22,8 @@ import { hooks7 } from './sort_data.js';
 import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's public words (public mode)
 import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
 import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
+import { teamModel } from './team.js';
+import { leadsPage } from './do_leads.js';   // R-398 piece 6: the admin's lead changes   // R-398 piece 6: the Team page
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
@@ -115,6 +117,7 @@ function parse() {
   if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
+  if (a === 'team') return { r: 'team', id, q };   // R-398 piece 6: #/team, #/team/step/<id>, #/team/bill/<id>, #/team/give/<id>, #/team/done/<id>, #/team/many
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
   // R-398: #/public is Public words (part 2); #/public/change/<id> is one waiting change (part 2); #/public/<bill number> is one bill's public words (part 1b)
   if (a === 'public') {
@@ -177,6 +180,8 @@ function render(opts = {}) {
   { const fam = rt.r === 'calendar' ? 'c' : /^(issues|issue|bill)$/.test(rt.r) ? 'i' : ''; if (!fam || fam !== lastFam) issuesUi.pick = false; lastFam = fam; }   // the teammate picker is open only within one tab's routes   // the teammate picker is open only within the Issues routes
   if (rt.r === 'home') {
     ov = overviewParts(m); sheet = `<div class="pn"><div class="ov">${ov.top}${ov.rest}</div></div>`; label = 'Overview';
+  } else if (rt.r === 'do' && rt.id === 'leads') {
+    const pg = leadsPage(ctx.me); sheet = pg.html; bindFn = pg.bind; label = 'Lead changes';   // #/do/leads (an admin's step; do_leads.js)
   } else if (rt.r === 'do') {
     const s = open.find(x => x.id === rt.id);
     if (!s) sheet = missingSheet(); else [sheet, bindFn] = sheetFor(s);
@@ -197,19 +202,21 @@ function render(opts = {}) {
     }
   } else if (rt.r === 'calendar') {
     cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
+  } else if (rt.r === 'team') {
+    im = teamModel({ me: ctx.me, rt, open, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;   // the Home door stays lit on Team (cur stays 'home')
   } else if (rt.r === 'search') {
     cur = 'search'; im = searchModel({ rt }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
   else sheet = missingSheet();
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
   const solo = !!im?.solo;   // a page with no list beside it (All bills)
-  const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : ' isn') : ' sheetonly') : ''}`;
+  const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
   const back = im ? (im.picked && im.back ? `<a class="back backhome" href="${esc(im.back)}">${ic('chevron-left')}Back to ${im.backLabel || 'Issues'}</a>` : '') : onHome || one ? '' : `<a class="back backhome" href="#/">${ic('chevron-left')}${['do', 'done', 'hearing', 'waiting', 'suggested', 'ask', 'give', 'vice'].includes(rt.r) ? 'Back to overview' : 'Back to Home'}</a>`;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
   const paper = (html, lab) => `<div class="paper enter" role="region" aria-label="${esc(lab)}">${html}</div>`;
   const lists = one || solo ? '' : `<div class="wl" id="wl">${im ? im.col : boxHTML() + listsHTML(m, location.hash)}</div>`;
-  const grip = phone || one || solo || im?.wide ? '' : handleHTML();   // the width handle sits between the list and the page; not on a phone, not where there is no list beside the page, not above Calendar's Week grid
+  const grip = phone || one || solo || im?.wide || im?.fixedList ? '' : handleHTML();   // the width handle sits between the list and the page; not on a phone, not where there is no list beside the page, not above Calendar's Week grid
   // on a phone the greeting comes first, then the lists, then the facts and the session: the thing to do is never below a screen of overview
   $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
     : `<div class="${cls}">${lists}${grip}<div class="wp">${back}${paper(sheet, label)}</div></div>`;
@@ -237,7 +244,7 @@ function render(opts = {}) {
 function tick() {
   const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
   const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden) || dragging();
-  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?|#\/search(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
+  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/team(\/.*)?|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?|#\/search(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
   render({ tick: true });
 }
 window.__staff7Tick = tick;
