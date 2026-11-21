@@ -134,10 +134,20 @@ const snap = me => JSON.parse(JSON.stringify({ slack_dm: me.slack_dm ?? null, pr
 const KEYS = ['route', 'workflow', 'reminders'];
 // Merge into the latest prefs: whatever else sits in them (colours, seen messages, coalitions) is read again here, at the save, and kept.
 async function write(slack_dm, change) {
-  if (dev.fail > 0) { dev.fail--; throw new Error('Not saved'); }   // the practice copy's forced failure, for the tests
-  const prefs = { ...(S.me.prefs || {}) };
+  const keep = { slack_dm: S.me.slack_dm, prefs: S.me.prefs };   // DB.saveMyPrefs changes S.me BEFORE it writes: a refused write must put this back
+  // live: read the person's own row again and merge into that, so a setting changed on another screen or device is never overwritten with a stale copy
+  let base = { ...(S.me.prefs || {}) };
+  if (!DEMO) {
+    const { data, error } = await S.supa.from('advocates').select('prefs').eq('id', S.me.id).single();
+    if (error) throw error;
+    base = { ...(data?.prefs || {}) };
+  }
+  const prefs = base;
   for (const k of KEYS) if (k in change) { if (change[k] === undefined) delete prefs[k]; else prefs[k] = change[k]; }
-  await DB.saveMyPrefs({ slack_dm, prefs });
+  try {
+    if (dev.fail > 0) { dev.fail--; Object.assign(S.me, { slack_dm, prefs }); throw new Error('Not saved'); }   // the practice copy's forced failure, after the assign as in the real call
+    await DB.saveMyPrefs({ slack_dm, prefs });
+  } catch (e) { Object.assign(S.me, keep); throw e; }
 }
 // Save a new route (the pick, or one kind's boxes). Returns what Undo needs: the three parts and slack_dm exactly as they were.
 export async function saveRoute(route) {

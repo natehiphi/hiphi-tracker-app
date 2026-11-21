@@ -68,7 +68,7 @@ export function initMenu() {
     if (!openBy) return;
     const list = items(), at = list.indexOf(document.activeElement);
     if (e.key === 'Escape') { e.preventDefault(); close({ focus: true }); return; }
-    if (e.key === 'Tab') { close(); return; }
+    if (e.key === 'Tab') { e.preventDefault(); close({ focus: true }); return; }
     if (!menu.contains(document.activeElement)) return;
     const go = i => { e.preventDefault(); list[(i + list.length) % list.length]?.focus({ preventScroll: true }); };
     if (e.key === 'ArrowDown') go(at + 1); else if (e.key === 'ArrowUp') go(at - 1);

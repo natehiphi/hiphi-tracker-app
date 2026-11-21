@@ -11,10 +11,12 @@ import * as D from './me_alerts_data.js';
 // ---- the words ----
 // The sentences below depend on what the senders really do while email to the team is off (checked against migrations 154 and 199:
 // a kind routed to Email only is HELD, "not reached"; a kind routed to Both still reaches Slack). Change the words here, in one place.
-export const EMAIL_OFF_BOTH = 'Email to the team is not turned on yet. Until Nate turns it on, these alerts reach you by Slack only.';
-export const EMAIL_OFF_EMAIL = 'Email to the team is not turned on yet. Until Nate turns it on, email-only alerts are held and do not reach you. Pick Both to get them by Slack meanwhile.';
-export const EMAIL_OFF_KIND = EMAIL_OFF_EMAIL;   // a kind row with only Email ticked
-export const TEST_HELD = 'Your choice is saved. The test email was held, because email to the team is not turned on yet. Until Nate turns it on, email-only alerts do not reach you.';
+export const EMAIL_OFF_BOTH = 'Email to the team is not turned on yet. Until {turns} it on, these alerts reach you by Slack only.';
+export const EMAIL_OFF_EMAIL = 'Email to the team is not turned on yet. Until {turns} it on, email-only alerts are held and do not reach you. Pick Both to get them by Slack meanwhile.';
+export const EMAIL_OFF_KIND = 'Email to the team is not turned on yet. Until {turns} it on, these are held and do not reach you. Tick Slack too to get them meanwhile.';   // a kind row with only Email ticked
+export const TEST_HELD = 'The test email was held, because email to the team is not turned on yet. Until {turns} it on, email-only alerts do not reach you.';
+// who turns team email on: Nate says "Nate turns"; an admin looking at the page is told "you turn"
+export const said = (t, me = S.me) => t.replace('{turns}', me && me.is_admin ? 'you turn' : 'Nate turns');
 export const TEST_HELD_BUTTON = 'Send a test to Slack';
 const TEST_BOTH_HELD = 'The test email was held: email to the team is not turned on yet.';
 const TEST_NONE = 'No place is picked, so the test goes to Slack.';
@@ -24,13 +26,14 @@ const MIXED = 'Different for each kind, set below. Picking Slack, Email or Both 
 const ERR_TEST = 'The test could not be queued. Try again. If it fails twice, message Nate.';
 const ERR_KIND = 'Not saved, so that kind still goes where it did. Try again. If it fails twice, message Nate.';
 const ERR_TIMES = 'Not saved, so your deadline times are as they were. Try again. If it fails twice, message Nate.';
+const ERR_TIME = 'Not changed: a time is needed.';
 const ERR_HOURS = 'Use a number of hours from 0.5 to 48.';
 const NO_DEADLINES = 'No deadline alerts. Testimony due on your bills will show on Home only.';
 const NAME = { slack: 'Slack', email: 'email', 'slack,email': 'Slack and email' };
 const nameOf = ps => NAME[ps.join(',')] || '';
 
 // ---- what the page remembers while it is open (not what a person saved: that is in S.me.prefs) ----
-const fresh = () => ({ kinds: null, times: false, test: null, err: '', timesErr: '', typedHours: null, hoursBad: false });
+const fresh = () => ({ kinds: null, times: false, test: null, err: '', timesErr: '', typedHours: null, hoursBad: false, timeBad: '' });
 let ui = fresh(), left = true;
 addEventListener('hashchange', () => { if (!location.hash.split('?')[0].startsWith('#/me/alerts')) left = true; });
 
@@ -40,7 +43,7 @@ const note = (icon, words, cls = '') => `<p class="alline${cls ? ' ' + cls : ''}
 
 function radiosHTML(me, o, teamEmail) {
   const row = (val, label, words) => `<label class="alrad"><input type="radio" name="alWhere" id="alR-${val.replace(',', '-')}" value="${val}"${o.pick === val ? ' checked' : ''}${words ? ` aria-describedby="alRn-${val.replace(',', '-')}"` : ''}><span class="alrb"><span class="alrt">${label}</span>${words ? `<span class="alrn" id="alRn-${val.replace(',', '-')}">${esc(words)}</span>` : ''}</span></label>`;
-  return `<div class="alrads" role="radiogroup" aria-labelledby="alWhereH">${row('slack', 'Slack')}${row('email', 'Email', teamEmail ? '' : EMAIL_OFF_EMAIL)}${row('slack,email', 'Both', teamEmail ? '' : EMAIL_OFF_BOTH)}</div>`;
+  return `<div class="alrads" role="radiogroup" aria-labelledby="alWhereH">${row('slack', 'Slack')}${row('email', 'Email', teamEmail ? '' : said(EMAIL_OFF_EMAIL, me))}${row('slack,email', 'Both', teamEmail ? '' : said(EMAIL_OFF_BOTH, me))}</div>`;
 }
 const stillWord = (o) => o.pick ? `to ${nameOf(o.pick.split(','))}` : 'where they went before';
 function statusHTML(me, o) {
@@ -58,7 +61,7 @@ const reachHTML = me => `<p class="alreach">${esc(D.slackLinked(me)
 function testWords(t) {
   const r = t.res, slack = r.slack, email = r.email, has = p => p in r;
   const prefix = t.none ? TEST_NONE + ' ' : '';
-  if (has('email') && !has('slack') && email === 'held') return { icon: 'info', text: prefix + TEST_HELD, again: TEST_HELD_BUTTON, slackOnly: true };
+  if (has('email') && !has('slack') && email === 'held') return { icon: 'info', text: prefix + said(TEST_HELD), again: TEST_HELD_BUTTON, slackOnly: true };
   const ok = ['slack', 'email'].filter(p => r[p] === 'queued'), held = has('email') && email === 'held', to = nameOf(ok);
   if (t.practice) return { icon: 'info', text: `${prefix}Practice copy: a test would be on its way to ${to}.${held ? ' ' + TEST_BOTH_HELD : ''} Nothing is sent.`, again: 'Send another' };
   if (held) return { icon: 'info', text: `${prefix}Test on its way to ${to}. ${TEST_BOTH_HELD}`, again: 'Send another' };
@@ -75,8 +78,8 @@ function testHTML() {
 function kindsHTML(me, o, teamEmail, open) {
   const rows = D.kindsFor(me).map(r => {
     const on = D.rowPlaces(me, r), sig = D.rowSig(me, r);
-    const line = !on.length && sig !== 'mixed' ? note('info', r.none || D.NONE_GENERIC, 'muted') : (!teamEmail && on.length === 1 && on[0] === 'email' ? note('info', EMAIL_OFF_KIND, 'muted') : '');
-    const cell = p => `<td><label class="alck"><input type="checkbox" id="alC-${r.k}-${p}" data-k="${r.k}" data-p="${p}"${on.includes(p) ? ' checked' : ''} aria-label="${esc(r.t)}: ${p === 'slack' ? 'Slack' : 'Email'}"><span class="alcb" aria-hidden="true">${ic('check')}</span></label></td>`;
+    const line = !on.length && sig !== 'mixed' ? note('info', r.none || D.NONE_GENERIC, 'muted') : (!teamEmail && on.length === 1 && on[0] === 'email' ? note('info', said(EMAIL_OFF_KIND, me), 'muted') : '');
+    const cell = p => `<td><label class="alck"><input type="checkbox" id="alC-${r.k}-${p}" data-k="${r.k}" data-p="${p}"${on.includes(p) ? ' checked' : ''} aria-label="${esc(r.t)}: ${p === 'slack' ? 'Slack' : 'Email'}"><span class="alcb" aria-hidden="true">${ic('check')}</span><span class="alcap" aria-hidden="true">${p === 'slack' ? 'Slack' : 'Email'}</span></label></td>`;
     return `<tr><th scope="row"><span class="alkn">${esc(r.t)}</span><span class="alks">${esc(r.s)}</span>${line}</th>${cell('slack')}${cell('email')}</tr>`;
   }).join('');
   return `<section class="alfold"><h2 class="alfh"><button class="alfb" type="button" id="alKindsB" aria-expanded="${open}" aria-controls="alKinds"><span class="alft">Choose for each kind</span>${chev}</button></h2>
@@ -88,13 +91,13 @@ function timesHTML(me, open) {
   const hours = ui.typedHours != null ? ui.typedHours : r.hours_before;
   const sw = (k, label, on) => `<button class="alsw" type="button" role="switch" id="alS-${k}" data-rem="${k}" aria-checked="${on}" aria-labelledby="alRL-${k}"><span class="alswt" aria-hidden="true"><span class="alswk"></span></span></button>`;
   const lab = (k, label) => `<span class="alremlab" id="alRL-${k}">${esc(label)}</span>`;
-  const time = (k, id, v, on) => `<input class="alin" type="time" id="${id}" data-remv="${k}" value="${esc(v)}" aria-labelledby="alRL-${k}"${on ? '' : ' disabled'}>`;
+  const time = (k, id, v, on) => `<input class="alin alin-t${ui.timeBad === k ? ' bad' : ''}" type="time" id="${id}" data-remv="${k}" value="${esc(v)}" aria-labelledby="alRL-${k}"${ui.timeBad === k ? ` aria-invalid="true" aria-describedby="alTimeErr-${k}"` : ''}${on ? '' : ' disabled'}>`;
   const list = D.REM.map(([k, label]) => {
     const on = r[k + '_on'];
     const field = k === 'before'
       ? `<input class="alin alin-n${ui.hoursBad ? ' bad' : ''}" type="number" id="alHours" data-remv="hours_before" min="0.5" max="48" step="0.5" inputmode="decimal" value="${esc(hours)}" aria-labelledby="alRL-before"${ui.hoursBad ? ' aria-invalid="true" aria-describedby="alHoursErr"' : ''}${on ? '' : ' disabled'}><span class="alunit">${Number(hours) === 1 ? 'hour' : 'hours'} before</span>`
       : time(k, k === 'morning' ? 'alMorning' : 'alAfter', r[k], on);
-    return `<li class="alremrow${k === 'before' ? ' wide' : ''}">${sw(k, label, on)}${lab(k, label)}<span class="alremf">${field}</span>${k === 'before' && ui.hoursBad ? `<p class="alline err alremerr" id="alHoursErr">${ic('circle-alert')}<span>${esc(ERR_HOURS)}</span></p>` : ''}</li>`;
+    return `<li class="alremrow${k === 'before' ? ' wide' : ''}">${sw(k, label, on)}${lab(k, label)}<span class="alremf">${field}</span>${k !== 'before' && ui.timeBad === k ? `<p class="alline err alremerr" role="alert" id="alTimeErr-${k}">${ic('circle-alert')}<span>${esc(ERR_TIME)}</span></p>` : ''}${k === 'before' && ui.hoursBad ? `<p class="alline err alremerr" role="alert" id="alHoursErr">${ic('circle-alert')}<span>${esc(ERR_HOURS)}</span></p>` : ''}</li>`;
   }).join('');
   return `<section class="alfold"><h2 class="alfh"><button class="alfb two" type="button" id="alTimesB" aria-expanded="${open}" aria-controls="alTimes"><span class="alfx"><span class="alft">When deadline alerts arrive</span>${open ? '' : `<span class="alsum">${esc(D.timesSummary(me))}</span>`}</span>${chev}</button></h2>
     <div class="alfbody" id="alTimes"${open ? '' : ' hidden'}><p class="alhint">For bills you lead. Saves as soon as you change it. Other alerts arrive when the thing happens.</p><ul class="alrem" role="list">${list}</ul>
@@ -132,7 +135,10 @@ async function commit(fn, msg, errKind, undo) {
 function undoer(restore) { return async before => { try { await restore(before); } catch { /* the control shows what is saved */ } ui.err = ''; ui.timesErr = ''; ui.test = null; draw(); toast('Undone.', { ms: 4000 }); }; }
 const undoPick = undoer(D.restore), undoTimes = undoer(D.restoreReminders);
 
-function pick(val) {
+// Arrow keys walk through the radios and each one changes: a burst is one save, one toast, and Undo goes back to before the burst.
+let pickT = 0;
+function pick(val) { clearTimeout(pickT); pickT = setTimeout(() => savePick(val), 600); }
+function savePick(val) {
   const me = S.me, was = D.overall(me), want = val.split(',');
   commit(() => D.saveRoute(D.routeFor(me, want)), was.mixed ? `Saved. Every kind now goes to ${nameOf(want)}.` : `Saved. Alerts reach you by ${nameOf(want)}.`, 'pick', undoPick);
 }
@@ -146,6 +152,7 @@ const remMsg = {
   after: (r, on) => on ? `Saved. Alert at ${D.hhmm(r.after)} if it is not filed is on.` : 'Saved. Alert after the deadline is off.',
 };
 function saveRem(change, msg) {
+  ui.timeBad = '';
   const me = S.me, rem = { ...D.reminders(me), ...change };
   commit(() => D.saveReminders(rem), typeof msg === 'function' ? msg(rem) : msg, 'times', undoTimes);
 }
@@ -168,7 +175,7 @@ function bind(root) {
       if (k === 'hours_before') {
         if (!D.validHours(t.value)) { ui.typedHours = t.value; ui.hoursBad = true; draw(t.id); return; }   // the typed words stay in the field, with the reason beside it
         ui.typedHours = null; ui.hoursBad = false; saveRem({ hours_before: Number(t.value) }, r => `Saved. Alert ${D.hoursWord(r.hours_before)} before it is due.`);
-      } else if (!t.value) draw(t.id);   // a cleared time goes back to the saved one
+      } else if (!t.value) { ui.timeBad = k; draw(t.id); }   // a cleared time is not saved: it says why beside the field
       else saveRem({ [k]: t.value }, r => k === 'morning' ? `Saved. Morning alert at ${D.hhmm(r.morning)}.` : `Saved. Alert at ${D.hhmm(r.after)} if it is not filed.`);
     }
   });
@@ -177,6 +184,7 @@ function bind(root) {
     if (t.id === 'alHours' && ui.hoursBad && D.validHours(t.value)) { ui.hoursBad = false; ui.typedHours = t.value; t.classList.remove('bad'); t.removeAttribute('aria-invalid'); document.getElementById('alHoursErr')?.remove(); }
   });
   root.addEventListener('click', e => {
+    const lab = e.target.closest('.alremlab'); if (lab && root.contains(lab)) { document.getElementById('alS-' + lab.id.slice(5))?.click(); return; }   // the words beside a switch toggle it
     const b = e.target.closest('button'); if (!b || !root.contains(b)) return;
     if (b.id === 'alTest' || b.id === 'alAgain') { if (b.getAttribute('aria-busy') === 'true') return; runTest(b.id === 'alAgain' && ui.test?.res && testWords(ui.test).slackOnly ? ['slack'] : undefined); }
     else if (b.id === 'alKindsB') { ui.kinds = b.getAttribute('aria-expanded') !== 'true'; draw(b.id); }
