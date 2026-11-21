@@ -266,17 +266,27 @@ function groupHTML(id, label, count, lis, vkey, { shut = false, all = false, lim
   const hid = id === 'changed' ? 'c-changed' : `g-${id}`;
   return `<section aria-labelledby="${hid}"><h3 class="glab" id="${hid}">${label} · ${count}</h3>${lis.length ? `<ul class="srows3" id="${lid}"${shut && !open ? ' hidden' : ''}>${list}</ul>` : ''}${ctl}${held ? `<p class="hint held">${held} more above, under Changed</p>` : ''}</section>`;
 }
+// R-398 piece 10: the Drafts group, at the top of the list and only when there is one. A draft is an issue not on the public site yet (published_at empty); a removed one (archived) is nowhere.
+// Mine and a teammate's: the drafts that person leads or started; Everyone's: every draft. A draft has no standing yet, so it is never in the groups below.
+export const isDraftIssue = i => !!i && !i.published_at && !i.archived_at;
+const draftsOf = (who, me) => (S.issues || []).filter(i => isDraftIssue(i) && (who.kind === 'all' || (id => i.owner_id === id || i.created_by === id)(who.kind === 'person' ? who.person.id : me?.id)))
+  .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || eCig(a.name).localeCompare(eCig(b.name), 'en', { numeric: true }));
+function draftsHTML(who, me, openId) {
+  const ds = draftsOf(who, me); if (!ds.length) return '';
+  const li = i => `<li><a class="sr3 ir${String(i.id) === openId ? ' sel' : ''}"${String(i.id) === openId ? ' aria-current="true"' : ''} href="${issueHref(who, i.id)}"><span class="imark" style="${tint(i)}" aria-hidden="true">${ic(iconOf(i))}</span><span class="sv"><b>${keepEcig(esc(eCig(i.name)))}</b><span class="ir2 one"><span class="dpill">Draft</span><span>only the team sees it</span></span></span>${leadOf(i, who)}</a></li>`;
+  return `<section aria-labelledby="g-drafts"><h3 class="glab" id="g-drafts">Drafts · ${ds.length}</h3><ul class="srows3" id="gl-drafts">${ds.map(li).join('')}</ul></section>`;
+}
 // The summary sentence: "26 issues: 1 at risk · 4 with a hearing · ..." Each count narrows the list to that group; the active one is marked, and pressing it again clears it.
 function summaryHTML(t, total, who, hrefFor) {
   const parts = STATES.filter(([k]) => t[k]).map(([k, , w]) => `<a class="sl nw" id="sum-${k}" href="${hrefFor(who.show === k ? '' : k)}"${who.show === k ? ' aria-current="true"' : ''}>${t[k]} ${k === 'past' ? (t[k] === 1 ? 'past its committees' : 'past their committees') : w}</a>`);
   return `<p class="summ" id="summ">${n(total, 'issue', 'issues')}${parts.length ? `: ${parts.join(' · ')}` : ''}</p>` + (who.show ? `<p class="summ"><a class="sl" id="showAll" href="${hrefFor('')}">Show all issues</a></p>` : '');
 }
 function column(who, set, people, me, openKey, ses, x) {
-  const { rows, nx, changes, topic, topics } = x, mate = who.kind === 'person', vkey = `${who.code || 'mine'}|${topic ? topic.key : ''}`, q0 = x.q || '';
+  const { rows, nx, changes, topic, topics, openId } = x, mate = who.kind === 'person', vkey = `${who.code || 'mine'}|${topic ? topic.key : ''}`, q0 = x.q || '';
   const seg = (id, label, on, href) => `<a class="seg" id="${id}" href="${href}"${on ? ' aria-current="true"' : ''}>${label}</a>`;
   const pick = ui.pick || false;
   const mates = people.filter(a => (!me || a.id !== me.id) && a.is_active !== false).sort((p, q) => String(p.full_name).localeCompare(String(q.full_name), 'en'));
-  let h = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">${mate ? `${esc(first(who.person))}’s issues` : who.kind === 'all' ? 'Everyone’s issues' : 'Issues'}</h2>${mate ? '<button class="btn text chg" type="button" id="whoChange" aria-controls="whoPick">Change</button>' : ''}</div>`
+  let h = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">${mate ? `${esc(first(who.person))}’s issues` : who.kind === 'all' ? 'Everyone’s issues' : 'Issues'}</h2>${mate ? '<button class="btn text chg" type="button" id="whoChange" aria-controls="whoPick">Change</button>' : ''}<a class="btn quiet ihnew" id="newIssueGo" href="#/issue-new">${ic('plus')}New issue</a></div>`
     + `<div class="segs3" role="group" aria-label="Whose issues">${seg('whoMine', 'Mine', who.kind === 'mine' && !who.bad, '#/issues')}`
     + `<button class="seg" type="button" id="whoMate" aria-expanded="${pick}" aria-controls="whoPick"${mate ? ' aria-current="true"' : ''}>A teammate</button>${seg('whoAll', 'Everyone', who.kind === 'all', '#/issues?who=all')}</div>`
     + `<ul class="whopick" id="whoPick" aria-label="Which teammate"${pick ? '' : ' hidden'}>${mates.map(a =>
@@ -296,8 +306,9 @@ function column(who, set, people, me, openKey, ses, x) {
   };
   const plain = () => {
     let o = lead();
-    if (!rows.length) return o + `<p class="calmnote">${topic ? 'No issues in this topic.' : who.kind === 'mine' ? 'You are not on an issue yet. Pick Everyone to look around.' : who.kind === 'all' ? 'No issue has a bill this session.' : `${esc(first(who.person))} is not on an issue yet.`}</p>`;
-    o += summaryHTML(t, rows.length, who, hrefFor);
+    const dg = topic || who.show ? '' : draftsHTML(who, me, openId);
+    if (!rows.length) return o + dg + (dg && !topic ? '' : `<p class="calmnote">${topic ? 'No issues in this topic.' : who.kind === 'mine' ? 'You are not on an issue yet. Pick Everyone to look around.' : who.kind === 'all' ? 'No issue has a bill this session.' : `${esc(first(who.person))} is not on an issue yet.`}</p>`);
+    o += summaryHTML(t, rows.length, who, hrefFor) + dg;
     const showChanged = !topic && !who.show && changes.length > 0, heldIds = new Set(showChanged ? changes.map(r => String(r.issue.id)) : []);
     const grp = (k, opts) => { const g = inGroup(rows, k), vis = g.filter(r => !heldIds.has(String(r.issue.id))); return g.length ? groupHTML(k, labelOf(k), g.length, vis.map(r => li(r)), vkey, { ...opts, held: g.length - vis.length }) : ''; };
     if (who.show) { const g = grp(who.show, { all: true }); return o + (g || '<p class="calmnote">No issues here.</p>'); }
@@ -496,7 +507,7 @@ export function issuesModel({ me, open, rt, people }) {
   if (rt.r === 'issues' && rt.id === 'bills') return billsModel({ me, rt, people });   // All bills (bills.js): its own page, with no list beside it
   if (rt.r === 'issues' && /^new(\/|$)/.test(rt.id || '')) { const sm = sortModel({ me, rt }); if (sm) return sm; }   // New bills (sort.js): for someone who sorts them; for anyone else the address is not found, said calmly, below
   const who0 = whoOf(rt.q.get('who'), me, people), showRaw = rt.q.get('show'), show = STATE_KEYS.includes(showRaw) ? showRaw : '';   // a show value that is none of the groups is ignored
-  const base0 = who0.bad ? { kind: 'mine', code: '' } : who0, set = setFor(base0, me), ses = sessionOf(set), nx = ses, all = statesFor(set, nx), own = ownSet(me);
+  const base0 = who0.bad ? { kind: 'mine', code: '' } : who0, set = setFor(base0, me), ses = sessionOf(set), nx = ses, all = statesFor(set, nx).filter(x => !isDraftIssue(x.issue)), own = ownSet(me);   // a draft has no standing yet: it is in the Drafts group, not the groups below
   const topicOK = k => !!k && /^[a-z-]+$/.test(k) && (catKeys().includes(k) || (k === 'other' && all.some(x => catsOf(x.issue).includes('other'))));
   const routeTopic = rt.r === 'issues' && /^topic\//.test(rt.id || '') ? rt.id.slice(6) : '', qTopic = rt.q.get('topic') || '';
   const tkey = routeTopic ? (topicOK(routeTopic) ? routeTopic : '') : rt.r !== 'issues' && topicOK(qTopic) ? qTopic : '';
@@ -537,5 +548,5 @@ export function issuesModel({ me, open, rt, people }) {
   if (changes.length && rt.r === 'issues' && !rt.id) markDrawn();   // the Changed group is on the screen: from now on leaving Issues (or 10 seconds) says "looked"
   let topics = !who0.bad && who.kind !== 'mine' && !tp && !show ? topicsOf(all) : null;
   if (topics && topics.length < 2) topics = null;   // everything in one topic: the groups, flat, as Mine has them
-  return { who, set, ses, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: rt.r === 'bill' ? () => { bindIssues(); bindBill(); } : bindIssues, notFound: /data-notfound/.test(sheet), pageIssue };
+  return { who, set, ses, col: column(who, set, people, me, openKey, ses, { rows, nx, changes, topic: tp, topics, fallback: look.fallback, openId: pageIssue ? String(pageIssue.id) : '', q: String(rt.q.get('q') || '').slice(0, 200) }), sheet, picked, label, back: bk, backLabel, bind: rt.r === 'bill' ? () => { bindIssues(); bindBill(); } : bindIssues, notFound: /data-notfound/.test(sheet), pageIssue };
 }

@@ -17,6 +17,8 @@ import { bar, needsWords, barMet, sendPublicWords, discardDraftWords, draftWords
   nowLine, waitingLine, sentBackLine, TAKEN_BACK_HELP, publicPositionLine, dockLine, sendLabel, adminFirst, sentToast, WORDS_ON_SITE_TOAST, SENT_ON_SITE, NOTHING_TO_SEND,
   AFTER_APPROVE, WAITING_FOR_YOU, OPEN_IT, OPEN_CHANGE_LINE } from './public_data.js';
 
+export { publicIssuePage } from './public_issue.js';   // R-398 piece 10: public mode for one issue (publish, take off)
+
 const TEN = 10000, MAX_POINTS = 5, LIMIT = { nickname: 40, public_summary: 280, public_action: 280, point: 200 };
 const WORDS = ['nickname', 'public_summary', 'talking_points', 'public_action', 'public_action_until'];
 const TEXT = ['nickname', 'public_summary', 'public_action', 'public_action_until'];

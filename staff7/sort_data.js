@@ -85,7 +85,8 @@ export const failed = (me, mode) => !!slot(mode === 'all' && isAdmin(me) ? 'all'
 export function retry(me, mode) { const s = slot(mode === 'all' && isAdmin(me) ? 'all' : 'matching'); s.failed = false; ensure(me, mode); }
 
 // ---------------------------------------------------------------------------------- this visit: decisions, skips, what was chosen on each bill
-export const U = { decisions: [], skipped: [], pick: Object.create(null), sel: '', wlY: 0, justOpen: false, busy: false, showAllBy: new Set() };
+// words: what was typed in the New issue panel, per bill (the form's own state object), so a closed panel or a redraw never loses it (R-398 piece 10, S-11)
+export const U = { decisions: [], skipped: [], pick: Object.create(null), words: Object.create(null), sel: '', wlY: 0, justOpen: false, busy: false, showAllBy: new Set() };
 export const decided = id => U.decisions.some(d => d.id === id);
 
 // ---------------------------------------------------------------------------------- one bill, as the list and the page need it

@@ -2,7 +2,7 @@
 // (what it does and the four fields: Position, Issue, Coalition, Lead), and three ways to decide: Track, Not for us, Skip for now. Every decision shows a toast with Undo for 10 seconds, and
 // "Just sorted" keeps this visit's decisions with an Undo each. The data side (queue, groups, defaults, the calls) is sort_data.js; the practice copy does it all in memory.
 // State is kept in sort_data.js (U), never in the page, because render() replaces #app on every render and on a timed tick: what was chosen on each bill, the list's scroll, what is open.
-import { S, capitolUrl } from '../staff6/data.js';
+import { S, DB, capitolUrl } from '../staff6/data.js';
 import { keysOn } from '../staff6/ui.js';
 import { ic } from './icons7.js';
 import { esc, btn, toast } from './parts.js';
@@ -13,6 +13,7 @@ import { bui } from './bill.js';
 import { billTextUrl } from './bill_more.js';
 import { eCig, billHref } from './issues.js';
 import * as D from './sort_data.js';
+import { mountIssueForm, newState, adminFirst } from './issue_new.js';   // R-398 piece 10: the New issue form, mounted here as a panel
 
 const $ = id => document.getElementById(id), enc = encodeURIComponent;
 const n = (k, one, many) => `${k.toLocaleString('en-US')} ${k === 1 ? one : many}`;
@@ -108,19 +109,19 @@ function factsHTML(m, list, mode) {
 // the Issue field's choices: Suggested, Same topic (the suggestion's topic), All issues, then No issue yet
 function issueOpts(f) {
   const sg = f.sg, L = D.liveIssues().slice().sort((a, b) => eCig(a.name).localeCompare(eCig(b.name), 'en')), near = sg ? L.filter(i => i !== sg && i.category === sg.category) : [], rest = L.filter(i => i !== sg && !near.includes(i));
-  const o = i => `<option value="${esc(i.id)}"${f.issueId === i.id ? ' selected' : ''}>${esc(eCig(i.name))}</option>`;
+  const o = i => `<option value="${esc(i.id)}"${f.issueId === i.id ? ' selected' : ''}>${esc(eCig(i.name))}${i.published_at ? '' : ' (draft)'}</option>`;   // a draft says so wherever it is listed (R-398 piece 10)
   return (sg ? `<optgroup label="Suggested">${o(sg)}</optgroup>` : `<option value=""${f.issueId === '' ? ' selected' : ''} disabled>Choose an issue</option>`)
     + (near.length ? `<optgroup label="Same topic">${near.map(o).join('')}</optgroup>` : '') + `<optgroup label="All issues">${rest.map(o).join('')}</optgroup><option value="none"${f.issueId === 'none' ? ' selected' : ''}>No issue yet</option>`;
 }
-const sel = (id, lab, opts) => `<div class="df"><label class="fl" for="${id}">${lab}</label><select class="field bsel" id="${id}">${opts}</select></div>`;
-const trackNote = f => f.canTrack ? 'Only the team sees it. It is not on the public site until someone publishes it.' : 'Choose an issue, or No issue yet, to track it.';
+const sel = (id, lab, opts, after = '') => `<div class="df"><label class="fl" for="${id}">${lab}</label><select class="field bsel" id="${id}">${opts}</select>${after}</div>`;
+const trackNote = f => f.canTrack ? (f.issue && !f.issue.published_at ? `${eCig(f.issue.name)} is a draft: only the team sees it until ${adminFirst()} publishes it.` : 'Only the team sees it. It is not on the public site until someone publishes it.') : 'Choose an issue, or No issue yet, to track it.';
 function decideHTML(m, me) {
   const f = D.fieldsOf(m, me);
   const pos = D.POS_OPTS.map(([v, l]) => `<option value="${esc(v)}"${f.pos === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const camps = (S.campaigns || []).map(c => `<option value="${esc(c.id)}"${f.campId === c.id ? ' selected' : ''}>${esc(D.cname(c))}</option>`).join('') + `<option value=""${f.campId === '' ? ' selected' : ''}>No coalition</option>`;
   const lead = D.people(me).map(p => `<option value="${esc(p.id)}"${f.leadId === p.id ? ' selected' : ''}>${esc(p.label)}</option>`).join('');
   const other = m.also.length ? `Off everyone’s list, including ${m.also.map(D.cname).join(' and ')}’s.` : '';
-  return `<div class="decide" id="decide"><div class="dfields">${sel('dPos', 'Position', pos)}${sel('dIss', 'Issue', issueOpts(f))}${sel('dCamp', 'Coalition', camps)}${sel('dLead', 'Lead', lead)}</div>`
+  return `<div class="decide" id="decide"><div class="dfields">${sel('dPos', 'Position', pos)}${sel('dIss', 'Issue', issueOpts(f), '<button class="btn text dnew" type="button" id="dNewIssue" aria-haspopup="dialog">No issue fits? New issue</button>')}${sel('dCamp', 'Coalition', camps)}${sel('dLead', 'Lead', lead)}</div>`
     + `<div class="dhints"><p class="hint dpos" id="dPosHint">${esc(posHint(f.pos))}</p><p class="hint dwhy" id="dLeadWhy"${f.why ? '' : ' hidden'}>${esc(f.why ? f.why + '.' : '')}</p></div>`
     + `<div class="dacts"><div class="dcol"><button class="btn filled" type="button" id="sTrack" aria-keyshortcuts="T"${f.canTrack ? '' : ' disabled aria-describedby="dTrackNote"'}>Track${keyHint('T')}</button></div>`
     + `<div class="dcol"><button class="btn quiet" type="button" id="sNot" aria-keyshortcuts="N">Not for us${keyHint('N')}</button></div>`
@@ -163,7 +164,7 @@ export function sortModel({ me, rt }) {
   cur = { me, mode, list, m };
   return { ...base, col: listHTML(me, mode, list, m), sheet: m ? pageHTML(m, me, list, mode) : emptyPage(me, mode), picked: !!want && !!m, back: hashFor('', mode), backLabel: 'New bills', bind: () => bindSort() };
 }
-const leave = () => { cur = null; D.U.wlY = 0; };
+const leave = () => { closePanel(false); cur = null; D.U.wlY = 0; };
 addEventListener('hashchange', () => { if (!ROUTE.test(location.hash)) leave(); });
 
 // ---------------------------------------------------------------------------------- two lines at a word
@@ -270,15 +271,72 @@ function bindSort() {
   $('dIss')?.addEventListener('change', e => put('issue', e.target.value));
   $('dCamp')?.addEventListener('change', e => put('camp', e.target.value));
   $('dLead')?.addEventListener('change', e => put('lead', e.target.value));
+  $('dNewIssue')?.addEventListener('click', openPanel);
   $('sTrack')?.addEventListener('click', () => decide('track'));
   $('sNot')?.addEventListener('click', () => decide('skip'));
   $('sSkip')?.addEventListener('click', skipIt);
 }
+// ---------------------------------------------------------------------------------- the New issue panel (R-398 piece 10, door two)
+// "No issue fits? New issue" opens issue_new.js's form as a panel over the dimmed sort page. The panel lives on the body, outside #app, so a redraw of the page (a tick, a pick) never closes it or
+// loses a word; the words themselves live in D.U.words per bill. Saving picks the new draft for this bill and the sort stays exactly where it was (list scroll, open bill, every other pick).
+let pan = null;   // { el, id, opener } while the panel is open
+const shortTitle = r => { const t = D.lineOne(r); return t.length <= 64 ? t : t.slice(0, 64).replace(/\s+\S*$/, '').replace(/[ ,;:.]+$/, '') + '…'; };
+function closePanel(focus = true) {
+  if (!pan) return;
+  const { el, opener } = pan; pan = null;
+  document.removeEventListener('keydown', panKey, true); el.remove();
+  $('app')?.removeAttribute('inert'); $('bar-slot')?.removeAttribute('inert'); document.body.classList.remove('nipopen');
+  if (focus) ($('dNewIssue') || opener)?.focus?.({ preventScroll: true });
+}
+function panKey(e) {
+  if (!pan || e.isComposing) return;
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePanel(); return; }
+  if (e.key !== 'Tab') return;
+  const fs = [...pan.el.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), textarea, select')].filter(x => x.getClientRects().length), a = fs[0], z = fs[fs.length - 1];
+  if (!fs.length) return;
+  if (e.shiftKey && (document.activeElement === a || !pan.el.contains(document.activeElement))) { e.preventDefault(); z.focus(); }
+  else if (!e.shiftKey && (document.activeElement === z || !pan.el.contains(document.activeElement))) { e.preventDefault(); a.focus(); }
+}
+function pickIssue(id, issue) { (D.U.pick[id] ||= {}).issue = issue; }
+function afterPanel(then) {   // the page is drawn again from the data (nothing else changes), then the words are said
+  closePanel(false); window.__staff7Render({ tick: true }); $('dNewIssue')?.focus({ preventScroll: true }); then();
+}
+function openPanel() {
+  const c = cur; if (!c || !c.m || pan) return;
+  const { m } = c, id = m.id, st = D.U.words[id] ||= newState();
+  st.kept = !!(st.name || st.cat || st.desc); st.err = { name: '', cat: '', clash: null };
+  const el = document.createElement('div'); el.className = 'nipwrap'; el.id = 'niPanel';
+  el.innerHTML = `<div class="nipscrim" id="niScrim"></div><aside class="nipanel" role="dialog" aria-modal="true" aria-labelledby="niPanelH"><div class="niphead"><h2 id="niPanelH" tabindex="-1">New issue</h2><button class="xbtn" id="niPanelX" type="button" aria-label="Close">${ic('x')}</button></div>`
+    + `<p class="nipfor">For <b>${esc(shortTitle(m.r))}</b> <span class="nipno">${esc(D.spaced(m.no))}</span>. It goes on the new issue once you track it.</p><div id="niPanelForm"></div></aside>`;
+  document.body.appendChild(el); document.body.classList.add('nipopen');
+  $('app')?.setAttribute('inert', ''); $('bar-slot')?.setAttribute('inert', '');
+  pan = { el, id, opener: document.activeElement };
+  document.addEventListener('keydown', panKey, true);
+  el.querySelector('#niPanelX').addEventListener('click', () => closePanel());
+  el.querySelector('#niScrim').addEventListener('click', () => closePanel());
+  const f = mountIssueForm(el.querySelector('#niPanelForm'), { mode: 'panel', bill: m.r, state: st, who: c.me, onCancel: () => closePanel(),
+    onUseExisting: i => { delete D.U.words[id]; pickIssue(id, i.id); afterPanel(() => toast(`${eCig(i.name)} is picked for this bill.`, { ms: 6000 })); },
+    onSaved: i => {
+      const prev = D.U.pick[id]?.issue; pickIssue(id, i.id);
+      afterPanel(() => toast(`Saved ${eCig(i.name)} as a draft. It is picked for this bill.`, { undo: () => undoNew(id, i, prev), ms: 10000 }));
+    } });
+  f.focus();
+}
+// Undo: the draft is taken away again (archived: the record is hidden, never erased) and the pick goes back to what it was. A draft that already has a bill on it stays: its page removes it.
+async function undoNew(id, i, prev) {
+  const nm = eCig(i.name);
+  if ((S.billIssues || []).some(x => x.issue_id === i.id)) { toast(`${nm} already has a bill on it, so it was kept. Remove it from its own page.`, { ms: 8000 }); return; }
+  try { await DB.updateIssue(i.id, { archived_at: new Date().toISOString() }); }
+  catch { toast(`The draft ${nm} was not taken away. Nothing was changed. Try again.`, { ms: 8000 }); return; }
+  const p = D.U.pick[id]; if (p && p.issue === i.id) { if (prev === undefined) delete p.issue; else p.issue = prev; }
+  window.__staff7Render({ tick: true }); toast(`Took the draft ${nm} away. No issue is picked for this bill.`, { ms: 6000 });
+}
+
 function bindWait(me, mode) { $('sortRetry')?.addEventListener('click', () => { D.retry(me, mode); window.__staff7Render({}); }); }
 
 // Keys: T track, N not for us, S skip for now, U undo the latest, the arrow keys move in the list. Only from the page itself (never in a field), and only when shortcuts are on in My settings.
 document.addEventListener('keydown', e => {
-  if (!cur || !ROUTE.test(location.hash) || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || !keysOn()) return;
+  if (pan || !cur || !ROUTE.test(location.hash) || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing || !keysOn()) return;
   const t = e.target; if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (k === 't') { e.preventDefault(); decide('track'); }
