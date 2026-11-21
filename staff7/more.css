@@ -1,0 +1,99 @@
+/* Staff7 More (R-398 piece 11): the fifth door, its menu and sheet, Capitol words, Committees and A teammate's Home. Tokens only; loaded by more.js. */
+
+/* the door: a button that looks like the other doors; open it is pressed (an ink outline round its icon), never filled: the filled pill is only the current place */
+button.bi { font: 500 var(--f14)/1.2 var(--head); }
+.bi[aria-expanded="true"] { color: var(--ink); }
+.bi[aria-expanded="true"] .rpill { box-shadow: inset 0 0 0 var(--line2) var(--ink); }
+.bi:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+
+/* the menu on a laptop: a popover beside the rail */
+.msheet { position: fixed; z-index: 50; width: calc(var(--read) * .41); max-width: calc(100vw - var(--s5)); box-sizing: border-box; padding: var(--s2); background: var(--surface); border-radius: var(--r16); box-shadow: var(--float); }
+.mlist { list-style: none; margin: 0; padding: 0; }
+.mrule { height: var(--line); margin: var(--s2) var(--s3); background: var(--rule); }
+.mi { display: flex; align-items: flex-start; gap: var(--s3); min-height: var(--hit); box-sizing: border-box; padding: var(--s2) var(--s3); border-radius: var(--r12); color: var(--ink); text-decoration: none; background: none; }
+.mi:hover { background: var(--wash); }
+.mi:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+.mi .mii { display: inline-flex; padding-top: var(--s1); flex: none; }
+.mi .mii svg.ic { color: var(--ink); }
+.mit { display: flex; flex-direction: column; justify-content: center; min-height: calc(var(--hit) - var(--s4)); }
+.mit b { font: 600 var(--f16)/1.3 var(--head); }
+.mu { font: 400 var(--f14)/1.3 var(--body); color: var(--muted); }
+
+/* the sheet on a phone: above the bar, a backdrop that closes it, a Close button at the top right */
+.mlayer.phone .mback { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); z-index: 30; background: var(--scrim); }
+.mlayer.phone .msheet { left: 0; right: 0; bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); top: auto; width: auto; max-width: none; z-index: 31; border-radius: var(--r20) var(--r20) 0 0; padding: var(--s2) var(--s4) var(--s3); box-shadow: var(--float); transition: transform var(--t-fast) var(--ease); }
+.mgrip { width: var(--s7); height: var(--s1); border-radius: var(--s1); background: var(--rule); margin: var(--s1) auto 0; }
+.mtop { display: flex; justify-content: flex-end; }
+.mclose { min-width: var(--hit); min-height: var(--hit); }
+.mlayer.phone .mi { min-height: var(--hit-big); padding-left: var(--s1); padding-right: var(--s1); align-items: center; }
+.mlayer.phone .mii { padding-top: 0; }
+
+/* shared by the pages opened from More */
+.mpage { padding-bottom: var(--s7); }
+.mpage .cwfind, .cwlist, .cwcount, .cwnone, .cmg, .tmlist { max-width: var(--read); }
+
+/* Capitol words */
+.cwl { display: block; font: 600 var(--f16)/1.3 var(--head); margin: 0 0 var(--s2); }
+.cwbox { display: flex; align-items: center; gap: var(--s2); min-height: var(--hit); padding: 0 var(--s3); border: var(--line) solid var(--edge); border-radius: var(--r8); background: var(--surface); }
+.cwbox:focus-within { outline: var(--line2) solid var(--ring); outline-offset: var(--line); }
+.cwbox svg.ic { color: var(--muted); flex: none; }
+.cwbox input { flex: 1; min-width: 0; min-height: var(--hit); border: 0; background: none; font: 400 var(--f16)/1.4 var(--body); color: var(--ink); outline: none; }
+.cwcount { margin: var(--s3) 0 var(--s2); font: 400 var(--f14)/1.4 var(--body); color: var(--muted); }
+.cwlist { list-style: none; margin: 0; padding: 0; border-top: var(--line) solid var(--rule); }
+.cw { padding: var(--s3) 0; border-bottom: var(--line) solid var(--rule); }
+.cwh { font: 600 var(--f18)/1.3 var(--head); margin: 0 0 var(--s1); }
+.cwcap { color: var(--muted); font-weight: 500; }
+.cw p { margin: 0; font-size: var(--f16); line-height: 1.5; }
+.cw mark { background: color-mix(in srgb, var(--act) 16%, var(--surface)); color: inherit; border-radius: var(--r4); padding: 0 var(--s1); margin: 0 calc(var(--s1) * -1); }
+.cwnone { color: var(--muted); }
+
+/* Committees: one grid per chamber, the same columns in the heading and every row */
+.cmg { margin: 0 0 var(--s6); }
+.cmh { font: 600 var(--f18)/1.3 var(--head); margin: var(--s2) 0 var(--s2); }
+.cmcount { color: var(--muted); font-weight: 500; }
+.cmhead, .cmr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40%) var(--icon); column-gap: var(--s3); align-items: center; }
+.cmhead { padding: 0 0 var(--s2); border-bottom: var(--line) solid var(--edge); font: 600 var(--f14)/1.3 var(--head); color: var(--muted); }
+.cmhead span:last-child { grid-column: 2; }
+.cmlist { list-style: none; margin: 0; padding: 0; }
+.cmr { min-height: var(--hit-big); padding: var(--s1) 0; border-bottom: var(--line) solid var(--rule); color: var(--ink); text-decoration: none; }
+.cmr:hover { background: var(--wash); }
+.cmn b { font: 600 var(--f16)/1.3 var(--head); color: var(--act); }
+.cmr:hover .cmn b { text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); }
+.cmn { line-height: 1.3; }
+.cmc { color: var(--muted); font: 400 var(--f14)/1.3 var(--body); }
+.cmch { font-size: var(--f16); }
+.cmgo { color: var(--muted); }
+.cmr:focus-visible, .tmr:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+
+/* A teammate's Home: the picker */
+.tmlist { list-style: none; margin: 0; padding: 0; border-top: var(--line) solid var(--rule); }
+.tmr { display: flex; align-items: center; gap: var(--s3); min-height: var(--hit-big); padding: var(--s2) 0; border-bottom: var(--line) solid var(--rule); color: var(--ink); text-decoration: none; }
+.tmr:hover { background: var(--wash); }
+.tmr .person { background: var(--tint); }
+.tmn { flex: 1; min-width: 0; font: 600 var(--f18)/1.3 var(--head); color: var(--act); }
+.tmr:hover .tmn { text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); }
+.tms { color: var(--muted); font-size: var(--f14); }
+.tmgo { color: var(--muted); flex: none; }
+
+/* A teammate's Home: look only. A neutral band, a neutral list; every link and button is plain text with no pointer and no hover look. */
+.lobar { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--px); background: var(--tint); color: var(--ink); }
+.lobar svg.ic { flex: none; }
+.lobar p { margin: 0; font-size: var(--f16); line-height: 1.4; }
+.lopanel { background: var(--tint); border-radius: var(--r16); padding: var(--s3) var(--s4) var(--s4); }
+.ws .wl:has(> .lopanel) { padding: var(--s6) var(--s4) var(--s5); }
+.lophone { margin: var(--s4) var(--px); }
+.lo, .lo * { cursor: default; }
+.lo a, .lo button, .lo span, .lo [class] { pointer-events: none; }
+.lo .ovlink { color: inherit; text-decoration: none; font-weight: 700; }
+.lo .ovteam .ovlink { font-weight: 400; }
+.lo .fact:hover, .lo .sr3:hover, .lo .ovr:hover { background: none; }
+.lo .sr3:hover .sv b { text-decoration: none; }
+.lo .qt { color: inherit; font-weight: 400; }
+.lopanel .lh:first-child, .lopanel section:first-child > .lh { margin-top: 0; }
+@media (max-width: 899px) {
+  .cmhead { display: none; }
+  .cmr { grid-template-columns: minmax(0, 1fr) var(--icon); }
+  .cmch { grid-column: 1; font-size: var(--f14); }
+  .cmgo { grid-column: 2; grid-row: 1 / span 2; }
+}
+@media (prefers-reduced-motion: reduce) { .mlayer.phone .msheet { transition: none; } }
