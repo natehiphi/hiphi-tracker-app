@@ -526,7 +526,6 @@ function otherSheet(num, q) {
   if (!r || getIdx().taken.has(bareNo(r.bill_number))) return '';
   const url = capitolUrl({ bill_number: bareNo(r.bill_number), session_year: r.session_year, state_url: r.state_url });
   let h = `<div class="pn" data-sheet="other">${plainBand(spaced(r.bill_number), eCig(titleCaseTitle(r.title || '')))}<div class="pbody">`;
-  h += `<p class="lead tight"><span class="ftag" id="notTracked">Not tracked</span></p>`;
   if (r.description) h += `<p class="lead" id="oDesc">${esc(eCig(r.description))}</p>`;
   h += `<p class="lead" id="oLook">Nobody on the team tracks this bill.</p>` + trackBox(r);
   if (/^https?:\/\//.test(url)) h += `<p class="lead"><a class="lk" id="oCapitol" target="_blank" rel="noopener" href="${esc(url)}">The bill’s page on the Capitol site${ic('external-link')}</a></p>`;

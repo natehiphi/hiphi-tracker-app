@@ -14,7 +14,7 @@ def open_as(br, who, w, h, hash=''):
     return pg
 def settle(pg, ms=450): pg.wait_for_timeout(ms)
 def shot(pg, name):
-    if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
+    if SHOTS: pg.mouse.move(2, 2); pg.wait_for_timeout(800); pg.screenshot(path=os.path.join(SHOTS, name))
 def txt(pg): return pg.evaluate("document.getElementById('app').innerText")
 def laterOpen(pg): pg.evaluate("() => { const b = document.getElementById('laterBtn'); if (b && b.getAttribute('aria-expanded') === 'false') b.click(); }")
 def toast_text(pg): return pg.evaluate("document.getElementById('toast').classList.contains('on') ? document.getElementById('toastMsg').textContent : ''")
@@ -33,7 +33,7 @@ def run(br, w, h, tag):
     pg.click('#trackGo'); settle(pg, 700)
     t = txt(pg)
     ok('HIPHI now tracks HB 100. You lead it.' in t, f'{tag}: the done page says it')
-    ok('now tracks HB 100' in toast_text(pg) and pg.locator('#toastUndo').is_visible(), f'{tag}: toast with Undo')
+    ok(not toast_text(pg) and pg.locator('#trackUndo').count() == 1 and 'for 10 seconds' in t and 'Undo takes it off the tracker again.' in t and pg.locator('#notTracked').count() == 0, f'{tag}: no toast, one page Undo for 10 seconds')
     ok(pg.locator('#placeGo.filled').count() == 1 and 'Set its position and issue' in t, f'{tag}: Set its position and issue is filled')
     shot(pg, 'track_done.png' if w > 500 else 'track_done_390.png')
     # the bill is tracked and I lead it
@@ -41,12 +41,14 @@ def run(br, w, h, tag):
     ok(st['tracked'] and st['lead'], f'{tag}: HB 100 is tracked and Kevin leads it')
     ok(st['recs'] == 1, f'{tag}: the lead change is recorded for the admin')
     # Undo
-    pg.click('#toastUndo'); settle(pg, 700)
+    pg.click('#trackUndo'); settle(pg, 700)
     st = pg.evaluate("() => import('/staff6/data.js').then(m => { const b = m.S.bills.find(x => x.bill_number.replace(/\\s/g,'') === 'HB100'); return { has: !!b, recs: (m.S.leadChanges || []).filter(r => r.bill_id === (b && b.id)).length, left: (m.S.leadChanges||[]).length }; })")
     ok(not st['has'], f'{tag}: Undo takes it off the tracker')
     ok('Not tracked again.' in toast_text(pg) and pg.locator('#trackGo').count() == 1, f'{tag}: Undo says Not tracked again and the page is as before')
     # track again, then the place page
     pg.click('#trackGo'); settle(pg, 700)
+    pg.wait_for_timeout(10600)
+    ok(pg.locator('#trackUndo').count() == 0 and 'Undo' not in txt(pg) and pg.locator('#placeGo').count() == 1, f'{tag}: the page Undo is gone after 10 seconds')
     pg.click('#placeGo'); settle(pg, 700)
     ok(pg.evaluate('location.hash').startswith('#/do/pl-HB100'), f'{tag}: Set its position and issue opens the page')
     t = txt(pg)

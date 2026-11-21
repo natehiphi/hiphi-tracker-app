@@ -8,7 +8,7 @@ import { redrawKeep, norm, matchWords } from './find.js';
 import { eCig } from './issues.js';
 import { isAlive, billsOfIssue } from './standing.js';
 
-export const eui = { id: null, lead: null, goal: null, tp: null, bills: null };   // id: the issue the three belong to (issue.js clears them when another issue is drawn); bills: null (closed) or { q } (Change the bills is on, q the words typed); each: null (closed) or { text|sel, busy, err }
+export const eui = { id: null, lead: null, goal: null, tp: null, bills: null, noLive: null };   // id: the issue the three belong to (issue.js clears them when another issue is drawn); bills: null (closed) or { q } (Change the bills is on, q the words typed); each: null (closed) or { text|sel, busy, err }
 const $ = id => document.getElementById(id);
 export const mayEditIssue = (issue, me) => !!me && (issue.owner_id === me.id || !!me.is_admin);
 export const pointsOf = issue => (Array.isArray(issue.talking_points) ? issue.talking_points : []).map(x => String(x?.text ?? x ?? '').trim()).filter(Boolean);
@@ -117,14 +117,18 @@ function extrasOf(b, s0, me) {
 // style 'issue' (the issue page): "Put HB 797 on X." / "Took HB 1563 off X."; style 'bill' (the bill's Issues page): "HB 1005 is on X." / "HB 1005 is off X."
 // `after`: what to redraw (default the page); resolves true when it saved
 export async function moveBill(issue, b, on, { style = 'issue', me = null, after = redrawKeep } = {}) {
-  const s0 = snap(b), wasAlive = isAlive(b), nm = eCig(issue.name), no = billNo(b);
+  const s0 = snap(b), wasAlive = isAlive(b), nm = eCig(issue.name), no = billNo(b), others = on ? ISSUE_OF(b).filter(i => i.id !== issue.id).map(i => eCig(i.name)) : [];
   try { await DB.setBillIssue(b.id, issue.id, on); } catch { toast(on ? 'We could not put that bill on the issue. Try again.' : 'We could not take that bill off the issue. Try again.'); return false; }
   const extra = on ? extrasOf(b, s0, me) : '', none = !on && wasAlive && !billsOfIssue(issue).some(isAlive);
   const words = style === 'bill' ? `${no} is ${on ? 'on' : 'off'} ${nm}.` : on ? `Put ${no} on ${nm}.` : `Took ${no} off ${nm}.`;
-  const msg = words + (extra ? ` ${extra}` : '') + (none ? ' It has no live bills now.' : '');
+  // a bill that stopped is listed under "Show N" (or alone, when nothing on the issue is live): say where it went; a bill on another issue stays there too
+  const hid = on && style === 'issue' && !isAlive(b) ? (billsOfIssue(issue).some(isAlive) ? ` It stopped this year, so it is under Show ${billsOfIssue(issue).filter(x => !isAlive(x)).length}.` : ' It stopped this year.') : '';
+  const stay = others.length ? ` It stays on ${others.join(', ')} too.` : '';
+  const msg = words + (extra ? ` ${extra}` : '') + hid + stay + (none ? ' It has no live bills now.' : '');
+  eui.noLive = none ? issue.id : null;   // issue.js: while Change the bills is open, the header says "No live bills" instead of telling a stop that did not happen
   moveBill.note = extra ? `${no} is on ${nm}. ${extra}` : '';
   after();
-  toast(msg, { ms: extra || none ? 10000 : 6000, undo: async () => {
+  toast(msg, { ms: extra || none || hid || stay ? 10000 : 6000, undo: async () => {
     try { await DB.setBillIssue(b.id, issue.id, !on); const kept = await restore(b, s0); moveBill.note = ''; after(); toast(kept ? `Put back. ${no} keeps the talking points it copied; change them on the bill’s page.` : 'Put back', kept ? { ms: 9000 } : {}); } catch { toast('We could not put that back.'); }
   } });
   return true;
@@ -147,7 +151,7 @@ function resultsHTML(issue, q) {
   if (!hits.length) return '<p class="hint">No bill matches that, or it is already on this issue.</p>';
   return '<ul class="bpres">' + hits.map(b => {
     const on = ISSUE_OF(b).map(i => eCig(i.name));
-    return `<li><div class="bpt"><span class="bpn">${esc(billName(b))}</span><span class="bpm">${esc(billNo(b))} · ${b.position ? `Our position: ${esc(posWords(b))}` : 'No position yet'}</span><span class="bpm">${on.length ? `On: ${esc(on.join(', '))}` : 'On no issue yet'}</span></div>${btn('Put it on', { kind: 'quiet', attrs: `data-put="${esc(b.id)}" aria-label="Put ${esc(billNo(b))} on this issue"` })}</li>`;
+    return `<li><div class="bpt"><span class="bpn">${esc(billName(b))}</span><span class="bpm">${esc(billNo(b))} · ${b.position ? `Our position: ${esc(posWords(b))}` : 'No position yet'}</span><span class="bpm">${on.length ? `Also on: ${esc(on.join(', '))}` : 'On no issue yet'}</span></div>${btn('Put it on', { kind: 'quiet', attrs: `data-put="${esc(b.id)}" aria-label="Put ${esc(billNo(b))} on this issue"` })}</li>`;
   }).join('') + '</ul>';
 }
 // the head of the Bills table: the heading with its one button, and, in edit mode, the find field
@@ -160,7 +164,7 @@ export const takeOffCell = b => eui.bills ? `<td class="tx">${btn('Take off', { 
 export const takeOffCol = () => eui.bills ? '<col class="cx">' : '';
 export const takeOffHead = () => eui.bills ? '<th scope="col" class="cxh"><span class="sr">Take off</span></th>' : '';
 const wide = () => matchMedia('(min-width: 900px)').matches;
-function closeBills() { eui.bills = null; redrawKeep(); focusLater('iBillsGo'); }
+function closeBills() { eui.bills = null; eui.noLive = null; redrawKeep(); focusLater('iBillsGo'); }
 // Escape closes edit mode, from the field or from the page (the frame's own Escape would close the whole page)
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || !eui.bills || !$('iBillsDone')) return;

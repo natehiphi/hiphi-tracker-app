@@ -20,7 +20,7 @@ def open_as(br, who, w, h, hash):
     return pg
 def settle(pg, ms=450): pg.wait_for_timeout(ms)
 def shot(pg, name):
-    if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
+    if SHOTS: pg.mouse.move(2, 2); pg.wait_for_timeout(800); pg.screenshot(path=os.path.join(SHOTS, name))
 def toast(pg): return pg.evaluate("() => { const t = document.getElementById('toast'); return t && t.classList.contains('on') ? document.getElementById('toastMsg').textContent : '' }")
 def undo(pg): pg.click('#toastUndo'); settle(pg, 700)
 def rows(pg): return pg.evaluate("() => [...document.querySelectorAll('#tBills tbody tr')].map(r => r.querySelector('th').textContent.trim())")
@@ -49,7 +49,7 @@ with sync_playwright() as p:
     # search: a number and words, with where each is now
     pg.fill('#iPutIn', 'tobacco'); settle(pg, 200)
     txt = pg.inner_text('#iPutRes')
-    ok(pg.locator('[data-put]').count() >= 1 and 'Our position:' in txt and ('On: ' in txt or 'On no issue yet' in txt), 'words find bills, each with its number, our position and where it is now')
+    ok(pg.locator('[data-put]').count() >= 1 and 'Our position:' in txt and ('Also on: ' in txt or 'On no issue yet' in txt), 'words find bills, each with its number, our position and where it is now')
     ok(all(pg.inner_text(f'[data-put] >> nth={i}') == 'Put it on' for i in range(pg.locator('[data-put]').count())), 'each result has a quiet "Put it on"')
     ok('HB1563' not in txt.replace(' ', '') or 'HB 1563' not in txt, 'a bill already on this issue is not offered again')
     pg.fill('#iPutIn', 'HB 1021'); settle(pg, 200)
@@ -59,7 +59,7 @@ with sync_playwright() as p:
     ok('No bill matches' in pg.inner_text('#iPutRes'), 'nothing found says so')
     # a bill on another issue: it is added, not moved
     pg.fill('#iPutIn', 'HB 797'); settle(pg, 200)
-    ok('On: ' in pg.inner_text('#iPutRes'), 'a bill on another issue says "On: <that issue>"')
+    ok('Also on: ' in pg.inner_text('#iPutRes'), 'a bill on another issue says "Also on: <that issue>"')
     shot(pg, 'issue_bills_edit.png')
     before_left = left_text(pg)
     # put HB 1021 (no lead, so the issue's lead takes it) on the issue
@@ -67,6 +67,7 @@ with sync_playwright() as p:
     pg.click('[data-put] >> nth=0'); settle(pg, 700)
     t = toast(pg)
     ok(t.startswith('Put HB 1021 on Let counties regulate tobacco sales.'), f'toast: Put HB 1021 on <issue>. ({t!r})')
+    ok('It stopped this year, so it is under Show 11.' in t, f'a stopped bill put on says where it is ({t!r})')
     ok('now leads it' in t or 'now lead it' in t, f'the toast says who now leads the bill ({t!r})')
     ok(pg.evaluate("() => [...document.querySelectorAll('#tBills tbody tr, #tDead tbody tr')].some(r => r.querySelector('th').textContent.replace(/\\s/g, '') === 'HB1021')"), 'the row is in the table now (HB 1021 is a stopped bill, so it sits in the stopped list)')
     ok(sub(pg).startswith('2 of 12') or '12' in sub(pg), f'the header count redraws at once ({sub(pg)!r})')
@@ -89,6 +90,7 @@ with sync_playwright() as p:
     t = toast(pg)
     ok(t.startswith('Took HB 1563 off Let counties regulate tobacco sales.') and 'It has no live bills now.' in t, f'the last live bill: {t!r}')
     ok(len(rows(pg)) == 0 and pg.locator('#tBills').count() == 0, 'the row is gone')
+    ok(pg.inner_text('#iStat').startswith('No live bills · 10 bills stopped this year'), f'header after the last live bill came off: {pg.inner_text("#iStat")[:70]!r}')
     ok(sub(pg).startswith('None of its 10') or '10' in sub(pg), f'the counts redraw ({sub(pg)!r})')
     shot(pg, 'issue_bills_edit_last.png')
     undo(pg)
@@ -148,6 +150,11 @@ with sync_playwright() as p:
     ok(pg.locator('.bchip').count() == 10, f'ten chips: {pg.locator(".bchip").count()}')
     ok('Showing 10 of 91 issues. Search to find another.' in pg.inner_text('#biMore'), f'{pg.inner_text("#biMore")!r}')
     ok(pg.locator('#biDone').count() == 1 and 'filled' in pg.get_attribute('#biDone', 'class'), 'a filled Done')
+    chips = pg.evaluate("() => [...document.querySelectorAll('.bchip')].map(c => c.textContent.trim())")
+    rk = pg.evaluate("""async () => { const m = await import('/staff6/data.js'), r = await import('/staff7/bill_issues.js'); const t = m.S.issues.filter(i => !i.archived_at);
+      const top = r.rankIssues({ title: 'RELATING TO TOBACCO.', description: 'Taxes on cigars.' }, t, new Set()).slice(0, 3).map(i => i.name);
+      const top2 = r.rankIssues({ title: 'RELATING TO SCHOOL MEALS.', description: '' }, t, new Set()).slice(0, 2).map(i => i.name); return [top, top2]; }""")
+    ok(all('obacco' in n or 'igar' in n or 'cigarette' in n for n in rk[0]) and all('school meals' in n.lower() for n in rk[1]), f'issues that share words with the bill come first, before the person’s own: {rk}')
     # pick
     first_name = pg.inner_text('.bchip >> nth=0')
     pg.click('.bchip >> nth=0'); settle(pg, 700)

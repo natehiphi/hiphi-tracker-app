@@ -18,7 +18,7 @@ def open_as(br, who, w, h, hash='', errs=None):
 def settle(pg, ms=450): pg.wait_for_timeout(ms)
 def goto(pg, h): pg.evaluate(f"() => {{ window.__staff7TrailReset && window.__staff7TrailReset(); location.hash = {h!r}; }}"); settle(pg)
 def shot(pg, name):
-    if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
+    if SHOTS: pg.mouse.move(2, 2); pg.wait_for_timeout(800); pg.screenshot(path=os.path.join(SHOTS, name))   # mouse off every button, fades finished
 
 # the first File testimony step, and the hearing it is for: found by the Calendar sitting whose "File testimony" button leads to the step
 FIND = """async () => { const d = await import('/staff6/data.js'); const L = document.getElementById('laterBtn'); if (L && L.getAttribute('aria-expanded') === 'false') L.click();
@@ -101,12 +101,26 @@ with sync_playwright() as p:
     ok(not pg.locator('#goPick').is_visible() and '#/calendar' in pg.url, 'the picker closes with Escape (the page stays)')
     pg.click('#goAdd'); pg.click('#goPickX'); settle(pg, 200)
     ok(not pg.locator('#goPick').is_visible(), 'the picker closes with its X')
-    pg.click('#goAdd'); name = pg.locator('#goPick button.pk').first.inner_text().split(' ')[0]; pg.locator('#goPick button.pk').first.click(); settle(pg)
+    pg.click('#goAdd'); settle(pg, 200)
+    ok(pg.locator('#goPick').get_attribute('aria-label') == 'Who is going?' and pg.locator('#goPick button.pk[aria-pressed="true"]').count() == 1 and pg.locator('#goPick button.pk[aria-pressed="true"]').inner_text().startswith(pg.locator('#goPick button.pk').first.inner_text().split(' ')[0]), 'picker: labelled "Who is going?", everyone listed as toggles, only me pressed (a tick)')
+    other = pg.locator('#goPick button.pk[aria-pressed="false"]').first; wid = other.get_attribute('data-who'); name = other.inner_text().split(' ')[0]; other.click(); settle(pg)
     g = pg.evaluate(GOING); t = pg.evaluate(TOAST)
     ok(g['who'] == f'You and {name}' and t['on'] and t['undo'] and name in t['msg'] and 'is going to the' in t['msg'], f'Add a teammate: "You and {name}", toast with Undo ({g["who"]} / {t["msg"]})')
-    shot(pg, 'going_calendar_on.png')
+    pk = pg.locator(f'#goPick [data-who="{wid}"]')
+    ok(pg.locator('#goPick').is_visible() and pk.get_attribute('aria-pressed') == 'true' and pk.locator('svg').count() == 1, 'picker stays open; the name just added is pressed with a tick')
+    shot(pg, 'going_calendar_pick.png')
+    pg.mouse.move(5, 5); pg.keyboard.press('Escape'); settle(pg, 900); shot(pg, 'going_calendar_on.png'); pg.click('#goAdd'); settle(pg, 200)
     pg.click('#toastUndo'); settle(pg)
     ok(pg.evaluate(GOING)['who'] == 'You', 'Undo of Add a teammate takes them off again')
+    # anyone can be taken off again by pressing their name (not only by Undo)
+    pg.locator(f'#goPick [data-who="{wid}"]').click(); settle(pg); pg.locator(f'#goPick [data-who="{wid}"]').click(); settle(pg)
+    t = pg.evaluate(TOAST)
+    ok(pg.evaluate(GOING)['who'] == 'You' and pg.locator(f'#goPick [data-who="{wid}"]').get_attribute('aria-pressed') == 'false' and re.search(r'is not going', t['msg']) and t['undo'], f'pressing a pressed name takes them off, with its own toast and Undo ({t["msg"]})')
+    pg.click('#toastUndo'); settle(pg)
+    ok(pg.evaluate(GOING)['who'] == f'You and {name}', 'Undo of taking them off puts them back')
+    pg.locator(f'#goPick [data-who="{wid}"]').click(); settle(pg)
+    ok(pg.evaluate(GOING)['who'] == 'You', 'taken off again')
+    pg.keyboard.press('Escape'); settle(pg, 200)
     # someone else going, not the person filing
     mate = pg.evaluate(SETMATE); settle(pg)
     g = pg.evaluate(GOING)

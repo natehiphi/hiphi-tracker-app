@@ -25,7 +25,7 @@ svg.ic { width: var(--icon); height: var(--icon); fill: none; stroke: currentCol
 .btn.filled:hover { background: var(--act-p); }
 .btn.filled:active { background: var(--act-p); box-shadow: inset 0 var(--line2) var(--s1) var(--scrim); }
 .btn.quiet { border-color: var(--edge); color: var(--ink); background: transparent; }
-.btn.quiet:hover { background: var(--tint); }
+@media (hover: hover) { .btn.quiet:hover { background: var(--tint); } }   /* a phone keeps hover after a tap: it must not look chosen */
 .btn.quiet:active { background: var(--rule); }
 .btn.text { color: var(--act); padding: 0 var(--s2); text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); font-family: var(--body); font-weight: 700; }
 .btn.text:hover { color: var(--act-p); text-decoration-thickness: var(--line2); }
@@ -745,7 +745,7 @@ li[hidden] { display: none; }
 .bseg { display: flex; flex-wrap: wrap; gap: var(--s2); }
 .bs { position: relative; display: inline-flex; }
 .bs span { display: inline-flex; align-items: center; min-height: var(--hit); padding: 0 var(--s4); border: var(--line) solid var(--edge); border-radius: var(--r8); background: var(--surface); color: var(--ink); font: 400 var(--f16)/1.2 var(--body); cursor: pointer; }
-.bs:hover span { background: var(--tint); }
+@media (hover: hover) { .bs:hover span { background: var(--tint); } }
 .bsr { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .bs span svg.ic { display: none; width: var(--icon-s); height: var(--icon-s); margin-right: var(--s2); }
 .bsr:checked + span { background: var(--wash); color: var(--ink); box-shadow: inset 0 0 0 var(--line2) var(--ink); font-weight: 700; }   /* the chosen one: marked, not filled (Save is the one filled thing) */
@@ -1107,8 +1107,8 @@ li[hidden] { display: none; }
 .bpick .field { max-width: var(--letter-w); margin-top: var(--s1); }
 .bchips { list-style: none; margin: var(--s3) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
 .bchip { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); padding: 0 var(--s4); background: var(--surface); color: var(--ink); border: var(--line) solid var(--edge); border-radius: var(--r8); font: 400 var(--f16)/1.3 var(--body); cursor: pointer; text-align: left; }
-.bchip:hover { background: var(--tint); }
-.bchip[aria-pressed="true"] { border-width: var(--line2); border-color: var(--ink); font-weight: 700; }
+@media (hover: hover) { .bchip:hover { background: var(--tint); } }
+.bchip[aria-pressed="true"], .bchip[aria-pressed="true"]:hover { background: var(--wash); border-width: var(--line2); border-color: var(--ink); font-weight: 700; }   /* picked: its own fill, the heavier edge and the tick */
 .bchip svg.ic { flex: none; width: var(--icon-s); height: var(--icon-s); }
 .bnote:empty { display: none; }
 @media (max-width: 899px) {

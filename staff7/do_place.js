@@ -1,11 +1,11 @@
 // R-398 piece 9 gap E: Track a bill from Search (Nate: "Track it, and you lead it", anyone on staff).
 //   1. Search's page for a bill nobody tracks has the filled "Track this bill" (find.js draws it, this file does it): DB.track, then the lead through the data layer's setLeads (the call the Team page uses;
 //      in memory while LEADS_V7 is off, the database's set_bill_leads after the switch, so the change also shows on the admin's "Look over N lead changes").
-//   2. "HIPHI now tracks HB 100. You lead it." with Undo (toast and link), then the filled "Set its position and issue".
+//   2. "HIPHI now tracks HB 100. You lead it." with one Undo on the page for 10 seconds (no toast), then the filled "Set its position and issue".
 //   3. That page (#/do/pl-<number>): the position as a choice of one and the issue as a search with choices, nothing picked by default, each pick saves at once with a toast and Undo, filled Done goes back.
 //   4. Until both are set the leader has the Home step "Set position and issue". It does not expire by the calendar: it ends by itself when both are set, or the bill is no longer tracked, or the person no longer leads it.
 // Practice copy: "tracked from Search by me" is kept in this tab (sessionStorage, like do_check.js's record). Live (later) the same record would be the bill's activity row; staff7 is practice-only today.
-import { S, DB, myIssueIds, publicPositionPending, isLiveBill } from '../staff6/data.js';
+import { S, DB, publicPositionPending, isLiveBill } from '../staff6/data.js';
 import { SESSION_YEAR } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { esc, btn, toast, plainBand } from './parts.js';
@@ -14,6 +14,7 @@ import { titleCaseTitle } from '../staff6/model.js';
 import { redrawKeep, rerender, dropIdx, norm, matchWords, otherBillRow } from './find.js';
 import { eCig } from './issues.js';
 import { moveBill } from './issue_edit.js';
+import { rankIssues } from './bill_issues.js';
 import { setLeads as takeLead, undoLeads } from './team_data.js';
 import { noteChange, dropChange } from './do_check.js';
 import { publicKeeps, positionSavedNote } from './public_data.js';
@@ -28,6 +29,7 @@ const posName = v => (POS.find(p => p[0] === v) || [, ''])[1];
 const KEY = 'hiphi7_placed';
 const store = (() => { try { const s = JSON.parse(sessionStorage.getItem(KEY)); if (s && typeof s === 'object') return s; } catch { /* fresh */ } return {}; })();
 const persist = () => { try { sessionStorage.setItem(KEY, JSON.stringify(store)); } catch { /* it still works in memory */ } };
+const UNDO_MS = 10000;
 const justTracked = new Map();   // bill number -> { bill, recs }: the "now tracks" page while the person is on it
 
 // the bill's name as the drawings say it: its nickname, else its title ("Relating to media literacy"), not the long official description
@@ -51,9 +53,10 @@ export async function trackIt(num) {
   let res; try { res = await takeLead([bill.id], me.id); } catch (e) { res = { refused: String(e?.message || 'refused') }; }
   if (res.refused) { try { await DB.untrack(bill.id); } catch { /* the bill stays tracked; the toast says what happened */ } return fail(); }
   const recs = res.recs || [];
-  store[bill.id] = me.id; persist(); justTracked.set(bare(bill.bill_number), { bill, recs });
+  store[bill.id] = me.id; persist();
+  const t = { bill, recs, until: Date.now() + UNDO_MS }; justTracked.set(bare(bill.bill_number), t);
+  setTimeout(() => { if (justTracked.get(bare(bill.bill_number)) === t && $('trackUndo')) rerender(); }, UNDO_MS + 50);   // the page's one Undo goes after 10 seconds (no toast: the page says it)
   dropIdx(); rerender();
-  toast(`HIPHI now tracks ${billNo(bill)}. You lead it.`, { ms: 10000, undo: () => undoTrack(bill) });
 }
 async function undoTrack(bill) {
   const t = justTracked.get(bare(bill.bill_number)), recs = t?.recs || [];
@@ -66,10 +69,10 @@ async function undoTrack(bill) {
 export function trackedSheet(num) {
   const t = justTracked.get(bare(num)), b = t && (S.bills || []).find(x => x.id === t.bill.id && x.tracked !== false);
   if (!b) { justTracked.delete(bare(num)); return ''; }
-  const done = isSet(b);
+  const done = isSet(b), canUndo = !done && Date.now() < (t.until || 0);
   return `<div class="pn" data-sheet="tracked"><div class="done enter tdone"><div class="dtile">${ic('check')}</div><h1 tabindex="-1" id="trackedH">${esc(`HIPHI now tracks ${billNo(b)}. You lead it.`)}</h1>`
     + `<p class="sub">${done ? 'Its position and issue are set.' : 'Its position and issue are not set yet.'}</p>`
-    + (done ? '' : `<p class="hint">Undo takes it off the tracker again.</p><p class="pact">${btn('Undo', { kind: 'text', id: 'trackUndo', attrs: `data-num="${esc(bare(num))}"` })}</p>`)
+    + (canUndo ? `<p class="hint">Undo takes it off the tracker again.</p><p class="pact">${btn('Undo', { kind: 'text', id: 'trackUndo', attrs: `data-num="${esc(bare(num))}"` })} <span class="hint">for 10 seconds</span></p>` : '')
     + `<p class="pact">${btn(done ? 'Change its position and issue' : 'Set its position and issue', { kind: 'filled', id: 'placeGo', href: `#/do/${enc(stepId(b))}` })}</p>`
     + `<p class="hint">${esc(nameOf(b).replace(/\.$/, ''))} ${esc(billNo(b))}</p></div></div>`;
 }
@@ -96,9 +99,9 @@ const q = { id: null, q: '' };   // the words typed: kept across a redraw, dropp
 const live = () => (S.issues || []).filter(i => !i.archived_at);
 const LIMIT = 10;
 function listOf(b) {
-  const picked = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id)), mine = new Set([...myIssueIds()].map(String)), ws = matchWords(q.q);
+  const picked = new Set((S.billIssues || []).filter(x => x.bill_id === b.id).map(x => x.issue_id)), ws = matchWords(q.q);
   let all = live(); if (q.q.trim()) all = ws.length ? all.filter(i => { const h = ' ' + norm(eCig(i.name)); return ws.every(alts => alts.some(a => h.includes(' ' + a))); }) : [];
-  all = all.slice().sort((x, y) => (picked.has(y.id) - picked.has(x.id)) || (mine.has(String(y.id)) - mine.has(String(x.id))) || eCig(x.name).localeCompare(eCig(y.name), 'en'));
+  all = rankIssues(b, all, picked);   // picked, then related to the bill, then the person's own, then A to Z (one helper, bill_issues.js)
   return { shown: all.slice(0, LIMIT), total: all.length, picked };
 }
 function chipsHTML(b) {

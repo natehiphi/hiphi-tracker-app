@@ -11,7 +11,7 @@ import { band, btn, esc, toast } from './parts.js';
 import { ic } from './icons7.js';
 import { first, hearingLine, dayTime, posWords, issueOf, billName, billNo, leadsFor } from './steps.js';
 import { approvedLine, letterRow, bindLetterRow } from './do_file.js';
-import { testimonyDue, http, ext } from './bill_words.js';
+import { testimonyDue, onHold, draftFor } from './bill_words.js';
 
 const enc = encodeURIComponent;
 // The two sides a testimony can argue (staff6/bill.js SIDE, the same map); a position with no side (Comments, Monitor, none) is its own.
@@ -57,6 +57,7 @@ export function holdFor(b, d) {
   const kept = store.kept[d.id]; if (kept && kept >= last.at) return null;
   return { d, h, from, to: now, cross: side(from) !== side(now), waiting: d.status !== 'approved', writer: writerOf(d, b) };
 }
+onHold((h, b) => { const d = draftFor(h, b); return !!d && !!holdFor(b, d); });   // bill_words.js cannot import this file (a cycle), so the words of Calendar and Issues ask it through this hook
 export const holdsOf = b => (S.drafts?.[b.id] || []).map(d => holdFor(b, d)).filter(Boolean);
 const nameOf = id => id ? first(advocate(id)) : 'An admin';
 const isMe = id => !!id && S.me?.id === id;
@@ -67,10 +68,10 @@ export function holdStrip(b) {
   const n = hs.length, allA = hs.every(x => !x.waiting), allW = hs.every(x => x.waiting);
   const noun = allA ? (n === 1 ? 'approved testimony' : 'approved testimonies') : allW ? (n === 1 ? 'testimony waiting for approval' : 'testimonies waiting for approval') : (n === 1 ? 'testimony' : 'testimonies');
   const says = [...new Set(hs.map(x => label(x.from)))].join(' or ');
-  const w = hs[0].writer, you = isMe(w), doc = hs.find(x => http(x.d.doc_url));
+  const w = hs[0].writer, you = isMe(w);
   return `<div class="strip pos" id="bPosHold" role="note">${ic('triangle-alert')}<strong>${esc(`Position: ${label(b.position)}. ${n} ${noun} ${n === 1 ? 'says' : 'say'} ${says}.`)}</strong>`
     + `<span class="hl">${esc(`Filing is held until ${you ? 'you check' : `${nameOf(w)} checks`} the testimony.`)}</span>`
-    + `<span class="hl">${esc(`${you ? 'You get' : `${nameOf(w)} gets`} a step to check it.`)}${doc ? ` ${ext(doc.d.doc_url, 'Open the testimony')}` : ''}</span></div>`;
+    + `<span class="hl">${esc(`${you ? 'You get' : `${nameOf(w)} gets`} a step to check it.`)}</span></div>`;
 }
 
 // The amber box at the top of the File testimony step while it is held.
@@ -84,6 +85,7 @@ export function holdBox(hd, b) {
 }
 
 // ---------------------------------------------------------------------------------- the writer's step (stepsFor adds these)
+// at is the start of today so the step sorts first on Home (homeModel sorts by it); steps.js pastDue leaves this kind out, so it is never "past due" and its row says "Today"
 const dayStart = () => new Date(`${new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' })}T00:00:00-10:00`).getTime();
 export function checkSteps(me) {
   if (!me) return [];
@@ -101,14 +103,14 @@ export function checkSteps(me) {
 }
 
 // ---------------------------------------------------------------------------------- the step's page
-const saysOf = p => side(p) === 'support' ? 'Support' : side(p) === 'oppose' ? 'Oppose' : label(p);
+const writtenTo = p => side(p) === 'support' ? 'to support the bill' : side(p) === 'oppose' ? 'to oppose the bill' : `for the position ${label(p)}`;
 export function checkSheet(s, ctx) {
   const hd = holdFor(s.bill, s.draft) || s.hold, d = s.draft, was = hd.waiting ? 'Sent for approval' : 'Approved', now = label(hd.to);
   let h = '<div class="pn">' + band(s.issue, 'Check your testimony', s.name, s.no) + '<div class="pbody">';
   h += `<div class="strip calm">${ic('clock')}<strong>Check it today</strong><span class="hl">The Capitol’s deadline is ${esc(dayTime(s.due))}.</span><span class="hl">${esc(hearingLine(s.hearing))}</span></div>`;
   h += `<div class="stgrid"><div class="stmain"><h2 class="sh">What changed</h2>`;
   h += `<p class="lead">${esc(`${was} when HIPHI’s position was ${label(hd.from)}. It is now ${now}.`)}${hd.cross ? '' : ' The testimony still argues for the same side.'}</p>`;
-  if (hd.cross) h += `<p class="lead">${esc(`This testimony argues ${saysOf(hd.from)}. ${side(hd.to) === 'oppose' ? 'HIPHI now opposes the bill' : side(hd.to) === 'support' ? 'HIPHI now supports the bill' : `HIPHI’s position is now ${now}`}, so it cannot be filed as written.`)}</p>`;
+  if (hd.cross) h += `<p class="lead">${esc(`It was written ${writtenTo(hd.from)}. ${side(hd.to) === 'oppose' ? 'HIPHI now opposes the bill' : side(hd.to) === 'support' ? 'HIPHI now supports the bill' : `HIPHI’s position is now ${now}`}, so it cannot be filed as written.`)}</p>`;
   h += `${approvedLine({ draft: d })}${letterRow({ bill: s.bill, draft: d }, ctx, { pdf: true, pos: false })}</div></div>`;
   h += `<div class="sfoot" id="ckFoot">${btn('Change the testimony', { kind: 'filled', id: 'chgBtn' })}${hd.cross ? '' : btn('Keep it as written', { kind: 'quiet', id: 'keepBtn' })}<span class="fnote">Changing it sends it back to writing, then to approval again.</span></div>`;
   return h + '<p class="errt" id="ckErr" role="alert" hidden></p></div></div>';

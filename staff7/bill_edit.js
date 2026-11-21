@@ -13,7 +13,9 @@ import { noteChange, dropChange } from './do_check.js';   // gap B: the time and
 import { positionSaveNote, positionStillSays, positionSavedNote, publicKeeps, PUBLISH_CHANGE, SEE_IT, WRITE_THEM, missingLine, waitingState } from './public_data.js';
 
 const $ = id => document.getElementById(id);
-const OPTS = [...POSITIONS.filter(p => p[0]), ['', 'No position yet']];   // the data layer's own list and labels; clearing is allowed (staff6's picker has "No position")
+const ORDER = ['strongly_support', 'support', 'support_amend', 'monitor', 'neutral', 'oppose', 'strongly_oppose'];   // the picker's order: support first, then Monitor and Comments, then Oppose (the data layer's list puts Strongly oppose before Oppose)
+const rank = v => { const i = ORDER.indexOf(v); return i < 0 ? ORDER.length : i; };
+const OPTS = [...POSITIONS.filter(p => p[0]).sort((x, y) => rank(x[0]) - rank(y[0])), ['', 'No position yet']];   // the data layer's own list and labels; clearing is allowed (staff6's picker has "No position")
 const posLabel = v => (OPTS.find(o => o[0] === v) || [])[1] || 'No position yet';
 // R-398 part 3 (design 7): the public site's position, in the words the picker uses; what the public site still says
 const labelOf = v => v ? (POSITIONS.find(p => p[0] === v) || [, v])[1] : 'No position yet';

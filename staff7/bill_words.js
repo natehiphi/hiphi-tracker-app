@@ -24,9 +24,12 @@ export const testimonyDue = h => h.testimony_deadline ? new Date(h.testimony_dea
 export const codesKey = c => codesOf(c).sort().join('/');
 export const draftFor = (h, b) => { const d = sittingDraft(h, b.id); return d && (d.hearing_id ? d.hearing_id === h.id : codesKey(d.committee) === codesKey(h.committee)) ? d : null; };
 // Where a bill's testimony stands for a hearing, from the data layer's own step state: { key, back (sent back to fix), fresh (not started) }
-export const letterState = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) return { key: s.key, label: s.label, back: !!s.sentBack, fresh: !!s.noDraft }; } catch { /* below */ } return { key: 'write', label: null, back: false, fresh: true }; };
+// A testimony held for a position change (do_check.js) is never "ready to file": its state is 'held' (do_check.js registers the test; this file cannot import it).
+let heldTest = () => false;
+export const onHold = f => { heldTest = f; };
+export const letterState = (h, b) => { try { const s = billStep(b, { viewer: S.me, d: draftFor(h, b) || null, h })?.state; if (s) { if (s.key === 'file' && heldTest(h, b)) return { key: 'held', label: 'Held until it is checked', back: false, fresh: false }; return { key: s.key, label: s.label, back: !!s.sentBack, fresh: !!s.noDraft }; } } catch { /* below */ } return { key: 'write', label: null, back: false, fresh: true }; };
 // the state in words, lower case, for the middle of a line (Calendar says it with a capital at the start of a line)
-export const testimonyWords = st => st.key === 'filed' ? 'testimony filed' : st.key === 'file' ? 'testimony ready to file' : st.key === 'second' ? 'testimony waiting for a second look' : st.key === 'approve' ? 'testimony waiting for approval'
+export const testimonyWords = st => st.key === 'filed' ? 'testimony filed' : st.key === 'file' ? 'testimony ready to file' : st.key === 'held' ? 'testimony held until it is checked' : st.key === 'second' ? 'testimony waiting for a second look' : st.key === 'approve' ? 'testimony waiting for approval'
   : st.key === 'missed' ? 'testimony not filed' : st.back ? 'testimony sent back to fix' : st.fresh ? 'testimony not started' : 'testimony being written';
 // the same state after "Testimony due ..." (which already says testimony): "waiting for approval", "filed"
 export const testimonyShort = st => testimonyWords(st).replace(/^testimony /, '');

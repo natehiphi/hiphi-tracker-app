@@ -7,11 +7,12 @@
 // Nothing here writes anything.
 import { S, isMine, SESSION_YEAR } from '../staff6/data.js';
 import { goingIds, goingNames, changeGoing } from './do_file.js';
+import { holdFor } from './do_check.js';   // a testimony held for a position change: its own step is Check your testimony, never File testimony
 import { roomName, streamOf, hearingAhead, billRef, lateLine } from '../staff6/model.js';
-import { whereWords } from '../staff6/steps.js';
+import { whereWords, actBy } from '../staff6/steps.js';
 import { ic } from './icons7.js';
 import { esc, plainBand, keepWords, btn, toast } from './parts.js';
-import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
+import { billName, billNo, cmteWords, dayTime, first, LABEL } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
 import { boxHTML } from './find.js';
@@ -175,7 +176,9 @@ export function calendarModel({ me, open, rt, people, phone }) {
     return `<p class="bst">${st.key === 'filed' ? ic('check') : ''}<span>${esc(letterWords(st))}</span></p>` + (late && several ? `<p class="bst riskt">${ic('triangle-alert')}<span>${esc(lateLine(s.t))}</span></p>` : ''); };
   const billHrefOf = (b, issue) => { const p = new URLSearchParams(); if (who.code) p.set('who', who.code); if (issue?.id != null) p.set('i', issue.id); p.set('from', 'calendar'); const s = p.toString(); return `#/bill/${billRef(b).split('/').map(enc).join('/')}${s ? `?${s}` : ''}`; };
   const billLi = (b, issue, lines, move, links = '') => `<li class="brow" style="${tint(issue || {})}"><div class="bmain"><a class="bn2" href="${billHrefOf(b, issue)}">${esc(billName(b))}<span class="bno">${esc(billNo(b))}</span></a>${lines}${links}${move}</div></li>`;
-  const moveOf = (b, onlyRisk, skipId) => { const st = who.kind === 'mine' && (!onlyRisk || isAtRisk(b)) ? stepOn(open, b) : null; return st && st.id !== skipId ? `<a class="btn quiet ymove" href="#/do/${enc(st.id)}">Your move · ${esc(st.verb)}</a>` : ''; };
+  // the viewer's step on a bill: for a held testimony, the check step (File testimony is held, so it is never offered)
+  const stepHere = b => (open || []).find(s => s.kind === 'check' && s.bill?.id === b.id) || stepOn((open || []).filter(s => !(s.kind === 'file' && s.draft && holdFor(b, s.draft))), b);
+  const moveOf = (b, onlyRisk, skipId) => { const st = who.kind === 'mine' && (!onlyRisk || isAtRisk(b)) ? stepHere(b) : null; return st && st.id !== skipId ? `<a class="btn quiet ymove" href="#/do/${enc(st.id)}">Your move · ${esc(st.verb)}</a>` : ''; };
   const issueHrefOf = issue => issue?.id != null ? `#/issue/${enc(issue.id)}${who.code ? `?who=${enc(who.code)}` : ''}` : '';
   const extLink = (url, label) => `<a class="bl" target="_blank" rel="noopener" href="${esc(url)}">${esc(label)}${ic('external-link')}</a>`;
   // one quiet row of links under a bill: its letter, its page here, its issue, the Capitol's page. They sit above the row's whole-row link.
@@ -220,24 +223,26 @@ export function calendarModel({ me, open, rt, people, phone }) {
   // ---- are we ready: the data layer's own letter states for the sitting's bills, never the clock alone
   const readyOf = (s, tdPage) => {
     const now = Date.now(), rows = s.rows.map(r => ({ r, st: stateOf(r.h, r.b) })), k = rows.length, un = rows.filter(x => x.st.key !== 'filed'), filed = k - un.length, ahead = s.t > now;
-    let tone = 'plain', icon = '', head, say = '', late = false;
+    let tone = 'plain', icon = '', head, say = '', late = false, cap2 = '';
     if (!un.length) { tone = 'done'; icon = 'check'; head = k === 1 ? 'Filed' : `All ${k} testimonies filed`; say = 'Nothing is needed for this hearing.'; }
     else if (!ahead) { tone = 'missed'; head = filed ? `${filed} of ${k} filed` : 'Missed'; say = filed ? 'The hearing has passed. The rest were not filed.' : 'The hearing has passed and no testimony was filed.'; }
     else {
       const first1 = Math.min(...un.map(x => x.r.due)), cat = x => x.st.key === 'write' && x.st.back ? 'back' : x.st.key, keys = [...new Set(un.map(cat))], c = un.length;
-      const say1 = { write: `${n(c, 'testimony', 'testimonies')} still to write`, file: `${c === 1 ? '1 testimony is' : `${c} testimonies are`} ready to file`, approve: `${n(c, 'testimony', 'testimonies')} waiting for approval`, second: `${n(c, 'testimony', 'testimonies')} waiting for a second look`, back: `${n(c, 'testimony', 'testimonies')} sent back to fix` };
+      const say1 = { write: `${n(c, 'testimony', 'testimonies')} still to write`, file: `${c === 1 ? '1 testimony is' : `${c} testimonies are`} ready to file`, held: `${n(c, 'testimony', 'testimonies')} held until ${c === 1 ? 'it is' : 'they are'} checked`, approve: `${n(c, 'testimony', 'testimonies')} waiting for approval`, second: `${n(c, 'testimony', 'testimonies')} waiting for a second look`, back: `${n(c, 'testimony', 'testimonies')} sent back to fix` };
       head = filed ? `${filed} of ${k} filed` : keys.length === 1 && say1[keys[0]] ? say1[keys[0]] : `${n(c, 'testimony', 'testimonies')} not filed yet`;
       if (first1 <= now) { late = true; tone = 'late'; icon = 'triangle-alert'; const nl = un.filter(x => x.r.due <= now).length; say = k === 1 ? `${lateLine(s.t)}.` : `${nl === k ? `All ${k}` : `${nl} of ${k}`} ${lateLine(s.t, { lower: true })}.`; }
-      else { const d0 = daysTo(ymd(first1)); say = `Testimony is due ${d0 === 0 ? `today at ${clock(first1)}` : d0 === 1 ? `tomorrow at ${clock(first1)}` : dayTime(first1)}.`; }
+      else {   // the team's time first, as the step's own due strip says it (actBy: the same function the File step uses), then the Capitol's deadline
+        const row = un.find(x => x.r.due === first1), kind = row.st.key === 'held' ? 'file' : row.st.key, a = actBy({ kind, due: first1 }), L = LABEL[kind] || 'Due';
+        say = a.kind === 'hand' ? `${L} by ${dayTime(a.at)}.` : `${L} now.`; cap2 = `The Capitol’s deadline is ${dayTime(first1)}.`; }
     }
     // the one step of the viewer's own, on their own calendar only; nobody else's calendar ever links to a step
-    const mine = who.kind === 'mine' ? un.map(x => ({ x, st: stepOn(open, x.r.b) })).filter(z => z.st).sort((p, q) => p.x.r.due - q.x.r.due) : [];
+    const mine = who.kind === 'mine' ? un.map(x => ({ x, st: stepHere(x.r.b) })).filter(z => z.st).sort((p, q) => p.x.r.due - q.x.r.due) : [];
     const go = mine[0]?.st || null; let extra = '';
     if (who.kind === 'mine' && un.length && !go && ahead) extra = un.some(x => x.st.key === 'approve' || x.st.key === 'second') ? ` It waits on someone else: ${[...new Set(un.filter(x => x.st.key === 'approve' || x.st.key === 'second').map(x => x.st.label.toLowerCase()))].join(', ')}.` : ' Nothing else is needed from you for this hearing.';
-    return { tone, icon, head, say: say + extra, late, go };
+    return { tone, icon, head, say: say + extra, cap2, late, go };
   };
   const readyBlock = rd => `<section class="rdy t-${rd.tone}" aria-labelledby="rdyK"><h2 class="rdyk" id="rdyK">Are we ready?</h2><p class="rdyh">${rd.tone === 'done' ? ic('check') : ''}<span>${esc(rd.head)}</span></p>`
-    + `<p class="rdys${rd.late ? ' riskt' : ''}">${rd.late ? ic('triangle-alert') : ''}<span>${esc(rd.say)}</span></p>${rd.go ? `<a class="btn filled" id="rdyGo" href="#/do/${enc(rd.go.id)}">${esc(rd.go.verb)}</a>` : ''}</section>`;
+    + `<p class="rdys${rd.late ? ' riskt' : ''}">${rd.late ? ic('triangle-alert') : ''}<span>${esc(rd.say)}</span></p>${rd.cap2 ? `<p class="rdys">${esc(rd.cap2)}</p>` : ''}${rd.go ? `<a class="btn filled" id="rdyGo" href="#/do/${enc(rd.go.id)}">${esc(rd.go.verb)}</a>` : ''}</section>`;
 
   // ---- the right column: the other bills at this sitting, and the committee
   const legLink = l => http(l.capitol_url) ? `<a class="lk" target="_blank" rel="noopener" href="${esc(l.capitol_url)}">${esc(l.name)}</a>` : esc(l.name);
@@ -251,14 +256,15 @@ export function calendarModel({ me, open, rt, people, phone }) {
 
   // "Who is going" (R-398 gap A): the same attendance the File testimony step reads. Buttons only on a hearing page of the viewer's own calendar; an admin may also add a teammate (DB.attend takes who).
   const goingBlock = h => {
+    const pickOpen = ui.goPick === String(h.id);
     const ids = goingIds(h), mine = ids.includes(S.me?.id), names = goingNames(ids) || 'Nobody yet';
     if (lookOnly) return `<div class="going" id="going"><div class="gwho"><span class="gk">Who is going</span><b>${esc(names)}</b></div></div>`;
-    const staff = (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id && !ids.includes(a.id));
-    const add = S.me?.is_admin ? btn('Add a teammate', { kind: 'quiet', id: 'goAdd', attrs: 'aria-expanded="false" aria-controls="goPick"' }) : '';
+    const staff = (S.advocates || []).filter(a => a.is_active !== false || ids.includes(a.id)).sort((x, y) => (x.id === S.me?.id ? -1 : y.id === S.me?.id ? 1 : 0) || String(x.full_name).localeCompare(String(y.full_name)));
+    const add = S.me?.is_admin ? btn('Add a teammate', { kind: 'quiet', id: 'goAdd', attrs: `aria-expanded="${pickOpen}" aria-controls="goPick"` }) : '';
     return `<div class="going" id="going" data-h="${esc(String(h.id))}"><div class="gorow"><div class="gwho"><span class="gk">Who is going</span><b>${esc(names)}</b></div>`
       + `<div class="gact">${btn(mine ? 'Not going' : 'I’m going', { kind: 'quiet', id: 'goBtn' })}${add}</div></div>`
-      + (add ? `<div class="gpick" id="goPick" role="group" aria-label="Add a teammate" hidden><p class="panx"><b>Who is going?</b><button class="xbtn sm" type="button" id="goPickX" aria-label="Close the list of teammates">${ic('x')}</button></p>`
-        + `<ul class="whopick">${staff.map(a => `<li><button class="btn quiet pk" type="button" data-who="${esc(String(a.id))}">${esc(a.full_name)}</button></li>`).join('') || '<li class="hint">Everyone on the team is already going.</li>'}</ul></div>` : '') + '</div>';
+      + (add ? `<div class="gpick" id="goPick" role="group" aria-label="Who is going?"${pickOpen ? '' : ' hidden'}><p class="panx"><b>Who is going?</b><button class="xbtn sm" type="button" id="goPickX" aria-label="Close the list of teammates">${ic('x')}</button></p>`
+        + `<ul class="whopick">${staff.map(a => `<li><button class="btn quiet pk${ids.includes(a.id) ? ' on' : ''}" type="button" data-who="${esc(String(a.id))}" aria-pressed="${ids.includes(a.id)}">${ids.includes(a.id) ? ic('check') : ''}${esc(a.id === S.me?.id ? `${a.full_name} (you)` : a.full_name)}</button></li>`).join('') || '<li class="hint">There is no one on the team yet.</li>'}</ul></div>` : '') + '</div>';
   };
   const sittingSheet = (s, tdPage) => {
     const h = s.h, watch = streamOf(h), rd = readyOf(s, tdPage), dues = [...new Set(s.rows.map(r => Math.round(r.due)))], one = dues.length === 1, pt = tdPage ? dueOf([s])[0] : null;
@@ -325,17 +331,19 @@ const redraw = () => window.__staff7Render && window.__staff7Render({ tick: true
 // Escape closes the teammate picker first (the page's own Escape would otherwise leave the page).
 addEventListener('keydown', e => {
   const p = document.getElementById('goPick');
-  if (e.key === 'Escape' && p && !p.hidden) { e.preventDefault(); e.stopPropagation(); p.hidden = true; const a = document.getElementById('goAdd'); a?.setAttribute('aria-expanded', 'false'); a?.focus(); }
+  if (e.key === 'Escape' && p && !p.hidden) { e.preventDefault(); e.stopPropagation(); p.hidden = true; ui.goPick = null; const a = document.getElementById('goAdd'); a?.setAttribute('aria-expanded', 'false'); a?.focus(); }
 }, true);
 function bindGoing() {
   const box = document.getElementById('going'), h = box && hearingOf(box.dataset.h); if (!h) return;
   const fail = e => toast((e && e.message) || 'It did not go. Try again.');
   document.getElementById('goBtn')?.addEventListener('click', () => changeGoing(h, !goingIds(h).includes(S.me.id), S.me.id, redraw).catch(fail));
   const add = document.getElementById('goAdd'), pick = document.getElementById('goPick'); if (!add || !pick) return;
-  const set = on => { pick.hidden = !on; add.setAttribute('aria-expanded', String(on)); if (on) pick.querySelector('button.pk')?.focus(); else add.focus(); };
+  const set = on => { ui.goPick = on ? String(h.id) : null; pick.hidden = !on; add.setAttribute('aria-expanded', String(on)); if (on) pick.querySelector('button.pk')?.focus(); else add.focus(); };
   add.addEventListener('click', () => set(pick.hidden));
   document.getElementById('goPickX').addEventListener('click', () => set(false));
-  pick.querySelectorAll('[data-who]').forEach(b => b.addEventListener('click', () => changeGoing(h, true, b.dataset.who, redraw).catch(fail)));
+  // each name is a toggle: pressed = going; pressing again takes them off (a toast with Undo either way). The list stays open and keeps the focus on the name pressed.
+  pick.querySelectorAll('[data-who]').forEach(b => b.addEventListener('click', () => { const who = b.dataset.who, on = b.getAttribute('aria-pressed') !== 'true';
+    changeGoing(h, on, who, () => { redraw(); setTimeout(() => document.querySelector(`#goPick [data-who="${CSS.escape(who)}"]`)?.focus(), 0); }).catch(fail); }));
 }
 function bindCal() {
   bindIssues(); bindGoing();

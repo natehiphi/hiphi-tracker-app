@@ -22,7 +22,7 @@ def settle(pg, ms=500): pg.wait_for_timeout(ms)
 def goto(pg, h): pg.evaluate(f"location.hash = {h!r}"); settle(pg)
 def text(pg, sel): return pg.evaluate("s => { const e = document.querySelector(s); return e ? e.innerText.replace(/\\s+/g, ' ').trim() : null; }", sel)
 def shot(pg, name):
-    if SHOTS: pg.screenshot(path=os.path.join(SHOTS, name))
+    if SHOTS: pg.mouse.move(2, 2); pg.wait_for_timeout(800); pg.screenshot(path=os.path.join(SHOTS, name))   # mouse off every button, fades finished
 def set_pos(pg, bill, val):
     goto(pg, f'#/bill/{bill}'); pg.click('#bEditGo'); settle(pg, 250); pg.click(f'label.bs:has(#bp-{val})'); pg.click('#bSave'); settle(pg, 700)
 def draft_status(pg, bill_no):
@@ -40,7 +40,7 @@ with sync_playwright() as p:
     pg.click('#bEditGo'); settle(pg, 250); pg.click('label.bs:has(#bp-oppose)'); pg.click('#bSave'); settle(pg, 700)
     strip = text(pg, '#bPosHold') or ''
     ok('Position: Oppose. 1 approved testimony says Strongly support.' in strip, f'the amber strip names the position and the old side: {strip[:90]}')
-    ok('Filing is held until you check the testimony.' in strip and 'You get a step to check it.' in strip and 'Open the testimony' in strip, 'the strip says filing is held, who gets the step, and offers Open the testimony')
+    ok('Filing is held until you check the testimony.' in strip and 'You get a step to check it.' in strip and 'Open the testimony' not in strip and pg.locator('#bPosHold a').count() == 0, 'the strip says filing is held and who gets the step, with no link of its own (the hearing line has Open the testimony)')
     ok('held until it is checked' in (text(pg, '#bStat') or '') and 'ready to file' not in (text(pg, '#bStat') or ''), 'the bill page says filing is held, not ready to file')
     ok(pg.locator('#bStat a.ymove', has_text='Check your testimony').count() == 1, 'the bill page offers Your move · Check your testimony')
     shot(pg, 'pos_warn.png')
@@ -49,15 +49,30 @@ with sync_playwright() as p:
     r = rows(pg)
     first_todo = next((x for x in r if 'HB 2121' in x or 'Check' in x), '')
     ok(len(step_rows(pg)) == 1 and r.index(step_rows(pg)[0]) == 0, f'Home lists Check your testimony first: {r[:2]}')
-    ok('Today' in step_rows(pg)[0], 'its row says Today')
+    ok('Today' in step_rows(pg)[0] and 'Past due' not in step_rows(pg)[0], 'its row says Today, not Past due')
+    h1 = text(pg, 'h1') or ''
+    ok('past due' not in h1 and 'One step is' not in h1, f'Home does not call the Check step past due ({h1[:80]})')
+    ok(pg.evaluate("async () => { const m = await import('/staff6/data.js'), s = await import('/staff7/steps.js'); const kv = m.S.advocates.find(a => a.initials === 'KV'); return s.stepsFor(kv).filter(x => x.kind === 'check' || x.kind === 'place').every(x => !s.pastDue(x)); }"), 'pastDue() leaves the check and place steps out')
     ok(pg.locator('a.sr3', has_text='Check your testimony').count() == 1, 'one step only')
-    shot(pg, 'pos_home.png')
+    pg.mouse.move(700, 880); settle(pg, 800); shot(pg, 'pos_home.png')
+    # Calendar and Issues say the held state in the same words, and Are we ready? never offers File testimony for it
+    cal = pg.evaluate("async () => { const m = await import('/staff6/data.js'), w = await import('/staff7/bill_words.js'); const b = m.S.bills.find(x => x.bill_number.replace(/\\s/g,'') === 'HB2121'); const h = m.S.hearings.find(x => x.bill_id === b.id && new Date(x.scheduled_at) > Date.now()); const st = w.letterState(h, b); return { key: st.key, words: w.testimonyWords(st), short: w.testimonyShort(st) }; }")
+    ok(cal['key'] == 'held' and cal['words'] == 'testimony held until it is checked' and 'ready to file' not in cal['words'], f'testimonyWords says held until it is checked ({cal})')
+    key = pg.evaluate("async () => { const m = await import('/staff6/data.js'); const b = m.S.bills.find(x => x.bill_number.replace(/\\s/g,'') === 'HB2121'); const h = m.S.hearings.find(x => x.bill_id === b.id && new Date(x.scheduled_at) > Date.now()); return String(h.committee).split('/').map(c => c.trim()).filter(Boolean).sort().join('/') + '|' + new Date(h.scheduled_at).toISOString(); }")
+    goto(pg, '#/calendar/sitting/' + key.replace('|', '%7C').replace('/', '%2F')); settle(pg, 400); calt = text(pg, '#app') or ''
+    ok('held until it is checked' in calt.lower() and 'ready to file' not in calt.lower(), 'the Calendar hearing page says held until it is checked, not ready to file')
+    ok('Capitol’s deadline is' in calt and 'Testimony is due' not in calt, 'Calendar: the team deadline first, the Capitol’s as its own line')
+    go = pg.locator('#rdyGo')
+    ok(go.count() == 0 or 'File testimony' not in go.inner_text(), 'Are we ready? does not offer File testimony for a held testimony')
+    ok(pg.locator('#app a.ymove', has_text='File testimony').count() == 0, 'no Your move · File testimony for it')
+    goto(pg, '#/')
     # ---- 3. its page: crosses sides, only Change the testimony
     pg.click('a.sr3:has-text("Check your testimony")'); settle(pg)
     ok(pg.evaluate('location.hash') == CHK, f'the step opens at {CHK}')
     body = text(pg, '#app') or ''
     ok('Approved when HIPHI’s position was Strongly support. It is now Oppose.' in body, 'the page says what changed')
     ok('cannot be filed as written' in body, 'a change across sides says it cannot be filed as written')
+    ok('It was written to support the bill. HIPHI now opposes the bill, so it cannot be filed as written.' in body and 'argues' not in body, 'the check page uses one set of words: written to support, now opposes')
     ok(pg.locator('#chgBtn.filled').count() == 1 and pg.locator('#keepBtn').count() == 0, 'only the filled Change the testimony (no Keep it as written)')
     ok(pg.locator('#tbBack').count() == 1 and pg.locator('#tbClose').count() == 1 and pg.locator('#app a:has-text("Back to")').count() == 1, 'the page has the one top row (Back, Close) and no Back of its own')
     shot(pg, 'pos_check.png')
@@ -81,6 +96,10 @@ with sync_playwright() as p:
     pg.click('#toast a, #toast button:has-text("Undo")'); settle(pg, 600)
     ok('approved' in draft_status(pg, 'HB2121') and len(step_rows(pg)) == 1, 'Undo puts the approved testimony and the step back')
     # ---- 7. it ends by itself: the position goes back
+    goto(pg, '#/bill/HB2121'); pg.click('#bEditGo'); settle(pg, 250)
+    order = pg.evaluate("() => [...document.querySelectorAll('label.bs')].map(l => l.innerText.trim())")
+    ok(order[:7] == ['Strongly support', 'Support', 'Support w/ amendments', 'Monitor', 'Comments (neutral)', 'Oppose', 'Strongly oppose'], f'the position choices are in order ({order})')
+    pg.click('#bCancel'); settle(pg, 250)
     set_pos(pg, 'HB2121', 'strongly_support'); goto(pg, '#/bill/HB2121')
     ok(pg.locator('#bPosHold').count() == 0, 'the position goes back: the strip goes')
     goto(pg, '#/'); ok(not step_rows(pg), 'the position goes back: the step goes')

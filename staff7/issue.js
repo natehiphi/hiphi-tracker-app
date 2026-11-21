@@ -74,6 +74,7 @@ function lineFor({ b, c }, row, who, issue) {
 function stoppedLines(issue, bills, who) {
   const dead = bills.slice(), last = deadOrder(dead)[0], iso = stoppedISO(last);   // the bill named is the one whose date and reason are said, and it is the first row of the folded list (issue_table.js deadOrder)
   const lk = b => `<a class="lk" href="${esc(billHref(who, b, issue.id))}">${esc(billNo(b))}</a>`;
+  if (eui.noLive === issue.id && eui.bills) return line(`<b>No live bills</b> · ${dead.length === 1 ? '1 bill stopped' : `${dead.length} bills stopped`} this year`);   // just after the last live bill was taken off: it was removed, not stopped
   let h = line(`<b>Stopped for this year${iso ? ` on ${esc(dateWords(iso))}` : ''}</b> · ${dead.length === 1 ? 'its only bill' : 'its last bill'}, ${lk(last)} · ${placeLineHTML(last, null, { bare: true })}`);   // (a bill that is only "Stopped" is not told again: the line has said it)
   const filed = dead.find(b => (S.drafts?.[b.id] || []).some(d => d.status === 'filed'));
   h += line(`${filed ? `We filed testimony on ${lk(filed)} · to` : 'To'} try again in 2027, someone must introduce a new bill`, { muted: true });

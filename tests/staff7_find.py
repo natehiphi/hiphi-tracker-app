@@ -445,7 +445,7 @@ with sync_playwright() as p:
     orow = pg.evaluate("() => { const a = document.querySelector('#slist a[data-k=other]'); return [a.getAttribute('href'), a.querySelector('b').innerText, a.querySelector('.no').innerText]; }")
     pg.click(f'#slist a[href="{orow[0]}"]'); pg.wait_for_timeout(500)
     od = pg.evaluate("() => ({ h1: document.querySelector('main h1').innerText.trim(), sub: document.querySelector('main .bsub')?.innerText, txt: document.querySelector('.paper').innerText, link: document.getElementById('oCapitol')?.getAttribute('href'), btns: [...document.querySelectorAll('.paper .btn')].map(b => b.innerText), pill: document.getElementById('notTracked')?.innerText })")
-    ok(od['h1'] == orow[2] and od['pill'] == 'Not tracked' and 'Nobody on the team tracks this bill.' in od['txt'] and 'Look only' not in od['txt'], f'a bill not tracked: its number, the pill Not tracked and "Nobody on the team tracks this bill." ({od["h1"]})')
+    ok(od['h1'] == orow[2] and od['pill'] is None and 'Nobody on the team tracks this bill.' in od['txt'] and 'Look only' not in od['txt'], f'a bill not tracked: its number, no pill on the page (the list row says it) and "Nobody on the team tracks this bill." ({od["h1"]})')
     ok(od['link'] and od['link'].startswith('https://www.capitol.hawaii.gov/') and orow[2].replace(' ', '') .lower() in od['link'].lower().replace('billtype=', '').replace('&billnumber=', ''), f'a link to the Capitol site ({od["link"]})')
     ok(od['btns'].count('Track this bill') == 1 and od['sub'], f'one Track this bill (R-398 gap E: anyone may track it and lead it); the official title is shown ({od["sub"][:40]})')
     snap(pg, 'search-other.png')

@@ -146,7 +146,7 @@ function orphanItems(me) {
 // testimony due within a day (or past), a letter waiting on this person's approval or second look, a bill about to stop (an ask whose committee deadline is 3 days off or less), and a hearing already past with nothing filed.
 export const URGENT_DAYS = 3;
 // Past due, said one way everywhere: the team's time to act has gone (or the letter is late, or an ask's committee date is behind us). A "Did we file?" is a question, not a time.
-export const pastDue = s => s.kind !== 'missed' && (!!s.late || s.tone === 'overdue' || s.tone === 'late' || (s.at != null && new Date(s.at).getTime() <= Date.now()) || (s.kind === 'ask' && !!s.ask?.st?.deadline?.missed));
+export const pastDue = s => s.kind !== 'missed' && s.kind !== 'check' && s.kind !== 'place' && (!!s.late || s.tone === 'overdue' || s.tone === 'late' || (s.at != null && new Date(s.at).getTime() <= Date.now()) || (s.kind === 'ask' && !!s.ask?.st?.deadline?.missed));
 // A "check testimony" step is not one of the four kinds: it waits in the later line unless it is past due. A bill whose committee date has already passed is as urgent as one about to stop.
 export const isUrgent = s => s.kind === 'check' || s.kind === 'place' || s.kind === 'approve' || s.kind === 'second' || s.kind === 'missed' || s.kind === 'chairfu' || s.kind === 'decide'
   || (s.kind === 'ask' ? (s.dlDays != null && s.dlDays <= URGENT_DAYS) || pastDue(s) : s.kind === 'stale' ? pastDue(s) : s.at != null && new Date(s.at).getTime() - Date.now() < DAY);
