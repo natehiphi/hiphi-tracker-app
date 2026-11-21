@@ -232,6 +232,8 @@ body.nobar main { padding-bottom: 0; }
 .pdfrow { display: flex; align-items: center; gap: var(--s3); min-height: calc(var(--s7) + var(--s2)); padding: var(--s2) var(--s4); background: var(--wash); border-radius: var(--r12); }
 .pdfrow .g { flex: 1; min-width: 0; }
 .pdfrow .g span { display: block; font-size: var(--f14); color: var(--muted); }
+/* On a phone the button takes a line of its own under the name, so the name is not squeezed to one word a line (R-398, Nate 20 Nov) */
+@media (max-width: 599px) { .pdfrow { flex-wrap: wrap; padding-block: var(--s3); } .pdfrow > .btn { flex-basis: 100%; } }
 .hint { font-size: var(--f14); color: var(--muted); margin-top: var(--s2); }
 .tpl { margin-top: var(--s2); }
 .tpl .btn.text { padding-left: 0; }
