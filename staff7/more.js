@@ -26,7 +26,7 @@ const items = () => layer ? [...layer.querySelectorAll('a.mi, button.mclose')].f
 // The door: a button, not a route. aria-current marks it lit while one of its pages shows; aria-expanded is its pressed look.
 export const doorHTML = (name, icon, lit) => `<li><button class="bi" id="moreBtn" type="button" aria-haspopup="menu" aria-expanded="${isOpen}" aria-controls="moreMenu"${lit ? ' aria-current="page"' : ''}><span class="rpill">${ic(icon)}</span><span>${esc(name)}</span></button></li>`;
 
-const itemHTML = it => it.rule ? '<li class="mrule" role="separator"></li>' : `<li role="none"><a class="mi" role="${wasPhone ? 'link' : 'menuitem'}" href="${it.href}"><span class="mii">${ic(it.icon)}</span><span class="mit"><b>${esc(it.name)}</b>${it.line ? `<span class="mu">${esc(it.line)}</span>` : ''}</span></a></li>`;
+const itemHTML = it => it.rule ? '<li class="mrule" role="separator"></li>' : `<li role="none"><a class="mi" role="${wasPhone ? 'link' : 'menuitem'}" href="${it.href}"><span class="mii">${ic(it.icon)}</span><span class="mit"><b>${esc(it.name)}</b>${it.line ? ' ' : ''}${it.line ? `<span class="mu">${esc(it.line)}</span>` : ''}</span></a></li>`;
 
 export function open() {
   if (isOpen) return; const b = btn(); if (!b) return;
@@ -37,6 +37,7 @@ export function open() {
     ? `<div class="mback" data-mclose></div><div class="msheet" id="moreMenu" role="dialog" aria-modal="true" aria-label="More"><div class="mgrip" aria-hidden="true"></div><div class="mtop"><button class="btn text mclose" type="button">Close</button></div>${list}</div>`
     : `<div class="msheet" id="moreMenu">${list}</div>`;
   document.body.appendChild(layer); b.setAttribute('aria-expanded', 'true');
+  if (wasPhone) layer.style.setProperty('--mbar', `${Math.round(innerHeight - b.closest('.bar').getBoundingClientRect().top)}px`);   // the bar's real height: the sheet sits exactly on it
   if (!wasPhone) { const r = b.getBoundingClientRect(), m = layer.querySelector('.msheet'), bar = b.closest('.bar').getBoundingClientRect(); m.style.left = `${Math.round(bar.right + 4)}px`; m.style.top = `${Math.max(8, Math.min(Math.round(r.top - 16), innerHeight - m.offsetHeight - 16))}px`; }
   const first = layer.querySelector('a.mi'); first && first.focus({ preventScroll: true });
 }

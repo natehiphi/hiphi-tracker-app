@@ -12,11 +12,12 @@ const key = a => a.initials || a.id;
 // everyone on the team but the viewer, by first name
 export const teammates = me => (S.advocates || []).filter(a => a.is_active !== false && a.id !== me?.id).sort((x, y) => first(x).localeCompare(first(y)) || String(x.full_name).localeCompare(String(y.full_name)));
 export const findMate = (me, id) => teammates(me).find(a => String(a.initials || '').toUpperCase() === String(id).toUpperCase() || String(a.id) === String(id)) || null;
+const nameOf = a => String(a.full_name || first(a)).trim();   // "May Rose", as the drawings show it
 const stepCount = p => stepsFor(p).length;
 
 export function pickerPage(me) {
   const rows = teammates(me).map(a => { const n = stepCount(a);
-    return `<li><a class="tmr" href="#/more/team/${enc(key(a))}">${personMark(a.initials)}<span class="tmn">${esc(first(a))}</span><span class="tms${n ? '' : ' none'}">${n ? `${n} ${n === 1 ? 'step' : 'steps'}` : 'Nothing waiting'}</span>${ic('chevron-right', 'tmgo')}</a></li>`; }).join('');
+    return `<li><a class="tmr" href="#/more/team/${enc(key(a))}">${personMark(a.initials)}<span class="tmn">${esc(nameOf(a))}</span><span class="tms${n ? '' : ' none'}">${n ? `${n} ${n === 1 ? 'step' : 'steps'}` : 'Nothing waiting'}</span>${ic('chevron-right', 'tmgo')}</a></li>`; }).join('');
   return { html: `<div class="pn">${plainBand('A teammate’s Home', 'Pick a person to see their Home as they see it. You can look, and nothing you see can be changed.')}<div class="pbody mpage"><ul class="tmlist">${rows}</ul></div></div>`, bind: null };
 }
 
@@ -40,7 +41,7 @@ function lookOnly(html, who) {
 export function mateHomePage({ me, id, phone }) {
   const p = findMate(me, id);
   if (!p) return { html: `<div class="pn">${plainBand('No teammate by that name.', 'Pick one from the list.')}<div class="pbody mpage"><p class="lead"><a class="btn text" href="#/more/team">See the teammates</a></p></div></div>`, col: '', bind: null, label: 'A teammate’s Home', missing: true };
-  const who = first(p), m = withMe(p, () => homeModel(p, stepsFor(p))), ov = withMe(p, () => overviewParts(m));
+  const who = nameOf(p), m = withMe(p, () => homeModel(p, stepsFor(p))), ov = withMe(p, () => overviewParts(m));
   const list = lookOnly(listsHTML(m, '#/more/none'), who);
   const bar = `<div class="lobar" role="note">${ic('eye')}<p><b>${esc(who)}’s Home, look only</b> <span aria-hidden="true">·</span> This is what ${esc(who)} sees. Nothing here can be done from your side.</p></div>`;
   const body = phone ? lookOnly(`<div class="ov">${ov.top}</div>`, who) + `<div class="lopanel lophone">${list}</div>` + lookOnly(`<div class="ov">${ov.rest}</div>`, who)   // a phone shows the list between the greeting and the facts, as Home does

@@ -3,6 +3,7 @@
 /* the door: a button that looks like the other doors; open it is pressed (an ink outline round its icon), never filled: the filled pill is only the current place */
 button.bi { font: 500 var(--f14)/1.2 var(--head); }
 .bi[aria-expanded="true"] { color: var(--ink); }
+.bi[aria-expanded="true"]:not([aria-current]) .rpill, .bi[aria-expanded="true"]:not([aria-current]):hover .rpill { background: none; }
 .bi[aria-expanded="true"] .rpill { box-shadow: inset 0 0 0 var(--line2) var(--ink); }
 .bi:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
 
@@ -20,8 +21,8 @@ button.bi { font: 500 var(--f14)/1.2 var(--head); }
 .mu { font: 400 var(--f14)/1.3 var(--body); color: var(--muted); }
 
 /* the sheet on a phone: above the bar, a backdrop that closes it, a Close button at the top right */
-.mlayer.phone .mback { position: fixed; left: 0; right: 0; top: 0; bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); z-index: 30; background: var(--scrim); }
-.mlayer.phone .msheet { left: 0; right: 0; bottom: calc(var(--bar-h) + env(safe-area-inset-bottom)); top: auto; width: auto; max-width: none; z-index: 31; border-radius: var(--r20) var(--r20) 0 0; padding: var(--s2) var(--s4) var(--s3); box-shadow: var(--float); transition: transform var(--t-fast) var(--ease); }
+.mlayer.phone .mback { position: fixed; left: 0; right: 0; top: 0; bottom: var(--mbar, var(--bar-h)); z-index: 30; background: var(--scrim); }
+.mlayer.phone .msheet { left: 0; right: 0; bottom: var(--mbar, var(--bar-h)); top: auto; width: auto; max-width: none; z-index: 31; border-radius: var(--r20) var(--r20) 0 0; padding: var(--s2) var(--s4) var(--s3); box-shadow: var(--float); transition: transform var(--t-fast) var(--ease); }
 .mgrip { width: var(--s7); height: var(--s1); border-radius: var(--s1); background: var(--rule); margin: var(--s1) auto 0; }
 .mtop { display: flex; justify-content: flex-end; }
 .mclose { min-width: var(--hit); min-height: var(--hit); }
