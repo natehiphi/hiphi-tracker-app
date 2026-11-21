@@ -32,7 +32,7 @@ const nb = s => esc(s).replace(/\S*-\S*/g, '<span class="nb">$&</span>');
 const tight = s => nb(String(s).replace(/ (\S+)$/, '\u00a0$1'));
 
 // Row: one step in the left list. The open one is the white pill with the teal bar (S-20).
-const KIND_ICON = { write: 'pencil', resubmit: 'undo-2', approve: 'badge-check', second: 'badge-check', file: 'file-text', ask: 'mail', chairfu: 'mail', decide: 'mail', missed: 'circle-help', stale: 'triangle-alert' };
+const KIND_ICON = { write: 'pencil', resubmit: 'undo-2', approve: 'badge-check', second: 'badge-check', file: 'file-text', ask: 'mail', chairfu: 'mail', decide: 'mail', missed: 'circle-help', stale: 'triangle-alert', check: 'file-text' };
 // `opts.risk`: a bill on this row is about to stop (a small amber triangle, with words for a screen reader, before the time). `opts.quiet`: a later step, a step quieter than To do.
 export function stepRow(s, open, opts = {}) {
   const t = s.at == null ? '' : left(s.at), late = pastDue(s), amber = !opts.quiet && !late && soonSoon(s.at);

@@ -6,10 +6,11 @@
 // A cancelled hearing, a dead bill's hearing and a repeated row (same bill, same time) are never drawn. Mine is the bills of my issues plus any bill I lead or follow, as Home's "next hearing" reads it.
 // Nothing here writes anything.
 import { S, isMine, SESSION_YEAR } from '../staff6/data.js';
+import { goingIds, goingNames, changeGoing } from './do_file.js';
 import { roomName, streamOf, hearingAhead, billRef, lateLine } from '../staff6/model.js';
 import { whereWords } from '../staff6/steps.js';
 import { ic } from './icons7.js';
-import { esc, plainBand, keepWords } from './parts.js';
+import { esc, plainBand, keepWords, btn, toast } from './parts.js';
 import { billName, billNo, cmteWords, dayTime, first } from './steps.js';
 import { isAlive, isAtRisk } from './standing.js';
 import { dateWords, whenWords, nameOf, daysTo } from './words.js';
@@ -248,6 +249,17 @@ export function calendarModel({ me, open, rt, people, phone }) {
   const nbn = x => `<span class="nb">${esc(x)}</span>`;
   const foldOf = (key, title, sum, body) => `<section class="fold"><h2 class="fh"><button class="fbtn" type="button" id="fbtn-${key}" data-fold="${key}" aria-expanded="false" aria-controls="fold-${key}"><span class="ft">${esc(title)}</span><span class="fs">${sum}</span>${ic('chevron-down')}</button></h2><div class="fbody" id="fold-${key}" hidden>${body}</div></section>`;
 
+  // "Who is going" (R-398 gap A): the same attendance the File testimony step reads. Buttons only on a hearing page of the viewer's own calendar; an admin may also add a teammate (DB.attend takes who).
+  const goingBlock = h => {
+    const ids = goingIds(h), mine = ids.includes(S.me?.id), names = goingNames(ids) || 'Nobody yet';
+    if (lookOnly) return `<div class="going" id="going"><div class="gwho"><span class="gk">Who is going</span><b>${esc(names)}</b></div></div>`;
+    const staff = (S.advocates || []).filter(a => a.is_active !== false && a.id !== S.me?.id && !ids.includes(a.id));
+    const add = S.me?.is_admin ? btn('Add a teammate', { kind: 'quiet', id: 'goAdd', attrs: 'aria-expanded="false" aria-controls="goPick"' }) : '';
+    return `<div class="going" id="going" data-h="${esc(String(h.id))}"><div class="gorow"><div class="gwho"><span class="gk">Who is going</span><b>${esc(names)}</b></div>`
+      + `<div class="gact">${btn(mine ? 'Not going' : 'I’m going', { kind: 'quiet', id: 'goBtn' })}${add}</div></div>`
+      + (add ? `<div class="gpick" id="goPick" role="group" aria-label="Add a teammate" hidden><p class="panx"><b>Who is going?</b><button class="xbtn sm" type="button" id="goPickX" aria-label="Close the list of teammates">${ic('x')}</button></p>`
+        + `<ul class="whopick">${staff.map(a => `<li><button class="btn quiet pk" type="button" data-who="${esc(String(a.id))}">${esc(a.full_name)}</button></li>`).join('') || '<li class="hint">Everyone on the team is already going.</li>'}</ul></div>` : '') + '</div>';
+  };
   const sittingSheet = (s, tdPage) => {
     const h = s.h, watch = streamOf(h), rd = readyOf(s, tdPage), dues = [...new Set(s.rows.map(r => Math.round(r.due)))], one = dues.length === 1, pt = tdPage ? dueOf([s])[0] : null;
     const kicker = `<p class="crumb kick">${tdPage ? `Testimony · ${pt.due <= Date.now() ? 'was due' : 'due'} ${esc(dayWord(pt.due))}` : `Hearing · ${esc(rel(s.day))}`}${lookOnly ? ` · ${esc(lookOnly)}` : ''}</p>`;
@@ -265,7 +277,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
     if (cms.length) right += foldOf('cmte', 'The committee', (() => { const ch = [...new Set(cms.flatMap(c => c.chairs.map(x => x.l.name)))]; return ch.length ? `${ch.length > 1 ? 'Chairs' : 'Chair'} ${nameList(ch.map(nbn))}${cms.length === 1 ? ` · ${n(cms[0].count, 'member', 'members')}` : ''}` : cms.length === 1 ? n(cms[0].count, 'member', 'members') : ''; })(),
       cms.map(c => `<div class="cm"><h3 class="cmn">${esc(c.name)}</h3><ul class="cmr">${[...c.chairs.map(x => ['Chair', x.l]), ...c.vices.map(x => ['Vice chair', x.l])].map(([r, l]) => `<li><span class="cmrole">${r}</span><span class="cmwho">${legLink(l)}</span><span class="cmroom">${l.room ? `<span>Room ${esc(l.room)}</span>` : ''}${l.phone ? `<span>${esc(l.phone)}</span>` : ''}</span></li>`).join('')}</ul>`
         + (c.rest.length ? `<p class="cmem"><span class="cmlab">Members</span> ${c.rest.map(x => legLink(x.l)).join(', ')}</p>` : '') + '</div>').join(''));
-    return `<div class="pn">${band(kicker, cmteWords(h.committee), facts)}<div class="pbody cal"><div class="cq"><div class="cols"><div class="cl">${readyBlock(rd)}${our}</div>${right ? `<div class="cr">${right}</div>` : ''}</div></div></div></div>`;
+    return `<div class="pn">${band(kicker, cmteWords(h.committee), facts)}<div class="pbody cal"><div class="cq"><div class="cols"><div class="cl">${readyBlock(rd)}${goingBlock(h)}${our}</div>${right ? `<div class="cr">${right}</div>` : ''}</div></div></div></div>`;
   };
   const deadlineSheet = r => {
     const touched = (ses.touch.get(r.key) || []).slice().sort((p, q) => (isAtRisk(q) - isAtRisk(p)) || byNo(p, q)), issueOf = b => (ses.bills.find(x => x.b.id === b.id) || {}).issue;
@@ -308,8 +320,25 @@ export function calendarModel({ me, open, rt, people, phone }) {
 
 // Binding: the teammate picker as Issues has it; the two folds (open by default only when the sheet has two columns, then kept in ui so the minute's redraw does not close them); the day paper's and the sheet's scroll kept across that redraw.
 const WIDE = 760;   // the width, in pixels, at which the hearing sheet has two columns (the same number as its @container rule in app.css)
+const hearingOf = id => (S.hearings || []).find(x => String(x.id) === String(id));
+const redraw = () => window.__staff7Render && window.__staff7Render({ tick: true });
+// Escape closes the teammate picker first (the page's own Escape would otherwise leave the page).
+addEventListener('keydown', e => {
+  const p = document.getElementById('goPick');
+  if (e.key === 'Escape' && p && !p.hidden) { e.preventDefault(); e.stopPropagation(); p.hidden = true; const a = document.getElementById('goAdd'); a?.setAttribute('aria-expanded', 'false'); a?.focus(); }
+}, true);
+function bindGoing() {
+  const box = document.getElementById('going'), h = box && hearingOf(box.dataset.h); if (!h) return;
+  const fail = e => toast((e && e.message) || 'It did not go. Try again.');
+  document.getElementById('goBtn')?.addEventListener('click', () => changeGoing(h, !goingIds(h).includes(S.me.id), S.me.id, redraw).catch(fail));
+  const add = document.getElementById('goAdd'), pick = document.getElementById('goPick'); if (!add || !pick) return;
+  const set = on => { pick.hidden = !on; add.setAttribute('aria-expanded', String(on)); if (on) pick.querySelector('button.pk')?.focus(); else add.focus(); };
+  add.addEventListener('click', () => set(pick.hidden));
+  document.getElementById('goPickX').addEventListener('click', () => set(false));
+  pick.querySelectorAll('[data-who]').forEach(b => b.addEventListener('click', () => changeGoing(h, true, b.dataset.who, redraw).catch(fail)));
+}
 function bindCal() {
-  bindIssues();
+  bindIssues(); bindGoing();
   const cq = document.querySelector('.cq'), wide = !!cq && cq.clientWidth >= WIDE; ui.folds = ui.folds || {};
   const def = ui.foldDef && ui.foldDef.h === location.hash ? ui.foldDef : (ui.foldDef = { h: location.hash, v: {} });   // the width decides a fold only when the page is first drawn: dragging the list's width and a redraw never open or close one nobody pressed
   document.querySelectorAll('.fbtn').forEach(b => {

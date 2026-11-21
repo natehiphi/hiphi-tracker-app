@@ -16,7 +16,7 @@ import { stoppedISO } from './bill.js';
 import { pathOf } from './path.js';
 import { billsHTML, bindTable, sortedAlive, deadOrder, tui } from './issue_table.js';
 import { placeLineHTML } from './place.js';
-import { leadButton, leadForm, goalCell, pointsCell, mayEditIssue, bindEdit, eui } from './issue_edit.js';
+import { leadButton, leadForm, goalCell, pointsCell, mayEditIssue, bindEdit, bindBills, eui } from './issue_edit.js';
 import { notesHTML, bindNotes, nui } from './issue_notes.js';
 import { shareUrl, onPublicSite } from './issue_data.js';
 
@@ -118,7 +118,7 @@ function factsHTML(issue, bills, row, who, can, me) {
 export function issuePage({ issue, me, open, who, own, back, backLabel, row: listRow }) {
   // The deadline the table is read against is the one the Issues list beside it uses (its session row), so a bill the list calls "cleared" is never "needs a hearing" here (Nate 16 Nov: the two say the same thing). Alone, the issue's own next deadline.
   const bills = billsOfIssue(issue), row = listRow !== undefined ? (listRow || null) : (sessionOf([{ issue, bills }]).next?.row || null), can = mayEditIssue(issue, me);
-  if (drawnId !== issue.id) { drawnId = issue.id; eui.id = nui.id = issue.id; eui.lead = eui.goal = eui.tp = null; Object.assign(nui, { open: false, text: '', busy: false, err: false }); tui.open.clear(); }   // what was typed on one issue never shows (or saves) on another
+  if (drawnId !== issue.id) { drawnId = issue.id; eui.id = nui.id = issue.id; eui.lead = eui.goal = eui.tp = eui.bills = null; Object.assign(nui, { open: false, text: '', busy: false, err: false }); tui.open.clear(); }   // what was typed on one issue never shows (or saves) on another
   if (!can) { eui.lead = null; eui.goal = null; eui.tp = null; }   // what was open belongs to someone who could edit
   let h = `<div class="pn">${bandHTML(issue, bills, who, back, backLabel)}<div class="pbody bill">`;
   h += positionHTML(issue, me, can);
@@ -129,7 +129,7 @@ export function issuePage({ issue, me, open, who, own, back, backLabel, row: lis
   return {
     html: h + '</div></div>',
     bind: () => {
-      bindTable(issue); bindEdit(issue, me); bindNotes(issue, me); bindMore();
+      bindTable(issue); bindEdit(issue, me); bindBills(issue, me); bindNotes(issue, me); bindMore();
       document.getElementById('iCopy')?.addEventListener('click', async () => {
         const url = shareUrl(issue);
         try { await navigator.clipboard.writeText(url); toast('Link copied'); }

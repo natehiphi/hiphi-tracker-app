@@ -9,6 +9,7 @@ import { first } from './steps.js';
 import { refreshTimeline } from './bill_data.js';
 import { redrawKeep } from './find.js';
 import { bui } from './bill.js';
+import { noteChange, dropChange } from './do_check.js';   // gap B: the time and old value of a position change
 import { positionSaveNote, positionStillSays, positionSavedNote, publicKeeps, PUBLISH_CHANGE, SEE_IT, WRITE_THEM, missingLine, waitingState } from './public_data.js';
 
 const $ = id => document.getElementById(id);
@@ -68,6 +69,7 @@ async function save() {
   } catch { return failed(); }
   // the history: a lead change is recorded here (nothing else records it); the real database records a position change itself, so only the practice copy writes that row, to show it
   const rec = async (field, old, nw) => { try { await DB.addActivity(b.id, 'field_change', field === 'lead' ? 'Lead changed' : 'Position changed', JSON.stringify({ field, old: old || null, new: nw || null })); if (DEMO) rows.push(DEMO_TL[0]); } catch { /* the save stands; the history line is only a record of it */ } };
+  if (posDone) noteChange(b, prev.pos, e.pos);   // gap B: when the position changed and what it was, so testimony approved before is held
   if (posDone && DEMO) await rec('position', prev.pos, e.pos);
   if (leadChanged) await rec('lead', prev.leads[0] || '', e.lead);
   await refreshTimeline(b);
@@ -75,7 +77,7 @@ async function save() {
   if (here(b)) { bui.edit = null; redrawKeep(); $('bEditGo')?.focus(); }
   const undo = async () => {
     try {
-      if (posDone) await DB.updateBill(b.id, { position: prev.pos || null });
+      if (posDone) { await DB.updateBill(b.id, { position: prev.pos || null }); dropChange(b); }
       if (leadChanged) await DB.setOwner(b.id, prev.leads[0] || null);   // exactly the list there was: none, or the one
       // practice: take the rows this save added back out of the history; live: Undo is another save, so it is recorded like one
       if (DEMO) rows.forEach(r => { const i = DEMO_TL.indexOf(r); if (i >= 0) DEMO_TL.splice(i, 1); });

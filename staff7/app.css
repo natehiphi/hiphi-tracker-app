@@ -1075,3 +1075,56 @@ li[hidden] { display: none; }
 .bposafter .bpg svg.ic { width: var(--icon-s); height: var(--icon-s); }
 .bposafter .lk { font-weight: 700; }
 .bposn[hidden] { display: none; }
+
+/* R-398 gap A: "Who is going" on the hearing page, and the going line on the File testimony step */
+.going { margin: 0 0 var(--s5); }
+.going .gorow { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+.going .gwho { min-width: 0; }
+.going .gk { display: block; font-size: var(--f14); color: var(--muted); }
+.going .gact { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.going .gpick { margin-top: var(--s3); padding: var(--s3) var(--s4); border: var(--line) solid var(--rule); border-radius: var(--r12); }
+.going .gpick .panx { align-items: center; justify-content: space-between; }
+.copyrow .btn#goBtn { flex: none; }
+.copyrow .cq .gnow { color: var(--ink); }
+
+/* Change the bills (issue page) and Issues for a bill (R-398 piece 9, gap C) */
+.bhead { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s3); max-width: var(--tab-w); }
+.bhead .sh { margin-block: var(--s5) 0; padding-bottom: var(--s2); }
+.bill > .bput { max-width: var(--tab-w); width: 100%; margin: 0 0 var(--s4); }
+.bput .field { margin-top: var(--s1); }
+.bpres { list-style: none; margin: var(--s2) 0 0; padding: 0; }
+.bpres li { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); padding: var(--s3) 0; border-top: var(--line) solid var(--rule); }
+.bpres li:first-child { border-top: 0; }
+.bpt { min-width: 0; }
+.bpt span { display: block; }
+.bpn { font: 600 var(--f16)/1.4 var(--head); }
+.bpm { font-size: var(--f14); color: var(--muted); }
+.bpres .btn { flex: none; }
+.btab col.cx { width: calc(var(--col-no) * 1.6); }
+.btab td.tx, .btab th.cxh { padding-right: 0; text-align: right; }
+.bnoiss { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2) var(--s3); }
+.bill > .bnoiss { margin-bottom: var(--s3); }
+.bpick .field { max-width: var(--letter-w); margin-top: var(--s1); }
+.bchips { list-style: none; margin: var(--s3) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s2); }
+.bchip { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); padding: 0 var(--s4); background: var(--surface); color: var(--ink); border: var(--line) solid var(--edge); border-radius: var(--r8); font: 400 var(--f16)/1.3 var(--body); cursor: pointer; text-align: left; }
+.bchip:hover { background: var(--tint); }
+.bchip[aria-pressed="true"] { border-width: var(--line2); border-color: var(--ink); font-weight: 700; }
+.bchip svg.ic { flex: none; width: var(--icon-s); height: var(--icon-s); }
+.bnote:empty { display: none; }
+@media (max-width: 899px) {
+  .btab td.tx { grid-column: 1 / -1; order: 4; padding-top: var(--s2); text-align: left; }
+  .bhead { flex-wrap: nowrap; }
+}
+@media (max-width: 640px) {
+  .bpres li { flex-direction: column; gap: var(--s2); }
+  .bchip { width: 100%; }
+  .bchips li { flex: 1 1 100%; }
+}
+.copyrows { padding-bottom: calc(var(--s7) * 2); }   /* room to scroll the going row clear of the toast */
+/* R-398 piece 9 gap B: the position changed after approval (the amber strip on the bill page, the box on File testimony) */
+.strip.pos .hl { margin: 0; }
+.strip.pos .pact { padding-top: var(--s1); }
+.strip.pos .lk { color: var(--ink); }
+#bPosHold { margin: 0 0 var(--s5); }
+.strip.pos strong { flex: 1 1 0; min-width: 0; }   /* the icon and the bold line share a row; a long line wraps beside the icon */
+.strip.pos .lk svg.ic { width: var(--icon-s); height: var(--icon-s); }
