@@ -15,6 +15,7 @@ import { cap } from './bill_words.js';
 import { esc, plainBand, keepWords, keepWordsHTML, keepEcig, KEEP_ECIG } from './parts.js';
 import { billName, billNo, cmteWords, first, issueOf } from './steps.js';
 import { billsOfIssue, isAlive } from './standing.js';
+import { trackBox, trackedSheet, bindTrack } from './do_place.js';   // gap E: Track this bill
 import { placeLine, placeLineHTML, stoppedLine as stoppedWords, stoppedLineHTML } from './place.js';
 import { eCig, issueHref, billHref, hearTxt, posLine, tint, iconOf, catsOf, statesFor, nextCtx, sitKeyOf, ui as issuesUi, bindFolds } from './issues.js';
 
@@ -111,6 +112,7 @@ function build() {
   return { issues, issueBy: new Map(issues.map(e => [String(e.i.id), e])), bills, people: [...cm, ...lg], second: null, taken: new Set((S.bills || []).map(b => bareNo(b.bill_number))) };
 }
 const getIdx = () => (IDX ||= build());
+export const dropIdx = () => { IDX = null; };   // gap E: a bill was tracked or untracked here; the next draw reads the team's bills again
 // each issue's one line of where it stands, from the same function the Issues list reads
 function secondOf(id) {
   const ix = getIdx();
@@ -517,14 +519,16 @@ function otherRow(num) {
   if (!otherCache.has(k)) { const at = location.hash; otherCache.set(k, 'loading'); DB.untrackedBill(k).then(r => otherCache.set(k, r || 'none')).catch(() => otherCache.set(k, 'none')).finally(() => { if (location.hash === at) F.env?.rerender?.(); }); }   // drawn again only if the person is still on this page
   const c = otherCache.get(k); return c === 'loading' ? 'loading' : c === 'none' ? null : c;
 }
+export const otherBillRow = otherRow;
 function otherSheet(num, q) {
+  const jt = trackedSheet(num); if (jt) return jt;   // gap E: just tracked from here: the "now tracks" page
   const r = otherRow(num); if (r === 'loading') return `<div class="pn">${plainBand('One moment', 'Looking for the bill.')}</div>`;
   if (!r || getIdx().taken.has(bareNo(r.bill_number))) return '';
   const url = capitolUrl({ bill_number: bareNo(r.bill_number), session_year: r.session_year, state_url: r.state_url });
   let h = `<div class="pn" data-sheet="other">${plainBand(spaced(r.bill_number), eCig(titleCaseTitle(r.title || '')))}<div class="pbody">`;
   h += `<p class="lead tight"><span class="ftag" id="notTracked">Not tracked</span></p>`;
   if (r.description) h += `<p class="lead" id="oDesc">${esc(eCig(r.description))}</p>`;
-  h += `<p class="lead" id="oLook">Nobody on the team tracks this bill, so there is nothing to do here yet.</p>`;
+  h += `<p class="lead" id="oLook">Nobody on the team tracks this bill.</p>` + trackBox(r);
   if (/^https?:\/\//.test(url)) h += `<p class="lead"><a class="lk" id="oCapitol" target="_blank" rel="noopener" href="${esc(url)}">The bill’s page on the Capitol site${ic('external-link')}</a></p>`;
   return h + '</div></div>';
 }
@@ -541,5 +545,5 @@ export function searchModel({ rt }) {
   }
   const box = boxHTML({ who: '', q, door: true });
   const col = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">Search</h2></div>${box}</header><div id="slist">${doorHTML(q, cur, new Set((rt.q.get('all') || '').split(',')))}</div>`;
-  return { col, sheet, picked, label, back: `#/search${qs(q)}`, backLabel: 'Search', bind: null, notFound: /data-notfound/.test(sheet), door: 'search' };
+  return { col, sheet, picked, label, back: `#/search${qs(q)}`, backLabel: 'Search', bind: kind === 'other' ? bindTrack : null, notFound: /data-notfound/.test(sheet), door: 'search' };
 }

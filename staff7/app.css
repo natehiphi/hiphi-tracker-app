@@ -1128,3 +1128,11 @@ li[hidden] { display: none; }
 #bPosHold { margin: 0 0 var(--s5); }
 .strip.pos strong { flex: 1 1 0; min-width: 0; }   /* the icon and the bold line share a row; a long line wraps beside the icon */
 .strip.pos .lk svg.ic { width: var(--icon-s); height: var(--icon-s); }
+
+/* R-398 piece 9 gap E (do_place.js): Track a bill from Search, and the page that sets its position and issue. */
+.bpick .bef { margin-top: var(--s4); }
+.bpick .bef + .hint, .bpick .bseg + .hint { margin-top: var(--s2); }
+.bpick > .fl { display: block; margin-top: var(--s5); }
+.pn .lead + .pact, .pn .pact + .hint { margin-top: var(--s3); }
+.pn .pact + .hint + .lead { margin-top: var(--s4); }
+.done .pact { margin: var(--s3) 0 0; }
