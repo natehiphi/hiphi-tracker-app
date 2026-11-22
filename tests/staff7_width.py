@@ -241,7 +241,7 @@ with sync_playwright() as p:
     full = pg.evaluate("() => Math.round(document.querySelector('.ws').getBoundingClientRect().width)")
     ok(wk == full, f'and its header runs the full width of the page, not the stored list width ({wk} of {full})')
     snap(pg, 'width_week.png')
-    go(pg, '#/explore'); ok(pg.locator('.ws.one').count() == 1 and pg.locator('#wsz').count() == 0, 'a one-column page (Explore) has no handle')
+    go(pg, '#/more/words'); ok(pg.locator('.ws.one').count() == 1 and pg.locator('#wsz').count() == 0, 'a one-column page (Capitol words) has no handle')
     go(pg, '#/calendar?view=list'); ok(pg.locator('#wsz').count() == 1 and now_w(pg) == 500, 'back on the List the handle is there and 500 is kept')
     ok(not pg.evaluate("() => { for (const e of document.elementsFromPoint(innerWidth / 2, 400)) if (e.closest('.wsz')) return true; return false; }"), 'the handle is only a thin strip (the middle of the page is not under it)')
     pg.context.close()

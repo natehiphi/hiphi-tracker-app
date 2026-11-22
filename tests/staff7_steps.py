@@ -222,8 +222,8 @@ with sync_playwright() as p:
         snap(pg, '8_nothing_to_do', tag); pg.context.close()
 
         # ================= a door, the router, one more look =================
-        pg, errs = open_as(br, 'KV', w, h, '#/explore')   # Calendar and Search are built (R-398, 14 Nov); Explore is still a door not built yet
-        ok('Not built yet' in pg.locator('.paper').inner_text() and pg.evaluate(FILLED) == 1 and [a.strip() for a in pg.locator('.bi').all_inner_texts()] == ['Home', 'Issues', 'Calendar', 'Search', 'Explore'], f'{tag}: a door not built yet is a calm sheet that says so; five doors')
+        pg, errs = open_as(br, 'KV', w, h, '#/explore')   # the old Explore address lands on Home; the fifth door is a button, More (R-398 piece 11)
+        ok(pg.evaluate('location.hash') == '#/' and 'Good ' in pg.evaluate(H1) and [a.strip() for a in pg.locator('.bi').all_inner_texts()] == ['Home', 'Issues', 'Calendar', 'Search', 'More'] and pg.locator('button#moreBtn').count() == 1, f'{tag}: #/explore lands on Home; five doors, the fifth a button named More')
         for hsh in ('#/do/%', '#/constructor', '#/__proto__', '#/done/zzz', '#/do/ask-HB1-2026', '#/done/__proto__', '#/done/constructor', '#/done/toString', '#/do/__proto__', '#/do/toString'):
             pg.evaluate(f"location.hash = '{hsh}'"); pg.wait_for_timeout(300)
             ok('no longer yours' in pg.evaluate(H1) and pg.locator('.sheet-error, #tbBack:has-text("Back to")').count() >= 1, f'{tag}: D1 {hsh} shows the "not here" sheet')
