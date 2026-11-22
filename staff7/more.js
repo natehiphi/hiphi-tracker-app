@@ -17,6 +17,8 @@ export const ITEMS = [
   { rule: true },
   { href: '#/more/words', icon: 'book-open', name: 'Capitol words', line: '' },
   { href: '#/more/committees', icon: 'landmark', name: 'Committees', line: '' },
+  { rule: true },
+  { href: '#/me/alerts', icon: 'bell', name: 'My alerts', line: 'Where the tracker’s alerts reach you, and a test message.' },
 ];
 let isOpen = false, layer = null, wasPhone = false;
 export const moreIsOpen = () => isOpen;
