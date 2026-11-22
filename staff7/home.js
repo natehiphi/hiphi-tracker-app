@@ -7,7 +7,7 @@ import { billStep } from '../staff6/steps.js';
 import { attendees, roomName, sittingDraft, hearingAhead } from '../staff6/model.js';
 import { ic } from './icons7.js';
 import { esc, btn, band, plainBand, fileRow, stepRow, toast } from './parts.js';
-import { stepsFor, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pastDue, cmteWords, hearingLine, billName, billNo, first, issueOf } from './steps.js';
+import { stepsFor, draftWaits, noClock, homeRows, laterRows, laterWords, dayTime, left, soonSoon, pastDue, cmteWords, hearingLine, billName, billNo, first, issueOf } from './steps.js';
 import { myIssueStandings, tally, needsHearing, deadlineOf, isAmberRisk, riskDate, riskWhy } from './standing.js';
 import { dateWords, sessionDates, touchMap } from './words.js';
 import { testimonyDue } from './bill_words.js';
@@ -147,7 +147,7 @@ export function homeModel(me, open) {
   const steps = open || stepsFor(me), hs = hearingsToday(me), pub = publicSteps(me);
   const nLead = me?.is_admin ? stepCount() : 0, pd = x => x.type === 'step' && pastDue(x.s) ? 1 : 0;
   const todo = [...homeRows(steps).map(s => ({ type: 'step', s, t: s.at })), ...hs.map(hr => ({ type: 'hearing', hr, t: hr.at })), ...pub, ...(nLead ? [{ type: 'leads', n: nLead, t: null }] : [])].sort((x, y) => (pd(y) - pd(x)) || (x.t ?? Infinity) - (y.t ?? Infinity));
-  return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: [...waitingAsks(me), ...waitingFor(me), ...publicWaits(me)], suggested: suggestedFor(me), risk: riskFor(me, steps) };
+  return { me, steps, todo, later: laterRows(steps), hearings: hs, waiting: [...waitingAsks(me), ...waitingFor(me), ...publicWaits(me), ...draftWaits(me)], suggested: suggestedFor(me), risk: riskFor(me, steps) };
 }
 
 // ---------------------------------------------------------------------------------- the left lists
@@ -155,6 +155,7 @@ const pubRow = (p, cur) => { const sel = cur === p.href; return `<li><a class="s
 const todoRow = (x, cur, m) => {
   if (x.type === 'public') return pubRow(x.p, cur);
   if (x.type === 'leads') return `<li><a class="sr3${cur === '#/do/leads' ? ' sel' : ''}"${cur === '#/do/leads' ? ' aria-current="true"' : ''} href="#/do/leads">${ic('users')}<span class="sv"><b>Look over ${x.n} lead ${x.n === 1 ? 'change' : 'changes'}</b></span><span class="stm">today</span></a></li>`;
+  if (x.type === 'step' && x.s.href) return pubRow({ verb: x.s.verb, name: x.s.name, no: '', icon: x.s.icon, href: x.s.href, lines: [x.s.line] }, cur);   // R-398 piece 10: Finish / Publish a new issue open the draft's own page
   if (x.type === 'step') return stepRow(x.s, cur === '#/do/' + enc(x.s.id), { risk: m.risk.ids.has(x.s.id) });
   const { hr } = x, href = `#/hearing/${enc(hr.id)}`, sel = cur === href;
   return `<li><a class="sr3${sel ? ' sel' : ''}"${sel ? ' aria-current="true"' : ''} href="${href}">${ic('calendar')}<span class="sv"><b>Hearing today</b> <span class="sep" aria-hidden="true">·</span> ${esc(hr.name)}&nbsp;<span class="no">${esc(hr.no)}</span></span><span class="stm">${esc(clock(hr.at))}</span></a></li>`;
@@ -195,7 +196,7 @@ const SUN = '<svg class="calm-pic" viewBox="0 0 96 48" fill="none" stroke="curre
 // The answer to "am I on top of it?": a line, and a second line that says what is first (a link to it). Past due outranks a bill about to stop, which outranks everything else.
 export function headline(m) {
   const hi = `Good ${PART()}, ${esc(first(m.me))}.`, n = m.todo.length;
-  const to = x => x.type === 'step' ? { href: '#/do/' + enc(x.s.id), text: `${x.s.verb} · ${x.s.name}` } : x.type === 'public' ? { href: x.p.href, text: `${x.p.verb} · ${x.p.name}` } : x.type === 'leads' ? { href: '#/do/leads', text: `Look over ${x.n} lead ${x.n === 1 ? 'change' : 'changes'}` } : { href: '#/hearing/' + enc(x.hr.id), text: `Hearing today · ${x.hr.name}` };
+  const to = x => x.type === 'step' ? { href: x.s.href || '#/do/' + enc(x.s.id), text: `${x.s.verb} · ${x.s.name}` } : x.type === 'public' ? { href: x.p.href, text: `${x.p.verb} · ${x.p.name}` } : x.type === 'leads' ? { href: '#/do/leads', text: `Look over ${x.n} lead ${x.n === 1 ? 'change' : 'changes'}` } : { href: '#/hearing/' + enc(x.hr.id), text: `Hearing today · ${x.hr.name}` };
   const behind = m.todo.filter(x => x.type === 'step' && pastDue(x.s)), rk = m.risk;
   if (behind.length) return { calm: false, h1: `${hi} ${behind.length === 1 ? 'One step is' : `${behind.length} steps are`} past due.`, lead: 'First up: ', link: to(behind[0]) };
   if (rk.bills.length) {
@@ -206,11 +207,12 @@ export function headline(m) {
     const text = many ? `Ask for ${vote ? 'votes' : 'hearings'} on ${st.members.length} bills by ${by}, or they stop for the year.` : why ? `${billName(rk.bill)}: ${why}, or it stops for the year.` : `Ask for ${thing} on ${billName(rk.bill)} by ${by}, or it stops for the year.`;
     return { calm: false, risk: true, h1: `${hi} ${k === 1 ? 'One bill is' : `${k} bills are`} at risk.`, lead: '', link: st ? { href: '#/do/' + enc(st.id), text } : null, plain: st ? '' : text };
   }
+  const top0 = m.todo.find(x => !(x.type === 'step' && noClock(x.s))) || m.todo[0];   // a step with no clock is never First up (R-398 piece 10), unless it is all there is
   const pubN = m.todo.filter(x => x.type === 'public').length;   // a public change waits for this person: never "on top of it"
   // First up is always the To do list's first row (a testimony due in an hour never drops behind a public change); the line
   // names public changes only when one is that first row, else it counts the steps, so the two never disagree (review fix 6)
-  if (pubN) return { calm: false, h1: `${hi} ${m.todo[0].type === 'public' ? homeNeedsYou(pubN) : `${n === 1 ? 'One step needs' : `${n} steps need`} you.`}`, lead: 'First up: ', link: to(m.todo[0]) };
-  if (n) return { calm: false, h1: `${hi} You’re on top of it.`, lead: 'First up: ', link: to(m.todo[0]) };
+  if (pubN) return { calm: false, h1: `${hi} ${top0.type === 'public' ? homeNeedsYou(pubN) : `${n === 1 ? 'One step needs' : `${n} steps need`} you.`}`, lead: 'First up: ', link: to(top0) };
+  if (n) return { calm: false, h1: `${hi} You’re on top of it.`, lead: 'First up: ', link: to(top0) };
   // a calm day: the next later step, named, so the line never repeats the next-hearing fact; no later step, no line
   const nx = [...m.later].sort((x, y) => (x.at ?? Infinity) - (y.at ?? Infinity))[0];
   return { calm: true, h1: `${hi} Nothing needs you today.`, lead: '', link: null, plain: nx ? `Your next step is ${nx.verb} on ${nx.name}${nx.at != null ? `, ${shortDay(nx.at)}` : ''}.` : '' };
