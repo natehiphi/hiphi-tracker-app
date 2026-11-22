@@ -25,6 +25,8 @@ import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's pub
 import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
 import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
 import { teamModel } from './team.js';
+import { alertsPage } from './me_alerts.js';   // R-398 piece 8: My alerts (#/me/alerts)
+import { doorHTML as meDoorHTML, initMenu } from './me_menu.js';   // R-398 piece 8: the initials door and its menu
 import { moreModel, moreName, doorHTML, bindMore } from './more.js';   // R-398 piece 11: the More door, its menu and the pages opened from it
 import { placePage } from './do_place.js';   // R-398 piece 9 gap E: Set position and issue
 import { billIssuesPage } from './bill_issues.js';   // R-398 piece 9 gap C: Issues for <bill>
@@ -128,6 +130,7 @@ function parse() {
   if (a === 'explore') { try { history.replaceState(history.state, '', '#/'); } catch { /* the address stays */ } return { r: 'home' }; }   // R-398 piece 11: the old Explore address goes to Home
   if (a === 'more' && (id === 'team' || id.startsWith('team/'))) { try { history.replaceState(history.state, '', '#/'); } catch { /* the address stays */ } return { r: 'home' }; }   // Nate 21 Nov: A teammate's Home is gone; its old addresses go to Home
   if (a === 'more') return { r: 'more', id, q };   // #/more/words, #/more/committees
+  if (a === 'me') return id === '' || id === 'alerts' ? { r: 'me', id, q } : { r: 'missing' };   // R-398 piece 8: #/me/alerts (#/me too)
   if (a === 'team') return { r: 'team', id, q };   // R-398 piece 6: #/team, #/team/step/<id>, #/team/bill/<id>, #/team/give/<id>, #/team/done/<id>, #/team/many
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
   // R-398: #/public is Public words (part 2); #/public/change/<id> is one waiting change (part 2); #/public/<bill number> is one bill's public words (part 1b)
@@ -146,7 +149,7 @@ function parse() {
 // ---- the frame ----
 const bar = cur => `<nav class="bar" aria-label="Main"><a class="brand" href="#/" aria-label="HIPHI Tracker, Home">H</a><ul>${DOORS.map(([k, n, i, h]) =>
   k === 'more' ? doorHTML(n, i, cur === 'more') : `<li><a class="bi"${k === cur ? ' aria-current="page"' : ''} href="${h}"><span class="rpill">${ic(i)}</span><span>${n}</span></a></li>`).join('')}</ul>`
-  + `<span class="who"><span class="person" title="${esc(ctx.me?.full_name)}" role="img" aria-label="Signed in as ${esc(ctx.me?.full_name)}">${esc(ctx.me?.initials)}</span><span class="prac">Practice</span></span></nav>`;
+  + meDoorHTML(ctx.me) + `</nav>`;   // R-398 piece 8: the initials are a button that opens the menu (me_menu.js)
 
 // ---- the sheets ----
 function doorSheet(k) {
@@ -221,6 +224,7 @@ function nameOf(rt, im, label) {
     case 'publiclist': return 'Public words';
     case 'publicchange': return 'the change';
     case 'more': return moreName(id);
+    case 'me': return 'My alerts';
     case 'door': return label;
     default: return 'the page';
   }
@@ -235,7 +239,7 @@ function naturalOf(rt, im) {
   return { h: '#/', name: 'Home' };
 }
 // Escape: a panel that is open closes first (its button gets the focus back), else an opened page closes. A text field keeps its own Escape.
-const PANELS = '#whoMate, #abFilt, #tpBtn, #seeMail';
+const PANELS = '#whoMate, #abFilt, #tpBtn, #seeMail, #meDoor, #meDoorP';
 addEventListener('keydown', e => {
   if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing) return;
   const a = document.activeElement;
@@ -321,11 +325,13 @@ function render(opts = {}) {
     im = teamModel({ me: ctx.me, rt, open, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;   // the Home door stays lit on Team (cur stays 'home')
   } else if (rt.r === 'more') {
     cur = 'more'; im = moreModel({ me: ctx.me, rt, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;   // the More door is lit on the pages opened from it
+  } else if (rt.r === 'me') {
+    const pg = alertsPage(ctx.me); cur = ''; sheet = pg.html; bindFn = pg.bind; label = 'My alerts';   // R-398 piece 8: no door is lit; the initials are ringed
   } else if (rt.r === 'search') {
     cur = 'search'; im = searchModel({ rt }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
   else sheet = missingSheet();
-  const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && !im;
+  const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && rt.r !== 'me' && !im;
   const solo = !!im?.solo;   // a page with no list beside it (All bills)
   const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
   // R-398: the one top row. Home and the door landings (the lists) have none; every page opened from them has Back and Close.
@@ -388,6 +394,7 @@ async function start() {
   await DB.init(); await DB.loadAll();
   await DB.chairAsks().catch(() => {});   // as the current app's afterLoad: a teammate's recorded ask is known (the practice copy answers with none)
   seedAsks();   // R-398 piece 5: the practice copy's chair ask (Kevin, SB 2175)
+  initMenu();   // R-398 piece 8: the initials door's menu
   boot(); seedPublicV7(); initWidth(ctx.me);   // R-398: public mode's practice rules and seeds, once the person is known (after as=); then the width this person left the list at, before the first draw so nothing jumps
   $('toast-slot').innerHTML = toastHTML; wireToast();
   window.addEventListener('hashchange', () => render()); PHONE.addEventListener('change', () => render());

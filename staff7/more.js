@@ -15,16 +15,18 @@ export const ITEMS = [
   { rule: true },
   { href: '#/more/words', icon: 'book-open', name: 'Capitol words', line: '' },
   { href: '#/more/committees', icon: 'landmark', name: 'Committees', line: '' },
+  { rule: true },
+  { href: '#/me/alerts', icon: 'bell', name: 'My alerts', line: 'Where the tracker’s alerts reach you, and a test message.' },
 ];
 let isOpen = false, layer = null, wasPhone = false;
 export const moreIsOpen = () => isOpen;
 const btn = () => document.getElementById('moreBtn');
-const items = () => layer ? [...layer.querySelectorAll('a.mi, button.mclose')].filter(e => e.getBoundingClientRect().width > 0) : [];
+const items = () => layer ? [...layer.querySelectorAll('a.mmi, button.mclose')].filter(e => e.getBoundingClientRect().width > 0) : [];
 
 // The door: a button, not a route. aria-current marks it lit while one of its pages shows; aria-expanded is its pressed look.
 export const doorHTML = (name, icon, lit) => `<li><button class="bi" id="moreBtn" type="button" aria-haspopup="menu" aria-expanded="${isOpen}" aria-controls="moreMenu"${lit ? ' aria-current="page"' : ''}><span class="rpill">${ic(icon)}</span><span>${esc(name)}</span></button></li>`;
 
-const itemHTML = it => it.rule ? '<li class="mrule" role="separator"></li>' : `<li role="none"><a class="mi" role="${wasPhone ? 'link' : 'menuitem'}" href="${it.href}"><span class="mii">${ic(it.icon)}</span><span class="mit"><b>${esc(it.name)}</b>${it.line ? ' ' : ''}${it.line ? `<span class="mu">${esc(it.line)}</span>` : ''}</span></a></li>`;
+const itemHTML = it => it.rule ? '<li class="mrule" role="separator"></li>' : `<li role="none"><a class="mmi" role="${wasPhone ? 'link' : 'menuitem'}" href="${it.href}"><span class="mii">${ic(it.icon)}</span><span class="mit"><b>${esc(it.name)}</b>${it.line ? ' ' : ''}${it.line ? `<span class="mu">${esc(it.line)}</span>` : ''}</span></a></li>`;
 
 export function open() {
   if (isOpen) return; const b = btn(); if (!b) return;
@@ -37,7 +39,7 @@ export function open() {
   document.body.appendChild(layer); b.setAttribute('aria-expanded', 'true');
   if (wasPhone) layer.style.setProperty('--mbar', `${Math.round(innerHeight - b.closest('.bar').getBoundingClientRect().top)}px`);   // the bar's real height: the sheet sits exactly on it
   if (!wasPhone) { const r = b.getBoundingClientRect(), m = layer.querySelector('.msheet'), bar = b.closest('.bar').getBoundingClientRect(); m.style.left = `${Math.round(bar.right + 4)}px`; m.style.top = `${Math.max(8, Math.min(Math.round(r.top - 16), innerHeight - m.offsetHeight - 16))}px`; }
-  const first = layer.querySelector('a.mi'); first && first.focus({ preventScroll: true });
+  const first = layer.querySelector('a.mmi'); first && first.focus({ preventScroll: true });
 }
 export function close(back = true) {
   if (!isOpen) return; isOpen = false;
@@ -66,7 +68,7 @@ document.addEventListener('keydown', e => {
   const list = items(), i = list.indexOf(document.activeElement);
   if (e.key === 'Tab' && wasPhone) { if (!list.length) return; e.preventDefault(); list[(i + (e.shiftKey ? list.length - 1 : 1)) % list.length].focus(); return; }   // focus stays inside the sheet
   if (e.key === 'Tab') { close(true); return; }   // focus goes back to the door; the browser's Tab then moves on from there
-  const mi = list.filter(x => x.classList.contains('mi')), k = mi.indexOf(document.activeElement);
+  const mi = list.filter(x => x.classList.contains("mmi")), k = mi.indexOf(document.activeElement);
   if (e.key === 'ArrowDown') { e.preventDefault(); mi[(k + 1) % mi.length].focus(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); mi[(k <= 0 ? mi.length : k) - 1].focus(); }
   else if (e.key === 'Home') { e.preventDefault(); mi[0].focus(); }
@@ -77,7 +79,7 @@ document.addEventListener('click', e => {
   const t = e.target;
   if (t.closest?.('#moreBtn')) return;   // the door's own handler toggles
   if (t.closest?.('.mclose, [data-mclose]')) { close(); return; }
-  if (t.closest?.('a.mi')) { setTimeout(() => close(false), 0); return; }   // the link goes where it goes; the page that opens takes the focus
+  if (t.closest?.('a.mmi')) { setTimeout(() => close(false), 0); return; }   // the link goes where it goes; the page that opens takes the focus
   if (!t.closest?.('.msheet')) close(!t.closest?.('a, button, input, select, textarea, summary'));   // a click outside; focus goes back to the door unless the click took focus elsewhere
 }, true);
 addEventListener('hashchange', () => close(false));
