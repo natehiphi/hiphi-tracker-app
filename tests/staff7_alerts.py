@@ -78,7 +78,7 @@ with sync_playwright() as p:
     # the Home circle checks (a 44px circle, the ring, the menu from it) are skipped: they wait for home.js (piece 7)
     # At 390 the way to My alerts is More -> My alerts.
     pg.click('#moreBtn'); pg.wait_for_timeout(300)
-    pg.locator('#moreLayer a.mi[href="#/me/alerts"]').click(); pg.wait_for_timeout(500)
+    pg.locator('#moreLayer a.mmi[href="#/me/alerts"]').click(); pg.wait_for_timeout(500)
     ok(pg.url.endswith('#/me/alerts') and pg.locator('.bar').is_visible() and 'My alerts' in pg.inner_text('#app'), '2 phone: More, then My alerts, opens the page with the bottom bar')
     snap(pg, 'alerts_390_via_more')
     ok(not errs and not bad, f'1 phone no page errors ({errs[:2]})')

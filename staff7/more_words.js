@@ -14,7 +14,7 @@ const norm = s => String(s).toLowerCase();
 export const matches = q => { const t = norm(q).trim(); return t ? ENTRIES.filter(e => [e.app, e.cap, e.says].some(x => norm(x).includes(t))) : ENTRIES; };
 // the text with each match wrapped in <mark>, everything else escaped
 const lit = (s, q) => { const t = norm(q).trim(); if (!t) return esc(s); let out = '', i = 0, low = norm(s); for (;;) { const k = low.indexOf(t, i); if (k < 0) break; out += esc(s.slice(i, k)) + `<mark>${esc(s.slice(k, k + t.length))}</mark>`; i = k + t.length; } return out + esc(s.slice(i)); };
-const entry = (e, q) => `<li class="cw"><h2 class="cwh">${e.app ? `${lit(e.app, q)} <span class="cwcap">(Capitol: ${lit(e.cap, q)})</span>` : lit(e.cap, q)}</h2><p>${lit(e.says, q)}</p></li>`;
+const entry = (e, q) => `<li class="cwe"><h2 class="cwh">${e.app ? `${lit(e.app, q)} <span class="cwcap">(Capitol: ${lit(e.cap, q)})</span>` : lit(e.cap, q)}</h2><p>${lit(e.says, q)}</p></li>`;
 const count = (n, q) => `${n} of ${ENTRIES.length} words`;
 
 export function wordsPage() {

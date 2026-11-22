@@ -11,11 +11,11 @@ export function committeeGroups() {
   const of = ch => all.filter(c => c.chamber === ch).sort((a, b) => plain(a.name).localeCompare(plain(b.name)) || String(a.code).localeCompare(String(b.code)));
   return [['House', of('H')], ['Senate', of('S')]].filter(([, l]) => l.length);
 }
-const row = c => `<li><a class="cmr" href="#/search/committee/${enc(c.code)}"><span class="cmn"><b>${esc(plain(c.name))}</b> <span class="cmc">${esc(c.code)}</span></span><span class="cmch">${esc(c.chair || 'Not listed')}</span>${ic('chevron-right', 'cmgo')}</a></li>`;
+const row = c => `<li><a class="mc-r" href="#/search/committee/${enc(c.code)}"><span class="mc-n"><b>${esc(plain(c.name))}</b> <span class="mc-c">${esc(c.code)}</span></span><span class="mc-ch">${esc(c.chair || 'Not listed')}</span>${ic('chevron-right', 'mc-go')}</a></li>`;
 
 export function committeesPage() {
   const groups = committeeGroups();
-  const body = groups.map(([name, list], k) => `<section class="cmg" aria-labelledby="cmh${k}"><h2 class="cmh" id="cmh${k}">${name} <span class="cmcount">· ${list.length}</span></h2>`
-    + `<div class="cmhead" aria-hidden="true"><span>Committee</span><span>Chair</span></div><ul class="cmlist">${list.map(row).join('')}</ul></section>`).join('');
+  const body = groups.map(([name, list], k) => `<section class="mc-g" aria-labelledby="cmh${k}"><h2 class="mc-h" id="cmh${k}">${name} <span class="mc-count">· ${list.length}</span></h2>`
+    + `<div class="mc-head" aria-hidden="true"><span>Committee</span><span>Chair</span></div><ul class="mc-list">${list.map(row).join('')}</ul></section>`).join('');
   return { html: `<div class="pn">${plainBand('Committees', 'Every House and Senate committee. Open one to see its bills and hearings.')}<div class="pbody mpage">${body || '<p class="lead">No committees are loaded yet.</p>'}</div></div>`, bind: null };
 }
