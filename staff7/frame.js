@@ -24,12 +24,13 @@ import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's pub
 import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
 import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
 import { teamModel } from './team.js';
+import { moreModel, moreName, doorHTML, bindMore } from './more.js';   // R-398 piece 11: the More door, its menu and the pages opened from it
 import { leadsPage } from './do_leads.js';   // R-398 piece 6: the admin's lead changes   // R-398 piece 6: the Team page
 
 const $ = id => document.getElementById(id);
 const PHONE = matchMedia('(max-width: 899px)');
-const DOORS = [['home', 'Home', 'house', '#/'], ['issues', 'Issues', 'layers', '#/issues'], ['calendar', 'Calendar', 'calendar', '#/calendar'], ['search', 'Search', 'search', '#/search'], ['explore', 'Explore', 'layout-grid', '#/explore']];
-const WILL = { calendar: 'The week’s hearings and deadlines, in one place.', explore: 'Every other place in the app, with one line on what each is for.' };
+const DOORS = [['home', 'Home', 'house', '#/'], ['issues', 'Issues', 'layers', '#/issues'], ['calendar', 'Calendar', 'calendar', '#/calendar'], ['search', 'Search', 'search', '#/search'], ['more', 'More', 'ellipsis', '']];   // More is a button that opens a menu (more.js), not a route
+const WILL = { calendar: 'The week’s hearings and deadlines, in one place.' };
 
 // Session memory: the typed send-back note, what is finished and what is in flight live here and nowhere else. The data layer also keeps
 // the practice copy's writes in sessionStorage (hiphi5_practice, shared with the current app's practice copy in this tab): staff7 does not fight it.
@@ -120,6 +121,8 @@ function parse() {
   if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
+  if (a === 'explore') { try { history.replaceState(history.state, '', '#/'); } catch { /* the address stays */ } return { r: 'home' }; }   // R-398 piece 11: the old Explore address goes to Home
+  if (a === 'more') return { r: 'more', id, q };   // #/more/words, #/more/committees, #/more/team, #/more/team/<initials>
   if (a === 'team') return { r: 'team', id, q };   // R-398 piece 6: #/team, #/team/step/<id>, #/team/bill/<id>, #/team/give/<id>, #/team/done/<id>, #/team/many
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
   // R-398: #/public is Public words (part 2); #/public/change/<id> is one waiting change (part 2); #/public/<bill number> is one bill's public words (part 1b)
@@ -137,7 +140,7 @@ function parse() {
 
 // ---- the frame ----
 const bar = cur => `<nav class="bar" aria-label="Main"><a class="brand" href="#/" aria-label="HIPHI Tracker, Home">H</a><ul>${DOORS.map(([k, n, i, h]) =>
-  `<li><a class="bi"${k === cur ? ' aria-current="page"' : ''} href="${h}"><span class="rpill">${ic(i)}</span><span>${n}</span></a></li>`).join('')}</ul>`
+  k === 'more' ? doorHTML(n, i, cur === 'more') : `<li><a class="bi"${k === cur ? ' aria-current="page"' : ''} href="${h}"><span class="rpill">${ic(i)}</span><span>${n}</span></a></li>`).join('')}</ul>`
   + `<span class="who"><span class="person" title="${esc(ctx.me?.full_name)}" role="img" aria-label="Signed in as ${esc(ctx.me?.full_name)}">${esc(ctx.me?.initials)}</span><span class="prac">Practice</span></span></nav>`;
 
 // ---- the sheets ----
@@ -211,6 +214,7 @@ function nameOf(rt, im, label) {
     case 'publicbill': return 'the public words';
     case 'publiclist': return 'Public words';
     case 'publicchange': return 'the change';
+    case 'more': return moreName(id);
     case 'door': return label;
     default: return 'the page';
   }
@@ -304,6 +308,8 @@ function render(opts = {}) {
     cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'team') {
     im = teamModel({ me: ctx.me, rt, open, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;   // the Home door stays lit on Team (cur stays 'home')
+  } else if (rt.r === 'more') {
+    cur = 'more'; im = moreModel({ me: ctx.me, rt, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;   // the More door is lit on the pages opened from it
   } else if (rt.r === 'search') {
     cur = 'search'; im = searchModel({ rt }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
@@ -328,7 +334,7 @@ function render(opts = {}) {
     : `<div class="${cls}">${lists}${grip}<div class="wp">${opened && !rowInList ? row : ''}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
   if (opened) document.querySelectorAll('#app [data-notfound] .pbody p.lead > a.btn.text').forEach(a => { if (/^Back to/.test(a.textContent.trim())) { const p = a.parentElement; a.remove(); if (!p.textContent.trim()) p.remove(); } });
-  bindHome(); bindFn && bindFn({ sync: () => { lastRoute = location.hash; }, tick: !!opts.tick });   // sync: a page that changes its own address (replaceState) tells the frame, so the next minute's redraw does not take it for a new page
+  bindMore(); bindHome(); bindFn && bindFn({ sync: () => { lastRoute = location.hash; }, tick: !!opts.tick });   // sync: a page that changes its own address (replaceState) tells the frame, so the next minute's redraw does not take it for a new page
   if (!opts.tick) noteOpened(rt);
   bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}), keep: () => render({ tick: true }) });
   syncHandle();   // the handle's numbers from the drawn column, and the drag's mark if one is going
