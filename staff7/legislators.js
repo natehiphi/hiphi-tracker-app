@@ -8,7 +8,7 @@ import { ic } from './icons7.js';
 import { esc, plainBand } from './parts.js';
 import { allLegs, legOf, listGroups, findLegs, roleLine, towns, metaLine, holds, seatsOf, seatText, cname, yoursIds } from './leg_data.js';
 import { pageSheet, bindPage } from './legislator.js';
-import { directoryHTML, directoryBody, bindDirectory, dirHref } from './leg_dir.js';
+import { directoryHTML, redrawDirectory, bindDirectory, dirHref } from './leg_dir.js';
 
 try { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL('./leg.css', import.meta.url).href; document.head.appendChild(l); } catch { /* the page still works unstyled */ }
 
@@ -56,7 +56,7 @@ export function legislatorsModel({ me, rt, phone }) {
   const sub = String(rt.id || '').replace(/^legislators\/?/, '').replace(/\/+$/, ''), isDir = !sub || sub === 'directory', l = isDir ? null : legOf(decodeURIComponent(sub));
   const picked = l ? l.id : null, ctx = { me, phone };
   const col = listColHTML({ me, picked, phone, dirOn: isDir && (!phone || sub === 'directory') });
-  const dir = () => directoryHTML({ me, view: U.view, ids: findLegs(U.q).ids, total: allLegs().length });
+  const dir = () => directoryHTML({ me, view: U.view, ids: findLegs(U.q).ids, total: allLegs().length, q: U.q });
   const bind = () => { bindList(me, phone, !!l); if (l) bindPage(l, ctx); };
   if (isDir) return phone && !sub ? { col, sheet: dir(), bind, label: 'Legislators', listOnly: true }
     : { col, sheet: dir(), bind, label: 'Legislators', picked: phone, back: LIST, backLabel: 'Legislators' };
@@ -70,7 +70,8 @@ function bindList(me, phone, onPage) {
   const refresh = () => {
     const f = findLegs(U.q), pick = document.querySelector('#legList .lgr.sel')?.dataset.id || document.querySelector('[data-leg]')?.dataset.leg || null;
     $('legList').innerHTML = bodyHTML(me, pick); $('legCtl').innerHTML = ctlHTML(me); wireCtl();
-    const body = $('lgdBody'); if (body) { body.innerHTML = directoryBody({ me, view: U.view, ids: f.ids }); const c = $('lgdCount'); if (c) c.textContent = f.ids ? `${f.ids.size} of ${total}` : `${total} members`; }
+    redrawDirectory({ me, view: U.view, ids: f.ids, total, q: U.q });
+    const dbox = $('lgdIn'); if (dbox && dbox.value !== U.q) dbox.value = U.q;   // the phone's own find box says the same words as the left box
     $('legLive').textContent = f.q ? `${f.total} found` : '';
     sticky();
   };
@@ -81,6 +82,8 @@ function bindList(me, phone, onPage) {
     $('legClear')?.addEventListener('click', () => { U.q = ''; box.value = ''; refresh(); box.focus(); });
   };
   box.addEventListener('input', () => { U.q = box.value; refresh(); });
+  // the phone's find box (in the Directory page) shares U.q with the left box; it is redrawn never, so typing keeps its focus
+  $('lgdIn')?.addEventListener('input', e => { U.q = e.target.value; box.value = U.q; refresh(); });
   box.addEventListener('keydown', e => { if (e.key === 'Escape' && U.q) { e.preventDefault(); e.stopPropagation(); U.q = ''; box.value = ''; refresh(); } });
   document.querySelectorAll('[data-dview]').forEach(b => b.addEventListener('click', () => { U.view = b.dataset.dview; document.querySelectorAll('[data-dview]').forEach(x => { const on = x === b; x.setAttribute('aria-pressed', on); on ? x.setAttribute('aria-current', 'true') : x.removeAttribute('aria-current'); }); refresh(); }));
   wireCtl(); bindDirectory(); sticky();

@@ -15,6 +15,7 @@ import { dateWords } from './words.js';
 export const plain = n => String(n || '').replace(/\s*&\s*/g, ' and ');   // the app says "and", never "&"
 export const eCig = t => String(t || '').replace(/\bvap(e|es|ing)\b/gi, x => /es$/i.test(x) ? 'e-cigarettes' : 'e-cigarette');
 const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʻ'’`]/g, '').toLowerCase().trim();
+export const normQ = norm;   // the Directory's town match uses the same normalising as the find
 const cm = () => S.committeeMembers || [];
 export const cname = c => plain(S.committees?.[c]?.name || c);   // a committee in words, never its code
 export const cfull = c => { const k = S.committees?.[c]; return k ? (k.chamber === 'H' ? 'House ' : 'Senate ') + plain(k.name) : c; };
@@ -57,6 +58,18 @@ export function yoursIds(me) {
     practiceMemo.set(key, new Set([...n].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 6).map(x => x[0])));
   }
   return practiceMemo.get(key);
+}
+// which of the two sources gave yoursIds: 'contacts' (team contacts are the viewer, live once migration 206 is applied), 'chairs' (the practice copy's chairs of the committees holding the
+// viewer's bills) or '' (nobody). The Directory words its top block differently for each, so it never says "you keep in touch with" about people picked by the chairs rule.
+export const yoursSource = me => {
+  if (S.legTeamInfo && Object.values(S.legTeamInfo).some(v => v?.owner_advocate_id === me?.id)) return 'contacts';
+  return yoursIds(me).size ? 'chairs' : '';
+};
+// "Chairs House Health, where 2 of your bills are now." the chair seat holding most of the viewer's bills (their bills where this person chairs the committee), or '' when none
+export function chairLine(l, me) {
+  const mine = ourBills(l, me).chair.filter(b => isYours(b, me));
+  const best = holds(l.id).filter(s => s.role === 'chair').map(s => ({ s, n: mine.filter(b => curCodes(b).includes(s.committee)).length })).sort((a, b) => b.n - a.n)[0];
+  return best && best.n ? `Chairs ${cfull(best.s.committee)}, where ${best.n} of your bills ${best.n === 1 ? 'is' : 'are'} now.` : '';
 }
 // who is "our contact" for a legislator: the viewer when the legislator is in their Yours set (practice); live this reads legislator_team_info
 export const contactName = (l, me) => (S.legTeamInfo?.[l.id]?.owner_advocate_id ? advName(S.legTeamInfo[l.id].owner_advocate_id) : yoursIds(me).has(l.id) ? firstName(me?.full_name) : '');
@@ -163,7 +176,15 @@ export function listGroups(me, mode, ids = null) {
 }
 
 // ---------------------------------------------------------------------------------- the Directory's sections
-// view 'chamber': Senate then House, each in district order; 'committee': each committee (Senate first) with chair, vice chair, members; 'az': letters by surname.
+// Islands, in the order the Directory shows them. Hawaiʻi-specific: the district numbers follow the 2021 reapportionment plan and change only with the next plan.
+// Senate 1-4 Hawaiʻi Island, 5-7 Maui, Molokaʻi and Lānaʻi, 8 Kauaʻi and Niʻihau, 9-25 Oʻahu; House 1-8 Hawaiʻi Island, 9-14 Maui, Molokaʻi and Lānaʻi, 15-17 Kauaʻi and Niʻihau, 18 and up Oʻahu.
+export const ISLANDS = ['Oʻahu', 'Hawaiʻi Island', 'Maui, Molokaʻi and Lānaʻi', 'Kauaʻi and Niʻihau'];
+export function islandOf(l) {
+  const d = +l.district;
+  if (l.chamber === 'S') return d <= 4 ? ISLANDS[1] : d <= 7 ? ISLANDS[2] : d === 8 ? ISLANDS[3] : ISLANDS[0];
+  return d <= 8 ? ISLANDS[1] : d <= 14 ? ISLANDS[2] : d <= 17 ? ISLANDS[3] : ISLANDS[0];
+}
+// view 'chamber': Senate then House, each in district order; 'island': the four island groups (senators then representatives by district); 'committee': each committee (Senate first) with chair, vice chair, members; 'az': letters by surname.
 // Each section: { key, title, count, rows: [{ l, seats }] }. seats is the text the Seats column shows for that row in that section.
 export function directorySections(view, ids = null) {
   const legs = allLegs().filter(l => !ids || ids.has(l.id)), seatCol = l => holds(l.id).map(s => seatText(s)).join(' · ');
@@ -182,5 +203,9 @@ export function directorySections(view, ids = null) {
     return [...by].sort((a, b) => a[0].localeCompare(b[0])).map(([ch, rows]) => ({ key: 'az-' + ch, title: ch, count: rows.length, rows }));
   }
   const dist = (a, b) => a.district - b.district;
+  if (view === 'island') return ISLANDS.map((name, i) => {
+    const rows = legs.filter(l => islandOf(l) === name).sort((a, b) => (a.chamber === b.chamber ? 0 : a.chamber === 'S' ? -1 : 1) || dist(a, b)).map(l => ({ l, seats: seatCol(l) }));
+    return { key: 'isl-' + i, title: name, count: rows.length, rows };
+  }).filter(s => s.count);
   return ['S', 'H'].map(c => { const rows = legs.filter(l => l.chamber === c).sort(dist).map(l => ({ l, seats: seatCol(l) })); return { key: 'ch-' + c, title: c === 'S' ? 'Senate' : 'House', count: rows.length, rows }; }).filter(s => s.count);
 }
