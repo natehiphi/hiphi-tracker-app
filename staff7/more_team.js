@@ -2,7 +2,7 @@
 // It draws Home's own parts (home.js: withMe, homeModel, listsHTML, overviewParts) for that person, read-only, then turns every link and button in them into plain text:
 // nothing here can be opened or done from the viewer's side, and no step page is ever opened from here. Nothing is written.
 import { S } from '../staff6/data.js';
-import { withMe, homeModel, listsHTML, overviewParts } from './home.js';
+import { withMe, homeModel, listsHTML, overviewParts, ui } from './home.js';
 import { stepsFor, first } from './steps.js';
 import { plainBand, personMark, esc } from './parts.js';
 import { ic } from './icons7.js';
@@ -33,6 +33,7 @@ function lookOnly(html, who) {
     el.replaceWith(s);
   });
   c.querySelectorAll('[aria-controls], [aria-expanded], [href]').forEach(e => { for (const a of ['aria-controls', 'aria-expanded', 'href']) e.removeAttribute(a); });
+  c.querySelectorAll('.qt svg').forEach(e => e.remove());   // the "later" line is a plain label here: no chevron, nothing to open
   const h = c.querySelector('#hs'); if (h) h.textContent = `${who}’s steps`;
   c.querySelectorAll('.sel').forEach(e => e.classList.remove('sel'));
   const div = document.createElement('div'); div.appendChild(c); return div.innerHTML;
@@ -41,8 +42,11 @@ function lookOnly(html, who) {
 export function mateHomePage({ me, id, phone }) {
   const p = findMate(me, id);
   if (!p) return { html: `<div class="pn">${plainBand('No teammate by that name.', 'Pick one from the list.')}<div class="pbody mpage"><p class="lead"><a class="btn text" href="#/more/team">See the teammates</a></p></div></div>`, col: '', bind: null, label: 'A teammate’s Home', missing: true };
-  const who = nameOf(p), m = withMe(p, () => homeModel(p, stepsFor(p))), ov = withMe(p, () => overviewParts(m));
-  const list = lookOnly(listsHTML(m, '#/more/none'), who);
+  const who = first(p), m = withMe(p, () => homeModel(p, stepsFor(p))), ov = withMe(p, () => overviewParts(m));
+  // the Later list is always open in this copy; its open state is the viewer's own Home's, so set it for this one draw and put it back
+  const was = ui.later; ui.later = true;
+  let raw; try { raw = listsHTML(m, '#/more/none'); } finally { ui.later = was; }
+  const list = lookOnly(raw, who);
   const bar = `<div class="lobar" role="note">${ic('eye')}<p><b>${esc(who)}’s Home, look only</b> <span aria-hidden="true">·</span> This is what ${esc(who)} sees. Nothing here can be done from your side.</p></div>`;
   const body = phone ? lookOnly(`<div class="ov">${ov.top}</div>`, who) + `<div class="lopanel lophone">${list}</div>` + lookOnly(`<div class="ov">${ov.rest}</div>`, who)   // a phone shows the list between the greeting and the facts, as Home does
     : lookOnly(`<div class="ov">${ov.top}${ov.rest}</div>`, who);

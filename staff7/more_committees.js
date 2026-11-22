@@ -8,7 +8,7 @@ const enc = encodeURIComponent;
 const plain = n => String(n || '').replace(/\s*&\s*/g, ' and ');   // "and", never "&"
 export function committeeGroups() {
   const all = Object.values(S.committees || {}).filter(c => c && c.code);
-  const of = ch => all.filter(c => c.chamber === ch).sort((a, b) => String(a.code).localeCompare(String(b.code)));
+  const of = ch => all.filter(c => c.chamber === ch).sort((a, b) => plain(a.name).localeCompare(plain(b.name)) || String(a.code).localeCompare(String(b.code)));
   return [['House', of('H')], ['Senate', of('S')]].filter(([, l]) => l.length);
 }
 const row = c => `<li><a class="cmr" href="#/search/committee/${enc(c.code)}"><span class="cmn"><b>${esc(plain(c.name))}</b> <span class="cmc">${esc(c.code)}</span></span><span class="cmch">${esc(c.chair || 'Not listed')}</span>${ic('chevron-right', 'cmgo')}</a></li>`;

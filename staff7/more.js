@@ -67,7 +67,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); return; }
   const list = items(), i = list.indexOf(document.activeElement);
   if (e.key === 'Tab' && wasPhone) { if (!list.length) return; e.preventDefault(); list[(i + (e.shiftKey ? list.length - 1 : 1)) % list.length].focus(); return; }   // focus stays inside the sheet
-  if (e.key === 'Tab') { close(false); return; }
+  if (e.key === 'Tab') { close(true); return; }   // focus goes back to the door; the browser's Tab then moves on from there
   const mi = list.filter(x => x.classList.contains('mi')), k = mi.indexOf(document.activeElement);
   if (e.key === 'ArrowDown') { e.preventDefault(); mi[(k + 1) % mi.length].focus(); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); mi[(k <= 0 ? mi.length : k) - 1].focus(); }
