@@ -1,18 +1,16 @@
 // Staff7's fifth door, More (R-398 piece 11, Nate 20 Nov): a short menu of places that have no steady way in. On a laptop it is a popover beside the rail; on a phone it is a modal
-// sheet above the bottom bar. The menu holds Team, A teammate's Home (look only), Public words, then Capitol words and Committees. Personal things live in the name picker, not here.
-// This file also routes the pages opened from it (#/more/words, #/more/committees, #/more/team, #/more/team/<initials>) to their own files.
+// sheet above the bottom bar. The menu holds Team, Public words, then Capitol words and Committees (Legislators and Help come later). Personal things live in the name picker, not here.
+// This file also routes the pages opened from it (#/more/words, #/more/committees) to their own files. The old #/more/team addresses (A teammate's Home, taken out 21 Nov) go to Home in frame.js.
 import { ic } from './icons7.js';
 import { esc } from './parts.js';
 import { wordsPage } from './more_words.js';
 import { committeesPage } from './more_committees.js';
-import { pickerPage, mateHomePage } from './more_team.js';
 
 try { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL('./more.css', import.meta.url).href; document.head.appendChild(l); } catch { /* the page still works unstyled */ }
 
 const PHONE = matchMedia('(max-width: 899px)');
 export const ITEMS = [
   { href: '#/team', icon: 'users', name: 'Team', line: 'Late steps · bills with no lead' },
-  { href: '#/more/team', icon: 'user', name: 'A teammate’s Home', line: 'Look only' },
   { href: '#/public', icon: 'globe', name: 'Public words', line: '' },
   { rule: true },
   { href: '#/more/words', icon: 'book-open', name: 'Capitol words', line: '' },
@@ -87,17 +85,11 @@ PHONE.addEventListener('change', () => close(false));
 
 // ---- the pages opened from More ----
 const PAGES = { words: ['Capitol words', 'Capitol words'], committees: ['Committees', 'Committees'] };
-export const moreName = id => id === 'team' ? 'teammates' : id.startsWith('team/') ? 'a teammate’s Home' : (PAGES[id] || ['the page'])[0];
+export const moreName = id => (PAGES[id] || ['the page'])[0];
 // the model the frame draws: sheet, list column, label, bind, and where Back goes
 export function moreModel({ me, rt, phone }) {
   const id = String(rt.id || '').replace(/\/+$/, '');
   if (id === 'words') { const p = wordsPage(); return { sheet: p.html, bind: p.bind, label: 'Capitol words', solo: true, back: '#/', backLabel: 'Home', col: '' }; }
   if (id === 'committees') { const p = committeesPage(); return { sheet: p.html, bind: p.bind, label: 'Committees', solo: true, back: '#/', backLabel: 'Home', col: '' }; }
-  if (id === 'team') { const p = pickerPage(me); return { sheet: p.html, bind: p.bind, label: 'A teammate’s Home', solo: true, back: '#/', backLabel: 'Home', col: '' }; }
-  if (id.startsWith('team/')) {
-    const p = mateHomePage({ me, id: id.slice(5), phone });
-    if (p.missing) return { sheet: p.html, bind: null, label: p.label, solo: true, back: '#/more/team', backLabel: 'teammates', col: '' };
-    return { sheet: p.html, col: p.col, bind: null, label: p.label, picked: true, back: '#/more/team', backLabel: 'teammates' };
-  }
   return { sheet: '<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That page is not here.</h1></div></div><div class="pbody"></div></div>', bind: null, label: 'More', solo: true, back: '#/', backLabel: 'Home', col: '' };
 }

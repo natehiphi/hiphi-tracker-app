@@ -126,7 +126,8 @@ function parse() {
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
   if (a === 'explore') { try { history.replaceState(history.state, '', '#/'); } catch { /* the address stays */ } return { r: 'home' }; }   // R-398 piece 11: the old Explore address goes to Home
-  if (a === 'more') return { r: 'more', id, q };   // #/more/words, #/more/committees, #/more/team, #/more/team/<initials>
+  if (a === 'more' && (id === 'team' || id.startsWith('team/'))) { try { history.replaceState(history.state, '', '#/'); } catch { /* the address stays */ } return { r: 'home' }; }   // Nate 21 Nov: A teammate's Home is gone; its old addresses go to Home
+  if (a === 'more') return { r: 'more', id, q };   // #/more/words, #/more/committees
   if (a === 'team') return { r: 'team', id, q };   // R-398 piece 6: #/team, #/team/step/<id>, #/team/bill/<id>, #/team/give/<id>, #/team/done/<id>, #/team/many
   if (a === 'calendar') return { r: 'calendar', id, q };   // Calendar: the week, a sitting (calendar/sitting/<key>) or a deadline (calendar/deadline/<key>)
   // R-398: #/public is Public words (part 2); #/public/change/<id> is one waiting change (part 2); #/public/<bill number> is one bill's public words (part 1b)

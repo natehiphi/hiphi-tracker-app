@@ -1,4 +1,4 @@
-/* Staff7 More (R-398 piece 11): the fifth door, its menu and sheet, Capitol words, Committees and A teammate's Home. Tokens only; loaded by more.js. */
+/* Staff7 More (R-398 piece 11): the fifth door, its menu and sheet, Capitol words, and Committees. Tokens only; loaded by more.js. */
 
 /* the door: a button that looks like the other doors; open it is pressed (an ink outline round its icon), never filled: the filled pill is only the current place */
 button.bi { font: 500 var(--f14)/1.2 var(--head); }
@@ -31,7 +31,7 @@ button.bi { font: 500 var(--f14)/1.2 var(--head); }
 
 /* shared by the pages opened from More */
 .mpage { padding-bottom: var(--s7); }
-.mpage .cwfind, .cwlist, .cwcount, .cwnone, .cmg, .tmlist { max-width: var(--read); }
+.mpage .cwfind, .cwlist, .cwcount, .cwnone, .cmg { max-width: var(--read); }
 
 /* Capitol words */
 .cwl { display: block; font: 600 var(--f16)/1.3 var(--head); margin: 0 0 var(--s2); }
@@ -65,33 +65,8 @@ button.bi { font: 500 var(--f14)/1.2 var(--head); }
 .cmc { color: var(--muted); font: 400 var(--f14)/1.3 var(--body); }
 .cmch { font-size: var(--f16); }
 .cmgo { color: var(--muted); align-self: center; }
-.cmr:focus-visible, .tmr:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+.cmr:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
 
-/* A teammate's Home: the picker */
-.tmlist { list-style: none; margin: 0; padding: 0; border-top: var(--line) solid var(--rule); }
-.tmr { display: flex; align-items: center; gap: var(--s3); min-height: var(--hit-big); padding: var(--s2) 0; border-bottom: var(--line) solid var(--rule); color: var(--ink); text-decoration: none; }
-.tmr:hover { background: var(--wash); }
-.tmr .person { background: var(--tint); }
-.tmn { flex: 1; min-width: 0; font: 600 var(--f18)/1.3 var(--head); color: var(--act); }
-.tmr:hover .tmn { text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); }
-.tms { color: var(--muted); font-size: var(--f14); }
-.tmgo { color: var(--muted); flex: none; }
-
-/* A teammate's Home: look only. A neutral band, a neutral list; every link and button is plain text with no pointer and no hover look. */
-.lobar { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--px); background: var(--tint); color: var(--ink); }
-.lobar svg.ic { flex: none; }
-.lobar p { margin: 0; font-size: var(--f16); line-height: 1.4; }
-.lopanel { background: var(--tint); border-radius: var(--r16); padding: var(--s3) var(--s4) var(--s4); }
-.ws .wl:has(> .lopanel) { padding: var(--s6) var(--s4) var(--s5); }
-.lophone { margin: var(--s4) var(--px); }
-.lo, .lo * { cursor: default; }
-.lo a, .lo button, .lo span, .lo [class] { pointer-events: none; }
-.lo .ovlink { color: inherit; text-decoration: none; font-weight: 700; }
-.lo .ovteam .ovlink { font-weight: 400; }
-.lo .fact:hover, .lo .sr3:hover, .lo .ovr:hover { background: none; }
-.lo .sr3:hover .sv b { text-decoration: none; }
-.lo .qt { color: inherit; font-weight: 400; }
-.lopanel .lh:first-child, .lopanel section:first-child > .lh { margin-top: 0; }
 @media (max-width: 899px) {
   .cmhead { display: none; }
   .cmr { grid-template-columns: minmax(0, 1fr) var(--icon); }
