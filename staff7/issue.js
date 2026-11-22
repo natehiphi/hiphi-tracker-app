@@ -16,7 +16,7 @@ import { stoppedISO } from './bill.js';
 import { pathOf } from './path.js';
 import { billsHTML, bindTable, sortedAlive, deadOrder, tui } from './issue_table.js';
 import { placeLineHTML } from './place.js';
-import { leadButton, leadForm, goalCell, pointsCell, mayEditIssue, bindEdit, eui } from './issue_edit.js';
+import { leadButton, leadForm, goalCell, pointsCell, mayEditIssue, bindEdit, bindBills, eui } from './issue_edit.js';
 import { notesHTML, bindNotes, nui } from './issue_notes.js';
 import { shareUrl, onPublicSite } from './issue_data.js';
 
@@ -74,6 +74,7 @@ function lineFor({ b, c }, row, who, issue) {
 function stoppedLines(issue, bills, who) {
   const dead = bills.slice(), last = deadOrder(dead)[0], iso = stoppedISO(last);   // the bill named is the one whose date and reason are said, and it is the first row of the folded list (issue_table.js deadOrder)
   const lk = b => `<a class="lk" href="${esc(billHref(who, b, issue.id))}">${esc(billNo(b))}</a>`;
+  if (eui.noLive === issue.id && eui.bills) return line(`<b>No live bills</b> · ${dead.length === 1 ? '1 bill stopped' : `${dead.length} bills stopped`} this year`);   // just after the last live bill was taken off: it was removed, not stopped
   let h = line(`<b>Stopped for this year${iso ? ` on ${esc(dateWords(iso))}` : ''}</b> · ${dead.length === 1 ? 'its only bill' : 'its last bill'}, ${lk(last)} · ${placeLineHTML(last, null, { bare: true })}`);   // (a bill that is only "Stopped" is not told again: the line has said it)
   const filed = dead.find(b => (S.drafts?.[b.id] || []).some(d => d.status === 'filed'));
   h += line(`${filed ? `We filed testimony on ${lk(filed)} · to` : 'To'} try again in 2027, someone must introduce a new bill`, { muted: true });
@@ -118,7 +119,7 @@ function factsHTML(issue, bills, row, who, can, me) {
 export function issuePage({ issue, me, open, who, own, back, backLabel, row: listRow }) {
   // The deadline the table is read against is the one the Issues list beside it uses (its session row), so a bill the list calls "cleared" is never "needs a hearing" here (Nate 16 Nov: the two say the same thing). Alone, the issue's own next deadline.
   const bills = billsOfIssue(issue), row = listRow !== undefined ? (listRow || null) : (sessionOf([{ issue, bills }]).next?.row || null), can = mayEditIssue(issue, me);
-  if (drawnId !== issue.id) { drawnId = issue.id; eui.id = nui.id = issue.id; eui.lead = eui.goal = eui.tp = null; Object.assign(nui, { open: false, text: '', busy: false, err: false }); tui.open.clear(); }   // what was typed on one issue never shows (or saves) on another
+  if (drawnId !== issue.id) { drawnId = issue.id; eui.id = nui.id = issue.id; eui.lead = eui.goal = eui.tp = eui.bills = null; Object.assign(nui, { open: false, text: '', busy: false, err: false }); tui.open.clear(); }   // what was typed on one issue never shows (or saves) on another
   if (!can) { eui.lead = null; eui.goal = null; eui.tp = null; }   // what was open belongs to someone who could edit
   let h = `<div class="pn">${bandHTML(issue, bills, who, back, backLabel)}<div class="pbody bill">`;
   h += positionHTML(issue, me, can);
@@ -129,7 +130,7 @@ export function issuePage({ issue, me, open, who, own, back, backLabel, row: lis
   return {
     html: h + '</div></div>',
     bind: () => {
-      bindTable(issue); bindEdit(issue, me); bindNotes(issue, me); bindMore();
+      bindTable(issue); bindEdit(issue, me); bindBills(issue, me); bindNotes(issue, me); bindMore();
       document.getElementById('iCopy')?.addEventListener('click', async () => {
         const url = shareUrl(issue);
         try { await navigator.clipboard.writeText(url); toast('Link copied'); }

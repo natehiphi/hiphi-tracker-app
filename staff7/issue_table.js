@@ -12,6 +12,7 @@ import { cmteMarks } from './bill_tl.js';
 import { stoppedISO } from './bill.js';
 import { pathOf } from './path.js';
 import { eCig, billHref } from './issues.js';
+import { billsHead, takeOffCell, takeOffCol, takeOffHead } from './issue_edit.js';   // R-398 piece 9 gap C: Change the bills
 
 export const tui = { open: new Set() };   // issues whose stopped list is open, kept across the minute's redraw
 const num = b => String(b.bill_number).replace(/\s/g, '');
@@ -69,17 +70,17 @@ export function sortedAlive(bills, row) {
 // The stopped bills in one order, for the issue page's status line (its first is "the last bill") and the table's folded list (its first row is told above): the one that got furthest, then the latest action, then the number
 export const deadOrder = bills => bills.filter(b => !isAlive(b)).sort((x, y) => pathOf(y).i - pathOf(x).i || String(y.last_action_date || '').localeCompare(String(x.last_action_date || '')) || byNum(x, y));
 export function billsHTML(issue, bills, row, who) {
-  if (!bills.length) return '';
+  if (!bills.length) return billsHead(issue) + '<p class="hint" id="tNone">No bill is on this issue yet.</p>';
   const alive = sortedAlive(bills, row), dead = deadOrder(bills), link = b => `<a class="lk" href="${esc(billHref(who, b, issue.id))}">${esc(billNo(b))}</a>`;
-  let h = '<h2 class="sh" id="tBillsH">Bills</h2>';
+  let h = billsHead(issue);
   if (alive.length) {
-    h += `<table class="btab" id="tBills"><caption class="sr">Bills of this issue that are still alive, where each waits now, and how each stands against the next deadline</caption>${COLS}<thead><tr><th scope="col" colspan="2">Bill</th><th scope="col">Where it is</th><th scope="col" class="dh">${esc(headCell(row))}</th></tr></thead><tbody>`
-      + alive.map(({ b, c }) => { const pc = placeCell(b, null, { link: true }); return `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw"${pc.attr}>${pc.html}</td><td class="dc">${cellHTML(b, row, c)}</td></tr>`; }).join('') + '</tbody></table>';
+    h += `<table class="btab" id="tBills"><caption class="sr">Bills of this issue that are still alive, where each waits now, and how each stands against the next deadline</caption>${COLS.replace('</colgroup>', takeOffCol() + '</colgroup>')}<thead><tr><th scope="col" colspan="2">Bill</th><th scope="col">Where it is</th><th scope="col" class="dh">${esc(headCell(row))}</th>${takeOffHead()}</tr></thead><tbody>`
+      + alive.map(({ b, c }) => { const pc = placeCell(b, null, { link: true }); return `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw"${pc.attr}>${pc.html}</td><td class="dc">${cellHTML(b, row, c)}</td>${takeOffCell(b)}</tr>`; }).join('') + '</tbody></table>';
   }
   if (dead.length) {
     const open = !alive.length || tui.open.has(issue.id), n = dead.length;
-    const rows = `<table class="btab dead" id="tDead"${open ? '' : ' hidden'}><caption class="sr">Bills of this issue that stopped this year</caption>${COLS3}<thead class="sr"><tr><th scope="col">Bill</th><th scope="col">Name</th><th scope="col">What happened</th></tr></thead><tbody>`
-      + dead.map((b, i) => `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw quiet">${stoppedCell(b, row, !alive.length && i === 0 && toldAbove(b) ? stoppedShort(b) : stoppedWords(b))}</td></tr>`).join('') + '</tbody></table>';
+    const rows = `<table class="btab dead" id="tDead"${open ? '' : ' hidden'}><caption class="sr">Bills of this issue that stopped this year</caption>${COLS3.replace('</colgroup>', takeOffCol() + '</colgroup>')}<thead class="sr"><tr><th scope="col">Bill</th><th scope="col">Name</th><th scope="col">What happened</th>${takeOffHead()}</tr></thead><tbody>`
+      + dead.map((b, i) => `<tr><th scope="row">${link(b)}</th><td class="tnm">${nameCell(b, issue)}</td><td class="tw quiet">${stoppedCell(b, row, !alive.length && i === 0 && toldAbove(b) ? stoppedShort(b) : stoppedWords(b))}</td>${takeOffCell(b)}</tr>`).join('') + '</tbody></table>';
     h += alive.length ? `<p class="ifold" id="tFold">${n} ${n === 1 ? 'bill' : 'bills'} stopped this year · ${btn(open ? 'Show fewer' : `Show ${n}`, { kind: 'text', id: 'tFoldBtn', attrs: `aria-expanded="${open}" aria-controls="tDead" data-shown="${n}"` })}</p>${rows}` : rows;
   }
   return h;

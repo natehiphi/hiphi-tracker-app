@@ -43,8 +43,10 @@ export const dueOf = s => {
   const past = s.late || s.act?.kind === 'overdue';
   return { t: (past ? s.due : s.at) ?? s.at ?? null, until: s.late ? s.until ?? null : null };
 };
-export const stepIsLate = (s, now) => { const t = dueOf(s).t; return pastDue(s) || (t != null && new Date(t).getTime() <= now); };
-export const stepIsTeamLate = (s, now) => { const t = dueOf(s).t; return s.kind !== 'missed' && (pastDue(s) || (t != null && new Date(t).getTime() - now < DAY)); };
+// R-398 piece 9: Check your testimony and Set position and issue are due "today" from the moment they appear (their at is the start of the day, so Home sorts them first); they are never late.
+const NEVER_LATE = new Set(['check', 'place']);
+export const stepIsLate = (s, now) => { if (NEVER_LATE.has(s.kind)) return false; const t = dueOf(s).t; return pastDue(s) || (t != null && new Date(t).getTime() <= now); };
+export const stepIsTeamLate = (s, now) => { const t = dueOf(s).t; return s.kind !== 'missed' && !NEVER_LATE.has(s.kind) && (pastDue(s) || (t != null && new Date(t).getTime() - now < DAY)); };
 // every active person's steps as that person sees them on Home (steps.js stepsFor), each step once. `holder` is who has it: the bill's lead when they are among the holders, else the first; null for a step
 // nobody holds (stepsFor's `orphan`: it only reaches the issue lead or the admins). The viewer's own steps, and a nobody-held step that reaches the viewer, are left out: those are on the viewer's Home.
 export function lateSteps(me, now = Date.now()) {

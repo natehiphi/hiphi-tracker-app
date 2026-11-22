@@ -5,6 +5,8 @@ import { work, t6Fresh } from '../staff6/today.js';
 import { billStep, shownStatus } from '../staff6/steps.js';
 import { fullName, numWords } from '../staff6/steps.js';
 import { myIssueIds } from '../staff6/data.js';
+import { placeSteps } from './do_place.js';   // R-398 piece 9 gap E: Set position and issue (a cycle that is only used in functions)
+import { checkSteps } from './do_check.js';   // R-398 piece 9 gap B: Check your testimony (a cycle that is only used in functions)
 import { chairSteps } from './ask_data.js';   // R-398 piece 5: Follow up with the chair, Decide what next (a cycle with ask_data.js that is only used in functions)
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -53,9 +55,9 @@ export function approverLine(d, h, me) {
 }
 export const orNames = as => as.length ? as.map(first).join(' or ') : 'An admin';
 
-export const VERB = { write: 'Write testimony', resubmit: 'Resubmit testimony', approve: 'Approve testimony', second: 'Second look', file: 'File testimony', ask: 'Ask for a hearing', chairfu: 'Follow up with the chair', decide: 'Decide what next', missed: 'Did we file?', stale: 'Check testimony' };
+export const VERB = { write: 'Write testimony', resubmit: 'Resubmit testimony', approve: 'Approve testimony', second: 'Second look', file: 'File testimony', ask: 'Ask for a hearing', chairfu: 'Follow up with the chair', decide: 'Decide what next', missed: 'Did we file?', stale: 'Check testimony', check: 'Check your testimony' };
 export const LABEL = { write: 'Send for approval', resubmit: 'Resubmit', approve: 'Approve', second: 'Second look', file: 'File', stale: 'Check it', missed: 'Did we file?' };
-export const BUILT = new Set(['write', 'resubmit', 'approve', 'second', 'file', 'ask', 'chairfu', 'decide', 'missed']);   // the kinds that have a page of their own in this piece
+export const BUILT = new Set(['write', 'resubmit', 'approve', 'second', 'file', 'ask', 'chairfu', 'decide', 'missed', 'check', 'place']);   // the kinds that have a page of their own in this piece
 const KIND = { nodraft: 'write', write: 'write', submit: 'write', revise: 'resubmit', approve: 'approve', second: 'second', file: 'file', missed: 'missed', stale: 'stale', chair: 'ask' };
 const ORDER = { overdue: 0, late: 1, dated: 2, missed: 3, undated: 4 };   // the current app's order inside the list
 
@@ -114,8 +116,10 @@ export function stepsFor(me) {
     if (many) { st.name = cm; st.no = `${list.length} bills`; const cats = new Set(list.map(r => issueOf(r.b).cat)); st.issue = { id: null, name: cm, icon: 'mail', cat: cats.size === 1 ? [...cats][0] : 'other' }; }
     out.set(id, st);
   }
-  for (const st of chairSteps(me)) out.set(st.id, st);   // R-398 piece 5: the steps an ask to a chair makes for the one who holds it (ask_data.js)
-  const ord = s => s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;
+  for (const st of chairSteps(me)) out.set(st.id, st);
+  for (const st of placeSteps(me)) out.set(st.id, st);   // gap E: a bill the person tracked from Search and leads, until its position and issue are set
+  for (const st of checkSteps(me)) out.set(st.id, st);   // R-398 piece 9 gap B: the testimony whose position changed after it was approved (do_check.js)   // R-398 piece 5: the steps an ask to a chair makes for the one who holds it (ask_data.js)
+  const ord = s => s.kind === 'check' || s.kind === 'place' ? -1 : s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;
   return [...out.values()].sort((x, y) => ord(x) - ord(y) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true }));
 }
 
@@ -142,11 +146,11 @@ function orphanItems(me) {
 // testimony due within a day (or past), a letter waiting on this person's approval or second look, a bill about to stop (an ask whose committee deadline is 3 days off or less), and a hearing already past with nothing filed.
 export const URGENT_DAYS = 3;
 // Past due, said one way everywhere: the team's time to act has gone (or the letter is late, or an ask's committee date is behind us). A "Did we file?" is a question, not a time.
-export const pastDue = s => s.kind !== 'missed' && (!!s.late || s.tone === 'overdue' || s.tone === 'late' || (s.at != null && new Date(s.at).getTime() <= Date.now()) || (s.kind === 'ask' && !!s.ask?.st?.deadline?.missed));
+export const pastDue = s => s.kind !== 'missed' && s.kind !== 'check' && s.kind !== 'place' && (!!s.late || s.tone === 'overdue' || s.tone === 'late' || (s.at != null && new Date(s.at).getTime() <= Date.now()) || (s.kind === 'ask' && !!s.ask?.st?.deadline?.missed));
 // A "check testimony" step is not one of the four kinds: it waits in the later line unless it is past due. A bill whose committee date has already passed is as urgent as one about to stop.
-export const isUrgent = s => s.kind === 'approve' || s.kind === 'second' || s.kind === 'missed' || s.kind === 'chairfu' || s.kind === 'decide'
+export const isUrgent = s => s.kind === 'check' || s.kind === 'place' || s.kind === 'approve' || s.kind === 'second' || s.kind === 'missed' || s.kind === 'chairfu' || s.kind === 'decide'
   || (s.kind === 'ask' ? (s.dlDays != null && s.dlDays <= URGENT_DAYS) || pastDue(s) : s.kind === 'stale' ? pastDue(s) : s.at != null && new Date(s.at).getTime() - Date.now() < DAY);
-const byTime = (x, y) => (pastDue(y) - pastDue(x)) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true });
+const byTime = (x, y) => ((y.kind === 'check' || y.kind === 'place') - (x.kind === 'check' || x.kind === 'place')) || (pastDue(y) - pastDue(x)) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true });
 // homeRows(steps) -> the steps To do shows, past due first, then soonest. laterRows(steps) -> the rest, in the order stepsFor gave them.
 export const homeRows = steps => steps.filter(isUrgent).sort(byTime);
 export const laterRows = steps => steps.filter(s => !isUrgent(s));
