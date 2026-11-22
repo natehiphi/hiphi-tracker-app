@@ -3,7 +3,7 @@
 // place.js, testimonyDue, bill_words.js), so the list and this page never disagree. Looking never changes anything: only a bill on one of the viewer's own issues has a link to one of their steps.
 // Part B (Team notes, Past hearings, History) is bill_history.js, drawn after the facts; Part C (Change position or lead, Add a note) is bill_edit.js.
 import { S, capitolUrl } from '../staff6/data.js';
-import { hearingAhead, stopOf, roomName, companionsOf } from '../staff6/model.js';
+import { hearingAhead, stopOf, roomName, companionsOf, billRef } from '../staff6/model.js';
 import { whoseStep } from '../staff6/steps.js';
 import { ic } from './icons7.js';
 import { esc, btn } from './parts.js';
@@ -22,6 +22,7 @@ import { stoppedWords } from './issue_table.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
 import { backHref } from './bills.js';
 import { editButton, editHTML, mayEdit, bindEdit, posAfterHTML } from './bill_edit.js';
+import { holdFor, holdStrip } from './do_check.js';   // gap B: the position changed after approval
 import { eCig, iconOf, tint, issueHref, issuesHref, noTopic, sameName, hearTxt, stepOn, clearedOf, clearedLabel, sitKeyOf, nextCtx, billHref } from './issues.js';
 
 const enc = encodeURIComponent;
@@ -86,6 +87,7 @@ function sitHref(h, who, own, onIssue) {
 const mineBtn = step => step ? `<p class="bmv"><a class="btn quiet ymove" href="#/do/${enc(step.id)}">Your move · ${esc(step.verb)}</a></p>` : '';
 // "waiting for Nate’s approval" / "waiting for a second look by Kris", when the data names the one person who can give it (whoseStep); else the plain state ("waiting for approval")
 function testimonyState(h, b, st) {
+  const dh = draftFor(h, b); if (dh && holdFor(b, dh)) return 'held until it is checked';   // gap B: never "ready to file" while the position and the testimony disagree
   const words = testimonyShort(st);
   if (st.key !== 'approve' && st.key !== 'second') return words;
   let ids = []; try { ids = whoseStep(draftFor(h, b) || null, b, { viewer: S.me, h }).ids || []; } catch { /* the plain words */ }
@@ -194,8 +196,8 @@ export function billSheet(b, issue, who, me, open, others, own, x = {}) {
   let out = `<div class="pn"><div class="hband bb${fi ? ' fromissue' : ''}" style="${alive ? tint(issue) : '--ic:var(--edge)'}"><span class="imark big${fi ? ' out' : ''}" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht">${fi ? '' : backOf(issue, b, who, from, x.bq)}${fi ? `<p class="kindl no">${esc(billNo(b))}</p>` : ''}<h1 tabindex="-1">${esc(billName(b))}</h1>${numberLine(b, fi)}</div></div><div class="pbody bill">`;
   const can = mayEdit(b, issue, me); if (!(can && bui.edit && bui.edit.id === b.id)) bui.edit = null;   // an edit open on another bill, or one this person may not make, is dropped
   bui.ctx = { b, issue, me };
-  out += positionHTML(b, issue, me, can);
-  if (!onIssue) out += '<p class="hint bnoiss" id="bNoIssue">On no issue yet</p>';
+  out += positionHTML(b, issue, me, can) + holdStrip(b);
+  if (!onIssue) out += `<p class="hint bnoiss"><span id="bNoIssue">On no issue yet</span>${btn('Put it on an issue', { kind: 'quiet', href: '#/bill-issues/' + encodeURIComponent(billRef(b)), id: 'bPutIssue' })}</p>`;   // gap C: opens "Issues for <bill>" (bill_issues.js). A bill already on an issue has its issue page for changes (Change the bills), so no button here.
   out += `<div class="bstat" id="bStat">${statusLines(b, issue, who, open, own, nx, onIssue, others)}</div>`;
   out += chairLineHTML(b);   // R-398 piece 5: where the ask to the chair stands, with the button that records the chair's reply
   out += `<div class="bigpath">${billTimeline(b)}</div>`;

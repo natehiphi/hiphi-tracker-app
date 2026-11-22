@@ -17,7 +17,9 @@ NOSIDE = "() => document.documentElement.scrollWidth <= innerWidth && [...docume
 SMALL = "() => [...document.querySelectorAll('.btn, .sr3, .seg, .pk, .cgc, .back, .crumb.back2')].filter(e => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height < 43.5).map(e => e.className + ' ' + e.innerText.slice(0, 20))"
 H1 = "() => [...document.querySelectorAll('main h1')].find(h => h.getBoundingClientRect().width > 0)?.innerText.trim()"
 # every control on the page that could write: a button other than the teammate picker and the sheet's folds (they only open and close), a form field, a link to a step
-WRITERS = "() => [...document.querySelectorAll('.paper button:not(#whoMate):not(#whoChange):not(.fbtn), .wl button:not(#whoMate):not(#whoChange), .paper input, .paper textarea, .paper select, .wl input:not(#findIn)')].map(e => e.tagName + ' ' + e.innerText.slice(0, 20))"
+WRITERS = "() => [...document.querySelectorAll('.paper button:not(#whoMate):not(#whoChange):not(.fbtn):not(.going button), .wl button:not(#whoMate):not(#whoChange), .paper input, .paper textarea, .paper select, .wl input:not(#findIn)')].map(e => e.tagName + ' ' + e.innerText.slice(0, 20))"
+# R-398 gap A: "Who is going" writes on the viewer's own calendar only; a look-only page shows names with no button
+GOING_BTNS = "() => document.querySelectorAll('.going button').length"
 # a link to a step: allowed only on Mine, as the quiet "Your move" link (never filled)
 STEPS = "() => [...document.querySelectorAll('a[href^=\"#/do/\"]:not(#rdyGo)')].map(a => [a.className, a.innerText.trim()])"
 SITS = "root => [...document.querySelectorAll(root + ' [data-sit]')].map(a => [a.dataset.sit, a.innerText.replace(/\\s+/g, ' ').trim()])"
@@ -220,7 +222,7 @@ with sync_playwright() as p:
         go(pg, '#/calendar/sitting/' + kq(KEYS['AGR']) + '?view=list'); t = pg.locator('.paper').inner_text()
         ok('Agriculture' in (pg.evaluate(H1) or '') and 'Fri, Mar 20 · 4:00 PM' in t and 'Room 325' in t and 'Our 2 bills' in t, f'{tag}: the sitting\'s page: committee, day and time, room, "Our 2 bills" ({pg.evaluate(H1)})')
         ok(pg.locator('.paper a[href="https://example.com/live"]').first.inner_text() == 'Watch it live' and pg.locator('.paper a[href="https://example.com/notice"]').first.inner_text() == 'Hearing notice', f'{tag}: the watch link and the notice link are there')
-        ok(re.search(r'Testimony is due\s+Thu 10:00 AM', t) and t.count('Testimony is due') == 1 and t.count('Testimony due') == 0, f'{tag}: both bills share one testimony time, so it is said once, in the readiness block ({t.count("Testimony is due")})')
+        ok(re.search(r'(Send for approval|Approve|Second look|File) (by|now)', t) and t.count('The Capitol’s deadline is Thu 10:00 AM') == 1 and t.count('Testimony is due') == 0 and t.count('Testimony due') == 0, f'{tag}: both bills share one testimony time: the team\'s time first, the Capitol\'s deadline once beneath it, in the readiness block ({t.count("The Capitol’s deadline is")})')
         rows = pg.locator('.paper .brow'); ok(rows.count() == 2 and all(re.match(r'^#/bill/[^?]+\?i=', hr) for hr in hrefs(pg, '.paper .bn2')), f'{tag}: each of our bills is a row linking to its bill page ({hrefs(pg, ".paper .bn2")})')
         txt = [rows.nth(i).inner_text() for i in range(2)]
         ok(all(re.search(r'(Support|Oppose|Monitor|No position|Neutral|Comments|Amend)', x) and (' lead' in x or 'No lead yet' in x) for x in txt) and sum('Testimony filed' in x for x in txt) == 1 and sum('Testimony not started' in x or 'Testimony being written' in x or 'Testimony sent back' in x for x in txt) == 1, f'{tag}: each bill has its position and lead and where its testimony stands (one Filed, one not) ({txt})')
@@ -377,10 +379,10 @@ with sync_playwright() as p:
     pg.click('#who-KR'); pg.wait_for_timeout(300)
     ok('who=KR' in pg.url and pg.locator('#ihd').inner_text().endswith('’s calendar') and pg.locator('#ihd').inner_text() != 'Calendar', f'JM: picking Kris opens a teammate\'s calendar in the address ({pg.locator("#ihd").inner_text()})')
     go(pg, '#/calendar?who=KR&view=list'); sk = pg.locator('.wl a[data-sit]')
-    if sk.count(): sk.first.click(); pg.wait_for_timeout(300); ok('Look only' in pg.locator('.paper').inner_text() and not pg.evaluate(WRITERS) and pg.evaluate(FILLED) == 0, f'JM: a sitting in a teammate\'s calendar says "Look only" and writes nothing ({pg.evaluate(WRITERS)})')
+    if sk.count(): sk.first.click(); pg.wait_for_timeout(300); ok('Look only' in pg.locator('.paper').inner_text() and not pg.evaluate(WRITERS) and not pg.evaluate(GOING_BTNS) and pg.evaluate(FILLED) == 0, f'JM: a sitting in a teammate\'s calendar says "Look only" and writes nothing ({pg.evaluate(WRITERS)})')
     else: ok(True, 'JM: Kris has no sitting this week; the look-only page is covered on Everyone')
     go(pg, '#/calendar?who=all&view=list'); snap(pg, 'cal_list_everyone', '1440x900'); pg.locator('.wl a[data-sit]').first.click(); pg.wait_for_timeout(300)
-    ok('Look only' in pg.locator('.paper').inner_text() and not pg.evaluate(WRITERS) and pg.evaluate(FILLED) == 0 and not pg.evaluate(STEPS), 'JM: a sitting on Everyone\'s calendar says "Look only" and has no link to a step')
+    ok('Look only' in pg.locator('.paper').inner_text() and not pg.evaluate(WRITERS) and not pg.evaluate(GOING_BTNS) and pg.evaluate(FILLED) == 0 and not pg.evaluate(STEPS), 'JM: a sitting on Everyone\'s calendar says "Look only" and has no link to a step')
     go(pg, '#/calendar?who=all&view=week'); ok(pg.locator('.paper').inner_text().count('Look only') >= 1 and not pg.evaluate(WRITERS) and pg.evaluate(NOSIDE), 'JM: Everyone\'s grid is look only and has no sideways scroll')
     ok(not re.search(r'vap(e|es|ing)\b', body(pg), re.I), 'no "vape" in Everyone\'s grid')
     for hsh in ('#/calendar', '#/calendar?who=all', '#/calendar?who=KR', '#/calendar?view=list', '#/calendar?who=all&view=list'):

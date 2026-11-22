@@ -9,10 +9,13 @@ import { first } from './steps.js';
 import { refreshTimeline } from './bill_data.js';
 import { redrawKeep } from './find.js';
 import { bui } from './bill.js';
+import { noteChange, dropChange } from './do_check.js';   // gap B: the time and old value of a position change
 import { positionSaveNote, positionStillSays, positionSavedNote, publicKeeps, PUBLISH_CHANGE, SEE_IT, WRITE_THEM, missingLine, waitingState } from './public_data.js';
 
 const $ = id => document.getElementById(id);
-const OPTS = [...POSITIONS.filter(p => p[0]), ['', 'No position yet']];   // the data layer's own list and labels; clearing is allowed (staff6's picker has "No position")
+const ORDER = ['strongly_support', 'support', 'support_amend', 'monitor', 'neutral', 'oppose', 'strongly_oppose'];   // the picker's order: support first, then Monitor and Comments, then Oppose (the data layer's list puts Strongly oppose before Oppose)
+const rank = v => { const i = ORDER.indexOf(v); return i < 0 ? ORDER.length : i; };
+const OPTS = [...POSITIONS.filter(p => p[0]).sort((x, y) => rank(x[0]) - rank(y[0])), ['', 'No position yet']];   // the data layer's own list and labels; clearing is allowed (staff6's picker has "No position")
 const posLabel = v => (OPTS.find(o => o[0] === v) || [])[1] || 'No position yet';
 // R-398 part 3 (design 7): the public site's position, in the words the picker uses; what the public site still says
 const labelOf = v => v ? (POSITIONS.find(p => p[0] === v) || [, v])[1] : 'No position yet';
@@ -68,6 +71,7 @@ async function save() {
   } catch { return failed(); }
   // the history: a lead change is recorded here (nothing else records it); the real database records a position change itself, so only the practice copy writes that row, to show it
   const rec = async (field, old, nw) => { try { await DB.addActivity(b.id, 'field_change', field === 'lead' ? 'Lead changed' : 'Position changed', JSON.stringify({ field, old: old || null, new: nw || null })); if (DEMO) rows.push(DEMO_TL[0]); } catch { /* the save stands; the history line is only a record of it */ } };
+  if (posDone) noteChange(b, prev.pos, e.pos);   // gap B: when the position changed and what it was, so testimony approved before is held
   if (posDone && DEMO) await rec('position', prev.pos, e.pos);
   if (leadChanged) await rec('lead', prev.leads[0] || '', e.lead);
   await refreshTimeline(b);
@@ -75,7 +79,7 @@ async function save() {
   if (here(b)) { bui.edit = null; redrawKeep(); $('bEditGo')?.focus(); }
   const undo = async () => {
     try {
-      if (posDone) await DB.updateBill(b.id, { position: prev.pos || null });
+      if (posDone) { await DB.updateBill(b.id, { position: prev.pos || null }); dropChange(b); }
       if (leadChanged) await DB.setOwner(b.id, prev.leads[0] || null);   // exactly the list there was: none, or the one
       // practice: take the rows this save added back out of the history; live: Undo is another save, so it is recorded like one
       if (DEMO) rows.forEach(r => { const i = DEMO_TL.indexOf(r); if (i >= 0) DEMO_TL.splice(i, 1); });

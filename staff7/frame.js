@@ -1,11 +1,12 @@
 // Staff7's frame: boots the practice data, routes between Home, a step and its done moment, and draws the doors, the left list and the right sheet.
 import { S, DB, DEMO, hooks, savePractice, myIssueIds, seedPublicV7 } from '../staff6/data.js';
-import { stepsFor, BUILT, hearingLine, left, memoKey } from './steps.js';
+import { stepsFor, BUILT, hearingLine, left, memoKey, billNo } from './steps.js';
 import { withMe, homeModel, listsHTML, overviewParts, hearingSheet, waitingSheet, suggestedSheet, bindHome, bindWaiting } from './home.js';
 import { stepRow, dueStrip, band, plainBand, btn, esc, toast, clearToast, wireToast, toastHTML } from './parts.js';
 import { writeSheet, bindWrite, sendStep, undoSend } from './do_write.js';
 import { approveSheet, bindApprove, approveStep, undoApprove, sendBackNow } from './do_approve.js';
 import { fileSheet, bindFile, fileStep, undoFile } from './do_file.js';
+import { checkSheet, bindCheck, warmPosLog } from './do_check.js';   // R-398 piece 9 gap B: Check your testimony
 import { askSheet, bindAsk, askStep, undoAsk } from './do_ask.js';
 import { replySheet, bindReply, giveSheet, bindGive, undoRecord } from './do_reply.js';   // R-398 piece 5: the chair's reply, and giving an ask to someone
 import { seedAsks } from './ask_data.js';
@@ -24,7 +25,12 @@ import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's pub
 import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
 import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
 import { teamModel } from './team.js';
+<<<<<<< HEAD
 import { moreModel, moreName, doorHTML, bindMore } from './more.js';   // R-398 piece 11: the More door, its menu and the pages opened from it
+=======
+import { placePage } from './do_place.js';   // R-398 piece 9 gap E: Set position and issue
+import { billIssuesPage } from './bill_issues.js';   // R-398 piece 9 gap C: Issues for <bill>
+>>>>>>> main
 import { leadsPage } from './do_leads.js';   // R-398 piece 6: the admin's lead changes   // R-398 piece 6: the Team page
 
 const $ = id => document.getElementById(id);
@@ -118,7 +124,8 @@ function parse() {
   const [path, ...qr] = location.hash.replace(/^#\/?/, '').split('?'), q = new URLSearchParams(qr.join('?'));   // an address's own "?" starts its options; a "?" in an id is %3F
   const [a, ...r] = path.split('/');
   let id = ''; try { id = decodeURIComponent(r.join('/')); } catch { if (a === 'issues' || a === 'issue' || a === 'bill' || a === 'search') return { r: a, id: '\ufffd', q }; return { r: 'missing' }; }   // an address that cannot be read is an issue or a bill that is not found, said calmly
-  if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
+  if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };
+  if (a === 'bill-issues') return id ? { r: 'billissues', id, q } : { r: 'missing' };   // gap C: #/bill-issues/<bill>, the Issues for a bill page   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
   if (a === 'explore') { try { history.replaceState(history.state, '', '#/'); } catch { /* the address stays */ } return { r: 'home' }; }   // R-398 piece 11: the old Explore address goes to Home
@@ -153,7 +160,7 @@ const missingSheet = () => `<div class="pn">${plainBand('That step is done or no
 const peopleSheet = () => `<div class="pn">${plainBand(`No practice person ${ctx.unknown}.`, 'Pick one of these.')}<div class="pbody"><ul class="people">${people.map(a => `<li><a class="btn quiet" href="?demo=1&as=${encodeURIComponent(a.initials)}">${esc(a.full_name)} · ${esc(a.initials)}</a></li>`).join('')}</ul></div></div>`;
 const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(s, ctx), () => bindWrite(s, ctx)]
   : s.kind === 'approve' || s.kind === 'second' ? [approveSheet(s, ctx), () => bindApprove(s, ctx)]
-  : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'chairfu' ? [followSheet(s, ctx), () => bindFollow(s, ctx)] : s.kind === 'decide' ? [decideSheet(s), () => bindDecide(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
+  : s.kind === 'file' ? [fileSheet(s, ctx), () => bindFile(s, ctx)] : s.kind === 'check' ? [checkSheet(s, ctx), () => bindCheck(s, ctx)] : s.kind === 'ask' ? [askSheet(s, ctx), () => bindAsk(s, ctx)] : s.kind === 'chairfu' ? [followSheet(s, ctx), () => bindFollow(s, ctx)] : s.kind === 'decide' ? [decideSheet(s), () => bindDecide(s, ctx)] : s.kind === 'missed' ? [missedSheet(s, ctx), () => bindMissed(s, ctx)] : [unbuiltSheet(s), null];
 
 // ---- the trail (R-398, Nate 20 Nov): where the person has been this session, so Back and Close go to the screen they came from ----
 // Each page the person opens is one entry; its place in the browser's own history is written to history.state (t7), so Back (the link, the X, Escape)
@@ -208,6 +215,7 @@ function nameOf(rt, im, label) {
     case 'issues': return !id ? 'Issues' : id === 'session' ? 'the session' : id === 'bills' ? 'All bills' : /^new(\/|$)/.test(id) ? 'New bills' : /^topic\//.test(id) ? 'the topic' : 'Issues';
     case 'issue': return (im?.pageIssue && eCig(im.pageIssue.name)) || 'the issue';
     case 'bill': return 'the bill';
+    case 'billissues': return 'the issues';
     case 'calendar': return 'Calendar';
     case 'search': return !id ? 'Search' : 'the search result';
     case 'team': return !id ? 'Team' : id === 'many' ? 'the list' : id.startsWith('step/') ? 'the step' : id.startsWith('bill/') ? 'the bill' : 'Team';
@@ -223,6 +231,7 @@ function naturalOf(rt, im) {
   const id = String(rt.id || '');
   if (rt.r === 'give') return { h: '#/ask/' + encodeURIComponent(id), name: 'the reply' };
   if (rt.r === 'publicbill') return { h: '#/bill/' + encodeURIComponent(id), name: 'the bill' };
+  if (rt.r === 'billissues') return { h: '#/bill/' + encodeURIComponent(id), name: 'the bill' };
   if (rt.r === 'publicchange') return { h: '#/public', name: 'Public words' };
   if (im?.back) return { h: im.back, name: im.backLabel || 'Issues' };
   return { h: '#/', name: 'Home' };
@@ -280,12 +289,14 @@ function render(opts = {}) {
   if (rt0.r === 'publicbill' || rt0.r === 'publicchange' || rt0.r === 'publiclist') { drawPublic(rt0, opts); return; }
   delete document.documentElement.dataset.mode;
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
-  let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null;
+  let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null, bIss = null;
   { const fam = rt.r === 'calendar' ? 'c' : /^(issues|issue|bill)$/.test(rt.r) ? 'i' : ''; if (!fam || fam !== lastFam) issuesUi.pick = false; lastFam = fam; }   // the teammate picker is open only within one tab's routes   // the teammate picker is open only within the Issues routes
   if (rt.r === 'home') {
     ov = overviewParts(m); sheet = `<div class="pn"><div class="ov">${ov.top}${ov.rest}</div></div>`; label = 'Overview';
   } else if (rt.r === 'do' && rt.id === 'leads') {
     const pg = leadsPage(ctx.me); sheet = pg.html; bindFn = pg.bind; label = 'Lead changes';   // #/do/leads (an admin's step; do_leads.js)
+  } else if (rt.r === 'do' && /^pl-/.test(rt.id)) {
+    const pg = placePage(rt.id); if (pg) { sheet = pg.html; bindFn = pg.bind; label = 'Position and issue'; } else sheet = missingSheet();   // gap E: still drawn once both are set, so the page never turns into "done" under the person's hands
   } else if (rt.r === 'do') {
     const s = open.find(x => x.id === rt.id);
     if (!s) sheet = missingSheet(); else [sheet, bindFn] = sheetFor(s);
@@ -304,6 +315,8 @@ function render(opts = {}) {
       const issue = im.pageIssue, mine = new Set(withMe(ctx.me, () => [...myIssueIds()]).map(String));
       if (issue) { const pg = issuePage({ issue, me: ctx.me, open, who: im.who, row: im.ses ? (im.ses.next?.row || null) : undefined, own: mine.has(String(issue.id)), back: im.back, backLabel: im.backLabel }), b0 = im.bind; sheet = pg.html; bindFn = () => { b0 && b0(); pg.bind(); }; }
     }
+  } else if (rt.r === 'billissues') {   // gap C: the Issues list stays on the left; the page is bill_issues.js
+    cur = 'issues'; im = issuesModel({ me: ctx.me, open, rt: { r: 'bill', id: rt.id, q: rt.q }, people }); const pg = billIssuesPage({ ref: rt.id }), b0 = im.bind; sheet = pg.html; label = 'Issues for the bill'; bindFn = () => { b0 && b0(); pg.bind(); }; bIss = pg.bill;
   } else if (rt.r === 'calendar') {
     cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'team') {
@@ -319,10 +332,11 @@ function render(opts = {}) {
   const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
   // R-398: the one top row. Home and the door landings (the lists) have none; every page opened from them has Back and Close.
   const fam = rt.r === 'issues' && /^new(\/|$)/.test(String(rt.id || '')) ? 'sort' : '';
-  const opened = !onHome && !one && (!im || rt.r === 'bill' || (!!im.back && (im.picked || im.solo || fam === 'sort' || /^topic\//.test(String(rt.id || '')))));
+  const opened = !onHome && !one && (!im || rt.r === 'bill' || rt.r === 'billissues' || (!!im.back && (im.picked || im.solo || fam === 'sort' || /^topic\//.test(String(rt.id || '')))));
   if (!opts.tick) track(location.hash, nameOf(rt, im, label), fam);
   const nat = naturalOf(rt, im && rt.r === 'bill' && !im.back ? { ...im, back: billParent.h, backLabel: billParent.name } : im);
   const tgt = opened ? targetOf(location.hash, fam, nat) : null; here = { tgt, opened };
+  if (tgt && bIss && /^#\/bill\//.test(tgt.h)) tgt.name = billNo(bIss);   // gap C: "Back to HB 1005"
   const row = opened ? topRow(tgt) : '', rowInList = opened && phone && im && !im.picked && !solo && !im.listOnly;
   document.body.classList.add('isws', 'hasbar'); document.body.classList.toggle('nobar', phone && stepPage);
   $('bar-slot').innerHTML = bar(cur); $('bar-slot').firstElementChild.classList.toggle('off', phone && stepPage);
@@ -380,6 +394,6 @@ async function start() {
   $('toast-slot').innerHTML = toastHTML; wireToast();
   window.addEventListener('hashchange', () => render()); PHONE.addEventListener('change', () => render());
   setInterval(tick, 60000);
-  render();
+  render(); warmPosLog(() => render());   // gap B: live, the position-change times of bills with approved testimony (the practice copy keeps its own)
 }
 start().catch(e => { console.error(e); $('app').innerHTML = '<div class="msg"><h1>We could not load the practice copy</h1><p>Reload the page to try again.</p></div>'; });

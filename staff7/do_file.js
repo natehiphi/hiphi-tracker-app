@@ -1,11 +1,12 @@
 // The file step's page: File testimony. The approved letter is in its Google Doc; this page gives the Capitol form's answers to copy, sends the person to the Capitol's page (the only exit to the Capitol in the whole app) and asks "Did you file it?" when they come back.
 import { S, DB, DEMO, advocate, capitolUrl } from '../staff6/data.js';
-import { draftHearing, codesOf } from '../staff6/model.js';
+import { draftHearing, codesOf, attendees } from '../staff6/model.js';
 import { formChoice } from '../staff6/filing.js';
 import { clearReminders } from '../staff6/steps.js';
 import { POS_WORD } from '../staff6/ui.js';
 import { band, dueStrip, btn, esc, fileRow, personMark, toast } from './parts.js';
 import { hearingLine, cmteWords, posWords, dayTime, first } from './steps.js';
+import { holdFor, holdBox } from './do_check.js';   // gap B: the position changed after approval holds filing
 
 const HIPHI = 'Hawaiʻi Public Health Institute';
 // The Capitol form's three positions (staff6/filing.js FORM_POS, the form's own words); a position it has no word for is not copied.
@@ -24,9 +25,36 @@ export function formAnswers(s) {
   const out = [pos ? { label: 'Position', value: `Choose: ${pos}` } : { label: 'Position', value: POS_WORD[b.position] || 'Ask the bill’s owner' },
     { label: 'Organization', value: HIPHI, copy: true }, { label: 'Signed with', value: 'HIPHI', copy: true }];
   for (const c of coals) { const n = String(c.public_name || c.name || '').trim(); if (n) out.push({ label: coals.length > 1 ? `Or for ${c.name}` : 'Or for the coalition', value: n, copy: true, hint: 'Use this if you are filing for the coalition instead.' }); }
-  out.push(ch.going ? { label: 'How we testify', value: 'Choose: In person', hint: `${ch.words.replace(/^In person: /, '')}. Speaking by video instead? Choose Remote.` }
-    : { label: 'How we testify', value: `Choose: ${ch.words}`, hint: 'Someone speaking? Choose In person, or Remote by video.' });
+  const me = S.me?.id, ids = h ? goingIds(h) : [], meGo = ids.includes(me), act = h ? { label: meGo ? 'Not going' : 'I’m going', hearing: h.id } : null;
+  if (!ch.going) out.push({ label: 'How we testify', value: `Choose: ${ch.words}`, hint: h ? 'Nobody is going yet. Someone speaking?' : 'Someone speaking? Choose In person, or Remote by video.', act });
+  else out.push({ label: 'How we testify', value: 'Choose: In person', hintB: goingSentence(ids), hint: ' Speaking by video instead? Choose Remote.', act });
   return out;
+}
+
+// Who is going to a hearing (R-398 gap A). Attendance is kept per hearing row, and a sitting is every row with the same committee and time, so "going" is read across the sitting (staff6/filing.js does the same) and turned off on every row that holds the person.
+export const sittingRows = h => (S.hearings || []).filter(x => x.committee === h.committee && x.scheduled_at === h.scheduled_at);
+export const goingIds = h => { const seen = new Set(); return sittingRows(h).flatMap(r => attendees(r)).filter(a => !seen.has(a.id) && seen.add(a.id)).map(a => a.id); };
+const nameList = nm => nm.length > 1 ? `${nm.slice(0, -1).join(', ')} and ${nm[nm.length - 1]}` : nm[0] || '';
+// The viewer first: "You", "You and Jaylen", "Jaylen and Kim"; empty when nobody is going.
+export function goingNames(ids) {
+  const me = S.me?.id, others = ids.filter(i => i !== me).map(i => first(advocate(i)));
+  return nameList(ids.includes(me) ? ['You', ...others] : others);
+}
+const goingSentence = ids => { const me = S.me?.id, n = ids.length; return n === 1 && ids[0] === me ? 'You’re going.' : `${goingNames(ids)} ${n > 1 || ids.includes(me) ? 'are' : 'is'} going.`; };
+export async function setGoing(h, on, who = S.me.id) {
+  if (on) { if (!goingIds(h).includes(who)) await DB.attend(h.id, true, who); return; }
+  for (const r of sittingRows(h)) if ((S.attend?.[r.id] || []).includes(who)) await DB.attend(r.id, false, who);
+}
+const dayName = h => new Date(h.scheduled_at).toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Pacific/Honolulu' });
+// The toast for a change, with the words for the person it is about (an admin may add a teammate).
+export const goingToast = (h, on, who = S.me.id) => {
+  const mine = who === S.me?.id, nm = mine ? 'You’re' : `${first(advocate(who))} is`;
+  return on ? `${nm} going to the ${cmteWords(h.committee)} hearing on ${dayName(h)}.` : `${mine ? 'You’re' : `${first(advocate(who))} is`} not going to the ${cmteWords(h.committee)} hearing.`;
+};
+// Change one person's attendance, say it, and offer Undo; `after` redraws the page from the data.
+export async function changeGoing(h, on, who, after) {
+  await setGoing(h, on, who); after();
+  toast(goingToast(h, on, who), { undo: async () => { try { await setGoing(h, !on, who); } catch { /* the toast just goes */ } after(); } });
 }
 // The Doc's own PDF: only from a Doc id made of the characters an id has.
 export function pdfUrl(url) { const m = /^https:\/\/docs\.google\.com\/document\/d\/([A-Za-z0-9_-]+)/.exec(String(url || '')); return m ? `https://docs.google.com/document/d/${m[1]}/export?format=pdf` : ''; }
@@ -62,14 +90,17 @@ const foot = (s, ctx) => ctx.stage[s.id] === 2
   ? `<div class="sfoot" id="flFoot" role="group" aria-labelledby="fq"><p class="fq" id="fq">Did you file it?</p>${btn('Yes, filed', { kind: 'filled', id: 'yesBtn' })}${btn('Not yet', { kind: 'quiet', id: 'notYet' })}</div>`
   : `<div class="sfoot" id="flFoot">${btn('Submit on the Capitol site', { kind: 'filled', id: 'subBtn' })}<span class="fnote">Attach the PDF on the Capitol’s page, then come back here. ${btn('I already filed it', { kind: 'text', id: 'already' })}</span></div>`;
 
+const answerRows = s => formAnswers(s).map(a => `<div class="copyrow"><div class="cq"><span>${esc(a.label)}</span><b>${esc(a.value)}</b>${a.hint || a.hintB ? `<span class="sub">${a.hintB ? `<b class="gnow">${esc(a.hintB)}</b>` : ''}${esc(a.hint || '')}</span>` : ''}</div>`
+  + (a.copy ? btn('Copy', { kind: 'text', attrs: `data-copy="${esc(a.value)}" aria-label="Copy ${esc(a.label.toLowerCase())}: ${esc(a.value)}"` }) : '') + (a.act ? btn(a.act.label, { kind: 'quiet', id: 'goBtn' }) : '') + '</div>').join('');
+
 export function fileSheet(s, ctx) {
   const h0 = s.hearing || (s.draft && draftHearing(s.draft)), code = h0 ? codesOf(h0.committee).join('/') : '';
   let h = '<div class="pn">' + band(s.issue, 'File testimony', s.name, s.no);
-  h += '<div class="pbody">' + dueStrip(s, { hearing: hearingLine(s.hearing) });
+  const hold = holdFor(s.bill, s.draft);   // gap B: while held, the box says why and nothing offers to file (no Submit, no "I already filed it")
+  h += '<div class="pbody">' + (hold ? holdBox(hold, s.bill) : '') + dueStrip(s, { hearing: hearingLine(s.hearing) });
   h += `<div class="stgrid"><div class="stmain">${approvedLine(s)}${letterRow(s, ctx, { pdf: true, pos: false })}`
-    + `<h2 class="sh">The Capitol’s form asks</h2>${code ? `<p class="hint">Log in, press Submit Testimony and pick the ${esc(code)} hearing.</p>` : ''}<div class="copyrows">${formAnswers(s).map(a => `<div class="copyrow"><div class="cq"><span>${esc(a.label)}</span><b>${esc(a.value)}</b>${a.hint ? `<span class="sub">${esc(a.hint)}</span>` : ''}</div>`
-      + (a.copy ? btn('Copy', { kind: 'text', attrs: `data-copy="${esc(a.value)}" aria-label="Copy ${esc(a.label.toLowerCase())}: ${esc(a.value)}"` }) : '') + '</div>').join('')}</div></div></div>`;
-  return h + `<div id="flSlot" class="fslot">${foot(s, ctx)}</div><p class="errt" id="flErr" role="alert" hidden></p></div></div>`;
+    + `<h2 class="sh">The Capitol’s form asks</h2>${code ? `<p class="hint">Log in, press Submit Testimony and pick the ${esc(code)} hearing.</p>` : ''}<div class="copyrows" id="copyRows">${answerRows(s)}</div></div></div>`;
+  return h + `<div id="flSlot" class="fslot">${hold ? '' : foot(s, ctx)}</div><p class="errt" id="flErr" role="alert" hidden></p></div></div>`;
 }
 
 // Copy puts the answer on the clipboard on the tap (what lets the browser allow it); if the browser refuses, the answer is shown to copy by hand.
@@ -80,8 +111,23 @@ export function bindCopy() {
   }));
 }
 
+// "I'm going" / "Not going" on "How we testify": the data changes, then the rows are drawn again from it so the "Choose:" line is the form's own reading of who is going.
+function bindGoing(s) {
+  const b = document.getElementById('goBtn'), h = s.hearing || (s.draft && draftHearing(s.draft)); if (!b || !h) return;
+  const again = () => { const rows = document.getElementById('copyRows'); if (!rows) return; rows.innerHTML = answerRows(s); bindCopy(); bindGoing(s); };
+  b.addEventListener('click', async () => {
+    const on = !goingIds(h).includes(S.me.id); b.disabled = true;
+    try {
+      await changeGoing(h, on, S.me.id, again);
+      const nb = document.getElementById('goBtn'), tt = document.querySelector('#toast .tin'); nb?.focus({ preventScroll: true });
+      if (nb && tt && nb.getBoundingClientRect().bottom > tt.getBoundingClientRect().top - 8) nb.scrollIntoView({ block: 'center' });   // the toast sits above the docked footer: bring the row clear of it
+    }
+    catch (e) { b.disabled = false; const err = document.getElementById('flErr'); if (err) { err.textContent = (e && e.message) || 'It did not go. Try again.'; err.hidden = false; } }
+  });
+}
+
 export function bindFile(s, ctx) {
-  bindLetterRow(); bindCopy();
+  bindLetterRow(); bindCopy(); bindGoing(s);
   const slot = document.getElementById('flSlot'), err = document.getElementById('flErr'), fail = e => { err.textContent = (e && e.message) || 'It did not go. Try again.'; err.hidden = false; };
   const wire = focus => {
     err.hidden = true;
@@ -107,6 +153,7 @@ export function bindFile(s, ctx) {
 export async function fileStep(s) {
   const b = s.bill, d = (S.drafts[b.id] || []).find(x => x.id === s.draft?.id);
   if (!d) throw new Error('The testimony could not be found.');
+  if (holdFor(b, d)) throw new Error('Filing is held until the testimony is checked.');   // gap B: never filed on the old side, whichever button asked
   await DB.transition(b.id, d.id, 'file');
   try { clearReminders(b, d); } catch { /* the dot stays until the next load */ }
   if ((S.drafts[b.id] || []).find(x => x.id === d.id)?.status !== 'filed') throw new Error('Nothing to do on it now.');   // live the row is replaced, so it is read again
