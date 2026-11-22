@@ -16,6 +16,9 @@ const enc = encodeURIComponent;
 
 // The admin who publishes, named by first name from the data (never "an admin"). The first active admin; the words say "the admins" only when there is none.
 export const adminFirst = () => { const a = (S.advocates || []).find(x => x.is_admin && x.is_active !== false); return a ? first(a) : 'the admins'; };
+// "you" when the viewer is that admin (the one who publishes), else the first name: for lines that say who publishes
+export const adminIsMe = () => { const a = (S.advocates || []).find(x => x.is_admin && x.is_active !== false); return !!a && !!S.me && a.id === S.me.id; };
+export const adminWho = () => adminIsMe() ? 'you' : adminFirst();
 const catList = () => (S.categories || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 const blank = () => ({ name: '', cat: '', desc: '', err: { name: '', cat: '', clash: null }, busy: false, kept: false });
 export const newState = initial => Object.assign(blank(), initial ? { name: initial.name || '', cat: initial.cat || '', desc: initial.desc || '', kept: !!(initial.name || initial.cat || initial.desc) } : {});
@@ -48,7 +51,7 @@ export function formHTML(st, mode) {
     + `<textarea class="field" id="niDescIn" rows="3" maxlength="${DESC_MAX}">${esc(st.desc)}</textarea>`
     + `<p class="hint">One sentence on what would change. Needed before it goes public; the public sees it then.</p></div>`
     + `<div class="niact">${btn('Save as draft', { kind: 'filled', id: 'niSave', disabled: st.busy, loading: st.busy }).replace('type="button"', 'type="submit"')}`
-    + `<p class="hint niwho">You will lead it. Only the team sees a draft until ${esc(adminFirst())} publishes it.</p></div>`
+    + `<p class="hint niwho">You will lead it. Only the team sees a draft until ${esc(adminWho())} ${adminIsMe() ? 'publish' : 'publishes'} it.</p></div>`
     + `</form>`;
 }
 
@@ -98,8 +101,8 @@ export function mountIssueForm(el, opts = {}) {
 // After saving: the draft's own page, and the toast that says the admin has been told. The toast is said after the page is drawn (the frame clears a toast when the page changes).
 export function issueNewPage() {
   const html = `<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">New issue</h1><p class="bsub">Start the draft here. Add the goal and talking points on its page.</p></div></div><div class="pbody"><div class="nipage" id="niRoot">${formHTML(pageState, 'page')}</div></div></div>`;
-  return { html, bind: () => bindForm($('niRoot'), pageState, { mode: 'page', onSaved: issue => {
-    addEventListener('hashchange', () => toast(`Saved as a draft. ${adminFirst()} has been told.`), { once: true });
+  return { html, bind: () => bindForm($('niRoot'), pageState, { mode: 'page', onCancel: () => $('tbClose')?.click(), onSaved: issue => {   // Escape closes the page even while typing; the words stay in pageState
+    addEventListener('hashchange', () => toast(adminIsMe() ? 'Saved as a draft.' : `Saved as a draft. ${adminFirst()} has been told.`), { once: true });
     location.hash = `#/issue/${enc(issue.id)}`;
   } }) };
 }

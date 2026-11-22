@@ -7,6 +7,9 @@ import { fullName, numWords } from '../staff6/steps.js';
 import { myIssueIds } from '../staff6/data.js';
 import { placeSteps } from './do_place.js';   // R-398 piece 9 gap E: Set position and issue (a cycle that is only used in functions)
 import { checkSteps } from './do_check.js';   // R-398 piece 9 gap B: Check your testimony (a cycle that is only used in functions)
+import { adminFirst } from './issue_new.js';   // R-398 piece 10: the admin who publishes, by first name (a cycle, used only inside functions)
+import { missingOf, isDraft, billRows } from './issue_draft.js';   // R-398 piece 10: what a draft is missing (a cycle with issue_draft.js that is only used in functions)
+import { pointsOf } from './issue_edit.js';
 import { chairSteps } from './ask_data.js';   // R-398 piece 5: Follow up with the chair, Decide what next (a cycle with ask_data.js that is only used in functions)
 
 const HST = { timeZone: 'Pacific/Honolulu' };
@@ -55,9 +58,9 @@ export function approverLine(d, h, me) {
 }
 export const orNames = as => as.length ? as.map(first).join(' or ') : 'An admin';
 
-export const VERB = { write: 'Write testimony', resubmit: 'Resubmit testimony', approve: 'Approve testimony', second: 'Second look', file: 'File testimony', ask: 'Ask for a hearing', chairfu: 'Follow up with the chair', decide: 'Decide what next', missed: 'Did we file?', stale: 'Check testimony', check: 'Check your testimony' };
+export const VERB = { write: 'Write testimony', resubmit: 'Resubmit testimony', approve: 'Approve testimony', second: 'Second look', file: 'File testimony', ask: 'Ask for a hearing', chairfu: 'Follow up with the chair', decide: 'Decide what next', missed: 'Did we file?', stale: 'Check testimony', check: 'Check your testimony', finish: 'Finish a new issue', publish: 'Publish a new issue' };
 export const LABEL = { write: 'Send for approval', resubmit: 'Resubmit', approve: 'Approve', second: 'Second look', file: 'File', stale: 'Check it', missed: 'Did we file?' };
-export const BUILT = new Set(['write', 'resubmit', 'approve', 'second', 'file', 'ask', 'chairfu', 'decide', 'missed', 'check', 'place']);   // the kinds that have a page of their own in this piece
+export const BUILT = new Set(['write', 'resubmit', 'approve', 'second', 'file', 'ask', 'chairfu', 'decide', 'missed', 'check', 'place', 'finish', 'publish']);   // the kinds that have a page of their own in this piece
 const KIND = { nodraft: 'write', write: 'write', submit: 'write', revise: 'resubmit', approve: 'approve', second: 'second', file: 'file', missed: 'missed', stale: 'stale', chair: 'ask' };
 const ORDER = { overdue: 0, late: 1, dated: 2, missed: 3, undated: 4 };   // the current app's order inside the list
 
@@ -118,9 +121,56 @@ export function stepsFor(me) {
   }
   for (const st of chairSteps(me)) out.set(st.id, st);
   for (const st of placeSteps(me)) out.set(st.id, st);   // gap E: a bill the person tracked from Search and leads, until its position and issue are set
+  for (const st of draftSteps(me)) out.set(st.id, st);   // R-398 piece 10: Finish a new issue, Publish a new issue (no clock)
   for (const st of checkSteps(me)) out.set(st.id, st);   // R-398 piece 9 gap B: the testimony whose position changed after it was approved (do_check.js)   // R-398 piece 5: the steps an ask to a chair makes for the one who holds it (ask_data.js)
-  const ord = s => s.kind === 'check' || s.kind === 'place' ? -1 : s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;
+  const ord = s => s.kind === 'check' || s.kind === 'place' ? -1 : noClock(s) ? ORDER.undated + 1 : s.tone === 'overdue' ? ORDER.overdue : s.tone === 'late' ? ORDER.late : s.kind === 'missed' ? ORDER.missed : s.at != null ? ORDER.dated : ORDER.undated;
   return [...out.values()].sort((x, y) => ord(x) - ord(y) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true }));
+}
+
+
+// ---- R-398 piece 10: a new issue nobody finds by looking (S-19). Worked out from the data each time, never stored (S-10); no clock, so they sit below the timed steps and are never First up.
+// The lead (the starter, until it is handed to someone) has "Finish a new issue" until nothing is missing; an admin who is not its lead has it under Waiting on others, and once the draft is ready,
+// "Publish a new issue". Each opens the draft's own page.
+export const noClock = s => s.kind === 'finish' || s.kind === 'publish';
+const listOf = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+const draftsNow = () => (S.issues || []).filter(isDraft);
+const leadId = i => i.owner_id || i.created_by || null;
+const nameBy = (id, me) => id && me && id === me.id ? 'You' : id ? first(advocate(id)) : 'Someone';
+// "A goal and three talking points to write", then "a bill to put on it" (the same words issue_draft.js's missingOf names)
+export function finishLine(i) {
+  const m = missingOf(i), bill = m.includes('a bill'), w = m.filter(x => x !== 'a bill'), out = [];
+  if (w.length) out.push(`${cap(listOf(w))} to write`);
+  if (bill) out.push(w.length ? 'a bill to put on it' : 'A bill to put on it');
+  return out.join(', and ');
+}
+const issueMark = i => { const cat = /^[a-z-]+$/.test(i.category || '') ? i.category : 'other'; return { id: i.id, name: i.name, icon: i.icon || (S.categories || []).find(c => c.key === i.category)?.icon || 'circle', cat }; };
+const draftStep = (i, kind, line, icon) => ({ id: `${kind === 'finish' ? 'fi' : 'pi'}-${i.id}`, kind, bill: null, hearing: null, draft: null, at: null, due: null, until: null, act: null, tone: 'neutral', late: false, issue: issueMark(i),
+  name: eCig(i.name), no: '', forWhom: '', sentBack: '', ask: null, verb: VERB[kind], line, icon, href: `#/issue/${encodeURIComponent(i.id)}` });
+const NUM = { 3: 'three', 4: 'four', 5: 'five' };
+export function draftSteps(me) {
+  if (!me) return [];
+  const out = [];
+  for (const i of draftsNow()) {
+    const missing = missingOf(i).length, mine = leadId(i) === me.id;
+    if (mine && missing) out.push(draftStep(i, 'finish', finishLine(i), 'pencil'));
+    else if (!missing && me.is_admin) {
+      const k = billRows(i).length, t = pointsOf(i).length, by = nameBy(i.created_by || leadId(i), me);
+      out.push(draftStep(i, 'publish', `${by} started it. It has a goal, ${NUM[t] || t} talking points and ${k} ${k === 1 ? 'bill' : 'bills'}.`, 'globe'));
+    }
+  }
+  return out;
+}
+// An admin's rows under Waiting on others: "<name>" / "Waiting on Kevin for a goal and talking points", for a draft somebody else leads and that is not ready yet.
+export function draftWaits(me) {
+  if (!me) return [];
+  const href = i => `#/issue/${encodeURIComponent(i.id)}`, row = (i, line) => ({ id: `dw-${i.id}`, kind: 'public', b: null, name: eCig(i.name), no: '', who: '', second: false, at: null, with: [], line, href: href(i) });
+  // the lead of a ready draft, who cannot publish it: "<name> · Waiting on <admin> to publish" (gone by itself once it is published or removed, since drafts come from the data)
+  if (!me.is_admin) return draftsNow().filter(i => leadId(i) === me.id && !missingOf(i).length).map(i => row(i, `Waiting on ${adminFirst()} to publish`));
+  return draftsNow().filter(i => leadId(i) !== me.id && missingOf(i).length).map(i => {
+    const lead = nameBy(leadId(i), me), what = listOf(missingOf(i).map(x => x === 'three talking points' ? 'talking points' : x));
+    return row(i, `Waiting on ${lead} for ${what}`);
+  });
 }
 
 // ---- rule 1 of 14 Nov: whoever leads the bill writes its testimony. work(me).own gives a hearing with no letter to the bill's owner or helpers; a bill nobody holds is only a line
@@ -148,9 +198,9 @@ export const URGENT_DAYS = 3;
 // Past due, said one way everywhere: the team's time to act has gone (or the letter is late, or an ask's committee date is behind us). A "Did we file?" is a question, not a time.
 export const pastDue = s => s.kind !== 'missed' && s.kind !== 'check' && s.kind !== 'place' && (!!s.late || s.tone === 'overdue' || s.tone === 'late' || (s.at != null && new Date(s.at).getTime() <= Date.now()) || (s.kind === 'ask' && !!s.ask?.st?.deadline?.missed));
 // A "check testimony" step is not one of the four kinds: it waits in the later line unless it is past due. A bill whose committee date has already passed is as urgent as one about to stop.
-export const isUrgent = s => s.kind === 'check' || s.kind === 'place' || s.kind === 'approve' || s.kind === 'second' || s.kind === 'missed' || s.kind === 'chairfu' || s.kind === 'decide'
+export const isUrgent = s => s.kind === 'check' || s.kind === 'place' || noClock(s) || s.kind === 'approve' || s.kind === 'second' || s.kind === 'missed' || s.kind === 'chairfu' || s.kind === 'decide'
   || (s.kind === 'ask' ? (s.dlDays != null && s.dlDays <= URGENT_DAYS) || pastDue(s) : s.kind === 'stale' ? pastDue(s) : s.at != null && new Date(s.at).getTime() - Date.now() < DAY);
-const byTime = (x, y) => ((y.kind === 'check' || y.kind === 'place') - (x.kind === 'check' || x.kind === 'place')) || (pastDue(y) - pastDue(x)) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true });
+const byTime = (x, y) => ((y.kind === 'check' || y.kind === 'place') - (x.kind === 'check' || x.kind === 'place')) || (pastDue(y) - pastDue(x)) || (noClock(x) - noClock(y)) || (x.at ?? Infinity) - (y.at ?? Infinity) || x.id.localeCompare(y.id, 'en', { numeric: true });
 // homeRows(steps) -> the steps To do shows, past due first, then soonest. laterRows(steps) -> the rest, in the order stepsFor gave them.
 export const homeRows = steps => steps.filter(isUrgent).sort(byTime);
 export const laterRows = steps => steps.filter(s => !isUrgent(s));

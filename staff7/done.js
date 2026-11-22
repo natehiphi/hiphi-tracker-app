@@ -38,7 +38,7 @@ export function doneSheet(ctx, id, fresh) {
     + (reverseWords(f) ? `<p class="undo" id="undoLine">${btn(reverseWords(f), { kind: 'text', id: 'undoBtn' })}</p>`
       : ['filed', 'asked', 'recorded', 'followed'].includes(f.kind) ? '' : undoLeft(f) > 0 ? `<p class="undo" id="undoLine">${btn('Undo', { kind: 'text', id: 'undoBtn' })} for 10 seconds</p>` : '')
     + (f.words?.extra || '')
-    + `<div class="actions">${nx ? `${btn(`Next step: ${nx.verb}`, { kind: f.words?.last ? 'text' : 'filled', href: '#/do/' + encodeURIComponent(nx.id), big: !f.words?.last })}<p class="nxname">${esc(nx.name)}<span class="no">${esc(nx.no)}</span></p>` : btn('Back to Home', { kind: 'text', href: '#/' })}</div></div></div>`;
+    + `<div class="actions">${nx ? `${btn(`Next step: ${nx.verb}`, { kind: f.words?.last ? 'text' : 'filled', href: nx.href && /^(finish|publish)$/.test(nx.kind) ? nx.href : '#/do/' + encodeURIComponent(nx.id), big: !f.words?.last })}<p class="nxname">${esc(nx.name)}<span class="no">${esc(nx.no)}</span></p>` : btn('Back to Home', { kind: 'text', href: '#/' })}</div></div></div>`;
 }
 
 let timer = 0;

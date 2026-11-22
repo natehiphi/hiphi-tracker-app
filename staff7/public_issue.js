@@ -66,7 +66,7 @@ function bandHTML(name) {
     + `<a class="btn quiet" href="${esc(toIssue())}"><span class="pub-long">${esc(LEAVE_PUBLIC)}</span><span class="pub-short">${esc(LEAVE_SHORT)}</span></a></div></header>`;
 }
 function emptyHTML(h1, name) {
-  return `<div class="pub" id="pubRoot">${bandHTML(name)}<div class="pub-wrap pub-empty pi-empty"><h1 id="pubH1" tabindex="-1">${esc(h1)}</h1><p class="pi-back">${btn(BACK_TO_ISSUE, { kind: 'filled', href: toIssue() })}</p></div></div>`;
+  return `<div class="pub" id="pubRoot">${bandHTML(name)}<div class="pub-wrap pub-empty pi-empty"><h1 id="pubH1" tabindex="-1">${esc(h1)}</h1><p class="pi-back">${btn(BACK_TO_ISSUE, { kind: 'filled', href: toIssue(), attrs: 'data-issue-back' })}</p></div></div>`;
 }
 
 function pageHTML() {
@@ -117,7 +117,7 @@ function doneHTML(i, name) {
     + `<h1 id="pubH1" tabindex="-1">Published.</h1><p class="pi-done-line">The public can find and follow ${esc(name)}.</p>`
     + `<p class="pi-undo" id="piUndoRow"${left ? '' : ' hidden'}><button type="button" class="btn text pi-undo-b" id="piUndo">Undo</button><span>for 10 seconds</span></p>`
     + `<p class="pi-done-more">Later, you can take it off the public site from the issue’s page.</p>`
-    + `<p class="pi-back">${btn(BACK_TO_ISSUE, { kind: 'filled', href: toIssue(), id: 'piBack' })}</p></div></div>`;
+    + `<p class="pi-back">${btn(BACK_TO_ISSUE, { kind: 'filled', href: toIssue(), id: 'piBack', attrs: 'data-issue-back' })}</p></div></div>`;
 }
 
 function paint(focusId = 'pubH1') {
@@ -160,7 +160,7 @@ async function undoPublish() {
   const d = view?.done, i = issueOf(view.id); if (!d || !i || Date.now() - d.at >= TEN + 300) return;
   try { await DB.updateIssue(i.id, { ...d.prev, published_at: null }); }
   catch (e) { toast((e && e.message) || 'It could not be undone.', { ms: 6000 }); return; }
-  view.done = null; clearTimeout(undoT); paint('piGo'); toast('Put back. Nothing is on the public site.', { ms: 6000 });
+  view.done = null; clearTimeout(undoT); paint('piGo'); toast(`${eCig(i.name)} is a draft again. The public cannot see it.`, { ms: 6000 });
 }
 async function takeOff() {
   const i = issueOf(view.id); if (!i || !S.me?.is_admin || !i.published_at) return;

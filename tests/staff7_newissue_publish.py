@@ -117,7 +117,7 @@ with sync_playwright() as p:
     pg.click('#piUndo'); pg.wait_for_timeout(500)
     row = pg.evaluate(ROW, R)
     ok(row['pub'] is None and row['prep'] == 'todo', f'Undo puts the issue back as a draft with its old prep state ({row})')
-    ok(pg.is_visible('#piGo') and 'Put back' in toast(pg), 'Undo is back on the review page, with a toast')
+    ok(pg.is_visible('#piGo') and 'is a draft again. The public cannot see it.' in toast(pg), 'Undo is back on the review page, with the draft-again toast (fix X6)')
     # ---- Undo goes after 10 seconds
     pg.click('#piGo'); pg.wait_for_timeout(500)
     ok(pg.is_visible('#piUndo'), 'published again: Undo is there')

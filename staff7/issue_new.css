@@ -27,6 +27,9 @@
 /* a draft's page */
 .dmark { display: flex; align-items: center; gap: var(--s2); }
 .dmark .dmk svg.ic { width: var(--icon-s); height: var(--icon-s); color: var(--muted); display: block; }
+.hband .bsub.dmark { flex-wrap: nowrap; align-items: center; gap: var(--s2); }   /* icon and words stay together at 390 (the band's own wrap rule would drop the words below the icon) */
+.hband .bsub.dmark svg.ic { margin-left: 0; vertical-align: baseline; }
+.dmark .dmk { flex: none; display: inline-flex; }
 .nibox { background: var(--wash); border-radius: var(--r12); padding: var(--s4) var(--s4) var(--s2); margin: var(--s4) 0 var(--s5); max-width: var(--read); }
 .nibh { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); }
 .nibh h2 { font: 600 var(--f18)/1.3 var(--head); letter-spacing: var(--track); }
@@ -58,6 +61,13 @@
 .niready { max-width: var(--read); margin: 0 0 var(--s5); }
 .niready:empty { display: none; }
 .niready .hint { margin-top: var(--s2); }
+
+/* fix round, X2: a toast said on a draft's page sits at the bottom edge of the work column, on the right where the form does not reach, never over the field being used */
+@media (min-width: 900px) { body.hasbar:has(#dBlock) .toast { left: auto; right: calc(var(--s5) + var(--s4)); bottom: var(--s5); justify-content: flex-end; } }
+body:has(#dBlock) .pbody.bill { padding-bottom: var(--s8); }   /* the last line of the form can always scroll clear of the toast */
+/* fix round, X4: while "Open in public mode to publish" is the one filled button, the bills editor's Done is quiet */
+.niready:not(:empty) ~ .bhead #iBillsDone { background: transparent; color: var(--ink); border-color: var(--edge); }
+.niready:not(:empty) ~ .bhead #iBillsDone:hover { background: var(--rule); }
 
 /* ---- piece 10 part B: the New issue panel over Sort new bills (the link under the Issue field, the dimmed page, the panel on the right) ---- */
 .df .dnew { min-height: var(--hit); padding-left: 0; padding-right: 0; justify-content: flex-start; }

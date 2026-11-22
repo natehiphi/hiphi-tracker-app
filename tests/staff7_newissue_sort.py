@@ -105,7 +105,7 @@ with sync_playwright() as p:
     ok(st['text'] == 'Sample issue for sorting (draft)' and st['val'].startswith('demo-'), f'the Issue field shows "{st["text"]}" and has it picked')
     ok(pg.is_enabled('#sTrack') and pg.locator('#sTrack').get_attribute('aria-describedby') is None, 'Track is on')
     note = pg.locator('#dTrackNote').inner_text()
-    ok(re.fullmatch(r'Sample issue for sorting is a draft: only the team sees it until \w+ publishes it\.', note) and note.split('until ')[1].startswith('Nate'), f'the helper reads: {note!r}')
+    ok(re.fullmatch(r'Sample issue for sorting is a draft: only the team sees it until you publish it\.', note), f'Nate is the admin who publishes, so the helper says "you": {note!r}')
     t = pg.evaluate(TOAST); ok(t and t['msg'] == 'Saved Sample issue for sorting as a draft. It is picked for this bill.' and t['undo'], f'the toast has Undo: {t and t["msg"]!r}')
     ok(pg.evaluate("() => document.activeElement.id") == 'dNewIssue', 'the focus is back on the link')
     snap(pg, 'sort_saved')
@@ -118,6 +118,14 @@ with sync_playwright() as p:
     ok(gone and not any('Sample issue for sorting' in o for o in st['opts']), 'Undo takes the draft away again (archived) and out of the Issue field')
     ok(st['val'] != '' and not st['val'].startswith('demo-') or st['val'] == '', f'and clears the pick ({st["text"]!r})')
     ok(after['open'] == before['open'] and after['pos'] == before['pos'] and abs(after['y'] - before['y']) <= 2, 'the sort is still where it was after Undo')
+    t = pg.evaluate(TOAST); ok(t and re.fullmatch(r'Took the draft Sample issue for sorting away\. (No issue is picked for this bill\.|.+ is picked for this bill again\.|No issue yet is picked for this bill again\.)', t['msg']), f'Undo says what was put back: {t and t["msg"]!r}')
+    # Fix Y 2 and 3: an earlier toast is gone when the panel opens, and "For <bill>" is the heading's name
+    ok(pg.evaluate(TOAST) is not None, 'a toast is showing before the panel is opened')
+    heading = pg.locator('.pbody ~ * h1, h1').first.inner_text().strip(); heading = pg.evaluate("() => document.querySelector('.hband h1').innerText.trim()")
+    pg.click('#dNewIssue'); pg.wait_for_selector('.nipanel'); pg.wait_for_timeout(300)
+    ok(pg.evaluate(TOAST) is None, 'opening the panel closes the earlier toast (it cannot cover Save)')
+    ok(pg.evaluate("() => document.querySelector('.nipfor b').innerText.trim()") == heading, f'the panel\'s "For <bill>" is the page heading ({heading!r})')
+    pg.keyboard.press('Escape'); pg.wait_for_selector('.nipanel', state='detached', timeout=5000)
 
     # ---------------------------------------------------------------- "(draft)" on every draft in the select
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'); await d.DB.createIssue({ name: 'Sample draft in the list', description: 'Sample.', category: d.S.categories[0].key }); window.__staff7Render({ tick: true }); }"""); pg.wait_for_timeout(400)

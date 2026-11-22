@@ -5,7 +5,7 @@
 import { S, DB, capitolUrl } from '../staff6/data.js';
 import { keysOn } from '../staff6/ui.js';
 import { ic } from './icons7.js';
-import { esc, btn, toast } from './parts.js';
+import { esc, btn, toast, clearToast } from './parts.js';
 import { billName, billNo, posWords } from './steps.js';
 import { cmteLabel, codesOf } from './bill_words.js';
 import { sponsorsHTML } from './bill.js';
@@ -114,7 +114,7 @@ function issueOpts(f) {
     + (near.length ? `<optgroup label="Same topic">${near.map(o).join('')}</optgroup>` : '') + `<optgroup label="All issues">${rest.map(o).join('')}</optgroup><option value="none"${f.issueId === 'none' ? ' selected' : ''}>No issue yet</option>`;
 }
 const sel = (id, lab, opts, after = '') => `<div class="df"><label class="fl" for="${id}">${lab}</label><select class="field bsel" id="${id}">${opts}</select>${after}</div>`;
-const trackNote = f => f.canTrack ? (f.issue && !f.issue.published_at ? `${eCig(f.issue.name)} is a draft: only the team sees it until ${adminFirst()} publishes it.` : 'Only the team sees it. It is not on the public site until someone publishes it.') : 'Choose an issue, or No issue yet, to track it.';
+const trackNote = (f, me) => f.canTrack ? (f.issue && !f.issue.published_at ? `${eCig(f.issue.name)} is a draft: only the team sees it until ${me?.is_admin ? 'you publish' : adminFirst() + ' publishes'} it.` : 'Only the team sees it. It is not on the public site until someone publishes it.') : 'Choose an issue, or No issue yet, to track it.';
 function decideHTML(m, me) {
   const f = D.fieldsOf(m, me);
   const pos = D.POS_OPTS.map(([v, l]) => `<option value="${esc(v)}"${f.pos === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
@@ -126,7 +126,7 @@ function decideHTML(m, me) {
     + `<div class="dacts"><div class="dcol"><button class="btn filled" type="button" id="sTrack" aria-keyshortcuts="T"${f.canTrack ? '' : ' disabled aria-describedby="dTrackNote"'}>Track${keyHint('T')}</button></div>`
     + `<div class="dcol"><button class="btn quiet" type="button" id="sNot" aria-keyshortcuts="N">Not for us${keyHint('N')}</button></div>`
     + `<div class="dcol"><button class="btn text" type="button" id="sSkip" aria-keyshortcuts="S">Skip for now${keyHint('S')}</button></div>`
-    + `<p class="hint dnote" id="dTrackNote">${esc(trackNote(f))}</p><p class="hint dnote" id="dNotNote"${other ? '' : ' hidden'}>${esc(other)}</p></div></div>`;
+    + `<p class="hint dnote" id="dTrackNote">${esc(trackNote(f, me))}</p><p class="hint dnote" id="dNotNote"${other ? '' : ' hidden'}>${esc(other)}</p></div></div>`;
 }
 function pageHTML(m, me, list, mode) {
   const r = m.r, no = D.spaced(m.no), back = hashFor('', mode);
@@ -248,7 +248,7 @@ function patch() {
   set('dLeadWhy', e => { e.textContent = f.why ? f.why + '.' : ''; e.hidden = !f.why; });
   set('dPosHint', e => { e.textContent = posHint(f.pos); });
   set('sTrack', e => { if (!D.U.busy) e.disabled = !f.canTrack; if (f.canTrack) e.removeAttribute('aria-describedby'); else e.setAttribute('aria-describedby', 'dTrackNote'); });
-  set('dTrackNote', e => { e.textContent = trackNote(f); });
+  set('dTrackNote', e => { e.textContent = trackNote(f, c.me); });
 }
 function bindSort() {
   const c = cur, wl = document.querySelector('.wl');
@@ -280,7 +280,7 @@ function bindSort() {
 // "No issue fits? New issue" opens issue_new.js's form as a panel over the dimmed sort page. The panel lives on the body, outside #app, so a redraw of the page (a tick, a pick) never closes it or
 // loses a word; the words themselves live in D.U.words per bill. Saving picks the new draft for this bill and the sort stays exactly where it was (list scroll, open bill, every other pick).
 let pan = null;   // { el, id, opener } while the panel is open
-const shortTitle = r => { const t = D.lineOne(r); return t.length <= 64 ? t : t.slice(0, 64).replace(/\s+\S*$/, '').replace(/[ ,;:.]+$/, '') + '…'; };
+const shortTitle = r => String(r.nickname || '').trim() || D.capTitle(r.title);   // the same name as the sort page's heading for the bill (or its nickname), not the long line-1 text
 function closePanel(focus = true) {
   if (!pan) return;
   const { el, opener } = pan; pan = null;
@@ -303,6 +303,7 @@ function afterPanel(then) {   // the page is drawn again from the data (nothing 
 }
 function openPanel() {
   const c = cur; if (!c || !c.m || pan) return;
+  clearToast();   // a toast from an earlier save must not cover the panel or its Save button
   const { m } = c, id = m.id, st = D.U.words[id] ||= newState();
   st.kept = !!(st.name || st.cat || st.desc); st.err = { name: '', cat: '', clash: null };
   const el = document.createElement('div'); el.className = 'nipwrap'; el.id = 'niPanel';
@@ -317,19 +318,20 @@ function openPanel() {
   const f = mountIssueForm(el.querySelector('#niPanelForm'), { mode: 'panel', bill: m.r, state: st, who: c.me, onCancel: () => closePanel(),
     onUseExisting: i => { delete D.U.words[id]; pickIssue(id, i.id); afterPanel(() => toast(`${eCig(i.name)} is picked for this bill.`, { ms: 6000 })); },
     onSaved: i => {
-      const prev = D.U.pick[id]?.issue; pickIssue(id, i.id);
-      afterPanel(() => toast(`Saved ${eCig(i.name)} as a draft. It is picked for this bill.`, { undo: () => undoNew(id, i, prev), ms: 10000 }));
+      const prev = D.U.pick[id]?.issue, was = D.fieldsOf(m, c.me); pickIssue(id, i.id);   // `was`: what the Issue field showed before, so Undo can name it
+      const back = was.issue ? `${eCig(was.issue.name)} is picked for this bill again.` : was.issueId === 'none' ? 'No issue yet is picked for this bill again.' : 'No issue is picked for this bill.';
+      afterPanel(() => toast(`Saved ${eCig(i.name)} as a draft. It is picked for this bill.`, { undo: () => undoNew(id, i, prev, back), ms: 10000 }));
     } });
   f.focus();
 }
 // Undo: the draft is taken away again (archived: the record is hidden, never erased) and the pick goes back to what it was. A draft that already has a bill on it stays: its page removes it.
-async function undoNew(id, i, prev) {
+async function undoNew(id, i, prev, back) {
   const nm = eCig(i.name);
   if ((S.billIssues || []).some(x => x.issue_id === i.id)) { toast(`${nm} already has a bill on it, so it was kept. Remove it from its own page.`, { ms: 8000 }); return; }
   try { await DB.updateIssue(i.id, { archived_at: new Date().toISOString() }); }
   catch { toast(`The draft ${nm} was not taken away. Nothing was changed. Try again.`, { ms: 8000 }); return; }
   const p = D.U.pick[id]; if (p && p.issue === i.id) { if (prev === undefined) delete p.issue; else p.issue = prev; }
-  window.__staff7Render({ tick: true }); toast(`Took the draft ${nm} away. No issue is picked for this bill.`, { ms: 6000 });
+  window.__staff7Render({ tick: true }); toast(`Took the draft ${nm} away. ${back}`, { ms: 6000 });
 }
 
 function bindWait(me, mode) { $('sortRetry')?.addEventListener('click', () => { D.retry(me, mode); window.__staff7Render({}); }); }

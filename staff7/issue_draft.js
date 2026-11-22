@@ -8,7 +8,7 @@ import { ic } from './icons7.js';
 import { eCig } from './issues.js';
 import { first, billNo, billName } from './steps.js';
 import { pointsOf, eui } from './issue_edit.js';
-import { adminFirst } from './issue_new.js';
+import { adminFirst, adminIsMe, adminWho } from './issue_new.js';
 
 const $ = id => document.getElementById(id);
 const enc = encodeURIComponent;
@@ -27,7 +27,7 @@ export function checks(issue) {
 const NEEDS = [['desc', 'a description'], ['goal', 'a goal'], ['tp', 'three talking points'], ['bill', 'a bill']];
 export const missingOf = issue => { const c = checks(issue); return NEEDS.filter(([k]) => !c[k]).map(x => x[1]); };
 const list = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
-export const closingLine = issue => { const m = missingOf(issue); return m.length ? `Needs ${list(m)} before ${adminFirst()} can publish it.` : `Ready. It is on ${adminFirst()}’s list to publish.`; };
+export const closingLine = issue => { const m = missingOf(issue); return m.length ? `Needs ${list(m)} before ${adminWho()} can publish it.` : adminIsMe() ? 'Ready to publish.' : `Ready. It is on ${adminFirst()}’s list to publish.`; };
 export const doneCount = issue => Object.values(checks(issue)).filter(Boolean).length;
 
 export const mayFill = (issue, me) => !!me && (issue.owner_id === me.id || !!me.is_admin);

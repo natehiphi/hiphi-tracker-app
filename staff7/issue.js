@@ -19,11 +19,14 @@ import { placeLineHTML } from './place.js';
 import { leadButton, leadForm, goalCell, pointsCell, mayEditIssue, bindEdit, bindBills, eui } from './issue_edit.js';
 import { notesHTML, bindNotes, nui } from './issue_notes.js';
 import { shareUrl, onPublicSite } from './issue_data.js';
+import { isDraft, draftMark, draftBlock, bindDraft } from './issue_draft.js';   // R-398 piece 10: a draft's mark, its "Before it goes public" block, Remove
 
 const enc = encodeURIComponent;
 const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
 const live = id => { if (!id) return false; const a = S.advocates.find(x => x.id === id); return !!a && a.is_active !== false; };   // an advocate we cannot find does not lead
 let drawnId = null;   // the issue the edit state (the lead, goal and points forms, the note box, the stopped fold) belongs to
+// piece 10: leaving an issue's page for any other page (public mode to publish, a step) ends its edit state, so the bills editor is not open again on return
+addEventListener('hashchange', () => { if (drawnId != null && location.hash.split('?')[0] !== `#/issue/${enc(drawnId)}`) drawnId = null; });
 const line = (html, { muted = false } = {}) => `<p class="bln${muted ? ' m' : ''}"><span class="blt">${html}</span></p>`;
 const dayWord = d => { const k = daysTo(d); return k === 0 ? 'today' : k === 1 ? '1 day' : `${k} days`; };
 const short = d => dateWords(d).split(', ')[1] || dateWords(d);
@@ -35,7 +38,7 @@ const TRI = () => ic('triangle-alert');
 // ---------------------------------------------------------------------------------- the band and the position line
 function bandHTML(issue, bills, who, back, backLabel) {
   const alive = bills.filter(isAlive), sub = !bills.length ? 'No bill on it this session' : !alive.length ? (bills.length === 1 ? 'Its bill stopped this year' : `None of its ${bills.length} bills is alive`) : alive.length === bills.length ? n(bills.length, 'bill', 'bills') : `${alive.length} of ${bills.length} bills alive`;
-  return `<div class="hband bb" style="${tint(issue)}"><span class="imark big iss" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht"><p class="kindl">Issue</p><h1 tabindex="-1">${esc(eCig(issue.name))}</h1><p class="bsub"><span class="bno">${esc(sub)}</span></p></div></div>`;
+  return `<div class="hband bb" style="${tint(issue)}"><span class="imark big iss" aria-hidden="true">${ic(iconOf(issue))}</span><div class="ht"><p class="kindl">Issue</p><h1 tabindex="-1">${esc(eCig(issue.name))}</h1>${isDraft(issue) ? draftMark() : `<p class="bsub"><span class="bno">${esc(sub)}</span></p>`}</div></div>`;
 }
 function leadWords(issue, me) {
   if (!live(issue.owner_id)) return 'Nobody leads yet';
@@ -46,7 +49,7 @@ function leadWords(issue, me) {
 const stanceWords = issue => (POSITIONS.find(p => p[0] === issue.stance) || [])[1] || '';
 function positionHTML(issue, me, can) {
   const w = stanceWords(issue);
-  return `<p class="bposl" id="iPos">${w ? `<span class="bpos-k">HIPHI’s position</span> <b class="bpos">${esc(w)}</b>` : '<b class="bpos">No position yet</b>'}<span class="bsep" aria-hidden="true">·</span><span id="iLead">${leadWords(issue, me)}</span>${can && !eui.lead ? leadButton() : ''}</p>${can && eui.lead ? leadForm(issue, me) : ''}`;
+  return `<p class="bposl" id="iPos">${w ? `<span class="bpos-k">HIPHI’s position</span> <b class="bpos">${esc(w)}</b>` : `${isDraft(issue) ? '<span class="bpos-k">HIPHI’s position</span> ' : ''}<b class="bpos">No position yet</b>`}<span class="bsep" aria-hidden="true">·</span><span id="iLead">${leadWords(issue, me)}</span>${can && !eui.lead ? leadButton() : ''}</p>${can && eui.lead ? leadForm(issue, me) : ''}`;
 }
 
 // ---------------------------------------------------------------------------------- where the issue stands: at most two lines
@@ -105,13 +108,17 @@ function factsHTML(issue, bills, row, who, can, me) {
   const owner = live(issue.owner_id) ? S.advocates.find(a => a.id === issue.owner_id) : null;
   const src = sortedAlive(bills, row).map(x => x.b).concat(bills.filter(b => !isAlive(b))).find(b => (Array.isArray(b.talking_points) ? b.talking_points : []).length);
   const fb = src ? `From ${esc(billNo(src))} · ${talkingHTML(src)}` : '';
+  if (isDraft(issue)) return kv([   // a draft: its goal and talking points are in the block above; nothing here says it is on the public site
+    ['Description', `${desc ? esc(eCig(desc)) : '<span class="m">Not written</span>'}<span class="to">shown on the public site once published</span>`],
+    cat ? ['Topic', `<a class="lk" href="#/issues/topic/${enc(cat.key)}${who.code ? `?who=${enc(who.code)}` : ''}">${esc(cat.name)}</a>`] : null,
+    ['Lead', owner ? (me && owner.id === me.id ? 'You' : esc(first(owner))) : 'Nobody leads yet']]);
   return kv([
     ['What we want', `${desc ? esc(eCig(desc)) : '<span class="m">Not written</span>'}<span class="to">shown on the public site</span>`],
     ['Our goal', goalCell(issue, can)],
     cat ? ['Topic', `<a class="lk" href="#/issues/topic/${enc(cat.key)}${who.code ? `?who=${enc(who.code)}` : ''}">${esc(cat.name)}</a>`] : null,
     ['Lead', owner ? (me && owner.id === me.id ? 'You' : esc(first(owner))) : 'Nobody leads yet'],
     ['Talking points', pointsCell(issue, can, fb)],
-    ['On the public site', onPublicSite(issue) ? `Shown · ${btn('Copy the link', { kind: 'text', id: 'iCopy' })}` : 'Not shown']]);
+    ['On the public site', onPublicSite(issue) ? `Shown · ${btn('Copy the link', { kind: 'text', id: 'iCopy' })}${me?.is_admin ? btn('Take it off in public mode', { kind: 'text', id: 'iOffGo', href: `#/public/issue/${enc(issue.id)}` }) : ''}` : 'Not shown']]);
 }
 
 // ---------------------------------------------------------------------------------- the page
@@ -123,14 +130,15 @@ export function issuePage({ issue, me, open, who, own, back, backLabel, row: lis
   if (!can) { eui.lead = null; eui.goal = null; eui.tp = null; }   // what was open belongs to someone who could edit
   let h = `<div class="pn">${bandHTML(issue, bills, who, back, backLabel)}<div class="pbody bill">`;
   h += positionHTML(issue, me, can);
-  h += statusHTML(issue, bills, row, who, open, own);
-  h += billsHTML(issue, bills, row, who);
+  const draft = isDraft(issue);
+  if (draft) h += draftBlock(issue, me) + (bills.length || eui.bills ? billsHTML(issue, bills, row, who) : '');   // a draft: the block, and the bills table once there is a bill (or while "Put a bill on it" is open)
+  else h += statusHTML(issue, bills, row, who, open, own) + billsHTML(issue, bills, row, who);
   h += '<h2 class="sh" id="iAboutH">About this issue</h2>' + factsHTML(issue, bills, row, who, can, me);
-  h += `<div class="bparts" id="iParts">${notesHTML(issue, bills, me, who)}</div>`;
+  if (!draft) h += `<div class="bparts" id="iParts">${notesHTML(issue, bills, me, who)}</div>`;
   return {
     html: h + '</div></div>',
     bind: () => {
-      bindTable(issue); bindEdit(issue, me); bindBills(issue, me); bindNotes(issue, me); bindMore();
+      bindTable(issue); bindEdit(issue, me); bindBills(issue, me); if (isDraft(issue)) bindDraft(issue, me); else bindNotes(issue, me); bindMore();
       document.getElementById('iCopy')?.addEventListener('click', async () => {
         const url = shareUrl(issue);
         try { await navigator.clipboard.writeText(url); toast('Link copied'); }

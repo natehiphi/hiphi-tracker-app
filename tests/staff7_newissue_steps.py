@@ -86,6 +86,12 @@ with sync_playwright() as p:
     ok(not any('Finish a new issue' in t for t in pg.evaluate(TODO)), 'with nothing missing the step ends by itself (worked out from the data, nothing stored)')
     go(pg, '#/issues')
     ok(pg.locator('#g-drafts').count() == 1, 'a ready draft is still a draft, and still in the Drafts group')
+    # Fix Y 1: the lead who cannot publish waits on the admin, under Waiting on others
+    go(pg, '#/'); w = [t for t in pg.evaluate(WAIT) if 'Sample finish draft' in t]
+    ok(len(w) == 1 and 'Waiting on Nate to publish' in w[0], f'Kevin, the lead of a ready draft, has a waiting row naming Nate ({w})')
+    pg.evaluate(SET, [DID, {'archived_at': '2026-11-20T00:00:00Z'}]); go(pg, '#/')
+    ok(not any('Sample finish draft' in t for t in pg.evaluate(WAIT)), 'the waiting row ends by itself when the draft is removed')
+    pg.evaluate(SET, [DID, {'archived_at': None}])
     # removed (archived): nowhere
     pg.evaluate(SET, [DID, {'archived_at': '2026-11-20T00:00:00Z'}]); go(pg, '#/issues')
     ok(pg.locator('#g-drafts').count() == 0, 'a removed draft is not in the Drafts group')
@@ -122,6 +128,7 @@ with sync_playwright() as p:
     ok(pg.locator('#g-drafts').count() == 0, 'Kevin\'s draft is not in Nate\'s Mine (he neither leads it nor started it)')
     pg.evaluate("async ([id, bid]) => { const d = await import('/staff6/data.js'); await d.DB.setBillIssue(bid, id, true); }", [ID, info['bill']]); go(pg, '#/')
     ok(not any('Sample admin view draft' in t for t in pg.evaluate(WAIT)), 'once it is ready the waiting row is gone')
+    ok(not any('to publish' in t for t in pg.evaluate(WAIT)), 'the admin who publishes never gets a "waiting on ... to publish" row')
     todo = pg.evaluate(TODO); pub = [t for t in todo if t.startswith('Publish a new issue')]
     ok(len(pub) == 1 and 'Sample admin view draft' in pub[0], f'it becomes the step "Publish a new issue · Sample admin view draft" ({pub})')
     ok('Kevin started it. It has a goal, three talking points and 1 bill.' in pub[0], 'its line counts the real points and bills: "Kevin started it. It has a goal, three talking points and 1 bill."')
