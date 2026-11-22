@@ -33,7 +33,7 @@ function ctlHTML(me) {
   const f = findLegs(U.q), total = allLegs().length;
   if (f.q) return `<p class="lgjump">${f.total} found · <button class="btn text" type="button" id="legClear">Clear</button></p>`;
   const g = listGroups(me, U.group), jump = U.group === 'name' ? ` · Jump to ${g.filter(x => x.items.length).map(x => `<button class="lk lgjb" type="button" data-jump="lgg-${x.key}">${esc(x.title)}</button>`).join(' · ')}` : '';
-  return `<p class="lgjump">${total}${jump}</p><div class="lgby"><span>Group by</span><button type="button" class="lgbt" data-group="name" aria-pressed="${U.group === 'name'}">Name</button><button type="button" class="lgbt" data-group="committee" aria-pressed="${U.group === 'committee'}">Committee</button></div>`;
+  return `<p class="lgjump">${jump.replace(/^ · /, '')}</p><div class="lgby"><span>Group by</span><button type="button" class="lgbt" data-group="name" aria-pressed="${U.group === 'name'}">Name</button><button type="button" class="lgbt" data-group="committee" aria-pressed="${U.group === 'committee'}">Committee</button></div>`;
 }
 export function listColHTML({ me, picked, phone, dirOn }) {
   const total = allLegs().length, dirHrefNow = phone ? LIST + '/directory' : LIST;

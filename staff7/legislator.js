@@ -23,6 +23,7 @@ const bLink = b => { const t = D.billLabel(b); return `<a class="lk" href="${esc
 const bNo = b => { const t = D.billLabel(b); return `<a class="lk" href="${esc(t.href)}">${esc(t.no)}</a>`; };
 const who = n => `<span class="lpwho">${esc(n)}</span> `;
 const me0 = () => S.me;
+let offPop = null;   // removes the last page's outside-click listener
 
 // ------------------------------------------------------------------ the view switch
 export function viewState(l) {
@@ -44,7 +45,7 @@ function nowHTML(l) {
     const w = team ? who(it.who) : '';
     if (it.kind === 'followup') return `<li>${w}<a class="lk" href="${it.b ? esc(D.billLabel(it.b).href) : '#'}">Follow up${it.b ? ' on ' + esc(D.billLabel(it.b).no) : ''} by ${esc(dateWords(it.on))}</a></li>`;
     if (it.kind === 'ask') return `<li>${w}${bNo(it.b)} · no answer yet to our ask for a hearing</li>`;
-    return `<li>${w}${bNo(it.b)} · we support · needs a hearing in ${esc(D.cname(D.seatsOf(l.id).find(s => s.role === 'chair')?.committee || ''))} by ${esc(dateWords(it.by))} · <a class="lk" href="#/ask/${encodeURIComponent(it.askKey)}">Ask for a hearing</a></li>`;
+    return `<li>${w}${bNo(it.b)} · we support · needs a hearing in ${esc(D.cfull(D.seatsOf(l.id).find(s => s.role === 'chair')?.committee || ''))} by ${esc(dateWords(it.by))} · <a class="lk" href="#/ask/${encodeURIComponent(it.askKey)}">Ask for a hearing</a></li>`;
   };
   return `<section class="lpsec" aria-labelledby="lpNowH"><h2 class="lph" id="lpNowH">Now with ${esc(D.surnameOf(l))}</h2>${items.length ? `<ul class="lpl">${items.map(li).join('')}</ul>` : `<p class="hint">Nothing needs ${team ? 'the team' : 'you'} with them now.</p>`}</section>`;
 }
@@ -53,10 +54,11 @@ function nowHTML(l) {
 const noteLi = n => `<li><p class="lpmeta">${who(D.advName(n.advocate_id))}· ${esc(noteDay(n))}${n.bill_id && S.bills.find(b => b.id === n.bill_id) ? ' · About ' + bNo(S.bills.find(b => b.id === n.bill_id)) : ''}</p><p class="lpbody">${esc(D.eCig(n.body))}</p></li>`;
 function latestHTML(l, { allOpen = false } = {}) {
   const t = D.latestTalk(l), all = D.notesOf(l), b = t && S.bills.find(x => x.id === t.bill_id);
-  const one = t ? `<p class="lpmeta"><b>${esc(D.advName(t.advocate_id))}</b> · ${esc(noteDay(t))}${b ? ' · About ' + bNo(b) : ''}</p><p class="lpbody">${esc(D.eCig(t.body))}</p>` : `<p class="hint">No talk is logged with them yet.</p>`;
+  const one = t ? `<p class="lpmeta"><b>${esc(D.advName(t.advocate_id))}</b> · ${esc(noteDay(t))}${b ? ' · About ' + bNo(b) : ''}</p><p class="lpbody">${esc(D.eCig(t.body))}</p>` : (all.length ? '' : `<p class="hint">No talk logged yet.</p>`);
   const open = allOpen || U.notes;
-  return `<section class="lpsec" aria-labelledby="lpLatH"><h2 class="lph" id="lpLatH">Latest talk</h2>${one}`
-    + (all.length > 1 || (all.length && !t) ? (allOpen ? '' : `<button class="btn text lpbtn" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : `All notes (${all.length})`}</button>`) : '')
+  const only = !t && all.length ? `<p class="hint">No talk logged yet${allOpen ? '' : ` · <button class="btn text lpbtn lpinl" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : all.length === 1 ? '1 other note' : `${all.length} other notes`}</button>`}</p>` : '';
+  return `<section class="lpsec" aria-labelledby="lpLatH"><h2 class="lph" id="lpLatH">Latest talk</h2>${one}${only}`
+    + (all.length > 1 && t ? (allOpen ? '' : `<button class="btn text lpbtn" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : `All notes (${all.length})`}</button>`) : '')
     + (open && all.length ? `<ul class="lpl lpnotes">${all.map(noteLi).join('')}</ul>` : '') + `</section>`;
 }
 
@@ -73,7 +75,7 @@ function billsHTML(l) {
   const rows = bs => bs.map(b => `<li class="lpbr"><div class="lpbm">${team ? who(D.leadName(b)) : ''}${bLink(b)}<p class="lpwh">${esc(D.whereWords(b))}</p></div><div class="lpst">${stanceCell(l, b)}</div></li>`).join('');
   const g = ([k, bs]) => {
     const on = U.open[k] ?? k === first;
-    return `<div class="lpg"><h3 class="lpgh">${esc(D.GROUP_NAMES[k])} <span class="lpmut">(${bs.length})</span>${on ? '' : ` <button class="btn text lpbtn" type="button" data-fold="${k}" aria-expanded="false">Show ${bs.length}</button>`}</h3>${on ? `<ul class="lpl lpbills">${rows(bs)}</ul>` : ''}</div>`;
+    return `<div class="lpg"><h3 class="lpgh">${esc(D.GROUP_NAMES[k])} <span class="lpmut">(${bs.length})</span>${on ? '' : ` <button class="btn text lpbtn" type="button" data-fold="${k}" aria-expanded="false">Show ${bs.length}</button>`}</h3>${on ? `<div class="lpbrh" aria-hidden="true"><span>Bill</span><span>Where they stand</span></div><ul class="lpl lpbills">${rows(bs)}</ul>` : ''}</div>`;
   };
   return `<section class="lpsec" aria-labelledby="lpBillsH"><h2 class="lph" id="lpBillsH">Our bills with them <span class="lpmut">· ${n}</span></h2>${n ? groups.map(g).join('') : `<p class="hint">${team ? 'No bills we track are with them right now.' : 'You lead none of the bills with them.'}</p>`}</section>`;
 }
@@ -103,7 +105,7 @@ function aboutHTML(l) {
 const sec = l => ({
   sw: () => switchHTML(l), now: () => nowHTML(l), latest: o => latestHTML(l, o), bills: () => billsHTML(l), asks: () => asksHTML(l), testimony: () => testimonyHTML(l), about: () => aboutHTML(l),
   notesAll: () => `<section class="lpsec" aria-labelledby="lpAllH"><h2 class="lph" id="lpAllH">All notes <span class="lpmut">· ${D.notesOf(l).length}</span></h2>${D.notesOf(l).length ? `<ul class="lpl lpnotes">${D.notesOf(l).map(noteLi).join('')}</ul>` : '<p class="hint">No notes yet.</p>'}</section>`,
-  counts: { bills: D.ourBills(l, me0()).team, talks: D.notesOf(l).length }, tab: U.tab, extras: extras(),
+  counts: { bills: (() => { const v = viewState(l); return v.view === 'yours' ? v.ob.yours : v.ob.team; })(), talks: D.notesOf(l).length }, tab: U.tab, extras: extras(),
 });
 function bodyHTML(l) { const s = sec(l); return U.style === 'B' ? renderB(s) : renderA(s); }
 
@@ -122,8 +124,8 @@ function staffPop(l) {
 export function pageSheet(l) {
   const h = D.holds(l.id), mem = D.seatsOf(l.id).filter(s => s.role === 'member');
   const seat = [h.map(s => D.seatText(s)).join(' · '), mem.length ? 'Member: ' + mem.map(s => D.cname(s.committee)).join('; ') : ''].filter(Boolean).join(' · ');
-  const strip = `<div class="hband neutral lgstrip lpstrip"><div class="lgin">${l.photo_url ? `<img class="lgph" src="${esc(l.photo_url)}" alt="" width="64" height="64">` : ''}<div class="ht"><h1 tabindex="-1">${esc(l.name)}</h1><p class="bsub">${esc(D.metaLine(l))}</p>${seat ? `<p class="lgseat">${esc(seat)}</p>` : ''}</div><button class="btn filled lpact lpdeskbtn" type="button" id="lpTalkBtn" aria-controls="lpFormBox">Log a talk</button></div>`
-    + `<div class="lpmob">${l.phone ? `<a class="btn quiet" href="${esc(D.phoneHref(l))}">Call</a>` : ''}${l.email ? `<a class="btn quiet" href="mailto:${esc(l.email)}">Email</a>` : ''}<button class="btn filled" type="button" id="lpTalkBtnM" aria-controls="lpFormBox">Log a talk</button></div>${barHTML(l)}</div>`;
+  const strip = `<div class="hband neutral lgstrip lpstrip"><div class="lgin">${l.photo_url ? `<img class="lgph" src="${esc(l.photo_url)}" alt="" width="64" height="64">` : ''}<div class="ht"><h1 tabindex="-1">${esc(l.name)}</h1><p class="bsub">${esc(D.metaLine({ ...l, places: '' }))}${D.towns(l) ? `<span class="lptown"> · ${esc(D.towns(l))}</span>` : ''}</p>${seat ? `<p class="lgseat">${esc(seat)}</p>` : ''}</div><button class="btn filled lpact lpdeskbtn" type="button" id="lpTalkBtn" aria-controls="lpFormBox">Log a talk</button></div>`
+    + `<div class="lpmob"><button class="btn filled" type="button" id="lpTalkBtnM" aria-controls="lpFormBox">Log a talk</button><div class="lpmrow">${l.phone ? `<a class="lpa" href="${esc(D.phoneHref(l))}">${ic('phone')}<span>Call</span></a>` : ''}${l.email ? `<a class="lpa" href="mailto:${esc(l.email)}">${ic('mail')}<span>Email</span></a>` : ''}</div></div>${barHTML(l)}</div>`;
   const foot = DEMO ? `<p class="lpfoot lpmut" id="lpFoot">Page style: <button class="btn text" type="button" data-style="A" aria-pressed="${U.style === 'A'}">A</button> · <button class="btn text" type="button" data-style="B" aria-pressed="${U.style === 'B'}">B</button></p>` : '';
   return `<div class="pn" data-sheet="legislator" data-leg="${l.id}">${strip}<div class="pbody mpage lgpage lpage" id="lgPageBody"><div id="lpFormBox"></div><div id="lpMain" class="lpstyle${U.style}">${''}</div>${foot}</div></div>`;
 }
@@ -156,7 +158,7 @@ export function bindPage(l, ctx = {}) {
     m.querySelectorAll('[data-act="form-x"]').forEach(b => b.addEventListener('click', () => { U.form = ''; draw(); }));
     m.querySelector('form[data-form="contact"]')?.addEventListener('submit', e => { e.preventDefault(); const was = X.contact[l.id], v = $('lpCt').value; U.form = ''; X.contact[l.id] = v; saved('Saved the contact person', () => { was === undefined ? delete X.contact[l.id] : X.contact[l.id] = was; }); });
     m.querySelector('form[data-form="cares"]')?.addEventListener('submit', e => { e.preventDefault(); const was = X.cares[l.id]; U.form = ''; X.cares[l.id] = { tags: $('lpCareT').value.split(',').map(x => x.trim()).filter(Boolean), text: $('lpCareN').value.trim() }; saved('Saved what they care about', () => { was ? X.cares[l.id] = was : delete X.cares[l.id]; }); });
-    if (U.style === 'B') bindTabs(m, t => { U.tab = t; draw(`#lpTab-${t}`); });
+    if (U.style === 'B') bindTabs(m, t => { U.tab = t; U.pop = false; U.form = ''; draw(`#lpTab-${t}`); });
     if (U.style === 'A') void 0;
   }
 
@@ -178,7 +180,12 @@ export function bindPage(l, ctx = {}) {
     U.form = ''; X.staff[l.id] = v; saved('Saved the staffer', () => { was ? X.staff[l.id] = was : delete X.staff[l.id]; }, '#lpStaffBtn');
   });
   $('lpStaffPop')?.addEventListener('keydown', e => { if (e.key === 'Escape') { U.pop = false; U.form = ''; draw('#lpStaffBtn'); } });
+  // the staffer popover closes on a click outside it, on a route change and when the tab or style changes
+  const closePop = () => { if (!U.pop) return; U.pop = false; U.form = ''; if ($('lpMain')) draw(); };
+  const away = e => { if (!document.getElementById('lgPageBody')) { U.pop = false; return; } if (U.pop && !e.composedPath().some(n => n.classList?.contains('lpstw'))) closePop(); };
+  offPop?.(); document.addEventListener('click', away); window.addEventListener('hashchange', closePop);
+  offPop = () => { document.removeEventListener('click', away); window.removeEventListener('hashchange', closePop); };
   // Page style (practice only)
-  $('lpFoot')?.addEventListener('click', e => { const s = e.target.closest('[data-style]')?.dataset.style; if (s) { U.style = s; store('style', s); draw(`#lpFoot [data-style="${s}"]`); } });
+  $('lpFoot')?.addEventListener('click', e => { const s = e.target.closest('[data-style]')?.dataset.style; if (s) { U.style = s; U.pop = false; U.form = ''; store('style', s); draw(`#lpFoot [data-style="${s}"]`); } });
   void ctx; draw();
 }

@@ -53,7 +53,7 @@ export const MORE_ROWS = [
 ];
 export const WHERE = {
   line: 'What each door and each place in More is for.',
-  doors: [['Home', 'Your steps for today, what waits on others, and suggested steps.'], ['Issues', 'Your issues and their bills, all bills, and New bills to sort.'], ['Calendar', 'Hearings and deadlines, day by day.'], ['Search', 'Find a bill, a committee or a person.'], ['More', 'The places below, which have no steady way in.']],
+  doors: [['Home', 'Your steps for today, what waits on others, and suggested steps.'], ['Issues', 'Your issues and their bills, all bills, and New bills to sort.'], ['Calendar', 'Hearings and deadlines, day by day.'], ['Search', 'Find a bill, a committee or a person.'], ['More', 'Places you reach only from here.']],
   more: [['Team', 'Late steps, and bills with no lead.'], ['Public words', 'Change what the public site says about a bill.'], ['Legislators', 'How to reach each legislator, and our bills with them.'], ['Committees', 'Each committee, its chair and its hearings.'], ['Help', 'How to do the main jobs, and what the Capitol’s words mean.']],
   you: [['My alerts', 'Where alerts reach you, and when. Press your initials, then My alerts.']],
 };
