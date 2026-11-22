@@ -3,8 +3,9 @@
 // This file also routes the pages opened from it (#/more/words, #/more/committees) to their own files. The old #/more/team addresses (A teammate's Home, taken out 21 Nov) go to Home in frame.js.
 import { ic } from './icons7.js';
 import { esc } from './parts.js';
-import { wordsPage } from './more_words.js';
+import { legislatorsModel } from './legislators.js';   // R-398 piece 12 part 1: the Legislators list and Directory
 import { committeesPage } from './more_committees.js';
+import { helpModel, helpName } from './help.js';   // R-398 piece 12: Help, its guides and Capitol words
 
 try { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL('./more.css', import.meta.url).href; document.head.appendChild(l); } catch { /* the page still works unstyled */ }
 
@@ -13,8 +14,9 @@ export const ITEMS = [
   { href: '#/team', icon: 'users', name: 'Team', line: 'Late steps · bills with no lead' },
   { href: '#/public', icon: 'globe', name: 'Public words', line: '' },
   { rule: true },
-  { href: '#/more/words', icon: 'book-open', name: 'Capitol words', line: '' },
+  { href: '#/more/legislators', icon: 'user', name: 'Legislators', line: '' },
   { href: '#/more/committees', icon: 'landmark', name: 'Committees', line: '' },
+  { href: '#/more/help', icon: 'circle-help', name: 'Help', line: '' },
   { rule: true },
   { href: '#/me/alerts', icon: 'bell', name: 'My alerts', line: 'Where the tracker’s alerts reach you, and a test message.' },
 ];
@@ -87,11 +89,13 @@ PHONE.addEventListener('change', () => close(false));
 
 // ---- the pages opened from More ----
 const PAGES = { words: ['Capitol words', 'Capitol words'], committees: ['Committees', 'Committees'] };
-export const moreName = id => (PAGES[id] || ['the page'])[0];
+export const moreName = id => { id = String(id || '').replace(/\/+$/, ''); return id === 'legislators' || id.startsWith('legislators/') ? 'Legislators' : id === 'help' ? 'Help' : id.startsWith('help/') ? helpName(id.slice(5)) : id === 'words' ? 'Capitol words' : (PAGES[id] || ['the page'])[0]; };
 // the model the frame draws: sheet, list column, label, bind, and where Back goes
 export function moreModel({ me, rt, phone }) {
   const id = String(rt.id || '').replace(/\/+$/, '');
-  if (id === 'words') { const p = wordsPage(); return { sheet: p.html, bind: p.bind, label: 'Capitol words', solo: true, back: '#/', backLabel: 'Home', col: '' }; }
+  if (id === 'legislators' || id.startsWith('legislators/')) return legislatorsModel({ me, rt: { ...rt, id }, phone });
+  if (id === 'help' || id.startsWith('help/')) return helpModel(id.slice(5));
+  if (id === 'words') { try { history.replaceState(history.state, '', '#/more/help/words'); } catch { /* the address stays */ } return helpModel('words'); }   // the old address now lives under Help
   if (id === 'committees') { const p = committeesPage(); return { sheet: p.html, bind: p.bind, label: 'Committees', solo: true, back: '#/', backLabel: 'Home', col: '' }; }
   return { sheet: '<div class="pn"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">That page is not here.</h1></div></div><div class="pbody"></div></div>', bind: null, label: 'More', solo: true, back: '#/', backLabel: 'Home', col: '' };
 }

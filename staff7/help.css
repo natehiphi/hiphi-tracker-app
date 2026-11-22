@@ -1,0 +1,26 @@
+/* Staff7 Help (R-398 piece 12): Help, the guides and Where things are. Tokens only; loaded by help.js. Reading column at most --read. */
+.hp { padding-bottom: var(--s7); }
+.hp > section, .hp > p, .hp > ol { max-width: var(--read); }
+.hp-h { font: 600 var(--f18)/1.3 var(--head); margin: var(--s5) 0 var(--s2); }
+.hp-list, .hp-defs { list-style: none; margin: 0; padding: 0; border-top: var(--line) solid var(--rule); }
+.hp-list li, .hp-defs li { border-bottom: var(--line) solid var(--rule); }
+.hp-r { display: flex; align-items: center; gap: var(--s3); min-height: var(--hit-big); padding: var(--s3) 0; color: var(--ink); text-decoration: none; }
+.hp-r:hover { background: var(--wash); }
+.hp-r:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+.hp-rt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s1); }
+.hp-rt b { font: 600 var(--f18)/1.3 var(--head); color: var(--act); }
+.hp-rl { font: 400 var(--f14)/1.4 var(--body); color: var(--ink); }
+.hp-go { flex: none; color: var(--muted); }
+.hp-need { font: 400 var(--f18)/1.5 var(--body); margin: var(--s2) 0 var(--s4); }
+.hp-steps { list-style: none; margin: 0; padding: 0; border-top: var(--line) solid var(--rule); }
+.hp-steps li { display: flex; gap: var(--s3); align-items: flex-start; padding: var(--s3) 0; border-bottom: var(--line) solid var(--rule); }
+.hp-n { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--person-s); height: var(--person-s); border-radius: 50%; background: var(--tint); font: 600 var(--f14)/1 var(--head); color: var(--ink); }
+.hp-t { font: 400 var(--f16)/1.5 var(--body); padding-top: var(--s1); min-width: 0; overflow-wrap: anywhere; }
+.hp-t b { font-weight: 700; }
+.hp-defs li { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr); column-gap: var(--s4); padding: var(--s3) 0; }
+.hp-defs b { font: 600 var(--f16)/1.4 var(--head); }
+.hp-defs span { font: 400 var(--f16)/1.5 var(--body); }
+.hp-ask { margin-top: var(--s5); }
+.hp-ask .hp-h { margin-top: 0; }
+.hp-ask p { margin: 0; font: 400 var(--f16)/1.5 var(--body); }
+@media (max-width: 599px) { .hp-defs li { grid-template-columns: 1fr; row-gap: var(--s1); } }

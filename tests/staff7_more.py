@@ -42,8 +42,8 @@ with sync_playwright() as p:
         ok(d['tag'] == 'BUTTON' and d['pop'] == 'menu' and d['exp'] == 'false' and not d['href'], f'1 {who}: More is a button with aria-haspopup="menu", closed ({d})')
         pg.click('#moreBtn'); pg.wait_for_timeout(250)
         items = pg.evaluate(ITEMS)
-        ok(menu_open(pg) and [i['href'] for i in items] == ['#/team', '#/public', '#/more/words', '#/more/committees', '#/me/alerts'], f'1 {who}: opens with five items in order ({[i["href"] for i in items]})')
-        ok([i['name'] for i in items] == ['Team Late steps · bills with no lead', 'Public words', 'Capitol words', 'Committees', 'My alerts Where the tracker’s alerts reach you, and a test message.'], f'1 {who}: names and muted lines ({[i["name"] for i in items]})')
+        ok(menu_open(pg) and [i['href'] for i in items] == ['#/team', '#/public', '#/more/legislators', '#/more/committees', '#/more/help', '#/me/alerts'], f'1 {who}: opens with six items in order ({[i["href"] for i in items]})')
+        ok([i['name'] for i in items] == ['Team Late steps · bills with no lead', 'Public words', 'Legislators', 'Committees', 'Help', 'My alerts Where the tracker’s alerts reach you, and a test message.'], f'1 {who}: names and muted lines ({[i["name"] for i in items]})')
         ok(not any('Lead changes' in i['text'] for i in items) and 'Lead changes' not in pg.inner_text('#moreLayer'), f'1 {who}: Lead changes is not in the menu')
         ok(pg.evaluate("() => document.querySelectorAll('#moreLayer .mrule').length") == 2 and pg.evaluate("() => document.querySelectorAll('#moreLayer h2, #moreLayer h3, #moreLayer .mhead').length") == 0, f'1 {who}: two dividers, no group headings')
         ok(all(i['h'] >= 44 for i in items), f'1 {who}: rows at least 44px ({[round(i["h"]) for i in items]})')
@@ -62,7 +62,7 @@ with sync_playwright() as p:
     ok(menu_open(pg) and a['href'] == '#/team' and a['vis'], f'1 keyboard: Enter opens it, focus is on the first item with a focus ring ({a["href"]}, visible={a["vis"]})')
     seq = []
     for k in ('ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowUp'): pg.keyboard.press(k); seq.append(pg.evaluate(ACTIVE)['href'])
-    ok(seq == ['#/public', '#/more/words', '#/more/committees', '#/me/alerts', '#/team', '#/me/alerts'], f'1 keyboard: arrows move and wrap ({seq})')
+    ok(seq == ['#/public', '#/more/legislators', '#/more/committees', '#/more/help', '#/me/alerts', '#/more/help'], f'1 keyboard: arrows move and wrap ({seq})')
     pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     ok(not menu_open(pg) and pg.evaluate(ACTIVE)['id'] == 'moreBtn' and '#/more' not in pg.evaluate('location.hash'), '1 keyboard: Escape closes it, focus back on the door')
     # Tab on the laptop menu closes it and the browser's Tab goes on from the door (focus is not left behind or lost)
@@ -87,7 +87,7 @@ with sync_playwright() as p:
     items = pg.evaluate(ITEMS)
     ok(info['role'] == 'dialog' and info['modal'] == 'true' and info['back'] and info['above'], f'2 phone: a modal sheet above the bar with a backdrop ({info})')
     ok(info['closeText'] == 'Close' and info['cw'] >= 44 and info['ch'] >= 44 and info['cright'] < 40 and info['ctop'] < 80, f'2 phone: a visible Close at the sheet\'s top right, 44px ({info["cw"]}x{info["ch"]})')
-    ok(len(items) == 5 and all(i['h'] >= 48 for i in items), f'2 phone: five rows of at least 48px ({[round(i["h"]) for i in items]})')
+    ok(len(items) == 6 and all(i['h'] >= 48 for i in items), f'2 phone: six rows of at least 48px ({[round(i["h"]) for i in items]})')
     ok(pg.evaluate("() => document.getElementById('moreBtn').getBoundingClientRect().width") > 0 and pg.evaluate(PILL)[-1]['shadow'] != 'none', '2 phone: More is the fifth tab and shows pressed')
     snap(pg, 'menu_390.png')
     inside = []
@@ -104,8 +104,8 @@ with sync_playwright() as p:
     ok(not menu_open(pg), '2 phone: a downward swipe closes it')
     pg.click('#moreBtn'); pg.wait_for_timeout(250); pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
     ok(not menu_open(pg), '2 phone: Escape closes it too')
-    pg.click('#moreBtn'); pg.wait_for_timeout(250); pg.click('#moreLayer a[href="#/more/words"]'); pg.wait_for_timeout(500)
-    ok(pg.evaluate('location.hash') == '#/more/words' and not menu_open(pg) and pg.evaluate(LIT)['more'] == 'page', '2 phone: Capitol words opens, the sheet is gone and More is lit')
+    pg.click('#moreBtn'); pg.wait_for_timeout(250); pg.click('#moreLayer a[href="#/more/help"]'); pg.wait_for_timeout(500)
+    ok(pg.evaluate('location.hash') == '#/more/help' and not menu_open(pg) and pg.evaluate(LIT)['more'] == 'page', '2 phone: Help opens, the sheet is gone and More is lit')
     ok(not pg.errs, f'2 phone: no page error ({pg.errs[:1]})'); pg.close()
 
     # ============ 3. Capitol words ============
@@ -135,7 +135,7 @@ with sync_playwright() as p:
     pg.fill('#cwIn', ''); pg.wait_for_timeout(200)
     ok(pg.locator('.cwe').count() == 18, '3 clearing the box brings all 18 back')
     ok(pg.evaluate(LIT)['cur'] == ['More'], f'3 More is the lit door ({pg.evaluate(LIT)["cur"]})')
-    t = pg.evaluate(TOP); ok(t['backVis'] and t['closeVis'] and t['back'] == 'Back to Home' and t['close'] == 'Close', f'3 Back and Close ({t})')
+    t = pg.evaluate(TOP); ok(t['backVis'] and t['closeVis'] and t['back'] == 'Back to Help' and t['close'] == 'Close', f'3 Back and Close ({t})')
     ok(pg.evaluate(SIDE) and not pg.errs, f'3 no sideways scroll, no page error ({pg.errs[:1]})')
     snap(pg, 'words.png'); pg.close()
 
@@ -174,9 +174,9 @@ with sync_playwright() as p:
     ok(pg.evaluate(TOP)['back'] == 'Back to Calendar', f'6 Back says where you came from ({pg.evaluate(TOP)["back"]})')
     pg.click('#tbBack'); pg.wait_for_timeout(500)
     ok(pg.evaluate('location.hash') == '#/calendar', '6 Back goes there')
-    pg.click('#moreBtn'); pg.wait_for_timeout(200); pg.click('#moreLayer a[href="#/more/words"]'); pg.wait_for_timeout(500); pg.click('#tbClose'); pg.wait_for_timeout(500)
+    pg.click('#moreBtn'); pg.wait_for_timeout(200); pg.click('#moreLayer a[href="#/more/help"]'); pg.wait_for_timeout(500); pg.click('#tbClose'); pg.wait_for_timeout(500)
     ok(pg.evaluate('location.hash') == '#/calendar', '6 Close goes there too')
-    go(pg, '#/'); pg.click('#moreBtn'); pg.wait_for_timeout(200); pg.click('#moreLayer a[href="#/more/words"]'); pg.wait_for_timeout(500); pg.keyboard.press('Escape'); pg.wait_for_timeout(500)
+    go(pg, '#/'); pg.click('#moreBtn'); pg.wait_for_timeout(200); pg.click('#moreLayer a[href="#/more/help"]'); pg.wait_for_timeout(500); pg.keyboard.press('Escape'); pg.wait_for_timeout(500)
     ok(pg.evaluate('location.hash') == '#/', '6 Escape on an opened page goes back too')
     ok('Explore' not in pg.inner_text('body') and not pg.errs, f'6 nothing says Explore, no page error ({pg.errs[:1]})'); pg.close()
 
