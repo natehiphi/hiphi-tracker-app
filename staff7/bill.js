@@ -17,6 +17,7 @@ import { isNoLead } from './team_data.js';   // R-398 piece 6: the Team door on 
 import { billTextUrl, afterHTML, moreAfterHTML, chairsHTML, askedWords, publicHTML, talkingHTML, bindMore } from './bill_more.js';
 import { partB, bindPartB } from './bill_history.js';
 import { chairLineHTML, bindChairLine } from './bill_chair.js';
+import { chairIdsOf as chairIds } from '../staff6/model.js';
 import { askForBill } from './ask_data.js';
 import { stoppedWords } from './issue_table.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
@@ -107,7 +108,7 @@ function statusLines(b, issue, who, open, own, nx, onIssue, others) {
   if (h) {
     const room = roomName(h.room), notice = http(h.notice_url) ? ` · ${ext(h.notice_url, 'Agenda')}` : '', sit = sitHref(h, who, own, onIssue);
     // the page LEADS with the bill's place (place.js, the same words as every table); the hearing's own line follows without the committee or the status. "See the hearing" ends it (a link to the sitting in Calendar), unless the viewer has a step of their own to do
-    out.push(line(boldFirst(placeLineHTML(b, null, { link: true }))));
+    out.push(line(boldFirst(placeLineHTML(b, null, { link: true })) + chairTail(b)));
     out.push(line(`<b>${esc(cap(hearTxt(h.scheduled_at)))}</b>${room ? ` · ${esc(room)}` : ''}${notice}${!step && sit ? ` · <a class="lk" href="${sit}">See the hearing</a>` : ''}`));
     const due = testimonyDue(h), st = letterState(h, b), gone = due <= Date.now(), t = hearTxt(due), accepted = new Date(h.scheduled_at).getTime() > Date.now();
     const d = draftFor(h, b), doc = d && http(d.doc_url) ? ` · ${ext(d.doc_url, 'Open the testimony')}` : '';
@@ -138,7 +139,7 @@ function statusLines(b, issue, who, open, own, nx, onIssue, others) {
   // in a committee with nothing scheduled and no deadline of its own to chase: the date the committee must hear it by when the Capitol's calendar gives one (never guessed)
   const cs = stopOf(b), cd = cs.deadline && !cs.deadline.missed ? cs.deadline : null;
   const none = cs.phase === 'committee' && cs.committee && cd ? line(`It must be heard by ${esc(dateWords(String(cd.date).slice(0, 10)))}.`, { muted: true }) : '';   // only what is new: the place line above already names the committee and says nothing is scheduled
-  return line(boldFirst(where)) + (cleared ? line(esc(`${clearedLabel(row)}.`), { muted: true }) : '') + none + mine;   // the place leads; "Cleared Thursday’s deadline." follows
+  return line(boldFirst(where) + chairTail(b)) + (cleared ? line(esc(`${clearedLabel(row)}.`), { muted: true }) : '') + none + mine;   // the place leads; "Cleared Thursday’s deadline." follows
 }
 
 // ---------------------------------------------------------------------------------- 4. the facts
@@ -154,6 +155,14 @@ function companionsHTML(b, who) {
   };
   return `<ul class="blist">${nums.map(li).join('')}</ul>`;
 }
+// "· Chair Rep. Hashem" after the place line, each chair linked (nothing when the data names no chair)
+function chairTail(b) {
+  const st = stopOf(b); if (!st || st.phase !== 'committee' || !st.committee) return '';
+  const ids = [...new Set(String(st.committee).split('/').map(c => c.trim()).filter(Boolean).flatMap(c => chairIds(c)).map(String))], ls = ids.map(id => (S.legislators || []).find(l => String(l.id) === id)).filter(Boolean);
+  if (!ls.length) return '';
+  const one = l => `<a class="lk" href="#/more/legislators/${enc(l.id)}">${esc(`${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${String(l.sort_name || l.name).split(',')[0].trim()}`)}</a>`;
+  return ` · ${ls.length > 1 ? 'Chairs' : 'Chair'} ${ls.map(one).join(' and ')}`;
+}
 // Sponsors: the first (named in full, a link when the legislator can be found), then the others behind "Show all"
 const lastOf = l => norm(String(l.sort_name || l.name).split(',')[0]);
 function legFor(sp, b) {
@@ -162,7 +171,7 @@ function legFor(sp, b) {
   if (!c.length) c = (S.legislators || []).filter(l => lastOf(l) === key);
   const l = c.length === 1 ? c[0] : null, last = l ? String(l.sort_name || l.name).split(',')[0].trim() : raw === raw.toUpperCase() ? raw.replace(/\w\S*/g, w => w[0] + w.slice(1).toLowerCase()) : raw;
   const title = (l ? l.chamber : ch) === 'S' ? 'Sen.' : 'Rep.', text = esc(`${title} ${last}`);
-  return l ? `<a class="lk" href="#/search/person/${enc(l.id)}">${text}</a>` : text;
+  return l ? `<a class="lk" href="#/more/legislators/${enc(l.id)}">${text}</a>` : text;
 }
 export function sponsorsHTML(b) {
   const sps = (b.sponsors || []).filter(s => String(s?.n || s?.name || s || '').trim()); if (!sps.length) return '';

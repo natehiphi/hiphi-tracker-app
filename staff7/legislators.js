@@ -7,6 +7,7 @@
 import { ic } from './icons7.js';
 import { esc, plainBand } from './parts.js';
 import { allLegs, legOf, listGroups, findLegs, roleLine, towns, metaLine, holds, seatsOf, seatText, cname, yoursIds } from './leg_data.js';
+import { pageSheet, bindPage } from './legislator.js';
 import { directoryHTML, directoryBody, bindDirectory, dirHref } from './leg_dir.js';
 
 try { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL('./leg.css', import.meta.url).href; document.head.appendChild(l); } catch { /* the page still works unstyled */ }
@@ -42,13 +43,11 @@ export function listColHTML({ me, picked, phone, dirOn }) {
     + `<div id="legCtl">${ctlHTML(me)}</div></div><div id="legList" class="lglist">${bodyHTML(me, picked)}</div></div>`;
 }
 
-// ---- one legislator's page: the strip only, until part 3 draws the rest (photo, name, chamber · party · district and towns, seats) ----
+// ---- one legislator's page: legislator.js draws it (strip, contact bar, style A or B) ----
 export function legislatorSheet(id, ctx = {}) {
   const l = legOf(id);
   if (!l) return `<div class="pn" data-notfound="1">${plainBand('That legislator is not here.', 'Pick one from the list.')}<div class="pbody mpage"></div></div>`;
-  const h = holds(l.id), mem = seatsOf(l.id).filter(s => s.role === 'member'), seatTxt = h.map(s => seatText(s)).join(' · ') + (mem.length ? `${h.length ? ' · ' : ''}Member: ${mem.map(s => esc(cname(s.committee))).join('; ')}` : '');
-  const strip = `<div class="hband neutral lgstrip"><div class="lgin">${l.photo_url ? `<img class="lgph" src="${esc(l.photo_url)}" alt="" width="64" height="64">` : ''}<div class="ht"><h1 tabindex="-1">${esc(l.name)}</h1><p class="bsub">${esc(metaLine(l))}</p>${seatTxt ? `<p class="lgseat">${h.length ? esc(h.map(s => seatText(s)).join(' · ')) : ''}${mem.length ? `${h.length ? ' · ' : ''}Member: ${esc(mem.map(s => cname(s.committee)).join('; '))}` : ''}</p>` : ''}</div></div></div>`;
-  return `<div class="pn" data-sheet="legislator" data-leg="${l.id}">${strip}<div class="pbody mpage lgpage" id="lgPageBody"></div></div>`;
+  return pageSheet(l, ctx);
 }
 
 // ---- the model the frame draws ----
@@ -58,7 +57,7 @@ export function legislatorsModel({ me, rt, phone }) {
   const picked = l ? l.id : null, ctx = { me, phone };
   const col = listColHTML({ me, picked, phone, dirOn: isDir && (!phone || sub === 'directory') });
   const dir = () => directoryHTML({ me, view: U.view, ids: findLegs(U.q).ids, total: allLegs().length });
-  const bind = () => bindList(me, phone, !!l);
+  const bind = () => { bindList(me, phone, !!l); if (l) bindPage(l, ctx); };
   if (isDir) return phone && !sub ? { col, sheet: dir(), bind, label: 'Legislators', listOnly: true }
     : { col, sheet: dir(), bind, label: 'Legislators', picked: phone, back: LIST, backLabel: 'Legislators' };
   return { col, sheet: legislatorSheet(sub, ctx), bind, label: l ? l.name : 'Not found', picked: true, back: LIST, backLabel: 'Legislators', notFound: !l };

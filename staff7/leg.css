@@ -52,3 +52,66 @@
   .lgd-row .lgd-n::before { content: none !important; }
   .lgd-ph a { display: inline-block; min-height: 44px; line-height: 44px; }
 }
+
+/* the legislator page, both styles (part 3): every class starts lp */
+.lpstrip { flex-direction: column; align-items: stretch; }
+.lpstrip .lgin { width: 100%; }
+.lpstrip .lgin .ht { flex: 1 1 auto; min-width: 0; }
+.lpact { flex: none; }
+.lpmob { display: none; }
+.lpbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s4); margin: var(--s3) 0 0; padding-top: var(--s2); border-top: 1px solid var(--rule); }
+.lpa { display: inline-flex; align-items: center; gap: var(--s2); min-height: var(--hit); background: none; border: 0; padding: 0; font: 700 var(--f16)/1.2 var(--head); color: var(--act); text-decoration: none; cursor: pointer; }
+.lpa svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.lproom { color: var(--ink); cursor: default; font-weight: 500; }
+.lpstw { position: relative; }
+.lppop { position: absolute; z-index: 20; top: 100%; left: 0; width: 300px; max-width: calc(100vw - 2 * var(--px, 16px)); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r12); box-shadow: var(--sh1); padding: var(--s3); font-size: var(--f14); }
+.lppop[hidden] { display: none; }
+.lppop p { margin: 0 0 var(--s2); overflow-wrap: anywhere; }
+.lpsrc { margin: var(--s1) 0 0; font-size: var(--f14); color: var(--muted); }
+.lpage { padding-bottom: var(--s7); }
+.lpcol { max-width: var(--read); margin: 0 auto; }
+.lpsec { margin: 0 0 var(--s6); }
+.lph { font: 600 var(--f18, 18px)/1.3 var(--head); margin: 0 0 var(--s2); }
+.lpmut, .lpwho { color: var(--muted); font-weight: 400; }
+.lpwho { font-size: var(--f14); }
+.lpsw { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); }
+.lpsegs { margin-top: 0; width: auto; }
+.lpsegs .seg { padding: 0 var(--s4); }
+.lpsegs .seg:disabled { opacity: .5; cursor: not-allowed; }
+.lpnone { margin: calc(var(--s2) * -1) 0 var(--s4); }
+.lpl { list-style: none; margin: 0; padding: 0; }
+.lpl > li { padding: var(--s3) 0; border-bottom: 1px solid var(--rule); }
+.lpl p { margin: 0; } .lpl p + p { margin-top: var(--s1); }
+.lpmeta { font-size: var(--f14); color: var(--muted); } .lpmeta b { color: var(--ink); }
+.lpbody { line-height: 1.5; }
+.lpbtn { min-height: var(--hit); }
+.lpgh { font: 600 var(--f16)/1.3 var(--head); margin: var(--s3) 0 var(--s1); }
+.lpbr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2) var(--s4); align-items: start; }
+.lpwh { font-size: var(--f14); color: var(--muted); }
+.lpst { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; font-size: var(--f14); }
+.lpsl { display: none; } .lpsv { color: var(--muted); margin-right: var(--s1); }
+.lpst select, .lpin select, .lpin input, .lpin textarea, .lptalk select, .lptalk input, .lptalk textarea { font: inherit; font-size: var(--f16); min-height: var(--hit); max-width: 100%; border: 1px solid var(--edge, #aaa); border-radius: var(--r8); padding: 0 var(--s2); background: var(--surface); }
+.lpin textarea, .lptalk textarea { width: 100%; padding: var(--s2); min-height: 96px; box-sizing: border-box; }
+.lpin input[type=text], .lpin input[type=tel], .lpin input[type=email] { width: 100%; box-sizing: border-box; }
+.lpin label { display: block; margin: var(--s2) 0 var(--s1); }
+.lptags { display: flex; flex-wrap: wrap; gap: var(--s1); list-style: none; margin: 0 0 var(--s2); padding: 0; }
+.lptags li { display: inline-flex; align-items: center; min-height: var(--person-s); padding: 0 var(--s2); border-radius: var(--pill, 16px); background: var(--tint); font-size: var(--f14); }
+.lptalk { background: var(--wash); border-radius: var(--r12); padding: var(--s4); margin: 0 0 var(--s5); }
+.lpf { margin: 0 0 var(--s3); } .lpf label { display: block; margin: 0 0 var(--s1); }
+.lprow { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+.lpbtns { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s3); }
+.lptabs { display: flex; gap: var(--s4); border-bottom: 1px solid var(--rule); margin: 0 0 var(--s4); overflow-x: auto; }
+.lptab { background: none; border: 0; border-bottom: 3px solid transparent; min-height: var(--hit); padding: 0 var(--s1); font: 600 var(--f16)/1 var(--head); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.lptab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--act); }
+#lpPanel:focus-visible { outline-offset: 4px; }
+.lpfoot { margin: var(--s6) 0 0; font-size: var(--f14); }
+.lpfoot .btn.text { min-height: var(--hit); padding: 0 var(--s1); } .lpfoot [aria-pressed="true"] { font-weight: 700; color: var(--ink); text-decoration: none; }
+@media (max-width: 899px) {
+  .lpdeskbtn, .lpa.lpdesk { display: none; }
+  .lpmob { display: flex; gap: var(--s2); margin: var(--s3) 0 0; } .lpmob .btn { flex: 1; min-width: 0; padding: 0 var(--s2); }
+  .lpbr { grid-template-columns: minmax(0, 1fr); } .lpst { justify-content: flex-start; } .lpsl { display: inline; font-weight: 700; color: var(--muted); margin-right: var(--s1); }
+  .lppop { left: auto; right: 0; }
+  .lpsw { flex-wrap: wrap; gap: var(--s2); }
+}
+.lpstrip h1 { font-size: var(--f22); line-height: 1.2; }
+.lpbtn { padding-left: 0; }

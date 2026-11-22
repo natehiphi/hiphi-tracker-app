@@ -61,6 +61,13 @@ const foot = (s, ctx, m, long) => !m ? `<div class="sfoot" id="akFoot">${btn('Op
     ? `<div class="sfoot" id="akFoot" role="group" aria-labelledby="fq"><p class="fq" id="fq">Did you send it?</p>${btn('Yes, sent', { kind: 'filled', id: 'yesBtn' })}${btn('Not yet', { kind: 'quiet', id: 'notYet' })}</div>`
     : `<div class="sfoot" id="akFoot">${btn(long ? 'Copy the message' : 'Open in my mail app', { kind: 'filled', id: 'mailBtn' })}<span class="fnote">${long ? 'It is too long for some mail apps. Paste it into your mail.' : 'It opens your own mail. You send it from there.'} ${btn('I already sent it', { kind: 'text', id: 'already' })}</span></div>`;
 
+// The chair, named and linked to their page, with the phone under the name when known (a joint committee lists each chair)
+function chairBlock(a, plural, cm) {
+  const ids = (a.partial || a.waitOn) && a.m.legId ? [a.m.legId] : chairIdsOf(a.code), ls = [...new Set(ids.map(String))].map(id => (S.legislators || []).find(l => String(l.id) === id)).filter(Boolean);
+  if (!ls.length) return `<p class="chair"><span class="muted">${plural ? 'The chairs' : 'The chair'}:</span> <b>${esc(a.m.who)}</b>, ${esc(cm)}</p>`;
+  const one = l => { const tel = String(l.phone || '').trim(); return `<span class="chl1"><a class="lk" href="#/more/legislators/${encodeURIComponent(l.id)}"><b>${esc(l.name)}</b></a>${ls.length === 1 ? `<span class="chcm">, ${esc(cm)}</span>` : ''}${tel ? `<span class="chph muted">Phone <a class="lk" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}">${esc(tel)}</a></span>` : ''}</span>`; };
+  return `<div class="chair chlist"><span class="muted">${ls.length > 1 ? 'The chairs' : 'The chair'}:</span> ${ls.map(one).join('')}</div>`;
+}
 export function askSheet(s, ctx) {
   const a = s.ask, m = mailFor(s), dr = draftOf(s, ctx), plural = (a.m?.n || 1) > 1, cm = cmteWords(a.code);
   let h = '<div class="pn">' + band(s.issue, s.verb, s.name, s.no);
@@ -71,7 +78,7 @@ export function askSheet(s, ctx) {
     // the ask is one record for the whole team (every row reads "Asked by ..."), so the owner sees it as soon as it is recorded
     h += `<p class="lead tight">${by && owner && by.id !== owner.id ? `${esc(first(by))} handed you this one for ${esc(s.forWhom)}.` : `${esc(s.forWhom)} asked you to do this one.`} ${esc(s.forWhom)} sees it when you have asked.</p>`;
   }
-  h += a.m ? `<p class="chair"><span class="muted">${plural ? 'The chairs' : 'The chair'}:</span> <b>${esc(a.m.who)}</b>, ${esc(cm)}</p>`
+  h += a.m ? chairBlock(a, plural, cm)
     : `<p class="lead">No chair is listed for ${esc(cm)} yet.</p>`;
   if (s.bills?.length > 1) h += `<h2 class="sh">The bills</h2><ul class="askbills">${s.bills.map(x => `<li>${esc(x.name)}<span class="no">${esc(x.no)}</span></li>`).join('')}</ul>`;
   if (m) {

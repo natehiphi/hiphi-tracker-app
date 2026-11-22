@@ -108,9 +108,11 @@ export function testimonyOf(l) {
   for (const [bid, arr] of Object.entries(S.drafts || {})) for (const d of arr) if (d.status === 'filed' && d.filed_at && bw.codesOf(d.committee).some(c => codes.includes(c))) { const b = S.bills.find(x => x.id === bid); if (b) out.push({ b, d }); }
   return out.sort((a, b) => new Date(b.d.filed_at) - new Date(a.d.filed_at));
 }
-export const STANCES = ['Yes', 'Leaning yes', 'Not known', 'Leaning no', 'No'];
-export const practiceStances = {};   // PRACTICE ONLY: stances set this tab, "legId|billId" -> label; live writes go to legislator_stances
-export const stanceOf = (l, b) => practiceStances[`${l.id}|${b.id}`] || (S.stances || []).find(s => String(s.legislator_id) === String(l.id) && s.bill_id === b.id)?.stance_label || 'Not known';
+// Stances are saved as the staff6 words (legislator_stances.stance): yes, leaning_yes, unknown, leaning_no, no. DB.setStance writes them (in memory on the practice copy).
+export const STANCE_OPTS = [['yes', 'Yes'], ['leaning_yes', 'Leaning yes'], ['unknown', 'Not known'], ['leaning_no', 'Leaning no'], ['no', 'No']];
+export const STANCES = STANCE_OPTS.map(x => x[1]);
+export const stanceValue = (l, b) => (S.stances || []).find(s => String(s.legislator_id) === String(l.id) && s.bill_id === b.id)?.stance || 'unknown';
+export const stanceOf = (l, b) => STANCE_OPTS.find(x => x[0] === stanceValue(l, b))?.[1] || 'Not known';
 
 // "Now with them": follow-ups due (a note's follow_up_on, when the column exists), asks with no answer, and bills we support that sit in a committee they chair, need a hearing within
 // 14 days and have no ask yet. view 'yours' keeps only the viewer's bills and asks; 'team' keeps all, each marked with who leads it. opts.now (YYYY-MM-DD) is for tests.

@@ -61,6 +61,7 @@ def external_blocker(ctx, bad):
     def h(route):
         u = route.request.url
         if 'fonts.g' in u: return route.continue_()
+        if 'RepSenPhotos' in u: return route.abort()   # a legislator's photo on their page (R-398 piece 12): blocked offline, not a stray request
         bad.append(u); route.abort()
     ctx.route(lambda u: '127.0.0.1' not in u and 'localhost' not in u, h)
 def open_as(br, who, w, h, hash=''):
@@ -321,7 +322,7 @@ with sync_playwright() as p:
         ok(ul and not revisit(pg, ul[:2], 'other'), f'{cu}: an untracked companion links to the look-only bill page, which opens ({ul[:2]})')
     # introducers: first as a link, "and N others", Show all in place, kept across the minute's redraw
     ms = pick('manysp'); bill(pg, ms); sp0 = pg.evaluate("() => { const dd = [...document.querySelectorAll('#bFacts > div')].find(d => d.querySelector('dt').innerText === 'Introduced by').querySelector('dd'); return { txt: dd.innerText.replace(/\\s+/g, ' ').trim(), first: dd.querySelector('a')?.getAttribute('href'), btn: dd.querySelector('button')?.innerText, exp: dd.querySelector('button')?.getAttribute('aria-expanded'), long: dd.querySelector('[data-bs=long]').hidden }; }")
-    ok(re.match(r'^(Rep|Sen)\. \S+.* and \d+ others · Show all$', sp0['txt']) and sp0['first'] and sp0['first'].startswith('#/search/person/') and sp0['long'], f'{ms}: introduced by a named first sponsor (a link) and N others, Show all ({sp0["txt"]})')
+    ok(re.match(r'^(Rep|Sen)\. \S+.* and \d+ others · Show all$', sp0['txt']) and sp0['first'] and sp0['first'].startswith('#/more/legislators/') and sp0['long'], f'{ms}: introduced by a named first sponsor (a link) and N others, Show all ({sp0["txt"]})')
     n_all = pg.evaluate("async n => { const d = await import('/staff6/data.js'); return d.S.bills.find(b => b.bill_number === n).sponsors.length; }", ms)
     pg.click('button[data-bshow]'); pg.wait_for_timeout(150)
     sp1 = pg.evaluate("() => { const dd = document.querySelector('[data-bs=long]').closest('dd'); return { long: !dd.querySelector('[data-bs=long]').hidden, short: dd.querySelector('[data-bs=short]').hidden, btn: dd.querySelector('button').innerText, n: dd.querySelector('[data-bs=long]').innerText.split(', ').length, hash: location.hash, links: dd.querySelectorAll('[data-bs=long] a').length }; }")
@@ -386,7 +387,7 @@ with sync_playwright() as p:
     st = pg.evaluate(STAT)
     ok(st[1].startswith('Needs a hearing by ') and st[2].startswith('If it is not heard by then, it stops for the year. Chairs: ') and ' and ' in st[2], f'SB11: line 3 says what happens, then "Chairs: A and B" for a joint committee ({st[2]})')
     ch = pg.evaluate("() => [...document.querySelectorAll('#bStat .bln:nth-child(3) a')].map(a => [a.innerText.trim(), a.getAttribute('href')])")
-    ok(re.match(r'^If it is not heard by then, it stops for the year\. Chairs: (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\) and (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\)$', st[2]) and sum(1 for h in ch if h[1].startswith('#/search/person/')) == 2 and sum(1 for h in ch if h[1].startswith('tel:')) == 2, f'SB11: each chair is a link with room and a phone as a tel: link ({ch})')
+    ok(re.match(r'^If it is not heard by then, it stops for the year\. Chairs: (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\) and (Rep|Sen)\. \w+ \(Room \w+, [\d-]+\)$', st[2]) and sum(1 for h in ch if h[1].startswith('#/more/legislators/')) == 2 and sum(1 for h in ch if h[1].startswith('tel:')) == 2, f'SB11: each chair is a link with room and a phone as a tel: link ({ch})')
     ok(not revisit(pg, [h[1] for h in ch if h[1].startswith('#/')], 'chair'), 'SB11: each chair\'s link opens the legislator\'s page'); go(pg, '#/bill/SB11'); pg.wait_for_selector('#bParts')
     ok(len(st) >= 4 and re.match(r'^[12] more committees? after this one: .+', st[3]) and (' then ' in st[3]) and pg.locator('#bStat .bln:nth-child(4).m a[href^="#/search/committee/"]').count() >= 1, f'SB11: a muted line says how many committees come after this one, each a link ({st[3:]})')
     ok(not any('asked the chair' in x for x in st), 'SB11: nobody has asked yet, so no "asked" sentence (the practice copy holds no chair ask for it)')
