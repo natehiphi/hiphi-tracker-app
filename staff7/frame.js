@@ -25,12 +25,9 @@ import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's pub
 import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
 import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
 import { teamModel } from './team.js';
-<<<<<<< HEAD
 import { moreModel, moreName, doorHTML, bindMore } from './more.js';   // R-398 piece 11: the More door, its menu and the pages opened from it
-=======
 import { placePage } from './do_place.js';   // R-398 piece 9 gap E: Set position and issue
 import { billIssuesPage } from './bill_issues.js';   // R-398 piece 9 gap C: Issues for <bill>
->>>>>>> main
 import { leadsPage } from './do_leads.js';   // R-398 piece 6: the admin's lead changes   // R-398 piece 6: the Team page
 
 const $ = id => document.getElementById(id);
