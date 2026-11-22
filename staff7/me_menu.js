@@ -7,6 +7,9 @@ import { S } from '../staff6/data.js';
 import { ic } from './icons7.js';
 import { esc } from './parts.js';
 
+// the stylesheet comes with the module (staff7.html is not touched): added once, at import, before the first draw
+try { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = new URL('./me.css', import.meta.url).href; document.head.appendChild(l); } catch { /* the door still works unstyled */ }
+
 const PAGE = '#/me/alerts';
 const SIGN_OUT_NOTE = 'Not in the practice copy';
 let openBy = '', menu = null, started = false;

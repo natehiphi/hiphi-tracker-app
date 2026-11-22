@@ -75,17 +75,12 @@ with sync_playwright() as p:
 
     # ---- 1b. the phone's circle ----
     pg, errs, bad = open_as(br, 'KV', 390, 844, hash='#/')
-    pd = pg.locator('#meDoorP')
-    ring = pg.evaluate("() => { const c = getComputedStyle(document.getElementById('meDoorP')); return [c.borderTopWidth, c.borderTopColor] }")
-    ok(ring == ['1px', 'rgb(138, 130, 119)'], f'1 phone: the circle is a visible ring at rest {ring}')
-    geo = pg.evaluate("() => { const c = document.getElementById('meDoorP').getBoundingClientRect(), d = document.querySelector('.ovdate').getBoundingClientRect(); return { w: c.width, h: c.height, overlap: !(c.right <= d.left || c.left >= d.right || c.bottom <= d.top || c.top >= d.bottom), top: c.top, right: innerWidth - c.right } }")
-    ok(pd.is_visible() and geo['w'] == 44 and geo['h'] == 44 and not geo['overlap'] and geo['right'] <= 48 and not pg.locator('#meDoor').is_visible(), f'1 phone: a 44px circle at the top right of Home that does not overlap the date line {geo}')
-    pd.click(); pg.wait_for_timeout(200); snap(pg, 'alerts_390_door')
-    mb = pg.evaluate("() => { const r = document.getElementById('meMenu').getBoundingClientRect(); return [r.left >= 0, r.right <= innerWidth, r.top >= 0] }")
-    ok(pg.locator('#meMenu').is_visible() and all(mb) and noside(pg), '1 phone: the circle opens the same menu inside the screen')
-    pg.keyboard.press('Escape'); ok(pg.evaluate("document.activeElement.id") == 'meDoorP' and not pg.locator('#meMenu').is_visible(), '1 phone: Escape closes and returns focus to the circle')
-    pg.locator('#meDoorP').click(); pg.locator('#meMenu a').click(); pg.wait_for_timeout(500)
-    ok(pg.url.endswith('#/me/alerts') and pg.locator('.bar').is_visible(), '2 phone: My alerts opens with the bottom bar')
+    # the Home circle checks (a 44px circle, the ring, the menu from it) are skipped: they wait for home.js (piece 7)
+    # At 390 the way to My alerts is More -> My alerts.
+    pg.click('#moreBtn'); pg.wait_for_timeout(300)
+    pg.locator('#moreLayer a.mi[href="#/me/alerts"]').click(); pg.wait_for_timeout(500)
+    ok(pg.url.endswith('#/me/alerts') and pg.locator('.bar').is_visible() and 'My alerts' in pg.inner_text('#app'), '2 phone: More, then My alerts, opens the page with the bottom bar')
+    snap(pg, 'alerts_390_via_more')
     ok(not errs and not bad, f'1 phone no page errors ({errs[:2]})')
 
     # ---- 2. the page at 1440, 1280 and 390 ----
