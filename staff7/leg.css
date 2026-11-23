@@ -48,7 +48,7 @@
 .lgd-cph { width: 96px; height: 96px; border-radius: var(--r12); }
 .lgd-p { font: 400 var(--f14)/1 var(--body); color: var(--muted); margin-left: var(--s2); }
 /* Call and Email: a quiet text button in the action colour, no box (this page has no filled button) */
-.lgd-reach { gap: var(--s1); position: relative; z-index: 1; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s1); color: var(--act); font: 600 var(--f16)/1 var(--head); text-decoration: none; border-radius: var(--r8); white-space: nowrap; }
+.lgd-reach { gap: var(--s1); position: relative; z-index: 1; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s1); color: var(--act); font: 400 var(--f14)/1 var(--body); text-decoration: none; border-radius: var(--r8); white-space: nowrap; }   /* quiet on purpose (Nate 23 Nov: Call was far too prominent): reading type, not a heading face */
 .lgd-bf .lgd-reach, .lgd-ft .lgd-reach { margin-left: calc(-1 * var(--s1)); }
 .lgd-reach:hover { color: var(--act-p); background: var(--wash); }
 .lgd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); }
