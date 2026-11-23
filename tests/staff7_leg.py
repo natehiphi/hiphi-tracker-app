@@ -23,6 +23,14 @@ def names(pg): return pg.eval_on_selector_all('#legList .lgr b', 'els => els.map
 def typ(pg, t):
     pg.fill('#legIn', t); pg.wait_for_timeout(250)
 def clear(pg): pg.fill('#legIn', ''); pg.wait_for_timeout(200)
+# R-398: every card foot lists the phone then Email (both when the data has both); in a foot the two links are on one line and never touch
+FOOTS = """() => { const bad = []; let both = 0, n = 0;
+  document.querySelectorAll('.lgd-card').forEach(c => { if (!c.getBoundingClientRect().width) return; n++; const a = [...c.querySelectorAll('.lgd-ft .lgd-reach')].map(e => e.getBoundingClientRect());
+    if (a.length === 2) { both++; if (Math.abs(a[0].top - a[1].top) > 2 || a[1].left - a[0].right < 12) bad.push(c.dataset.id); } if (a.some(r => r.height < 43.5)) bad.push('h' + c.dataset.id); });
+  return { n, both, bad }; }"""
+# the block's people: the links sit under the sentence, on one line, 16px apart or more
+BLOCKS = """() => [...document.querySelectorAll('.lgd-bc')].every(c => { const s = c.querySelector('.lgd-bs').getBoundingClientRect(), a = [...c.querySelectorAll('.lgd-reach')].map(e => e.getBoundingClientRect());
+  return a.length >= 1 && a.every(r => r.top >= s.bottom - 1 && r.height >= 43.5) && (a.length < 2 || (Math.abs(a[0].top - a[1].top) < 2 && a[1].left - a[0].right >= 15)); })"""
 GROUPS = "() => [...document.querySelectorAll('#legList .lggh')].map(h => h.innerText.replace(/\\s+/g, ' ').trim())"
 
 with sync_playwright() as p:
@@ -53,10 +61,14 @@ with sync_playwright() as p:
     segs = pg.eval_on_selector_all('[data-dview]', 'els => els.map(e => e.textContent.trim())')
     ok(segs == ['By chamber', 'By island', 'By committee', 'A to Z'], f'2 the four segments ({segs})')
     ok('77 members' in pg.inner_text('#lgdCount'), '2 the count says 77 members')
-    ok(pg.locator('.lgd-card .lgd-reach[href^="tel:"]').count() > 30, '2 phone numbers are tel links')
+    f = pg.evaluate(FOOTS)
+    ok(pg.locator('.lgd-card .lgd-reach[href^="tel:"]').count() >= 70 and f['both'] >= 70 and f['n'] == 77, f"2 at least 70 of 77 cards list both a tel: and a mailto: link ({f['both']} of {f['n']})")
+    ok(f['bad'] == [], f"2 1440: in each foot the phone and Email are on one line, at least 12px apart, 44px tall ({f['bad'][:3]})")
+    ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-card')].every(c => { const t = c.querySelector('.lgd-ft .lgd-reach[href^=\"tel:\"]'), m = c.querySelector('.lgd-ft .lgd-reach[href^=\"mailto:\"]'); const has = x => !!x; return has(t) === /\\d/.test(t ? t.textContent : '') && (!t || /^808-\\d{3}-\\d{4}$/.test(t.textContent.trim())) && (!m || m.textContent.trim() === 'Email') && !/Call/.test(c.querySelector('.lgd-ft').textContent) })"), '2 the number shows, Email says Email, the word Call is not written')
+    ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-ft .lgd-reach')].every(a => a.querySelector('svg.ic') && /^(Call .+ at 808|Email )/.test(a.getAttribute('aria-label')))"), '2 each link has its icon and its aria-label')
     txt = pg.inner_text('#lgdBody')
     ok('None' not in txt and 'Office line not listed' not in txt and not re.search(r'(^|\n)\s*[\u2013\u2014-]\s*($|\n)', txt), '2 no "None", "Office line not listed" or lone dash in the Directory')
-    ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-card')].every(c => { const a = c.querySelector('.lgd-reach'); if (a) return /^(tel:|mailto:)/.test(a.getAttribute('href')); return !c.querySelector('.lgd-ft').textContent.trim() })"), '2 every card has a Call link, an Email link, or (no phone, no email) nothing')
+    ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-card')].every(c => { const L = [...c.querySelectorAll('.lgd-reach')]; return L.every(a => /^(tel:|mailto:)/.test(a.getAttribute('href'))) && (L.length > 0 || !c.querySelector('.lgd-ft').textContent.trim()) })"), '2 every card has a phone link and/or an Email link, or (neither) nothing')
     ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-n a, .lgd-bn a, .lgd-reach')].every(a => getComputedStyle(a).textDecorationLine === 'none')"), '2 names, Call and Email are not underlined')
     ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-n a')].every(a => /^#\\/more\\/legislators\\/\\d+$/.test(a.getAttribute('href')))"), '2 every card name links to the person')
     ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-d')].every(d => !d.textContent.includes('\u2026') && !/\\.\\.\\./.test(d.textContent))"), '2 no ellipsis in the district line')
@@ -87,6 +99,7 @@ with sync_playwright() as p:
     ok(kr.locator('.lgd-bc').count() == 6 and kr.inner_text('#lgdY') == 'Who your bills are with now', f'2 block: six people under "Who your bills are with now" ({kr.locator(".lgd-bc").count()})')
     ok(kr.evaluate("() => [...document.querySelectorAll('.lgd-bc')].every(c => /^Chairs (House|Senate) .+, where \\d+ of your bills? (is|are) now\\.$/.test(c.querySelector('.lgd-bs').textContent))"), '2 block: each person has the chair sentence')
     ok(kr.evaluate("() => [...document.querySelectorAll('.lgd-bc')].every(c => getComputedStyle(c).borderTopWidth === '0px' && getComputedStyle(c).backgroundColor === 'rgba(0, 0, 0, 0)')") and kr.evaluate("() => getComputedStyle(document.querySelector('.lgd-bcs')).gridTemplateColumns.split(' ').length") == 3, '2 block: three across, no card borders or backgrounds')
+    ok(kr.evaluate(BLOCKS), '2 block: the six each show their links under the sentence, on one line')
     kr.fill('#legIn', 'takayama'); kr.wait_for_timeout(300)
     ok(kr.locator('.lgd-bc').count() == 0 and kr.locator('#lgdY').count() == 0, '2 block: gone while the find box holds words')
     kr.fill('#legIn', ''); kr.wait_for_timeout(300)
@@ -140,7 +153,10 @@ with sync_playwright() as p:
     for w, h in ((1440, 900), (1280, 800), (390, 844)):
         for hash in ('#/more/legislators', '#/more/legislators/' + lid):
             pg = open_as(br, w, h, hash)
-            ok(pg.evaluate(SIDE) and not pg.errs, f'5 {w}: {hash.split("/")[-1][:12]} no sideways scroll, no error ({pg.errs[:1]})'); pg.close()
+            ok(pg.evaluate(SIDE) and not pg.errs, f'5 {w}: {hash.split("/")[-1][:12]} no sideways scroll, no error ({pg.errs[:1]})')
+            if w > 900 and hash == '#/more/legislators':
+                f = pg.evaluate(FOOTS); ok(f['bad'] == [] and f['both'] >= 70, f"5 {w}: foot links on one line, apart, 44px tall ({f['both']} with both, bad {f['bad'][:3]})")
+            pg.close()
 
     # ============ 6. phone ============
     pg = open_as(br, 390, 844, '#/more/legislators')
@@ -156,7 +172,9 @@ with sync_playwright() as p:
     ok(pg.evaluate('location.hash') == '#/more/legislators/directory' and pg.locator('.lgd-card').first.is_visible() and pg.evaluate(SIDE), '6 phone: Directory as cards, no sideways scroll')
     ok(pg.is_visible('#lgdIn') and pg.get_attribute('#lgdIn', 'placeholder') == 'Find by name, district or town', '6 phone: the find box is above the block')
     ok(pg.evaluate("() => { const c = document.querySelector('.lgd-card'), r = c.querySelector('.lgd-cph').getBoundingClientRect(), t = c.querySelector('.lgd-tx').getBoundingClientRect(); return r.width === 72 && r.right <= t.left && Math.abs(r.top - t.top) < 20 }"), '6 phone: one across, photo at the left')
-    ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-reach')].filter(e => e.getBoundingClientRect().width > 0).every(e => e.getBoundingClientRect().height >= 43.5)"), '6 phone: Call and Email are 44px tall')
+    f = pg.evaluate(FOOTS)
+    ok(f['bad'] == [] and f['both'] >= 70 and pg.evaluate(SIDE), f"6 phone 390: foot links on one line, apart, 44px tall, no sideways scroll ({f['both']} with both, bad {f['bad'][:3]})")
+    ok(pg.evaluate(BLOCKS) and pg.evaluate("() => [...document.querySelectorAll('.lgd-bc')].every(c => { const n = c.querySelector('.lgd-bn').getBoundingClientRect(), b = c.getBoundingClientRect(); return b.right - n.right < 30 })"), '6 phone 390: the block drops the side link, links sit under the sentence, names get the width')
     ok(pg.locator('.lgd-bc').count() >= 1 and pg.evaluate("() => { const p = document.querySelector('.lgd-bc .lgd-bph').getBoundingClientRect(); return p.width === 48 }"), '6 phone: the block is compact rows, photo 48')
     pg.fill('#lgdIn', 'takayama'); pg.wait_for_timeout(300)
     ok(pg.evaluate("document.activeElement.id") == 'lgdIn' and pg.locator('.lgd-card').count() >= 1 and all('Takayama' in x for x in pg.eval_on_selector_all('.lgd-card .lgd-n a', 'els => els.map(e => e.textContent)')) and 'of 77' in pg.inner_text('#lgdCount') and pg.locator('.lgd-bc').count() == 0, '6 phone: the find box narrows the cards and the count, keeps focus, hides the block')
@@ -174,6 +192,7 @@ with sync_playwright() as p:
     pg.evaluate("window.scrollTo(0,0)")
     snap(pg, 'phone_dir.png'); ok(not pg.errs, f'6 no page error ({pg.errs[:2]})'); pg.close()
     pg = open_as(br, 360, 760, '#/more/legislators/directory')
-    ok(pg.evaluate(TRAY) and pg.evaluate(SIDE), '6 phone 360: all four segments are inside the tray, no sideways scroll'); pg.close()
+    ok(pg.evaluate(TRAY) and pg.evaluate(SIDE), '6 phone 360: all four segments are inside the tray, no sideways scroll')
+    f = pg.evaluate(FOOTS); ok(f['bad'] == [] and f['both'] >= 70 and pg.evaluate(BLOCKS), f"6 phone 360: foot and block links on one line, apart ({f['bad'][:3]})"); pg.close()
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

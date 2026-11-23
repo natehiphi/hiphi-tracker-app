@@ -1,5 +1,5 @@
 // The Directory (R-398 piece 13): the right side of #/more/legislators, warm and friendly. On top, "Who your bills are with now" (the viewer's own legislators, in a soft panel), then
-// everyone as photo cards: By chamber, By island, By committee or A to Z, with section headings that stay in view. A whole card opens the person; Call or Email keep their own job.
+// everyone as photo cards: By chamber, By island, By committee or A to Z, with section headings that stay in view. A whole card opens the person; the phone and Email keep their own job.
 // The same words as the left box narrow it (ids). On a phone the cards are one across and a find box sits above the block (the left list is a page of its own there).
 import { esc } from './parts.js';
 import { ic } from './icons7.js';
@@ -14,9 +14,12 @@ const initials = l => String(l.name).split(' ').map(w => w[0]).slice(0, 2).join(
 const photo = (l, cls, n) => l.photo_url
   ? `<img class="lgd-ph ${cls}" src="${esc(l.photo_url)}" alt="" width="${n}" height="${n}" data-ini="${esc(initials(l))}">`
   : `<span class="lgd-ph lgd-ph0 ${cls}" aria-hidden="true">${esc(initials(l))}</span>`;
-// "Call 808-586-6680", or "Email" with no phone, or nothing when the data has neither (never a dash, never "not listed")
-const reach = l => l.phone ? `<a class="lgd-reach" href="${esc(phoneHref(l))}" aria-label="Call ${esc(l.name)} at ${esc(l.phone)}">Call<span class="lgd-num"> ${esc(l.phone)}</span></a>`
-  : l.email ? `<a class="lgd-reach" href="mailto:${esc(l.email)}" aria-label="Email ${esc(l.name)}">Email</a>` : '';
+// the phone and the mail, each with its small icon: "808-586-6680" then "Email" (the icon and the aria-label say Call); one alone sits at the left, none gives nothing
+const reach = l => {
+  const tel = l.phone ? `<a class="lgd-reach" href="${esc(phoneHref(l))}" aria-label="Call ${esc(l.name)} at ${esc(l.phone)}">${ic('phone')}<span class="lgd-num">${esc(l.phone)}</span></a>` : '';
+  const mail = l.email ? `<a class="lgd-reach" href="mailto:${esc(l.email)}" aria-label="Email ${esc(l.name)}">${ic('mail')}<span>Email</span></a>` : '';
+  return tel || mail ? `<div class="lgd-rs">${tel}${mail}</div>` : '';
+};
 const party = l => `<span class="lgd-p" title="${esc(partyWord(l))}">${esc(l.party)}</span>`;
 // the first three towns whole, then "and 4 more" (never an ellipsis, never cut mid-word); the data's own spelling
 // while finding, a town that matches the words and would be hidden behind "and N more" comes first, so the card shows why it matched
@@ -31,7 +34,7 @@ const townsLine = (l, q = '') => {
 function blockCard(l, me, src, cache) {
   const ob = cache.get(l.id) || (cache.set(l.id, ourBills(l, me)), cache.get(l.id));
   const sent = src === 'chairs' ? chairLine(l, me) : (ob.yours > 0 ? `Has a say on ${ob.yours} of your bills.` : (roleLine(l) ? roleLine(l) + '.' : ''));
-  return `<div class="lgd-bc" data-href="${dirHref(l.id)}">${photo(l, 'lgd-bph', 72)}<div class="lgd-bt"><p class="lgd-bn"><a href="${dirHref(l.id)}">${esc(l.name)}</a>${party(l)}</p>${sent ? `<p class="lgd-bs">${esc(sent)}</p>` : ''}</div><div class="lgd-bf">${reach(l)}</div></div>`;
+  return `<div class="lgd-bc" data-href="${dirHref(l.id)}">${photo(l, 'lgd-bph', 72)}<div class="lgd-bt"><p class="lgd-bn"><a href="${dirHref(l.id)}">${esc(l.name)}</a>${party(l)}</p>${sent ? `<p class="lgd-bs">${esc(sent)}</p>` : ''}<div class="lgd-bf">${reach(l)}</div></div></div>`;
 }
 export function directoryBlock({ me, ids }) {
   const src = yoursSource(me), mine = yoursIds(me);
@@ -75,7 +78,7 @@ export function directoryHTML({ me, view, ids, total, q = '' }) {
   return `<div class="pn lgdir" data-sheet="directory"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">Legislators</h1><p class="bsub">${esc(line)}</p></div></div>`
     + `<div class="pbody mpage lgd-body">${find}<div id="lgdBlock">${directoryBlock({ me, ids })}</div><div class="lgd-bar">${sw}<span class="lgd-n0" id="lgdCount" aria-live="polite">${countText(ids, total)}</span></div><div id="lgdBody">${directoryBody({ me, view, ids, q })}</div></div></div>`;
 }
-// a click anywhere on a card opens the legislator (the name link, Call and Email keep their own job); a photo that fails shows initials
+// a click anywhere on a card opens the legislator (the name link, the phone and Email keep their own job); a photo that fails shows initials
 export function bindDirectory(root = document) {
   const pn = root.querySelector('.lgdir'); if (!pn) return;
   const swap = i => { const s = document.createElement('span'); s.className = i.className + ' lgd-ph0'; s.setAttribute('aria-hidden', 'true'); s.textContent = i.dataset.ini || ''; i.replaceWith(s); };

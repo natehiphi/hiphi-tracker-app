@@ -42,14 +42,21 @@
 .lgd-bn a:focus-visible, .lgd-n a:focus-visible, .lgd-reach:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: var(--r8); }
 .lgd-bs { margin: var(--s1) 0 0; font: 400 var(--f14)/1.4 var(--body); }
 .lgd-bf { grid-column: 2; grid-row: 3; margin-top: 0; }
+.lgd-bf .lgd-rs { gap: var(--s4); }
 .lgd-ph { flex: none; object-fit: cover; object-position: top; background: var(--tint); }
 .lgd-ph0 { display: flex; align-items: center; justify-content: center; font: 600 var(--f22)/1 var(--head); color: var(--muted); }
 .lgd-bph { width: 64px; height: 64px; border-radius: var(--r16); }
 .lgd-cph { width: 96px; height: 96px; border-radius: var(--r12); }
 .lgd-p { font: 400 var(--f14)/1 var(--body); color: var(--muted); margin-left: var(--s2); }
-/* Call and Email: a quiet text button in the action colour, no box (this page has no filled button) */
-.lgd-reach { gap: var(--s1); position: relative; z-index: 1; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s1); color: var(--act); font: 400 var(--f14)/1 var(--body); text-decoration: none; border-radius: var(--r8); white-space: nowrap; }   /* quiet on purpose (Nate 23 Nov: Call was far too prominent): reading type, not a heading face */
-.lgd-bf .lgd-reach, .lgd-ft .lgd-reach { margin-left: calc(-1 * var(--s1)); }
+/* the phone and Email: quiet text links in the action colour, each with a small icon, no box (this page has no filled button) */
+.lgd-rs { display: flex; flex-wrap: nowrap; align-items: center; justify-content: space-between; gap: var(--s3); min-width: 0; width: 100%; }
+.lgd-reach { gap: var(--s2); position: relative; z-index: 1; display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--s1); color: var(--act); font: 400 var(--f14)/1 var(--body); text-decoration: none; border-radius: var(--r8); white-space: nowrap; }   /* quiet on purpose (Nate 23 Nov): reading type, not a heading face */
+.lgd-reach svg.ic { width: var(--icon-s); height: var(--icon-s); flex: none; color: inherit; }
+.lgd-reach:first-child { margin-left: calc(-1 * var(--s1)); }
+.lgd-reach:last-child { margin-right: calc(-1 * var(--s1)); }
+.lgd-reach:only-child { margin-right: 0; }
+.lgd-bf .lgd-rs { justify-content: flex-start; width: auto; }
+.lgd-bf .lgd-reach:last-child { margin-right: 0; }
 .lgd-reach:hover { color: var(--act-p); background: var(--wash); }
 .lgd-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); }
 .lgd-sw { display: inline-flex; margin-top: 0; max-width: 100%; }
@@ -69,7 +76,8 @@
 .lgd-b { margin: 0; font-size: var(--f14); line-height: 1.4; font-weight: 400; color: var(--muted); }
 .lgd-ft { margin-top: auto; border-top: var(--line) solid var(--rule); display: flex; min-height: 44px; }
 .lgd-none { padding: var(--s5) 0; }
-@media (max-width: 1399px) { .lgd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1399px) { .lgd-bc .lgd-bph { grid-row: 1 / 3; } .lgd-bf { grid-column: 1 / -1; margin-top: var(--s1); }   /* three narrower columns: the links take the whole cell under the photo and sentence, so Email stays inside the panel */
+  .lgd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (min-width: 900px) and (max-width: 1100px) { .lgd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lgd-bcs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 899px) {
   .lgd-find { display: block; }
@@ -83,12 +91,11 @@
   .lgd-why { font-size: var(--f14); }
   .lgd-bcs { grid-template-columns: minmax(0, 1fr); gap: var(--s3); margin-top: var(--s3); }
   .lgd-bc { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; column-gap: var(--s3); align-items: center; }
-  .lgd-bt { display: contents; }
   .lgd-bc .lgd-bph { grid-column: 1; grid-row: 1 / 3; align-self: start; width: 48px; height: 48px; border-radius: 50%; }
   .lgd-bc .lgd-bn { grid-column: 2; grid-row: 1; font-size: var(--f16); }
-  .lgd-bc .lgd-bs { grid-column: 2 / 4; grid-row: 2; font-size: var(--f14); margin: 0 0 var(--s1); }
-  .lgd-bc .lgd-bf { grid-column: 3; grid-row: 1; margin: 0; }
-  .lgd-bc .lgd-reach { font-size: var(--f14); margin-left: 0; } .lgd-bc .lgd-num { display: none; }   /* on a phone the compact row says just Call; the number is in the link */
+  .lgd-bt { display: block; grid-column: 2; grid-row: 1 / 3; min-width: 0; }
+  .lgd-bc .lgd-bs { font-size: var(--f14); margin: 0 0 var(--s1); }
+  .lgd-bc .lgd-bf { margin: 0; }   /* on a phone the same links sit under the sentence, so the name gets the full width */
   .lgd-bc .lgd-bn { overflow-wrap: normal; }
   .lgd-grid { grid-template-columns: minmax(0, 1fr); }
   .lgd-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); column-gap: var(--s4); row-gap: var(--s3); }
