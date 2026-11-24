@@ -1,4 +1,4 @@
-// The legislator page (R-398 piece 12, part 3): what both styles share. leg_page_a.js lays the sections out as one column, leg_page_b.js as tabs; both get the section drawers below.
+// The legislator page (R-398 piece 12, part 3): one scrolling column. The Yours | Whole team switch sits over Now and Our bills; the sections are built below.
 //   pageSheet(l, ctx) -> the page (strip, contact bar, the body);  bindPage(l, ctx) wires it (call after the page is in the document)
 // Practice copy: every write is kept in memory for the tab with a 10-second Undo (nothing is sent). Live, the four staff-entered extras (staffer, contact person, what they care about)
 // and the follow-up date are hidden because their table (migration 206) is not applied; Log a talk and the stance save for real (legislator_notes, legislator_stances).
@@ -8,12 +8,10 @@ import { ic } from './icons7.js';
 import { dateWords } from './words.js';
 import * as D from './leg_data.js';
 import { talkHTML, bindTalk, TALK_DRAFTS } from './leg_talk.js';
-import { renderA } from './leg_page_a.js';
-import { renderB, bindTabs } from './leg_page_b.js';
 
 const store = (k, v) => { try { if (v === undefined) return sessionStorage.getItem('lp.' + k); sessionStorage.setItem('lp.' + k, v); } catch { /* storage may be blocked */ } return null; };
 // kept for the tab, between legislators
-const U = { view: store('view') === 'team' ? 'team' : 'yours', style: DEMO && store('style') === 'B' ? 'B' : 'A', leg: null, tab: 'now', notes: false, open: {}, all: false, stance: '', form: '', pop: false };
+const U = { view: store('view') === 'team' ? 'team' : 'yours', leg: null, notes: false, open: {}, all: false, stance: '', form: '', pop: false };
 const X = { staff: { 130: { name: 'Alana Perreira', phone: '808-586-6341', email: 'aperreira@capitol.example' } }, contact: {}, cares: { 130: { tags: ['Tobacco and e-cigarettes', 'Keiki health', 'Rural clinics'], text: 'Has said public health funding belongs in the base budget, not one-time money.' } } };   // PRACTICE ONLY, in memory
 const extras = () => DEMO;
 const fmt = iso => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' });
@@ -52,13 +50,13 @@ function nowHTML(l) {
 
 // ------------------------------------------------------------------ talks
 const noteLi = n => `<li><p class="lpmeta">${who(D.advName(n.advocate_id))}· ${esc(noteDay(n))}${n.bill_id && S.bills.find(b => b.id === n.bill_id) ? ' · About ' + bNo(S.bills.find(b => b.id === n.bill_id)) : ''}</p><p class="lpbody">${esc(D.eCig(n.body))}</p></li>`;
-function latestHTML(l, { allOpen = false } = {}) {
+function latestHTML(l) {
   const t = D.latestTalk(l), all = D.notesOf(l), b = t && S.bills.find(x => x.id === t.bill_id);
   const one = t ? `<p class="lpmeta"><b>${esc(D.advName(t.advocate_id))}</b> · ${esc(noteDay(t))}${b ? ' · About ' + bNo(b) : ''}</p><p class="lpbody">${esc(D.eCig(t.body))}</p>` : (all.length ? '' : `<p class="hint">No talk logged yet.</p>`);
-  const open = allOpen || U.notes;
-  const only = !t && all.length ? `<p class="hint">No talk logged yet${allOpen ? '' : ` · <button class="btn text lpbtn lpinl" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : all.length === 1 ? '1 other note' : `${all.length} other notes`}</button>`}</p>` : '';
+  const open = U.notes;
+  const only = !t && all.length ? `<p class="hint">No talk logged yet · <button class="btn text lpbtn lpinl" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : all.length === 1 ? '1 other note' : `${all.length} other notes`}</button></p>` : '';
   return `<section class="lpsec" aria-labelledby="lpLatH"><h2 class="lph" id="lpLatH">Latest talk</h2>${one}${only}`
-    + (all.length > 1 && t ? (allOpen ? '' : `<button class="btn text lpbtn" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : `All notes (${all.length})`}</button>`) : '')
+    + (all.length > 1 && t ? `<button class="btn text lpbtn" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : `All notes (${all.length})`}</button>` : '')
     + (open && all.length ? `<ul class="lpl lpnotes">${all.map(noteLi).join('')}</ul>` : '') + `</section>`;
 }
 
@@ -101,13 +99,8 @@ function aboutHTML(l) {
   return `<section class="lpsec" aria-labelledby="lpAboutH"><h2 class="lph" id="lpAboutH">About them</h2>${contact}${care}</section>`;
 }
 
-// ------------------------------------------------------------------ the sections, handed to A and B
-const sec = l => ({
-  sw: () => switchHTML(l), now: () => nowHTML(l), latest: o => latestHTML(l, o), bills: () => billsHTML(l), asks: () => asksHTML(l), testimony: () => testimonyHTML(l), about: () => aboutHTML(l),
-  notesAll: () => `<section class="lpsec" aria-labelledby="lpAllH"><h2 class="lph" id="lpAllH">All notes <span class="lpmut">· ${D.notesOf(l).length}</span></h2>${D.notesOf(l).length ? `<ul class="lpl lpnotes">${D.notesOf(l).map(noteLi).join('')}</ul>` : '<p class="hint">No notes yet.</p>'}</section>`,
-  counts: { bills: (() => { const v = viewState(l); return v.view === 'yours' ? v.ob.yours : v.ob.team; })(), talks: D.notesOf(l).length }, tab: U.tab, extras: extras(),
-});
-function bodyHTML(l) { const s = sec(l); return U.style === 'B' ? renderB(s) : renderA(s); }
+// ------------------------------------------------------------------ the page body
+const bodyHTML = l => `<div class="lpcol">${switchHTML(l)}${nowHTML(l)}${latestHTML(l)}${billsHTML(l)}${asksHTML(l)}${testimonyHTML(l)}${aboutHTML(l)}</div>`;
 
 // ------------------------------------------------------------------ the strip and the contact bar
 const stafferOf = l => X.staff[l.id] || null;
@@ -126,16 +119,15 @@ export function pageSheet(l) {
   const seat = [h.map(s => D.seatText(s)).join(' · '), mem.length ? 'Member: ' + mem.map(s => D.cname(s.committee)).join('; ') : ''].filter(Boolean).join(' · ');
   const strip = `<div class="hband neutral lgstrip lpstrip"><div class="lgin">${l.photo_url ? `<img class="lgph" src="${esc(l.photo_url)}" alt="" width="64" height="64">` : ''}<div class="ht"><h1 tabindex="-1">${esc(l.name)}</h1><p class="bsub">${esc(D.metaLine({ ...l, places: '' }))}${D.towns(l) ? `<span class="lptown"> · ${esc(D.towns(l))}</span>` : ''}</p>${seat ? `<p class="lgseat">${esc(seat)}</p>` : ''}</div><button class="btn filled lpact lpdeskbtn" type="button" id="lpTalkBtn" aria-controls="lpFormBox">Log a talk</button></div>`
     + `<div class="lpmob"><button class="btn filled" type="button" id="lpTalkBtnM" aria-controls="lpFormBox">Log a talk</button><div class="lpmrow">${l.phone ? `<a class="lpa" href="${esc(D.phoneHref(l))}">${ic('phone')}<span>Call</span></a>` : ''}${l.email ? `<a class="lpa" href="mailto:${esc(l.email)}">${ic('mail')}<span>Email</span></a>` : ''}</div></div>${barHTML(l)}</div>`;
-  const foot = DEMO ? `<p class="lpfoot lpmut" id="lpFoot">Page style: <button class="btn text" type="button" data-style="A" aria-pressed="${U.style === 'A'}">A</button> · <button class="btn text" type="button" data-style="B" aria-pressed="${U.style === 'B'}">B</button></p>` : '';
-  return `<div class="pn" data-sheet="legislator" data-leg="${l.id}">${strip}<div class="pbody mpage lgpage lpage" id="lgPageBody"><div id="lpFormBox"></div><div id="lpMain" class="lpstyle${U.style}">${''}</div>${foot}</div></div>`;
+  return `<div class="pn" data-sheet="legislator" data-leg="${l.id}">${strip}<div class="pbody mpage lgpage lpage" id="lgPageBody"><div id="lpFormBox"></div><div id="lpMain"></div></div></div>`;
 }
 
 // ------------------------------------------------------------------ wiring
 export function bindPage(l, ctx = {}) {
   const $ = id => document.getElementById(id), root = $('lgPageBody'); if (!root) return;
-  if (U.leg !== l.id) { U.leg = l.id; U.tab = 'now'; U.notes = false; U.open = {}; U.all = false; U.stance = ''; U.form = ''; U.pop = false; }
+  if (U.leg !== l.id) { U.leg = l.id; U.notes = false; U.open = {}; U.all = false; U.stance = ''; U.form = ''; U.pop = false; }
   const keepFocus = sel => { const e = sel && document.querySelector(sel); e && e.focus && e.focus(); };
-  const draw = focus => { $('lpMain').className = 'lpstyle' + U.style; $('lpMain').innerHTML = bodyHTML(l); wireMain(); keepFocus(focus); const pop = $('lpStaffPop'); if (pop) { pop.innerHTML = staffPop(l); pop.hidden = !U.pop; $('lpStaffBtn').setAttribute('aria-expanded', String(U.pop)); $('lpStaffBtn').firstElementChild.textContent = stafferOf(l) ? 'Staffer: ' + stafferOf(l).name : 'Staffer: add'; } document.querySelectorAll('#lpFoot [data-style]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.style === U.style))); };
+  const draw = focus => { $('lpMain').innerHTML = bodyHTML(l); wireMain(); keepFocus(focus); const pop = $('lpStaffPop'); if (pop) { pop.innerHTML = staffPop(l); pop.hidden = !U.pop; $('lpStaffBtn').setAttribute('aria-expanded', String(U.pop)); $('lpStaffBtn').firstElementChild.textContent = stafferOf(l) ? 'Staffer: ' + stafferOf(l).name : 'Staffer: add'; } };
   // a write with a 10-second Undo
   const saved = (msg, undo, focus) => { toast(msg, { undo: () => { undo(); draw(focus); }, ms: 10000 }); draw(focus); };
 
@@ -158,8 +150,6 @@ export function bindPage(l, ctx = {}) {
     m.querySelectorAll('[data-act="form-x"]').forEach(b => b.addEventListener('click', () => { U.form = ''; draw(); }));
     m.querySelector('form[data-form="contact"]')?.addEventListener('submit', e => { e.preventDefault(); const was = X.contact[l.id], v = $('lpCt').value; U.form = ''; X.contact[l.id] = v; saved('Saved the contact person', () => { was === undefined ? delete X.contact[l.id] : X.contact[l.id] = was; }); });
     m.querySelector('form[data-form="cares"]')?.addEventListener('submit', e => { e.preventDefault(); const was = X.cares[l.id]; U.form = ''; X.cares[l.id] = { tags: $('lpCareT').value.split(',').map(x => x.trim()).filter(Boolean), text: $('lpCareN').value.trim() }; saved('Saved what they care about', () => { was ? X.cares[l.id] = was : delete X.cares[l.id]; }); });
-    if (U.style === 'B') bindTabs(m, t => { U.tab = t; U.pop = false; U.form = ''; draw(`#lpTab-${t}`); });
-    if (U.style === 'A') void 0;
   }
 
   // Log a talk
@@ -180,12 +170,10 @@ export function bindPage(l, ctx = {}) {
     U.form = ''; X.staff[l.id] = v; saved('Saved the staffer', () => { was ? X.staff[l.id] = was : delete X.staff[l.id]; }, '#lpStaffBtn');
   });
   $('lpStaffPop')?.addEventListener('keydown', e => { if (e.key === 'Escape') { U.pop = false; U.form = ''; draw('#lpStaffBtn'); } });
-  // the staffer popover closes on a click outside it, on a route change and when the tab or style changes
+  // the staffer popover closes on a click outside it, and on a route change
   const closePop = () => { if (!U.pop) return; U.pop = false; U.form = ''; if ($('lpMain')) draw(); };
   const away = e => { if (!document.getElementById('lgPageBody')) { U.pop = false; return; } if (U.pop && !e.composedPath().some(n => n.classList?.contains('lpstw'))) closePop(); };
   offPop?.(); document.addEventListener('click', away); window.addEventListener('hashchange', closePop);
   offPop = () => { document.removeEventListener('click', away); window.removeEventListener('hashchange', closePop); };
-  // Page style (practice only)
-  $('lpFoot')?.addEventListener('click', e => { const s = e.target.closest('[data-style]')?.dataset.style; if (s) { U.style = s; U.pop = false; U.form = ''; store('style', s); draw(`#lpFoot [data-style="${s}"]`); } });
   void ctx; draw();
 }

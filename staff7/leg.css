@@ -106,7 +106,7 @@
 }
 @media (max-width: 479px) { .lgd-sw { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; } .lgd-sw .seg { min-width: 0; } }
 
-/* the legislator page, both styles (part 3): every class starts lp */
+/* the legislator page (part 3): every class starts lp */
 .lpstrip { flex-direction: column; align-items: stretch; gap: 0; }
 .lpstrip > * { width: 100%; max-width: var(--read); margin-inline: auto; box-sizing: border-box; }
 .lpstrip .lgin { align-items: flex-start; }
@@ -160,12 +160,6 @@
 .lpf { margin: 0 0 var(--s3); } .lpf label { display: block; margin: 0 0 var(--s1); }
 .lprow { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
 .lpbtns { display: flex; gap: var(--s2); align-items: center; margin-top: var(--s3); }
-.lptabs { display: flex; gap: var(--s4); border-bottom: 1px solid var(--rule); margin: 0 0 var(--s4); overflow-x: auto; }
-.lptab { background: none; border: 0; border-bottom: 3px solid transparent; min-height: var(--hit); padding: 0 var(--s1); font: 600 var(--f16)/1 var(--head); color: var(--muted); cursor: pointer; white-space: nowrap; }
-.lptab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--act); }
-#lpPanel:focus-visible { outline-offset: 4px; }
-.lpfoot { margin: var(--s6) 0 0; font-size: var(--f14); }
-.lpfoot .btn.text { min-height: var(--hit); min-width: var(--hit); padding: 0 var(--s1); } .lpfoot [aria-pressed="true"] { font-weight: 700; color: var(--ink); text-decoration: none; }
 @media (max-width: 899px) {
   .lpdeskbtn, .lpa.lpdesk { display: none; }
   .lpmob { display: block; margin-top: var(--s3); } .lpmob > .btn { width: 100%; min-height: var(--hit); }

@@ -1,4 +1,4 @@
-# Staff7 legislator page, styles A and B (R-398 piece 12, part 3), on the practice copy: strip, contact bar, Yours | Whole team, stance with Undo, Log a talk with Undo, B's tabs, Page style, no sideways scroll.
+# Staff7 legislator page, one column (R-398 piece 12, part 3), on the practice copy: strip, contact bar, Yours | Whole team, stance with Undo, Log a talk with Undo, no style switch or tabs, no sideways scroll.
 #   python3 tests/staff7_leg_page.py [base] [shots folder]     base defaults to http://127.0.0.1:8876
 import sys, os, re
 from playwright.sync_api import sync_playwright
@@ -8,7 +8,7 @@ if SHOTS: os.makedirs(SHOTS, exist_ok=True)
 res = []
 def ok(c, m): res.append(bool(c)); print('PASS' if c else 'FAIL', m)
 SIDE = "() => document.documentElement.scrollWidth <= innerWidth && document.body.scrollWidth <= innerWidth"
-def open_as(br, w, h, who='KV', hash='#/more/legislators/130', style=None):
+def open_as(br, w, h, who='KV', hash='#/more/legislators/130', style=None):   # style: a page style left in the tab's storage by an earlier build (the page must ignore it)
     ctx = br.new_context(viewport={'width': w, 'height': h}); pg = ctx.new_page(); pg.errs = []
     pg.on('pageerror', lambda e: pg.errs.append(str(e)))
     pg.on('console', lambda m: pg.errs.append(m.text) if m.type == 'error' and 'Failed to load resource' not in m.text and 'ERR_FAILED' not in m.text else None)
@@ -24,26 +24,20 @@ def bills_n(pg): return pg.locator('#lpMain .lpbr').count()
 
 with sync_playwright() as p:
     br = p.chromium.launch()
-    for style in ('A', 'B'):
-        pg = open_as(br, 1440, 900, 'KV', style=style)
-        ok(pg.inner_text('h1').strip() == 'Gregg Takayama' and 'Representative · Democrat · District 34' in txt(pg, '.lpstrip'), f'{style} strip: name and chamber · party · district')
-        ok(txt(pg, '.lpstrip').count('Log a talk') >= 1 and pg.locator('.btn.filled:visible').count() == 1, f'{style} Log a talk is the only filled button ({pg.locator(".btn.filled:visible").count()})')
-        ok(pg.locator('a[href^="tel:"]:visible').first.get_attribute('href') == 'tel:808-586-6340' and pg.locator('.lpa[href="mailto:reptakayama@capitol.hawaii.gov"]:visible').count() == 1 and 'Room 404' in txt(pg, '.lpbar'), f'{style} Call tel:, Email mailto:, Room')
-        ok('Capitol’s records' in txt(pg, '.lpstrip'), f'{style} source line')
-        if style == 'A':
-            hs = h2s(pg); order = [next((i for i, h in enumerate(hs) if h.startswith(k)), -1) for k in ('Now with Takayama', 'Latest talk', 'Our bills with them', 'What they said', 'Testimony we sent', 'About them')]
-            ok(order == sorted(order) and -1 not in order, f'A one column, sections in order ({hs})')
-        else:
-            tabs = pg.eval_on_selector_all('[role=tab]', "els => els.map(e => e.innerText.replace(/\\s+/g,' ').trim())")
-            ok(len(tabs) == 4 and tabs[0] == 'Now' and tabs[1].startswith('Bills · ') and tabs[2].startswith('Talks and asks · ') and tabs[3] == 'About' and pg.locator('[role=tablist]').count() == 1, f'B tabs ({tabs})')
-            ok(pg.locator('#lpMain .lpsw').count() == 1 and 'Our bills' not in txt(pg), 'B switch is inside Now, bills are on their own tab')
-        ok(pg.evaluate(SIDE), f'{style} no sideways scroll at 1440')
-        snap(pg, f'page_{style}_1440.png')
-        ok(not pg.errs, f'{style} no page error {pg.errs[:1]}')
-        pg.context.close()
+    pg = open_as(br, 1440, 900, 'KV')
+    ok(pg.inner_text('h1').strip() == 'Gregg Takayama' and 'Representative · Democrat · District 34' in txt(pg, '.lpstrip'), f'strip: name and chamber · party · district')
+    ok(txt(pg, '.lpstrip').count('Log a talk') >= 1 and pg.locator('.btn.filled:visible').count() == 1, f'Log a talk is the only filled button ({pg.locator(".btn.filled:visible").count()})')
+    ok(pg.locator('a[href^="tel:"]:visible').first.get_attribute('href') == 'tel:808-586-6340' and pg.locator('.lpa[href="mailto:reptakayama@capitol.hawaii.gov"]:visible').count() == 1 and 'Room 404' in txt(pg, '.lpbar'), f'Call tel:, Email mailto:, Room')
+    ok('Capitol’s records' in txt(pg, '.lpstrip'), f'source line')
+    hs = h2s(pg); order = [next((i for i, h in enumerate(hs) if h.startswith(k)), -1) for k in ('Now with Takayama', 'Latest talk', 'Our bills with them', 'What they said', 'Testimony we sent', 'About them')]
+    ok(order == sorted(order) and -1 not in order, f'A one column, sections in order ({hs})')
+    ok(pg.evaluate(SIDE), f'no sideways scroll at 1440')
+    snap(pg, f'page_1440.png')
+    ok(not pg.errs, f'no page error {pg.errs[:1]}')
+    pg.context.close()
 
     # ---- A: switch, stance, Log a talk, staffer
-    pg = open_as(br, 1440, 900, 'KR', style='A')
+    pg = open_as(br, 1440, 900, 'KR')
     OTHER = [i for i in pg.eval_on_selector_all('#legList .lgr', 'els => els.map(e => e.dataset.id)') if i != '130'][0]
     ys, ts = pg.evaluate("() => [...document.querySelectorAll('.lpsegs .seg')].map(b => +b.textContent.match(/(\\d+)/)[1])")
     n_y = bills_n(pg); LAT = '.lpsec:has(#lpLatH)'; latest0 = pg.inner_text(LAT)
@@ -95,65 +89,51 @@ with sync_playwright() as p:
     ok(pg.locator('.lptags li').count() == 2, 'what they care about: edit saves'); pg.click('#toastUndo'); pg.wait_for_timeout(200); ok(pg.locator('.lptags li').count() == 3, 'what they care about: Undo')
     pg.click('[data-act=form-contact]'); pg.select_option('#lpCt', label='Nate'); pg.click('form[data-form=contact] [type=submit]'); pg.wait_for_timeout(200)
     ok('Nate is our contact here' in txt(pg), 'contact person: Change saves')
-    # Page style switch
-    pg.click('#lpFoot [data-style=B]'); pg.wait_for_selector('[role=tablist]', timeout=3000)
-    ok(pg.get_attribute('#lpFoot [data-style=B]', 'aria-pressed') == 'true' and pg.locator('[role=tab]').count() == 4, 'Page style B switches to tabs')
-    pg.reload(); pg.wait_for_selector('#lpMain h2', timeout=60000); pg.wait_for_timeout(300)
-    ok(pg.locator('[role=tablist]').count() == 1, 'Page style is remembered for the tab')
-    # B tabs by mouse and keyboard
-    pg.click('#lpTab-bills'); ok(pg.get_attribute('#lpTab-bills', 'aria-selected') == 'true' and pg.locator('#lpMain .lpbr').count() > 0 and pg.locator('#lpMain .lpsw').count() == 1, 'B: Bills tab by mouse, with the switch')
-    pg.focus('#lpTab-bills'); pg.keyboard.press('ArrowRight'); pg.wait_for_timeout(150)
-    ok(pg.get_attribute('#lpTab-talks', 'aria-selected') == 'true' and pg.evaluate("document.activeElement.id") == 'lpTab-talks' and pg.locator('#lpMain .lpsw').count() == 0, 'B: ArrowRight moves to Talks and asks, no switch there')
-    pg.keyboard.press('End'); ok(pg.get_attribute('#lpTab-about', 'aria-selected') == 'true' and 'About them' in txt(pg), 'B: End goes to About')
-    pg.keyboard.press('ArrowRight'); ok(pg.get_attribute('#lpTab-now', 'aria-selected') == 'true', 'B: ArrowRight wraps to Now')
-    pg.keyboard.press('ArrowLeft'); ok(pg.get_attribute('#lpTab-about', 'aria-selected') == 'true', 'B: ArrowLeft wraps back')
+    # one page: no style switch, no tabs
+    ok(pg.locator('#lpFoot').count() == 0 and pg.locator('[role=tablist]').count() == 0 and 'Page style' not in pg.inner_text('body'), 'no Page style switch and no tabs')
     ok(not pg.errs, f'no page error {pg.errs[:1]}'); pg.context.close()
+    # someone who chose style B earlier in this tab still gets the one-column page
+    pg = open_as(br, 1440, 900, 'KV', style='B')
+    hs = h2s(pg)
+    ok(pg.locator('[role=tablist]').count() == 0 and pg.locator('[role=tab]').count() == 0 and pg.locator('#lpFoot').count() == 0 and any(h.startswith('Our bills with them') for h in hs) and any(h.startswith('About them') for h in hs), f'stored style B: still the one-column page ({hs})')
+    ok(not pg.errs, f'stored style B: no page error {pg.errs[:1]}'); pg.context.close()
 
     # ---- a staffer who leads none (found by asking the page)
-    pg = open_as(br, 1440, 900, 'KV', style='A')
+    pg = open_as(br, 1440, 900, 'KV')
     none = pg.evaluate("""async () => { const D = await import('/staff7/leg_data.js'); const { S } = await import('/staff6/data.js'); const l = D.legOf(130); return S.advocates.filter(a => D.ourBills(l, a).yours === 0).map(a => a.initials); }""")
     pg.context.close()
     ok(none, f'a staffer who leads none exists ({none})')
-    for style in ('A', 'B'):
-        pg = open_as(br, 1440, 900, none[0], style=style)
-        yb = pg.locator('.lpsegs [data-view=yours]')
-        ok(yb.is_disabled() and 'Whole team' in pg.inner_text('.lpsegs [aria-current=true]') and 'You lead none of the bills with them.' in txt(pg), f'{style}: leads none, opens on Whole team with Yours disabled')
-        ok(bool(h2s(pg)) and not pg.errs, f'{style}: renders, no error {pg.errs[:1]}'); pg.context.close()
+    pg = open_as(br, 1440, 900, none[0])
+    yb = pg.locator('.lpsegs [data-view=yours]')
+    ok(yb.is_disabled() and 'Whole team' in pg.inner_text('.lpsegs [aria-current=true]') and 'You lead none of the bills with them.' in txt(pg), f'leads none, opens on Whole team with Yours disabled')
+    ok(bool(h2s(pg)) and not pg.errs, f'renders, no error {pg.errs[:1]}'); pg.context.close()
 
     # ---- widths
     for w, h in ((1280, 800), (390, 844)):
-        for style in ('A', 'B'):
-            pg = open_as(br, w, h, 'KV', style=style)
-            ok(pg.evaluate(SIDE), f'{style} no sideways scroll at {w}')
-            if w == 390:
-                vis = pg.eval_on_selector_all('.lpmob .btn, .lpmob .lpa', "els => els.filter(e => e.getBoundingClientRect().width > 0).map(e => e.textContent.trim())")
-                ok(vis == ['Log a talk', 'Call', 'Email'], f'{style} 390: Log a talk, then Call · Email ({vis})')
-                ok(pg.evaluate("() => document.querySelector('#lpMain .lpsw').getBoundingClientRect().width > 0"), f'{style} 390: switch shows')
-                snap(pg, f'page_{style}_390.png')
-            else: snap(pg, f'page_{style}_1280.png')
-            ok(not pg.errs, f'{style} {w} no page error'); pg.context.close()
+        pg = open_as(br, w, h, 'KV')
+        ok(pg.evaluate(SIDE), f'no sideways scroll at {w}')
+        if w == 390:
+            vis = pg.eval_on_selector_all('.lpmob .btn, .lpmob .lpa', "els => els.filter(e => e.getBoundingClientRect().width > 0).map(e => e.textContent.trim())")
+            ok(vis == ['Log a talk', 'Call', 'Email'], f'390: Log a talk, then Call · Email ({vis})')
+            ok(pg.evaluate("() => document.querySelector('#lpMain .lpsw').getBoundingClientRect().width > 0"), f'390: switch shows')
+            snap(pg, f'page_390.png')
+        else: snap(pg, f'page_1280.png')
+        ok(not pg.errs, f'{w} no page error'); pg.context.close()
 
     # ---- review fixes
-    pg = open_as(br, 1440, 900, 'KR', style='A')
+    pg = open_as(br, 1440, 900, 'KR')
     ok(pg.evaluate("() => { const h = document.querySelector('.lpstrip .lgin').getBoundingClientRect().left, b = document.querySelector('.lpcol').getBoundingClientRect().left; return Math.abs(h - b) < 1; }"), 'header and body share one left edge at 1440')
     pg.click('#lpStaffBtn'); ok(pg.locator('#lpStaffPop:visible').count() == 1, 'staffer popover opens')
     pg.mouse.click(60, 600); pg.wait_for_timeout(200)
     ok(pg.locator('#lpStaffPop:visible').count() == 0 and pg.get_attribute('#lpStaffBtn', 'aria-expanded') == 'false', 'staffer popover closes on a click outside')
     pg.click('#lpStaffBtn'); pg.click('#lpStaffPop p'); ok(pg.locator('#lpStaffPop:visible').count() == 1, 'a click inside the popover keeps it open')
-    pg.click('#lpFoot [data-style=B]'); pg.wait_for_selector('[role=tablist]'); ok(pg.locator('#lpStaffPop:visible').count() == 0, 'popover closes when the style changes')
-    pg.click('#lpStaffBtn'); pg.click('#lpTab-bills'); ok(pg.locator('#lpStaffPop:visible').count() == 0, 'popover closes when the tab changes')
-    ys = int(re.search(r'(\d+)', pg.inner_text('.lpsegs [data-view=yours]')).group(1)); ts = int(re.search(r'(\d+)', pg.inner_text('.lpsegs [data-view=team]')).group(1))
-    c0 = int(re.search(r'(\d+)', pg.inner_text('#lpTab-bills')).group(1)); pg.click('.lpsegs [data-view=team]')
-    c1 = int(re.search(r'(\d+)', pg.inner_text('#lpTab-bills')).group(1)); pg.click('.lpsegs [data-view=yours]'); c2 = int(re.search(r'(\d+)', pg.inner_text('#lpTab-bills')).group(1))
-    ok(c0 == ys and c1 == ts and c2 == ys and ys != ts, f'B Bills tab count follows the switch ({c0}, {c1}, {c2})')
-    pg.click('#lpFoot [data-style=A]'); pg.wait_for_selector('#lpMain .lpbrh', timeout=3000)
     ok(pg.locator('#lpMain .lpbrh').count() >= 1 and 'Where they stand' in pg.inner_text('#lpMain .lpbrh'), 'column headings Bill / Where they stand over the open group')
-    small = pg.evaluate("""() => [...document.querySelectorAll('#lpMain .lpbr a.lk, #lpMain a[href^="#/ask/"], #lpMain [data-stance], #lpFoot [data-style]')].map(e => { const r = e.getBoundingClientRect(); return [e.textContent.trim().slice(0, 16), Math.round(r.width), Math.round(r.height)]; }).filter(x => x[2] < 44 || ((x[0] === 'Set' || x[0] === 'Change' || x[0] === 'A' || x[0] === 'B') && x[1] < 44))""")
-    ok(not small, f'bill links, Ask for a hearing, Set/Change and the A / B switch are 44px targets ({small[:3]})')
+    small = pg.evaluate("""() => [...document.querySelectorAll('#lpMain .lpbr a.lk, #lpMain a[href^="#/ask/"], #lpMain [data-stance]')].map(e => { const r = e.getBoundingClientRect(); return [e.textContent.trim().slice(0, 16), Math.round(r.width), Math.round(r.height)]; }).filter(x => x[2] < 44 || ((x[0] === 'Set' || x[0] === 'Change' || x[0] === 'A' || x[0] === 'B') && x[1] < 44))""")
+    ok(not small, f'bill links, Ask for a hearing and Set/Change are 44px targets ({small[:3]})')
     ok('Committee' not in txt(pg) or True, 'noop')
     cm = pg.inner_text('.lpsec:has(#lpNowH)'); ok(re.search(r'hearing in (House|Senate) ', cm) is not None or 'hearing in' not in cm, f'Now names the chamber with the committee')
     pg.context.close()
-    pg = open_as(br, 390, 844, 'KR', style='A')
+    pg = open_as(br, 390, 844, 'KR')
     top = pg.evaluate("document.querySelector('.lpsw').getBoundingClientRect().top")
     ok(top < 470, f'390: Yours | Whole team switch starts at y={top:.0f}')
     ok(not pg.is_visible('#lpShow') and pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.lpstrip .bsub')).fontSize) == 14"), '390: no Showing label, meta line 14px')
