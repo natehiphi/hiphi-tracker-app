@@ -162,7 +162,7 @@
   .lpbar { flex-wrap: nowrap; gap: var(--s4); margin-top: 0; padding-top: 0; border-top: 0; } .lpbar .lpa { min-width: 0; } .lpbar .lpa span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lpstrip .bsub { font-size: var(--f14); } .lptown { display: none; }
   .lpstrip .lgseat { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .lpstrip.hband { padding-bottom: var(--s3); } .lpage { padding-top: 0; } .pbody.lpage { padding-top: var(--s4); }
+  .lpstrip.hband { padding-bottom: var(--s3); } .lpage { padding-top: 0; }
   .lpbar .lproom { flex: none; }
   .lpbrh { display: none; }
   .lpbr { grid-template-columns: minmax(0, 1fr); } .lpst { justify-content: flex-start; } .lpsl { display: inline; font-weight: 700; color: var(--muted); margin-right: var(--s1); }
@@ -181,9 +181,6 @@
 .ln .ln-q:hover,.ln .ln-q:focus-visible{text-decoration:underline;color:var(--ink)}
 .ln .ln-act{color:var(--act)}
 .ln .ln-act:hover,.ln .ln-act:focus-visible{color:var(--act-p)}
-.ln-now{display:flex;align-items:flex-start;gap:var(--s2);width:100%;margin:0 0 var(--s4);padding:0;background:none;border:0;text-align:left;cursor:pointer;font:400 var(--f16)/1.5 var(--body);color:var(--ink);text-decoration:none}
-.ln-now:hover,.ln-now:focus-visible{text-decoration:underline}
-.ln-now b{font:600 var(--f14)/1.3 var(--head);color:var(--muted);flex:none;line-height:24px}
 /* the pinned card: labels in a narrow left column */
 .ln-pin{background:var(--wash);border:var(--line) solid var(--rule);border-radius:var(--r16);padding:var(--s3) var(--s5);margin:0 0 var(--s5)}
 .ln-row{display:grid;grid-template-columns:128px minmax(0,1fr);column-gap:var(--s3);padding:var(--s2) 0}
@@ -242,9 +239,7 @@
 .ln-line textarea{min-height:0}
 .ln-f .ln-n{color:var(--muted);font-weight:400}
 .ln-f button[aria-pressed="true"] .ln-n{font-weight:400}
-.pbody.lpage{padding-top:var(--s4)}
 .ln-pin{margin-bottom:var(--s3);padding-top:var(--s2);padding-bottom:var(--s2)}
-.ln-now{margin-bottom:var(--s3)}
 .ln-row{padding:6px 0}
 .ln-gap{padding:0 0 var(--s4) calc(112px + 32px + var(--s3) * 2)}
 #lpFormBox{width:100%;max-width:var(--read);margin-inline:auto}
@@ -259,8 +254,7 @@
  .ln-end .ln-v>p{display:block}
  .ln-end{grid-template-columns:minmax(0,1fr) auto}
  .ln-end .ln-tail .ln-q{margin-right:calc(var(--s2) * -1)}
- .ln-now{min-height:var(--hit);align-items:flex-start;margin:0;padding:var(--s3) 0 var(--s4)}
- .ln-meta{display:block}
+  .ln-meta{display:block}
  .ln-sep{display:none}
  .ln .ln-lt{display:flex;width:fit-content;margin-left:calc(var(--s2) * -1)}
  .ln-pin{padding:var(--s2) var(--s4)}

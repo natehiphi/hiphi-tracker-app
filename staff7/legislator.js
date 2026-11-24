@@ -7,7 +7,7 @@ import { esc, toast } from './parts.js';
 import { ic } from './icons7.js';
 import { dateWords } from './words.js';
 import * as D from './leg_data.js';
-import { notesHTML, nowLineHTML, pinsOf, fixDots } from './leg_notes.js';
+import { notesHTML, pinsOf, fixDots } from './leg_notes.js';
 import { talkHTML, bindTalk, TALK_DRAFTS, today } from './leg_talk.js';
 
 const store = (k, v) => { try { if (v === undefined) return sessionStorage.getItem('lp.' + k); sessionStorage.setItem('lp.' + k, v); } catch { /* storage may be blocked */ } return null; };
@@ -67,7 +67,9 @@ function billsHTML(l) {
 }
 
 // ------------------------------------------------------------------ the page body
-const bodyHTML = l => `<div class="lpcol">${nowLineHTML(nowList(l))}${notesHTML(l, U, X)}${switchHTML(l)}${nowHTML(l)}${billsHTML(l)}</div>`;
+// THE PAGE ORDER lives here. Notes sits between Now and Our bills (Nate, 23 Nov); to move Notes under Our bills, move notesHTML(l, U, X) to the end.
+// The Yours | Whole team switch governs Now and Our bills only; Notes never changes with it.
+const bodyHTML = l => `<div class="lpcol">${switchHTML(l)}${nowHTML(l)}${notesHTML(l, U, X)}${billsHTML(l)}</div>`;
 
 // ------------------------------------------------------------------ the strip and the contact bar
 const stafferOf = l => X.staff[l.id] || null;

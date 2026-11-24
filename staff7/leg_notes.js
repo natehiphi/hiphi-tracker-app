@@ -1,5 +1,5 @@
-// The Notes section of a legislator's page (R-398 piece 14, part 1): the Now line, the card (Follow up, Good to know, Cares about, Our contact, Where they stand) and the Log.
-//   nowLineHTML(items) -> the one-line button over Notes (or '');   notesHTML(l, U, X) -> the section;   N = the pinned lines kept in memory (practice)
+// The Notes section of a legislator's page (R-398 piece 14, part 1): the card (Follow up, Good to know, Cares about, Our contact, Where they stand) and the Log.
+//   notesHTML(l, U, X) -> the section;   N = the pinned lines kept in memory (practice)
 // Quiet actions carry data-act hooks that legislator.js wires: form-contact, form-cares (the forms open in their rows), add-line, pin-remove (part 2), log-talk, goto, all, lf.
 // Live, the staff-entered extras (Good to know, Cares about, Our contact, the follow-up date, a note's kind) are hidden because their tables (migration 206 and a small new one) are not
 // applied; the card is then Where they stand alone, and the Log lists the notes, asks and testimony that exist.
@@ -56,14 +56,6 @@ const followUps = (l, talks) => talks.filter(t => t.fu && !talks.some(u => u.who
 const bLink = b => { const t = D.billLabel(b); return `<a class="lk" href="${esc(t.href)}">${esc(t.no)}</a>`; };
 const Q = (t, act, extra = '') => `<button class="ln-q" type="button" data-act="${act}"${extra}>${t}</button>`;
 export const contactOf = (l, X) => X.contact[l.id] ?? D.contactName(l, S.me);
-
-// ------------------------------------------------------------------ the Now line
-export function nowLineHTML(items) {
-  const it = items[0]; if (!it) return '';
-  const w = it.kind === 'ask' ? `${D.billLabel(it.b).no} has no answer yet to our ask for a hearing` : `${D.billLabel(it.b).no} needs a hearing by ${dateWords(it.by)}`;
-  const more = items.length > 1 ? ` and ${items.length - 1} more` : '';
-  return `<button class="ln-now" type="button" data-act="goto" data-to="lpNowH"><b>Now</b><span>${esc(w + more)}</span></button>`;
-}
 
 // ------------------------------------------------------------------ the card
 const DOT = '<span class="ln-dot" aria-hidden="true">·</span>';

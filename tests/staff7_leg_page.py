@@ -1,4 +1,4 @@
-# Staff7 legislator page (R-398 piece 14), on the practice copy: strip, contact bar, the Now line, Notes (the card: Follow up, Good to know, Cares about, Our contact, Where they stand; then the Log with Show all and its filter), Yours | Whole team, Now with them, Our bills, stance with Undo, Log a talk with a Kind and Undo, no old sections, no sideways scroll at 1440, 1280, 390 and 320.
+# Staff7 legislator page (R-398 piece 14), on the practice copy: strip, contact bar, Yours | Whole team, Now with them, Notes (the card: Follow up, Good to know, Cares about, Our contact, Where they stand; then the Log with Show all and its filter), Our bills, stance with Undo, Log a talk with a Kind and Undo, no old sections, no sideways scroll at 1440, 1280, 390 and 320.
 #   python3 tests/staff7_leg_page.py [base] [shots folder]     base defaults to http://127.0.0.1:8876
 import sys, os, re
 from playwright.sync_api import sync_playwright
@@ -29,8 +29,8 @@ with sync_playwright() as p:
     ok(txt(pg, '.lpstrip').count('Log a talk') >= 1 and pg.locator('.btn.filled:visible').count() == 1, f'Log a talk is the only filled button ({pg.locator(".btn.filled:visible").count()})')
     ok(pg.locator('a[href^="tel:"]:visible').first.get_attribute('href') == 'tel:808-586-6340' and pg.locator('.lpa[href="mailto:reptakayama@capitol.hawaii.gov"]:visible').count() == 1 and 'Room 404' in txt(pg, '.lpbar'), f'Call tel:, Email mailto:, Room')
     ok('Capitol’s records' in txt(pg, '.lpstrip'), f'source line')
-    hs = h2s(pg); order = [next((i for i, h in enumerate(hs) if h.startswith(k)), -1) for k in ('Notes', 'Now with Takayama', 'Our bills with them')]
-    ok(order == sorted(order) and -1 not in order, f'one column, sections in order Notes, Now with, Our bills ({hs})')
+    hs = h2s(pg); order = [next((i for i, h in enumerate(hs) if h.startswith(k)), -1) for k in ('Now with Takayama', 'Notes', 'Our bills with them')]
+    ok(order == sorted(order) and -1 not in order, f'one column, sections in order Now with, Notes, Our bills ({hs})')
     ok(pg.locator('h1').count() == 1, f'one h1 ({pg.locator("h1").count()})')
     body = pg.inner_text('body')
     ok(not any(k in body for k in ('Latest talk', 'What they said to our asks', 'Testimony we sent them', 'About them')), 'no old section headings anywhere')
@@ -44,14 +44,13 @@ with sync_playwright() as p:
     ok(re.search(r'\w+ · \w{3} \d+, \d{4} · Remove', pg.inner_text('.ln-row:has(.ln-k:text-is("Good to know")) li').replace('\n', ' ')) is not None or 'Remove' in pg.inner_text('.ln-row:has(.ln-k:text-is("Good to know")) li').replace('\n', ' '), 'Good to know: writer, date and Remove on each line')
     ok('Not known on any bill yet' in txt(pg, '.ln-row:has(.ln-k:text-is("Where they stand"))') and 'Set on a bill' in txt(pg, '.ln'), 'Where they stand: none known yet, with Set on a bill')
     ok('not known on' not in txt(pg, '.ln').lower().replace('not known on any', ''), 'no "not known on N others" count')
-    nl = pg.locator('.ln-now')
-    ok(nl.count() == 1 and txt(pg, '.ln-now').startswith('Now'), f'the Now line shows ({nl.count()})')
-    nowli = pg.locator('.lpsec:has(#lpNowH) li').count()
-    t = txt(pg, '.ln-now'); mm = re.search(r'and (\d+) more', t)
-    ok((int(mm.group(1)) if mm else 0) == nowli - 1 and nowli >= 1, f'Now line "and N more" matches the Now list ({t!r}, {nowli} items)')
-    ok(pg.evaluate("() => document.querySelector('#lpMain').firstElementChild.classList.contains('lpcol') && document.querySelector('.lpcol').firstElementChild.classList.contains('ln-now')"), 'the Now line is the first thing in the column')
-    pg.click('.ln-now'); pg.wait_for_timeout(200)
-    ok(pg.evaluate("document.activeElement && document.activeElement.id") == 'lpNowH', 'Now line: moves focus to the Now with heading')
+    ok(pg.locator('.ln-now').count() == 0 and pg.locator('#lpMain button:has(> b)').count() == 0, 'no Now pointer line anywhere')
+    ok(pg.evaluate("() => [...document.querySelectorAll('#lpMain h1,#lpMain h2,#lpMain h3,#lpMain b,#lpMain button')].filter(e => e.textContent.trim().startsWith('Now')).map(e => e.textContent.trim()).join('|')") == 'Now with Takayama', 'the word Now appears only as the heading Now with Takayama')
+    ok(pg.evaluate("() => document.querySelector('#lpMain .lpcol').firstElementChild.classList.contains('lpsw') && document.querySelector('.lpsw').nextElementSibling.querySelector('#lpNowH') !== null"), 'the switch is first in the column and Now with comes right under it')
+    ok(pg.evaluate("() => { const n = document.getElementById('lpNowH').getBoundingClientRect(), t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(); return n.top < t.top && t.bottom < b.top; }"), '1440: Notes sits after Now with and before Our bills')
+    ok(pg.evaluate("() => { const t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(), nw = document.querySelector('.lpsec:has(#lpNowH)').getBoundingClientRect(); return t.top - nw.bottom >= 24 && b.top - t.bottom >= 24; }"), '1440: 24px or more between Now with, Notes and Our bills')
+    pg.click('.ln [data-act=goto]'); pg.wait_for_timeout(200)
+    ok(pg.evaluate("document.activeElement && document.activeElement.id") == 'lpBillsH', 'Set on a bill: moves focus to the Our bills heading')
     # the Log
     ok(pg.locator('.ln-tl > li').count() == 3, f'Log shows the last 3 ({pg.locator(".ln-tl > li").count()})')
     nlog = int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain h3')).group(1)); sa = pg.locator('.ln-more [data-act=all]')
@@ -197,8 +196,6 @@ with sync_playwright() as p:
     sur = pg.inner_text('h1').strip().split()[-1]; nt = txt(pg, '.ln')
     ok(f'Nothing is on file for {sur} yet.' in nt and all(k in nt for k in ('Choose a contact', 'Add what they care about', 'Add a line', 'Where they stand', 'Nothing logged yet.')), f'empty legislator: its own words and quiet links ({nt[:90]!r})')
     ok(pg.locator('.ln-tl').count() == 0 and pg.locator('.ln-more').count() == 0, 'empty legislator: no Log line drawn, no Show all')
-    nowtxt = pg.inner_text('.lpsec:has(#lpNowH)')
-    ok((pg.locator('.ln-now').count() == 0) == ('Nothing needs' in nowtxt), f'the Now line is absent exactly when Now is empty ({nowtxt.strip()[:50]!r})')
     ok(pg.locator('h1').count() == 1 and pg.evaluate(SIDE) and not pg.errs, f'empty legislator: one h1, no sideways scroll, no error {pg.errs[:1]}')
     pg.click('.ln [data-act=add-line]'); ok(pg.evaluate("document.activeElement.id") == 'lpLine', 'empty legislator: Add a line opens its field')
     pg.context.close()
@@ -237,8 +234,8 @@ with sync_playwright() as p:
     ok(pg.locator('.lpsec:has(#lpNowH) li').filter(has_text='Follow up').count() == 0, 'follow-ups are said once, in Notes, not under Now with them')
     pg.context.close()
     pg = open_as(br, 390, 844, 'KR')
-    # the switch now follows Notes (piece 14), so it no longer starts near the top: it must still come right after the Log and before Now with them
-    ok(pg.evaluate("() => { const n = document.querySelector('.ln').getBoundingClientRect(), w = document.querySelector('.lpsw').getBoundingClientRect(), h = document.getElementById('lpNowH').getBoundingClientRect(); return w.top >= n.bottom - 1 && w.top - n.bottom < 60 && w.bottom <= h.top; }"), '390: Yours | Whole team switch sits right under Notes and over Now with them')
+    ok(pg.evaluate("() => { const w = document.querySelector('.lpsw').getBoundingClientRect(), h = document.getElementById('lpNowH').getBoundingClientRect(); return w.top < 470 && h.top > w.bottom && h.top < 560; }"), '390: Yours | Whole team switch and Now with start near the top')
+    ok(pg.evaluate("() => { const n = document.getElementById('lpNowH').getBoundingClientRect(), t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(); return n.top < t.top && t.bottom < b.top; }"), '390: Notes sits after Now with and before Our bills')
     ok(not pg.is_visible('#lpShow') and pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.lpstrip .bsub')).fontSize) == 14"), '390: no Showing label, meta line 14px')
     ok(pg.evaluate("() => { const r = document.querySelector('#lpTalkBtnM').getBoundingClientRect(); return r.width > 300 && r.height >= 44; }") and pg.evaluate("() => [...document.querySelectorAll('.lpmrow .lpa')].every(e => e.getBoundingClientRect().height >= 44)"), '390: Log a talk full width, Call and Email 44px')
     ok(pg.evaluate(SIDE), '390: no sideways scroll'); pg.context.close()
@@ -269,11 +266,11 @@ with sync_playwright() as p:
     ok(th < 80 and pg.locator('.ln-line .btn.quiet').count() == 1, f'Add a line: a two-row field, quiet Save and Cancel ({th}px)'); pg.context.close()
     pg = open_as(br, 1280, 800, 'KR')
     y = pg.evaluate("document.querySelector('.ln-e .ln-hd').getBoundingClientRect().top")
-    ok(y < 800 and pg.evaluate("document.querySelector('.ln-now').getBoundingClientRect().top") < 316, f'1280x800: the first log entry heading is on the screen (y {round(y)}), the Now line starts near 312')
+    ok(pg.evaluate("document.getElementById('lpNowH').getBoundingClientRect().top") < 440 and pg.evaluate("document.querySelector('.ln').getBoundingClientRect().top") < 800, f'1280x800: Now with starts near the top and Notes starts on the screen (first log heading y {round(y)})')
     pg.context.close()
     pg = open_as(br, 1440, 900, 'KR')
-    b = pg.evaluate("document.querySelector('.ln-e .ln-bd').getBoundingClientRect().bottom")
-    ok(b < 900, f'1440x900: the first log entry words are fully in view (bottom {round(b)})'); pg.context.close()
+    b = pg.evaluate("document.querySelector('.ln').getBoundingClientRect().top")
+    ok(pg.evaluate("document.getElementById('lpNowH').getBoundingClientRect().bottom") < 450 and b < 900, f'1440x900: Now with is at the top and the Notes card starts on the first screen (Notes top {round(b)}); the first log entry sits below it now that Now comes first'); pg.context.close()
     DOTS = """() => [...document.querySelectorAll('.ln-dot')].filter(d => getComputedStyle(d).display !== 'none').filter(d => { const r = d.getBoundingClientRect(), b = d.closest('.ln-v').getBoundingClientRect(), n = d.nextElementSibling && d.nextElementSibling.getBoundingClientRect(); return r.left <= b.left + 2 || (n && n.top - r.top > 3); }).length"""
     for who_hash, nm in (('#/more/legislators/130', 'Takayama'), ('#/more/legislators/59', 'empty')):
         for w in (1440, 390, 320):
