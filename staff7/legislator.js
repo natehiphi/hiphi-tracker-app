@@ -67,9 +67,9 @@ function billsHTML(l) {
 }
 
 // ------------------------------------------------------------------ the page body
-// THE PAGE ORDER lives here. Notes sits between Now and Our bills (Nate, 23 Nov); to move Notes under Our bills, move notesHTML(l, U, X) to the end.
-// The Yours | Whole team switch governs Now and Our bills only; Notes never changes with it.
-const bodyHTML = l => `<div class="lpcol">${switchHTML(l)}${nowHTML(l)}${notesHTML(l, U, X)}${billsHTML(l)}</div>`;
+// THE PAGE ORDER lives here. Notes sits under Our bills (Nate, 23 Nov, "Under Our bills").
+// The Yours | Whole team switch governs Now and Our bills, which now sit together under it; Notes never changes with it.
+const bodyHTML = l => `<div class="lpcol">${switchHTML(l)}${nowHTML(l)}${billsHTML(l)}${notesHTML(l, U, X)}</div>`;
 
 // ------------------------------------------------------------------ the strip and the contact bar
 const stafferOf = l => X.staff[l.id] || null;

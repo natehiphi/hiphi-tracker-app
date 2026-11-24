@@ -1,4 +1,4 @@
-# Staff7 legislator page (R-398 piece 14), on the practice copy: strip, contact bar, Yours | Whole team, Now with them, Notes (the card: Follow up, Good to know, Cares about, Our contact, Where they stand; then the Log with Show all and its filter), Our bills, stance with Undo, Log a talk with a Kind and Undo, no old sections, no sideways scroll at 1440, 1280, 390 and 320.
+# Staff7 legislator page (R-398 piece 14), on the practice copy: strip, contact bar, Yours | Whole team, Now with them, Our bills, Notes at the foot (the card: Follow up, Good to know, Cares about, Our contact, Where they stand; then the Log with Show all and its filter), stance with Undo, Log a talk with a Kind and Undo, no old sections, no sideways scroll at 1440, 1280, 390 and 320.
 #   python3 tests/staff7_leg_page.py [base] [shots folder]     base defaults to http://127.0.0.1:8876
 import sys, os, re
 from playwright.sync_api import sync_playwright
@@ -29,12 +29,12 @@ with sync_playwright() as p:
     ok(txt(pg, '.lpstrip').count('Log a talk') >= 1 and pg.locator('.btn.filled:visible').count() == 1, f'Log a talk is the only filled button ({pg.locator(".btn.filled:visible").count()})')
     ok(pg.locator('a[href^="tel:"]:visible').first.get_attribute('href') == 'tel:808-586-6340' and pg.locator('.lpa[href="mailto:reptakayama@capitol.hawaii.gov"]:visible').count() == 1 and 'Room 404' in txt(pg, '.lpbar'), f'Call tel:, Email mailto:, Room')
     ok('Capitol’s records' in txt(pg, '.lpstrip'), f'source line')
-    hs = h2s(pg); order = [next((i for i, h in enumerate(hs) if h.startswith(k)), -1) for k in ('Now with Takayama', 'Notes', 'Our bills with them')]
-    ok(order == sorted(order) and -1 not in order, f'one column, sections in order Now with, Notes, Our bills ({hs})')
+    hs = h2s(pg); order = [next((i for i, h in enumerate(hs) if h.startswith(k)), -1) for k in ('Now with Takayama', 'Our bills with them', 'Notes')]
+    ok(order == sorted(order) and -1 not in order, f'one column, sections in order Now with, Our bills, Notes ({hs})')
     ok(pg.locator('h1').count() == 1, f'one h1 ({pg.locator("h1").count()})')
     body = pg.inner_text('body')
     ok(not any(k in body for k in ('Latest talk', 'What they said to our asks', 'Testimony we sent them', 'About them')), 'no old section headings anywhere')
-    ok(pg.eval_on_selector_all('#lpMain h3', "els => els.map(e => e.innerText.replace(/\\s+/g,' ').trim())")[0].startswith('Log'), 'Log is a heading after Notes')
+    ok(pg.eval_on_selector_all('#lpMain .ln h3', "els => els.map(e => e.innerText.replace(/\\s+/g,' ').trim())")[0].startswith('Log'), 'Log is a heading after Notes')
     rows = pg.eval_on_selector_all('.ln .ln-k', "els => els.map(e => e.innerText.trim())")
     ok(rows == ['Follow up', 'Good to know', 'Cares about', 'Our contact', 'Where they stand'], f'card rows in order for Takayama ({rows})')
     fu = pg.eval_on_selector_all('.ln-row:has(.ln-k:text-is("Follow up")) .ln-v p', "els => els.map(e => e.innerText.replace(/\\s+/g,' ').trim())")
@@ -47,13 +47,13 @@ with sync_playwright() as p:
     ok(pg.locator('.ln-now').count() == 0 and pg.locator('#lpMain button:has(> b)').count() == 0, 'no Now pointer line anywhere')
     ok(pg.evaluate("() => [...document.querySelectorAll('#lpMain h1,#lpMain h2,#lpMain h3,#lpMain b,#lpMain button')].filter(e => e.textContent.trim().startsWith('Now')).map(e => e.textContent.trim()).join('|')") == 'Now with Takayama', 'the word Now appears only as the heading Now with Takayama')
     ok(pg.evaluate("() => document.querySelector('#lpMain .lpcol').firstElementChild.classList.contains('lpsw') && document.querySelector('.lpsw').nextElementSibling.querySelector('#lpNowH') !== null"), 'the switch is first in the column and Now with comes right under it')
-    ok(pg.evaluate("() => { const n = document.getElementById('lpNowH').getBoundingClientRect(), t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(); return n.top < t.top && t.bottom < b.top; }"), '1440: Notes sits after Now with and before Our bills')
-    ok(pg.evaluate("() => { const t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(), nw = document.querySelector('.lpsec:has(#lpNowH)').getBoundingClientRect(); return t.top - nw.bottom >= 24 && b.top - t.bottom >= 24; }"), '1440: 24px or more between Now with, Notes and Our bills')
+    ok(pg.evaluate("() => { const n = document.getElementById('lpNowH').getBoundingClientRect(), t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(); return n.top < b.top && b.top < t.top; }"), '1440: Notes sits after Our bills (Now above bills above Notes)')
+    ok(pg.evaluate("() => { const t = document.getElementById('lpNotesH').getBoundingClientRect(), bs = document.querySelector('.lpsec:has(#lpBillsH)').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(), nw = document.querySelector('.lpsec:has(#lpNowH)').getBoundingClientRect(); return b.top - nw.bottom >= 24 && t.top - bs.bottom >= 24; }"), '1440: 24px or more between Now with, Our bills and Notes')
     pg.click('.ln [data-act=goto]'); pg.wait_for_timeout(200)
     ok(pg.evaluate("document.activeElement && document.activeElement.id") == 'lpBillsH', 'Set on a bill: moves focus to the Our bills heading')
     # the Log
     ok(pg.locator('.ln-tl > li').count() == 3, f'Log shows the last 3 ({pg.locator(".ln-tl > li").count()})')
-    nlog = int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain h3')).group(1)); sa = pg.locator('.ln-more [data-act=all]')
+    nlog = int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain .ln h3')).group(1)); sa = pg.locator('.ln-more [data-act=all]')
     ok(sa.inner_text().strip() == f'Show all {nlog}' and nlog > 3 and pg.locator('[data-lf]').count() == 0, f'Show all {nlog}, no filter yet')
     sa.click(); pg.wait_for_timeout(150)
     ok(pg.locator('.ln-tl > li').count() == nlog and pg.locator('[data-lf]').count() == 4 and pg.evaluate("document.activeElement.dataset.act") == 'all', f'Show all opens every entry ({pg.locator(".ln-tl > li").count()} of {nlog}), the filter appears, focus stays')
@@ -108,7 +108,7 @@ with sync_playwright() as p:
     # Log a talk
     FU = lambda: pg.locator('.ln-row:has(.ln-k:text-is("Follow up")) .ln-v p').count()
     LOG = lambda: pg.locator('.ln-tl > li').first.inner_text().replace('\n', ' ')
-    fu0 = FU(); log0 = int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain h3')).group(1))
+    fu0 = FU(); log0 = int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain .ln h3')).group(1))
     ok(fu0 == 2 and pg.inner_text('.ln-row:has(.ln-k:text-is("Follow up")) .ln-v p').startswith('You'), f'KR: Follow up has two, hers first ({fu0})')
     pg.click('.ln-lt'); pg.wait_for_selector('#lpTalkForm', timeout=5000)
     ok(pg.evaluate("document.activeElement.id") == 'lpTalkBody', 'Follow up: Log a talk link opens the form')
@@ -127,7 +127,7 @@ with sync_playwright() as p:
     ok(pg.input_value('#lpTalkBody') == 'Spoke on the phone about the practice test.' and pg.get_attribute('[data-kind=email]', 'aria-pressed') == 'true', 'typed words and kind are kept when the person leaves and comes back')
     pg.click('#lpTalkSave'); pg.wait_for_timeout(300)
     ok('practice test' in LOG() and LOG().startswith(re.search(r'[A-Z][a-z]{2} \d+, \d{4}', LOG()).group(0)) and 'Email · You' in LOG() and pg.locator('#lpTalkForm').count() == 0, f'Save: tops the Log with its kind ({LOG()[:80]})')
-    ok(int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain h3')).group(1)) == log0 + 1, 'Save: Log count goes up by one')
+    ok(int(re.search(r'Log\s*·\s*(\d+)', pg.inner_text('#lpMain .ln h3')).group(1)) == log0 + 1, 'Save: Log count goes up by one')
     ok(FU() == fu0 - 1 and not pg.inner_text('.ln-row:has(.ln-k:text-is("Follow up")) .ln-v').startswith('You'), f'Save: her earlier follow-up clears after her next talk ({FU()})')
     pg.click('#toastUndo'); pg.wait_for_timeout(300)
     ok('practice test' not in txt(pg) and FU() == fu0, 'Undo removes the talk and brings the follow-up back')
@@ -235,7 +235,7 @@ with sync_playwright() as p:
     pg.context.close()
     pg = open_as(br, 390, 844, 'KR')
     ok(pg.evaluate("() => { const w = document.querySelector('.lpsw').getBoundingClientRect(), h = document.getElementById('lpNowH').getBoundingClientRect(); return w.top < 470 && h.top > w.bottom && h.top < 560; }"), '390: Yours | Whole team switch and Now with start near the top')
-    ok(pg.evaluate("() => { const n = document.getElementById('lpNowH').getBoundingClientRect(), t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(); return n.top < t.top && t.bottom < b.top; }"), '390: Notes sits after Now with and before Our bills')
+    ok(pg.evaluate("() => { const n = document.getElementById('lpNowH').getBoundingClientRect(), t = document.querySelector('.ln').getBoundingClientRect(), b = document.getElementById('lpBillsH').getBoundingClientRect(); return n.top < b.top && b.top < t.top; }"), '390: Notes sits after Our bills (Now above bills above Notes)')
     ok(not pg.is_visible('#lpShow') and pg.evaluate("parseFloat(getComputedStyle(document.querySelector('.lpstrip .bsub')).fontSize) == 14"), '390: no Showing label, meta line 14px')
     ok(pg.evaluate("() => { const r = document.querySelector('#lpTalkBtnM').getBoundingClientRect(); return r.width > 300 && r.height >= 44; }") and pg.evaluate("() => [...document.querySelectorAll('.lpmrow .lpa')].every(e => e.getBoundingClientRect().height >= 44)"), '390: Log a talk full width, Call and Email 44px')
     ok(pg.evaluate(SIDE), '390: no sideways scroll'); pg.context.close()
@@ -266,11 +266,11 @@ with sync_playwright() as p:
     ok(th < 80 and pg.locator('.ln-line .btn.quiet').count() == 1, f'Add a line: a two-row field, quiet Save and Cancel ({th}px)'); pg.context.close()
     pg = open_as(br, 1280, 800, 'KR')
     y = pg.evaluate("document.querySelector('.ln-e .ln-hd').getBoundingClientRect().top")
-    ok(pg.evaluate("document.getElementById('lpNowH').getBoundingClientRect().top") < 440 and pg.evaluate("document.querySelector('.ln').getBoundingClientRect().top") < 800, f'1280x800: Now with starts near the top and Notes starts on the screen (first log heading y {round(y)})')
+    ok(pg.evaluate("document.getElementById('lpNowH').getBoundingClientRect().top") < 440 and pg.evaluate("document.getElementById('lpBillsH').getBoundingClientRect().top") < 800, f'1280x800: Now with starts near the top and the Our bills heading is on the first screen (first log heading y {round(y)})')
     pg.context.close()
     pg = open_as(br, 1440, 900, 'KR')
-    b = pg.evaluate("document.querySelector('.ln').getBoundingClientRect().top")
-    ok(pg.evaluate("document.getElementById('lpNowH').getBoundingClientRect().bottom") < 450 and b < 900, f'1440x900: Now with is at the top and the Notes card starts on the first screen (Notes top {round(b)}); the first log entry sits below it now that Now comes first'); pg.context.close()
+    b = pg.evaluate("document.getElementById('lpBillsH').getBoundingClientRect().top")
+    ok(pg.evaluate("document.getElementById('lpNowH').getBoundingClientRect().bottom") < 450 and b < 900, f'1440x900: Now with is at the top and the Our bills heading is on the first screen (heading top {round(b)})'); pg.context.close()
     DOTS = """() => [...document.querySelectorAll('.ln-dot')].filter(d => getComputedStyle(d).display !== 'none').filter(d => { const r = d.getBoundingClientRect(), b = d.closest('.ln-v').getBoundingClientRect(), n = d.nextElementSibling && d.nextElementSibling.getBoundingClientRect(); return r.left <= b.left + 2 || (n && n.top - r.top > 3); }).length"""
     for who_hash, nm in (('#/more/legislators/130', 'Takayama'), ('#/more/legislators/59', 'empty')):
         for w in (1440, 390, 320):
