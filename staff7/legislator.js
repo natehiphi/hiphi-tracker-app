@@ -7,16 +7,14 @@ import { esc, toast } from './parts.js';
 import { ic } from './icons7.js';
 import { dateWords } from './words.js';
 import * as D from './leg_data.js';
-import { talkHTML, bindTalk, TALK_DRAFTS } from './leg_talk.js';
+import { notesHTML, nowLineHTML, pinsOf, fixDots } from './leg_notes.js';
+import { talkHTML, bindTalk, TALK_DRAFTS, today } from './leg_talk.js';
 
 const store = (k, v) => { try { if (v === undefined) return sessionStorage.getItem('lp.' + k); sessionStorage.setItem('lp.' + k, v); } catch { /* storage may be blocked */ } return null; };
 // kept for the tab, between legislators
-const U = { view: store('view') === 'team' ? 'team' : 'yours', leg: null, notes: false, open: {}, all: false, stance: '', form: '', pop: false };
+const U = { view: store('view') === 'team' ? 'team' : 'yours', leg: null, open: {}, all: false, lf: 'all', stance: '', form: '', pop: false };
 const X = { staff: { 130: { name: 'Alana Perreira', phone: '808-586-6341', email: 'aperreira@capitol.example' } }, contact: {}, cares: { 130: { tags: ['Tobacco and e-cigarettes', 'Keiki health', 'Rural clinics'], text: 'Has said public health funding belongs in the base budget, not one-time money.' } } };   // PRACTICE ONLY, in memory
 const extras = () => DEMO;
-const fmt = iso => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Pacific/Honolulu' });
-const dayOf = n => n.met_on ? String(n.met_on).slice(0, 10) : new Date(n.created_at).toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' });
-const noteDay = n => fmt(dayOf(n) + 'T12:00:00-10:00');
 const bLink = b => { const t = D.billLabel(b); return `<a class="lk" href="${esc(t.href)}">${esc(t.no)}</a> ${esc(t.name)}`; };
 const bNo = b => { const t = D.billLabel(b); return `<a class="lk" href="${esc(t.href)}">${esc(t.no)}</a>`; };
 const who = n => `<span class="lpwho">${esc(n)}</span> `;
@@ -37,27 +35,17 @@ function switchHTML(l) {
 }
 
 // ------------------------------------------------------------------ Now with them
+// Follow-ups are said once, in Notes (leg_notes.js), so they are not listed here.
+const nowList = l => { const { view } = viewState(l); return D.nowItems(l, view, me0()).filter(it => it.kind !== 'followup'); };
 function nowHTML(l) {
-  const { view } = viewState(l), items = D.nowItems(l, view, me0()), team = view === 'team';
+  const { view } = viewState(l), items = nowList(l), team = view === 'team';
   const li = it => {
     const w = team ? who(it.who) : '';
     if (it.kind === 'followup') return `<li>${w}<a class="lk" href="${it.b ? esc(D.billLabel(it.b).href) : '#'}">Follow up${it.b ? ' on ' + esc(D.billLabel(it.b).no) : ''} by ${esc(dateWords(it.on))}</a></li>`;
     if (it.kind === 'ask') return `<li>${w}${bNo(it.b)} · no answer yet to our ask for a hearing</li>`;
     return `<li>${w}${bNo(it.b)} · we support · needs a hearing in ${esc(D.cfull(D.seatsOf(l.id).find(s => s.role === 'chair')?.committee || ''))} by ${esc(dateWords(it.by))} · <a class="lk" href="#/ask/${encodeURIComponent(it.askKey)}">Ask for a hearing</a></li>`;
   };
-  return `<section class="lpsec" aria-labelledby="lpNowH"><h2 class="lph" id="lpNowH">Now with ${esc(D.surnameOf(l))}</h2>${items.length ? `<ul class="lpl">${items.map(li).join('')}</ul>` : `<p class="hint">Nothing needs ${team ? 'the team' : 'you'} with them now.</p>`}</section>`;
-}
-
-// ------------------------------------------------------------------ talks
-const noteLi = n => `<li><p class="lpmeta">${who(D.advName(n.advocate_id))}· ${esc(noteDay(n))}${n.bill_id && S.bills.find(b => b.id === n.bill_id) ? ' · About ' + bNo(S.bills.find(b => b.id === n.bill_id)) : ''}</p><p class="lpbody">${esc(D.eCig(n.body))}</p></li>`;
-function latestHTML(l) {
-  const t = D.latestTalk(l), all = D.notesOf(l), b = t && S.bills.find(x => x.id === t.bill_id);
-  const one = t ? `<p class="lpmeta"><b>${esc(D.advName(t.advocate_id))}</b> · ${esc(noteDay(t))}${b ? ' · About ' + bNo(b) : ''}</p><p class="lpbody">${esc(D.eCig(t.body))}</p>` : (all.length ? '' : `<p class="hint">No talk logged yet.</p>`);
-  const open = U.notes;
-  const only = !t && all.length ? `<p class="hint">No talk logged yet · <button class="btn text lpbtn lpinl" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : all.length === 1 ? '1 other note' : `${all.length} other notes`}</button></p>` : '';
-  return `<section class="lpsec" aria-labelledby="lpLatH"><h2 class="lph" id="lpLatH">Latest talk</h2>${one}${only}`
-    + (all.length > 1 && t ? `<button class="btn text lpbtn" type="button" data-act="notes" aria-expanded="${U.notes}">${U.notes ? 'Hide notes' : `All notes (${all.length})`}</button>` : '')
-    + (open && all.length ? `<ul class="lpl lpnotes">${all.map(noteLi).join('')}</ul>` : '') + `</section>`;
+  return `<section class="lpsec" aria-labelledby="lpNowH"><h2 class="lph" id="lpNowH" tabindex="-1">Now with ${esc(D.surnameOf(l))}</h2>${items.length ? `<ul class="lpl">${items.map(li).join('')}</ul>` : `<p class="hint">Nothing needs ${team ? 'the team' : 'you'} with them now.</p>`}</section>`;
 }
 
 // ------------------------------------------------------------------ our bills with them
@@ -75,32 +63,11 @@ function billsHTML(l) {
     const on = U.open[k] ?? k === first;
     return `<div class="lpg"><h3 class="lpgh">${esc(D.GROUP_NAMES[k])} <span class="lpmut">(${bs.length})</span>${on ? '' : ` <button class="btn text lpbtn" type="button" data-fold="${k}" aria-expanded="false">Show ${bs.length}</button>`}</h3>${on ? `<div class="lpbrh" aria-hidden="true"><span>Bill</span><span>Where they stand</span></div><ul class="lpl lpbills">${rows(bs)}</ul>` : ''}</div>`;
   };
-  return `<section class="lpsec" aria-labelledby="lpBillsH"><h2 class="lph" id="lpBillsH">Our bills with them <span class="lpmut">· ${n}</span></h2>${n ? groups.map(g).join('') : `<p class="hint">${team ? 'No bills we track are with them right now.' : 'You lead none of the bills with them.'}</p>`}</section>`;
-}
-
-// ------------------------------------------------------------------ asks, testimony, about
-function asksHTML(l) {
-  const asks = D.asksOf(l);
-  return `<section class="lpsec" aria-labelledby="lpAskH"><h2 class="lph" id="lpAskH">What they said to our asks</h2>${asks.length ? `<ul class="lpl">${asks.map(a => `<li><p>${bLink(a.b)}</p><p class="lpmeta">Asked on ${esc(noteDay(a.first))} · <b>${esc(D.answerWords(a.last.answer))}</b></p></li>`).join('')}</ul>` : `<p class="hint">We have not asked them for a hearing yet.</p>`}</section>`;
-}
-function testimonyHTML(l) {
-  const t = D.testimonyOf(l), shown = U.all ? t : t.slice(0, 3);
-  return `<section class="lpsec" aria-labelledby="lpTesH"><h2 class="lph" id="lpTesH">Testimony we sent them <span class="lpmut">· ${t.length}</span></h2>${t.length ? `<ul class="lpl">${shown.map(({ b, d }) => `<li><p>${bLink(b)}</p><p class="lpmeta">Sent to ${esc(D.plain(String(d.committee || '').split(/[\/ ]+/).filter(Boolean).map(D.cname).join(' with ')))} on ${esc(fmt(String(d.filed_at)))}</p></li>`).join('')}</ul>` : `<p class="hint">No testimony has gone to their committees yet.</p>`}`
-    + (t.length > 3 ? `<button class="btn text lpbtn" type="button" data-act="all" aria-expanded="${U.all}">${U.all ? 'Show 3' : `Show all ${t.length}`}</button>` : '') + `</section>`;
-}
-const contactOf = l => X.contact[l.id] || D.contactName(l, me0());
-function aboutHTML(l) {
-  if (!extras()) return '';
-  const c = contactOf(l), cares = X.cares[l.id] || { tags: [], text: '' }, f = U.form;
-  const contact = f === 'contact' ? `<form class="lpin" data-form="contact"><label class="vh" for="lpCt">Our contact person</label><select id="lpCt"><option value="">No one yet</option>${(S.advocates || []).filter(a => a.is_active !== false).map(a => `<option value="${esc(a.full_name)}"${a.full_name === c ? ' selected' : ''}>${esc(a.full_name)}</option>`).join('')}</select> <button class="btn quiet" type="submit">Save</button> <button class="btn text" type="button" data-act="form-x">Cancel</button></form>`
-    : `<p>${c ? `${esc(c)} is our contact here` : 'No one is our contact here yet'} · <button class="btn text lpbtn" type="button" data-act="form-contact">Change</button></p>`;
-  const care = f === 'cares' ? `<form class="lpin" data-form="cares"><label for="lpCareT"><b>Topics</b> <span class="lpmut">separate with commas</span></label><input id="lpCareT" type="text" value="${esc(cares.tags.join(', '))}"><label for="lpCareN"><b>In their words</b></label><textarea id="lpCareN" rows="3">${esc(cares.text)}</textarea><div class="lpbtns"><button class="btn filled" type="submit">Save</button><button class="btn text" type="button" data-act="form-x">Cancel</button></div></form>`
-    : `<h3 class="lpgh">What they care about <button class="btn text lpbtn" type="button" data-act="form-cares">Edit</button></h3>${cares.tags.length ? `<ul class="lptags">${cares.tags.map(t => `<li>${esc(D.eCig(t))}</li>`).join('')}</ul>` : ''}${cares.text ? `<p>${esc(D.eCig(cares.text))}</p>` : ''}${!cares.tags.length && !cares.text ? '<p class="hint">Nothing written yet.</p>' : ''}`;
-  return `<section class="lpsec" aria-labelledby="lpAboutH"><h2 class="lph" id="lpAboutH">About them</h2>${contact}${care}</section>`;
+  return `<section class="lpsec" aria-labelledby="lpBillsH"><h2 class="lph" id="lpBillsH" tabindex="-1">Our bills with them <span class="lpmut">· ${n}</span></h2>${n ? groups.map(g).join('') : `<p class="hint">${team ? 'No bills we track are with them right now.' : 'You lead none of the bills with them.'}</p>`}</section>`;
 }
 
 // ------------------------------------------------------------------ the page body
-const bodyHTML = l => `<div class="lpcol">${switchHTML(l)}${nowHTML(l)}${latestHTML(l)}${billsHTML(l)}${asksHTML(l)}${testimonyHTML(l)}${aboutHTML(l)}</div>`;
+const bodyHTML = l => `<div class="lpcol">${nowLineHTML(nowList(l))}${notesHTML(l, U, X)}${switchHTML(l)}${nowHTML(l)}${billsHTML(l)}</div>`;
 
 // ------------------------------------------------------------------ the strip and the contact bar
 const stafferOf = l => X.staff[l.id] || null;
@@ -125,17 +92,19 @@ export function pageSheet(l) {
 // ------------------------------------------------------------------ wiring
 export function bindPage(l, ctx = {}) {
   const $ = id => document.getElementById(id), root = $('lgPageBody'); if (!root) return;
-  if (U.leg !== l.id) { U.leg = l.id; U.notes = false; U.open = {}; U.all = false; U.stance = ''; U.form = ''; U.pop = false; }
+  if (U.leg !== l.id) { U.leg = l.id; U.open = {}; U.all = false; U.lf = 'all'; U.stance = ''; U.form = ''; U.pop = false; }
   const keepFocus = sel => { const e = sel && document.querySelector(sel); e && e.focus && e.focus(); };
-  const draw = focus => { $('lpMain').innerHTML = bodyHTML(l); wireMain(); keepFocus(focus); const pop = $('lpStaffPop'); if (pop) { pop.innerHTML = staffPop(l); pop.hidden = !U.pop; $('lpStaffBtn').setAttribute('aria-expanded', String(U.pop)); $('lpStaffBtn').firstElementChild.textContent = stafferOf(l) ? 'Staffer: ' + stafferOf(l).name : 'Staffer: add'; } };
+  const draw = focus => { $('lpMain').innerHTML = bodyHTML(l); wireMain(); fixDots($('lpMain')); document.fonts?.ready.then(() => $('lpMain') && fixDots($('lpMain'))); keepFocus(focus); const pop = $('lpStaffPop'); if (pop) { pop.innerHTML = staffPop(l); pop.hidden = !U.pop; $('lpStaffBtn').setAttribute('aria-expanded', String(U.pop)); $('lpStaffBtn').firstElementChild.textContent = stafferOf(l) ? 'Staffer: ' + stafferOf(l).name : 'Staffer: add'; } };
   // a write with a 10-second Undo
   const saved = (msg, undo, focus) => { toast(msg, { undo: () => { undo(); draw(focus); }, ms: 10000 }); draw(focus); };
 
   function wireMain() {
     const m = $('lpMain');
     m.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { U.view = b.dataset.view; store('view', U.view); draw(`#lpMain [data-view="${U.view}"]`); }));
-    m.querySelectorAll('[data-act="notes"]').forEach(b => b.addEventListener('click', () => { U.notes = !U.notes; draw('#lpMain [data-act="notes"]'); }));
-    m.querySelectorAll('[data-act="all"]').forEach(b => b.addEventListener('click', () => { U.all = !U.all; draw('#lpMain [data-act="all"]'); }));
+    m.querySelectorAll('[data-act="all"]').forEach(b => b.addEventListener('click', () => { U.all = !U.all; U.lf = 'all'; draw('#lpMain [data-act="all"]'); }));
+    m.querySelectorAll('[data-lf]').forEach(b => b.addEventListener('click', () => { U.lf = b.dataset.lf; draw(`#lpMain [data-lf="${U.lf}"]`); }));
+    m.querySelectorAll('[data-act="goto"]').forEach(b => b.addEventListener('click', () => { const h = $(b.dataset.to); if (h) { h.scrollIntoView?.({ block: 'start' }); h.focus({ preventScroll: true }); } }));
+    m.querySelectorAll('[data-act="log-talk"]').forEach(b => b.addEventListener('click', () => openTalk()));
     m.querySelectorAll('[data-fold]').forEach(b => b.addEventListener('click', () => { U.open[b.dataset.fold] = true; draw(); }));
     m.querySelectorAll('[data-stance]').forEach(b => b.addEventListener('click', () => { U.stance = b.dataset.stance; draw('#lpSt'); }));
     m.querySelector('[data-act="stance-x"]')?.addEventListener('click', () => { const id = U.stance; U.stance = ''; draw(`#lpMain [data-stance="${id}"]`); });
@@ -145,9 +114,21 @@ export function bindPage(l, ctx = {}) {
         try { await DB.setStance(b.id, l.id, { stance: v }); } catch { toast('It did not save. Try again.'); draw(); return; }
         saved(`Saved: ${D.STANCE_OPTS.find(x => x[0] === v)[1]} on ${D.billLabel(b).no}`, () => { DB.setStance(b.id, l.id, { stance: prev }); }, `#lpMain [data-stance="${b.id}"]`);
       }); }
+    const ADD = '#lpMain [data-act="add-line"]';
+    m.querySelectorAll('[data-act="add-line"]').forEach(b => b.addEventListener('click', () => { U.form = 'line'; draw('#lpLine'); }));
+    m.querySelectorAll('[data-act="pin-remove"]').forEach(b => b.addEventListener('click', () => {
+      const all = pinsOf(l), i = all.findIndex(p => p.id === b.dataset.id); if (i < 0) return; const [gone] = all.splice(i, 1);
+      saved('Removed the line', () => { all.splice(Math.min(i, all.length), 0, gone); }, ADD);
+    }));
+    const ln = $('lpLine'); if (ln) ln.addEventListener('keydown', e => { if (e.key === 'Escape') { e.stopPropagation(); U.form = ''; draw(ADD); } });
+    m.querySelector('form[data-form="line"]')?.addEventListener('submit', e => {
+      e.preventDefault(); const text = $('lpLine').value.trim().slice(0, 200); if (!text) { $('lpLine').focus(); return; }
+      const all = pinsOf(l), row = { id: 'p' + Date.now(), text, who: S.me?.id, day: today() }; U.form = ''; all.unshift(row);
+      saved('Saved the line', () => { const i = all.indexOf(row); if (i >= 0) all.splice(i, 1); }, ADD);
+    });
     m.querySelectorAll('[data-act="form-contact"]').forEach(b => b.addEventListener('click', () => { U.form = 'contact'; draw('#lpCt'); }));
     m.querySelectorAll('[data-act="form-cares"]').forEach(b => b.addEventListener('click', () => { U.form = 'cares'; draw('#lpCareT'); }));
-    m.querySelectorAll('[data-act="form-x"]').forEach(b => b.addEventListener('click', () => { U.form = ''; draw(); }));
+    m.querySelectorAll('[data-act="form-x"]').forEach(b => b.addEventListener('click', () => { const was = U.form; U.form = ''; draw(was === 'line' ? ADD : was === 'cares' ? '#lpMain [data-act="form-cares"]' : was === 'contact' ? '#lpMain [data-act="form-contact"]' : ''); }));
     m.querySelector('form[data-form="contact"]')?.addEventListener('submit', e => { e.preventDefault(); const was = X.contact[l.id], v = $('lpCt').value; U.form = ''; X.contact[l.id] = v; saved('Saved the contact person', () => { was === undefined ? delete X.contact[l.id] : X.contact[l.id] = was; }); });
     m.querySelector('form[data-form="cares"]')?.addEventListener('submit', e => { e.preventDefault(); const was = X.cares[l.id]; U.form = ''; X.cares[l.id] = { tags: $('lpCareT').value.split(',').map(x => x.trim()).filter(Boolean), text: $('lpCareN').value.trim() }; saved('Saved what they care about', () => { was ? X.cares[l.id] = was : delete X.cares[l.id]; }); });
   }
