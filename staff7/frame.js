@@ -21,12 +21,13 @@ import { calendarModel } from './calendar.js';
 import { searchModel, noteOpened, bindFind, boxHTML, findOpen } from './find.js';
 import { initWidth, handleHTML, syncHandle, dragging } from './width.js';
 import { hooks7 } from './sort_data.js';
-import { publicBillPage } from './public.js';   // R-398 part 1b: one bill's public words (public mode)
+import { publicBillPage, publicIssuePage } from './public.js';   // R-398 part 1b: one bill's public words (public mode)
 import { publicChangePage } from './public_change.js';   // R-398 part 2: one waiting change for an admin (public mode)
 import { publicListPage } from './public_list.js';   // R-398 part 2: Public words, the list (public mode)
 import { teamModel } from './team.js';
 import { placePage } from './do_place.js';   // R-398 piece 9 gap E: Set position and issue
 import { billIssuesPage } from './bill_issues.js';   // R-398 piece 9 gap C: Issues for <bill>
+import { issueNewPage } from './issue_new.js';   // R-398 piece 10: New issue, the Issues door (#/issue-new)
 import { leadsPage } from './do_leads.js';   // R-398 piece 6: the admin's lead changes   // R-398 piece 6: the Team page
 
 const $ = id => document.getElementById(id);
@@ -121,6 +122,7 @@ function parse() {
   const [a, ...r] = path.split('/');
   let id = ''; try { id = decodeURIComponent(r.join('/')); } catch { if (a === 'issues' || a === 'issue' || a === 'bill' || a === 'search') return { r: a, id: '\ufffd', q }; return { r: 'missing' }; }   // an address that cannot be read is an issue or a bill that is not found, said calmly
   if (a === 'issues' || a === 'issue' || a === 'bill') return { r: a, id, q };
+  if (a === 'issue-new') return { r: 'issuenew', id: '', q };   // piece 10: the New issue form as its own page (#/issues/new... is Sort new bills)
   if (a === 'bill-issues') return id ? { r: 'billissues', id, q } : { r: 'missing' };   // gap C: #/bill-issues/<bill>, the Issues for a bill page   // an empty or odd id is the Issues "not found" sheet, never "That step is done"
 
   if (a === 'search') return { r: 'search', id, q };   // the Search door: #/search, #/search/committee/<code>, #/search/person/<id>, #/search/other/<bill number>; ?q= holds the words
@@ -130,6 +132,7 @@ function parse() {
   if (a === 'public') {
     const rest = r.filter(x => x !== '');
     if (!rest.length) return { r: 'publiclist', q };
+    if (rest[0] === 'issue') { let iid = ''; try { iid = decodeURIComponent(rest.slice(1).join('/')); } catch { iid = '\ufffd'; } return iid ? { r: 'publicissue', id: iid, q } : { r: 'missing' }; }   // piece 10: #/public/issue/<issue id>, publish an issue
     if (rest[0] === 'change') { let cid = ''; try { cid = decodeURIComponent(rest.slice(1).join('/')); } catch { cid = '�'; } return cid ? { r: 'publicchange', id: cid, q } : { r: 'missing' }; }
     return id ? { r: 'publicbill', id, q } : { r: 'missing' };
   }
@@ -180,11 +183,12 @@ function track(h, name, fam) {
 const stamp = () => { if (trail.i < 0) return; try { history.replaceState({ ...(history.state || {}), t7: trail.o + trail.i }, ''); } catch { /* the address stays as it is */ } };
 // the path of a flow that ends in a "done" page: Back from the done page skips the steps that made it (the step is finished and gone)
 const FLOW = /^#\/(do|done|give|vice)\/|^#\/team\/(step|give|done)\/|^#\/team\/many\/(give|done)/;
+const PUB_ISSUE = /^#\/public\/issue\//;
 const isDoneLike = h => /^#\/done\/|^#\/team\/done\/|^#\/team\/many\/done/.test(h);
 // where Back and Close go: the screen before in the trail (skipping this page's own family or flow), else the page's natural parent
 function targetOf(h, fam, nat) {
   let j = trail.i - 1;
-  while (j >= 0 && ((fam && trail.s[j].fam === fam) || (isDoneLike(h) && FLOW.test(trail.s[j].h)))) j--;
+  while (j >= 0 && (/^#\/issue-new/.test(trail.s[j].h) || (!PUB_ISSUE.test(h) && PUB_ISSUE.test(trail.s[j].h)) || (fam && trail.s[j].fam === fam) || (isDoneLike(h) && FLOW.test(trail.s[j].h)))) j--;   // piece 10: public mode for an issue is skipped once used, from every page but its own
   return j >= 0 ? { h: trail.s[j].h, name: trail.s[j].name, steps: trail.i - j } : { h: nat.h, name: nat.name, steps: 0 };
 }
 function leave() {
@@ -210,12 +214,14 @@ function nameOf(rt, im, label) {
     case 'issue': return (im?.pageIssue && eCig(im.pageIssue.name)) || 'the issue';
     case 'bill': return 'the bill';
     case 'billissues': return 'the issues';
+    case 'issuenew': return 'New issue';
     case 'calendar': return 'Calendar';
     case 'search': return !id ? 'Search' : 'the search result';
     case 'team': return !id ? 'Team' : id === 'many' ? 'the list' : id.startsWith('step/') ? 'the step' : id.startsWith('bill/') ? 'the bill' : 'Team';
     case 'publicbill': return 'the public words';
     case 'publiclist': return 'Public words';
     case 'publicchange': return 'the change';
+    case 'publicissue': return 'public mode';
     case 'door': return label;
     default: return 'the page';
   }
@@ -226,6 +232,7 @@ function naturalOf(rt, im) {
   if (rt.r === 'publicbill') return { h: '#/bill/' + encodeURIComponent(id), name: 'the bill' };
   if (rt.r === 'billissues') return { h: '#/bill/' + encodeURIComponent(id), name: 'the bill' };
   if (rt.r === 'publicchange') return { h: '#/public', name: 'Public words' };
+  if (rt.r === 'publicissue') return { h: '#/issue/' + encodeURIComponent(id), name: 'the issue' };
   if (im?.back) return { h: im.back, name: im.backLabel || 'Issues' };
   return { h: '#/', name: 'Home' };
 }
@@ -242,6 +249,8 @@ addEventListener('keydown', e => {
 addEventListener('click', e => {
   const x = e.target.closest?.('[data-closes]');   // a panel's own X: closes it and gives the focus back to the button that opened it
   if (x) { const b = document.getElementById(x.dataset.closes); if (b && b.getAttribute('aria-expanded') === 'true') { e.preventDefault(); b.click(); b.focus({ preventScroll: true }); } return; }
+  const ib = e.target.closest?.('[data-issue-back]');   // public mode's "Back to the issue": goes back to the issue's page in the trail (so its Back still returns to where the person started); with none before, the link opens it
+  if (ib && e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { const hh = ib.getAttribute('href'); let j = trail.i - 1; while (j >= 0 && trail.s[j].h !== hh) j--; if (j >= 0) { e.preventDefault(); leftFrom = location.hash; history.go(j - trail.i); return; } }
   const el = e.target.closest?.('#tbBack, #tbClose'); if (!el || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   e.preventDefault(); leave();
 });
@@ -258,6 +267,7 @@ function drawPublic(rt, opts = {}) {
   const tgt = targetOf(location.hash, '', naturalOf(rt, null)); here = { tgt, opened: true };
   const pg = rt.r === 'publiclist' ? publicListPage({ q: rt.q, back: tgt.h })
     : rt.r === 'publicchange' ? publicChangePage({ id: rt.id, q: rt.q, back: tgt.h })
+    : rt.r === 'publicissue' ? publicIssuePage({ id: rt.id, back: tgt.h })
     : publicBillPage({ id: rt.id, q: rt.q, back: tgt.h });
   $('app').innerHTML = pg.html;
   const w = document.querySelector('#app .pub-band .pub-wrap');
@@ -279,7 +289,8 @@ function render(opts = {}) {
   if (ctx.unknown) { $('bar-slot').innerHTML = ''; $('app').innerHTML = `<div class="ws one"><div class="wp"><div class="paper">${peopleSheet()}</div></div></div>`; document.documentElement.dataset.ready = '1'; return; }
   // R-398 part 1b: public mode is drawn by drawPublic (no bar, no list, plum); any other address leaves it
   const rt0 = parse();
-  if (rt0.r === 'publicbill' || rt0.r === 'publicchange' || rt0.r === 'publiclist') { drawPublic(rt0, opts); return; }
+  if (rt0.r === 'do' && /^(fi|pi)-./.test(rt0.id)) { location.replace('#/issue/' + encodeURIComponent(rt0.id.slice(3))); return; }   // piece 10: a Finish or Publish a new issue step has no sheet of its own; its work is on the draft's page
+  if (rt0.r === 'publicbill' || rt0.r === 'publicchange' || rt0.r === 'publiclist' || rt0.r === 'publicissue') { drawPublic(rt0, opts); return; }
   delete document.documentElement.dataset.mode;
   const rt = parse(), open = ctx.open(), m = homeModel(ctx.me, open), phone = PHONE.matches;
   let sheet = '', bindFn = null, cur = 'home', one = false, label = 'Step', ov = null, im = null, bIss = null;
@@ -310,6 +321,8 @@ function render(opts = {}) {
     }
   } else if (rt.r === 'billissues') {   // gap C: the Issues list stays on the left; the page is bill_issues.js
     cur = 'issues'; im = issuesModel({ me: ctx.me, open, rt: { r: 'bill', id: rt.id, q: rt.q }, people }); const pg = billIssuesPage({ ref: rt.id }), b0 = im.bind; sheet = pg.html; label = 'Issues for the bill'; bindFn = () => { b0 && b0(); pg.bind(); }; bIss = pg.bill;
+  } else if (rt.r === 'issuenew') {   // piece 10: the Issues list stays on the left, no row open; the page is issue_new.js
+    cur = 'issues'; im = issuesModel({ me: ctx.me, open, rt: { r: 'issues', id: 'new-issue-form', q: rt.q }, people }); const pg = issueNewPage(), b0 = im.bind; sheet = pg.html; label = 'New issue'; im.picked = true; bindFn = () => { b0 && b0(); pg.bind(); };
   } else if (rt.r === 'calendar') {
     cur = 'calendar'; im = calendarModel({ me: ctx.me, open, rt, people, phone }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'team') {
@@ -323,7 +336,7 @@ function render(opts = {}) {
   const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
   // R-398: the one top row. Home and the door landings (the lists) have none; every page opened from them has Back and Close.
   const fam = rt.r === 'issues' && /^new(\/|$)/.test(String(rt.id || '')) ? 'sort' : '';
-  const opened = !onHome && !one && (!im || rt.r === 'bill' || rt.r === 'billissues' || (!!im.back && (im.picked || im.solo || fam === 'sort' || /^topic\//.test(String(rt.id || '')))));
+  const opened = !onHome && !one && (!im || rt.r === 'bill' || rt.r === 'billissues' || rt.r === 'issuenew' || (!!im.back && (im.picked || im.solo || fam === 'sort' || /^topic\//.test(String(rt.id || '')))));
   if (!opts.tick) track(location.hash, nameOf(rt, im, label), fam);
   const nat = naturalOf(rt, im && rt.r === 'bill' && !im.back ? { ...im, back: billParent.h, backLabel: billParent.name } : im);
   const tgt = opened ? targetOf(location.hash, fam, nat) : null; here = { tgt, opened };
@@ -366,7 +379,7 @@ function render(opts = {}) {
 function tick() {
   const a = document.activeElement, field = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName), tst = document.getElementById('toast');
   const quiet = field || document.querySelector('#sbBox:not([hidden]), .errt:not([hidden])') || (tst?.classList.contains('on') && !document.getElementById('toastUndo').hidden) || dragging();
-  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/team(\/.*)?|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?|#\/search(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
+  if (document.visibilityState !== 'visible' || quiet || held() || ctx.busy.size || document.querySelector('.is-loading') || !/^(|#|#\/|#\/(do|hearing|waiting|suggested|issue|bill)\/.*|#\/team(\/.*)?|#\/(issue|bill)\/?|#\/issues(\/[^?]*)?(\?.*)?|#\/issue-new(\?.*)?|#\/calendar(\/[^?]*)?(\?.*)?|#\/search(\/[^?]*)?(\?.*)?)$/.test(location.hash)) return;
   render({ tick: true });
 }
 window.__staff7Tick = tick;
