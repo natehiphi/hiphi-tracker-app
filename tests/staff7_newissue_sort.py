@@ -131,6 +131,7 @@ with sync_playwright() as p:
     pg.evaluate("""async () => { const d = await import('/staff6/data.js'); await d.DB.createIssue({ name: 'Sample draft in the list', description: 'Sample.', category: d.S.categories[0].key }); window.__staff7Render({ tick: true }); }"""); pg.wait_for_timeout(400)
     opts = pg.evaluate(ISS)['opts']
     ok('Sample draft in the list (draft)' in opts and not any(o.endswith('(draft)') for o in opts if o != 'Sample draft in the list (draft)'), 'every draft in the Issue field says "(draft)" and published issues do not')
+    ok(pg.evaluate("() => { const k = [...document.querySelectorAll('#dIss > optgroup, #dIss > option')].map(o => o.tagName === 'OPTGROUP' ? o.label : o.innerText); return k.indexOf('No issue yet') > -1 && k.indexOf('No issue yet') < k.indexOf('All issues'); }"), 'R-409: No issue yet comes before the All issues group, and the draft is still listed')
     ok(pg.evaluate("() => !document.getElementById('dIss').innerHTML.includes('Sample issue for sorting')"), 'an archived draft is not listed')
     errs = pg.errs; pg.context.close()
     ok(not errs, f'no page errors at 1440 {errs[:2]}')

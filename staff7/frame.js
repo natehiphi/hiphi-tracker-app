@@ -160,6 +160,11 @@ function doorSheet(k) {
   return `<div class="pn">${plainBand(name, WILL[k])}<div class="pbody"><p class="lead"><span class="stmark">${ic('clock')}<span>Not built yet</span></span></p><p class="lead">This place is coming. Your steps are on Home.</p><div class="sfoot plain">${btn('Back to Home', { kind: 'filled', href: '#/' })}</div></div></div>`;
 }
 const unbuiltSheet = s => `<div class="pn">${band(s.issue, s.verb, s.name, s.no)}<div class="pbody">${dueStrip(s, { hearing: hearingLine(s.hearing) })}<p class="lead">This step’s page is being built.</p></div></div>`;
+// R-409: a step that is not open (finished by the person or a teammate, or handed on) says so and offers Home; the other routes keep the bare sheet
+// R-409: both not-found sheets follow the pattern of issues.js notFound: data-notfound, plainBand, and the frame's top bar gives "Back to Home"
+const missingStepSheet = () => `<div class="pn" data-notfound="1">${plainBand('That step is done or no longer yours.', 'It may have been finished by you or a teammate, or handed to someone else. Your open steps are on Home.')}</div>`;
+// R-409: an address that is no route at all. The link is named just "Search": the frame removes in-page links that start with "Back to" (see data-notfound below)
+const noPageSheet = () => `<div class="pn" data-notfound="1">${plainBand('We could not find that page.', 'The link may be old or mistyped.')}<div class="pbody"><p class="lead"><a class="btn text" href="#/search">Search</a></p></div></div>`;
 const missingSheet = () => `<div class="pn">${plainBand('That step is done or no longer yours.', '')}<div class="pbody"></div></div>`;
 const peopleSheet = () => `<div class="pn">${plainBand(`No practice person ${ctx.unknown}.`, 'Pick one of these.')}<div class="pbody"><ul class="people">${people.map(a => `<li><a class="btn quiet" href="?demo=1&as=${encodeURIComponent(a.initials)}">${esc(a.full_name)} · ${esc(a.initials)}</a></li>`).join('')}</ul></div></div>`;
 const sheetFor = s => s.kind === 'write' || s.kind === 'resubmit' ? [writeSheet(s, ctx), () => bindWrite(s, ctx)]
@@ -309,10 +314,11 @@ function render(opts = {}) {
   } else if (rt.r === 'do' && rt.id === 'leads') {
     const pg = leadsPage(ctx.me); sheet = pg.html; bindFn = pg.bind; label = 'Lead changes';   // #/do/leads (an admin's step; do_leads.js)
   } else if (rt.r === 'do' && /^pl-/.test(rt.id)) {
-    const pg = placePage(rt.id); if (pg) { sheet = pg.html; bindFn = pg.bind; label = 'Position and issue'; } else sheet = missingSheet();   // gap E: still drawn once both are set, so the page never turns into "done" under the person's hands
+    const pg = placePage(rt.id); if (pg) { sheet = pg.html; bindFn = pg.bind; label = 'Position and issue'; } else sheet = missingStepSheet();   // gap E: still drawn once both are set, so the page never turns into "done" under the person's hands
   } else if (rt.r === 'do') {
     const s = open.find(x => x.id === rt.id);
-    if (!s) sheet = missingSheet(); else [sheet, bindFn] = sheetFor(s);
+    // R-409: Back from a done page lands on this address again; the step is finished, so show its done page (with Undo) rather than "no longer yours"
+    if (!s) { const dn = ctx.finished[rt.id] ? doneSheet(ctx, rt.id, freshDraft) : null; if (dn) { sheet = dn; bindFn = () => bindDone(ctx, rt.id); } else sheet = missingStepSheet(); } else [sheet, bindFn] = sheetFor(s);
   } else if (rt.r === 'hearing') { sheet = hearingSheet(m, rt.id) || missingSheet(); label = 'Hearing today'; }
   else if (rt.r === 'waiting') { sheet = waitingSheet(m, rt.id) || missingSheet(); bindFn = bindWaiting; label = 'Waiting on others'; }
   else if (rt.r === 'ask') { sheet = replySheet(rt.id) || missingSheet(); bindFn = () => bindReply(rt.id, ctx); label = 'Did the chair reply?'; }
@@ -343,7 +349,7 @@ function render(opts = {}) {
   } else if (rt.r === 'search') {
     cur = 'search'; im = searchModel({ rt }); sheet = im.sheet; label = im.label; bindFn = im.bind;
   } else if (rt.r === 'door') { cur = rt.door; sheet = doorSheet(rt.door); one = true; label = DOORS.find(d => d[0] === rt.door)[1]; }
-  else sheet = missingSheet();
+  else sheet = noPageSheet();
   const onHome = rt.r === 'home', stepPage = rt.r !== 'home' && rt.r !== 'door' && rt.r !== 'me' && !im;
   const solo = !!im?.solo;   // a page with no list beside it (All bills)
   const cls = `ws${one || solo ? ' one' : ''}${im?.wide ? ' gridws' : ''}${im?.fixedList ? ' teamws' : ''}${phone ? (onHome ? ' homeone' : im ? (im.picked || solo ? ' sheetonly isn' : im.listOnly ? ' listonly isn' : ' isn') : ' sheetonly') : ''}`;
@@ -364,7 +370,8 @@ function render(opts = {}) {
   $('app').innerHTML = ov && phone ? `<div class="${cls}"><div class="wp ovp1">${paper(`<div class="pn"><div class="ov">${ov.top}</div></div>`, label)}</div>${lists}<div class="wp ovp2">${paper(`<div class="pn"><div class="ov">${ov.rest}</div></div>`, 'The overview, continued')}</div></div>`
     : `<div class="${cls}">${lists}${grip}<div class="wp">${opened && !rowInList ? row : ''}${paper(sheet, label)}</div></div>`;
   if (phone) document.body.classList.remove('isws');
-  if (opened) document.querySelectorAll('#app [data-notfound] .pbody p.lead > a.btn.text').forEach(a => { if (/^Back to/.test(a.textContent.trim())) { const p = a.parentElement; a.remove(); if (!p.textContent.trim()) p.remove(); } });
+  // R-409: after the "Back to" link goes, the space that followed it goes too, so the next link lines up with the heading
+  if (opened) document.querySelectorAll('#app [data-notfound] .pbody p.lead > a.btn.text').forEach(a => { if (/^Back to/.test(a.textContent.trim())) { const p = a.parentElement; a.remove(); if (!p.textContent.trim()) p.remove(); else if (p.firstChild?.nodeType === 3) p.firstChild.textContent = p.firstChild.textContent.replace(/^\s+/, ''); } });
   bindMore(); bindHome(); bindFn && bindFn({ sync: () => { lastRoute = location.hash; }, tick: !!opts.tick });   // sync: a page that changes its own address (replaceState) tells the frame, so the next minute's redraw does not take it for a new page
   if (!opts.tick) noteOpened(rt);
   bindFind({ tick: !!opts.tick, hadFocus: had === 'findIn', wasOpen, sync: () => { lastRoute = location.hash; }, rerender: () => render({}), keep: () => render({ tick: true }) });

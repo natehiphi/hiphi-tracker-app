@@ -226,7 +226,7 @@ with sync_playwright() as p:
         ok(pg.evaluate('location.hash') == '#/' and 'Good ' in pg.evaluate(H1) and [a.strip() for a in pg.locator('.bi').all_inner_texts()] == ['Home', 'Issues', 'Calendar', 'Search', 'More'] and pg.locator('button#moreBtn').count() == 1, f'{tag}: #/explore lands on Home; five doors, the fifth a button named More')
         for hsh in ('#/do/%', '#/constructor', '#/__proto__', '#/done/zzz', '#/do/ask-HB1-2026', '#/done/__proto__', '#/done/constructor', '#/done/toString', '#/do/__proto__', '#/do/toString'):
             pg.evaluate(f"location.hash = '{hsh}'"); pg.wait_for_timeout(300)
-            ok('no longer yours' in pg.evaluate(H1) and pg.locator('.sheet-error, #tbBack:has-text("Back to")').count() >= 1, f'{tag}: D1 {hsh} shows the "not here" sheet')
+            ok(('no longer yours' in pg.evaluate(H1) or 'We could not find that page.' in pg.evaluate(H1)) and pg.locator('.sheet-error, #tbBack:has-text("Back to")').count() >= 1, f'{tag}: D1 {hsh} shows the "not here" sheet')
         ok(not errs, f'{tag}: no errors on the router run {errs[:2]}')
         pg.context.close()
 

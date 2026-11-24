@@ -30,6 +30,8 @@ svg.ic { width: var(--icon); height: var(--icon); fill: none; stroke: currentCol
 .btn.text { color: var(--act); padding: 0 var(--s2); text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); font-family: var(--body); font-weight: 700; }
 .btn.text:hover { color: var(--act-p); text-decoration-thickness: var(--line2); }
 .btn.text:active { color: var(--ink); }
+/* R-409: on a not-found sheet the first link's text lines up with the heading above it; its padding (the touch target) hangs out to the left */
+[data-notfound] .pbody p.lead > a.btn.text:first-child { margin-left: calc(-1 * var(--s2)); }
 .btn.is-loading { pointer-events: none; }
 .btn.filled.is-loading { background: var(--act-p); color: var(--on-act); }
 .btn.quiet.is-loading { background: var(--tint); color: var(--muted); }
@@ -558,11 +560,12 @@ li[hidden] { display: none; }
 .xclose { position: absolute; top: var(--s3); right: var(--s3); display: inline-flex; align-items: center; justify-content: center; width: var(--hit); height: var(--hit); border-radius: var(--r8); color: var(--muted); text-decoration: none; }
 .xclose:hover { background: var(--tint); color: var(--ink); }
 .crumb.kick { display: flex; flex-wrap: wrap; gap: 0 var(--s3); margin-bottom: var(--s1); }
-.facts { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin-top: var(--s4); padding-top: var(--s3); border-top: var(--line) solid var(--rule); }
-.fact { display: inline-flex; align-items: center; gap: var(--s2); }
-.fact svg.ic, .bl svg.ic, .fact .lk svg.ic { width: var(--icon-s); height: var(--icon-s); }
-.fact > svg.ic { color: var(--muted); }
-.fact .lk { display: inline-flex; align-items: center; gap: var(--s1); text-decoration: none; }
+/* R-409 (LOOK-1): scoped to the calendar band; unscoped, these overrode Home's own 3-column .facts grid (line 324) */
+.hband.cal .facts { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s5); margin-top: var(--s4); padding-top: var(--s3); border-top: var(--line) solid var(--rule); }
+.hband.cal .fact { display: inline-flex; align-items: center; gap: var(--s2); }
+.hband.cal .fact svg.ic, .bl svg.ic, .hband.cal .fact .lk svg.ic { width: var(--icon-s); height: var(--icon-s); }
+.hband.cal .fact > svg.ic { color: var(--muted); }
+.hband.cal .fact .lk { display: inline-flex; align-items: center; gap: var(--s1); text-decoration: none; }
 /* one link style in the sheet and the day paper: link colour, bold, no underline at rest, underline on hover and focus */
 .hband.cal a.lk, .pbody.cal a.lk, .pbody.cal a.hl, .bl { color: var(--act); font-weight: 700; text-decoration: none; }
 .hband.cal a.lk:hover, .hband.cal a.lk:focus-visible, .pbody.cal a.lk:hover, .pbody.cal a.lk:focus-visible, .pbody.cal a.hl:hover, .pbody.cal a.hl:focus-visible, .bl:hover, .bl:focus-visible { text-decoration: underline; text-underline-offset: var(--s1); }
@@ -807,7 +810,7 @@ li[hidden] { display: none; }
 .bts .btk { display: block; font: 400 var(--f16)/1.3 var(--body); color: var(--ink); }
 .bts .btk a.lk { font-weight: 700; }
 .bts.bs-now .btk { font-weight: 700; }
-.bts .btnm, .bts .btsb { display: block; }
+.bts .btnm, .bts .btsb { display: block; font-size: var(--f14); line-height: 1.3; }   /* R-409 (LOOK-3): the smallest type size, not the browser's smaller default for small text */
 .bts.bs-now .btsb { color: var(--ink); font-weight: 700; }
 .btl.dead .bts.bs-x .btk { color: var(--muted); }
 

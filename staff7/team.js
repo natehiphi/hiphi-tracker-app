@@ -42,7 +42,7 @@ function groupRows(list, cap, open, id, rowFn, selId) {
   return `<ul class="srows3" id="${id}L">${lis}</ul>${more}`;
 }
 function headline(n, m) {
-  const a = n ? `${n} ${n === 1 ? 'step is' : 'steps are'} late or due today.` : '', b = m ? `${m} ${m === 1 ? 'bill has' : 'bills have'} no lead.` : '';
+  const a = n ? `${n} ${n === 1 ? 'step is' : 'steps are'} late or due within a day.` : '', b = m ? `${m} ${m === 1 ? 'bill has' : 'bills have'} no lead.` : '';
   return a || b ? `${a} ${b}`.trim() : 'Nothing needs the team today.';
 }
 const head = (view, n, m, h1) => `<${h1 ? 'h1' : 'h2'} class="tmt"${h1 ? ' tabindex="-1"' : ''}>Team</${h1 ? 'h1' : 'h2'}>`
@@ -131,7 +131,7 @@ export function teamModel({ me, rt, open, phone }) {
   const phoneList = phone && !picked;
   let col = head('one', rows.length, leads.length, phoneList);
   if (showRows) {
-    col += `<section aria-labelledby="tlh"><h2 class="lh" id="tlh">Late or due today · ${rows.length}</h2>${rows.length ? groupRows(rows, LATE_CAP, ui.moreLate, 'moreLate', lateRow, lateSel) : '<p class="calmnote">Nothing is late.</p>'}</section>`;
+    col += `<section aria-labelledby="tlh"><h2 class="lh" id="tlh">Late or due within a day · ${rows.length}</h2>${rows.length ? groupRows(rows, LATE_CAP, ui.moreLate, 'moreLate', lateRow, lateSel) : '<p class="calmnote">Nothing is late.</p>'}</section>`;
     col += `<section aria-labelledby="tnh"><h2 class="lh" id="tnh">No lead yet · ${leads.length}</h2>${leads.length ? groupRows(leads, LEAD_CAP, ui.moreLead, 'moreLead', leadRow, leadSel) : '<p class="calmnote">Every bill has a lead.</p>'}</section>`;
     if (ownLate) col += `<p class="tfoot">${ownLate === 1 ? 'Your own late step is on' : `Your own ${ownLate} late steps are on`} <a class="btn text" href="#/">Home</a></p>`;
   }

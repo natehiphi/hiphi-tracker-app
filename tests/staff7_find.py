@@ -143,6 +143,10 @@ with sync_playwright() as p:
     ok(pg.locator('#findDrop').is_visible(), 'typing opens the panel')
     pg.keyboard.press('Escape'); ok(pg.input_value('#findIn') == '' and not pg.locator('#findDrop').is_visible() and pg.evaluate("() => document.activeElement.id") == 'findIn' and pg.get_attribute('#findIn', 'aria-expanded') == 'false', 'Escape clears the words and closes the panel, and the cursor stays in the box')
     pg.keyboard.press('Escape'); ok(pg.evaluate("() => document.activeElement.id") != 'findIn', 'a second Escape leaves the box')
+    # ---- R-409: an exact bill number and Enter opens the bill, not the issue first in the list
+    for typed in ('HB1991', 'HB 1991'):
+        go(pg, '#/'); pg.evaluate("() => document.activeElement.blur()"); pg.keyboard.press('/'); pg.keyboard.type(typed, delay=20); settle(pg); pg.keyboard.press('Enter'); pg.wait_for_timeout(500)
+        ok(re.match(r'^#/bill/HB1991(\?|$)', pg.evaluate('location.hash')) is not None, f'"{typed}" and Enter opens the bill page ({pg.evaluate("location.hash")[:40]})')
     # ---- Enter with a closed panel opens nothing
     go(pg, '#/'); pg.click('#findIn'); pg.keyboard.type('youth', delay=20); settle(pg); pg.keyboard.press('Escape'); h0 = pg.evaluate('location.hash'); pg.keyboard.press('Enter'); pg.wait_for_timeout(400)
     ok(pg.evaluate('location.hash') == h0, 'Enter after Escape (panel closed) opens nothing')
@@ -451,6 +455,7 @@ with sync_playwright() as p:
     # --- not found
     for h, what in (('#/search/committee/ZZZ', 'committee'), ('#/search/person/99999999', 'person'), ('#/search/other/XX0000', 'other'), ('#/search/other/HB1562', 'tracked as other'), ('#/search/bogus', 'part'), ('#/search/person/%E0%A4%A', 'bad encoding')):
         go(pg, h); ok(pg.locator('[data-notfound]').count() == 1 and 'We could not find' in pg.evaluate(H1) and pg.locator('#tbBack:has-text("Back to Search")').count() == 1, f'{h}: the calm "not found" sheet ({pg.evaluate(H1)})')
+    go(pg, '#/search/other/XX0000'); ok(pg.locator('a[href="#/search?q=XX0000"]:has-text("Search for XX0000")').count() == 1, 'R-409: a bill not found offers "Search for XX0000"')
     ok(not errs and not bad, f'Search: no console error and nothing left 127.0.0.1 ({errs[:2]} {bad[:2]})')
     pg.close()
 

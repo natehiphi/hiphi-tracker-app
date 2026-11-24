@@ -452,7 +452,10 @@ export function bindFind(env) {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (mode !== 'door' && !(mode === 'issues' && val()) && !F.open) return;   // a closed panel has nothing to open
-      const os = options(), a = os[F.active >= 0 ? F.active : 0], href = a ? a.getAttribute('href') : '';
+      const os = options(), typed = bareNo(val());
+      // R-409: nothing chosen with the arrow keys and the words are a bill number: Enter opens that bill (its option), not the issue that happens to be first
+      const exact = F.active > 0 || !isBillNo(typed) ? null : os.find(o => { const h = o.getAttribute('href') || ''; return h.startsWith(`#/bill/${enc(typed)}`) && /^[?/]|^$/.test(h.slice(`#/bill/${enc(typed)}`.length)) || h === `#/search/other/${enc(typed)}`; });
+      const a = exact || os[F.active >= 0 ? F.active : 0], href = a ? a.getAttribute('href') : '';
       if (href) { close(); location.hash = href; }
     }
   });
@@ -473,7 +476,8 @@ export function bindFind(env) {
 // ---------------------------------------------------------------------------------- the Search door: the box and the results on the left, the picked thing's sheet on the right
 const personHref = (id, q) => `#/search/person/${enc(id)}${qs(q)}`;
 const kv = rows => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
-const notFoundSheet = (what, q) => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${what}.`, 'It may have been renamed, or it is not on the practice copy.')}<div class="pbody"><p class="lead"><a class="btn text" href="#/search${qs(q)}">Back to Search</a></p></div></div>`;
+// R-409: the practice-copy clause shows only on the practice copy; a bill not found offers a Search for it
+const notFoundSheet = (what, q, billId) => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${what}.`, `It may have been renamed${DEMO ? ', or it is not on the practice copy' : ''}.`)}<div class="pbody"><p class="lead"><a class="btn text" href="#/search${qs(q)}">Back to Search</a>${billId ? ` <a class="btn text" href="#/search?q=${enc(billId)}">Search for ${esc(billId)}</a>` : ''}</p></div></div>`;
 const calmSheet = () => `<div class="pn"><h1 class="vh" tabindex="-1">Search</h1><div class="pbody"><p class="lead mid" id="calmLine">Pick a result to look at it here.</p></div></div>`;
 const bySort = (a, b) => String(a.sort_name || a.name).localeCompare(String(b.sort_name || b.name), 'en');
 const membersOf = code => (S.committeeMembers || []).filter(m => m.committee === code).map(m => ({ role: m.role, l: legOf(m.legislator_id) })).filter(x => x.l);
@@ -534,7 +538,7 @@ export function searchModel({ rt }) {
     picked = true;
     const s = kind === 'committee' ? committeeSheet(rest, q) : kind === 'person' ? personPage(rest) : kind === 'other' ? otherSheet(rest, q) : '';
     if (s) { sheet = s; label = kind === 'committee' ? 'Committee' : kind === 'person' ? 'Legislator' : 'Bill'; cur = `#/search/${kind}/${enc(rest)}`; }
-    else { sheet = notFoundSheet(kind === 'committee' ? 'that committee' : kind === 'person' ? 'that legislator' : kind === 'other' ? 'that bill' : 'that part of Search', q); label = 'Not found'; }
+    else { sheet = notFoundSheet(kind === 'committee' ? 'that committee' : kind === 'person' ? 'that legislator' : kind === 'other' ? 'that bill' : 'that part of Search', q, kind === 'other' ? rest : ''); label = 'Not found'; }
   }
   const box = boxHTML({ who: '', q, door: true });
   const col = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">Search</h2></div>${box}</header><div id="slist">${doorHTML(q, cur, new Set((rt.q.get('all') || '').split(',')))}</div>`;

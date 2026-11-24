@@ -81,6 +81,9 @@ with sync_playwright() as p:
                 pm = pg.locator('.stm.past').first
                 ok(pm.inner_text().strip() == 'Past due' and pm.locator('svg').count() == 1 and pg.evaluate("getComputedStyle(document.querySelector('.stm.past')).color") == 'rgb(179, 38, 30)' and pg.locator('.stm.soon:has-text("Past due")').count() == 0, f'{tag} {who}: Past due is a word with its own mark in the late colour, not the amber clock')
             ok(not m['nextHearingToday'], f'{tag} {who}: "Your next hearing" is never a hearing already in To do ({m["todayHearings"]} today)')
+            # R-409 row 5: on a day with a hearing today (Kris has one) the fact says "after today"; otherwise it stays "Your next hearing"
+            nhl = pg.locator('.fact').first.locator('.fl').inner_text().strip()
+            ok(nhl == ('Your next hearing after today' if m['todayHearings'] else 'Your next hearing'), f'{tag} {who}: the next-hearing fact reads "{nhl}" with {m["todayHearings"]} hearing(s) today')
             # fix 5: Overview is the first row of the left column, marked on the overview
             ov0 = pg.evaluate("() => { const a = document.querySelector('.wl a'); return [a.classList.contains('ovr'), a.innerText.trim(), a.getAttribute('href'), a.getAttribute('aria-current'), a.classList.contains('sel')]; }")
             ok(ov0 == [True, 'Overview', '#/', 'page', True], f'{tag} {who}: the first row of the left is Overview, marked open on the overview ({ov0})')
@@ -123,7 +126,7 @@ with sync_playwright() as p:
         ok(rr.count() >= 1 and rr.first.locator('svg').count() == 1 and 'about to stop' in rr.first.inner_text() and pg.evaluate("getComputedStyle(document.querySelector('#hs + ul .rmark')).color") == 'rgb(122, 74, 0)', f'{tag} JM: the To do row of the bill about to stop carries an amber triangle with words for a screen reader, before its time')
         ok(pg.locator('.fact:nth-child(3) .fs').inner_text().strip() == '', f'{tag} JM: the issues fact stays a tally and names no bill')
         # fix 9: the session names its stops in plain words and holds the date "Your bills" counts; the "you are here" mark never touches a stop's dot
-        bd = re.search(r'before (\w{3}, \w{3} \d+)', pg.locator('.fact:nth-child(2)').inner_text()).group(1); sd = pg.locator('.sd').inner_text()
+        bd = re.search(r'(?:before|first deadline) (\w{3}, \w{3} \d+)', pg.locator('.fact:nth-child(2)').inner_text()).group(1); sd = pg.locator('.sd').inner_text()
         ok(bd in sd and 'Crossover' not in sd.replace('Bills switch chambers', '') and 'decking' not in sd.lower() and 'lateral' not in sd.lower(), f'{tag} JM: the session line holds the date Your bills counts ({bd}) and no Capitol jargon')
         sl = pg.evaluate("() => [...document.querySelectorAll('.sd li:not(.you) b')].map(b => b.innerText.trim())")
         ok(len(sl) == 6 and sl[0] == 'Crossed to the other chamber' and sl[-1] == 'Session ends' and pg.locator('.sd li.off').count() >= 0 and not re.search(r'1st|2nd|Early', ' '.join(sl)), f'{tag} JM: the session line uses the one table\'s words, the same six stops for everyone ({sl})')
@@ -137,6 +140,14 @@ with sync_playwright() as p:
         hr.click(); pg.wait_for_timeout(300)
         t = pg.locator('.paper').inner_text()
         ok(all(k in t for k in ('When', 'Where', 'Committee', 'Our testimony', 'Going')) and pg.locator('.btn.filled').count() == 0 and pg.locator('.paper a[target=_blank], .paper a[href^="http"], .paper a[href^="mailto"]').count() == 0 and 'Hearing today' in pg.evaluate(H1) and pg.locator('a.sr3[aria-current]').count() == 1, f'{tag} JM: the hearing sheet is read-only (when, where, committee, testimony, who is going), no filled button, nothing that leaves the app, its row marked')
+        # R-409 row 6: "before" for one bill, "first deadline" for several; row 7: a draft with a review note reads "Sent back to fix" on the hearing sheet
+        pg.click('.bi:has-text("Home")'); pg.wait_for_timeout(300)
+        f2 = pg.locator('.fact:nth-child(2)').inner_text().replace('\n', ' '); nb = re.search(r'(\d+) need', f2)
+        ok(('first deadline ' in f2) == bool(nb and int(nb.group(1)) > 1) and ('before ' in f2) == (not (nb and int(nb.group(1)) > 1)), f'{tag} JM: "Your bills" says "first deadline" for several bills and "before" for one ({f2!r})')
+        sw = pg.evaluate("""async () => { const d = await import('/staff6/data.js'), h = await import('/staff7/home.js'), s7 = await import('/staff7/steps.js'), S = d.S;
+          const m = h.homeModel(S.me, s7.stepsFor(S.me)), hr = m.hearings[0]; if (!hr) return null; const mk = (st, note) => { S.drafts[hr.b.id] = [{ id: 'r409', bill_id: hr.b.id, hearing_id: hr.h.id, committee: hr.h.committee, status: st, review_note: note }]; const el = document.createElement('div'); el.innerHTML = h.hearingSheet(m, hr.id); return el.querySelector('dl.kv').innerText; };
+          const old = S.drafts[hr.b.id]; const a = mk('draft', 'Tighten the ask'), b = mk('draft', ''); S.drafts[hr.b.id] = old; return [a, b]; }""")
+        ok(sw and 'Sent back to fix' in sw[0] and 'Being written' in sw[1] and 'Sent back to fix' not in sw[1], f'{tag} JM: the hearing sheet says "Sent back to fix" for a draft with a review note, "Being written" without one')
         snap(pg, 'hearing_sheet_JM', tag)
         pg.click('.bi:has-text("Home")'); pg.wait_for_timeout(300)
         ok(pg.locator('.ovtop').count() == 1 and pg.url.split('#')[-1] in ('', '/'), f'{tag} JM: Home in the bar returns to the overview')

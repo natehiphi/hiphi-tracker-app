@@ -20,6 +20,7 @@ import { testimonyDue, letterState, testimonyWords, leadIds } from './bill_words
 import { billSheet, bindBill } from './bill.js';
 import { deadlineCell, clearedOf, urgentBillOf, markHTML, signalOf } from './bill_cell.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
+import { plainer } from './bill_history.js';
 import { stoppedWords, stoppedWhy } from './issue_table.js';
 import { billsModel, mineCount, trackedBills, billsFor } from './bills.js';
 import { entryRow, sortModel } from './sort.js';
@@ -352,7 +353,8 @@ export function bindIssues() {
 
 // ---------------------------------------------------------------------------------- small parts
 const hband = (i, title, sub, crumb, grey) => `<div class="hband" style="${grey ? '--ic:var(--edge)' : tint(i)}"><span class="imark big" aria-hidden="true">${ic(iconOf(i))}</span><div class="ht">${crumb || ''}<h1 tabindex="-1">${esc(title)}</h1>${sub ? `<p class="bsub">${sub}</p>` : ''}</div></div>`;
-const notFound = (what, back) => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${what}.`, 'It may have been renamed, or it is not on the practice copy.')}<div class="pbody"><p class="lead"><a class="btn text" href="${back}">Back to Issues</a></p></div></div>`;
+// R-409: the practice-copy clause shows only on the practice copy; a bill not found offers a Search for it
+const notFound = (what, back, billId) => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${what}.`, `It may have been renamed${DEMO ? ', or it is not on the practice copy' : ''}.`)}<div class="pbody"><p class="lead"><a class="btn text" href="${back}">Back to Issues</a>${billId ? ` <a class="btn text" href="#/search?q=${encodeURIComponent(billId)}">Search for ${esc(billId)}</a>` : ''}</p></div></div>`;
 const kv = rows => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 // Said on an issue (or a bill) that is not the viewer's, and nowhere else
 export const lookLine = who => who.kind === 'all' ? 'Everyone’s issues. Look only.' : who.kind === 'person' ? `${first(who.person)}’s issues. Look only.` : 'Look only.';
@@ -379,7 +381,9 @@ export const clean = t => String(t).replace(/\b[A-Z]{2,4}(?:\/[A-Z]{2,4})*\b/g, 
 function lastWords(b) {
   const t = String(b.last_action || '').trim();
   if (isCarry(b) && /^Carried over to/i.test(t)) return `Still alive from ${introYear(b)}`;
-  return t ? clean(plainAction(t)[0]) : 'Introduced';
+  if (!t) return 'Introduced';
+  const pl = plainer(t, b);   // R-409: the bill page's plain-words rule ("Pass First Reading" reads "Passed first reading")
+  return clean(pl || plainAction(t)[0]);
 }
 // ---------------------------------------------------------------------------------- the session's sheet: the answer first (what is at risk, what is coming), then the dates and the next deadline
 const HST_TZ = { timeZone: 'Pacific/Honolulu' };
@@ -517,7 +521,7 @@ export function issuesModel({ me, open, rt, people }) {
   let sheet, label = 'Issues', pageIssue = null, picked = true, openKey = { session: false, issue: '' }, bk = back, backLabel = '';
   const showSession = () => { openKey = { session: true, issue: '' }; sheet = sessionSheet(who, set, me, ses); label = 'The session'; };
   const showIssue = x => { openKey = { session: false, issue: String(x.issue.id) }; pageIssue = x.issue; sheet = ''; label = 'Issue'; };   // the page itself is issue.js, drawn by frame.js from `pageIssue`
-  const gone = what => { sheet = notFound(what, back); label = 'Not found'; };
+  const gone = (what, billId) => { sheet = notFound(what, back, billId); label = 'Not found'; };
   if (who0.bad) gone('that list of issues');
   else if (rt.r === 'issues') {
     if (rt.id === 'session') showSession();
@@ -534,7 +538,7 @@ export function issuesModel({ me, open, rt, people }) {
     else { showIssue(all.find(y => String(y.issue.id) === String(i.id)) || { issue: i, bills: billsOfIssue(i), standing: issueStanding(billsOfIssue(i)) }); if (tp) { bk = listHref(who); backLabel = tp.name; } }
   } else {
     const b = rt.id && rt.id.length < 40 ? billByRef(rt.id) : null;
-    if (!b || b.tracked === false) gone('that bill');
+    if (!b || b.tracked === false) gone('that bill', rt.id && rt.id.length < 40 ? rt.id : '');
     else {
       const ids = (S.billIssues || []).filter(x => x.bill_id === b.id).map(x => String(x.issue_id)), want = rt.q.get('i') || '';
       const cand = (S.issues || []).filter(i => !i.archived_at && ids.includes(String(i.id)));

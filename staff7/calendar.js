@@ -5,7 +5,7 @@
 // A sitting is every hearing row with one committee (its codes sorted, so WAM/CPN and CPN/WAM are one) and one start time; it is in a view when one of the set's alive bills is heard at it.
 // A cancelled hearing, a dead bill's hearing and a repeated row (same bill, same time) are never drawn. Mine is the bills of my issues plus any bill I lead or follow, as Home's "next hearing" reads it.
 // Nothing here writes anything.
-import { S, isMine, SESSION_YEAR } from '../staff6/data.js';
+import { S, isMine, SESSION_YEAR, DEMO } from '../staff6/data.js';
 import { goingIds, goingNames, changeGoing } from './do_file.js';
 import { holdFor } from './do_check.js';   // a testimony held for a position change: its own step is Check your testimony, never File testimony
 import { roomName, streamOf, hearingAhead, billRef, lateLine } from '../staff6/model.js';
@@ -169,7 +169,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
   const col = grid ? `${header}${emptyLine}` : `${header}${weekRow}${emptyLine}${daysHTML}`;
 
   // ---- the sheets
-  const notFound = () => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${notFoundWhat}.`, 'It may have been renamed, or it is not on the practice copy.')}<div class="pbody"><p class="lead"><a class="btn text" href="${hereHref}">Back to Calendar</a></p></div></div>`;
+  const notFound = () => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${notFoundWhat}.`, `It may have been renamed${DEMO ? ', or it is not on the practice copy' : ''}.`)}<div class="pbody"><p class="lead"><a class="btn text" href="${hereHref}">Back to Calendar</a></p></div></div>`;
   const kv = rows => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
   const line = (t, cls = '') => `<p class="${cls}">${t}</p>`;
   const stLine = (st, s, r, several) => { const now = Date.now(), late = s.t > now && r.due <= now && st.key !== 'filed';   // the late line: with one bill the readiness block says it, with several only the late bills carry it

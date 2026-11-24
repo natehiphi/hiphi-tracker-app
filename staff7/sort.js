@@ -106,12 +106,14 @@ function factsHTML(m, list, mode) {
   if (r.followers) rows.push(['Followed by', `${esc(n(r.followers, 'person', 'people'))} on the public site`]);
   return `<dl class="kv bfacts" id="sFacts">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 }
-// the Issue field's choices: Suggested, Same topic (the suggestion's topic), All issues, then No issue yet
+// the Issue field's choices: Suggested (or the placeholder), No issue yet, Same topic (the suggestion's topic), All issues
 function issueOpts(f) {
   const sg = f.sg, L = D.liveIssues().slice().sort((a, b) => eCig(a.name).localeCompare(eCig(b.name), 'en')), near = sg ? L.filter(i => i !== sg && i.category === sg.category) : [], rest = L.filter(i => i !== sg && !near.includes(i));
   const o = i => `<option value="${esc(i.id)}"${f.issueId === i.id ? ' selected' : ''}>${esc(eCig(i.name))}${i.published_at ? '' : ' (draft)'}</option>`;   // a draft says so wherever it is listed (R-398 piece 10)
+  // R-409: "No issue yet" sits straight after the first entry, above the long All issues list (it was last, under 90 issues)
   return (sg ? `<optgroup label="Suggested">${o(sg)}</optgroup>` : `<option value=""${f.issueId === '' ? ' selected' : ''} disabled>Choose an issue</option>`)
-    + (near.length ? `<optgroup label="Same topic">${near.map(o).join('')}</optgroup>` : '') + `<optgroup label="All issues">${rest.map(o).join('')}</optgroup><option value="none"${f.issueId === 'none' ? ' selected' : ''}>No issue yet</option>`;
+    + `<option value="none"${f.issueId === 'none' ? ' selected' : ''}>No issue yet</option>`
+    + (near.length ? `<optgroup label="Same topic">${near.map(o).join('')}</optgroup>` : '') + `<optgroup label="All issues">${rest.map(o).join('')}</optgroup>`;
 }
 const sel = (id, lab, opts, after = '') => `<div class="df"><label class="fl" for="${id}">${lab}</label><select class="field bsel" id="${id}">${opts}</select>${after}</div>`;
 const trackNote = (f, me) => f.canTrack ? (f.issue && !f.issue.published_at ? `${eCig(f.issue.name)} is a draft: only the team sees it until ${me?.is_admin ? 'you publish' : adminFirst() + ' publishes'} it.` : 'Only the team sees it. It is not on the public site until someone publishes it.') : 'Choose an issue, or No issue yet, to track it.';

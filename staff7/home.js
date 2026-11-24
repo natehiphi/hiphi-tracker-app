@@ -243,11 +243,13 @@ export function overviewParts(m) {
   const chev = ic('chevron-right', 'fchev');
   const fact = (href, label, v, mute, sub, vc = '') => `<a class="fact" href="${href}"><span class="fl">${label}</span><span class="fv${mute ? ' mutedv' : ''}${vc}">${v}</span><span class="fs">${sub}</span><span class="fgo">${chev}</span></a>`;
   // the three quiet facts: none repeats the To do list
-  const f1 = hr ? fact('#/calendar', 'Your next hearing', esc(dayTime(hr.h.scheduled_at)), false, `${esc(brief(billName(hr.b)))} · ${esc(cmteWords(hr.h.committee))}`)
-    : fact('#/calendar', 'Your next hearing', 'None after today', true, 'Nothing else on the calendar yet.');
+  // R-409: on a day with a hearing today (already a To do row) the label says "after today"
+  const nhLabel = m.hearings.length ? 'Your next hearing after today' : 'Your next hearing';
+  const f1 = hr ? fact('#/calendar', nhLabel, esc(dayTime(hr.h.scheduled_at)), false, `${esc(brief(billName(hr.b)))} · ${esc(cmteWords(hr.h.committee))}`)
+    : fact('#/calendar', nhLabel, 'None after today', true, 'Nothing else on the calendar yet.');
   const need = withMe(me, () => (S.bills || []).filter(b => b.tracked !== false && isMine(b) && needsHearing(b)));
   const soon = need.map(b => deadlineOf(b)).sort((x, y) => x.date.localeCompare(y.date))[0];
-  const f2 = need.length ? fact('#/issues', 'Your bills', `${need.length} ${need.length === 1 ? 'needs' : 'need'} a hearing`, false, `before ${esc(dateWords(soon.date))}`)
+  const f2 = need.length ? fact('#/issues', 'Your bills', `${need.length} ${need.length === 1 ? 'needs' : 'need'} a hearing`, false, `${need.length > 1 ? 'first deadline' : 'before'} ${esc(dateWords(soon.date))}`)   // R-409: with several bills the date is the earliest, not a shared one
     : fact('#/issues', 'Your bills', 'All have a hearing or are past it', true, '');
   const bits = [];
   if (tl.risk) bits.push(['risk', `${ic('triangle-alert')}${tl.risk} at risk`]);
@@ -257,7 +259,7 @@ export function overviewParts(m) {
   const f3 = parts.length ? fact('#/issues', 'Your issues', parts.join(' '), false, '', ' iss') : fact('#/issues', 'Your issues', 'None followed yet', true, '');
   const sub = hl.link ? `<p class="ovsub">${esc(hl.lead)}<a class="ovlink" href="${hl.link.href}">${esc(hl.link.text)}</a></p>` : hl.plain ? `<p class="ovsub">${esc(hl.plain)}</p>` : '';
   const tc = [], { late, noLead: nl } = teamCounts(me);   // the Team page's own counts
-  if (late) tc.push(`${late} late or due today`); if (nl) tc.push(`${nl} ${nl === 1 ? 'bill' : 'bills'} with no lead`);
+  if (late) tc.push(`${late} late or due within a day`); if (nl) tc.push(`${nl} ${nl === 1 ? 'bill' : 'bills'} with no lead`);
   const team = tc.length ? `<p class="ovteam"><a class="ovlink" href="#/team">Team: ${tc.join(' · ')}</a></p>` : '';
   const top = `<div class="ovtop"><p class="ovdate">${esc(day)}</p><div class="ovhd">${hl.calm ? SUN : ''}<div><h1 tabindex="-1">${hl.h1}</h1>${sub}${team}</div></div></div>`;
   const rest = `<div class="ovrest"><div class="facts">${f1}${f2}${f3}</div>${sessionHTML(soon, touchMap(withMe(me, () => (S.bills || []).filter(b => b.tracked !== false && isMine(b)))))}</div>`;
@@ -276,7 +278,7 @@ export function hearingSheet(m, id) {
   return `<div class="pn">${band(issueOf(b), 'Hearing today', billName(b), billNo(b))}<div class="pbody">`
     + kv([['When', esc(when)], ['Where', esc(roomName(h.room) || 'No room is listed yet.')], ['Committee', esc(cmteWords(h.committee))],
       same.length ? ['Also on your bills', same.map(x => `${esc(x.name)}<span class="no"> ${esc(x.no)}</span>`).join('<br>')] : null,
-      ['Our testimony', `${esc(d ? TEST_WORDS[d.status] || 'In progress' : 'Not started')}${step ? ` · <a class="btn text" href="#/do/${encodeURIComponent(step.id)}">Open the step</a>` : ''}`],
+      ['Our testimony', `${esc(d ? (d.status === 'draft' && d.review_note ? 'Sent back to fix' : TEST_WORDS[d.status] || 'In progress') : 'Not started')}${step ? ` · <a class="btn text" href="#/do/${encodeURIComponent(step.id)}">Open the step</a>` : ''}`],
       ['Going', esc(going.length ? going.join(', ') : 'No one is marked as going yet.')]])
     + `</div></div>`;
 }

@@ -190,5 +190,23 @@ with sync_playwright() as p:
     pg.click('#tbClose'); settle(pg, 500); ok(hash_of(pg) in ('', '#/'), '1440 a finished step: Close goes Home, not back into the finished step')
     ok(not errs, f'1440 a finished step: no page errors {errs[:1]}')
     pg.context.close()
+    # ---- R-409 row 3: Back from a done page shows that done page again (not "no longer yours"), with Undo
+    errs = []; pg = open_as(br, 'KR', 1440, 900, '', errs)
+    ap = pg.locator('a.sr3[href^="#/do/"]:has-text("Approve")').first; ap.click(); settle(pg); pg.click('#apBtn'); settle(pg, 1200)
+    ok('#/done/' in hash_of(pg), 'R-409 Kris: Approve opens the done page')
+    pg.go_back(); settle(pg, 800)
+    t = pg.inner_text('#app')
+    ok('no longer yours' not in t and 'Approved.' in t and pg.locator('#undoBtn').count() >= 1, f'R-409 Kris: Back from the done page shows the done page again, with Undo ({hash_of(pg)})')
+    ok(not errs, f'R-409 Kris: no page errors {errs[:1]}')
+    pg.context.close()
+
+    # ---- R-409 row 4 (the frame's half): the two not-found sheets
+    errs = []; pg = open_as(br, 'KV', 1440, 900, '#/nothing-here', errs); settle(pg, 500)
+    t = pg.inner_text('#app')
+    ok('We could not find that page.' in t and 'The link may be old or mistyped.' in t and pg.locator('#app [data-notfound]').count() == 1 and pg.get_by_text('Back to Home').count() == 1 and pg.inner_text('#tbBack').strip() == 'Back to Home' and pg.locator('#app .pbody p.lead > a.btn.text[href="#/search"]').inner_text().strip() == 'Search', 'R-409 unknown address: heading, line, one Back to Home (the top bar) and the Search text link')
+    pg.context.close(); pg = open_as(br, 'KV', 1440, 900, '#/do/not-a-step', errs); settle(pg, 500); t = pg.inner_text('#app')   # a fresh page: after another page the top bar says Back to the page
+    ok('That step is done or no longer yours.' in t and 'It may have been finished by you or a teammate, or handed to someone else. Your open steps are on Home.' in t and pg.locator('#app [data-notfound]').count() == 1 and pg.get_by_text('Back to Home').count() == 1 and pg.inner_text('#tbBack').strip() == 'Back to Home' and pg.locator('#app .pbody a').count() == 0, 'R-409 a step that is not open: heading, new line and one Back to Home (the top bar), no button in the page')
+    ok(not errs, f'R-409 not-found sheets: no page errors {errs[:1]}')
+    pg.context.close()
     br.close()
 print(f'{sum(res)}/{len(res)} passed'); sys.exit(0 if all(res) else 1)

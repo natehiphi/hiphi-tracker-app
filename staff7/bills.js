@@ -6,7 +6,7 @@
 // always passed to deadlineCell (a bill that cleared it is never amber); where a bill is, place.js (placeOf: two lines, line 1 its state, line 2 its committee; the same words on every page); a stopped bill's date, issue_table.js stoppedDate; Next date, nextDateOf below.
 // STATE lives in the address (?who= pos coal st q sort dir), so a reload and Back keep the view; a key, a choice or a sort changes the address with replaceState and draws only the table (focus never moves).
 // Nothing here writes anything.
-import { S, POSITIONS, SESSION_YEAR } from '../staff6/data.js';
+import { S, POSITIONS, SESSION_YEAR, DEMO } from '../staff6/data.js';
 import { stopOf, hearingAhead } from '../staff6/model.js';
 import { ic } from './icons7.js';
 import { esc } from './parts.js';
@@ -225,7 +225,7 @@ export function viewOf(who, me, people = S.advocates) {
 export function billsModel({ me, rt, people }) {
   const who0 = whoOf(rt.q.get('who'), me, people), base = { who: MINE, set: [], ses: null, label: 'All bills', back: '#/issues', backLabel: 'Issues', picked: false, solo: true, pageIssue: null };
   if (who0.bad || (who0.kind === 'person' && !who0.person)) {
-    const sheet = `<div class="pn" data-notfound="1"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">We could not find that list of bills.</h1><p class="bsub">It may have been renamed, or it is not on the practice copy.</p></div></div><div class="pbody"><p class="lead"><a class="btn text" href="#/issues">Back to Issues</a></p></div></div>`;
+    const sheet = `<div class="pn" data-notfound="1"><div class="hband neutral"><div class="ht"><h1 tabindex="-1">We could not find that list of bills.</h1><p class="bsub">It may have been renamed${DEMO ? ', or it is not on the practice copy' : ''}.</p></div></div><div class="pbody"><p class="lead"><a class="btn text" href="#/issues">Back to Issues</a></p></div></div>`;
     return { ...base, col: '', sheet, notFound: true, bind: () => {}, label: 'Not found' };
   }
   const who = who0, f = readQuery(rt.q, who), v = viewOf(who, me, people), bv = v;

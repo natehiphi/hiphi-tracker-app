@@ -116,10 +116,11 @@ const WORDS = t => String(t || '').split(/\s+/).filter(Boolean);
 const MW = x => Math.ceil(Math.max(1, ...WORDS(x.name).map(w => w.length), ...WORDS(x.k === 'cmte' ? x.codes.join(' / ') : x.t).map(w => w.length * 1.25), ...WORDS(x.sub).map(w => w.length)));
 const WT = x => x.k === 'cmte' ? (x.codes.length > 1 ? 2.2 : 1.6) : x.k === 'general' ? 1.8 : x.k === 'intro' ? 2 : x.k === 'final' ? 1.5 : x.k === 'gov' ? 2 : 1.1;
 const STATE = { done: ', passed', now: ', now', todo: ', to come', x: ', where it stopped' };
+// R-409: a date is kept in one piece (Mon and day joined by a no-break space); "passed" may still wrap before it
 function stopHTML(x) {
   const t = x.k === 'cmte' ? x.codes.map(codeLink).join(' / ') : esc(x.t);
   const sub = x.s === 'now' ? 'now' : x.s === 'x' ? 'stopped' : x.sub;
-  return `<li class="bts bs-${x.s}" data-k="${x.k}" data-s="${x.s}" style="--w:${WT(x)};--mw:${MW(x)}"><b class="btk">${t}</b>${x.name ? `<small class="btnm">${esc(x.name)}</small>` : ''}${sub ? `<small class="btsb">${esc(sub)}</small>` : ''}</li>`;
+  return `<li class="bts bs-${x.s}" data-k="${x.k}" data-s="${x.s}" style="--w:${WT(x)};--mw:${MW(x)}"><b class="btk">${t}</b>${x.name ? `<small class="btnm">${esc(x.name)}</small>` : ''}${sub ? `<small class="btsb">${esc(sub).replace(/\b([A-Z][a-z]{2}) (\d)/g, '$1\u00a0$2')}</small>` : ''}</li>`;
 }
 // the compact drawing (phones) and the timeline (wider), with one sentence for a screen reader
 export function billTimeline(b) {

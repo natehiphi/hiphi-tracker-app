@@ -174,7 +174,8 @@ with sync_playwright() as p:
     cands = [r for r in M['rows'] if r['sg']][:1]
     go(pg, '#/issues/new/' + cands[0]['no']); pg.wait_for_selector('#dIss')
     og = pg.evaluate("() => [...document.querySelectorAll('#dIss > optgroup, #dIss > option')].map(o => o.tagName === 'OPTGROUP' ? o.label : o.innerText)")
-    ok(og[0] == 'Suggested' and og[-1] == 'No issue yet' and 'All issues' in og and og.index('All issues') > og.index('Suggested') and not any('New issue' in x for x in og), f'Issue groups: Suggested, Same topic, All issues, then No issue yet ({og}); no "New issue…"')
+    ok(og[0] == 'Suggested' and og[1] == 'No issue yet' and 'All issues' in og and og.index('All issues') > og.index('Suggested') and not any('New issue' in x for x in og), f'Issue groups: Suggested, No issue yet, Same topic, All issues ({og}); no "New issue…"')
+    ok(og.index('No issue yet') < og.index('All issues'), 'R-409: "No issue yet" comes before the long "All issues" group')
     people = pg.evaluate("""async () => { const d = await import('/staff6/data.js'); return { opts: [...document.querySelectorAll('#dLead option')].map(o => o.innerText), active: d.S.advocates.filter(a => a.is_active !== false).length, off: d.S.advocates.filter(a => a.is_active === false).length }; }""")
     ok(len(people['opts']) == people['active'] and people['opts'][0] == 'You', f'Lead offers only active team members, You first ({len(people["opts"])} of {people["active"]})')
     ok(pg.locator('#dCamp option').count() >= 2 and pg.evaluate("() => [...document.querySelectorAll('#dCamp option')].pop().innerText") == 'No coalition', 'Coalition offers the coalitions and "No coalition"')
