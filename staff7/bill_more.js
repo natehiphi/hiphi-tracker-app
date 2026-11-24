@@ -45,7 +45,7 @@ const legById = id => (S.legislators || []).find(l => String(l.id) === String(id
 export function chairsHTML(code) {
   const ids = [...new Set(codesOf(code).flatMap(c => chairIdsOf(c)).map(String))], ls = ids.map(legById).filter(Boolean); if (!ls.length) return '';
   const one = l => {
-    const nm = `<a class="lk" href="#/search/person/${enc(l.id)}">${esc(`${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${lastOf(l)}`)}</a>`;
+    const nm = `<a class="lk" href="#/more/legislators/${enc(l.id)}">${esc(`${l.chamber === 'S' ? 'Sen.' : 'Rep.'} ${lastOf(l)}`)}</a>`;
     const tel = String(l.phone || '').trim(), how = [l.room ? `Room ${esc(l.room)}` : '', tel ? `<a class="lk" href="tel:${esc(tel.replace(/[^\d+]/g, ''))}">${esc(tel)}</a>` : ''].filter(Boolean).join(', ');
     return `${nm}${how ? ` (${how})` : ''}`;
   };

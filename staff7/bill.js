@@ -17,6 +17,7 @@ import { isNoLead } from './team_data.js';   // R-398 piece 6: the Team door on 
 import { billTextUrl, afterHTML, moreAfterHTML, chairsHTML, askedWords, publicHTML, talkingHTML, bindMore } from './bill_more.js';
 import { partB, bindPartB } from './bill_history.js';
 import { chairLineHTML, bindChairLine } from './bill_chair.js';
+import { chairIdsOf as chairIds } from '../staff6/model.js';
 import { askForBill } from './ask_data.js';
 import { stoppedWords } from './issue_table.js';
 import { placeLine, placeLineHTML, stoppedLineHTML } from './place.js';
@@ -154,6 +155,7 @@ function companionsHTML(b, who) {
   };
   return `<ul class="blist">${nums.map(li).join('')}</ul>`;
 }
+// "· Chair Rep. Hashem" after the place line, each chair linked (nothing when the data names no chair)
 // Sponsors: the first (named in full, a link when the legislator can be found), then the others behind "Show all"
 const lastOf = l => norm(String(l.sort_name || l.name).split(',')[0]);
 function legFor(sp, b) {
@@ -162,7 +164,7 @@ function legFor(sp, b) {
   if (!c.length) c = (S.legislators || []).filter(l => lastOf(l) === key);
   const l = c.length === 1 ? c[0] : null, last = l ? String(l.sort_name || l.name).split(',')[0].trim() : raw === raw.toUpperCase() ? raw.replace(/\w\S*/g, w => w[0] + w.slice(1).toLowerCase()) : raw;
   const title = (l ? l.chamber : ch) === 'S' ? 'Sen.' : 'Rep.', text = esc(`${title} ${last}`);
-  return l ? `<a class="lk" href="#/search/person/${enc(l.id)}">${text}</a>` : text;
+  return l ? `<a class="lk" href="#/more/legislators/${enc(l.id)}">${text}</a>` : text;
 }
 export function sponsorsHTML(b) {
   const sps = (b.sponsors || []).filter(s => String(s?.n || s?.name || s || '').trim()); if (!sps.length) return '';

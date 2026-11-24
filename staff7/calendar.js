@@ -245,7 +245,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
     + `<p class="rdys${rd.late ? ' riskt' : ''}">${rd.late ? ic('triangle-alert') : ''}<span>${esc(rd.say)}</span></p>${rd.cap2 ? `<p class="rdys">${esc(rd.cap2)}</p>` : ''}${rd.go ? `<a class="btn filled" id="rdyGo" href="#/do/${enc(rd.go.id)}">${esc(rd.go.verb)}</a>` : ''}</section>`;
 
   // ---- the right column: the other bills at this sitting, and the committee
-  const legLink = l => http(l.capitol_url) ? `<a class="lk" target="_blank" rel="noopener" href="${esc(l.capitol_url)}">${esc(l.name)}</a>` : esc(l.name);
+  const legLink = l => `<a class="lk" href="#/more/legislators/${encodeURIComponent(l.id)}">${esc(l.name)}</a>`;
   const cmteOf = code => { const c = S.committees?.[code]; if (!c) return null;
     const ms = (S.committeeMembers || []).filter(m => m.committee === code).map(m => ({ role: m.role, l: (S.legislators || []).find(l => l.id === m.legislator_id) })).filter(x => x.l);
     const chairs = ms.filter(x => x.role === 'chair'), vices = ms.filter(x => x.role === 'vice_chair'), rest = ms.filter(x => x.role !== 'chair' && x.role !== 'vice_chair');
@@ -281,7 +281,7 @@ export function calendarModel({ me, open, rt, people, phone }) {
     let right = agenda;
     const cms = [...new Set(String(h.committee || '').split('/').map(c => c.trim()).filter(Boolean))].map(cmteOf).filter(Boolean);
     if (cms.length) right += foldOf('cmte', 'The committee', (() => { const ch = [...new Set(cms.flatMap(c => c.chairs.map(x => x.l.name)))]; return ch.length ? `${ch.length > 1 ? 'Chairs' : 'Chair'} ${nameList(ch.map(nbn))}${cms.length === 1 ? ` · ${n(cms[0].count, 'member', 'members')}` : ''}` : cms.length === 1 ? n(cms[0].count, 'member', 'members') : ''; })(),
-      cms.map(c => `<div class="cm"><h3 class="cmn">${esc(c.name)}</h3><ul class="cmr">${[...c.chairs.map(x => ['Chair', x.l]), ...c.vices.map(x => ['Vice chair', x.l])].map(([r, l]) => `<li><span class="cmrole">${r}</span><span class="cmwho">${legLink(l)}</span><span class="cmroom">${l.room ? `<span>Room ${esc(l.room)}</span>` : ''}${l.phone ? `<span>${esc(l.phone)}</span>` : ''}</span></li>`).join('')}</ul>`
+      cms.map(c => `<div class="cm"><h3 class="cmn">${esc(c.name)}</h3><ul class="cmr">${[...c.chairs.map(x => ['Chair', x.l]), ...c.vices.map(x => ['Vice chair', x.l])].map(([r, l]) => `<li><span class="cmrole">${r}</span><span class="cmwho">${legLink(l)}${l.room || l.phone ? `<span class="cmroom">${[l.room ? `Room ${esc(l.room)}` : '', l.phone ? esc(l.phone) : ''].filter(Boolean).join(' · ')}</span>` : ''}</span></li>`).join('')}</ul>`
         + (c.rest.length ? `<p class="cmem"><span class="cmlab">Members</span> ${c.rest.map(x => legLink(x.l)).join(', ')}</p>` : '') + '</div>').join(''));
     return `<div class="pn">${band(kicker, cmteWords(h.committee), facts)}<div class="pbody cal"><div class="cq"><div class="cols"><div class="cl">${readyBlock(rd)}${goingBlock(h)}${our}</div>${right ? `<div class="cr">${right}</div>` : ''}</div></div></div></div>`;
   };

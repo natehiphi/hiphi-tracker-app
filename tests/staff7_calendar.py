@@ -113,7 +113,8 @@ SHEET = """() => { const q = s => document.querySelector(s), t = s => q(s)?.inne
     marks: document.querySelectorAll('.dayp .cgc[aria-current="true"]').length, outline: q('.dayp .cgc[aria-current="true"]') ? getComputedStyle(q('.dayp .cgc[aria-current="true"]')).outlineColor + '|' + getComputedStyle(q('.dayp .cgc[aria-current="true"]')).outlineStyle : '',
     filled: [...document.querySelectorAll('.sheetp .btn.filled, .paper .btn.filled')].length, doLinks: document.querySelectorAll('.sheetp a[href^="#/do/"], .paper a[href^="#/do/"]').length, rdy: t('.rdy'), rdyGo: q('#rdyGo')?.getAttribute('href') || '',
     bills: document.querySelectorAll('.cl .brow').length, agenda: t('.agenda'), agendaLink: q('.agenda a') ? [q('.agenda a').getAttribute('href'), q('.agenda a').getAttribute('target'), q('.agenda a').getAttribute('rel')] : null, folds: [...document.querySelectorAll('.fbtn')].map(b => [b.dataset.fold, b.getAttribute('aria-expanded'), !!document.getElementById(b.getAttribute('aria-controls'))]),
-    cm: [...document.querySelectorAll('.cm')].map(c => ({ name: c.querySelector('.cmn').innerText.trim(), rows: [...c.querySelectorAll('.cmr li')].map(li => [li.querySelector('.cmrole').innerText.trim(), li.querySelector('.cmwho').innerText.trim(), li.querySelector('a')?.getAttribute('href') || '', li.querySelector('a')?.getAttribute('target') || '']), members: [...c.querySelectorAll('.cmem a')].map(a => [a.innerText.trim(), a.getAttribute('href')]) })),
+    cmov: [...document.querySelectorAll('.cmr li')].filter(li => { const a = li.querySelector('.cmwho a').getBoundingClientRect(), r = li.querySelector('.cmroom')?.getBoundingClientRect(), e = li.closest('.fbody').getBoundingClientRect(); return (r && r.top < a.bottom - 1) || a.right > e.right + 1 || (r && r.right > e.right + 1); }).length,
+    cm: [...document.querySelectorAll('.cm')].map(c => ({ name: c.querySelector('.cmn').innerText.trim(), rows: [...c.querySelectorAll('.cmr li')].map(li => [li.querySelector('.cmrole').innerText.trim(), li.querySelector('.cmwho a').innerText.trim(), li.querySelector('a')?.getAttribute('href') || '', li.querySelector('a')?.getAttribute('target') || '']), members: [...c.querySelectorAll('.cmem a')].map(a => [a.innerText.trim(), a.getAttribute('href')]) })),
     cmSum: [...document.querySelectorAll('.fbtn[data-fold="cmte"] .fs')].map(e => e.textContent.replace(/\\s+/g, ' ').trim()),
     prev: q('#dayPrev') ? [q('#dayPrev').tagName, q('#dayPrev').getAttribute('aria-disabled'), q('#dayPrev').getAttribute('aria-label'), q('#dayPrev').getAttribute('href')] : null, next: q('#dayNext') ? [q('#dayNext').tagName, q('#dayNext').getAttribute('aria-disabled'), q('#dayNext').getAttribute('aria-label'), q('#dayNext').getAttribute('href')] : null,
     close: q('#tbClose') ? [q('#tbClose').getAttribute('aria-label'), q('#tbBack').getAttribute('href')] : null, whole: q('#dayWeek')?.getAttribute('href') || '', back: !!q('#backWeek'),
@@ -439,6 +440,7 @@ with sync_playwright() as p:
             if I['back'] or not I['close'] or I['close'][0] != 'Close' or not I['whole']: P.append(f'close {I["close"]} {I["whole"]}')
             if not (I['close'][1] == I['whole'] and 'sitting' not in I['whole'] and (not vq or vq in I['whole']) and 'view=' not in I['whole']): P.append(f'close goes to {I["close"]}')
             if not (I['prev'] and I['next'] and I['prev'][2].startswith('Earlier day') and I['next'][2].startswith('Later day')): P.append(f'arrows {I["prev"]} {I["next"]}')
+            if I['cmov']: P.append(f'committee people overlap or run past the card ({I["cmov"]})')
             codes = list(dict.fromkeys(c.strip() for c in key.split('|')[0].split('/')))
             want = [cexp(c) for c in codes if c in CM]; got = {c['name']: c for c in I['cm']}
             for w in want:
@@ -446,8 +448,8 @@ with sync_playwright() as p:
                 if not g: P.append(f'committee {w["name"]} missing'); continue
                 rows = [[r, n] for r, n, h_, t_ in g['rows']]; wrows = [['Chair', l['name']] for l in w['chairs']] + [['Vice chair', l['name']] for l in w['vices']]
                 if rows != wrows: P.append(f'chair rows {rows} vs {wrows}')
-                if [(n, h_) for n, h_ in g['members']] != [(l['name'], l['capitol_url']) for l in w['rest']]: P.append('member names or links')
-                if [h_ for r, n, h_, t_ in g['rows']] != [l['capitol_url'] for l in w['chairs'] + w['vices']] or any(t_ != '_blank' for r, n, h_, t_ in g['rows']): P.append('chair links')
+                if [(n, h_) for n, h_ in g['members']] != [(l['name'], '#/more/legislators/' + str(l['id'])) for l in w['rest']]: P.append('member names or links')
+                if [h_ for r, n, h_, t_ in g['rows']] != ['#/more/legislators/' + str(l['id']) for l in w['chairs'] + w['vices']] or any(t_ for r, n, h_, t_ in g['rows']): P.append('chair links')
                 tot = len(g['rows']) + len(g['members'])
                 if tot != w['count']: P.append(f'member count {tot} vs {w["count"]}')
                 if len(want) == 1 and not (I['cmSum'] and I['cmSum'][0].endswith(f'{w["count"]} members') and I['cmSum'][0].startswith('Chair')): P.append(f'closed line {I["cmSum"]}')

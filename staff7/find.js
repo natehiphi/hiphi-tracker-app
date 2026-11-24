@@ -15,6 +15,9 @@ import { cap } from './bill_words.js';
 import { esc, plainBand, keepWords, keepWordsHTML, keepEcig, KEEP_ECIG } from './parts.js';
 import { billName, billNo, cmteWords, first, issueOf } from './steps.js';
 import { billsOfIssue, isAlive } from './standing.js';
+import { legislatorSheet } from './legislators.js';
+import { bindPage as bindLegPage } from './legislator.js';   // R-398 piece 12 part 4: a legislator picked in Search shows the full page here
+import { roleLine } from './leg_data.js';
 import { trackBox, trackedSheet, bindTrack } from './do_place.js';   // gap E: Track this bill
 import { placeLine, placeLineHTML, stoppedLine as stoppedWords, stoppedLineHTML } from './place.js';
 import { eCig, issueHref, billHref, hearTxt, posLine, tint, iconOf, catsOf, statesFor, nextCtx, sitKeyOf, ui as issuesUi, bindFolds } from './issues.js';
@@ -137,7 +140,8 @@ const whenOf = b => { const h = isAlive(b) ? hearingAhead(b) : null; return h ? 
 const hearOf = b => [whereOf(b), whenOf(b)].filter(Boolean).join(' · ');
 const hearHTML = b => [whereHTML(b), esc(whenOf(b))].filter(Boolean).join(' · ');
 const roleWord = l => (l.chamber === 'S' ? 'Senator' : 'Representative');
-const chairsOf = id => (S.committeeMembers || []).filter(m => String(m.legislator_id) === String(id) && m.role === 'chair').map(m => cmteWords(m.committee));
+const personPage = id => legOf(id) ? legislatorSheet(id, { me: S.me, phone: false, from: 'search' }) : '';
+const personBind = id => () => { const l = legOf(id); if (l) bindLegPage(l, { me: S.me, phone: false }); };
 const issueOfBill = (b, iss) => iss.find(i => String(i.id) === String(issueOf(b)?.id)) || iss[0] || null;
 // Other bills by their number's letters: what each is, plainly (the second line says it)
 const KIND = { HB: 'Bill', SB: 'Bill', HR: 'Resolution', SR: 'Resolution', HCR: 'Concurrent resolution', SCR: 'Concurrent resolution', GM: 'Governor’s message' };
@@ -157,8 +161,8 @@ function toItem(e, recent, ws, nm) {
   }
   if (e.kind === 'cmte') return { kind: 'cmte', key: 'c' + e.code, name: e.name, no: '', why, tile: tile('landmark', '', true), path: `#/search/committee/${enc(e.code)}`, search: true, sub: why || !e.c.chair ? 'Committee' : `Committee · Chair ${e.c.chair}` };
   if (e.kind === 'leg') {
-    const l = e.l, ch = chairsOf(l.id);
-    return { kind: 'leg', key: 'l' + l.id, name: l.name, no: '', why, tile: tile('user', '', true), path: `#/search/person/${enc(l.id)}`, search: true, sub: `${roleWord(l)} · ${ch.length ? `chairs ${ch.join(' and ')}` : `District ${l.district}`}` };
+    const l = e.l;
+    return { kind: 'leg', key: 'l' + l.id, name: l.name, no: '', why, tile: tile('user', '', true), path: `#/search/person/${enc(l.id)}`, search: true, sub: [roleWord(l), `District ${l.district}`, roleLine(l)].filter(Boolean).join(' · ') };
   }
   const r = e.r;   // a bill nobody on the team tracks
   return { kind: 'other', key: 'o' + r.bill_number, name: eCig(titleCaseTitle(r.title || r.bill_number)), no: spaced(r.bill_number), why: '', tile: tile('file-text', '', true), path: `#/search/other/${enc(bareNo(r.bill_number))}`, search: true, tag: 'Not tracked', sub: `${kindOf(r.bill_number)} · nobody on the team tracks it` };
@@ -471,7 +475,6 @@ const personHref = (id, q) => `#/search/person/${enc(id)}${qs(q)}`;
 const kv = rows => `<dl class="kv">${rows.filter(Boolean).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
 const notFoundSheet = (what, q) => `<div class="pn" data-notfound="1">${plainBand(`We could not find ${what}.`, 'It may have been renamed, or it is not on the practice copy.')}<div class="pbody"><p class="lead"><a class="btn text" href="#/search${qs(q)}">Back to Search</a></p></div></div>`;
 const calmSheet = () => `<div class="pn"><h1 class="vh" tabindex="-1">Search</h1><div class="pbody"><p class="lead mid" id="calmLine">Pick a result to look at it here.</p></div></div>`;
-const roleName = r => (r === 'chair' ? 'Chair' : r === 'vice_chair' ? 'Vice chair' : 'Member');
 const bySort = (a, b) => String(a.sort_name || a.name).localeCompare(String(b.sort_name || b.name), 'en');
 const membersOf = code => (S.committeeMembers || []).filter(m => m.committee === code).map(m => ({ role: m.role, l: legOf(m.legislator_id) })).filter(x => x.l);
 const codesOf = c => String(c || '').split('/').map(x => x.trim()).filter(Boolean);
@@ -503,15 +506,6 @@ function committeeSheet(code, q) {
   h += `<h2 class="sh">Members</h2>` + (rest.length ? `<p class="lead tight">${rest.map(lk).join(', ')}</p>` : '<p class="hint">No other members are listed.</p>');
   return h + '</div></div>';
 }
-const PARTY = { D: 'Democrat', R: 'Republican' };
-function personSheet(id, q) {
-  const l = legOf(id); if (!l) return '';
-  const cms = (S.committeeMembers || []).filter(m => String(m.legislator_id) === String(l.id)).sort((a, b) => ({ chair: 0, vice_chair: 1 }[a.role] ?? 2) - ({ chair: 0, vice_chair: 1 }[b.role] ?? 2) || cmteWords(a.committee).localeCompare(cmteWords(b.committee), 'en'));
-  let h = `<div class="pn" data-sheet="person">${plainBand(l.name, roleWord(l))}<div class="pbody">`;
-  h += kv([['District', `${esc(String(l.district))}${l.places ? ` · ${esc(l.places)}` : ''}`], l.party ? ['Party', esc(PARTY[l.party] || l.party)] : null, l.room ? ['Room', esc(String(l.room))] : null]);
-  h += `<h2 class="sh">Committees</h2>` + (cms.length ? `<ul class="fhear">${cms.map(m => `<li><a class="lk" href="#/search/committee/${enc(m.committee)}${qs(q)}">${esc(cmteWords(m.committee))}</a> · ${roleName(m.role)}</li>`).join('')}</ul>` : '<p class="hint">Not on a committee.</p>');
-  return h + '</div></div>';
-}
 const otherCache = new Map();
 function otherRow(num) {
   const k = bareNo(num), idx = (S.snapshot?.index || []).find(x => bareNo(x.bill_number) === k);
@@ -538,11 +532,11 @@ export function searchModel({ rt }) {
   let sheet = calmSheet(), picked = false, label = 'Search', cur = '';
   if (rt.id) {
     picked = true;
-    const s = kind === 'committee' ? committeeSheet(rest, q) : kind === 'person' ? personSheet(rest, q) : kind === 'other' ? otherSheet(rest, q) : '';
+    const s = kind === 'committee' ? committeeSheet(rest, q) : kind === 'person' ? personPage(rest) : kind === 'other' ? otherSheet(rest, q) : '';
     if (s) { sheet = s; label = kind === 'committee' ? 'Committee' : kind === 'person' ? 'Legislator' : 'Bill'; cur = `#/search/${kind}/${enc(rest)}`; }
     else { sheet = notFoundSheet(kind === 'committee' ? 'that committee' : kind === 'person' ? 'that legislator' : kind === 'other' ? 'that bill' : 'that part of Search', q); label = 'Not found'; }
   }
   const box = boxHTML({ who: '', q, door: true });
   const col = `<header class="ihead"><div class="ihl"><h2 class="ihd" id="ihd">Search</h2></div>${box}</header><div id="slist">${doorHTML(q, cur, new Set((rt.q.get('all') || '').split(',')))}</div>`;
-  return { col, sheet, picked, label, back: `#/search${qs(q)}`, backLabel: 'Search', bind: kind === 'other' ? bindTrack : null, notFound: /data-notfound/.test(sheet), door: 'search' };
+  return { col, sheet, picked, label, back: `#/search${qs(q)}`, backLabel: 'Search', bind: kind === 'other' ? bindTrack : kind === 'person' ? personBind(rest) : null, notFound: /data-notfound/.test(sheet), door: 'search' };
 }

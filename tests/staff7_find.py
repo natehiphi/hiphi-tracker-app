@@ -43,6 +43,7 @@ def external_blocker(ctx, bad):
     def h(route):
         u = route.request.url
         if 'fonts.g' in u: return route.continue_()
+        if 'RepSenPhotos' in u: return route.abort()   # a legislator's photo on the full page (R-398 piece 12): blocked offline, not a stray request
         bad.append(u); route.abort()
     ctx.route(lambda u: '127.0.0.1' not in u and 'localhost' not in u, h)
 def open_as(br, who, w, h, hash='', ctx=None):
@@ -414,14 +415,12 @@ with sync_playwright() as p:
     pg.click('#findIn'); pg.fill('#findIn', 'water'); pg.wait_for_timeout(200)
     chair_link.click(); pg.wait_for_timeout(500)
     ok(stale.endswith('?q=health') and pg.evaluate('location.hash').endswith('?q=water'), f'a link drawn on a sheet reads the words as they are when it is used ({stale[-10:]} drawn, now {pg.evaluate("location.hash")[-10:]})')
-    pd = pg.evaluate("() => ({ h1: document.querySelector('main h1').innerText.trim(), sub: document.querySelector('main .bsub')?.innerText, kv: Object.fromEntries([...document.querySelectorAll('.paper .kv > div')].map(d => [d.querySelector('dt').innerText, d.querySelector('dd').innerText])), cm: [...document.querySelectorAll('.paper a[href^=\"#/search/committee/\"]')].map(a => a.getAttribute('href')), txt: document.querySelector('.paper').innerText })")
-    leg = pg.evaluate("""async name => { const d = await import('/staff6/data.js'), S = d.S; const l = S.legislators.find(x => x.name === name); return { id: l.id, d: l.district, places: l.places, ch: l.chamber, room: l.room, cms: S.committeeMembers.filter(m => m.legislator_id === l.id).length, party: l.party }; }""", cn)
-    ok(pd['h1'] == cn and pd['sub'] == ('Senator' if leg['ch'] == 'S' else 'Representative') and pd['kv'].get('District', '').startswith(str(leg['d'])) and (not leg['places'] or leg['places'] in pd['kv'].get('District', '')), f'a legislator\'s sheet: name, role, district and its places ({pd["h1"]}, {pd["sub"]}, {pd["kv"].get("District", "")[:40]})')
-    ok(len(pd['cm']) == leg['cms'] and 'Chair' in pd['txt'], f'it lists the committees they sit on with their role, as links ({len(pd["cm"])} of {leg["cms"]})')
-    ok(not re.search(r'@|\b808-|Phone|Email', pd['txt']), 'no phone or email on a legislator\'s sheet')
+    # R-398 piece 12 part 4: a legislator picked in Search draws the FULL legislator page under Search (list on the left, Back to Search)
+    pd = pg.evaluate("() => ({ h1: document.querySelector('main h1').innerText.trim(), sheet: !!document.querySelector('.paper [data-sheet=legislator]'), list: !!document.querySelector('#slist'), back: [...document.querySelectorAll('a,button')].some(a => /^Back to Search/.test(a.innerText.trim())), hash: location.hash })")
+    ok(pd['h1'] == cn and pd['sheet'] and pd['hash'].startswith('#/search/person/'), f'a legislator picked in Search shows the full legislator page under Search ({pd["h1"]})')
+    ok(pd['list'], 'Search\'s results list stays on the left')
+    ok(pd['back'] or pg.viewport_size['width'] >= 900, 'it has Back to Search (laptop: the list is beside it)')
     snap(pg, 'search-person.png')
-    pg.click('.paper a[href^="#/search/committee/"] >> nth=0'); pg.wait_for_timeout(400)
-    ok(pg.evaluate('location.hash').startswith('#/search/committee/'), 'a committee on a legislator\'s sheet links back to the committee sheet')
     go(pg, '#/search/committee/HLT'); l709 = pg.evaluate("() => { const a = document.querySelector('.paper a[href^=\"#/bill/SB709\"]'); return a ? a.querySelector('.ir2').innerText : null; }")
     ok(l709 is not None and l709.startswith('Bill · Here now, together with House Human Services') and not re.search(r'in House Human', l709), f'SB 709 (a joint referral) says it is here now together with the other committee ({l709})')
     # a committee's bills and hearing links open real pages

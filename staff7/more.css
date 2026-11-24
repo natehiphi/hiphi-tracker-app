@@ -1,0 +1,76 @@
+/* Staff7 More (R-398 piece 11): the fifth door, its menu and sheet, Capitol words, and Committees. Tokens only; loaded by more.js. */
+
+/* the door: a button that looks like the other doors; open it is pressed (an ink outline round its icon), never filled: the filled pill is only the current place */
+button.bi { font: 500 var(--f14)/1.2 var(--head); }
+.bi[aria-expanded="true"] { color: var(--ink); }
+.bi[aria-expanded="true"]:not([aria-current]) .rpill, .bi[aria-expanded="true"]:not([aria-current]):hover .rpill { background: none; }
+.bi[aria-expanded="true"] .rpill { box-shadow: inset 0 0 0 var(--line2) var(--ink); }
+.bi:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+
+/* the menu on a laptop: a popover beside the rail */
+.msheet { position: fixed; z-index: 50; width: calc(var(--read) * .41); max-width: calc(100vw - var(--s5)); box-sizing: border-box; padding: var(--s2); background: var(--surface); border-radius: var(--r16); box-shadow: var(--float); }
+.mlist { list-style: none; margin: 0; padding: 0; }
+.mrule { height: var(--line); margin: var(--s2) var(--s3); background: var(--rule); }
+.mmi { display: flex; align-items: flex-start; gap: var(--s3); min-height: var(--hit); box-sizing: border-box; padding: var(--s2) var(--s3); border-radius: var(--r12); color: var(--ink); text-decoration: none; background: none; }
+.mmi:hover { background: var(--wash); }
+.mmi:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+.mmi .mii { display: inline-flex; padding-top: var(--s1); flex: none; }
+.mmi .mii svg.ic { color: var(--ink); }
+.mit { display: flex; flex-direction: column; justify-content: center; min-height: calc(var(--hit) - var(--s4)); }
+.mit b { font: 600 var(--f16)/1.3 var(--head); }
+.mu { font: 400 var(--f14)/1.3 var(--body); color: var(--muted); }
+
+/* the sheet on a phone: above the bar, a backdrop that closes it, a Close button at the top right */
+.mlayer.phone .mback { position: fixed; left: 0; right: 0; top: 0; bottom: var(--mbar, var(--bar-h)); z-index: 30; background: var(--scrim); }
+.mlayer.phone .msheet { left: 0; right: 0; bottom: var(--mbar, var(--bar-h)); top: auto; width: auto; max-width: none; z-index: 31; border-radius: var(--r20) var(--r20) 0 0; padding: var(--s2) var(--s4) var(--s3); box-shadow: var(--float); transition: transform var(--t-fast) var(--ease); }
+.mgrip { width: var(--s7); height: var(--s1); border-radius: var(--s1); background: var(--rule); margin: var(--s1) auto 0; }
+.mtop { display: flex; justify-content: flex-end; }
+.mclose { min-width: var(--hit); min-height: var(--hit); }
+.mlayer.phone .mmi { min-height: var(--hit-big); padding-left: var(--s1); padding-right: var(--s1); align-items: center; }
+.mlayer.phone .mii { padding-top: 0; }
+
+/* shared by the pages opened from More */
+.mpage { padding-bottom: var(--s7); }
+.mpage .cwfind, .cwlist, .cwcount, .cwnone, .mc-g { max-width: var(--read); }
+
+/* Capitol words */
+.cwl { display: block; font: 600 var(--f16)/1.3 var(--head); margin: 0 0 var(--s2); }
+.cwbox { display: flex; align-items: center; gap: var(--s2); min-height: var(--hit); padding: 0 var(--s3); border: var(--line) solid var(--edge); border-radius: var(--r8); background: var(--surface); }
+.cwbox:focus-within { outline: var(--line2) solid var(--ring); outline-offset: var(--line); }
+.cwbox svg.ic { color: var(--muted); flex: none; }
+.cwbox input { flex: 1; min-width: 0; min-height: var(--hit); border: 0; background: none; font: 400 var(--f16)/1.4 var(--body); color: var(--ink); outline: none; }
+.cwcount { margin: var(--s3) 0 var(--s2); font: 400 var(--f14)/1.4 var(--body); color: var(--muted); }
+.cwlist { list-style: none; margin: 0; padding: 0; border-top: var(--line) solid var(--rule); }
+.cwe { padding: var(--s3) 0; border-bottom: var(--line) solid var(--rule); }
+.cwh { font: 600 var(--f18)/1.3 var(--head); margin: 0 0 var(--s1); }
+.cwcap { color: var(--muted); font-weight: 500; }
+.cwe p { margin: 0; font-size: var(--f16); line-height: 1.5; }
+.cwe mark { background: color-mix(in srgb, var(--act) 16%, var(--surface)); color: inherit; border-radius: var(--r4); padding: 0; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.cwnone { color: var(--muted); }
+
+/* Committees: one grid per chamber, the same columns in the heading and every row */
+.mc-g { margin: 0 0 var(--s6); }
+.mc-h { font: 600 var(--f18)/1.3 var(--head); margin: var(--s2) 0 var(--s2); }
+.mc-count { color: var(--muted); font-weight: 500; }
+.mc-head, .mc-r { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40%) var(--icon); column-gap: var(--s3); align-items: center; }
+.mc-r { align-items: baseline; }
+.mc-head { padding: 0 0 var(--s2); border-bottom: var(--line) solid var(--edge); font: 600 var(--f14)/1.3 var(--head); color: var(--muted); }
+.mc-head span:last-child { grid-column: 2; }
+.mc-list { list-style: none; margin: 0; padding: 0; }
+.mc-r { min-height: var(--hit-big); padding: var(--s1) 0; border-bottom: var(--line) solid var(--rule); color: var(--ink); text-decoration: none; }
+.mc-r:hover { background: var(--wash); }
+.mc-n b { font: 600 var(--f16)/1.3 var(--head); color: var(--act); }
+.mc-r:hover .mc-n b { text-decoration: underline; text-underline-offset: var(--s1); text-decoration-thickness: var(--line); }
+.mc-n { line-height: 1.3; }
+.mc-c { color: var(--muted); font: 400 var(--f14)/1.3 var(--body); }
+.mc-ch { font-size: var(--f16); }
+.mc-go { color: var(--muted); align-self: center; }
+.mc-r:focus-visible { outline: var(--line2) solid var(--ring); outline-offset: calc(var(--line2) * -1); }
+
+@media (max-width: 899px) {
+  .mc-head { display: none; }
+  .mc-r { grid-template-columns: minmax(0, 1fr) var(--icon); }
+  .mc-ch { grid-column: 1; font-size: var(--f14); }
+  .mc-go { grid-column: 2; grid-row: 1 / span 2; }
+}
+@media (prefers-reduced-motion: reduce) { .mlayer.phone .msheet { transition: none; } }
