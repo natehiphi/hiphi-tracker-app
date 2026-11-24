@@ -76,6 +76,15 @@ with sync_playwright() as p:
     ok(pg.evaluate("() => !document.querySelector('.lgdir .btn.filled, .lgdir button.filled')"), '2 no filled button on the page')
     ok(pg.evaluate("() => { const t = getComputedStyle(document.querySelector('.lgd-grid')).gridTemplateColumns.split(' ').length; const rows = {}; document.querySelectorAll('#lgd-ch-S .lgd-card').forEach(c => { const r = c.getBoundingClientRect(); (rows[Math.round(r.top)] ||= []).push(r.height) }); return t === 4 && Object.values(rows).every(h => h.every(x => Math.abs(x - h[0]) < 1.5)) }"), '2 four across at 1440, cards in a row share a height')
     ok(not pg.is_visible('#lgdIn'), '2 the phone find box is not at laptop width')
+    # R-398 (23 Nov): the bills line is a short tag, and a leader's title shows above the seat line
+    ok(pg.evaluate("() => !/Has a say on/.test(document.getElementById('lgdBody').textContent)"), '2 no card text says "Has a say on"')
+    ok(pg.evaluate("() => { const b = [...document.querySelectorAll('.lgd-card .lgd-b')]; return b.length > 0 && b.every(e => /^\\d+ of your bills$/.test(e.textContent) && e.getAttribute('aria-label') === 'Has a say on ' + e.textContent) }"), '2 each bills tag reads "N of your bills" and keeps the long sentence as its aria-label')
+    ok(pg.evaluate("() => { const b = document.querySelector('.lgd-card .lgd-b'), c = b.closest('.lgd-card').querySelector('.lgd-s'), t = getComputedStyle(b); return t.backgroundColor !== 'rgba(0, 0, 0, 0)' && (!c || t.color !== getComputedStyle(c).color) && b.getBoundingClientRect().width < b.closest('.lgd-tx').getBoundingClientRect().width * 0.8 }"), '2 the tag has a background, its own colour, and is only as wide as its words')
+    lead = pg.eval_on_selector_all('.lgd-card .lgd-l', 'els => els.map(e => e.textContent.trim())')
+    ok(len(lead) > 20, f'2 By chamber: {len(lead)} cards show a leadership line (28 in the practice data of 23 Nov; the count moves when leadership does)')
+    ok('Senate President' in lead and 'Speaker of the House' in lead and not any('Asst.' in x for x in lead) and 'President' not in lead and 'Speaker' not in lead, '2 leadership lines: Senate President, Speaker of the House, no "Asst.", no bare President or Speaker')
+    ok(pg.evaluate("() => [...document.querySelectorAll('.lgd-card')].every(c => { const l = c.querySelector('.lgd-l'), s = c.querySelector('.lgd-s'); return !l || !s || l.nextElementSibling === s })"), '2 a leadership line sits right above the seat line')
+    typ(pg, 'speaker'); ok(any('Speaker of the House' in x for x in pg.eval_on_selector_all('.lgd-card .lgd-l', 'els => els.map(e => e.textContent)')), '2 finding "speaker" shows the Speaker card'); clear(pg)
     snap(pg, 'dir_1440.png')
     # Directory views
     pg.click('[data-dview="island"]'); pg.wait_for_timeout(300)

@@ -36,6 +36,13 @@ export const seatsOf = id => cm().filter(x => String(x.legislator_id) === String
 export const seatText = (s, withChamber = false) => ({ chair: 'Chair, ', vice_chair: 'Vice chair, ' }[s.role] || 'Member, ') + (withChamber ? cfull(s.committee) : cname(s.committee));
 // the one line a list row shows beside "District 34": their first seat, chamber said ("Chair, House Health")
 export const roleLine = l => { const s = seatsOf(l.id)[0]; return s ? seatText(s, true) : ''; };
+// The Capitol's member list gives the bare title ("President", "Speaker"), which means nothing in an A to Z list, so the chamber goes in front.
+// The House's two top posts read as "Speaker of the House"; "Asst." is written out so no short form shows on screen.
+export const leaderTitle = l => {
+  const t = String(l?.title || '').trim().replace(/\bAsst\.?(?=\s)/g, 'Assistant'); if (!t) return '';
+  if (l.chamber === 'S') return 'Senate ' + t;
+  return t === 'Speaker' ? 'Speaker of the House' : t === 'Vice Speaker' ? 'Vice Speaker of the House' : 'House ' + t;
+};
 export const holds = id => seatsOf(id).filter(s => s.role !== 'member');
 
 // ---------------------------------------------------------------------------------- the viewer's people
@@ -150,7 +157,7 @@ export function findLegs(q0) {
   const seen = new Set(), groups = [], isNum = /^\d+$/.test(q), wantChair = /^(chair|chairs|vice|vice chair)$/.test(q);
   const add = (key, title, l, note) => { if (seen.has(l.id)) return; seen.add(l.id); let g = groups.find(x => x.key === key); if (!g) groups.push(g = { key, title, items: [] }); g.items.push({ l, note }); };
   const legs = allLegs();
-  if (!isNum) for (const l of legs) if (norm(l.name).includes(q) || norm(l.sort_name).includes(q)) add('name', 'Name', l, '');
+  if (!isNum) for (const l of legs) if (norm(l.name).includes(q) || norm(l.sort_name).includes(q) || norm(leaderTitle(l)).includes(q)) add('name', 'Name', l, '');
   if (isNum) for (const l of legs) if (String(l.district) === q) add('district', `District ${q}`, l, '');
   if (wantChair) for (const l of legs) { const h = holds(l.id).filter(s => q === 'vice' || q === 'vice chair' ? s.role === 'vice_chair' : s.role === 'chair' || s.role === 'vice_chair'); if (h.length) add('chair', 'Chairs and vice chairs', l, h.map(s => seatText(s, true)).join(' · ')); }
   if (!isNum && !wantChair) {

@@ -73,7 +73,9 @@
 .lgd-n { margin: 0; font: 600 var(--f18)/1.3 var(--head); overflow-wrap: anywhere; }
 .lgd-d { margin: 0; font-size: var(--f16); line-height: 1.4; }
 .lgd-s { margin: 0; font-size: var(--f14); line-height: 1.4; color: var(--muted); }
-.lgd-b { margin: 0; font-size: var(--f14); line-height: 1.4; font-weight: 400; color: var(--muted); }
+.lgd-l { margin: 0; font-size: var(--f14); line-height: 1.4; font-weight: 600; }   /* the leadership title: more senior than the muted committee seat under it */
+/* a tag, not a title: only as wide as its words, on the tint, the same pill shape and padding as the app's .ftag; not a link, no hover */
+.lgd-b { margin: var(--s2) 0 0; align-self: flex-start; padding: var(--s1) var(--s2); border-radius: var(--pill); background: var(--tint); font-size: var(--f14); line-height: 1.3; font-weight: 400; color: var(--ink); white-space: nowrap; }
 .lgd-ft { margin-top: auto; border-top: var(--line) solid var(--rule); display: flex; min-height: 44px; }
 .lgd-none { padding: var(--s5) 0; }
 @media (max-width: 1399px) { .lgd-bc .lgd-bph { grid-row: 1 / 3; } .lgd-bf { grid-column: 1 / -1; margin-top: var(--s1); }   /* three narrower columns: the links take the whole cell under the photo and sentence, so Email stays inside the panel */

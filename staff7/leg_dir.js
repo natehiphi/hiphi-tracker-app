@@ -3,7 +3,7 @@
 // The same words as the left box narrow it (ids). On a phone the cards are one across and a find box sits above the block (the left list is a page of its own there).
 import { esc } from './parts.js';
 import { ic } from './icons7.js';
-import { directorySections, ourBills, towns, phoneHref, partyWord, yoursIds, yoursSource, chairLine, roleLine, seatsOf, allLegs, plain, normQ } from './leg_data.js';
+import { directorySections, ourBills, towns, phoneHref, partyWord, yoursIds, yoursSource, chairLine, roleLine, leaderTitle, seatsOf, allLegs, plain, normQ } from './leg_data.js';
 
 export const DIR_VIEWS = [['chamber', 'By chamber'], ['island', 'By island'], ['committee', 'By committee'], ['az', 'A to Z']];
 export const dirHref = id => `#/more/legislators/${encodeURIComponent(id)}`;
@@ -33,7 +33,7 @@ const townsLine = (l, q = '') => {
 // ---- the block on top ----
 function blockCard(l, me, src, cache) {
   const ob = cache.get(l.id) || (cache.set(l.id, ourBills(l, me)), cache.get(l.id));
-  const sent = src === 'chairs' ? chairLine(l, me) : (ob.yours > 0 ? `Has a say on ${ob.yours} of your bills.` : (roleLine(l) ? roleLine(l) + '.' : ''));
+  const sent = src === 'chairs' ? chairLine(l, me) : (ob.yours > 0 ? `Has a say on ${ob.yours} of your bills.` : ((leaderTitle(l) || roleLine(l)) ? (leaderTitle(l) || roleLine(l)) + '.' : ''));
   return `<div class="lgd-bc" data-href="${dirHref(l.id)}">${photo(l, 'lgd-bph', 72)}<div class="lgd-bt"><p class="lgd-bn"><a href="${dirHref(l.id)}">${esc(l.name)}</a>${party(l)}</p>${sent ? `<p class="lgd-bs">${esc(sent)}</p>` : ''}<div class="lgd-bf">${reach(l)}</div></div></div>`;
 }
 export function directoryBlock({ me, ids }) {
@@ -49,9 +49,9 @@ export function directoryBlock({ me, ids }) {
 function cardHTML(r, view, me, cache, q) {
   const l = r.l, ob = cache.get(l.id) || (cache.set(l.id, ourBills(l, me)), cache.get(l.id)), more = seatsOf(l.id).length - 1;
   const seat = view === 'committee' ? r.seats : (roleLine(l) ? roleLine(l) + (more > 0 ? ` and${NB}${more}${NB}more` : '') : '');
-  const dist = (view === 'chamber' ? '' : (l.chamber === 'S' ? 'Senate ' : 'House ')) + `District ${l.district}`, t = townsLine(l, q);
+  const lead = leaderTitle(l), dist = (view === 'chamber' ? '' : (l.chamber === 'S' ? 'Senate ' : 'House ')) + `District ${l.district}`, t = townsLine(l, q);
   return `<article class="lgd-card" data-href="${dirHref(l.id)}" data-id="${l.id}">${photo(l, 'lgd-cph', 96)}<div class="lgd-tx"><h3 class="lgd-n"><a href="${dirHref(l.id)}">${esc(l.name)}</a>${party(l)}</h3>`
-    + `<p class="lgd-d">${esc(dist)}${t ? ' · ' + esc(t) : ''}</p>${seat ? `<p class="lgd-s">${esc(seat)}</p>` : ''}${ob.yours > 0 ? `<p class="lgd-b">Has a say on ${ob.yours} of your bills</p>` : ''}</div>`
+    + `<p class="lgd-d">${esc(dist)}${t ? ' · ' + esc(t) : ''}</p>${lead ? `<p class="lgd-l">${esc(lead)}</p>` : ''}${seat ? `<p class="lgd-s">${esc(seat)}</p>` : ''}${ob.yours > 0 ? `<p class="lgd-b" title="Has a say on ${ob.yours} of your bills" aria-label="Has a say on ${ob.yours} of your bills">${ob.yours} of your bills</p>` : ''}</div>`
     + `<div class="lgd-ft">${reach(l)}</div></article>`;
 }
 // the sections only (the views and the find redraw this part without losing the box's focus)
