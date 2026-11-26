@@ -1,9 +1,30 @@
 [
  {
   "img": "ask",
+  "slug": "ban-neonicotinoids",
+  "name": "Ban on neonicotinoid pesticides",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "ban-telone",
   "name": "Ban the pesticide Telone by 2030",
   "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "cancer-warnings-on-alcohol-ads",
+  "name": "Cancer warnings on alcohol ads",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "cash-support-for-families-with-babies",
+  "name": "Cash support for families with babies",
+  "category": "family",
   "have": true
  },
  {
@@ -169,8 +190,22 @@
  },
  {
   "img": "ask",
+  "slug": "legal-adult-use-cannabis",
+  "name": "Legal adult-use cannabis",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "let-counties-regulate-tobacco",
   "name": "Let counties regulate tobacco sales",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "limit-nicotine-levels",
+  "name": "Limit nicotine levels in products",
   "category": "tobacco",
   "have": true
  },
@@ -204,9 +239,30 @@
  },
  {
   "img": "ask",
+  "slug": "more-snap-help",
+  "name": "More SNAP help for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "no-surge-pricing-on-snap-foods",
+  "name": "No surge pricing on SNAP and WIC foods",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "no-surveillance-pricing",
   "name": "No prices based on your personal data",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "packaging-recycling",
+  "name": "Study for packaging recycling program",
+  "category": "climate",
   "have": true
  },
  {
@@ -232,9 +288,23 @@
  },
  {
   "img": "ask",
+  "slug": "plan-for-a-changing-climate",
+  "name": "Plan for a changing climate",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "poverty-is-not-neglect",
   "name": "Poverty alone is not child neglect",
   "category": "family",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "protect-abortion-and-contraception",
+  "name": "Protect abortion and birth control",
+  "category": "care",
   "have": true
  },
  {
@@ -316,6 +386,20 @@
  },
  {
   "img": "ask",
+  "slug": "state-buys-vaccines",
+  "name": "State buys vaccines for providers",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "sugary-drink-warning-labels",
+  "name": "Warning labels on sugary drinks",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "ask",
   "slug": "summer-streets",
   "name": "Summer Streets car-free road pilot",
   "category": "around",
@@ -347,6 +431,13 @@
   "slug": "tougher-drunk-driving-consequences",
   "name": "Tougher consequences for drunk driving",
   "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "ask",
+  "slug": "update-sex-marker",
+  "name": "Update sex marker on birth certificates",
+  "category": "care",
   "have": true
  },
  {
@@ -473,6 +564,13 @@
   "slug": "higher-liquor-taxes",
   "name": "Higher liquor taxes",
   "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "conference-yes",
+  "slug": "family-caregiver-tax-credit",
+  "name": "Tax credit for family caregivers",
+  "category": "family",
   "have": true
  },
  {
@@ -1254,6 +1352,20 @@
  },
  {
   "img": "hold",
+  "slug": "cigars-shipped-by-mail",
+  "name": "Cigars shipped by mail",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "hold",
+  "slug": "higher-minimum-wage",
+  "name": "A higher minimum wage",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "hold",
   "slug": "looser-alcohol-sales-rules",
   "name": "Looser alcohol sales rules",
   "category": "tobacco",
@@ -1366,6 +1478,13 @@
  },
  {
   "img": "testify",
+  "slug": "ban-neonicotinoids",
+  "name": "Ban on neonicotinoid pesticides",
+  "category": "climate",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "ban-telone",
   "name": "Ban the pesticide Telone by 2030",
   "category": "climate",
@@ -1373,9 +1492,30 @@
  },
  {
   "img": "testify",
+  "slug": "cancer-warnings-on-alcohol-ads",
+  "name": "Cancer warnings on alcohol ads",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "cash-support-for-families-with-babies",
+  "name": "Cash support for families with babies",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "child-and-dependent-care-credit",
   "name": "Bigger child and dependent care credit",
   "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "cigars-shipped-by-mail",
+  "name": "Cigars shipped by mail",
+  "category": "tobacco",
   "have": true
  },
  {
@@ -1499,6 +1639,13 @@
  },
  {
   "img": "testify",
+  "slug": "higher-minimum-wage",
+  "name": "A higher minimum wage",
+  "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "higher-taxes-on-top-earners",
   "name": "Higher taxes on top earners",
   "category": "family",
@@ -1534,8 +1681,22 @@
  },
  {
   "img": "testify",
+  "slug": "legal-adult-use-cannabis",
+  "name": "Legal adult-use cannabis",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "let-counties-regulate-tobacco",
   "name": "Let counties regulate tobacco sales",
+  "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "limit-nicotine-levels",
+  "name": "Limit nicotine levels in products",
   "category": "tobacco",
   "have": true
  },
@@ -1576,9 +1737,30 @@
  },
  {
   "img": "testify",
+  "slug": "more-snap-help",
+  "name": "More SNAP help for more families",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "no-surge-pricing-on-snap-foods",
+  "name": "No surge pricing on SNAP and WIC foods",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "no-surveillance-pricing",
   "name": "No prices based on your personal data",
   "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "packaging-recycling",
+  "name": "Study for packaging recycling program",
+  "category": "climate",
   "have": true
  },
  {
@@ -1621,6 +1803,13 @@
   "slug": "poverty-is-not-neglect",
   "name": "Poverty alone is not child neglect",
   "category": "family",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "protect-abortion-and-contraception",
+  "name": "Protect abortion and birth control",
+  "category": "care",
   "have": true
  },
  {
@@ -1709,6 +1898,20 @@
  },
  {
   "img": "testify",
+  "slug": "state-buys-vaccines",
+  "name": "State buys vaccines for providers",
+  "category": "care",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "sugary-drink-warning-labels",
+  "name": "Warning labels on sugary drinks",
+  "category": "food",
+  "have": true
+ },
+ {
+  "img": "testify",
   "slug": "summer-streets",
   "name": "Summer Streets car-free road pilot",
   "category": "around",
@@ -1740,6 +1943,13 @@
   "slug": "tougher-drunk-driving-consequences",
   "name": "Tougher consequences for drunk driving",
   "category": "tobacco",
+  "have": true
+ },
+ {
+  "img": "testify",
+  "slug": "update-sex-marker",
+  "name": "Update sex marker on birth certificates",
+  "category": "care",
   "have": true
  },
  {
