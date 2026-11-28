@@ -147,6 +147,8 @@ done once, in `pub/base.css`, so a screen there still sets only token sizes. Wha
 hierarchy flatter, not richer, because it makes the differences smaller. Five steps is enough for
 title / section / body / label / caption, which is every job a screen here has.
 
+**Look 4 exception (R-412, Nate 28 Nov 2026):** Look 4 uses its own single type scale on every public screen, in place of the first visit's one-step-larger tokens and the 28 and 36 steps, so the sand-ground pages read at one size set from the token file. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
+
 ### A-5 Colour carries meaning, and never carries it alone
 
 Blue `--p700` is action, links and selection. Red `--bad-text` is danger and overdue. Amber is due
@@ -158,6 +160,8 @@ fewer**, remembering four of those are the neutral ramp before any meaning colou
 *Reason.* Colour is the fastest signal a screen has and the easiest to spend into worthlessness. It
 also fails completely for a colourblind reader, in bright sun on a Capitol lawn, and in a screenshot
 pasted into Slack.
+
+**Look 4 exception (R-412, Nate 28 Nov 2026):** Orange is look 4's one main-action colour (the filled button that does the thing, with a dark label), not a colour kept for celebration and achievement. Blue stays for links and selection, red and amber keep their meanings, and every state still has words or a shape. Reason: one orange button per screen is what finding 7 of the assessment asked for. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
 
 ### A-6 Touch targets 44px; pointer targets may be 32px
 
@@ -195,6 +199,8 @@ narrower box a day, a date and its time stay on one line (kit.js keep, in every 
 
 *Reason.* Gestalt proximity. Nate's word for the failure is "disharmony", and its usual cause is
 arbitrary spacing — two gaps that differ by 3px read as a mistake even when nobody can say why.
+
+**Look 4 exception (R-412, Nate 28 Nov 2026):** Look 4's lists of tappable rows are plain rows on the sand ground with a hairline or space between them, not one white box with a hairline. Look 4 uses three levels of container (ground, card, raised) and boxes a list only inside a card. Reason: the boxed lists read as heavy and the assessment's finding 11 asked for fewer surfaces. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
 
 ### A-9 One set of breakpoints
 
@@ -344,6 +350,8 @@ difference between a heading that looks designed and one that looks typed. Poppi
 face — `index.html` and `public.html` have always used it, and the newer `track.html` and `staff.html`
 had drifted to Roboto (corrected 2026-09-19 on Nate's instruction).
 
+**Look 4 exception (R-412, Nate 28 Nov 2026):** In look 4 headings are Bricolage Grotesque and body text is Figtree, not Poppins and Lato, and most text is regular weight rather than 600 and 700. The tight letter-spacing and line-height of headings stay. Reason: the welcome's drawn world is warm and local, and the pair carries it onto every screen. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
+
 ### A-20 Secondary actions collapse into one menu
 
 A row or card shows at most two actions: the one almost everybody wants, and at most one more.
@@ -455,6 +463,7 @@ count on the slide, or many dots, reads like homework (C-7). Kai's first phone s
 dots, the swipe and the words are guesses until the five testers in November ("How would you get to a different one?") and
 January's counts of actions started from Home.
 
+**Look 4 exception (R-412, Nate 28 Nov 2026):** Look 4's Home shows one thing to do in a single block with one orange button, and no carousel, pager or dots, so there is no slide that holds still. The other asks wait on the bill page and Find, and a day with nothing due shows no orange button. Reason: finding 6 found three of four things hidden behind dots. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
 
 ### A-24 On a laptop, one thing open at a time (Staff v3)
 
@@ -551,6 +560,8 @@ question and the sign-off chips are not asked in the letter; they belong after t
 testimony is public (for an email, the note that it goes from their own account and that a copy only they can see is kept) now sits
 under the letter, and "the Capitol posts it publicly" stays on the send screen; a lawyer should confirm the new timing. Measured by
 `tests/v2_letter.py`; v1's budgets stand until the flip.
+
+**Look 4 exception (R-412, Nate 28 Nov 2026):** For look 4 the first visit is judged by time to the first useful thing, not by a tap count: the welcome with the topic pick on one screen, then the island road's five pages, six screens from the welcome to Home (the 13 taps of version 2 do not apply). Look 4's letter is two screens (the letter, then send). Reason: the count of taps passed an 11 to 13 tap visit that people left. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
 
 ### B-3 No dead ends
 
@@ -918,6 +929,8 @@ person has a bill of their own to care about. "This Year and Next" and "You're a
 the profile ask's cover carries the first visit's last button, "See How I Can Help". Whether more people send a note when the story waits on Home
 is a guess until the testers (the week of 23 Nov) and January's counts show it (how many later visits open the card).
 
+**Look 4 exception (R-412, Nate 28 Nov 2026):** In look 4 the teaching is the island road's five pages after the welcome and its topic pick, each one screen with nothing under the fold, Next in one place and no step dots, and every word still visible. What this rule asks of the pages is kept; what changes is that the visit is measured by time to the first useful thing (see B-2) and the topic pick sits on the welcome. It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
+
 ### C-13 Every question changes what the person sees next
 
 A question in the first visit (and anywhere a person is asked about themselves) earns its place only if
@@ -1026,6 +1039,8 @@ arrival helps more than it annoys is a guess until real use: what settles it fro
 the page (done versus Not now, counted since 10/11: backend 170, Staff v2's First visit > "Asks on later visits") and whether visitors who
 met one come back less (`log_day` counts returns). A page on arrival costs a tap
 before Home, which is why it is one a visit, never in front of a deadline or a link, and always skippable.
+
+**Look 4 exception (R-412, Nate 28 Nov 2026):** None in substance. The assessment (finding 6) questioned the full page in front of Home on a later visit, but Nate decided on 27 Nov that the phone number and email ask "should exist in the same places it is now", so look 4 keeps this rule whole: the one ask a visit, its order, Not now as an equal choice, the quiet periods and the cases where no page comes. Look 4 drew no later-visit ask page, so that page keeps today's layout and only takes look 4's colours and fonts while `?look4=1` is on. A lawyer should confirm any later change to where the ask or the street address page appears.
 
 ---
 

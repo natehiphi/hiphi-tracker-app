@@ -1,0 +1,132 @@
+/* Look 4's kit (R-412, behind ?look4=1): the tokens for every route, the frame, and the parts pub/l4/kit.js draws.
+   Loaded after every other stylesheet (pub/app.js CSS_ORDER), so it wins; every rule is under body.l4, which exists only while the switch is on.
+   Values are copied from the approved mockups (docs/requests/R-412: Mix-Home, Mix-Bill, K1 to K4, J6). */
+
+/* ---- tokens: today's variables, re-pointed, so screens look 4 never drew (legislators, committees, help, profile) read as one look ---- */
+body.l4 {
+  /* ocean (the hero's deep blue is --l4-ocean; the sky blue is the day word's) */
+  --l4-ocean: #063B52; --l4-ocean-2: #0E5473; --l4-sky: #4DBCEA; --l4-pale: #CFEAF5; --l4-sand: #FFF8EF; --l4-ground: #F1E6D2; --l4-string: #DCC6A2;
+  --l4-ink: #12303A; --l4-grey: #4A5E66; --l4-orange: #F68B2C; --l4-amber: #FBB368; --l4-amber-text: #A14A08; --l4-link: #00698E;
+  --p50: #E3F4FB; --p100: #CFEAF5; --p200: #A9DDF2; --p300: #7BCBEA; --p400: #4DBCEA; --p500: #129DCB; --p600: #0B7CA5; --p700: #00698E; --p800: #0E5473; --p900: #063B52;
+  --o50: #FFF1E3; --o200: #FBB368; --o400: #F68B2C; --o600: #A14A08; --o700: #A14A08;
+  --n0: #FFFFFF; --n50: #FFF8EF; --n100: #F7ECDB; --n200: #EADFCB; --n300: #DCC6A2; --n400: #7A8A90; --n500: #4A5E66; --n700: #254049; --n900: #12303A;
+  --warn-wash: #FFF1E3; --warn-fill: #F68B2C; --warn-text: #A14A08;
+  --font-h: 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif;
+  --font: Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --t13: .875rem; --t14: .875rem; --t16: 1.0625rem; --t18: 1.125rem;
+  --gutter: 20px; --header: 60px; --tabbar: 72px;
+  --sh2: 0 6px 16px rgba(18, 48, 58, .18);
+  background: var(--l4-sand); color: var(--l4-ink); font-size: 17px; line-height: 26px;
+}
+body.l4 :is(h1, h2, h3) { color: var(--l4-ink); }
+body.l4 h1 { letter-spacing: -.02em; }
+
+/* ---- the frame: a phone column, centred on a wider window (laptop was never drawn) ---- */
+body.l4 #app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--l4-sand); position: relative; }
+@media (min-width: 600px) {
+  body.l4 { background: var(--l4-ground); }
+  body.l4 #app { box-shadow: 0 0 0 1px rgba(120, 80, 30, .08), 0 10px 40px rgba(120, 80, 30, .12); }
+}
+body.l4 main { max-width: none; margin: 0; padding: 20px var(--gutter) calc(var(--tabbar) + var(--safe-b) + 32px); }
+body.l4.notabs main { padding-bottom: calc(48px + var(--safe-b)); }
+body.l4.l4own main { padding: 0 0 calc(var(--tabbar) + var(--safe-b) + 24px); }   /* a screen that draws its own top starts at the top edge, full width */
+body.l4.l4own.notabs main { padding-bottom: calc(24px + var(--safe-b)); }
+/* fixed bars live in the column, not across the window */
+body.l4 :is(.tabs, .actionbar) { left: 50%; right: auto; width: min(100%, 480px); transform: translateX(-50%); }
+/* wide.css's laptop layout is not used: no two columns, no header menu, no wide search box */
+body.l4 :is(.cols, .cols.even, .grid2, .grid3) { display: block; }
+body.l4 .cols > .side { position: static; }
+body.l4 .hdr .hnav, body.l4 .hdr .hsearch { display: none; }
+body.l4 .hdr .hsearchbtn { display: inline-flex; }
+body.l4 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); }
+body.l4.hasbar.withtabs .actionbar { bottom: calc(var(--tabbar) + var(--safe-b)); }
+
+/* the plain look-4 top bar (today's header, restyled): ocean, white words */
+body.l4 .hdr { background: var(--l4-ocean); border-bottom: 0; color: #fff; padding: 0 8px 0 var(--gutter); min-height: var(--header); }
+body.l4 .hdr .bname b { color: #fff; font: 700 18px/1.1 var(--font-h); }
+body.l4 .hdr .bname small { color: var(--l4-pale); font-size: 12px; }
+body.l4 .hdr .hbtn { color: #fff; font-weight: 600; }
+body.l4 .hdr .hbtn:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+body.l4 .hdr .hbtn.hacct { display: inline-flex; }
+body.l4 .hdr .hav { background: #fff; color: var(--l4-ocean); }
+body.l4 .hdr .hav .ic { color: var(--l4-ocean); }
+body.l4 .band { background: var(--l4-ink); }
+
+/* the three tabs (the pill highlight, as in Mix-Home) */
+body.l4 .tabs { background: var(--l4-sand); border-top: 0; box-shadow: 0 -2px 10px rgba(120, 80, 30, .08); padding: 8px 20px calc(16px + var(--safe-b)); }
+body.l4 .tabs a { color: var(--l4-grey); font: 500 14px/20px var(--font); min-height: 0; gap: 2px; }
+body.l4 .tabs a .pill { width: 60px; height: 32px; }
+body.l4 .tabs a[aria-current="page"] { color: var(--l4-link); font-weight: 700; }
+body.l4 .tabs a[aria-current="page"] .pill { background: #E3F4FB; }
+
+/* ---- buttons on every screen: today's main button becomes the orange main button, the others the outline or quiet styles ---- */
+body.l4 .btn { min-height: 52px; font: 600 17px/24px var(--font); }
+body.l4 .btn.primary, body.l4 .btn.primary:hover { background: var(--l4-orange); color: var(--l4-ink); font-weight: 700; font-size: 18px; box-shadow: 0 6px 16px rgba(18, 48, 58, .18); }
+body.l4 .btn.primary:active { background: #E57D1F; color: var(--l4-ink); }
+body.l4 .btn.secondary { background: transparent; color: var(--l4-link); box-shadow: inset 0 0 0 1.5px var(--l4-link); }
+body.l4 .btn.secondary:hover { background: var(--p50); }
+body.l4 .btn.text { color: var(--l4-link); }
+body.l4 .btn:disabled, body.l4 .btn[aria-disabled="true"] { background: var(--n100); color: var(--n500); box-shadow: none; }
+body.l4 .btn.sm { min-height: 44px; font-size: 15px; }
+
+/* ---- the hero: deep ocean, leaf print, ridge ---- */
+body.l4 .l4-hero { position: relative; background: var(--l4-ocean); color: #fff; display: flex; flex-direction: column; overflow: hidden; }
+body.l4 .l4-print { position: absolute; left: 0; top: 0; width: 100%; height: 640px; opacity: .07; }
+body.l4 .l4-hero-in { position: relative; display: flex; flex-direction: column; gap: 20px; padding: 16px 20px 0; }
+body.l4 .l4-ridge { position: relative; display: block; width: 100%; height: 84px; margin-top: 8px; }
+body.l4 .l4-top { display: flex; align-items: center; gap: 4px; min-height: 44px; }
+body.l4 .l4-top.has-back { gap: 4px; }
+body.l4 .l4-top-gap { flex: 1; }
+body.l4 .l4-greet { font: 600 20px/24px var(--font-h); letter-spacing: -.01em; color: #fff; }
+body.l4 .l4-round { width: 44px; height: 44px; border-radius: 22px; background: #fff; color: var(--l4-ink); border: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; cursor: pointer; text-decoration: none; }
+body.l4 .l4-round .ic { color: var(--l4-ink); }
+body.l4 .l4-h1 { margin: 0; font: 800 32px/36px var(--font-h); letter-spacing: -.02em; color: #fff; }
+body.l4 .l4-kicker { font: 600 14px/20px var(--font); color: var(--l4-pale); }
+body.l4 .l4-lede { margin: 2px 0 0; font-size: 17px; line-height: 26px; color: var(--l4-pale); text-wrap: balance; }
+body.l4 .l4-hero-pic { display: block; width: 100%; height: 132px; border-radius: 28px; object-fit: cover; }
+body.l4 .l4-hero a { color: #fff; }
+body.l4 .l4-actions { position: relative; margin-top: -44px; padding: 0 20px; display: flex; flex-direction: column; gap: 12px; }
+body.l4 .l4-actions .l4-note { display: block; margin-top: 8px; font: 500 14px/20px var(--font); color: var(--l4-grey); text-align: center; text-wrap: balance; }
+
+/* ---- the deadline block (BRIEF-DEADLINE.md): type on the ocean, no box ---- */
+body.l4 .l4-dl { display: flex; flex-direction: column; }
+body.l4 .l4-dl-label { font: 600 15px/18px var(--font); color: #fff; }
+body.l4 .l4-dl-when { box-sizing: content-box; display: flex; align-items: baseline; gap: 10px; height: 40px; padding: 4px 0 6px; white-space: nowrap; }
+body.l4 .l4-dl-day { font: 800 48px/40px var(--font-h); letter-spacing: -.03em; color: var(--l4-sky); }
+body.l4 .l4-dl-time { font: 700 26px/26px var(--font-h); letter-spacing: -.01em; color: #fff; }
+body.l4 .l4-dl-count { font: 500 14px/18px var(--font); color: var(--l4-pale); }
+body.l4 .l4-dl-count.amber { color: var(--l4-amber); }
+
+/* ---- buttons ---- */
+body.l4 .l4-main, body.l4 .l4-second { display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box; height: 52px; padding: 0 20px; border-radius: 999px; text-decoration: none; cursor: pointer; font-family: var(--font); gap: 8px; }
+body.l4 .l4-main { border: 0; background: var(--l4-orange); color: var(--l4-ink); font-size: 18px; line-height: 24px; font-weight: 700; box-shadow: 0 6px 16px rgba(18, 48, 58, .18); }
+body.l4 .l4-main:hover { color: var(--l4-ink); background: #F2821F; }
+body.l4 .l4-main:active { background: #E57D1F; }
+body.l4 .l4-second { border: 1.5px solid var(--l4-link); background: transparent; color: var(--l4-link); font-size: 17px; line-height: 24px; font-weight: 600; }
+body.l4 .l4-second:hover { background: var(--p50); color: var(--l4-link); }
+body.l4 .l4-quiet { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; font: 600 16px/24px var(--font); color: var(--l4-link); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+body.l4 .l4-main:focus-visible, body.l4 .l4-second:focus-visible, body.l4 .l4-quiet:focus-visible, body.l4 .l4-round:focus-visible, body.l4 .l4-row:focus-visible { outline: 3px solid var(--l4-link); outline-offset: 2px; }
+
+/* ---- section heads and rows ---- */
+body.l4 .l4-head { display: flex; flex-direction: column; gap: 4px; margin: 0 0 16px; }
+body.l4 .l4-head h2 { margin: 0; font: 700 22px/26px var(--font-h); letter-spacing: -.01em; color: var(--l4-ink); }
+body.l4 .l4-head p { margin: 0; font: 500 14px/20px var(--font); color: var(--l4-grey); }
+body.l4 .l4-section { display: flex; flex-direction: column; margin: 0 0 36px; }
+body.l4 .l4-list { display: flex; flex-direction: column; gap: 22px; }
+body.l4 .l4-row { display: flex; align-items: flex-start; gap: 14px; min-height: 48px; text-decoration: none; color: var(--l4-ink); }
+body.l4 .l4-row:hover { color: var(--l4-ink); }
+body.l4 .l4-mark { flex: none; width: 44px; height: 44px; margin-top: 2px; display: flex; align-items: center; justify-content: center; }
+body.l4 .l4-mark > :is(img, svg) { display: block; width: 44px; height: 44px; }
+body.l4 .l4-row-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+body.l4 .l4-row-t { font: 600 17px/24px var(--font); text-wrap: balance; }
+body.l4 .l4-row-s { font: 400 14px/20px var(--font); color: var(--l4-grey); }
+body.l4 .l4-row-s.amber { color: var(--l4-amber-text); }
+body.l4 .l4-chev { flex: none; align-self: center; color: var(--l4-grey); display: inline-flex; }
+body.l4 .l4-chev .ic { width: 20px; height: 20px; }
+
+/* ---- the lei ---- */
+body.l4 .l4-lei { display: block; width: 100%; max-width: 350px; height: auto; }
+
+/* the organisation's line at the end of a page whose top is its own: back inside the gutters, wrapping */
+body.l4.l4own main > .orgfoot { padding: 8px 20px 0; overflow-wrap: anywhere; }
+body.l4 .orgfoot { color: var(--l4-grey); font: 500 14px/20px var(--font); }
