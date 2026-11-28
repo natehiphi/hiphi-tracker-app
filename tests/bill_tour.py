@@ -4,7 +4,7 @@
 # another bill does not bring it back; Skip and Esc end it too; the page underneath takes no taps on tips 1-2; tip 3
 # lights the real main button, and using it ends the tour and does what it says; a stopped bill between sessions points
 # tip 3 at Follow; not on the first visit (#/start) and not while the "New here?" card is up, but after "Just looking";
-# the tip stays inside the window; reduced motion; no console errors. Arrival on a link: tests/tour_link.py.
+# the tip stays inside the window; reduced motion; no console errors. Sections 1-7 run on the old bill page (?rec=0), section 8 on today's. Arrival on a link: tests/tour_link.py.
 import json, os, sys
 from playwright.sync_api import sync_playwright
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html'
@@ -20,10 +20,15 @@ def ctx(b, w=390, h=844, **kw):
     p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{w}: {e}'))
     p.on('console', lambda m: errors.append(f'console {w}: {m.text[:140]}') if m.type == 'error' and 'favicon' not in m.text else None)
     return c, p
-def fresh(p, extra='', returning=True):
+# Sections 1-7 run on the old bill page (?rec=0): the tour's tips and these checks were written for its status card, its Share
+# button and its docked main button. Everyone's bill page since 19 Oct is the calm one (layout 3); section 8 runs the tour there.
+OLD = '&rec=0'
+def fresh(p, extra='', returning=True, old=True):
+    extra = extra + (OLD if old else '')
     p.goto(BASE + '?demo=1' + extra); p.wait_for_timeout(400)
     p.evaluate('localStorage.clear(); sessionStorage.clear()' + ('; ' + PAST_START if returning else ''))
-def visit(p, h, extra='', wait=2600, link=False):
+def visit(p, h, extra='', wait=2600, link=False, old=True):
+    extra = extra + (OLD if old else '')
     # R-357 Light fixes (b): someone who arrived on a link is never shown around by itself (R-114; tests/tour_link.py), so a visit
     # is Home first and then into the bill inside the app; link=True opens the address directly, as a friend's link does.
     if link: p.goto(BASE + '?demo=1' + extra + '#' + h.lstrip('#')); p.reload(); p.wait_for_timeout(wait); return
@@ -69,7 +74,7 @@ with sync_playwright() as pw:
         ok(s and 'Tip 2 of 4' in s['text'] and s['label'] == 'Where it is now', f'{tag}: Next shows tip 2, where it is now')
         ok(s and covers(s['hole'], '.bl-status', p), f'{tag}: tip 2 lights the status card')
         ok(inside(s), f'{tag}: tip 2 sits inside the window')
-        ok(s and 'Senate committees' in s['text'], f'{tag}: tip 2 names where the bill is now')
+        ok(s and 'Senate Health and Human Services' in s['text'], f'{tag}: tip 2 names where the bill is now (the committees by name, R-212 #45)')
         p.screenshot(path=f'{OUT}/{tag}-tip2.png')
         # Tip 3 (R-205 C6): Share, on the button itself, in the top bar.
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(500); s = tipstate(p)
@@ -104,7 +109,7 @@ with sync_playwright() as pw:
         c, p = ctx(b, w, h); fresh(p); visit(p, '/bill/HB2121'); tip(p)
         p.locator('[data-tr-next]').click(); p.wait_for_timeout(300); p.keyboard.press('Escape'); p.wait_for_timeout(400)
         ok(p.locator('.tr-tip').count() == 0 and seen(p), f'{tag}: Esc ends the tour and is remembered')
-        ok(p.evaluate("location.hash").startswith('#/bill/HB2121'), f'{tag}: Esc stays on the bill')
+        ok(p.evaluate("location.hash").endswith('/HB2121'), f'{tag}: Esc stays on the bill (the address now carries the year: #/bill/2026/HB2121)')
         c.close()
 
         # 4. The lit button is real: using it ends the tour and opens the testimony walkthrough
@@ -155,6 +160,29 @@ with sync_playwright() as pw:
     ok(p.evaluate("document.querySelector('.tr').classList.contains('tr-still')"), 'phone: reduced motion is respected')
     p.screenshot(path=f'{OUT}/phone-noname-tip1.png')
     c.close()
+
+    # 8. Today's bill page (layout 3, no ?rec=0): the tour opens, runs on the page's own parts and ends on a real button.
+    # What it teaches there differs from the old page (found 27 Nov 2026, listed as a follow-up in R-416, not asserted either way):
+    # no "Where it is now" tip (there is no .bl-status card), and on a phone no "How you can help" tip, because the main button is
+    # in the page's action card and the tour looks for it only in the docked bar, so a phone's last tip is Follow, a laptop's is
+    # the main button.
+    for w, h, tag in [(390, 844, 'phone'), (1440, 900, 'laptop')]:
+        c, p = ctx(b, w, h); fresh(p, old=False); visit(p, '/bill/HB2121', old=False)
+        ok(tip(p) and p.locator('.bl-rec').count() >= 1, f'{tag}: today\'s bill page shows the tour')
+        s = tipstate(p); seen_labels = [s and s['label']]
+        ok(s and s['role'] == 'dialog' and s['label'] == 'What this bill is' and s['focusIn'] and inside(s), f'{tag}: today: tip 1 is a labelled dialog with focus in it, inside the window')
+        ok(s and covers(s['hole'], '.bl-head h1, .bl-rec h1', p), f'{tag}: today: tip 1 lights the bill\'s name')
+        for _ in range(6):
+            if not p.locator('[data-tr-skip]').count(): break
+            p.locator('[data-tr-next]').click(); p.wait_for_timeout(450); s = tipstate(p); seen_labels.append(s and s['label'])
+            ok(inside(s), f'{tag}: today: tip "{s and s["label"]}" sits inside the window')
+        ok('Ask a friend' in seen_labels and len(seen_labels) >= 3, f'{tag}: today: the tour teaches Share and has three tips or more: {seen_labels}')
+        ok(p.locator('[data-tr-skip]').count() == 0 and p.locator('[data-tr-next]').inner_text().strip() == 'Done', f'{tag}: today: the last tip ends with Done ({seen_labels[-1]})')
+        p.screenshot(path=f'{OUT}/{tag}-today-last.png')
+        p.locator('[data-tr-next]').click(); p.wait_for_timeout(400)
+        ok(p.locator('.tr, .tr-tip').count() == 0 and seen(p), f'{tag}: today: Done ends the tour and it is remembered')
+        visit(p, '/bill/HB2121', old=False); ok(not tip(p, 1800), f'{tag}: today: a reload does not show it again')
+        c.close()
     b.close()
 
 ok(not errors, f'no console errors {errors[:4]}')

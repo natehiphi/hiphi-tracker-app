@@ -5,7 +5,8 @@ import sys, re
 from urllib.parse import unquote
 from playwright.sync_api import sync_playwright
 # The bill page tour (pub/tour.js) shows on the first bill page a fresh browser opens; tests/bill_tour.py covers it.
-TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1')}catch(e){}"
+# hiphi_voice: the emails' first wordings (R-259); without it each visit draws one of several wordings and the text checks below flake.
+TOUR_SEEN = "try{localStorage.setItem('hiphi_tour_bill','1');localStorage.setItem('hiphi_tour_bill_demo','1');localStorage.setItem('hiphi_voice','first');localStorage.setItem('hiphi_voice_demo','first')}catch(e){}"
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://localhost:8832/track.html?demo=1&seed=1'
 ok = fail = 0
 def check(c, m):
@@ -30,7 +31,8 @@ def open_bill(pg, stage, pos, acts=(), dist=None):
     pg.evaluate(f"location.hash = '#/bill/{num}'"); pg.wait_for_timeout(1800)
     return num
 def main_btn(pg):
-    el = pg.locator('.actionbar [data-bl-main], .bl-side [data-bl-main], .actionbar a.btn.primary, .bl-side .bl-do a.btn.primary').first
+    # Today's bill page (layout 3) holds its one action in the card .bl-ract, on a phone too; the docked bar copies it only once the page scrolls.
+    el = pg.locator('.actionbar [data-bl-main], .bl-ract [data-bl-main], .bl-ract .btn.primary, .actionbar a.btn.primary').first
     return (el.inner_text().strip(), el.get_attribute('href') or '') if el.count() else ('', '')
 CONF = ['House Conferees Appointed: Belatti, Garrett, Morikawa Co-Chairs; Iwamoto, Souza.', 'Senate Conferees Appointed: Fukunaga Chair; Kim, Lee, C. Co-Chairs.']
 with sync_playwright() as p:
@@ -51,7 +53,7 @@ with sync_playwright() as p:
         label, href = main_btn(pg)
         check(label == 'Email the conference chairs' and href.startswith('mailto:') and href.count('@') >= 6, f'{w} {num}: conference offers the chairs ("{label}", {href.count("@")} addresses)')
         body = unquote(href)
-        check('Dear Chair ' in body and 'working out one version in conference' in body and 'agree on one version and pass it' in body, f'{w}: the email greets the chairs and asks them to pass it')
+        check('Aloha Chair ' in body and 'settling on one final version' in body and 'agree on a final version and pass it' in body, f'{w}: the email greets the chairs (Aloha, R-259) and asks them to pass it')
         check('conference chairs' in pg.inner_text('main').lower() or 'Write to the conference chairs' in pg.inner_text('body'), f'{w}: the page says why')
         pg.screenshot(path=f'tests/out/stages_{w}_conference.png')
         # conference, no appointment yet, no districts: find your legislators
@@ -70,7 +72,7 @@ with sync_playwright() as p:
         num = open_bill(pg, 'second_floor', 'support', [], {'senate': 13, 'house': 26})
         label, href = main_btn(pg)
         check(re.match(r'^Ask (Sen|Rep)\. [A-Za-z\u02bb\u2018 -]+ to vote yes$', label) is not None and href.count('@') == 1, f'{w} {num}: the floor vote asks your own legislator ("{label}")')
-        check('please vote yes' in unquote(href).lower() and re.search(r'Dear (Senator|Representative) ', unquote(href)) is not None, f'{w}: the email greets them as your senator or representative and asks for a yes')
+        check('please vote yes' in unquote(href).lower() and re.search(r'Aloha (Senator|Representative) ', unquote(href)) is not None, f'{w}: the email greets them as your senator or representative and asks for a yes')
         pg.screenshot(path=f'tests/out/stages_{w}_floor.png')
         num = open_bill(pg, 'second_floor', 'oppose', [], None)
         label, href = main_btn(pg)

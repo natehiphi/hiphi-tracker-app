@@ -18,7 +18,12 @@ TARGETS_JS = r"""(() => {
     // links inside running text are exempt (WCAG 2.5.8 inline exception)
     if (e.tagName === 'A' && e.closest('p, li') && !e.classList.contains('btn') && !e.classList.contains('row')) return;
     if (e.type === 'checkbox' || e.type === 'radio') { const l = e.closest('label'); if (l) { const lr = l.getBoundingClientRect(); if (lr.height >= 43.5) return; } }
-    if (r.height < 43.5 || r.width < 43.5) out.push(`${e.tagName.toLowerCase()}.${(e.className && e.className.baseVal === undefined ? e.className : '').toString().split(' ').slice(0,2).join('.')} "${(e.innerText || e.getAttribute('aria-label') || '').trim().slice(0,30)}" ${Math.round(r.width)}x${Math.round(r.height)}`);
+    // A target whose ::before is an absolutely placed pseudo-element with pixel offsets reaching past its box (inset: -15px -10px, the
+    // site link in the page foot, R-402) is tapped there: measure that, since a tap on the pseudo-element is a tap on the link.
+    let w = r.width, h = r.height;
+    const pe = getComputedStyle(e, '::before');
+    if (pe.position === 'absolute' && pe.content !== 'none') { const n = v => (/px$/.test(v) ? parseFloat(v) : 0); w -= Math.min(0, n(pe.left)) + Math.min(0, n(pe.right)); h -= Math.min(0, n(pe.top)) + Math.min(0, n(pe.bottom)); }
+    if (h < 43.5 || w < 43.5) out.push(`${e.tagName.toLowerCase()}.${(e.className && e.className.baseVal === undefined ? e.className : '').toString().split(' ').slice(0,2).join('.')} "${(e.innerText || e.getAttribute('aria-label') || '').trim().slice(0,30)}" ${Math.round(r.width)}x${Math.round(r.height)}`);
   });
   return out;
 })()"""

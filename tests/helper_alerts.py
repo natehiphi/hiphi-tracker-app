@@ -26,13 +26,15 @@ def to_mahalo(br, extra):
     c.add_init_script(TOUR_SEEN); c.add_init_script(CATCH)
     c.grant_permissions(['clipboard-read', 'clipboard-write'], origin=urllib.parse.urlsplit(BASE)._replace(path='').geturl().rstrip('/'))
     p = c.new_page(); p.errs = []; p.on('pageerror', lambda e: p.errs.append(str(e)[:160]))
-    p.goto(BASE + '?demo=1' + extra + '#/'); p.wait_for_timeout(600)
+    p.goto(BASE + '?demo=1&ab=layout.today' + extra + '#/'); p.wait_for_timeout(600)
     p.evaluate(f"""localStorage.clear(); sessionStorage.clear(); localStorage.setItem('hiphi_watch_ids_demo', JSON.stringify({json.dumps([ID['HB1562'], ID['HB2121']])}));
       localStorage.setItem('hiphi_wiz', JSON.stringify({{step:1,done:true,skipped:true}}));""")
-    p.goto(BASE + '?demo=1' + extra + '#/'); p.reload(); p.wait_for_timeout(2800)
-    card = p.evaluate("[...document.querySelectorAll('[data-card]')].map(e => e.dataset.card).find(k => k.startsWith('" + ID['HB2121'] + "'))")
-    p.evaluate("k => { const c = [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k); c.querySelector('[data-moreways]').click(); }", card); p.wait_for_timeout(500)
-    p.evaluate("k => { const c = [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k); [...c.querySelectorAll('.mwrow')].find(r => /quick email/i.test(r.innerText)).click(); }", card); p.wait_for_timeout(900)
+    p.goto(BASE + '?demo=1&ab=layout.today' + extra + '#/'); p.reload(); p.wait_for_timeout(2800)
+    # Home's one action card for HB 2121 (since R-222 / R-303 there are no per-bill [data-card] cards): its main button writes testimony;
+    # "More ways to help" holds the quick email (as tests/count_starts.py opens it).
+    VIS = "[...document.querySelectorAll('main button, main a')].filter(e => e.offsetParent)"
+    p.evaluate(f"({VIS}.find(e => /^More ways to help/i.test(e.innerText.trim())) || {{ click() {{}} }}).click()"); p.wait_for_timeout(600)
+    p.evaluate(f"{VIS}.find(e => e.matches('.mwrow') && /quick email/i.test(e.innerText)).click()"); p.wait_for_timeout(900)
     if 'Where do you stand' in dlg(p): tap(p, '^I support it'); p.wait_for_timeout(500)
     tap(p, '^Next'); p.wait_for_timeout(500)
     p.fill('#hp-name', 'Kai Ho'); tap(p, 'See my email'); p.wait_for_timeout(600)

@@ -1,5 +1,8 @@
 # A sent letter, opened again (W1-1, R-239): a regular who gets a call from the committee, or closed the Capitol tab, finds
 # the words they sent. python3 tests/letter_view.py [base_url]   (sandbox ?letter: HB 2121's letter for House Health, 18 Feb)
+# Pinned to the old bill page (?rec=0): the hearing rows with "Your letter" are that page's; today's bill page (layout 3, everyone's since 19 Oct)
+# draws no hearing list and shows "Your letter" in its action card only for the hearing it is asking about. Your letters (tests/my_letters.py)
+# opens the same walkthrough from the You tab.
 # Checks: the bill page's hearing it was sent for says "Your letter" (and no other hearing does); it opens the walkthrough on
 # one screen, "Your letter", with no "Part 1 of 1", the letter read only, Copy (the clipboard gets it), Email it to myself,
 # Download, how to change it, Close and "Copy my letter" in the bar, and no "send it again" for a hearing that is over; closing it saves
@@ -22,7 +25,7 @@ with sync_playwright() as pw:
         c.add_init_script("(" + SKIP + ")()")
         p = c.new_page(); p.on('pageerror', lambda e: errors.append(f'{tag}: {e}'))
         p.on('console', lambda m: errors.append(f'console {tag}: {m.text[:160]}') if m.type == 'error' and 'favicon' not in m.text else None)
-        p.goto(BASE + '?demo=1&letter#/bill/HB2121'); p.wait_for_selector('.bl-hr', timeout=15000); p.wait_for_timeout(1500)
+        p.goto(BASE + '?demo=1&letter&rec=0#/bill/HB2121'); p.wait_for_selector('.bl-hr', timeout=15000); p.wait_for_timeout(1500)
         rows = p.locator('.bl-hr:has([data-myletter])')
         ok(rows.count() == 1 and 'House Health' in rows.first.inner_text(), f'{tag}: "Your letter" on the House Health hearing only')
         btn = p.locator('[data-myletter]').first; btn.scroll_into_view_if_needed(); p.wait_for_timeout(300)
@@ -55,7 +58,7 @@ with sync_playwright() as pw:
             btn = p.locator('[data-myletter]').first; btn.click(); p.wait_for_selector('#hp-letter', timeout=8000); p.wait_for_timeout(500)
             p.reload(); p.wait_for_timeout(3000)
             ok(p.locator('#hp-letter').count() == 0, 'phone: a reload does not reopen it')
-            p.goto(BASE + '?demo=1&letter#/bill/HB1563'); p.wait_for_selector('.bl-hr', timeout=15000); p.wait_for_timeout(1200)
+            p.goto(BASE + '?demo=1&letter&rec=0#/bill/HB1563'); p.wait_for_selector('.bl-hr', timeout=15000); p.wait_for_timeout(1200)
             ok(p.locator('[data-myletter]').count() == 0, 'phone: a bill with no letter has no "Your letter"')
         c.close()
     b.close()

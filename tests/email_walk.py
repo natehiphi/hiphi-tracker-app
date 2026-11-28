@@ -65,6 +65,13 @@ done = lambda p: p.evaluate("JSON.parse(localStorage.getItem('hiphi_done_demo') 
 def one_primary(p):
     return p.evaluate("[...document.querySelectorAll('#hp-dlg .btn.primary')].filter(e => e.offsetParent !== null).length")
 
+# Home since R-222/R-303 is one action card for the bill that needs someone most: its main button, and "More ways to help"
+# (a button whose data-moreways is <bill>|<hearing>) holding the quick email and the rows for your own legislators (.mwrow).
+# There are no per-bill [data-card] cards; the key is read from the button.
+home_card = lambda p: p.evaluate("[...document.querySelectorAll('[data-moreways]')].map(e => e.dataset.moreways).find(k => k.startsWith('" + ID['HB2121'] + "')) || ''")
+def more_ways(p):
+    p.evaluate("document.querySelector('[data-moreways]').click()"); p.wait_for_timeout(500)
+
 def walk_to_letter(p, tag, stance='I support it', name='Kai Ho', points=1):
     if 'Where do you stand' in dlg(p):
         shot(p, f'{tag}_1_stand'); tap(p, '^' + stance); p.wait_for_timeout(500)
@@ -120,9 +127,8 @@ with sync_playwright() as pw:
     for wide in (False, True):
         tag = 'laptop' if wide else 'phone'
         c, p = ctx(br, wide); follower(p); visit(p, '/')
-        card = p.evaluate("[...document.querySelectorAll('[data-card]')].map(e => e.dataset.card).find(k => k.startsWith('" + ID['HB2121'] + "'))")
-        p.evaluate("k => { const c = [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k); c.querySelector('[data-moreways]').click(); }", card); p.wait_for_timeout(500)
-        p.evaluate("k => { const c = [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k); [...c.querySelectorAll('.mwrow')].find(r => /quick email/i.test(r.innerText)).click(); }", card); p.wait_for_timeout(900)
+        card = home_card(p)
+        more_ways(p); p.evaluate("[...document.querySelectorAll('.mwrow')].filter(e => e.offsetParent).find(r => /quick email/i.test(r.innerText)).click()"); p.wait_for_timeout(900)
         check('Email about HB 2121' in dlg(p), f'{tag}: "Send a quick email" opens the walkthrough')
         check(p.locator('.composer, [id^="cmp-"]').count() == 0, f'{tag}: no inline composer any more')
         picked = walk_to_letter(p, tag)
@@ -134,8 +140,8 @@ with sync_playwright() as pw:
         check(f'{bid}|{hid}|email' in done(p), f'{tag}: counted as before: <bill>|<hearing>|email')
         (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
         check(p.locator('#hp-dlg').count() == 0, f'{tag}: Done closes it')
-        emailed = p.evaluate("k => { const c = [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k); return c ? c.innerText : ''; }", card)
-        check('Emailed the chair' in emailed, f'{tag}: the card says "Emailed the chair"')
+        emailed = p.evaluate("document.querySelector('main')?.innerText || ''")   # the calm Home says it in its own words (pub/calm/home.js): "You emailed the chair"
+        check('emailed the chair' in emailed.lower(), f'{tag}: Home says you emailed the chair')
         check(not p.errs, f'{tag}: no page errors {p.errs}')
         c.close()
 
@@ -167,19 +173,20 @@ with sync_playwright() as pw:
     p.reload(); p.wait_for_timeout(4000)
     check('Did you send it?' in dlg(p) and 'Welcome back' in dlg(p), f'reload: back at "Did you send it?" ({dlg(p)[:50]!r})')
     p.go_back(); p.wait_for_timeout(1200)
-    check(p.locator('#hp-dlg').count() == 0 and '/bill/HB1563' in p.evaluate('location.hash'), 'reload: the phone\'s Back closes the walkthrough and stays on the bill')
+    check(p.locator('#hp-dlg').count() == 0 and p.evaluate('location.hash').endswith('/HB1563'), 'reload: the phone\'s Back closes the walkthrough and stays on the bill')
     check(not p.errs, f'reload: no page errors {p.errs}')
     c.close()
 
     # ---- 2c. "Email" beside a chair in "Who decides next", with a hearing coming ----
     for wide in (False, True):
         c, p = ctx(br, wide); follower(p); visit(p, '/bill/HB2121')
+        p.locator('details[data-bl-rfold="who"] > summary').first.click(); p.wait_for_timeout(500)   # "Who decides next" is a fold on today's bill page
         e = p.locator('[data-bl-compose]').first
         check(e.count() == 1, f'who decides ({wide}): an Email button beside the chair')
         e.scroll_into_view_if_needed(); e.click(); p.wait_for_timeout(900)
         check('Email about HB 2121' in dlg(p), f'who decides ({wide}): it opens the email walkthrough')
         p.keyboard.press('Escape'); p.wait_for_timeout(1000)
-        check(p.locator('#hp-dlg').count() == 0 and p.locator('.bl-side .btn.primary, .actionbar .btn.primary').filter(has_text='testimony').count() >= 1,
+        check(p.locator('#hp-dlg').count() == 0 and p.locator('main [data-bl-go="testify"]:visible, .bl-side .btn.primary:visible, .actionbar .btn.primary:visible').filter(has_text='testimony').count() >= 1,
               f'who decides ({wide}): Esc closes it and the page\'s main button is still "Help me write testimony"')
         check(not p.errs, f'who decides ({wide}): no page errors {p.errs}')
         c.close()
@@ -208,13 +215,15 @@ with sync_playwright() as pw:
         tag = 'legs_' + ('laptop' if wide else 'phone')
         c, p = ctx(br, wide); follower(p, follow=FOLLOW + [ID['HB1563']], pre=districts); visit(p, '/')
         # 4. a hearing on their committee: a row under More ways to help (HB 2121, HHS/CPN)
-        card = p.evaluate("[...document.querySelectorAll('[data-card]')].map(e => e.dataset.card).find(k => k.startsWith('" + ID['HB2121'] + "'))")
-        p.evaluate("k => [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k).querySelector('[data-moreways]').click()", card); p.wait_for_timeout(500)
-        row = p.evaluate("k => { const r = [...[...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k).querySelectorAll('.mwrow')].find(r => /Write to Sen/.test(r.innerText)); return r ? r.innerText : ''; }", card)
+        card = home_card(p); more_ways(p)
+        row = p.evaluate("(() => { const r = [...document.querySelectorAll('.mwrow')].find(r => /Write to Sen/.test(r.innerText)); return r ? r.innerText : ''; })()")
         check(f'Sen. {sen["last"]}' in row and 'sits on this committee' in row, f'{tag}: a hearing on your senator\'s committee adds "Write to Sen. {sen["last"]}" ({row[:60]!r})')
-        prim = p.evaluate("k => [...document.querySelectorAll('[data-card]')].find(e => e.dataset.card === k).querySelector('.btncol .btn.primary')?.innerText || ''", card)
+        prim = p.evaluate("[...document.querySelectorAll('main .btn.primary')].filter(e => e.offsetParent).map(e => e.innerText).join(' | ')")
         check('testimony' in prim.lower(), f'{tag}: testimony still leads the card ({prim!r})')
-        # 5. a bill waiting in their committee: Home's card (HB 1563 waits in HHS/EIG), beside the more urgent cards
+        # 5. a bill waiting in their committee: Home's card (HB 1563 waits in HHS/EIG), beside the more urgent cards.
+        # Only the old Home (?rec=0) draws it: speakup.js mountHome decorates the old Home's columns, and today's calm Home has no such card
+        # (found 27 Nov 2026, listed in R-416: with it goes the one door to "Write to Sen. ..." about a bill waiting in a committee).
+        visit(p, '/', '&rec=0')
         mc = p.locator('[data-sp="moment"]')
         check(mc.count() == 1 and f'Sen. {sen["last"]}' in mc.inner_text(), f'{tag}: Home offers writing to your senator about a bill waiting in their committee')
         check(mc.locator('.btn.secondary').count() == 1, f'{tag}: a secondary button, since testimony is more urgent (A-3)')
@@ -245,19 +254,19 @@ with sync_playwright() as pw:
     check('vote in the full Senate soon. Please vote yes.' in p.input_value('#hp-letter') and 'Please vote yes on HB 2121' in p.input_value('#hp-subject'), 'floor: the email asks for a yes vote')
     c.close()
 
-    # ---- 7. the introduction ----
+    # ---- 7. the introduction ---- (the card is the old Home's, like 5: ?rec=0; today's Home does not offer it, R-416)
     for wide in (False, True):
         tag = 'intro_' + ('laptop' if wide else 'phone')
         issue = snap['issues'][0]['id']
         pre = districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify([{json.dumps(issue)}]));"
-        c, p = ctx(br, wide); follower(p, pre=pre); visit(p, '/')
+        c, p = ctx(br, wide); follower(p, pre=pre); visit(p, '/', '&rec=0')
         ic = p.locator('[data-sp="intro"]')
         check(ic.count() == 1, f'{tag}: Home offers "Introduce yourself to your legislators"')
         ic.scroll_into_view_if_needed(); shot(p, f'{tag}_0_card')
         tap(p, '^No thanks', '[data-sp="intro"] button'); p.wait_for_timeout(900)
         check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: "No thanks" hides it')
-        visit(p, '/'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: and it never comes back')
-        p.evaluate("localStorage.removeItem('hiphi_intro')"); visit(p, '/')
+        visit(p, '/', '&rec=0'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: and it never comes back')
+        p.evaluate("localStorage.removeItem('hiphi_intro')"); visit(p, '/', '&rec=0')
         p.locator('[data-sp="intro"] [data-speak-intro]').click(); p.wait_for_timeout(900)
         check('Introduce yourself' in dlg(p) and p.locator('#hp-name').count() == 1, f'{tag}: it starts with About you (no bill)')
         p.fill('#hp-name', 'Kai Ho'); p.fill('#hp-why', 'I am a nurse on Oʻahu.'); shot(p, f'{tag}_1_about')
@@ -270,7 +279,7 @@ with sync_playwright() as pw:
         send_step(p, tag, wide, to_expect=tos, subj_rx=r'^A question from your constituent')
         check(p.evaluate("JSON.parse(localStorage.getItem('hiphi_intro') || 'null')?.how") == 'sent', f'{tag}: remembered as sent')
         (p.locator('#hp-dlg [data-hp="ngno"]').click() if p.locator('#hp-dlg [data-hp="ngno"]').count() else None); tap(p, '^Done'); p.wait_for_timeout(1500)   # R-205 C4
-        visit(p, '/'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: never offered again')
+        visit(p, '/', '&rec=0'); check(p.locator('[data-sp="intro"]').count() == 0, f'{tag}: never offered again')
         check(not p.errs, f'{tag}: no page errors {p.errs}')
         c.close()
 
@@ -280,8 +289,8 @@ with sync_playwright() as pw:
     #      closes the letter when it is blank; one issue leaves nothing to pick; the legislators page writes the same letter ----
     many = [snap['issues'][0]['id'], snap['issues'][20]['id'], snap['issues'][50]['id']]
     def hello(wide, follow, extra=''):
-        c, p = ctx(br, wide); follower(p, pre=districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify({json.dumps(follow)}));" + extra); visit(p, '/')
-        p.evaluate("localStorage.removeItem('hiphi_intro')"); visit(p, '/')
+        c, p = ctx(br, wide); follower(p, pre=districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify({json.dumps(follow)}));" + extra); visit(p, '/', '&rec=0')
+        p.evaluate("localStorage.removeItem('hiphi_intro')"); visit(p, '/', '&rec=0')
         p.locator('[data-sp="intro"] [data-speak-intro]').click(); p.wait_for_timeout(900)
         return c, p
     chips = lambda p: p.evaluate("[...document.querySelectorAll('#hp-dlg [data-hp=\"topic\"]')].map(b => [b.dataset.v, b.getAttribute('aria-pressed'), b.innerText.trim()])")
@@ -330,7 +339,9 @@ with sync_playwright() as pw:
               f'{tag}: nothing followed, the letter says the person cares and makes no claim of following ({nl.splitlines()[2:3]})')
         c.close()
         # R-212 #25: bills followed one by one and no issue: the letter names the issue of a followed bill.
-        c, p = ctx(br, wide); follower(p, pre=districts + "localStorage.setItem('hiphi_issue_follows_demo', '[]');" + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho' }));"); visit(p, f"/legislator/{sen['id']}")
+        # Between sessions (&season=off): in session the page's one email is the ask, written about the bill their committee hears (a followed bill's, or
+        # a followed issue's), so the hello letter is the between-sessions one (people.js: "A short hello now helps them know you before the session").
+        c, p = ctx(br, wide); follower(p, extra='&season=off', pre=districts + "localStorage.setItem('hiphi_issue_follows_demo', '[]');" + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho' }));"); visit(p, f"/legislator/{sen['id']}", '&season=off')
         p.locator('[data-pp-mail]').first.click(); p.wait_for_timeout(700)
         nl = p.locator('textarea[data-pp-msg]').first.input_value() if p.locator('textarea[data-pp-msg]').count() else ''
         check(('The health issue' in nl or 'What I care about most' in nl) and not any(t in nl for t in BAD), f'{tag}: bills followed, no issue: the letter names a followed bill\'s issue ({nl.splitlines()[4:5]})')
@@ -347,8 +358,8 @@ with sync_playwright() as pw:
         check(len(vis) == 4 and any(x[0] == hidden[0] and x[1] == 'true' for x in vis), f'{tag}: a pick made among the hidden ones stays shown when the list closes')
         c.close()
         # the legislators page writes the same letter, with the reason and sign-off given in the walkthrough (people.js, hello.js)
-        c, p = ctx(br, wide); follower(p, pre=districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify({json.dumps(many)}));"
-          + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho', introWhy: 'My mom pays too much for her medicine.' }));"); visit(p, f"/legislator/{sen['id']}")
+        c, p = ctx(br, wide); follower(p, extra='&season=off', pre=districts + f"localStorage.setItem('hiphi_issue_follows_demo', JSON.stringify({json.dumps(many)}));"
+          + "localStorage.setItem('hiphi_me', JSON.stringify({ name: 'Kai Ho', introWhy: 'My mom pays too much for her medicine.' }));"); visit(p, f"/legislator/{sen['id']}", '&season=off')   # between sessions, as above
         p.locator('[data-pp-mail]').first.click(); p.wait_for_timeout(700)
         pl = p.locator('textarea[data-pp-msg]').first.input_value() if p.locator('textarea[data-pp-msg]').count() else ''
         check(pl.startswith(f'Aloha Senator {sen["last"]}') and 'My mom pays too much for her medicine.' in pl and 'Mahalo for your work for our district.' in pl and not any(t in pl for t in BAD),
@@ -368,6 +379,7 @@ with sync_playwright() as pw:
     for wide in (False, True):
         tag = 'box_' + ('laptop' if wide else 'phone')
         c, p = ctx(br, wide); follower(p, pre=NAME); visit(p, '/bill/HB2121')
+        p.locator('details[data-bl-rfold="who"] > summary').first.click(); p.wait_for_timeout(500)   # "Who decides next" is a fold on today's bill page
         e = p.locator('[data-bl-compose]').first; e.scroll_into_view_if_needed(); e.click(); p.wait_for_timeout(900)
         if 'Where do you stand' in dlg(p): tap(p, '^I support it'); p.wait_for_timeout(500)
         P = [sent_of(s) for s in pts_text(p)]
@@ -428,7 +440,7 @@ with sync_playwright() as pw:
 
     # testimony uses the same step: "In your letter", the whole letter in the box, its heading and greeting too
     c, p = ctx(br, False); follower(p, pre=NAME); visit(p, '/bill/HB2121')
-    tb = p.locator('.bl-side .btn.primary, .actionbar .btn.primary').filter(has_text='testimony').first
+    tb = p.locator('main [data-bl-go="testify"]:visible, .bl-side .btn.primary:visible, .actionbar .btn.primary:visible').filter(has_text='testimony').first
     tb.scroll_into_view_if_needed(); tb.click(); p.wait_for_timeout(900)
     if 'Where do you stand' in dlg(p): tap(p, '^I support it'); p.wait_for_timeout(500)
     P = [sent_of(s) for s in pts_text(p)]; B0 = box(p)
@@ -449,6 +461,7 @@ with sync_playwright() as pw:
 
     # someone who changes their stance to one HIPHI's points argue against never sends the points they had tapped
     c, p = ctx(br, False); follower(p, pre=NAME); visit(p, '/bill/HB2121')
+    p.locator('details[data-bl-rfold="who"] > summary').first.click(); p.wait_for_timeout(500)   # "Who decides next" is a fold on today's bill page
     e = p.locator('[data-bl-compose]').first; e.scroll_into_view_if_needed(); e.click(); p.wait_for_timeout(900)
     tap(p, '^I support it'); p.wait_for_timeout(500)
     P = pts_text(p); p.locator('#hp-dlg .hp-pt').nth(0).click(); p.wait_for_timeout(400)

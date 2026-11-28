@@ -32,7 +32,9 @@ LINE_BOXES = """() => { const el = [...document.querySelectorAll('.st-tiles .st-
   const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) { const i = n.data.indexOf('Environment'); if (i >= 0) { const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 11); return r.getClientRects().length; } } return null; }"""
 
 def start(p, extra=''):
-    p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
+    p.goto(BASE + '?demo=1&restart' + extra); p.wait_for_selector('.st-hellopage', timeout=15000); p.wait_for_selector('.st-hellobar [data-stnext]', timeout=10000)
+    p.click('.st-hellobar [data-stnext]')   # the hello page comes first now (first_visit_doors.py walks it the same way); then the topics
+    p.wait_for_selector('.st-tile', timeout=15000); p.wait_for_timeout(800)
 
 def to_issues(p, *topics):
     for topic in topics: p.locator('.st-tile', has_text=topic).first.click(); p.wait_for_timeout(200)
@@ -65,17 +67,20 @@ with sync_playwright() as pw:
 
     ok('speak up' not in lede.lower(), '1: and does not say again what the heading says (A-14; the critic)')
 
-    # 2. Skip with nothing picked: the story, with "Your issues" a plain dot that reads skipped, not a tick, and no petals from it
-    p.click('[data-stskip]'); p.wait_for_selector('.lx-count', timeout=10000)
+    # 2. Skip with nothing followed: the story, with "Your issues" a plain dot that reads skipped, not a tick, and no petals from it.
+    # Since R-377 (12 Nov) the topics screen has Next alone and no Skip, so the skip is the issues step's "Skip this part": a topic
+    # is picked, its issues are seen, and none is followed.
+    c.close(); c, p = ctx(b); start(p); to_issues(p, 'Tobacco')
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.lx-count', timeout=10000)
     bursts = 0
     for _ in range(7): p.wait_for_timeout(200); bursts += p.locator('.fx-burst').count()
     ok(bursts == 0, f'2: no celebration petals fly from the skipped chapter (C-7, A-10; the critic): {bursts} seen')
     s = strip(p)
-    ok(len(s) == 3 and 'skipped' in s[0]['cls'] and not s[0]['tick'] and 'skipped' in s[0]['sr'] and 'done' not in s[0]['cls'], f'2: after Skip at the start the strip shows "Your issues" skipped, no tick (C-7): {s[0]}')
+    ok(len(s) == 3 and 'skipped' in s[0]['cls'] and not s[0]['tick'] and 'skipped' in s[0]['sr'] and 'done' not in s[0]['cls'], f'2: after Skip on the issues step the strip shows "Your issues" skipped, no tick (C-7): {s[0]}')
     ok('on' in s[1]['cls'], '2: and the story is the current chapter')
     p.screenshot(path=os.path.join(OUT, 'skipped-strip-375.png'))
     # Skip on the story: it too is a plain dot, and the page says why nothing is coming up
-    p.click('[data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
+    p.click('.st-bar [data-stskip]'); p.wait_for_selector('.st-soonpage', timeout=10000); p.wait_for_timeout(800)
     s = strip(p)
     ok('skipped' in s[0]['cls'] and 'skipped' in s[1]['cls'] and not s[1]['tick'], f'2: Skip on the story leaves it a plain dot too: {s[1]}')
     nothing = text(p, '.st-nothing')
@@ -91,7 +96,8 @@ with sync_playwright() as pw:
     # 3. the ordinary road: the free line says alert, the chapters done are ticked, the Mahalo button names the story, the cards say the name once
     # Two topics: Tobacco's first card is a bill named after its issue (the name must not be said twice), Health Care's first
     # card is "Protect preventive care coverage" on the issue "Protect preventive care and vaccines" (the issue line stays).
-    c, p = ctx(b); start(p); to_issues(p, 'Tobacco', 'Health Care')
+    # The Mahalo page is the old ending (?mahalo=old): since R-306 a cover goes up and folds into the band instead, so its button is checked there.
+    c, p = ctx(b); start(p, '&mahalo=old'); to_issues(p, 'Tobacco', 'Health Care')
     free = text(p, '.st-free')
     ok('one alert a day' in free and 'email' not in free.lower(), f'3: "Following is free" names alerts, not email, before the number is asked (C-15, A-14): {free!r}')
     ok(p.locator('.st-free .ic-bell, .st-free [class*="bell"]').count() == 1, '3: with the bell, the alerts icon')
