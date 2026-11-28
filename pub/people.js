@@ -26,6 +26,7 @@ const KEY = 'hiphi_districts';
 // Kailua is split between districts, so it never gave an answer; "45 Kainalu Dr" is not an address (R-303, bug 3).
 export const EXAMPLE = '415 S Beretania St';
 // Screen state for this visit. Nothing here reaches a server; the address itself is never stored.
+const mailStarted = new Set();   // composers whose opening was counted as an email started (R-414)
 export const P = { q: '', pick: null, finding: null, err: '', changing: false, remember: true,
   mail: null, text: {}, copied: null, sent: {}, isl: null, bills: {}, from: '', billFor: {}, enter: false, near: '', dir: false, open: new Set() };
 // The debounced address fetch is the one stateful, async part of this page; it is its own module (addresspicker.js)
@@ -631,7 +632,11 @@ function wire(route) {
   };
   // Email: one composer open at a time, the person's edits kept while they stay on the page.
   root.querySelectorAll('[data-pp-mail]').forEach(el => el.onclick = () => {
-    const k = el.dataset.ppMail; P.mail = P.mail === k ? null : k; app.render();
+    const k = el.dataset.ppMail; P.mail = P.mail === k ? null : k;
+    // An email about a bill started (R-414, backend 208): sending it counts as 'email' below, so opening it counts as its start,
+    // once per composer per page load. A hello with no bill counts as neither.
+    if (P.mail === k && (P.billFor[k] || fromBill(from)) && !mailStarted.has(k)) { mailStarted.add(k); import('./visitlog.js').then(m => m.logAct('email_start')).catch(() => {}); }
+    app.render();
     requestAnimationFrame(() => { document.querySelector(`[data-pp-mail="${k}"]`)?.focus({ preventScroll: true });
       if (P.mail === k) document.getElementById('pp-cmp-' + k)?.scrollIntoView({ block: 'nearest' }); });
   });

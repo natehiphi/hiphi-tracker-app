@@ -119,14 +119,14 @@ function sampleSources(rows) {
 async function load(weeks, { force = false } = {}) {
   const v = V(), have = v.cache[weeks];
   if (v.loading === weeks || (!force && have && Date.now() - have.at < 5 * 60e3)) return;
-  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), asks: sampleAsks(+weeks), at: Date.now() };
+  if (DEMO) { const rows = sampleRows(+weeks); v.cache[weeks] = { rows, srcs: sampleSources(rows), back: sampleBack(+weeks), sugg: sampleSugg(+weeks), text: sampleText(), asks: sampleAsks(+weeks), starts: sampleStarts(+weeks), at: Date.now() };
     // The practice copy's clock is last March, so a counting day after it (the live tracker's Oct 1) would say its own sample
     // numbers are not counted: it counts from the practice data's first day instead, unless a day before the clock was set.
     const f = await DB.countsFrom(), today = new Date().toLocaleDateString('en-CA', { timeZone: 'Pacific/Honolulu' }), first = rows.map(r => r.week).sort()[0];
     v.from = !f || String(f).slice(0, 10) > today ? first || f : f; return; }
   v.loading = weeks; v.err = '';
   // Coming back (078) is its own call: if it fails, the first-visit numbers still show and that section says nothing.
-  try { const [rows, srcs, back, from, sugg, text, asks] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null), DB.laterAsksWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, asks, at: Date.now() }; v.from = from; }
+  try { const [rows, srcs, back, from, sugg, text, asks, starts] = await Promise.all([DB.firstVisitFunnel(+weeks), DB.firstVisitSources(+weeks), DB.visitCountsWeekly(+weeks).catch(() => null), DB.countsFrom().catch(() => v.from), DB.suggestSummary(+weeks).catch(() => null), DB.textSignupCounts(Math.max(30, +weeks * 7)).catch(() => null), DB.laterAsksWeekly(+weeks).catch(() => null), DB.actStartsWeekly(+weeks).catch(() => null)]); v.cache[weeks] = { rows: rows || [], srcs: srcs || [], back, sugg, text, asks, starts, at: Date.now() }; v.from = from; }
   catch (e) { v.err = String(e?.message || e); }
   v.loading = '';
   if ((S.route?.name === 'issues' && fvView(S.route) === 'numbers') || S.route?.name === 'asks') redraw();
@@ -260,6 +260,32 @@ function backHTML(rows) {
       <tbody>${wk.map(r => `<tr><th scope="row">${esc(weekOf(r.week))}</th><td class="num">${nf(r.browsers)}</td><td class="num">${nf(r.new_browsers)}</td><td class="num">${nf(r.returners)}</td><td class="num">${nf(Object.values(actsOnly(r.acts) || {}).reduce((a, b) => a + b, 0))}</td></tr>`).join('')}</tbody></table></div>` : ''}
   </section>`;
 }
+// ---- started beside sent (R-414, Nate 27 Nov 2026; backend 208) ----
+// Until 208 only a send was counted, so nobody could say what share of the people who begin testimony go on to send it.
+// act_starts_weekly: per week and kind (testimony, an email to a chair), how many were started (the helper or the email
+// opened, once per opening) and how many were sent (the person said it went). Counts only, no id. Its own call: if it
+// fails (208 not in the database yet), this says nothing. A start and its send can fall in different weeks, and one person
+// may start twice, so a week's share is a guide; over the whole range started is at least as large as sent.
+const sampleStarts = weeks => { const mon = new Date(); mon.setHours(12, 0, 0, 0); mon.setDate(mon.getDate() - ((mon.getDay() + 6) % 7));
+  return Array.from({ length: weeks }, (_, w) => { const week = new Date(mon.getTime() - w * 7 * 864e5).toISOString().slice(0, 10);
+    return [{ week, act: 'testimony', started: 7 + ((w * 3) % 5), sent: 3 + (w % 3) }, { week, act: 'email', started: 19 + ((w * 5) % 7), sent: 12 + (w % 5) }]; }).flat(); };
+function startsHTML(rows) {
+  if (!rows) return '';
+  const head = `<div class="le-sechead"><h2 id="fv-st">Started and sent</h2><span class="meta">people on the public page; the sends are the ones counted under Coming back</span></div>`;
+  const none = () => ({ started: 0, sent: 0 }), t = { testimony: none(), email: none() }, by = new Map();
+  for (const r of rows) { if (!t[r.act]) continue; t[r.act].started += r.started || 0; t[r.act].sent += r.sent || 0;
+    const w = by.get(r.week) || { testimony: none(), email: none() }; w[r.act] = { started: r.started || 0, sent: r.sent || 0 }; by.set(r.week, w); }
+  if (!t.testimony.started && !t.testimony.sent && !t.email.started && !t.email.sent) return `<section class="fv-sec" aria-labelledby="fv-st">${head}<p class="meta">Nothing counted yet. A start counts when someone opens the testimony helper or an email to a committee chair; a send counts when they mark it sent.</p></section>`;
+  const tile = (n, label, sub = '') => `<div class="fv-tile"><span class="fv-n">${n}</span><span class="fv-l">${label}</span>${sub ? `<span class="fv-s">${sub}</span>` : ''}</div>`;
+  const pair = x => `<td class="num">${nf(x.started)}</td><td class="num">${nf(x.sent)} <span class="fv-pc">${pct(x.sent, x.started)}</span></td>`;
+  const wk = [...by.entries()].sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+  return `<section class="fv-sec" aria-labelledby="fv-st">${head}
+    <div class="fv-tiles">${tile(nf(t.testimony.started), 'testimony started', 'the testimony helper opened on the public page')}${tile(nf(t.testimony.sent), 'testimony marked sent', `${pct(t.testimony.sent, t.testimony.started)} of those started`)}${tile(nf(t.email.started), 'emails to a chair started', 'the email opened on the public page')}${tile(nf(t.email.sent), 'emails marked sent', `${pct(t.email.sent, t.email.started)} of those started`)}</div>
+    <div class="fv-tablewrap"><table class="fv-table"><caption class="sr">Testimony and emails to a chair, started and sent, one row a week</caption><thead><tr><th scope="col" rowspan="2">Week of</th><th scope="colgroup" colspan="2" class="num">Testimony</th><th scope="colgroup" colspan="2" class="num">Emails to a chair</th></tr>
+        <tr><th scope="col" class="num">Started</th><th scope="col" class="num">Marked sent</th><th scope="col" class="num">Started</th><th scope="col" class="num">Marked sent</th></tr></thead>
+      <tbody>${wk.map(([week, x]) => `<tr><th scope="row">${esc(weekOf(week))}</th>${pair(x.testimony)}${pair(x.email)}</tr>`).join('')}</tbody></table></div>
+  </section>`;
+}
 // ---- after the first visit: asks on later visits, one full page each (170, R-237; Nate 10/11 "add it to the admin views", R-251) ----
 // A later visit opens on at most one page before Home (pub/nextask.js): find my legislators, save your profile, new
 // issues, the three moments, bring a friend, keep it on the phone. later_asks_weekly: per week and ask, how many times
@@ -371,9 +397,9 @@ function numbersHTML() {
   }
   const rows = have.rows, shared = rows.filter(r => r.path === 'link').reduce((n, r) => n + (r.visits || 0), 0);
   const sample = DEMO ? notice('info', 'info', '<b>Sample numbers.</b> The practice copy has no real visits.') : '';
-  if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}${asksHTML(have.asks)}`;
+  if (!rows.length) return `${sample}${fromLine()}<div class="le-empty">${empty({ h: 'h2', title: 'No first visits counted yet', text: `Numbers appear here as newcomers walk through the first visit on the public page. Nothing is counted from the sandbox, or from a browser that asks not to be tracked.` })}</div>${backHTML(have.back)}${startsHTML(have.starts)}${asksHTML(have.asks)}`;
   // Where they came from comes second: it is half of what this screen is for (B-1), and Make a link sends people here.
-  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${asksHTML(have.asks)}${textHTML(have.text)}${suggHTML(have.sugg)}${variantsHTML()}
+  return `${sample}${fromLine()}${tilesHTML(total(rows), shared)}${sourcesHTML(have.srcs || [])}${funnelsHTML(rows)}${weeksHTML(rows)}${backHTML(have.back)}${startsHTML(have.starts)}${asksHTML(have.asks)}${textHTML(have.text)}${suggHTML(have.sugg)}${variantsHTML()}
     <p class="meta fv-how">${icon('lock', { size: 16 })}<span>Counted without names: a random number for each visit, never an account, an email, a name or an address, and nothing from a browser that asks not to be tracked.</span></p>`;
 }
 

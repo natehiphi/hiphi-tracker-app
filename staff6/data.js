@@ -1782,6 +1782,13 @@ export const DB = {
     if (error) throw error; return data || [];
   },
   // A later visit's one full-page ask, counted (170, R-237): per week and ask, shown, done and Not now. Staff only.
+  // Testimony and a chair's email, started beside sent, per week (R-414, backend 208): counts only, staff only. Before 208 is in
+  // the database the call fails, and firstvisit.js draws nothing for it.
+  async actStartsWeekly(weeks = 12) {
+    if (DEMO) return [];
+    const { data, error } = await S.supa.rpc('act_starts_weekly', { weeks: Math.round(+weeks || 12) });
+    if (error) throw error; return data || [];
+  },
   async laterAsksWeekly(weeks = 12) {
     if (DEMO) return [];
     const { data, error } = await S.supa.rpc('later_asks_weekly', { weeks: Math.round(+weeks || 12) });

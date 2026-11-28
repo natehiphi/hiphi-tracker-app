@@ -60,7 +60,7 @@ import { fxOn, rooster } from './fx.js';   // R-308: the rooster on trial, pract
 import { profileAsk, alertButton, LEVEL_WORDS } from './alerts.js';   // the profile ask right under the Mahalo, its button in the bar (R-184); the levels (R-299)
 import { myEmail } from './phone.js';
 import { introMark } from './speakup.js';
-import { logTime } from './visitlog.js';   // how long a letter took (R-169, backend 143)
+import { logTime, logAct } from './visitlog.js';   // how long a letter took (R-169, backend 143); a letter or a chair's email started (R-414, 208)
 import { readyLetter, readyMail, letterOn, letterCheck, draftNotes, draftName, draftLabel, keepLetter, forgetLetter } from './letters.js';
 import { myDistricts } from './speakup.js';
 import { hasProfile, myName, myTitles, myStory, myStories, myInterests, storyFor, otherStory, storyAsk, storyName, STORY_HINT, NAME_HINT, holdMiles, saveProfile, quoteLevel, QUOTE, CLOSINGS } from './myprofile.js';   // R-147, R-156, R-165, R-304
@@ -485,6 +485,14 @@ function keyOf(el) {
 // Where an email's draft is kept (hiphi_me.mail, one per bill and moment): never in hiphi_me.drafts, which is testimony's
 // and turns a bill's button into "Finish sending your testimony".
 const mailKey = x => [x.mode, x.b?.id || '', x.h?.id || x.code || x.moment?.key || ''].join('|');
+// Started, beside sent (R-414, Nate 27 Nov 2026; backend 208): one count when the testimony helper or an email to a chair opens,
+// its kind only, like every count (visitlog.js: nothing in the sandbox, from the team's browsers, or with the privacy signal).
+// Once per opening, not per screen: called where x.t0 is set. A draft picked up within three hours keeps its t0 and is the same
+// start (a phone that reloads the page on the way back from the Capitol site or the mail app is not a second one); a letter
+// opened only to read is not a start. Every send has a start before it: a letter sent again and a reminder count as starts too.
+function countStart(x, d) {
+  try { if (!x.view && (x.mode === 'testimony' || x.mode === 'email') && x.t0 !== d?.t0) logAct(x.mode + '_start'); } catch { /* counting never gets in the way */ }
+}
 // Open the walkthrough in an email mode. o: { mode: 'email' | 'legislators' | 'intro', bill, hearing, code, legs: [ids],
 // moment: { kind, key, chamber, code, chair }, chair, remind }. (Late testimony no longer hands over to an email, R-167.)
 function openMail(o = {}) {
@@ -523,6 +531,7 @@ function openMail(o = {}) {
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile (R-156)
   x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now();   // when they started (R-169), as for testimony
+  countStart(x, d);
   S.helper = x;
   openMark.set({ mode, b: b?.id || '', h: h?.id || '', o });
   try {
@@ -583,6 +592,7 @@ function open(billId, hearingId, { view = null, friend = false } = {}) {
   // When they started, for how long testimony really takes (R-169): kept with the draft for three hours, so a phone that
   // reloads the page while they are on the Capitol site keeps it; their first testimony here or not (the Capitol account).
   x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now(); x.firstTime = !me.capitolAcct;
+  countStart(x, d);
   S.helper = x;
   if (!view) openMark.set({ mode: 'testimony', b: b.id, h: h.id });   // a letter being read has nothing to come back to
   // One history entry for the whole helper, so the phone's Back closes it. The entry under it keeps the scroll spot.
@@ -2278,7 +2288,7 @@ function begin(x, mark) {
 }
 export const HP = {
   get dlg() { return dlg; },
-  loadMe, saveMe, keyOf, begin, linkAlready, openMark, PAR_TEL, PAR_SHOW,
+  loadMe, saveMe, keyOf, begin, countStart, linkAlready, openMark, PAR_TEL, PAR_SHOW,
   paint, paintFoot, announce, grow, goTo, goNext, goBack, saveDraft, finishLater, requestClose, copyAndOpen, confirmSent, setErr, errHTML, screenHead, welcomeBack,
   syncLetter, partsOf, pointGroups, pointsOf, pointsLine, hiphiStance, sameAsHiphi, own2For, mailSubject, mailKey, chairsTo, catsOf, keepFirst,
   copyText,   // testimony's send screen (R-357 pH): the copy that also works on an older phone

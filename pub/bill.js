@@ -23,7 +23,7 @@ import { actionCard, wireActions, nudgeCard, wireNudge, followToggle, newToActin
 import { flower } from './art.js';
 import { followAsk, profileSaved, levelLine, levelBox, wireLevelLine } from './alerts.js';   // the profile ask after a follow (R-184); how much an issue texts (R-299)
 import { celebrate as moment, fxOn, rooster, MOMENT_MS } from './fx.js';
-import { logVisit, visitVia, partnerWelcome } from './visitlog.js';
+import { logVisit, logAct, visitVia, partnerWelcome } from './visitlog.js';
 import { abEvent } from './variant.js';
 import { legMoments, planFor } from './speakup.js';   // the floor vote's email to their own legislator (R-169); the walkthrough a button opens
 import { openAddTo, onListsLine } from './mylists.js';
@@ -1556,7 +1556,11 @@ function scrollToEl(el) {
   if (r.top >= off && r.bottom <= window.innerHeight - 96) return;
   window.scrollTo({ top: r.top + window.scrollY - off, behavior: reduceMotion() ? 'auto' : 'smooth' });
 }
+// Opening it is an email started (R-414, backend 208): counted by kind only, once per composer per page load, beside the send
+// that "Yes, I sent it" counts. (Where the walkthrough takes these buttons instead, helper.js counts its own opening.)
+const composed = new Set();
 function openComposer(k) {
+  if (!composed.has(k)) { composed.add(k); logAct('email_start'); }
   S.compose = k; app.render();
   setTimeout(() => scrollToEl(document.getElementById('cmp-' + k.split('|')[1])), 30);
 }

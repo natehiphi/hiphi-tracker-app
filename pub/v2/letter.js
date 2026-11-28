@@ -114,6 +114,7 @@ function build(kind, b, h, o) {
   }
   x.name0 = x.name.trim();   // the name they came in with: a change on the way saves to the profile
   x.t0 = d?.t0 && Date.now() - d.t0 < 3 * 36e5 ? d.t0 : Date.now();
+  HP.countStart?.(x, d);   // started, beside sent (R-414): once per opening, as in helper.js (?. for a helper.js cached from before it)
   HP.syncLetter(x);
   if (email) x.subject = HP.mailSubject(x);
   if (!email && !d && agrees(b) === false) x.screen = 'v2own';   // they see it differently from HIPHI: the Capitol's own form first

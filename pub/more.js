@@ -770,6 +770,7 @@ const PRIVACY = [
     'We count where a visit came from: a partner’s link, a campaign, or another website (its name only).',
     'Once a day we count that the tracker was opened, and how long it was since this browser last opened it, in ranges like “2 to 7 days”. We also count the month it was first opened, and whether it follows anything. This browser keeps the dates itself.',
     'When you mark an action done, we count only its kind: an email, testimony, going in person or a share.',
+    'We count that testimony or an email was started, so we can see how many of them get sent. Only that it was started.',
     'We count that your session page was opened, that a good-news moment was shown, and that the Add to Home Screen steps were opened.',
     'We count that a saved letter or email was offered again, that a follow-up went to a committee chair, and that a letter or email went out with your titles or story in it.',
     'We count that profile titles or a story were saved, and that an ask from “How you’ll help” was shown or taken. For all of these, only that it happened.',

@@ -125,6 +125,9 @@ jobs:
       - name: The privacy page, whole and short (J2-3)
         if: ${{ !cancelled() && matrix.shard == 3 }}
         run: python3 tests/privacy_page.py
+      - name: A start is counted when testimony or a chair's email opens, once per opening, and never under the quiet rules (R-414)
+        if: ${{ !cancelled() && matrix.shard == 3 }}
+        run: python3 tests/count_starts.py
       - name: The unsubscribe page changes nothing until its button is pressed (X1-7)
         if: ${{ !cancelled() && matrix.shard == 7 }}
         run: python3 tests/unsubscribe_page.py

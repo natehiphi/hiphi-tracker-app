@@ -15,7 +15,8 @@
 //   visitVia()                    this visit's ?via= slug, or ''
 //   partnerWelcome(slug)          the partner's welcome line (public_partners), or null; asked once per slug
 //   logDay({follows,...})         once per Hawaiʻi day: this browser came back, and after how long (078)
-//   logAct(kind, {sp})            an action marked done: its kind, where the visit came from, a share's way out (078, R-205)
+//   logAct(kind, {sp})            an action marked done: its kind, where the visit came from, a share's way out (078, R-205);
+//                                 and testimony or a chair's email started, beside its send (R-414, backend 208)
 //   logTime(act, seconds, first)  how long a letter took, from opening the walkthrough to sending it (143)
 //
 // Two files since R-357 5c (a phone's first wave). This one is small and is what every screen imports: the privacy rules (quiet),

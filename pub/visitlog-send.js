@@ -121,10 +121,14 @@ export function logAct(kind, { sp = '' } = {}) {
     // R-142 (134): 'directions', the map's directions to the Capitol opened by someone who plans to go to a hearing.
     // R-178 (142): reading the bill: 'bill_more' (Read more about the bill), 'bill_text' (the whole bill at the Capitol) and
     // 'bill_capitol' (the bill's Capitol page), from pub/billtext.js.
+    // R-414 (208): starting: 'testimony_start' (the testimony helper opened) and 'email_start' (an email to a chair opened), each
+    // beside its send, so staff can read started beside sent. Counted once per opening (helper.js countStart, bill.js, people.js).
+    // The sandbox sends nothing, as ever; with `debug` in its address it prints the kind instead, as logVisit does (tests/count_starts.py).
+    if (DEMO && DEBUG && kind && !quiet()) console.debug('count (sandbox, not sent):', kind);
     if (DEMO || quiet() || !['email', 'legislators', 'intro', 'testimony', 'attend', 'share', 'recap', 'moment', 'restore', 'calendar',
       'again_open', 'again_sent', 'again_warned', 'again_fixed', 'again_new', 'mail_again_open', 'mail_again_sent', 'mail_reminder_sent',
       'profile_titles', 'profile_story', 'letter_titled', 'letter_story', 'ask_shown', 'ask_acted', 'home_how', 'directions',
-      'bill_more', 'bill_text', 'bill_capitol'].includes(kind)) return Promise.resolve(false);
+      'bill_more', 'bill_text', 'bill_capitol', 'testimony_start', 'email_start'].includes(kind)) return Promise.resolve(false);
     if (['email', 'legislators', 'intro', 'testimony', 'attend', 'share'].includes(kind)) abEvent('acted');   // acted: a measure of several A/B tests (R-135)
     const src = (() => { try { return quiet() ? {} : visit().src || {}; } catch { return {}; } })();
     const p = { kind: 'act', act: kind, device: device(), variant: variantInfo().variant };
