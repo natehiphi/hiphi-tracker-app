@@ -1040,7 +1040,7 @@ the page (done versus Not now, counted since 10/11: backend 170, Staff v2's Firs
 met one come back less (`log_day` counts returns). A page on arrival costs a tap
 before Home, which is why it is one a visit, never in front of a deadline or a link, and always skippable.
 
-**Look 4 exception (R-412, Nate 28 Nov 2026):** Look 4 keeps the one-ask-a-visit order, Not now as an equal choice, the quiet periods and the cases where no page comes (an alert, an email, a shared link, a deadline within a day). It sets aside the full page in front of Home on the day after a first visit, because look 4 draws no later-visit ask page: where look 4 has drawn nothing, this rule is unchanged and the current pages apply. Reason: finding 6 found a full-page address ask standing in front of Home (street addresses: a lawyer should confirm any change). It holds only while look 4's switch (`?look4=1`) is on, and it becomes the rule if Nate switches look 4 on for everyone.
+**Look 4 exception (R-412, Nate 28 Nov 2026):** None in substance. The assessment (finding 6) questioned the full page in front of Home on a later visit, but Nate decided on 27 Nov that the phone number and email ask "should exist in the same places it is now", so look 4 keeps this rule whole: the one ask a visit, its order, Not now as an equal choice, the quiet periods and the cases where no page comes. Look 4 drew no later-visit ask page, so that page keeps today's layout and only takes look 4's colours and fonts while `?look4=1` is on. A lawyer should confirm any later change to where the ask or the street address page appears.
 
 ---
 
