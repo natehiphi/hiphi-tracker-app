@@ -32,11 +32,11 @@ const testerP = DEMO || testerWanted() ? import('./testerlog.js').then(m => (tes
 // failed for the rest of the page's life, so Try again asks for it under a fresh address (?r=1); if that fails too, the
 // next Try again reloads the page, which keeps the address.
 const lazy = (key, path, o = {}) => {
-  const ph = { tab: o.tab || 'find', tabs: o.tabs !== false, title: () => o.title || 'Loading', failed: false, tries: 0,
-    load() { if (!ph.p) ph.p = import(path() + (ph.tries ? `?r=${ph.tries}` : '')).then(m => { for (const n of Object.keys(SCREENS)) if (SCREENS[n] === ph) SCREENS[n] = m.default; return m; }).catch(e => { ph.p = null; throw e; }); return ph.p; },
+  const ph = { tab: o.tab || 'find', tabs: o.tabs !== false, ownTop: !!o.ownTop, title: () => o.title || 'Loading', failed: false, tries: 0,
+    load() { if (!ph.p) ph.p = import(path() + (ph.tries ? `?r=${ph.tries}` : '')).then(m => { for (const o of [SCREENS, KIT_SCREENS]) for (const n of Object.keys(o)) if (o[n] === ph) o[n] = m.default; return m; }).catch(e => { ph.p = null; throw e; }); return ph.p; },
     render() {
       if (ph.failed) return loadFail({ what: 'this page', retry: { 'data-lazyretry': key } });
-      ph.load().then(() => render()).catch(e => { console.error(e); reportError('render', e); ph.failed = true; if ((SCREENS[parseRoute().name] || SCREENS.home) === ph) render(); });
+      ph.load().then(() => render()).catch(e => { console.error(e); reportError('render', e); ph.failed = true; if (screenOf(parseRoute()) === ph) render(); });
       return `<div class="skelpage">${skeleton(4)}</div>`;
     },
     wire() { const b = document.querySelector(`#main [data-lazyretry="${key}"]`); if (b) b.onclick = () => { if (ph.tries >= 1) { location.reload(); return; } ph.failed = false; ph.tries = 1; render(); }; } };
@@ -57,8 +57,16 @@ const REC = () => new URLSearchParams(location.search).get('rec') !== '0';   // 
 // the rest of its parts as they land. The hash router keeps the query, so the flag lasts the visit. One later flip to !== '0' makes it
 // everyone's (then ?v2=0 brings the old page back for a while, as ?rec=0 did). A screen reads it as app.v2() (this file is on the
 // first wave and every screen reaches `app` through the kernel; none imports this file).
-const V2 = () => new URLSearchParams(location.search).get('v2') === '1';
+// Look 4 (R-412, Nate 28 Nov 2026: "build it now", switched on when he says so): the redesign of the public pages (pub/l4/), built on the island
+// road version, so V2() is true whenever L4() is. OFF for the public: ?look4=1 on the practice copy turns it on for a visit (the hash router
+// keeps the query). ONE LINE turns it on for everyone: change `=== '1'` to `!== '0'` in the L4 line below (then ?look4=0 brings today's page back).
+// A screen reads it as app.look4(). With it off no pub/l4/ file and no look-4 font is fetched, and no screen changes.
+const L4 = () => new URLSearchParams(location.search).get('look4') === '1';
+app.look4 = L4;
+const V2 = () => new URLSearchParams(location.search).get('v2') === '1' || L4();
 app.v2 = V2;
+// Look 4's two typefaces (Bricolage Grotesque for headings, Figtree for text), asked for only under the switch, never for today's page.
+if (L4()) { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Figtree:wght@400;500;600;700&display=swap'; document.head.appendChild(l); }
 // Version 3 of the public tracker (R-362, Nate 7 Nov 2026: act.html's parts folded into this app, the first visit kept but trimmed),
 // behind ?v3=1 on the practice copy, a flag for review as v2 is, not a try-both test (pub/variant.js pins every test to its first
 // version under it and counts nothing). V2() stays false under it; it borrows v2's letter. Its screens are pub/v3/: Home (a newcomer's
@@ -66,15 +74,15 @@ app.v2 = V2;
 const V3 = () => new URLSearchParams(location.search).get('v3') === '1';
 app.v3 = V3;
 const calmHome = () => REC() || armOf('layout') === 'calm';   // the redesign is built on the calm Home (everyone's since 11 Oct)
-const start = lazy('start', () => './start.js', { tabs: false, title: 'Welcome' }), home = lazy('home', () => V3() ? './v3/home.js' : oldA() ? './a/home.js' : calmHome() ? './calm/home.js' : './home.js', { tab: 'home', title: 'Home' });
-const find = lazy('find', () => REC() ? './rec/find.js' : './find.js', { tab: 'find', title: 'Find' }), people = lazy('people', () => './people.js', { tab: 'more', title: 'Your legislators' });
-const more = lazy('more', () => './more.js', { tab: 'more', title: 'More' });
+const start = lazy('start', () => './start.js', { tabs: false, title: 'Welcome' }), home = lazy('home', () => L4() ? './l4/home.js' : V3() ? './v3/home.js' : oldA() ? './a/home.js' : calmHome() ? './calm/home.js' : './home.js', { tab: 'home', title: 'Home' });
+const find = lazy('find', () => L4() ? './l4/find.js' : REC() ? './rec/find.js' : './find.js', { tab: 'find', title: 'Find' }), people = lazy('people', () => './people.js', { tab: 'more', title: 'Your legislators' });
+const more = lazy('more', () => L4() ? './l4/you.js' : './more.js', { tab: 'more', title: 'More' });
 const profile = lazy('profile', () => './profile.js', { tab: 'more', title: 'Your profile' });   // R-147
 const nextask = lazy('next', () => './nextask.js', { tabs: false, title: 'Welcome back' });   // R-237
 const quiz = lazy('quiz', () => './quiz.js', { tab: 'more', title: 'What kind of advocate are you?' });   // R-217, a draft: the practice copy only (parseRoute)
-const bill = lazy('bill', () => V3() ? './v3/bill.js' : oldA() ? './a/bill.js' : V2() ? './v2/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
+const bill = lazy('bill', () => L4() ? './l4/bill.js' : V3() ? './v3/bill.js' : oldA() ? './a/bill.js' : V2() ? './v2/bill.js' : './bill.js', { tabs: false, title: 'Bill' }), mybills = lazy('mybills', () => REC() ? './rec/mybills.js' : './mybills.js', { tab: 'bills', title: 'My issues' });
 const mylists = lazy('mylists', () => './mylists.js', { tab: 'bills', title: 'A list' });
-const committees = lazy('committees', () => './committees.js'), allbills = lazy('allbills', () => './allbills.js');
+const committees = lazy('committees', () => './committees.js'), allbills = lazy('allbills', () => L4() ? './l4/list.js' : './allbills.js')   // look 4's list (J6) is the all-bills page; the #/list/<slug> pages stay with find;
 const week = lazy('week', () => './week.js', { tab: 'find', title: 'This week’s asks' });   // R-212 #36, a row on Find
 const embed = lazy('embed', () => './embedcode.js', { tab: 'find', title: 'Put bills on your website' });   // R-212 #38, a row on Find
 // A partner group's corner (R-328, Nate 10/22): its bills and words for HIPHI to approve, under You (pub/partner.js).
@@ -85,7 +93,7 @@ const groups = lazy('groups', () => './groups.js', { tab: 'more', title: 'For ad
 const from = lazy('from', () => './partnerpub.js', { tab: 'find', title: 'Partner' });
 // The calm redesign's issue page (R-302's option A) and category page (R-303), behind ?rec=1: their own module, so today's
 // find.js draws them as before without it.
-const recIssue = lazy('issue', () => './rec/issue.js', { tab: 'find', title: 'Issue' });
+const recIssue = lazy('issue', () => L4() ? './l4/topic.js' : './rec/issue.js', { tab: 'find', title: 'Issue' });
 // Version 3's Find (its bills by issue, pub/v3/bills.js) and This week (pub/v3/week.js, on the #/bills tab). The list, issue and category
 // routes keep their own modules (find above, recIssue), and so does the header's search (it asks find for headerSuggest).
 const find3 = lazy('find3', () => './v3/bills.js', { tab: 'find', title: 'Find' }), week3 = lazy('week3', () => './v3/week.js', { tab: 'bills', title: 'This week' });
@@ -94,7 +102,7 @@ const find3 = lazy('find3', () => './v3/bills.js', { tab: 'find', title: 'Find' 
 // is kept (a later file may override an earlier one; wide.css, the last, overrides them all).
 // Off a phone's first wave (R-357 5c): actions.css comes with every screen but the first visit's (cssFor0), wide.css with the first
 // screen only in a window of 900px or more (cssFor) and a moment after it on a phone, print.css after it too (track.html, __hiphiPrint.css).
-const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'v3/card', 'v3/home', 'v3/bills', 'v3/week', 'v3/bill', 'v3/thanks', 'a/a'];
+const CSS_ORDER = ['base', 'fx', 'actions', 'start', 'next', 'lessons', 'onb', 'onb-p2', 'onb-p3', 'onb-p4', 'home', 'mybills', 'find', 'bill', 'people', 'committees', 'allbills', 'more', 'profile', 'talk', 'helper', 'tour', 'mylists', 'quiz', 'week', 'embedcode', 'partner', 'groups', 'wide', 'rec/rec', 'rec/issue', 'v2/v2', 'v2/letter', 'v3/card', 'v3/home', 'v3/bills', 'v3/week', 'v3/bill', 'v3/thanks', 'a/a', 'l4/kit', 'l4/start', 'l4/home', 'l4/bill', 'l4/find', 'l4/topic', 'l4/list', 'l4/you', 'l4/letter'];
 // (SCREEN_CSS, not CSS: that name is the browser’s own object, CSS.escape.)
 // Find, an issue, a category and a list draw their bills with mybills.js's rows, so mybills.css comes with them (R-184: an
 // issue page opened from a shared link drew its rows unstyled for about two seconds, 409px wide on a 375px phone, so the
@@ -118,10 +126,15 @@ const REC_CSS = { issue: ['bill', 'rec/issue'], category: ['rec/issue'] };
 const V2_CSS = { bill: ['v2/v2'] };
 // Version 3 (?v3=1, R-362): each of its screens' own stylesheet, after everything else's (pub/v3/).
 const V3_CSS = { home: ['v3/card', 'v3/home'], find: ['v3/bills'], bills: ['v3/card', 'v3/week'], bill: ['v3/bill'] };
+// Look 4 (?look4=1, R-412): pub/l4/kit.css on every route (after all the others, so its tokens win), then the screen's own. start.css's
+// look-4 part is for the first visit's routes, letter.css for the letter (letterCss below).
+const L4_CSS = { start: ['l4/start'], learn: ['l4/start'], next: ['l4/start'], home: ['l4/home'], recap: ['l4/home'], bill: ['l4/bill'], find: ['l4/find'], issue: ['l4/topic'], category: ['l4/topic'], allbills: ['l4/list'],
+  more: ['l4/you'], help: ['l4/you'], signin: ['l4/you'], alerts: ['l4/you'], privacy: ['l4/you'] };
 const wideCss = () => matchMedia('(min-width: 900px)').matches ? ['wide'] : [];   // R-357 5c: a wide window's first screen needs it; a phone's comes after
 const cssFor = name => { const base = REC() && !FIRST_VISIT.includes(name) ? [...(cssFor0(name) || []), ...(REC_CSS[name] || []), 'rec/rec'] : cssFor0(name);
   const own2 = V2() && V2_CSS[name] ? [...(base || []), ...V2_CSS[name]] : base;
-  const own = V3() && V3_CSS[name] ? [...(own2 || []), ...V3_CSS[name]] : own2;
+  const own3 = V3() && V3_CSS[name] ? [...(own2 || []), ...V3_CSS[name]] : own2;
+  const own = L4() ? [...(own3 || []), 'l4/kit', ...(L4_CSS[name] || [])] : own3;
   return own && [...own, ...wideCss()];
 };
 const FIRST_VISIT = ['start', 'learn', 'next'];   // and a later visit's ask (R-237), drawn in the first visit's frame
@@ -147,7 +160,10 @@ const baseP = baseIn() ? Promise.resolve() : new Promise(res => {
 const ensureCss = names => Promise.all([baseP, ...(names || []).map(cssOne)]);
 const cssReady = names => baseIn() && (names || []).every(n => cssDone.has(n) || !!cssLink(n)?.sheet);
 // The screen a route needs, module and stylesheet, loaded before its first draw (no skeleton for the first screen).
-const ensureScreen = route => { const s = SCREENS[route.name] || SCREENS.home; return Promise.all([s.load ? s.load() : null, ensureCss(cssFor(route.name))]); };
+// The kit preview (R-412, the practice copy only): ?demo=1&look4=1&kit=1 draws each part of pub/l4/kit.js once, in Home's place.
+const KIT_SCREENS = { kit: lazy('kit', () => './l4/kitpreview.js', { tab: 'home', title: 'Look 4 kit' }) };   // (a stand-in swaps itself for its module in the object that holds it)
+const screenOf = route => L4() && DEMO && route.name === 'home' && new URLSearchParams(location.search).get('kit') === '1' ? KIT_SCREENS.kit : SCREENS[route.name] || SCREENS.home;
+const ensureScreen = route => { const s = screenOf(route); return Promise.all([s.load ? s.load() : null, ensureCss(cssFor(route.name))]); };
 // The bill page's and Home's tour (pub/tour.js) loads only when this browser has not finished it.
 let tourMod = null; const tourLoad = () => tourMod ? Promise.resolve(tourMod) : Promise.all([import('./tour.js'), ensureCss(['actions', 'tour'])]).then(([m]) => tourMod = m.default);   // (the bill page's tip draws an action card)
 app.billTour = () => tourLoad().then(t => t.startBill()).catch(e => console.error(e));   // the bill page's "Take the tour" (X10-4)
@@ -157,13 +173,13 @@ let helperMod = null;
 // it every new letter; without the flag neither file is fetched. Version 3 (?v3=1, R-362) uses the same letter, with its own Mahalo
 // (pub/v3/thanks.js, which fills helper.js's V3); a Mahalo that cannot come leaves helper.js's own, so its failure does not stop the letter.
 const v3Thanks = () => V3() ? import('./v3/thanks.js').catch(e => console.error(e)) : null;
-const letterCss = () => [...(V2() || V3() ? ['v2/letter'] : []), ...(V3() ? ['v3/thanks'] : [])];
+const letterCss = () => [...(V2() || V3() ? ['v2/letter'] : []), ...(V3() ? ['v3/thanks'] : []), ...(L4() ? ['l4/kit', 'l4/letter'] : [])];   // look 4's letter parts come after v2's
 const helperLoad = () => helperMod ? Promise.resolve(helperMod) : Promise.all([import('./helper.js'), ensureCss(['actions', 'helper', 'profile', ...letterCss()]), V2() || V3() ? import('./v2/letter.js') : null, v3Thanks()]).then(([m]) => { helperMod = m.default; return helperMod; });
 app.openHelper = (...a) => helperLoad().then(() => app.openHelper(...a));
 app.openMail = o => helperLoad().then(() => app.openMail(o));
 // app.openLetter2(bill, kind, { hearing, resume, friend }): the v2 letter by name, for a screen that wants to open it (Home's "Finish sending
 // your testimony"); until the files are in it answers with a promise of what the real one returns (true when the sheet opened).
-const letter2Load = () => Promise.all([helperLoad(), import('./v2/letter.js'), ensureCss(['v2/letter', ...(V3() ? ['v3/thanks'] : [])]), v3Thanks()]);
+const letter2Load = () => Promise.all([helperLoad(), import('./v2/letter.js'), ensureCss(['v2/letter', ...(V3() ? ['v3/thanks'] : []), ...(L4() ? ['l4/kit', 'l4/letter'] : [])]), v3Thanks()]);
 app.openLetter2 = (...a) => letter2Load().then(() => app.openLetter2(...a));
 // A tab that reloads with the walkthrough open (iOS does this to a background tab while the person is in their mail app)
 // comes back to it: helper.js's tryReopen runs from its wire(), so when its mark is set (its OPEN_KEY) it loads at once.
@@ -171,7 +187,7 @@ try { if (sessionStorage.getItem('hiphi_helper_open')) helperLoad().then(() => r
 
 // name -> screen module. More covers help, sign in, alerts (R-146) and privacy; people covers legislators. The profile
 // (R-147) is its own module, and Settings' old address opens it.
-const SCREENS = { start, learn: start, home, recap: home, bills: V3() ? week3 : mybills, find: V3() ? find3 : find, issue: REC() ? recIssue : find, category: REC() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
+const SCREENS = { start, learn: start, home, recap: home, bills: V3() ? week3 : mybills, find: V3() ? find3 : find, issue: REC() || L4() ? recIssue : find, category: REC() || L4() ? recIssue : find, list: find, bill, legislators: people, legislator: people,
   committees, committee: committees, allbills, more, help: more, signin: more, alerts: more, settings: profile, profile, privacy: more, mylist: mylists, shared: mylists, quiz, next: nextask, week, embed, partner, groups, link: groups, from };
 // "My issues" (Nate, 9/21, R-018 answer 4): the tab shows what a person follows, issue by issue. Its address stays #/bills.
 const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My issues'], ['find', '#/find', 'search', 'Find'], ['more', '#/more', 'menu', 'More']];
@@ -181,7 +197,9 @@ const TABS = [['home', '#/', 'house', 'Home'], ['bills', '#/bills', 'star', 'My 
 const TABS_A = [...TABS.slice(0, 3), ['more', '#/more', 'circle-user', 'You']];
 // Version 3's (R-362): This week in My issues' place, on its address (#/bills).
 const TABS_V3 = [TABS[0], ['bills', '#/bills', 'calendar', 'This week'], ...TABS_A.slice(2)];
-const tabsNow = () => V3() ? TABS_V3 : oldA() || REC() ? TABS_A : TABS;
+// Look 4's three tabs (R-412): Home, Issues (Find's address), You (More's). "My issues" (#/bills) stays reachable but has no tab.
+const TABS_L4 = [TABS[0], ['find', '#/find', 'search', 'Issues'], ['more', '#/more', 'flower', 'You']];
+const tabsNow = () => L4() ? TABS_L4 : V3() ? TABS_V3 : oldA() || REC() ? TABS_A : TABS;
 // Version A keeps My issues lit on an issue the person follows (R-070 problem 8: it lit Find).
 // Under ?rec=1 an issue or a bill lights the tab the person came from (R-303 decision 3): opened from My issues it lights My
 // issues, from Find Find, from Home Home, and a bill opened from that issue keeps it. go() writes the tab lit on the page a
@@ -189,7 +207,7 @@ const tabsNow = () => V3() ? TABS_V3 : oldA() || REC() ? TABS_A : TABS;
 // (a shared link), an issue they follow lights My issues and any other Find, as version A did.
 const LIT_FOLLOWS = ['issue', 'bill'];
 const tabOf = (route, scr) => REC() && LIT_FOLLOWS.includes(route.name) && history.state?.from ? history.state.from
-  : (oldA() || REC()) && !V3() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
+  : (oldA() || REC()) && !V3() && !L4() && route.name === 'issue' && issueFollowed(S.issueBySlug.get(route.slug)) ? 'bills' : scr.tab;
 let litTab = '';   // the tab lit on the page drawn last (go() hands it on)
 
 // ---- routes ----
@@ -351,12 +369,16 @@ function header(route, scr, skel = false) {
   // "nothing is sent" (R-212 #1): the practice copy keeps drafts on this device but sends nothing anywhere. "nothing is saved or
   // sent" wrapped the band to two lines on a phone, pushing every practice screen down (density, 15 Oct); this fits one line at 360px.
   return `${DEMO ? `<div class="band">${SEASON_OFF ? 'Sandbox · after the 2026 session · nothing is sent' : `<p>Sandbox · <span data-band-day>Mon, Mar 16, 2026</span> · ${testerMod?.testerActive() ? 'the screens you visit are noted for this test' : 'nothing is sent'}${nextDay()}</p>`}</div>` : ''}
-    <header class="hdr"><div class="hdrin">${brandLink()}${nav}<span class="hspace"></span>${right}</div></header>`;
+    ${ownTopOf(route, scr) ? '' : `<header class="hdr"><div class="hdrin">${brandLink()}${nav}<span class="hspace"></span>${right}</div></header>`}`;
 }
+// Look 4 (R-412): a screen that draws its own top (its ocean hero with the back button or the greeting) says so with `ownTop: true` on its
+// module object, or `ownTop(route)` when only some of its states do (a stand-in takes the flag from lazy()'s option). The frame then draws no
+// header; every other screen gets the plain look-4 top bar (today's header, restyled by pub/l4/kit.css). Never true with the switch off.
+const ownTopOf = (route, scr) => L4() && !!(typeof scr.ownTop === 'function' ? scr.ownTop(route) : scr.ownTop);
 function tabbar(route, scr) {
   // R-147: the More tab carries the person's initials once they have a profile, so having one shows from every screen.
   const me = whoAmI(), tab = tabOf(route, scr);
-  return `<nav class="tabs" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}><span class="pill">${t === 'more' && me ? avatar(me, 'tab-av') : icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
+  return `<nav class="tabs" aria-label="Main">${tabsNow().map(([t, href, ic, label]) => `<a href="${href}" ${tab === t ? 'aria-current="page"' : ''}><span class="pill">${t === 'more' && me && !L4() ? avatar(me, 'tab-av') : icon(ic, { size: 24 })}</span>${label}</a>`).join('')}</nav>`;
 }
 // The practice copy's next day (R-187): Monday 16 March to Tuesday to Wednesday, with that day's real committee decisions
 // (pub/testbed.js). A tester who has just finished the first visit sees Home in its welcome shape for the rest of that
@@ -393,7 +415,7 @@ export function render() {
   if (V3() && route.name === 'start' && route.step === 0) { history.replaceState({ y: 0 }, '', '#/'); route = parseRoute(); }
   if (route.name === 'home' && firstVisit() && !V3()) { const w = wiz(), begun = w.begun || w.step > 1 || (w.issues || []).length;
     history.replaceState({ y: 0 }, '', `#/start/${readyForSession() ? 2 : begun ? w.step || 1 : 0}`); route = parseRoute(); }
-  const scr = SCREENS[route.name] || SCREENS.home;
+  const scr = screenOf(route);
   litTab = tabOf(route, scr);
   const tabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
   const bar = scr.bar ? scr.bar(route) : '';
@@ -405,6 +427,8 @@ export function render() {
   document.body.classList.toggle('rec', REC() && !FIRST_VISIT.includes(route.name));   // R-303, behind ?rec=1
   document.body.classList.toggle('v2', V2() && !FIRST_VISIT.includes(route.name));   // R-357, behind ?v2=1
   document.body.classList.toggle('v3', V3() && !FIRST_VISIT.includes(route.name));   // R-362, behind ?v3=1
+  document.body.classList.toggle('l4', L4());   // R-412, behind ?look4=1: on EVERY route, the first visit included (look 4 draws that too)
+  document.body.classList.toggle('l4own', ownTopOf(route, scr));
   // The screen's stylesheet first: until it is in, a skeleton under the right header, redrawn when it lands. A phone's welcome (step 0)
   // does not wait for start.css: its look is inline in track.html (#crit, compared frame for frame), start.css finishes it when it
   // arrives, with no redraw (start.js fits again as the page resizes). A wide window's welcome has rules only start.css holds.
@@ -660,7 +684,7 @@ async function boot() {
     if (window.__hiphiErrs) window.__hiphiErrs.booted = true;   // track.html's catcher: the app started (R-111)
     if (window.__hiphiNet) window.__hiphiNet.done = true;       // the database was reached: watchDb stops
     // (Not the partner corner's or For advocacy groups': few people open them, R-328.)
-    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')) && (V2() || !n.startsWith('v2/')) && (V3() || !n.startsWith('v3/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1, version 2's only with ?v2=1, version 3's with ?v3=1)
+    setTimeout(() => ensureCss(CSS_ORDER.filter(n => n !== 'wide' && n !== 'a/a' && n !== 'partner' && n !== 'groups' && (REC() || !n.startsWith('rec/')) && (V2() || !n.startsWith('v2/')) && (V3() || !n.startsWith('v3/')) && (L4() || !n.startsWith('l4/')))).catch(() => {}), 2500);   // the other screens' styles, after the first screen (the calm redesign's only with ?rec=1, version 2's only with ?v2=1, version 3's with ?v3=1)
     lists?.finishPlace(place);
   } catch (e) {
     console.error(e); reportError('boot', e);
@@ -681,12 +705,12 @@ function drawSkeleton() {
     try {
       let route = parseRoute();
       if (route.name === 'home' && firstVisit() && !storedSession() && !V3()) route = { name: 'start', step: 0 };   // as render() does (not under version 3: its Home is the door)
-      const scr = SCREENS[route.name] || SCREENS.home;
+      const scr = screenOf(route);
       withTabs = scr.tabs !== false && !(scr.noTabs && scr.noTabs(route));
       head = header(route, scr, true); tabs = withTabs ? tabbar(route, scr) : '';
     } catch (e) { console.error(e); }
   }
-  document.body.classList.toggle('withtabs', withTabs); document.body.classList.toggle('notabs', !withTabs); document.body.classList.add('sk');
+  document.body.classList.toggle('withtabs', withTabs); document.body.classList.toggle('notabs', !withTabs); document.body.classList.add('sk'); document.body.classList.toggle('l4', L4());
   $app().innerHTML = `${head}<main>${DEMO ? '<p class="meta boot-note">Loading the practice copy: one big file, up to half a minute on a weak signal.</p>' : ''}${skeleton(4)}</main>${tabs}`;
   skelUp = true;
 }
